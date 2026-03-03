@@ -60,9 +60,9 @@ TEST(CoordinateFrame, EstimateGravityVectorFromUprightImages) {
     image.SetImageId(i);
     image.SetCameraId(camera.camera_id);
     const Rigid3d cam_from_world(
-        Eigen::Quaterniond(Eigen::AngleAxisd(
-            RandomUniformReal<double>(-EIGEN_PI, EIGEN_PI),
-            Eigen::Vector3d::UnitY())),
+        Eigen::Quaterniond(
+            Eigen::AngleAxisd(RandomUniformReal<double>(-EIGEN_PI, EIGEN_PI),
+                              Eigen::Vector3d::UnitY())),
         Eigen::Vector3d(i, 0, 0));
     reconstruction.AddImageWithTrivialFrame(std::move(image), cam_from_world);
   }
@@ -72,10 +72,9 @@ TEST(CoordinateFrame, EstimateGravityVectorFromUprightImages) {
     Image image;
     image.SetImageId(6);
     image.SetCameraId(camera.camera_id);
-    const Rigid3d cam_from_world(
-        Eigen::Quaterniond(
-            Eigen::AngleAxisd(EIGEN_PI / 2, Eigen::Vector3d::UnitZ())),
-        Eigen::Vector3d(6, 0, 0));
+    const Rigid3d cam_from_world(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                     EIGEN_PI / 2, Eigen::Vector3d::UnitZ())),
+                                 Eigen::Vector3d(6, 0, 0));
     reconstruction.AddImageWithTrivialFrame(std::move(image), cam_from_world);
   }
 
@@ -243,10 +242,9 @@ TEST(CoordinateFrame, AlignToENUPlaneUnscaled) {
   // Record scaled distances for comparison
   std::vector<double> scaled_dists;
   for (size_t i = 1; i < points.size(); ++i) {
-    scaled_dists.push_back(
-        (reconstruction.Point3D(point3D_ids[i]).xyz -
-         reconstruction.Point3D(point3D_ids[i - 1]).xyz)
-            .norm());
+    scaled_dists.push_back((reconstruction.Point3D(point3D_ids[i]).xyz -
+                            reconstruction.Point3D(point3D_ids[i - 1]).xyz)
+                               .norm());
   }
 
   // Align with unscaled=true, passing the pre_scale as the current transform
@@ -259,10 +257,9 @@ TEST(CoordinateFrame, AlignToENUPlaneUnscaled) {
   // Original (unscaled) distances between ECEF points should be preserved
   for (size_t i = 1; i < points.size(); ++i) {
     const double dist_orig = (points[i] - points[i - 1]).norm();
-    const double dist_tform =
-        (reconstruction.Point3D(point3D_ids[i]).xyz -
-         reconstruction.Point3D(point3D_ids[i - 1]).xyz)
-            .norm();
+    const double dist_tform = (reconstruction.Point3D(point3D_ids[i]).xyz -
+                               reconstruction.Point3D(point3D_ids[i - 1]).xyz)
+                                  .norm();
     EXPECT_NEAR(dist_orig, dist_tform, 1e-4);
   }
 }
