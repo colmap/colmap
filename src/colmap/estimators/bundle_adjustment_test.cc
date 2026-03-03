@@ -194,6 +194,7 @@ TEST(BundleAdjustmentConfig, ConstantVariableSensorFromRigPose) {
 
   const auto& constant_poses = config.ConstantSensorFromRigPoses();
   EXPECT_EQ(constant_poses.size(), 1);
+  EXPECT_EQ(constant_poses.count(sensor2), 1);
 }
 
 TEST(BundleAdjustmentConfig, ConstantVariableRigFromWorldPose) {
@@ -213,6 +214,7 @@ TEST(BundleAdjustmentConfig, ConstantVariableRigFromWorldPose) {
 
   const auto& constant_rig_poses = config.ConstantRigFromWorldPoses();
   EXPECT_EQ(constant_rig_poses.size(), 1);
+  EXPECT_EQ(constant_rig_poses.count(2), 1);
 }
 
 TEST(BundleAdjustmentConfig, ConstantVariablePoints) {
