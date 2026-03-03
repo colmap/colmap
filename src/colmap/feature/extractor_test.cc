@@ -123,42 +123,33 @@ TEST(FeatureExtractionOptions, CopyAssignment) {
 TEST(FeatureExtractionOptions, RequiresRGB) {
   FeatureExtractionOptions options;
 
-  options.type = FeatureExtractorType::SIFT;
-  EXPECT_FALSE(options.RequiresRGB());
+  const std::vector<std::pair<FeatureExtractorType, bool>> kTestCases = {
+      {FeatureExtractorType::SIFT, false},
+      {FeatureExtractorType::ALIKED_N16ROT, true},
+      {FeatureExtractorType::ALIKED_N32, true},
+  };
 
-  options.type = FeatureExtractorType::ALIKED_N16ROT;
-  EXPECT_TRUE(options.RequiresRGB());
-
-  options.type = FeatureExtractorType::ALIKED_N32;
-  EXPECT_TRUE(options.RequiresRGB());
+  for (const auto& [type, expected] : kTestCases) {
+    options.type = type;
+    EXPECT_EQ(options.RequiresRGB(), expected);
+  }
 }
 
-TEST(FeatureExtractionOptions, RequiresOpenGL) {
+TEST(FeatureExtractionOptions, CheckAndRequiresOpenGLWithNoGpu) {
   FeatureExtractionOptions options;
   options.use_gpu = false;
 
-  options.type = FeatureExtractorType::SIFT;
-  EXPECT_FALSE(options.RequiresOpenGL());
+  const std::vector<FeatureExtractorType> kTypes = {
+      FeatureExtractorType::SIFT,
+      FeatureExtractorType::ALIKED_N16ROT,
+      FeatureExtractorType::ALIKED_N32,
+  };
 
-  options.type = FeatureExtractorType::ALIKED_N16ROT;
-  EXPECT_FALSE(options.RequiresOpenGL());
-
-  options.type = FeatureExtractorType::ALIKED_N32;
-  EXPECT_FALSE(options.RequiresOpenGL());
-}
-
-TEST(FeatureExtractionOptions, Check) {
-  FeatureExtractionOptions options;
-  options.use_gpu = false;
-
-  options.type = FeatureExtractorType::SIFT;
-  EXPECT_TRUE(options.Check());
-
-  options.type = FeatureExtractorType::ALIKED_N16ROT;
-  EXPECT_TRUE(options.Check());
-
-  options.type = FeatureExtractorType::ALIKED_N32;
-  EXPECT_TRUE(options.Check());
+  for (const auto& type : kTypes) {
+    options.type = type;
+    EXPECT_TRUE(options.Check());
+    EXPECT_FALSE(options.RequiresOpenGL());
+  }
 }
 
 }  // namespace
