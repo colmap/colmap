@@ -72,6 +72,33 @@ FeatureMatchingOptions DefaultMatchingOptions() {
   return options;
 }
 
+std::vector<std::pair<image_t, image_t>> AllPairs(
+    const std::vector<image_t>& image_ids) {
+  std::vector<std::pair<image_t, image_t>> pairs;
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    for (size_t j = i + 1; j < image_ids.size(); ++j) {
+      pairs.emplace_back(image_ids[i], image_ids[j]);
+    }
+  }
+  return pairs;
+}
+
+// Match pairs without geometric verification, then clear TVGs.
+// Leaves matches in the database ready for a GeometricVerifierController.
+void MatchPairsWithoutVerification(
+    TestData& data, const std::vector<std::pair<image_t, image_t>>& pairs) {
+  data.database->ClearMatches();
+  data.database->ClearTwoViewGeometries();
+  FeatureMatchingOptions matching_options = DefaultMatchingOptions();
+  matching_options.skip_geometric_verification = true;
+  TwoViewGeometryOptions geometry_options;
+  FeatureMatcherController matcher(
+      matching_options, geometry_options, data.cache);
+  ASSERT_TRUE(matcher.Setup());
+  matcher.Match(pairs);
+  data.database->ClearTwoViewGeometries();
+}
+
 TEST(FeatureMatcherController, MatchEmptyPairs) {
   auto data = CreateTestData(3);
   data.database->ClearMatches();
@@ -182,12 +209,7 @@ TEST(FeatureMatcherController, MatchMultiplePairs) {
   ASSERT_TRUE(controller.Setup());
 
   // Match all pairs
-  std::vector<std::pair<image_t, image_t>> pairs;
-  for (size_t i = 0; i < data.image_ids.size(); ++i) {
-    for (size_t j = i + 1; j < data.image_ids.size(); ++j) {
-      pairs.emplace_back(data.image_ids[i], data.image_ids[j]);
-    }
-  }
+  const auto pairs = AllPairs(data.image_ids);
   controller.Match(pairs);
 
   // 4 choose 2 = 6 pairs
@@ -272,22 +294,8 @@ TEST(GeometricVerifierController, VerifySkipsSelfMatches) {
 
 TEST(GeometricVerifierController, VerifySkipsDuplicatePairs) {
   auto data = CreateTestData(3);
-  // First match to populate matches in database
-  {
-    data.database->ClearMatches();
-    data.database->ClearTwoViewGeometries();
-    FeatureMatchingOptions matching_options = DefaultMatchingOptions();
-    matching_options.skip_geometric_verification = true;
-    TwoViewGeometryOptions geometry_options;
-    FeatureMatcherController matcher(
-        matching_options, geometry_options, data.cache);
-    ASSERT_TRUE(matcher.Setup());
-    ASSERT_GE(data.image_ids.size(), 2);
-    matcher.Match({{data.image_ids[0], data.image_ids[1]}});
-  }
-
-  // Clear TVGs but keep matches
-  data.database->ClearTwoViewGeometries();
+  ASSERT_GE(data.image_ids.size(), 2);
+  MatchPairsWithoutVerification(data, {{data.image_ids[0], data.image_ids[1]}});
 
   GeometricVerifierOptions verifier_options;
   verifier_options.num_threads = 1;
@@ -309,28 +317,8 @@ TEST(GeometricVerifierController, VerifySkipsDuplicatePairs) {
 
 TEST(GeometricVerifierController, VerifyWithExistingMatches) {
   auto data = CreateTestData(4);
-  // First do full matching to populate the database
-  {
-    data.database->ClearMatches();
-    data.database->ClearTwoViewGeometries();
-    FeatureMatchingOptions matching_options = DefaultMatchingOptions();
-    matching_options.skip_geometric_verification = true;
-    TwoViewGeometryOptions geometry_options;
-    FeatureMatcherController matcher(
-        matching_options, geometry_options, data.cache);
-    ASSERT_TRUE(matcher.Setup());
-
-    std::vector<std::pair<image_t, image_t>> pairs;
-    for (size_t i = 0; i < data.image_ids.size(); ++i) {
-      for (size_t j = i + 1; j < data.image_ids.size(); ++j) {
-        pairs.emplace_back(data.image_ids[i], data.image_ids[j]);
-      }
-    }
-    matcher.Match(pairs);
-  }
-
-  // Clear TVGs, keep matches
-  data.database->ClearTwoViewGeometries();
+  const auto pairs = AllPairs(data.image_ids);
+  MatchPairsWithoutVerification(data, pairs);
 
   GeometricVerifierOptions verifier_options;
   verifier_options.num_threads = 1;
@@ -340,12 +328,6 @@ TEST(GeometricVerifierController, VerifyWithExistingMatches) {
       verifier_options, geometry_options, data.cache);
   ASSERT_TRUE(controller.Setup());
 
-  std::vector<std::pair<image_t, image_t>> pairs;
-  for (size_t i = 0; i < data.image_ids.size(); ++i) {
-    for (size_t j = i + 1; j < data.image_ids.size(); ++j) {
-      pairs.emplace_back(data.image_ids[i], data.image_ids[j]);
-    }
-  }
   controller.Verify(pairs);
 
   // All 6 pairs should now have TVGs
