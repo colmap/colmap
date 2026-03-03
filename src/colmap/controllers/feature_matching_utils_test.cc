@@ -232,6 +232,7 @@ TEST(GeometricVerifierController, OptionsAccessor) {
 
 TEST(GeometricVerifierController, VerifyEmptyPairs) {
   auto data = CreateTestData(3);
+  data.database->ClearTwoViewGeometries();
 
   GeometricVerifierOptions verifier_options;
   verifier_options.num_threads = 1;
@@ -243,10 +244,13 @@ TEST(GeometricVerifierController, VerifyEmptyPairs) {
 
   // Verifying empty pairs should return without error
   controller.Verify({});
+
+  EXPECT_EQ(data.database->ReadTwoViewGeometries().size(), 0);
 }
 
 TEST(GeometricVerifierController, VerifySkipsSelfMatches) {
   auto data = CreateTestData(3);
+  data.database->ClearTwoViewGeometries();
 
   GeometricVerifierOptions verifier_options;
   verifier_options.num_threads = 1;
@@ -262,6 +266,8 @@ TEST(GeometricVerifierController, VerifySkipsSelfMatches) {
     pairs.emplace_back(id, id);
   }
   controller.Verify(pairs);
+
+  EXPECT_EQ(data.database->ReadTwoViewGeometries().size(), 0);
 }
 
 TEST(GeometricVerifierController, VerifySkipsDuplicatePairs) {
