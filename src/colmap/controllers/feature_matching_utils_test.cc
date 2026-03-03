@@ -60,8 +60,7 @@ TestData CreateTestData(int num_images) {
   options.num_points2D_without_point3D = 3;
   SynthesizeDataset(options, &reconstruction, data.database.get());
 
-  data.cache =
-      std::make_shared<FeatureMatcherCache>(100, data.database);
+  data.cache = std::make_shared<FeatureMatcherCache>(100, data.database);
   data.image_ids = data.cache->GetImageIds();
   return data;
 }
