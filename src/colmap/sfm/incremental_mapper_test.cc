@@ -98,8 +98,8 @@ TEST(IncrementalMapper, EndReconstructionDiscard) {
     image_t image_id1 = kInvalidImageId;
     image_t image_id2 = kInvalidImageId;
     Rigid3d cam2_from_cam1;
-    if (mapper.FindInitialImagePair(options, image_id1, image_id2,
-                                    cam2_from_cam1)) {
+    if (mapper.FindInitialImagePair(
+            options, image_id1, image_id2, cam2_from_cam1)) {
       mapper.RegisterInitialImagePair(
           options, image_id1, image_id2, cam2_from_cam1);
       EXPECT_GT(mapper.NumTotalRegImages(), 0);
