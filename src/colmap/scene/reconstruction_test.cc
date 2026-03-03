@@ -1225,6 +1225,9 @@ TEST(Reconstruction, ImportPLYFromVector) {
 
   EXPECT_NEAR(it_p2->second.xyz(1), 5.0, 1e-6);
   EXPECT_NEAR(it_p2->second.xyz(2), 6.0, 1e-6);
+  EXPECT_EQ(it_p2->second.color(0), 50);
+  EXPECT_EQ(it_p2->second.color(1), 60);
+  EXPECT_EQ(it_p2->second.color(2), 70);
 }
 
 TEST(Reconstruction, Point3DIds) {
@@ -1257,13 +1260,7 @@ TEST(Reconstruction, ReadWriteTextRoundtrip) {
   Reconstruction loaded;
   loaded.ReadText(test_dir);
 
-  EXPECT_EQ(reconstruction.NumRigs(), loaded.NumRigs());
-  EXPECT_EQ(reconstruction.NumCameras(), loaded.NumCameras());
-  EXPECT_EQ(reconstruction.NumFrames(), loaded.NumFrames());
-  EXPECT_EQ(reconstruction.NumRegFrames(), loaded.NumRegFrames());
-  EXPECT_EQ(reconstruction.NumImages(), loaded.NumImages());
-  EXPECT_EQ(reconstruction.NumRegImages(), loaded.NumRegImages());
-  EXPECT_EQ(reconstruction.NumPoints3D(), loaded.NumPoints3D());
+  EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
   ExpectValidPtrs(loaded);
 }
 
@@ -1283,13 +1280,7 @@ TEST(Reconstruction, ReadWriteBinaryRoundtrip) {
   Reconstruction loaded;
   loaded.ReadBinary(test_dir);
 
-  EXPECT_EQ(reconstruction.NumRigs(), loaded.NumRigs());
-  EXPECT_EQ(reconstruction.NumCameras(), loaded.NumCameras());
-  EXPECT_EQ(reconstruction.NumFrames(), loaded.NumFrames());
-  EXPECT_EQ(reconstruction.NumRegFrames(), loaded.NumRegFrames());
-  EXPECT_EQ(reconstruction.NumImages(), loaded.NumImages());
-  EXPECT_EQ(reconstruction.NumRegImages(), loaded.NumRegImages());
-  EXPECT_EQ(reconstruction.NumPoints3D(), loaded.NumPoints3D());
+  EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
   ExpectValidPtrs(loaded);
 }
 
@@ -1304,17 +1295,28 @@ TEST(Reconstruction, ReadAutoDetectFormat) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   // Write binary and verify Read auto-detects binary format
-  const auto test_dir = CreateTestDir();
-  reconstruction.WriteBinary(test_dir);
+  {
+    const auto test_dir = CreateTestDir();
+    reconstruction.WriteBinary(test_dir);
 
-  Reconstruction loaded;
-  loaded.Read(test_dir);
+    Reconstruction loaded;
+    loaded.Read(test_dir);
 
-  EXPECT_EQ(reconstruction.NumRigs(), loaded.NumRigs());
-  EXPECT_EQ(reconstruction.NumCameras(), loaded.NumCameras());
-  EXPECT_EQ(reconstruction.NumImages(), loaded.NumImages());
-  EXPECT_EQ(reconstruction.NumPoints3D(), loaded.NumPoints3D());
-  ExpectValidPtrs(loaded);
+    EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
+    ExpectValidPtrs(loaded);
+  }
+
+  // Write text and verify Read auto-detects text format
+  {
+    const auto test_dir = CreateTestDir();
+    reconstruction.WriteText(test_dir);
+
+    Reconstruction loaded;
+    loaded.Read(test_dir);
+
+    EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
+    ExpectValidPtrs(loaded);
+  }
 }
 
 TEST(Reconstruction, CreateImageDirs) {
