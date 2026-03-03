@@ -114,7 +114,8 @@ TEST(Model, ComputeDepthRanges) {
   model.images.emplace_back("img0.jpg", 100, 100, K, R, T);
 
   for (int i = 1; i <= 100; ++i) {
-    model.points.emplace_back(Model::Point{0.0f, 0.0f, static_cast<float>(i), {0}});
+    model.points.emplace_back(
+        Model::Point{0.0f, 0.0f, static_cast<float>(i), {0}});
   }
 
   const std::vector<std::pair<float, float>> depth_ranges =
