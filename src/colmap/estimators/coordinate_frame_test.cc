@@ -51,51 +51,37 @@ TEST(CoordinateFrame, EstimateGravityVectorFromUprightImages) {
   Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
-  // Add 5 images with random rotation around +Y (upright, gravity ~ +Y)
+  // Add 5 registered images with random rotation around +Y (upright, gravity
+  // ~ +Y)
   for (int i = 0; i < 5; ++i) {
-    Frame frame;
-    frame.SetFrameId(i);
-    frame.SetRigId(rig.RigId());
-    frame.AddDataId(data_t(camera.SensorId(), i));
-    frame.SetRigFromWorld(
-        Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
-                    RandomUniformReal<double>(-EIGEN_PI, EIGEN_PI),
-                    Eigen::Vector3d::UnitY())),
-                Eigen::Vector3d(i, 0, 0)));
-    reconstruction.AddFrame(std::move(frame));
     Image image;
     image.SetImageId(i);
     image.SetCameraId(camera.camera_id);
-    image.SetFrameId(i);
-    reconstruction.AddImage(std::move(image));
+    const Rigid3d cam_from_world(
+        Eigen::Quaterniond(Eigen::AngleAxisd(
+            RandomUniformReal<double>(-EIGEN_PI, EIGEN_PI),
+            Eigen::Vector3d::UnitY())),
+        Eigen::Vector3d(i, 0, 0));
+    reconstruction.AddImageWithTrivialFrame(std::move(image), cam_from_world);
   }
 
   // 1 outlier image rotated 90 degrees around Z
   {
-    Frame frame;
-    frame.SetFrameId(6);
-    frame.SetRigId(rig.RigId());
-    frame.AddDataId(data_t(camera.SensorId(), 6));
-    frame.SetRigFromWorld(Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
-                                      EIGEN_PI / 2, Eigen::Vector3d::UnitZ())),
-                                  Eigen::Vector3d(6, 0, 0)));
-    reconstruction.AddFrame(std::move(frame));
     Image image;
     image.SetImageId(6);
     image.SetCameraId(camera.camera_id);
-    image.SetFrameId(6);
-    reconstruction.AddImage(std::move(image));
+    const Rigid3d cam_from_world(
+        Eigen::Quaterniond(
+            Eigen::AngleAxisd(EIGEN_PI / 2, Eigen::Vector3d::UnitZ())),
+        Eigen::Vector3d(6, 0, 0));
+    reconstruction.AddImageWithTrivialFrame(std::move(image), cam_from_world);
   }
 
   const Eigen::Vector3d gravity =
       EstimateGravityVectorFromImageOrientation(reconstruction);
-  // For identity rotation, the downward axis (row 1) is (0, 1, 0)
+  // Consensus should find gravity ~ (0, 1, 0) despite the outlier
   EXPECT_NEAR(gravity.norm(), 1.0, 1e-6);
   EXPECT_NEAR(std::abs(gravity.dot(Eigen::Vector3d(0, 1, 0))), 1.0, 1e-6);
 }
@@ -233,41 +219,49 @@ TEST(CoordinateFrame, AlignToENUPlane) {
 }
 
 TEST(CoordinateFrame, AlignToENUPlaneUnscaled) {
-  // Test unscaled variant: the original model scale should be preserved.
+  // Test unscaled variant: starting from a model with non-unit scale, the
+  // alignment should undo the scale so that original distances are preserved.
   GPSTransform gps;
   auto points = gps.EllipsoidToECEF({Eigen::Vector3d(50, 10.1, 100),
                                      Eigen::Vector3d(50.1, 10, 100),
                                      Eigen::Vector3d(50.1, 10.1, 100),
                                      Eigen::Vector3d(50, 10, 100)});
 
-  // First do the scaled alignment to get the transformation.
-  Sim3d tform_scaled;
-  Reconstruction reconstruction_scaled;
-  for (size_t i = 0; i < points.size(); ++i) {
-    reconstruction_scaled.AddPoint3D(points[i], Track());
-  }
-  AlignToENUPlane(&reconstruction_scaled, &tform_scaled, /*unscaled=*/false);
-
-  // Now do the unscaled alignment (starting from the scaled result)
-  Sim3d tform_unscaled = tform_scaled;
-  Reconstruction reconstruction_unscaled;
+  Reconstruction reconstruction;
   std::vector<point3D_t> point3D_ids;
   point3D_ids.reserve(points.size());
   for (size_t i = 0; i < points.size(); ++i) {
-    point3D_ids.push_back(
-        reconstruction_unscaled.AddPoint3D(points[i], Track()));
+    point3D_ids.push_back(reconstruction.AddPoint3D(points[i], Track()));
   }
-  AlignToENUPlane(&reconstruction_unscaled, &tform_unscaled, /*unscaled=*/true);
 
-  // Unscaled transform should have scale = 1/tform_scaled.scale()
-  EXPECT_NEAR(tform_unscaled.scale(), 1.0 / tform_scaled.scale(), 1e-6);
+  // Apply a non-unit scale to simulate a scaled model
+  const double model_scale = 2.0;
+  Sim3d pre_scale(
+      model_scale, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+  reconstruction.Transform(pre_scale);
 
-  // Distances between points should be preserved (no scaling applied)
+  // Record scaled distances for comparison
+  std::vector<double> scaled_dists;
+  for (size_t i = 1; i < points.size(); ++i) {
+    scaled_dists.push_back(
+        (reconstruction.Point3D(point3D_ids[i]).xyz -
+         reconstruction.Point3D(point3D_ids[i - 1]).xyz)
+            .norm());
+  }
+
+  // Align with unscaled=true, passing the pre_scale as the current transform
+  Sim3d tform = pre_scale;
+  AlignToENUPlane(&reconstruction, &tform, /*unscaled=*/true);
+
+  // The applied transform should have inverse scale to undo pre_scale
+  EXPECT_NEAR(tform.scale(), 1.0 / model_scale, 1e-6);
+
+  // Original (unscaled) distances between ECEF points should be preserved
   for (size_t i = 1; i < points.size(); ++i) {
     const double dist_orig = (points[i] - points[i - 1]).norm();
     const double dist_tform =
-        (reconstruction_unscaled.Point3D(point3D_ids[i]).xyz -
-         reconstruction_unscaled.Point3D(point3D_ids[i - 1]).xyz)
+        (reconstruction.Point3D(point3D_ids[i]).xyz -
+         reconstruction.Point3D(point3D_ids[i - 1]).xyz)
             .norm();
     EXPECT_NEAR(dist_orig, dist_tform, 1e-4);
   }
