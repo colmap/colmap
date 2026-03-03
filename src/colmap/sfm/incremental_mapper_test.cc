@@ -60,17 +60,24 @@ TEST(IncrementalMapper, GettersAfterBeginReconstruction) {
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
 
   auto cache = CreateDatabaseCache(*database);
+  // 2 rigs × 1 camera × 5 frames = 10 images
+  EXPECT_EQ(cache->Images().size(), 10);
+
   IncrementalMapper mapper(cache);
+
+  // Before BeginReconstruction, Reconstruction() returns nullptr
+  EXPECT_EQ(mapper.Reconstruction(), nullptr);
 
   auto reconstruction = std::make_shared<Reconstruction>();
   mapper.BeginReconstruction(reconstruction);
 
-  EXPECT_NE(mapper.Reconstruction(), nullptr);
   EXPECT_EQ(mapper.Reconstruction().get(), reconstruction.get());
   EXPECT_NO_THROW(mapper.Triangulator());
   EXPECT_NO_THROW(mapper.ObservationManager());
   EXPECT_TRUE(mapper.FilteredFrames().empty());
   EXPECT_TRUE(mapper.ExistingFrameIds().empty());
+  EXPECT_TRUE(mapper.NumRegFramesPerRig().empty());
+  EXPECT_TRUE(mapper.NumRegImagesPerCamera().empty());
   EXPECT_EQ(mapper.NumTotalRegImages(), 0);
   EXPECT_EQ(mapper.NumSharedRegImages(), 0);
 
@@ -94,15 +101,19 @@ TEST(IncrementalMapper, EndReconstructionDiscard) {
   image_t image_id1 = kInvalidImageId;
   image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
-  EXPECT_TRUE(mapper.FindInitialImagePair(
+  ASSERT_TRUE(mapper.FindInitialImagePair(
       options, image_id1, image_id2, cam2_from_cam1));
   mapper.RegisterInitialImagePair(
       options, image_id1, image_id2, cam2_from_cam1);
-  EXPECT_GT(mapper.NumTotalRegImages(), 0);
 
-  // Discard the reconstruction
+  // Initial pair registers 2 frames, each with 1 image
+  EXPECT_EQ(mapper.NumTotalRegImages(), 2);
+  EXPECT_EQ(reconstruction->NumRegFrames(), 2);
+
+  // Discard the reconstruction — stats should be rolled back
   mapper.EndReconstruction(/*discard=*/true);
   EXPECT_EQ(mapper.NumTotalRegImages(), 0);
+  EXPECT_EQ(mapper.NumSharedRegImages(), 0);
 }
 
 TEST(IncrementalMapper, EstimateInitialTwoViewGeometry) {
@@ -112,25 +123,29 @@ TEST(IncrementalMapper, EstimateInitialTwoViewGeometry) {
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
 
   auto cache = CreateDatabaseCache(*database);
+  ASSERT_EQ(cache->Images().size(), 10);
   IncrementalMapper mapper(cache);
 
   auto reconstruction = std::make_shared<Reconstruction>();
   mapper.BeginReconstruction(reconstruction);
 
-  // Any two images should have valid geometry
+  // Pick two specific images from the cache
   const auto& images = cache->Images();
-  ASSERT_GE(images.size(), 2);
   auto it = images.begin();
   const image_t image_id1 = it->first;
   ++it;
   const image_t image_id2 = it->first;
+  EXPECT_NE(image_id1, image_id2);
 
   IncrementalMapper::Options options;
   options.init_min_num_inliers = 10;
   Rigid3d cam2_from_cam1;
   // The synthetic dataset should yield a valid two-view geometry
-  EXPECT_TRUE(mapper.EstimateInitialTwoViewGeometry(
+  ASSERT_TRUE(mapper.EstimateInitialTwoViewGeometry(
       options, image_id1, image_id2, cam2_from_cam1));
+
+  // The estimated pose should have non-trivial translation
+  EXPECT_GT(cam2_from_cam1.translation().norm(), 0.0);
 
   mapper.EndReconstruction(/*discard=*/false);
 }
@@ -162,13 +177,21 @@ TEST(IncrementalMapper, ModifiedPoints3D) {
       options, image_id1, image_id2, cam2_from_cam1));
   mapper.RegisterInitialImagePair(
       options, image_id1, image_id2, cam2_from_cam1);
+  EXPECT_EQ(mapper.NumTotalRegImages(), 2);
+  EXPECT_EQ(reconstruction->NumRegFrames(), 2);
 
   IncrementalTriangulator::Options tri_options;
   mapper.TriangulateImage(tri_options, image_id1);
   mapper.TriangulateImage(tri_options, image_id2);
+  EXPECT_GT(reconstruction->NumPoints3D(), 0);
 
   // After triangulation, modified points should be non-empty
-  EXPECT_FALSE(mapper.GetModifiedPoints3D().empty());
+  const auto& modified = mapper.GetModifiedPoints3D();
+  EXPECT_FALSE(modified.empty());
+  // All modified point IDs should exist in the reconstruction
+  for (const auto point3D_id : modified) {
+    EXPECT_TRUE(reconstruction->ExistsPoint3D(point3D_id));
+  }
 
   // After clearing, modified points should be empty again
   mapper.ClearModifiedPoints3D();
@@ -285,7 +308,7 @@ TEST(IncrementalMapper, FindLocalBundle) {
   options.abs_pose_min_num_inliers = 10;
   options.abs_pose_min_inlier_ratio = 0.1;
 
-  // Register initial pair and at least one more image to have a local bundle
+  // Register initial pair
   image_t image_id1 = kInvalidImageId;
   image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
@@ -298,7 +321,7 @@ TEST(IncrementalMapper, FindLocalBundle) {
   mapper.TriangulateImage(tri_options, image_id1);
   mapper.TriangulateImage(tri_options, image_id2);
 
-  // Register more images
+  // Register more images to have enough for a local bundle
   const auto next_image_ids = mapper.FindNextImages(options);
   for (const auto image_id : next_image_ids) {
     if (mapper.RegisterNextImage(options, image_id)) {
@@ -306,9 +329,17 @@ TEST(IncrementalMapper, FindLocalBundle) {
     }
   }
 
-  if (reconstruction->NumRegFrames() >= 3) {
-    const auto local_bundle = mapper.FindLocalBundle(options, image_id1);
-    EXPECT_FALSE(local_bundle.empty());
+  ASSERT_GE(reconstruction->NumRegFrames(), 3);
+  const auto local_bundle = mapper.FindLocalBundle(options, image_id1);
+  EXPECT_FALSE(local_bundle.empty());
+  // Local bundle should not exceed the total number of registered images
+  EXPECT_LE(local_bundle.size(), reconstruction->NumRegImages());
+  // All images in the local bundle should be registered
+  const auto reg_image_ids = reconstruction->RegImageIds();
+  const std::unordered_set<image_t> reg_image_id_set(reg_image_ids.begin(),
+                                                     reg_image_ids.end());
+  for (const auto image_id : local_bundle) {
+    EXPECT_GT(reg_image_id_set.count(image_id), 0);
   }
 
   mapper.EndReconstruction(/*discard=*/false);
@@ -329,15 +360,24 @@ TEST(IncrementalMapper, ResetInitializationStats) {
   IncrementalMapper::Options options;
   options.init_min_num_inliers = 10;
 
-  // Try to find an initial pair (updates init stats internally)
-  image_t image_id1, image_id2;
+  // Find an initial pair (updates init stats internally)
+  image_t image_id1 = kInvalidImageId;
+  image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
-  mapper.FindInitialImagePair(options, image_id1, image_id2, cam2_from_cam1);
-
-  // Reset stats and try again — should not throw
-  mapper.ResetInitializationStats();
-  EXPECT_NO_THROW(mapper.FindInitialImagePair(
+  ASSERT_TRUE(mapper.FindInitialImagePair(
       options, image_id1, image_id2, cam2_from_cam1));
+  EXPECT_NE(image_id1, kInvalidImageId);
+  EXPECT_NE(image_id2, kInvalidImageId);
+
+  // Reset stats and find again — should succeed with valid IDs
+  mapper.ResetInitializationStats();
+  image_t image_id3 = kInvalidImageId;
+  image_t image_id4 = kInvalidImageId;
+  Rigid3d cam2_from_cam1_2;
+  ASSERT_TRUE(mapper.FindInitialImagePair(
+      options, image_id3, image_id4, cam2_from_cam1_2));
+  EXPECT_NE(image_id3, kInvalidImageId);
+  EXPECT_NE(image_id4, kInvalidImageId);
 
   mapper.EndReconstruction(/*discard=*/false);
 }
