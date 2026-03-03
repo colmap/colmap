@@ -187,17 +187,20 @@ TEST(DenseDelaunayMeshing, Integration) {
                        /*write_rgb=*/true);
 
   // Create fused.ply.vis: for each point, list visible image indices.
-  // Each point is visible in image 0 (the first registered image).
+  // Each point is visible in all images to give sufficient multi-view
+  // information for the graph-cut optimization.
   const auto vis_path = test_dir / "fused.ply.vis";
   std::fstream vis_file(vis_path, std::ios::out | std::ios::binary);
   THROW_CHECK_FILE_OPEN(vis_file, vis_path);
   const uint64_t num_points = ply_points.size();
+  const uint32_t num_visible =
+      static_cast<uint32_t>(reconstruction.NumRegImages());
   WriteBinaryLittleEndian<uint64_t>(&vis_file, num_points);
   for (size_t i = 0; i < num_points; ++i) {
-    const uint32_t num_visible = 1;
     WriteBinaryLittleEndian<uint32_t>(&vis_file, num_visible);
-    const uint32_t image_idx = 0;
-    WriteBinaryLittleEndian<uint32_t>(&vis_file, image_idx);
+    for (uint32_t j = 0; j < num_visible; ++j) {
+      WriteBinaryLittleEndian<uint32_t>(&vis_file, j);
+    }
   }
   vis_file.close();
 
