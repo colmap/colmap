@@ -30,15 +30,98 @@
 #include "colmap/mvs/meshing.h"
 
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/testing.h"
+
+#include <fstream>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace mvs {
 namespace {
+
+TEST(PoissonMeshingOptions, ValidDefaults) {
+  PoissonMeshingOptions options;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(PoissonMeshingOptions, InvalidPointWeight) {
+  PoissonMeshingOptions options;
+  options.point_weight = -1.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(PoissonMeshingOptions, InvalidDepth) {
+  PoissonMeshingOptions options;
+  options.depth = 0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(PoissonMeshingOptions, InvalidTrim) {
+  PoissonMeshingOptions options;
+  options.trim = -1.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(PoissonMeshingOptions, InvalidNumThreads) {
+  PoissonMeshingOptions options;
+  options.num_threads = 0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, ValidDefaults) {
+  DelaunayMeshingOptions options;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, InvalidMaxProjDist) {
+  DelaunayMeshingOptions options;
+  options.max_proj_dist = -1.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, InvalidMaxDepthDist) {
+  DelaunayMeshingOptions options;
+  options.max_depth_dist = -1.0;
+  EXPECT_FALSE(options.Check());
+  options.max_depth_dist = 1.5;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, InvalidVisibilitySigma) {
+  DelaunayMeshingOptions options;
+  options.visibility_sigma = 0.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, InvalidDistanceSigmaFactor) {
+  DelaunayMeshingOptions options;
+  options.distance_sigma_factor = 0.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, InvalidQualityRegularization) {
+  DelaunayMeshingOptions options;
+  options.quality_regularization = -1.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, InvalidMaxSideLengthPercentile) {
+  DelaunayMeshingOptions options;
+  options.max_side_length_percentile = -1.0;
+  EXPECT_FALSE(options.Check());
+  options.max_side_length_percentile = 101.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(DelaunayMeshingOptions, InvalidNumThreads) {
+  DelaunayMeshingOptions options;
+  options.num_threads = 0;
+  EXPECT_FALSE(options.Check());
+}
 
 TEST(PoissonMeshing, Integration) {
   const auto test_dir = CreateTestDir();
@@ -80,6 +163,41 @@ TEST(PoissonMeshing, Integration) {
   EXPECT_GE(mesh_vertices.size(), 3);
 }
 
+TEST(PoissonMeshing, WithTrimming) {
+  const auto test_dir = CreateTestDir();
+  const auto input_path = test_dir / "points.ply";
+  const auto output_path = test_dir / "mesh.ply";
+
+  constexpr int kNumPoints = 100;
+  std::vector<PlyPoint> ply_points;
+  ply_points.reserve(kNumPoints);
+  for (int i = 0; i < kNumPoints; ++i) {
+    const Eigen::Vector3d point3D = Eigen::Vector3d::Random();
+    PlyPoint ply_point;
+    ply_point.x = point3D.x();
+    ply_point.y = point3D.y();
+    ply_point.z = point3D.z();
+    ply_point.nx = 0.0f;
+    ply_point.ny = 0.0f;
+    ply_point.nz = 1.0f;
+    ply_point.r = 0;
+    ply_point.g = 64;
+    ply_point.b = 128;
+    ply_points.push_back(ply_point);
+  }
+  WriteBinaryPlyPoints(
+      input_path, ply_points, /*write_normal=*/true, /*write_rgb=*/true);
+
+  PoissonMeshingOptions options;
+  options.point_weight = 1.0;
+  options.depth = 3;
+  options.trim = 5.0;
+  options.num_threads = 1;
+
+  EXPECT_TRUE(PoissonMeshing(options, input_path, output_path));
+  EXPECT_TRUE(ExistsFile(output_path));
+}
+
 #if defined(COLMAP_CGAL_ENABLED)
 
 TEST(SparseDelaunayMeshing, Integration) {
@@ -100,6 +218,92 @@ TEST(SparseDelaunayMeshing, Integration) {
   DelaunayMeshingOptions options;
   options.num_threads = 1;
   SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  EXPECT_TRUE(ExistsFile(output_path));
+  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
+  EXPECT_GE(mesh_vertices.size(), 3);
+}
+
+TEST(SparseDelaunayMeshing, NonSubsampled) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  CreateDirIfNotExists(sparse_path);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  reconstruction.Write(sparse_path);
+
+  // Setting max_proj_dist=0 exercises the non-subsampled
+  // CreateDelaunayTriangulation() path instead of
+  // CreateSubSampledDelaunayTriangulation().
+  DelaunayMeshingOptions options;
+  options.max_proj_dist = 0;
+  options.num_threads = 1;
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  EXPECT_TRUE(ExistsFile(output_path));
+  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
+  EXPECT_GE(mesh_vertices.size(), 3);
+}
+
+TEST(DenseDelaunayMeshing, Integration) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  CreateDirIfNotExists(sparse_path);
+
+  // Create a synthetic reconstruction and write sparse model
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  reconstruction.Write(sparse_path);
+
+  // Create fused.ply from reconstruction points
+  std::vector<PlyPoint> ply_points;
+  ply_points.reserve(reconstruction.NumPoints3D());
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    PlyPoint ply_point;
+    ply_point.x = static_cast<float>(point3D.xyz(0));
+    ply_point.y = static_cast<float>(point3D.xyz(1));
+    ply_point.z = static_cast<float>(point3D.xyz(2));
+    ply_point.nx = 0.0f;
+    ply_point.ny = 0.0f;
+    ply_point.nz = 1.0f;
+    ply_point.r = 128;
+    ply_point.g = 128;
+    ply_point.b = 128;
+    ply_points.push_back(ply_point);
+  }
+  WriteBinaryPlyPoints(test_dir / "fused.ply", ply_points,
+                       /*write_normal=*/true, /*write_rgb=*/true);
+
+  // Create fused.ply.vis: for each point, list visible image indices.
+  // Each point is visible in image 0 (the first registered image).
+  const auto vis_path = test_dir / "fused.ply.vis";
+  std::fstream vis_file(vis_path, std::ios::out | std::ios::binary);
+  const uint64_t num_points = ply_points.size();
+  WriteBinaryLittleEndian<uint64_t>(&vis_file, num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const uint32_t num_visible = 1;
+    WriteBinaryLittleEndian<uint32_t>(&vis_file, num_visible);
+    const uint32_t image_idx = 0;
+    WriteBinaryLittleEndian<uint32_t>(&vis_file, image_idx);
+  }
+  vis_file.close();
+
+  DelaunayMeshingOptions options;
+  options.num_threads = 1;
+  DenseDelaunayMeshing(options, test_dir, output_path);
 
   EXPECT_TRUE(ExistsFile(output_path));
   const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
