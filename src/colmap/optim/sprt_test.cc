@@ -88,9 +88,10 @@ TEST(SPRT, EvaluateMixedEarlyReject) {
       sprt.Evaluate(residuals, 1.0, &num_inliers, &num_eval_samples);
 
   EXPECT_FALSE(accepted);
-  // Early rejection should stop before evaluating all samples
+  // With epsilon=0.9 and delta=0.05, the likelihood ratio exceeds the decision
+  // threshold after processing the inlier at index 0 and 4 subsequent outliers.
   EXPECT_EQ(num_inliers, 1);
-  EXPECT_LT(num_eval_samples, 1000);
+  EXPECT_EQ(num_eval_samples, 5);
 }
 
 TEST(SPRT, EvaluateEmpty) {
