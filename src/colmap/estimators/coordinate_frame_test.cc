@@ -30,6 +30,7 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -41,6 +42,62 @@ TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
   EXPECT_EQ(EstimateGravityVectorFromImageOrientation(reconstruction),
             Eigen::Vector3d::Zero());
+}
+
+TEST(CoordinateFrame, EstimateGravityVectorFromUprightImages) {
+  // Create a reconstruction with multiple upright images.
+  // Upright images have gravity aligned with the camera Y axis, so
+  // row(1) of the rotation matrix should point downward (along +Y world).
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+
+  // Add 5 images with random rotation around +Y (upright, gravity ~ +Y)
+  for (int i = 0; i < 5; ++i) {
+    Frame frame;
+    frame.SetFrameId(i);
+    frame.SetRigId(rig.RigId());
+    frame.AddDataId(data_t(camera.SensorId(), i));
+    frame.SetRigFromWorld(
+        Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                    RandomUniformReal<double>(-EIGEN_PI, EIGEN_PI),
+                    Eigen::Vector3d::UnitY())),
+                Eigen::Vector3d(i, 0, 0)));
+    reconstruction.AddFrame(std::move(frame));
+    Image image;
+    image.SetImageId(i);
+    image.SetCameraId(camera.camera_id);
+    image.SetFrameId(i);
+    reconstruction.AddImage(std::move(image));
+  }
+
+  // 1 outlier image rotated 90 degrees around Z
+  {
+    Frame frame;
+    frame.SetFrameId(6);
+    frame.SetRigId(rig.RigId());
+    frame.AddDataId(data_t(camera.SensorId(), 6));
+    frame.SetRigFromWorld(Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                      EIGEN_PI / 2, Eigen::Vector3d::UnitZ())),
+                                  Eigen::Vector3d(6, 0, 0)));
+    reconstruction.AddFrame(std::move(frame));
+    Image image;
+    image.SetImageId(6);
+    image.SetCameraId(camera.camera_id);
+    image.SetFrameId(6);
+    reconstruction.AddImage(std::move(image));
+  }
+
+  const Eigen::Vector3d gravity =
+      EstimateGravityVectorFromImageOrientation(reconstruction);
+  // For identity rotation, the downward axis (row 1) is (0, 1, 0)
+  EXPECT_NEAR(gravity.norm(), 1.0, 1e-6);
+  EXPECT_NEAR(std::abs(gravity.dot(Eigen::Vector3d(0, 1, 0))), 1.0, 1e-6);
 }
 
 #ifdef COLMAP_LSD_ENABLED
@@ -172,6 +229,47 @@ TEST(CoordinateFrame, AlignToENUPlane) {
                                reconstruction.Point3D(point_ids[i - 1]).xyz)
                                   .norm();
     EXPECT_LE(std::abs(dist_orig - dist_tform), 1e-6);
+  }
+}
+
+TEST(CoordinateFrame, AlignToENUPlaneUnscaled) {
+  // Test unscaled variant: the original model scale should be preserved.
+  GPSTransform gps;
+  auto points = gps.EllipsoidToECEF({Eigen::Vector3d(50, 10.1, 100),
+                                     Eigen::Vector3d(50.1, 10, 100),
+                                     Eigen::Vector3d(50.1, 10.1, 100),
+                                     Eigen::Vector3d(50, 10, 100)});
+
+  // First do the scaled alignment to get the transformation.
+  Sim3d tform_scaled;
+  Reconstruction reconstruction_scaled;
+  for (size_t i = 0; i < points.size(); ++i) {
+    reconstruction_scaled.AddPoint3D(points[i], Track());
+  }
+  AlignToENUPlane(&reconstruction_scaled, &tform_scaled, /*unscaled=*/false);
+
+  // Now do the unscaled alignment (starting from the scaled result)
+  Sim3d tform_unscaled = tform_scaled;
+  Reconstruction reconstruction_unscaled;
+  std::vector<point3D_t> point3D_ids;
+  point3D_ids.reserve(points.size());
+  for (size_t i = 0; i < points.size(); ++i) {
+    point3D_ids.push_back(
+        reconstruction_unscaled.AddPoint3D(points[i], Track()));
+  }
+  AlignToENUPlane(&reconstruction_unscaled, &tform_unscaled, /*unscaled=*/true);
+
+  // Unscaled transform should have scale = 1/tform_scaled.scale()
+  EXPECT_NEAR(tform_unscaled.scale(), 1.0 / tform_scaled.scale(), 1e-6);
+
+  // Distances between points should be preserved (no scaling applied)
+  for (size_t i = 1; i < points.size(); ++i) {
+    const double dist_orig = (points[i] - points[i - 1]).norm();
+    const double dist_tform =
+        (reconstruction_unscaled.Point3D(point3D_ids[i]).xyz -
+         reconstruction_unscaled.Point3D(point3D_ids[i - 1]).xyz)
+            .norm();
+    EXPECT_NEAR(dist_orig, dist_tform, 1e-4);
   }
 }
 
