@@ -117,7 +117,7 @@ TEST(IncrementalMapper, EstimateInitialTwoViewGeometry) {
   auto reconstruction = std::make_shared<Reconstruction>();
   mapper.BeginReconstruction(reconstruction);
 
-  // Get two images that should have valid geometry
+  // Any two images should have valid geometry
   const auto& images = cache->Images();
   ASSERT_GE(images.size(), 2);
   auto it = images.begin();
@@ -242,11 +242,27 @@ TEST(IncrementalMapper, FullPipeline) {
                                  /*max_rotation_error_deg=*/1e-1,
                                  /*max_proj_center_error=*/1e-1));
 
-  // Verify registration stats are consistent
+  // Verify registration stats match the reconstruction.
+  // The synthetic dataset has 2 rigs with 1 camera each and 5 frames per rig,
+  // giving 10 total frames/images. All should be registered.
+  const size_t num_reg_frames = reconstruction->NumRegFrames();
+  EXPECT_EQ(num_reg_frames, 10);
+
   const auto& num_per_rig = mapper.NumRegFramesPerRig();
-  EXPECT_FALSE(num_per_rig.empty());
+  EXPECT_EQ(num_per_rig.size(), 2);
+  for (const auto& [rig_id, count] : num_per_rig) {
+    EXPECT_EQ(count, 5);
+  }
+
   const auto& num_per_camera = mapper.NumRegImagesPerCamera();
-  EXPECT_FALSE(num_per_camera.empty());
+  EXPECT_EQ(num_per_camera.size(), 2);
+  for (const auto& [camera_id, count] : num_per_camera) {
+    EXPECT_EQ(count, 5);
+  }
+
+  EXPECT_EQ(mapper.NumTotalRegImages(), 10);
+  EXPECT_EQ(mapper.NumSharedRegImages(), 0);
+  EXPECT_TRUE(mapper.FilteredFrames().empty());
 
   mapper.EndReconstruction(/*discard=*/false);
 }
