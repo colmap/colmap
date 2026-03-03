@@ -39,7 +39,7 @@
 #include <array>
 
 #ifdef CASPAR_ENABLED
-#include "colmap/estimators/caspar_bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #endif
 
 namespace colmap {

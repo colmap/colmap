@@ -51,8 +51,8 @@ set(ESTIMATORS_SRCS
 
 if(CASPAR_ENABLED)
     list(APPEND ESTIMATORS_SRCS
-        caspar_bundle_adjustment.h
-        caspar_bundle_adjustment.cc
+        bundle_adjustment_caspar.h
+        bundle_adjustment_caspar.cc
     )
 endif()
 

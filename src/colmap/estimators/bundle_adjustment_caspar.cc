@@ -1,4 +1,4 @@
-#include "colmap/estimators/caspar_bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment.h"
 
 #include "generated/solver.h"
