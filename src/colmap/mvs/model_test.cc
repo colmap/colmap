@@ -91,20 +91,10 @@ TEST(Model, ComputeSharedPoints) {
   model.images.emplace_back("img2.jpg", 100, 100, K, R, T3);
 
   // Point seen by images 0 and 1.
-  Model::Point p1;
-  p1.x = 5;
-  p1.y = 0;
-  p1.z = 10;
-  p1.track = {0, 1};
-  model.points.push_back(p1);
+  model.points.emplace_back(Model::Point{5.0f, 0.0f, 10.0f, {0, 1}});
 
   // Point seen by images 0, 1, and 2.
-  Model::Point p2;
-  p2.x = 6;
-  p2.y = 0;
-  p2.z = 10;
-  p2.track = {0, 1, 2};
-  model.points.push_back(p2);
+  model.points.emplace_back(Model::Point{6.0f, 0.0f, 10.0f, {0, 1, 2}});
 
   const std::vector<std::map<int, int>> shared = model.ComputeSharedPoints();
   EXPECT_EQ(shared.size(), 3);
@@ -124,12 +114,7 @@ TEST(Model, ComputeDepthRanges) {
   model.images.emplace_back("img0.jpg", 100, 100, K, R, T);
 
   for (int i = 1; i <= 100; ++i) {
-    Model::Point p;
-    p.x = 0;
-    p.y = 0;
-    p.z = static_cast<float>(i);
-    p.track = {0};
-    model.points.push_back(p);
+    model.points.emplace_back(Model::Point{0.0f, 0.0f, static_cast<float>(i), {0}});
   }
 
   const std::vector<std::pair<float, float>> depth_ranges =
@@ -166,12 +151,7 @@ TEST(Model, ComputeTriangulationAngles) {
   model.images.emplace_back("img0.jpg", 100, 100, K, R, T1);
   model.images.emplace_back("img1.jpg", 100, 100, K, R, T2);
 
-  Model::Point p;
-  p.x = 0.5f;
-  p.y = 0;
-  p.z = 10;
-  p.track = {0, 1};
-  model.points.push_back(p);
+  model.points.emplace_back(Model::Point{0.5f, 0.0f, 10.0f, {0, 1}});
 
   const std::vector<std::map<int, float>> angles =
       model.ComputeTriangulationAngles(50);
@@ -194,19 +174,9 @@ TEST(Model, GetMaxOverlappingImages) {
 
   // Many shared points between 0 and 1, few between 0 and 2.
   for (int i = 0; i < 10; ++i) {
-    Model::Point p;
-    p.x = 0.5f;
-    p.y = 0;
-    p.z = 5.0f + i;
-    p.track = {0, 1};
-    model.points.push_back(p);
+    model.points.emplace_back(Model::Point{0.5f, 0.0f, 5.0f + i, {0, 1}});
   }
-  Model::Point p;
-  p.x = 1.0f;
-  p.y = 0;
-  p.z = 10;
-  p.track = {0, 2};
-  model.points.push_back(p);
+  model.points.emplace_back(Model::Point{1.0f, 0.0f, 10.0f, {0, 2}});
 
   const std::vector<std::vector<int>> overlapping =
       model.GetMaxOverlappingImages(2, 0.0);
