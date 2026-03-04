@@ -102,6 +102,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("guided_geometric_verifier",
                         &colmap::RunGuidedGeometricVerifier);
   commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
+  commands.emplace_back("hierarchical_pose_prior_mapper",
+                        &colmap::RunHierarchicalPosePriorMapper);
   commands.emplace_back("image_deleter", &colmap::RunImageDeleter);
   commands.emplace_back("image_filterer", &colmap::RunImageFilterer);
   commands.emplace_back("image_rectifier", &colmap::RunImageRectifier);
