@@ -135,10 +135,9 @@ void LogWidget::Flush() {
 
   text_box_->moveCursor(QTextCursor::End);
 
-  for (const auto& entry : text_queue_) {
-    QTextCharFormat format;
-
-    if (FLAGS_colorlogtostderr) {
+  if (FLAGS_colorlogtostderr) {
+    for (const auto& entry : text_queue_) {
+      QTextCharFormat format;
       switch (entry.severity) {
         case google::GLOG_WARNING:
           format.setForeground(Qt::darkYellow);
@@ -151,10 +150,13 @@ void LogWidget::Flush() {
         default:
           break;
       }
+      text_box_->setCurrentCharFormat(format);
+      text_box_->insertPlainText(QString::fromStdString(entry.text));
     }
-
-    text_box_->setCurrentCharFormat(format);
-    text_box_->insertPlainText(QString::fromStdString(entry.text));
+  } else {
+    for (const auto& entry : text_queue_) {
+      text_box_->insertPlainText(QString::fromStdString(entry.text));
+    }
   }
 
   text_box_->moveCursor(QTextCursor::End);

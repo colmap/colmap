@@ -1578,7 +1578,7 @@ void MainWindow::SetLogOptions() {
   // Color
   QComboBox* color_box = new QComboBox(&dialog);
   color_box->addItems({"Disabled", "Enabled"});
-  color_box->setCurrentIndex(FLAGS_colorlogtostderr);
+  color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
 
   form_layout->addRow("Colored logging", color_box);
 
