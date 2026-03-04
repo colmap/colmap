@@ -1106,7 +1106,8 @@ TEST(Reconstruction, DeRegisterFrame) {
   Track track;
   track.AddElement(1, 0);
   track.AddElement(2, 0);
-  reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
 
   EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   EXPECT_EQ(reconstruction.NumRegImages(), 3);
@@ -1116,6 +1117,9 @@ TEST(Reconstruction, DeRegisterFrame) {
   EXPECT_EQ(reconstruction.NumRegImages(), 2);
   EXPECT_TRUE(reconstruction.ExistsFrame(1));
   EXPECT_FALSE(reconstruction.Frame(1).HasPose());
+  // The 3D point had observations in images 1 and 2; after de-registering
+  // frame 1, the point should be deleted (track becomes too short).
+  EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id));
 
   // De-registering an already de-registered frame is a no-op (with warning)
   reconstruction.DeRegisterFrame(1);
@@ -1141,6 +1145,7 @@ TEST(Reconstruction, TearDown) {
   const auto num_frames_before = reconstruction.NumFrames();
   reconstruction.TearDown();
   EXPECT_LT(reconstruction.NumFrames(), num_frames_before);
+  EXPECT_EQ(reconstruction.NumFrames(), reconstruction.NumRegFrames());
   ExpectValidPtrs(reconstruction);
 }
 
