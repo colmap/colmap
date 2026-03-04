@@ -109,7 +109,7 @@ int Model::GetImageIdx(const std::string& name) const {
   return image_name_to_idx_.at(name);
 }
 
-std::string Model::GetImageName(const int image_idx) const {
+const std::string& Model::GetImageName(const int image_idx) const {
   THROW_CHECK_GE(image_idx, 0);
   THROW_CHECK_LT(image_idx, image_names_.size());
   return image_names_.at(image_idx);
@@ -202,12 +202,12 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 
     std::sort(image_depths.begin(), image_depths.end());
 
-    const float kMinPercentile = 0.01f;
-    const float kMaxPercentile = 0.99f;
+    constexpr float kMinPercentile = 0.01f;
+    constexpr float kMaxPercentile = 0.99f;
     depth_range.first = image_depths[image_depths.size() * kMinPercentile];
     depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
 
-    const float kStretchRatio = 0.25f;
+    constexpr float kStretchRatio = 0.25f;
     depth_range.first *= (1.0f - kStretchRatio);
     depth_range.second *= (1.0f + kStretchRatio);
   }
