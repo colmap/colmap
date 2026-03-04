@@ -30,6 +30,7 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -41,6 +42,47 @@ TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
   EXPECT_EQ(EstimateGravityVectorFromImageOrientation(reconstruction),
             Eigen::Vector3d::Zero());
+}
+
+TEST(CoordinateFrame, EstimateGravityVectorFromUprightImages) {
+  // Create a reconstruction with multiple upright images.
+  // Upright images have gravity aligned with the camera Y axis, so
+  // row(1) of the rotation matrix should point downward (along +Y world).
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCameraWithTrivialRig(camera);
+
+  // Add 5 registered images with random rotation around +Y (upright, gravity
+  // ~ +Y)
+  for (int i = 0; i < 5; ++i) {
+    Image image;
+    image.SetImageId(i);
+    image.SetCameraId(camera.camera_id);
+    const Rigid3d cam_from_world(
+        Eigen::Quaterniond(
+            Eigen::AngleAxisd(RandomUniformReal<double>(-EIGEN_PI, EIGEN_PI),
+                              Eigen::Vector3d::UnitY())),
+        Eigen::Vector3d(i, 0, 0));
+    reconstruction.AddImageWithTrivialFrame(std::move(image), cam_from_world);
+  }
+
+  // 1 outlier image rotated 90 degrees around Z
+  {
+    Image image;
+    image.SetImageId(6);
+    image.SetCameraId(camera.camera_id);
+    const Rigid3d cam_from_world(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                     EIGEN_PI / 2, Eigen::Vector3d::UnitZ())),
+                                 Eigen::Vector3d(6, 0, 0));
+    reconstruction.AddImageWithTrivialFrame(std::move(image), cam_from_world);
+  }
+
+  const Eigen::Vector3d gravity =
+      EstimateGravityVectorFromImageOrientation(reconstruction);
+  // Consensus should find gravity ~ (0, 1, 0) despite the outlier
+  EXPECT_NEAR(gravity.norm(), 1.0, 1e-6);
+  EXPECT_NEAR(std::abs(gravity.dot(Eigen::Vector3d(0, 1, 0))), 1.0, 1e-6);
 }
 
 #ifdef COLMAP_LSD_ENABLED
@@ -172,6 +214,45 @@ TEST(CoordinateFrame, AlignToENUPlane) {
                                reconstruction.Point3D(point_ids[i - 1]).xyz)
                                   .norm();
     EXPECT_LE(std::abs(dist_orig - dist_tform), 1e-6);
+  }
+}
+
+TEST(CoordinateFrame, AlignToENUPlaneUnscaled) {
+  // Test unscaled variant: starting from a model with non-unit scale, the
+  // alignment should undo the scale so that original distances are preserved.
+  GPSTransform gps;
+  auto points = gps.EllipsoidToECEF({Eigen::Vector3d(50, 10.1, 100),
+                                     Eigen::Vector3d(50.1, 10, 100),
+                                     Eigen::Vector3d(50.1, 10.1, 100),
+                                     Eigen::Vector3d(50, 10, 100)});
+
+  Reconstruction reconstruction;
+  std::vector<point3D_t> point3D_ids;
+  point3D_ids.reserve(points.size());
+  for (size_t i = 0; i < points.size(); ++i) {
+    point3D_ids.push_back(reconstruction.AddPoint3D(points[i], Track()));
+  }
+
+  // Apply a non-unit scale to simulate a scaled model
+  const double model_scale = 2.0;
+  Sim3d pre_scale(
+      model_scale, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+  reconstruction.Transform(pre_scale);
+
+  // Align with unscaled=true, passing the pre_scale as the current transform
+  Sim3d tform = pre_scale;
+  AlignToENUPlane(&reconstruction, &tform, /*unscaled=*/true);
+
+  // The applied transform should have inverse scale to undo pre_scale
+  EXPECT_NEAR(tform.scale(), 1.0 / model_scale, 1e-6);
+
+  // Original (unscaled) distances between ECEF points should be preserved
+  for (size_t i = 1; i < points.size(); ++i) {
+    const double dist_orig = (points[i] - points[i - 1]).norm();
+    const double dist_tform = (reconstruction.Point3D(point3D_ids[i]).xyz -
+                               reconstruction.Point3D(point3D_ids[i - 1]).xyz)
+                                  .norm();
+    EXPECT_NEAR(dist_orig, dist_tform, 1e-4);
   }
 }
 
