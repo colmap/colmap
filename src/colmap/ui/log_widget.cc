@@ -123,7 +123,7 @@ LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
 
 void LogWidget::Append(google::LogSeverity severity, std::string text) {
   QMutexLocker locker(&mutex_);
-  text_queue_.emplace_back(severity, std::move(text));
+  text_queue_.push_back({severity, std::move(text)});
 }
 
 void LogWidget::Flush() {
