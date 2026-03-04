@@ -33,6 +33,8 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -83,14 +85,13 @@ TEST(Model, ComputeSharedPoints) {
   Model model;
   const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
   const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  // Projection center = -R^T * T = -T (for R=I).
   const float T1[3] = {0, 0, 0};
-  const float T2[3] = {1, 0, 0};
-  const float T3[3] = {2, 0, 0};
+  const float T2[3] = {-1, 0, 0};
+  const float T3[3] = {-2, 0, 0};
   model.images.emplace_back("img0.jpg", 100, 100, K, R, T1);
   model.images.emplace_back("img1.jpg", 100, 100, K, R, T2);
   model.images.emplace_back("img2.jpg", 100, 100, K, R, T3);
-
-  // Point seen by images 0 and 1.
   model.points.emplace_back(Model::Point{5.0f, 0.0f, 10.0f, {0, 1}});
 
   // Point seen by images 0, 1, and 2.
@@ -147,17 +148,21 @@ TEST(Model, ComputeTriangulationAngles) {
   Model model;
   const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
   const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  // Projection center = -R^T * T = -T (for R=I).
+  // Place cameras at (0,0,0) and (1,0,0).
   const float T1[3] = {0, 0, 0};
-  const float T2[3] = {1, 0, 0};
+  const float T2[3] = {-1, 0, 0};
   model.images.emplace_back("img0.jpg", 100, 100, K, R, T1);
   model.images.emplace_back("img1.jpg", 100, 100, K, R, T2);
 
+  // Point at midpoint between cameras, at depth 10.
   model.points.emplace_back(Model::Point{0.5f, 0.0f, 10.0f, {0, 1}});
 
   const std::vector<std::map<int, float>> angles =
       model.ComputeTriangulationAngles(50);
   EXPECT_EQ(angles.size(), 2);
-  EXPECT_GT(angles[0].at(1), 0.0f);
+  const float expected_angle = 2.0f * std::atan(0.5f / 10.0f);
+  EXPECT_NEAR(angles[0].at(1), expected_angle, 1e-5f);
   // Angles should be symmetric.
   EXPECT_FLOAT_EQ(angles[0].at(1), angles[1].at(0));
 }
@@ -166,14 +171,13 @@ TEST(Model, GetMaxOverlappingImages) {
   Model model;
   const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
   const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  // Projection center = -R^T * T = -T (for R=I).
   const float T1[3] = {0, 0, 0};
-  const float T2[3] = {1, 0, 0};
-  const float T3[3] = {2, 0, 0};
+  const float T2[3] = {-1, 0, 0};
+  const float T3[3] = {-2, 0, 0};
   model.images.emplace_back("img0.jpg", 100, 100, K, R, T1);
   model.images.emplace_back("img1.jpg", 100, 100, K, R, T2);
   model.images.emplace_back("img2.jpg", 100, 100, K, R, T3);
-
-  // Many shared points between 0 and 1, few between 0 and 2.
   for (int i = 0; i < 10; ++i) {
     model.points.emplace_back(Model::Point{0.5f, 0.0f, 5.0f + i, {0, 1}});
   }
