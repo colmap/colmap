@@ -239,14 +239,6 @@ TEST(CoordinateFrame, AlignToENUPlaneUnscaled) {
       model_scale, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   reconstruction.Transform(pre_scale);
 
-  // Record scaled distances for comparison
-  std::vector<double> scaled_dists;
-  for (size_t i = 1; i < points.size(); ++i) {
-    scaled_dists.push_back((reconstruction.Point3D(point3D_ids[i]).xyz -
-                            reconstruction.Point3D(point3D_ids[i - 1]).xyz)
-                               .norm());
-  }
-
   // Align with unscaled=true, passing the pre_scale as the current transform
   Sim3d tform = pre_scale;
   AlignToENUPlane(&reconstruction, &tform, /*unscaled=*/true);
