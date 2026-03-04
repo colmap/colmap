@@ -73,7 +73,7 @@ class GlogSink : public google::LogSink {
       default:
         break;
     }
-    log_widget_->Append(severity, text);
+    log_widget_->Append(severity, std::move(text));
   }
 
  private:
@@ -121,9 +121,9 @@ LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
   grid->addWidget(text_box_, 1, 0, 1, 2);
 }
 
-void LogWidget::Append(google::LogSeverity severity, const std::string& text) {
+void LogWidget::Append(google::LogSeverity severity, std::string text) {
   QMutexLocker locker(&mutex_);
-  text_queue_.push_back({severity, text});
+  text_queue_.emplace_back(severity, std::move(text));
 }
 
 void LogWidget::Flush() {

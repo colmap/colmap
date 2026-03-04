@@ -42,7 +42,7 @@ class LogWidget : public QWidget {
  public:
   explicit LogWidget(QWidget* parent, int max_num_blocks = 100000);
 
-  void Append(google::LogSeverity severity, const std::string& text);
+  void Append(google::LogSeverity severity, std::string text);
   void Flush();
   void Clear();
 
