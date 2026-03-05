@@ -37,6 +37,7 @@
 #include "colmap/util/testing.h"
 
 #include <array>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -91,18 +92,22 @@ TEST(EstimateGravityVectorFromImageOrientation, Empty) {
 
 #ifdef COLMAP_LSD_ENABLED
 
-TEST(EstimateManhattanWorldFrame, Synthetic) {
-  SetPRNGSeed(0);
+constexpr int kWidth = 512;
+constexpr int kHeight = 512;
+constexpr double kFocal = 400.0;
 
-  const int kWidth = 512;
-  const int kHeight = 512;
-  const double kFocal = 400.0;
+struct Line3D {
+  Eigen::Vector3d beg;
+  Eigen::Vector3d end;
+};
 
-  struct Line3D {
-    Eigen::Vector3d beg;
-    Eigen::Vector3d end;
-  };
+struct ManhattanScene {
+  Eigen::Matrix3d manhattan_from_world;
+  std::vector<Line3D> vertical_lines;
+  std::vector<Line3D> horizontal_lines;
+};
 
+ManhattanScene CreateManhattanScene() {
   // Rotate the Manhattan frame so the solution is not trivially axis-aligned.
   const Eigen::Matrix3d manhattan_from_world =
       (Eigen::AngleAxisd(DegToRad(25.0), Eigen::Vector3d::UnitZ()) *
@@ -140,14 +145,42 @@ TEST(EstimateManhattanWorldFrame, Synthetic) {
     l.end = manhattan_from_world * l.end;
   }
 
+  return {manhattan_from_world,
+          std::move(vertical_lines),
+          std::move(horizontal_lines)};
+}
+
+void DrawLine(Bitmap& bitmap,
+              const Eigen::Vector2d& a,
+              const Eigen::Vector2d& b,
+              int radius) {
+  const int steps =
+      std::max(1, static_cast<int>(std::ceil((b - a).norm() * 2)));
+  for (int s = 0; s <= steps; ++s) {
+    const double t = static_cast<double>(s) / steps;
+    const double x = a.x() + t * (b.x() - a.x());
+    const double y = a.y() + t * (b.y() - a.y());
+    for (int dy = -radius; dy <= radius; ++dy) {
+      for (int dx = -radius; dx <= radius; ++dx) {
+        if (dx * dx + dy * dy > radius * radius) continue;
+        const int px = static_cast<int>(std::round(x + dx));
+        const int py = static_cast<int>(std::round(y + dy));
+        if (px >= 0 && px < kWidth && py >= 0 && py < kHeight) {
+          bitmap.SetPixel(px, py, BitmapColor<uint8_t>(255));
+        }
+      }
+    }
+  }
+}
+
+void RenderLineImages(Reconstruction& reconstruction,
+                      const ManhattanScene& scene,
+                      const std::filesystem::path& test_dir) {
   // 3 cameras with combined pitch (around X) and yaw (around Y) so that both
   // the horizontal and vertical vanishing points are at finite image locations.
   const std::array<double, 3> pitch_deg = {10.0, 10.0, 8.0};
   const std::array<double, 3> yaw_deg = {15.0, -15.0, 5.0};
 
-  const auto test_dir = CreateTestDir();
-
-  Reconstruction reconstruction;
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, kFocal, kWidth, kHeight);
   reconstruction.AddCameraWithTrivialRig(camera);
@@ -172,43 +205,31 @@ TEST(EstimateManhattanWorldFrame, Synthetic) {
     Bitmap bitmap(kWidth, kHeight, /*as_rgb=*/true);
     bitmap.Fill(BitmapColor<uint8_t>(128));
 
-    auto draw_lin = [&bitmap](const Eigen::Vector2d& a,
-                              const Eigen::Vector2d& b,
-                              int radius) {
-      const int steps =
-          std::max(1, static_cast<int>(std::ceil((b - a).norm() * 2)));
-      for (int s = 0; s <= steps; ++s) {
-        const double t = static_cast<double>(s) / steps;
-        const double x = a.x() + t * (b.x() - a.x());
-        const double y = a.y() + t * (b.y() - a.y());
-        for (int dy = -radius; dy <= radius; ++dy) {
-          for (int dx = -radius; dx <= radius; ++dx) {
-            if (dx * dx + dy * dy > radius * radius) continue;
-            const int px = static_cast<int>(std::round(x + dx));
-            const int py = static_cast<int>(std::round(y + dy));
-            if (px >= 0 && px < kWidth && py >= 0 && py < kHeight) {
-              bitmap.SetPixel(px, py, BitmapColor<uint8_t>(255));
-            }
-          }
-        }
-      }
-    };
-
     constexpr int kRadius = 3;
 
-    for (const auto& line : vertical_lines) {
+    for (const auto& line : scene.vertical_lines) {
       const auto p1 = reg_image.ProjectPoint(line.beg);
       const auto p2 = reg_image.ProjectPoint(line.end);
-      if (p1 && p2) draw_lin(*p1, *p2, kRadius);
+      if (p1 && p2) DrawLine(bitmap, *p1, *p2, kRadius);
     }
-    for (const auto& line : horizontal_lines) {
+    for (const auto& line : scene.horizontal_lines) {
       const auto p1 = reg_image.ProjectPoint(line.beg);
       const auto p2 = reg_image.ProjectPoint(line.end);
-      if (p1 && p2) draw_lin(*p1, *p2, kRadius);
+      if (p1 && p2) DrawLine(bitmap, *p1, *p2, kRadius);
     }
 
     ASSERT_TRUE(bitmap.Write(test_dir / reg_image.Name()));
   }
+}
+
+TEST(EstimateManhattanWorldFrame, Synthetic) {
+  SetPRNGSeed(0);
+
+  const auto scene = CreateManhattanScene();
+  const auto test_dir = CreateTestDir();
+
+  Reconstruction reconstruction;
+  ASSERT_NO_FATAL_FAILURE(RenderLineImages(reconstruction, scene, test_dir));
 
   // Run Manhattan world frame estimation.
   ManhattanWorldFrameEstimationOptions options;
@@ -216,9 +237,9 @@ TEST(EstimateManhattanWorldFrame, Synthetic) {
       EstimateManhattanWorldFrame(options, reconstruction, test_dir);
 
   // The estimated frame should recover the tilted Manhattan axes.
-  const Eigen::Vector3d expected_rightward = manhattan_from_world.col(0);
-  const Eigen::Vector3d expected_downward = manhattan_from_world.col(1);
-  const Eigen::Vector3d expected_forward = manhattan_from_world.col(2);
+  const Eigen::Vector3d expected_rightward = scene.manhattan_from_world.col(0);
+  const Eigen::Vector3d expected_downward = scene.manhattan_from_world.col(1);
+  const Eigen::Vector3d expected_forward = scene.manhattan_from_world.col(2);
 
   // Rightward direction (col 0) must align with the rotated X axis.
   // The sign of the rightward and forward axes is ambiguous, so check absolute
