@@ -586,9 +586,8 @@ TEST(StereoFusion, TightNormalErrorFiltersPoints) {
 TEST(StereoFusion, ConstructorRejectsInvalidOptions) {
   StereoFusionOptions options;
   options.check_num_images = 0;  // Invalid
-  EXPECT_THROW(
-      StereoFusion(options, "/nonexistent", "COLMAP", "", "geometric"),
-      std::exception);
+  EXPECT_THROW(StereoFusion(options, "/nonexistent", "COLMAP", "", "geometric"),
+               std::exception);
 }
 
 }  // namespace
