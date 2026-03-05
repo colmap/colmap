@@ -205,7 +205,7 @@ TEST_F(IncrementalMapperTest, FullPipeline) {
 
   // Step 3: Find and register next images
   RegisterAllRemainingImages();
-  EXPECT_GT(reconstruction_->NumRegFrames(), 2);
+  EXPECT_EQ(reconstruction_->NumRegFrames(), 10);
 
   // Step 4: Global bundle adjustment
   BundleAdjustmentOptions ba_options;
@@ -244,6 +244,14 @@ TEST_F(IncrementalMapperTest, FullPipeline) {
   EXPECT_EQ(mapper_->NumTotalRegImages(), 10);
   EXPECT_EQ(mapper_->NumSharedRegImages(), 0);
   EXPECT_TRUE(mapper_->FilteredFrames().empty());
+
+  // Sanity check tracks: with dense visibility, at least one track
+  // should be observed by all registered images.
+  size_t max_track_length = 0;
+  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
+    max_track_length = std::max(max_track_length, point3D.track.Length());
+  }
+  EXPECT_GE(max_track_length, reconstruction_->NumRegImages());
 }
 
 TEST_F(IncrementalMapperTest, FindLocalBundle) {
