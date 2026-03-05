@@ -42,6 +42,7 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/mvs/texture_mapping.h"
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
@@ -73,6 +74,7 @@ OptionManager::OptionManager(bool add_project_options)
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
+  mesh_texture_mapping = std::make_shared<mvs::MeshTextureMappingOptions>();
   render = std::make_shared<RenderOptions>();
 }
 
@@ -180,6 +182,7 @@ void OptionManager::AddAllOptions() {
   AddStereoFusionOptions();
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
+  AddMeshTextureMappingOptions();
   AddRenderOptions();
 }
 
@@ -921,6 +924,32 @@ void OptionManager::AddDelaunayMeshingOptions() {
                    &delaunay_meshing->num_threads);
 }
 
+void OptionManager::AddMeshTextureMappingOptions() {
+  if (added_mesh_texture_mapping_options_) {
+    return;
+  }
+  added_mesh_texture_mapping_options_ = true;
+
+  AddDefaultOption("MeshTextureMapping.min_cos_normal_angle",
+                   &mesh_texture_mapping->min_cos_normal_angle);
+  AddDefaultOption("MeshTextureMapping.min_visible_vertices",
+                   &mesh_texture_mapping->min_visible_vertices);
+  AddDefaultOption("MeshTextureMapping.view_selection_smoothing_iterations",
+                   &mesh_texture_mapping->view_selection_smoothing_iterations);
+  AddDefaultOption("MeshTextureMapping.atlas_patch_padding",
+                   &mesh_texture_mapping->atlas_patch_padding);
+  AddDefaultOption("MeshTextureMapping.inpaint_radius",
+                   &mesh_texture_mapping->inpaint_radius);
+  AddDefaultOption("MeshTextureMapping.apply_color_correction",
+                   &mesh_texture_mapping->apply_color_correction);
+  AddDefaultOption("MeshTextureMapping.color_correction_regularization",
+                   &mesh_texture_mapping->color_correction_regularization);
+  AddDefaultOption("MeshTextureMapping.poisson_blend_strip_width",
+                   &mesh_texture_mapping->poisson_blend_strip_width);
+  AddDefaultOption("MeshTextureMapping.num_threads",
+                   &mesh_texture_mapping->num_threads);
+}
+
 void OptionManager::AddRenderOptions() {
   if (added_render_options_) {
     return;
@@ -956,6 +985,7 @@ void OptionManager::Reset(bool reset_logging) {
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
   added_delaunay_meshing_options_ = false;
+  added_mesh_texture_mapping_options_ = false;
   added_render_options_ = false;
 }
 
@@ -980,6 +1010,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
   *delaunay_meshing = mvs::DelaunayMeshingOptions();
+  *mesh_texture_mapping = mvs::MeshTextureMappingOptions();
   *render = RenderOptions();
 }
 
@@ -1009,6 +1040,7 @@ bool OptionManager::Check() {
   if (stereo_fusion) success = success && stereo_fusion->Check();
   if (poisson_meshing) success = success && poisson_meshing->Check();
   if (delaunay_meshing) success = success && delaunay_meshing->Check();
+  if (mesh_texture_mapping) success = success && mesh_texture_mapping->Check();
 
 #if defined(COLMAP_GUI_ENABLED)
   if (render) success = success && render->Check();
