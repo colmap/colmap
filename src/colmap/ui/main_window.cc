@@ -93,6 +93,66 @@ void SetLastOpen(const QString& key, const QString& pathOrDir) {
   s.endGroup();
 }
 
+std::string GetLogTarget() {
+  if (FLAGS_logtostderr) {
+    return "stderr";
+  }
+
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  if (FLAGS_logtostdout) {
+    return "stdout";
+  }
+#endif
+
+  if (FLAGS_alsologtostderr) {
+    return "stderr_and_file";
+  }
+
+  return "file";
+}
+
+void ApplyLogOptions(const std::string& log_target,
+                     int verbosity,
+                     int min_severity,
+                     bool color) {
+  FLAGS_v = verbosity;
+  FLAGS_minloglevel = min_severity;
+  FLAGS_colorlogtostderr = color;
+
+  FLAGS_logtostderr = false;
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  FLAGS_logtostdout = false;
+#endif
+  FLAGS_alsologtostderr = false;
+
+  if (log_target == "stderr") {
+    FLAGS_logtostderr = true;
+  } else if (log_target == "stdout") {
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+    FLAGS_logtostdout = true;
+#else
+    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                    "Falling back to stderr.";
+    FLAGS_logtostderr = true;
+#endif
+  } else if (log_target == "file") {
+    // default file logging
+  } else if (log_target == "stderr_and_file") {
+    FLAGS_alsologtostderr = true;
+  } else {
+    LOG(ERROR) << "Invalid log_target: " << log_target
+               << ". Falling back to stderr_and_file.";
+    FLAGS_alsologtostderr = true;
+  }
+
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+#endif
+}
 }  // anonymous namespace
 
 static void InitUiResources() { Q_INIT_RESOURCE(resources); }
@@ -582,11 +642,11 @@ void MainWindow::CreateActions() {
           this,
           &MainWindow::ResetOptions);
 
-  action_set_log_level_ = new QAction(tr("Set log level"), this);
-  connect(action_set_log_level_,
+  action_set_log_options_ = new QAction(tr("Set log options"), this);
+  connect(action_set_log_options_,
           &QAction::triggered,
           this,
-          &MainWindow::SetLogLevel);
+          &MainWindow::SetLogOptions);
 
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
@@ -688,7 +748,7 @@ void MainWindow::CreateMenus() {
   extras_menu->addSeparator();
   extras_menu->addAction(action_set_options_);
   extras_menu->addAction(action_reset_options_);
-  extras_menu->addAction(action_set_log_level_);
+  extras_menu->addAction(action_set_log_options_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -1482,15 +1542,60 @@ void MainWindow::ResetOptions() {
   options_.ResetOptions(kResetPaths);
 }
 
-void MainWindow::SetLogLevel() {
-  bool ok = false;
-  const int log_level =
-      QInputDialog::getInt(this, "", "Log Level:", FLAGS_v, 0, 3, 1, &ok);
-  if (!ok) {
-    return;
-  }
+void MainWindow::SetLogOptions() {
+  QDialog dialog(this);
+  dialog.setWindowTitle("Log Options");
+  dialog.resize(220, 160);
 
-  FLAGS_v = log_level;
+  QFormLayout* form_layout = new QFormLayout(&dialog);
+
+  // Log target
+  QComboBox* log_target_box = new QComboBox(&dialog);
+  log_target_box->addItems({"stderr", "stdout", "file", "stderr_and_file"});
+  log_target_box->setCurrentText(GetLogTarget().c_str());
+  log_target_box->setToolTip(
+      QString("Default output path: system temporary directory "
+              "(usually: %1)")
+          .arg(std::filesystem::temp_directory_path().c_str()));
+  form_layout->addRow("Log target", log_target_box);
+
+  // NOTE: glog resolves log file paths during initialization.
+  // Runtime modification of FLAGS_log_dir does not re-open log files,
+  // therefore directory changes are not supported here.
+
+  // Verbosity
+  QSpinBox* verbosity_box = new QSpinBox(&dialog);
+  verbosity_box->setRange(0, 10);
+  verbosity_box->setValue(FLAGS_v);
+  form_layout->addRow("Verbosity", verbosity_box);
+
+  // Minimum severity
+  QComboBox* min_severity_box = new QComboBox(&dialog);
+  min_severity_box->addItems({"INFO", "WARNING", "ERROR", "FATAL"});
+  min_severity_box->setCurrentIndex(FLAGS_minloglevel);
+  form_layout->addRow("Minimum severity", min_severity_box);
+
+  // Color
+  QComboBox* color_box = new QComboBox(&dialog);
+  color_box->addItems({"Disabled", "Enabled"});
+  color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
+
+  form_layout->addRow("Colored logging", color_box);
+
+  QDialogButtonBox* buttons = new QDialogButtonBox(
+      QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+  form_layout->addRow(buttons);
+
+  if (dialog.exec() == QDialog::Accepted) {
+    ApplyLogOptions(log_target_box->currentText().toStdString(),
+                    verbosity_box->value(),
+                    min_severity_box->currentIndex(),
+                    color_box->currentIndex());
+  }
 }
 
 void MainWindow::About() {

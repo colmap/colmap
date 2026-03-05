@@ -76,6 +76,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
+    NAME sprt_test
+    SRCS sprt_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
     NAME support_measurement_test
     SRCS support_measurement_test.cc
     LINK_LIBS colmap_optim

@@ -91,6 +91,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
+    NAME model_test
+    SRCS model_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
     NAME normal_map_test
     SRCS normal_map_test.cc
     LINK_LIBS colmap_mvs
