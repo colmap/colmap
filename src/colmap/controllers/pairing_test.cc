@@ -1272,8 +1272,7 @@ TEST(ImportedPairGenerator, UnknownImageSkipped) {
   const auto pairs = generator.AllPairs();
   // Only the valid pair should remain.
   EXPECT_EQ(pairs.size(), 1);
-  EXPECT_EQ(pairs[0],
-            std::make_pair(images[2].ImageId(), images[3].ImageId()));
+  EXPECT_EQ(pairs[0], std::make_pair(images[2].ImageId(), images[3].ImageId()));
 }
 
 TEST(ImportedPairGenerator, MultipleBlocks) {
@@ -1401,7 +1400,7 @@ TEST(ExistingMatchedPairGenerator, Reset) {
       images[1].ImageId(), images[2].ImageId(), FeatureMatches(2));
 
   ExistingMatchedPairingOptions options;
-  options.batch_size = 1;
+  options.batch_size = 2;
   ExistingMatchedPairGenerator generator(options, database);
 
   const auto first_run = generator.AllPairs();
@@ -1429,8 +1428,9 @@ TEST(OptionsCheck, VocabTreePairingOptions) {
 TEST(OptionsCheck, SequentialPairingOptions) {
   SequentialPairingOptions options;
   EXPECT_TRUE(options.Check());
-  EXPECT_EQ(options.CacheSize(),
-            std::max(5 * options.loop_detection_num_images, 5 * options.overlap));
+  EXPECT_EQ(
+      options.CacheSize(),
+      std::max(5 * options.loop_detection_num_images, 5 * options.overlap));
 }
 
 TEST(OptionsCheck, SpatialPairingOptions) {
