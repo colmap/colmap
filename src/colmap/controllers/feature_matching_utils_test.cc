@@ -194,6 +194,14 @@ TEST(FeatureMatcherController, MatchSkipsExistingResults) {
   const auto tvg_after = data.database->ReadTwoViewGeometries();
   EXPECT_EQ(matches_after.size(), matches_before.size());
   EXPECT_EQ(tvg_after.size(), tvg_before.size());
+
+  // Match with reversed pair — should also be skipped
+  controller.Match({{id2, id1}});
+
+  const auto matches_reversed = data.database->ReadAllMatches();
+  const auto tvg_reversed = data.database->ReadTwoViewGeometries();
+  EXPECT_EQ(matches_reversed.size(), matches_before.size());
+  EXPECT_EQ(tvg_reversed.size(), tvg_before.size());
 }
 
 TEST(FeatureMatcherController, MatchMultiplePairs) {
@@ -235,6 +243,12 @@ TEST(FeatureMatcherController, MatchSkipGeometricVerification) {
 
   // Matches should be written even without geometric verification
   EXPECT_EQ(data.database->ReadAllMatches().size(), 1);
+
+  // Verify geometric verification was skipped: TVG should have UNDEFINED config
+  const auto tvg =
+      data.database->ReadTwoViewGeometry(data.image_ids[0], data.image_ids[1]);
+  EXPECT_EQ(tvg.config, TwoViewGeometry::UNDEFINED);
+  EXPECT_TRUE(tvg.inlier_matches.empty());
 }
 
 TEST(GeometricVerifierController, OptionsAccessor) {
