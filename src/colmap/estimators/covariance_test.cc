@@ -379,9 +379,10 @@ SolvedBAProblem SetUpSolvedBA(const BACovarianceOptions& cov_options,
   CHECK_NOTNULL(ceres_ba);
   result.problem = ceres_ba->Problem();
 
-  result.ba_cov =
+  auto ba_cov_opt =
       EstimateBACovariance(cov_options, result.reconstruction, *ceres_ba);
-  CHECK(result.ba_cov.has_value());
+  CHECK(ba_cov_opt.has_value());
+  result.ba_cov.emplace(std::move(*ba_cov_opt));
 
   result.poses =
       internal::GetPoseParams(result.reconstruction, *result.problem);
@@ -405,8 +406,8 @@ TEST(BACovarianceTest, GetCam2CovFromCam1Success) {
   const Rigid3d& cam2_from_world =
       solved.reconstruction.Image(id2).CamFromWorld();
 
-  const auto rel_cov =
-      solved.ba_cov->GetCam2CovFromCam1(id1, cam1_from_world, id2, cam2_from_world);
+  const auto rel_cov = solved.ba_cov->GetCam2CovFromCam1(
+      id1, cam1_from_world, id2, cam2_from_world);
   ASSERT_TRUE(rel_cov.has_value());
   EXPECT_EQ(rel_cov->rows(), 6);
   EXPECT_EQ(rel_cov->cols(), 6);
@@ -499,8 +500,7 @@ TEST(BACovarianceTest, GetCam2CovFromCam1PartiallyConstantPoses) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
 
   BACovarianceOptions cov_options;
@@ -528,10 +528,7 @@ TEST(BACovarianceTest, GetCam2CovFromCam1PartiallyConstantPoses) {
   const Rigid3d& cam2_from_world =
       reconstruction.Image(poses[1].image_id).CamFromWorld();
   const auto rel_cov = ba_cov_opt->GetCam2CovFromCam1(
-      poses[0].image_id,
-      cam1_from_world,
-      poses[1].image_id,
-      cam2_from_world);
+      poses[0].image_id, cam1_from_world, poses[1].image_id, cam2_from_world);
   ASSERT_FALSE(rel_cov.has_value());
 }
 
@@ -568,8 +565,7 @@ TEST(BACovarianceTest, EstimateBACovarianceFromProblemDirect) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
   auto problem = ceres_ba->Problem();
 
@@ -631,8 +627,7 @@ TEST(BACovarianceTest, ExperimentalCustomPoses) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
   auto problem = ceres_ba->Problem();
 
@@ -705,8 +700,7 @@ TEST(BACovarianceTest, PosesAndPointsWithIntrinsicsSchurElimination) {
   }
 
   // Other params covariance should NOT be available (not requested).
-  const auto others =
-      GetOtherParams(*solved.problem, solved.poses, points);
+  const auto others = GetOtherParams(*solved.problem, solved.poses, points);
   for (const double* other : others) {
     ASSERT_FALSE(solved.ba_cov->GetOtherParamsCov(other).has_value());
   }
@@ -747,8 +741,7 @@ TEST(BACovarianceTest, PointsOnlyWithFixedPosesAndIntrinsics) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
 
   BACovarianceOptions cov_options;
@@ -878,8 +871,7 @@ TEST(BACovarianceTest, DampingAffectsCovariance) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
 
   // Low damping.
@@ -898,7 +890,8 @@ TEST(BACovarianceTest, DampingAffectsCovariance) {
       EstimateBACovariance(options_high, reconstruction, *ceres_ba);
   ASSERT_TRUE(ba_cov_high.has_value());
 
-  const auto poses = internal::GetPoseParams(reconstruction, *ceres_ba->Problem());
+  const auto poses =
+      internal::GetPoseParams(reconstruction, *ceres_ba->Problem());
   ASSERT_FALSE(poses.empty());
 
   // Higher damping should produce covariance with smaller or equal trace
@@ -940,8 +933,7 @@ TEST(BACovarianceTest, GetOtherParamsExcludesPosesAndPoints) {
       BundleAdjustmentOptions(), config, reconstruction);
   bundle_adjuster->Solve();
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
   auto problem = ceres_ba->Problem();
 
@@ -996,8 +988,7 @@ TEST(BACovarianceTest, GetParamsSkipsConstantBlocks) {
       BundleAdjustmentOptions(), config, reconstruction);
   bundle_adjuster->Solve();
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
   auto problem = ceres_ba->Problem();
 
@@ -1039,8 +1030,7 @@ TEST(BACovarianceTest, GetOtherParamsEmptyWhenIntrinsicsConstant) {
       BundleAdjustmentOptions(), config, reconstruction);
   bundle_adjuster->Solve();
 
-  auto* ceres_ba =
-      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
   ASSERT_NE(ceres_ba, nullptr);
   auto problem = ceres_ba->Problem();
 

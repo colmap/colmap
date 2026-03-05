@@ -385,6 +385,7 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
             options.damping, pose_num_params, other_num_params, S)) {
       return std::nullopt;
     }
+    other_L_start_size.clear();
   }
 
   VLOG(2) << "Computing L inverse";
