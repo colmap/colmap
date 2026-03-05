@@ -39,11 +39,11 @@ COLMAP_ADD_LIBRARY(
         rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
+        colmap_geometry
+        colmap_util
         Ceres::ceres
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
-        colmap_geometry
-        colmap_util
         OpenImageIO::OpenImageIO
 )
 
