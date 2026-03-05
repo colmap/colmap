@@ -42,13 +42,13 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <Eigen/SparseCholesky>
 #include <Eigen/SparseCore>
-#include <Eigen/SparseLU>
 
 #if defined(COLMAP_CGAL_ENABLED)
-#include <CGAL/AABB_traits.h>
+#include <CGAL/AABB_traits_3.h>
 #include <CGAL/AABB_tree.h>
-#include <CGAL/AABB_triangle_primitive.h>
+#include <CGAL/AABB_triangle_primitive_3.h>
 #include <CGAL/Simple_cartesian.h>
 #endif  // COLMAP_CGAL_ENABLED
 
@@ -183,9 +183,9 @@ using CGALPoint = CGALKernel::Point_3;
 using CGALTriangle = CGALKernel::Triangle_3;
 using CGALSegment = CGALKernel::Segment_3;
 using CGALPrimitiveId =
-    CGAL::AABB_triangle_primitive<CGALKernel,
-                                  std::vector<CGALTriangle>::const_iterator>;
-using CGALTraits = CGAL::AABB_traits<CGALKernel, CGALPrimitiveId>;
+    CGAL::AABB_triangle_primitive_3<CGALKernel,
+                                    std::vector<CGALTriangle>::const_iterator>;
+using CGALTraits = CGAL::AABB_traits_3<CGALKernel, CGALPrimitiveId>;
 using CGALAABBTree = CGAL::AABB_tree<CGALTraits>;
 
 struct OcclusionTester {
@@ -463,14 +463,14 @@ AtlasLayout PackAtlas(const std::vector<RegionProjection>& projections,
     size_t region_idx;
   };
   std::vector<RectEntry> rects(projections.size());
-  int total_area = 0;
+  int64_t total_area = 0;
   int max_rect_width = 0;
 
   for (size_t i = 0; i < projections.size(); ++i) {
     rects[i].width = projections[i].bbox_width + 2 * padding;
     rects[i].height = projections[i].bbox_height + 2 * padding;
     rects[i].region_idx = i;
-    total_area += rects[i].width * rects[i].height;
+    total_area += static_cast<int64_t>(rects[i].width) * rects[i].height;
     max_rect_width = std::max(max_rect_width, rects[i].width);
   }
 
@@ -515,7 +515,10 @@ AtlasLayout PackAtlas(const std::vector<RegionProjection>& projections,
   };
 
   std::vector<PackRect> placements;
+  constexpr int kMaxAtlasDim = 1 << 16;  // 65536
   while (!TryPack(atlas_width, atlas_height, placements)) {
+    THROW_CHECK_LE(atlas_width, kMaxAtlasDim)
+        << "Atlas dimensions exceeded maximum (" << kMaxAtlasDim << ")";
     atlas_width *= 2;
     atlas_height *= 2;
   }
@@ -656,7 +659,7 @@ void BakeTexture(Bitmap* atlas,
               pixel_center, atlas_verts[0], atlas_verts[1], atlas_verts[2]);
 
           const float min_bary = std::min({bary.x(), bary.y(), bary.z()});
-          if (min_bary < -0.5f) continue;
+          if (min_bary < -1e-4f) continue;
 
           const Eigen::Vector2f img_pos = bary.x() * rp.face_projections[i][0] +
                                           bary.y() * rp.face_projections[i][1] +
@@ -819,7 +822,7 @@ void ApplyGlobalColorCorrection(
     Eigen::SparseMatrix<double> A(total_vars, total_vars);
     A.setFromTriplets(triplets.begin(), triplets.end());
 
-    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
     solver.compute(A);
     if (solver.info() != Eigen::Success) {
       LOG(WARNING) << "Color correction: failed to factorize system";
@@ -976,7 +979,6 @@ bool MeshTextureMappingOptions::Check() const {
   CHECK_OPTION_GE(atlas_patch_padding, 0);
   CHECK_OPTION_GE(inpaint_radius, 0);
   CHECK_OPTION_GT(color_correction_regularization, 0.0);
-  CHECK_OPTION_GE(poisson_blend_strip_width, 0);
   return true;
 }
 
@@ -989,7 +991,6 @@ void MeshTextureMappingOptions::Print() const {
   PrintOption(inpaint_radius);
   PrintOption(apply_color_correction);
   PrintOption(color_correction_regularization);
-  PrintOption(poisson_blend_strip_width);
   PrintOption(num_threads);
 }
 

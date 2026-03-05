@@ -63,9 +63,6 @@ struct MeshTextureMappingOptions {
   // Regularization weight for the color correction system.
   double color_correction_regularization = 0.1;
 
-  // Width of the Poisson blending strip in texels at seam boundaries.
-  int poisson_blend_strip_width = 5;
-
   // Number of threads (default: all available).
   int num_threads = -1;
 

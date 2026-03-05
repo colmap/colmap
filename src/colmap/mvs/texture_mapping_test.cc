@@ -219,7 +219,6 @@ TEST(MeshTextureMappingOptions, Default) {
   EXPECT_EQ(options.inpaint_radius, 5);
   EXPECT_TRUE(options.apply_color_correction);
   EXPECT_DOUBLE_EQ(options.color_correction_regularization, 0.1);
-  EXPECT_EQ(options.poisson_blend_strip_width, 5);
   EXPECT_EQ(options.num_threads, -1);
 }
 

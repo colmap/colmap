@@ -944,8 +944,6 @@ void OptionManager::AddMeshTextureMappingOptions() {
                    &mesh_texture_mapping->apply_color_correction);
   AddDefaultOption("MeshTextureMapping.color_correction_regularization",
                    &mesh_texture_mapping->color_correction_regularization);
-  AddDefaultOption("MeshTextureMapping.poisson_blend_strip_width",
-                   &mesh_texture_mapping->poisson_blend_strip_width);
   AddDefaultOption("MeshTextureMapping.num_threads",
                    &mesh_texture_mapping->num_threads);
 }
