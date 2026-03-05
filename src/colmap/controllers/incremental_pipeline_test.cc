@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database.h"
@@ -1054,8 +1055,7 @@ TEST(IncrementalPipeline, DatabaseCacheConstructor) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   auto options = std::make_shared<IncrementalPipelineOptions>();
-  IncrementalPipeline pipeline(
-      options, database_cache, reconstruction_manager);
+  IncrementalPipeline pipeline(options, database_cache, reconstruction_manager);
   pipeline.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -1069,18 +1069,16 @@ TEST(IncrementalPipeline, NullOptionsThrows) {
   auto database = Database::Open(CreateTestDir() / "database.db");
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  EXPECT_THROW(
-      IncrementalPipeline(nullptr, database, reconstruction_manager),
-      std::invalid_argument);
+  EXPECT_THROW(IncrementalPipeline(nullptr, database, reconstruction_manager),
+               std::invalid_argument);
 }
 
 TEST(IncrementalPipeline, NullReconstructionManagerThrows) {
   auto database = Database::Open(CreateTestDir() / "database.db");
   auto options = std::make_shared<IncrementalPipelineOptions>();
 
-  EXPECT_THROW(
-      IncrementalPipeline(options, database, nullptr),
-      std::invalid_argument);
+  EXPECT_THROW(IncrementalPipeline(options, database, nullptr),
+               std::invalid_argument);
 }
 
 TEST(IncrementalPipeline, NullDatabaseThrows) {
