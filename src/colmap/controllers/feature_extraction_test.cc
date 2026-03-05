@@ -75,10 +75,8 @@ void WriteFeatureFile(const std::filesystem::path& path,
   std::ofstream file(path);
   file << num_features << " " << dimension << "\n";
   for (int j = 0; j < num_features; ++j) {
-    file << (10.0f + j * 5.0f) << " "
-         << (20.0f + j * 5.0f) << " "
-         << (1.5f + j * 0.1f) << " "
-         << (0.5f + j * 0.2f);
+    file << (10.0f + j * 5.0f) << " " << (20.0f + j * 5.0f) << " "
+         << (1.5f + j * 0.1f) << " " << (0.5f + j * 0.2f);
     for (int k = 0; k < dimension; ++k) {
       file << " " << ((j * dimension + k) % 256);
     }
@@ -537,8 +535,8 @@ TEST(CreateFeatureImporterController, MissingFeatureFile) {
   const auto images = database->ReadAllImages();
 
   // The image with features should be fully imported.
-  // The image without features should still be in the database (from the
-  // image reader) but should have no keypoints/descriptors.
+  // The image without a feature file is skipped entirely by the feature
+  // importer and not written to the database.
   bool found_with_features = false;
   bool found_without_features = false;
   for (const auto& image : images) {
@@ -549,13 +547,10 @@ TEST(CreateFeatureImporterController, MissingFeatureFile) {
       EXPECT_EQ(database->ReadKeypoints(image.ImageId()).size(), 3);
     } else if (image.Name() == "no_features.png") {
       found_without_features = true;
-      // Image was read but no features were written.
-      EXPECT_FALSE(database->ExistsKeypoints(image.ImageId()));
-      EXPECT_FALSE(database->ExistsDescriptors(image.ImageId()));
     }
   }
   EXPECT_TRUE(found_with_features);
-  EXPECT_TRUE(found_without_features);
+  EXPECT_FALSE(found_without_features);
 }
 
 // Covers the early-return path when the import directory does not exist.
@@ -580,7 +575,8 @@ TEST(CreateFeatureImporterController, NonExistentImportDir) {
   controller->Wait();
 
   // The controller should return early without crashing.
-  // No images should be in the database since the import loop was never entered.
+  // No images should be in the database since the import loop was never
+  // entered.
   auto database = Database::Open(database_path);
   EXPECT_EQ(database->ReadAllImages().size(), 0);
 }
