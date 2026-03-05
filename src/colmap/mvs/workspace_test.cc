@@ -346,13 +346,11 @@ struct MultiImageWorkspaceFixture {
 
       Mat<float> dm(camera_width, camera_height, 1);
       dm.Fill(1.0f);
-      dm.Write(temp_dir / "stereo" / "depth_maps" /
-               (name + ".geometric.bin"));
+      dm.Write(temp_dir / "stereo" / "depth_maps" / (name + ".geometric.bin"));
 
       Mat<float> nm(camera_width, camera_height, 3);
       nm.Fill(1.0f);
-      nm.Write(temp_dir / "stereo" / "normal_maps" /
-               (name + ".geometric.bin"));
+      nm.Write(temp_dir / "stereo" / "normal_maps" / (name + ".geometric.bin"));
 
       Bitmap bmp(camera_width, camera_height, true);
       bmp.Fill(BitmapColor<uint8_t>(0, 0, 0));
