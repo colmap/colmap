@@ -1754,14 +1754,14 @@ TEST(LoadSiftFeaturesFromTextFile, InvalidDimension) {
 TEST(LoadSiftFeaturesFromTextFile, NonexistentFile) {
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
-  EXPECT_THROW(
-      LoadSiftFeaturesFromTextFile("/nonexistent/path.txt", &keypoints,
-                                   &descriptors),
-      std::invalid_argument);
+  EXPECT_THROW(LoadSiftFeaturesFromTextFile(
+                   "/nonexistent/path.txt", &keypoints, &descriptors),
+               std::invalid_argument);
 }
 
 TEST(MatchGuidedSiftFeaturesCPU, PlanarConfig) {
-  // Test guided matching with PLANAR config (separate from PLANAR_OR_PANORAMIC).
+  // Test guided matching with PLANAR config (separate from
+  // PLANAR_OR_PANORAMIC).
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   const FeatureMatcher::Image image1 = {
