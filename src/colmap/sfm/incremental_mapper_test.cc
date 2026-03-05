@@ -328,9 +328,12 @@ TEST_F(IncrementalMapperImplTest, FindFirstInitialImageBasicSorting) {
   std::unordered_map<image_t, size_t> init_num_reg_trials;
   std::unordered_map<image_t, size_t> num_registrations;
 
-  const auto image_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto image_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
 
   // All images with correspondences should be returned.
   EXPECT_FALSE(image_ids.empty());
@@ -366,9 +369,12 @@ TEST_F(IncrementalMapperImplTest, FindFirstInitialImageSkipsExhaustedTrials) {
   init_num_reg_trials[all_ids[1]] =
       static_cast<size_t>(options_.init_max_reg_trials);
 
-  const auto filtered_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto filtered_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
 
   // The two exhausted images should be excluded.
   EXPECT_EQ(filtered_ids.size(), all_ids.size() - 2);
@@ -380,16 +386,18 @@ TEST_F(IncrementalMapperImplTest, FindFirstInitialImageSkipsExhaustedTrials) {
 
 // Test that FindFirstInitialImage skips images registered in other
 // reconstructions.
-TEST_F(IncrementalMapperImplTest,
-       FindFirstInitialImageSkipsRegisteredImages) {
+TEST_F(IncrementalMapperImplTest, FindFirstInitialImageSkipsRegisteredImages) {
   const auto& corr_graph = *cache_->CorrespondenceGraph();
   std::unordered_map<image_t, size_t> init_num_reg_trials;
 
   // Get all candidates with no registrations.
   std::unordered_map<image_t, size_t> no_registrations;
-  const auto all_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      no_registrations);
+  const auto all_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   no_registrations);
   ASSERT_GE(all_ids.size(), 2);
 
   // Mark some images as registered in another reconstruction.
@@ -397,9 +405,12 @@ TEST_F(IncrementalMapperImplTest,
   num_registrations[all_ids[0]] = 1;
   num_registrations[all_ids[1]] = 2;
 
-  const auto filtered_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto filtered_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
 
   EXPECT_EQ(filtered_ids.size(), all_ids.size() - 2);
   for (const auto id : filtered_ids) {
@@ -424,9 +435,12 @@ TEST_F(IncrementalMapperImplTest,
   std::unordered_map<image_t, size_t> init_num_reg_trials;
   std::unordered_map<image_t, size_t> num_registrations;
 
-  const auto image_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto image_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
 
   ASSERT_FALSE(image_ids.empty());
 
@@ -452,9 +466,12 @@ TEST_F(IncrementalMapperImplTest, FindSecondInitialImageBasic) {
   std::unordered_map<image_t, size_t> init_num_reg_trials;
 
   // Find the first initial image.
-  const auto first_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto first_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
   ASSERT_FALSE(first_ids.empty());
   const image_t image_id1 = first_ids[0];
 
@@ -470,16 +487,18 @@ TEST_F(IncrementalMapperImplTest, FindSecondInitialImageBasic) {
 
 // Test FindSecondInitialImage filters out images registered in other
 // reconstructions.
-TEST_F(IncrementalMapperImplTest,
-       FindSecondInitialImageSkipsRegisteredImages) {
+TEST_F(IncrementalMapperImplTest, FindSecondInitialImageSkipsRegisteredImages) {
   const auto& corr_graph = *cache_->CorrespondenceGraph();
   std::unordered_map<image_t, size_t> init_num_reg_trials;
 
   // Get candidates without any registration filter.
   std::unordered_map<image_t, size_t> no_registrations;
-  const auto first_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      no_registrations);
+  const auto first_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   no_registrations);
   ASSERT_FALSE(first_ids.empty());
   const image_t image_id1 = first_ids[0];
 
@@ -502,15 +521,17 @@ TEST_F(IncrementalMapperImplTest,
 }
 
 // Test FindSecondInitialImage filters images below init_min_num_inliers.
-TEST_F(IncrementalMapperImplTest,
-       FindSecondInitialImageRespectsMinInliers) {
+TEST_F(IncrementalMapperImplTest, FindSecondInitialImageRespectsMinInliers) {
   const auto& corr_graph = *cache_->CorrespondenceGraph();
   std::unordered_map<image_t, size_t> num_registrations;
   std::unordered_map<image_t, size_t> init_num_reg_trials;
 
-  const auto first_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto first_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
   ASSERT_FALSE(first_ids.empty());
   const image_t image_id1 = first_ids[0];
 
@@ -518,9 +539,12 @@ TEST_F(IncrementalMapperImplTest,
   IncrementalMapper::Options strict_options = options_;
   strict_options.init_min_num_inliers = 100000;
 
-  const auto second_ids = IncrementalMapperImpl::FindSecondInitialImage(
-      strict_options, image_id1, corr_graph, *reconstruction_,
-      num_registrations);
+  const auto second_ids =
+      IncrementalMapperImpl::FindSecondInitialImage(strict_options,
+                                                    image_id1,
+                                                    corr_graph,
+                                                    *reconstruction_,
+                                                    num_registrations);
   EXPECT_TRUE(second_ids.empty());
 }
 
@@ -532,18 +556,27 @@ TEST_F(IncrementalMapperImplTest, FindInitialImagePairWithProvidedImageId1) {
   std::unordered_set<image_pair_t> init_image_pairs;
 
   // Pick a valid image to provide as image_id1.
-  const auto first_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto first_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
   ASSERT_FALSE(first_ids.empty());
 
   image_t image_id1 = first_ids[0];
   image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
-  const bool success = IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1);
+  const bool success =
+      IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                  *cache_,
+                                                  *reconstruction_,
+                                                  init_num_reg_trials,
+                                                  num_registrations,
+                                                  init_image_pairs,
+                                                  image_id1,
+                                                  image_id2,
+                                                  cam2_from_cam1);
 
   if (success) {
     EXPECT_NE(image_id1, kInvalidImageId);
@@ -560,18 +593,27 @@ TEST_F(IncrementalMapperImplTest, FindInitialImagePairWithProvidedImageId2) {
   std::unordered_set<image_pair_t> init_image_pairs;
 
   // Pick a valid image to provide as image_id2 (image_id1 is invalid).
-  const auto first_ids = IncrementalMapperImpl::FindFirstInitialImage(
-      options_, corr_graph, *reconstruction_, init_num_reg_trials,
-      num_registrations);
+  const auto first_ids =
+      IncrementalMapperImpl::FindFirstInitialImage(options_,
+                                                   corr_graph,
+                                                   *reconstruction_,
+                                                   init_num_reg_trials,
+                                                   num_registrations);
   ASSERT_FALSE(first_ids.empty());
 
   image_t image_id1 = kInvalidImageId;
   image_t image_id2 = first_ids[0];
   Rigid3d cam2_from_cam1;
-  const bool success = IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1);
+  const bool success =
+      IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                  *cache_,
+                                                  *reconstruction_,
+                                                  init_num_reg_trials,
+                                                  num_registrations,
+                                                  init_image_pairs,
+                                                  image_id1,
+                                                  image_id2,
+                                                  cam2_from_cam1);
 
   if (success) {
     EXPECT_NE(image_id1, kInvalidImageId);
@@ -590,10 +632,15 @@ TEST_F(IncrementalMapperImplTest,
   image_t image_id1 = 99999;
   image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
-  EXPECT_FALSE(IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1));
+  EXPECT_FALSE(IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                           *cache_,
+                                                           *reconstruction_,
+                                                           init_num_reg_trials,
+                                                           num_registrations,
+                                                           init_image_pairs,
+                                                           image_id1,
+                                                           image_id2,
+                                                           cam2_from_cam1));
 }
 
 // Test FindInitialImagePair returns false for non-existent image_id2.
@@ -606,15 +653,19 @@ TEST_F(IncrementalMapperImplTest,
   image_t image_id1 = kInvalidImageId;
   image_t image_id2 = 99999;
   Rigid3d cam2_from_cam1;
-  EXPECT_FALSE(IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1));
+  EXPECT_FALSE(IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                           *cache_,
+                                                           *reconstruction_,
+                                                           init_num_reg_trials,
+                                                           num_registrations,
+                                                           init_image_pairs,
+                                                           image_id1,
+                                                           image_id2,
+                                                           cam2_from_cam1));
 }
 
 // Test FindInitialImagePair skips already-tried pairs.
-TEST_F(IncrementalMapperImplTest,
-       FindInitialImagePairSkipsAlreadyTriedPairs) {
+TEST_F(IncrementalMapperImplTest, FindInitialImagePairSkipsAlreadyTriedPairs) {
   std::unordered_map<image_t, size_t> init_num_reg_trials;
   std::unordered_map<image_t, size_t> num_registrations;
   std::unordered_set<image_pair_t> init_image_pairs;
@@ -624,10 +675,15 @@ TEST_F(IncrementalMapperImplTest,
   Rigid3d cam2_from_cam1;
 
   // First attempt should succeed.
-  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1));
+  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                          *cache_,
+                                                          *reconstruction_,
+                                                          init_num_reg_trials,
+                                                          num_registrations,
+                                                          init_image_pairs,
+                                                          image_id1,
+                                                          image_id2,
+                                                          cam2_from_cam1));
   EXPECT_FALSE(init_image_pairs.empty());
 
   // The pair was recorded in init_image_pairs. Trying again with
@@ -638,10 +694,15 @@ TEST_F(IncrementalMapperImplTest,
   image_t image_id4 = kInvalidImageId;
   Rigid3d cam2_from_cam1_2;
   // This may succeed with a different pair, or fail if all pairs tried.
-  IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id3, image_id4,
-      cam2_from_cam1_2);
+  IncrementalMapperImpl::FindInitialImagePair(options_,
+                                              *cache_,
+                                              *reconstruction_,
+                                              init_num_reg_trials,
+                                              num_registrations,
+                                              init_image_pairs,
+                                              image_id3,
+                                              image_id4,
+                                              cam2_from_cam1_2);
   // Either way, at least the first pair should still be in the set.
   EXPECT_GE(init_image_pairs.size(), pairs_after_first);
 }
@@ -751,8 +812,8 @@ TEST_F(IncrementalMapperImplFullTest, FindNextImagesMaxVisiblePointsRatio) {
   mapper_->ObservationManager().DeRegisterFrame(image.FrameId());
 
   IncrementalMapper::Options opts = options_;
-  opts.image_selection_method = IncrementalMapper::Options::ImageSelectionMethod::
-      MAX_VISIBLE_POINTS_RATIO;
+  opts.image_selection_method = IncrementalMapper::Options::
+      ImageSelectionMethod::MAX_VISIBLE_POINTS_RATIO;
 
   const auto next_ids = mapper_->FindNextImages(opts);
   bool found = false;
@@ -863,7 +924,8 @@ TEST_F(IncrementalMapperImplFullTest,
   }
 }
 
-// Test FindLocalBundle direct call with large budget exceeding available images.
+// Test FindLocalBundle direct call with large budget exceeding available
+// images.
 TEST_F(IncrementalMapperImplFullTest, FindLocalBundleLargeBudget) {
   IncrementalMapper::Options opts = options_;
   opts.ba_local_num_images = 100;
@@ -902,10 +964,15 @@ TEST_F(IncrementalMapperImplTest, EstimateInitialTwoViewGeometryDirect) {
   Rigid3d cam2_from_cam1;
 
   // Find a valid pair first.
-  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1));
+  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                          *cache_,
+                                                          *reconstruction_,
+                                                          init_num_reg_trials,
+                                                          num_registrations,
+                                                          init_image_pairs,
+                                                          image_id1,
+                                                          image_id2,
+                                                          cam2_from_cam1));
 
   // Re-estimate using the direct method.
   Rigid3d cam2_from_cam1_re;
@@ -926,10 +993,15 @@ TEST_F(IncrementalMapperImplTest,
   image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
 
-  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1));
+  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                          *cache_,
+                                                          *reconstruction_,
+                                                          init_num_reg_trials,
+                                                          num_registrations,
+                                                          init_image_pairs,
+                                                          image_id1,
+                                                          image_id2,
+                                                          cam2_from_cam1));
 
   // Set impossibly high inlier requirement.
   IncrementalMapper::Options strict_opts = options_;
@@ -952,10 +1024,15 @@ TEST_F(IncrementalMapperImplTest,
   image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
 
-  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1));
+  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                          *cache_,
+                                                          *reconstruction_,
+                                                          init_num_reg_trials,
+                                                          num_registrations,
+                                                          init_image_pairs,
+                                                          image_id1,
+                                                          image_id2,
+                                                          cam2_from_cam1));
 
   // Set impossibly low forward motion threshold (reject everything).
   IncrementalMapper::Options strict_opts = options_;
@@ -978,10 +1055,15 @@ TEST_F(IncrementalMapperImplTest,
   image_t image_id2 = kInvalidImageId;
   Rigid3d cam2_from_cam1;
 
-  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(
-      options_, *cache_, *reconstruction_, init_num_reg_trials,
-      num_registrations, init_image_pairs, image_id1, image_id2,
-      cam2_from_cam1));
+  ASSERT_TRUE(IncrementalMapperImpl::FindInitialImagePair(options_,
+                                                          *cache_,
+                                                          *reconstruction_,
+                                                          init_num_reg_trials,
+                                                          num_registrations,
+                                                          init_image_pairs,
+                                                          image_id1,
+                                                          image_id2,
+                                                          cam2_from_cam1));
 
   // Require impossibly large triangulation angle.
   IncrementalMapper::Options strict_opts = options_;
