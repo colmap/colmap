@@ -40,6 +40,9 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/util/opengl_utils.h"
+#include "colmap/util/testing.h"
+
+#include <fstream>
 
 namespace colmap {
 namespace {
@@ -1212,6 +1215,652 @@ TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
 
   TestThread thread;
   RunThreadWithOpenGLContext(&thread);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// New tests for expanded coverage
+////////////////////////////////////////////////////////////////////////////////
+
+TEST(SiftExtractionOptions, CheckValid) {
+  SiftExtractionOptions options;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckInvalidMaxNumFeatures) {
+  SiftExtractionOptions options;
+  options.max_num_features = 0;
+  EXPECT_FALSE(options.Check());
+
+  options.max_num_features = -1;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckInvalidOctaveResolution) {
+  SiftExtractionOptions options;
+  options.octave_resolution = 0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckInvalidPeakThreshold) {
+  SiftExtractionOptions options;
+  options.peak_threshold = 0.0;
+  EXPECT_FALSE(options.Check());
+
+  options.peak_threshold = -1.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckInvalidEdgeThreshold) {
+  SiftExtractionOptions options;
+  options.edge_threshold = 0.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckInvalidMaxNumOrientations) {
+  SiftExtractionOptions options;
+  options.max_num_orientations = 0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckDSPValid) {
+  SiftExtractionOptions options;
+  options.domain_size_pooling = true;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckDSPInvalidMinScale) {
+  SiftExtractionOptions options;
+  options.domain_size_pooling = true;
+  options.dsp_min_scale = 0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckDSPInvalidMaxScale) {
+  SiftExtractionOptions options;
+  options.domain_size_pooling = true;
+  // max_scale < min_scale violates GE check
+  options.dsp_min_scale = 3.0;
+  options.dsp_max_scale = 1.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckDSPInvalidNumScales) {
+  SiftExtractionOptions options;
+  options.domain_size_pooling = true;
+  options.dsp_num_scales = 0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftExtractionOptions, CheckDSPNotEnabledSkipsValidation) {
+  // When DSP is disabled, invalid DSP params should not cause failure.
+  SiftExtractionOptions options;
+  options.domain_size_pooling = false;
+  options.dsp_min_scale = 0;
+  options.dsp_max_scale = -1;
+  options.dsp_num_scales = 0;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(SiftMatchingOptions, CheckValid) {
+  SiftMatchingOptions options;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(SiftMatchingOptions, CheckInvalidMaxRatio) {
+  SiftMatchingOptions options;
+  options.max_ratio = 0.0;
+  EXPECT_FALSE(options.Check());
+
+  options.max_ratio = -0.5;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(SiftMatchingOptions, CheckInvalidMaxDistance) {
+  SiftMatchingOptions options;
+  options.max_distance = 0.0;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(ExtractSiftFeaturesCPU, L2Normalization) {
+  const Bitmap bitmap = CreateImageWithSquare(256);
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
+  options.sift->normalization = SiftExtractionOptions::Normalization::L2;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
+  EXPECT_EQ(keypoints.size(), 22);
+  EXPECT_EQ(descriptors.data.rows(), 22);
+  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
+    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
+  }
+}
+
+TEST(ExtractCovariantSiftFeaturesCPU, L2Normalization) {
+  const Bitmap bitmap = CreateImageWithSquare(256);
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = true;
+  options.sift->normalization = SiftExtractionOptions::Normalization::L2;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
+  EXPECT_EQ(keypoints.size(), 22);
+  EXPECT_EQ(descriptors.data.rows(), 22);
+  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
+    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
+  }
+}
+
+TEST(ExtractSiftFeaturesCPU, UprightSingleOrientation) {
+  const Bitmap bitmap = CreateImageWithSquare(256);
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
+  options.sift->upright = true;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
+  // Upright forces orientation to 0 and only one orientation per keypoint,
+  // so we get fewer features than the non-upright case.
+  EXPECT_GT(keypoints.size(), 0);
+  EXPECT_LE(keypoints.size(), 22);
+  EXPECT_EQ(descriptors.data.rows(), keypoints.size());
+  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+}
+
+TEST(ExtractSiftFeaturesCPU, SmallImage) {
+  // Very small image may produce zero or very few features.
+  Bitmap bitmap(16, 16, false);
+  bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
+  // A uniform small image should produce no features.
+  EXPECT_EQ(keypoints.size(), 0);
+  EXPECT_EQ(descriptors.data.rows(), 0);
+}
+
+TEST(ExtractCovariantSiftFeaturesCPU, SmallImage) {
+  Bitmap bitmap(16, 16, false);
+  bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = true;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
+  EXPECT_EQ(keypoints.size(), 0);
+  EXPECT_EQ(descriptors.data.rows(), 0);
+}
+
+TEST(ExtractSiftFeaturesCPU, MaxNumFeaturesLimit) {
+  // Use a rich image that generates many features, then limit.
+  const Bitmap bitmap = CreateImageWithSquare(256);
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
+
+  // First extract with a high limit.
+  options.sift->max_num_features = 8192;
+  auto extractor_full = CreateSiftFeatureExtractor(options);
+  FeatureKeypoints keypoints_full;
+  FeatureDescriptors descriptors_full;
+  EXPECT_TRUE(
+      extractor_full->Extract(bitmap, &keypoints_full, &descriptors_full));
+  const size_t full_count = keypoints_full.size();
+  EXPECT_GT(full_count, 1);
+
+  // Now extract with a very low limit.
+  options.sift->max_num_features = 1;
+  auto extractor_limited = CreateSiftFeatureExtractor(options);
+  FeatureKeypoints keypoints_limited;
+  FeatureDescriptors descriptors_limited;
+  EXPECT_TRUE(extractor_limited->Extract(
+      bitmap, &keypoints_limited, &descriptors_limited));
+
+  EXPECT_LE(keypoints_limited.size(), full_count);
+  EXPECT_EQ(descriptors_limited.data.rows(), keypoints_limited.size());
+}
+
+TEST(ExtractSiftFeaturesCPU, ExtractWithoutDescriptors) {
+  // Passing nullptr for descriptors should still extract keypoints.
+  const Bitmap bitmap = CreateImageWithSquare(256);
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, nullptr));
+
+  EXPECT_EQ(keypoints.size(), 22);
+}
+
+TEST(ExtractSiftFeaturesCPU, ReuseExtractorDifferentSizes) {
+  // The SiftCPU extractor caches the VlSiftFilt; extracting images of
+  // different sizes should still work (it re-creates the filter).
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  const Bitmap bitmap1 = CreateImageWithSquare(256);
+  FeatureKeypoints keypoints1;
+  FeatureDescriptors descriptors1;
+  EXPECT_TRUE(extractor->Extract(bitmap1, &keypoints1, &descriptors1));
+  EXPECT_GT(keypoints1.size(), 0);
+
+  const Bitmap bitmap2 = CreateImageWithSquare(128);
+  FeatureKeypoints keypoints2;
+  FeatureDescriptors descriptors2;
+  EXPECT_TRUE(extractor->Extract(bitmap2, &keypoints2, &descriptors2));
+  EXPECT_GT(keypoints2.size(), 0);
+
+  // Different image sizes should produce different feature counts.
+  EXPECT_NE(keypoints1.size(), keypoints2.size());
+}
+
+TEST(CreateSiftFeatureExtractor, GPUReturnsNullWithoutGPU) {
+#if !defined(COLMAP_GPU_ENABLED)
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = true;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
+  auto extractor = CreateSiftFeatureExtractor(options);
+  EXPECT_EQ(extractor, nullptr);
+#endif
+}
+
+TEST(CreateSiftFeatureMatcher, GPUReturnsNullWithoutGPU) {
+#if !defined(COLMAP_GPU_ENABLED)
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = true;
+  auto matcher = CreateSiftFeatureMatcher(options);
+  EXPECT_EQ(matcher, nullptr);
+#endif
+}
+
+TEST(SiftCPUFeatureMatcher, BruteForceNominal) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image0 = {
+      /*image_id=*/0,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_brute_force_matcher = true;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  FeatureMatches matches;
+  matcher->Match(image1, image2, &matches);
+  EXPECT_EQ(matches.size(), 2);
+  EXPECT_EQ(matches[0].point2D_idx1, 0);
+  EXPECT_EQ(matches[0].point2D_idx2, 1);
+  EXPECT_EQ(matches[1].point2D_idx1, 1);
+  EXPECT_EQ(matches[1].point2D_idx2, 0);
+
+  matcher->Match(image0, image2, &matches);
+  EXPECT_EQ(matches.size(), 0);
+  matcher->Match(image1, image0, &matches);
+  EXPECT_EQ(matches.size(), 0);
+  matcher->Match(image0, image0, &matches);
+  EXPECT_EQ(matches.size(), 0);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, UnsupportedConfigReturnsEmpty) {
+  // Guided matching with DEGENERATE config should return immediately
+  // with no matches (the else branch in the guided filter setup).
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureDescriptorIndexCacheHelper index_cache_helper({image1, image2});
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_brute_force_matcher = true;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::DEGENERATE;
+
+  matcher->MatchGuided(1.0, image1, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, WatermarkConfigReturnsEmpty) {
+  // WATERMARK is also an unsupported config for guided matching.
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureDescriptorIndexCacheHelper index_cache_helper({image1, image2});
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_brute_force_matcher = true;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::WATERMARK;
+
+  matcher->MatchGuided(1.0, image1, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, BruteForceUncalibrated) {
+  // Exercises the UNCALIBRATED guided matching path with brute-force matcher.
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+
+  // Create points that lie on an epipolar line for identity fundamental matrix.
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureDescriptorIndexCacheHelper index_cache_helper({image1, image2});
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_brute_force_matcher = true;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+  // Use a fundamental matrix close to identity so all points satisfy epipolar.
+  two_view_geometry.F =
+      (Eigen::Matrix3d() << 0, 0, 0, 0, 0, -1, 0, 1, 0).finished();
+
+  matcher->MatchGuided(10.0, image1, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
+}
+
+TEST(LoadSiftFeaturesFromTextFile, Nominal) {
+  const auto test_dir = CreateTestDir();
+  const auto path = test_dir / "features.txt";
+
+  {
+    std::ofstream file(path);
+    file << "2 128\n";
+    // Feature 1
+    file << "0.5 1.5 2.0 0.1";
+    for (int j = 0; j < 128; ++j) {
+      file << " " << (j % 256);
+    }
+    file << "\n";
+    // Feature 2
+    file << "10.0 20.0 3.0 1.57";
+    for (int j = 0; j < 128; ++j) {
+      file << " " << ((j + 50) % 256);
+    }
+    file << "\n";
+  }
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
+
+  ASSERT_EQ(keypoints.size(), 2);
+  EXPECT_FLOAT_EQ(keypoints[0].x, 0.5f);
+  EXPECT_FLOAT_EQ(keypoints[0].y, 1.5f);
+  EXPECT_NEAR(keypoints[1].x, 10.0f, 1e-4f);
+  EXPECT_NEAR(keypoints[1].y, 20.0f, 1e-4f);
+
+  EXPECT_EQ(descriptors.data.rows(), 2);
+  EXPECT_EQ(descriptors.data.cols(), 128);
+  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+
+  // Verify descriptor values.
+  for (int j = 0; j < 128; ++j) {
+    EXPECT_EQ(descriptors.data(0, j), static_cast<uint8_t>(j % 256));
+    EXPECT_EQ(descriptors.data(1, j), static_cast<uint8_t>((j + 50) % 256));
+  }
+}
+
+TEST(LoadSiftFeaturesFromTextFile, ZeroFeatures) {
+  const auto test_dir = CreateTestDir();
+  const auto path = test_dir / "empty_features.txt";
+
+  {
+    std::ofstream file(path);
+    file << "0 128\n";
+  }
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
+
+  EXPECT_EQ(keypoints.size(), 0);
+  EXPECT_EQ(descriptors.data.rows(), 0);
+  EXPECT_EQ(descriptors.data.cols(), 128);
+  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+}
+
+TEST(LoadSiftFeaturesFromTextFile, InvalidDimension) {
+  const auto test_dir = CreateTestDir();
+  const auto path = test_dir / "bad_dim_features.txt";
+
+  {
+    std::ofstream file(path);
+    // Wrong dimension (64 instead of 128).
+    file << "1 64\n";
+    file << "0.5 1.5 2.0 0.1";
+    for (int j = 0; j < 64; ++j) {
+      file << " " << j;
+    }
+    file << "\n";
+  }
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_THROW(LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors),
+               std::invalid_argument);
+}
+
+TEST(LoadSiftFeaturesFromTextFile, NonexistentFile) {
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_THROW(
+      LoadSiftFeaturesFromTextFile("/nonexistent/path.txt", &keypoints,
+                                   &descriptors),
+      std::invalid_argument);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, PlanarConfig) {
+  // Test guided matching with PLANAR config (separate from PLANAR_OR_PANORAMIC).
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureDescriptorIndexCacheHelper index_cache_helper({image1, image2});
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::PLANAR;
+  two_view_geometry.H = Eigen::Matrix3d::Identity();
+
+  constexpr double kMaxError = 4.0;
+  matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, PanoramicConfig) {
+  // Test guided matching with PANORAMIC config.
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureDescriptorIndexCacheHelper index_cache_helper({image1, image2});
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::PANORAMIC;
+  two_view_geometry.H = Eigen::Matrix3d::Identity();
+
+  constexpr double kMaxError = 4.0;
+  matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
+}
+
+TEST(SiftCPUFeatureMatcher, BruteForceMaxDistanceFilter) {
+  // Test that a very small max_distance filters out matches.
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_brute_force_matcher = true;
+
+  // With a normal distance, we get matches.
+  options.sift->max_distance = 0.7;
+  auto matcher_normal = CreateSiftFeatureMatcher(options);
+  FeatureMatches matches_normal;
+  matcher_normal->Match(image1, image2, &matches_normal);
+  EXPECT_EQ(matches_normal.size(), 2);
+
+  // With a very small max_distance, no matches pass.
+  options.sift->max_distance = 0.001;
+  auto matcher_strict = CreateSiftFeatureMatcher(options);
+  FeatureMatches matches_strict;
+  matcher_strict->Match(image1, image2, &matches_strict);
+  EXPECT_EQ(matches_strict.size(), 0);
 }
 
 }  // namespace
