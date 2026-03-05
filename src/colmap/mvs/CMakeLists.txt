@@ -101,6 +101,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
+    NAME patch_match_options_test
+    SRCS patch_match_options_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
     NAME workspace_test
     SRCS workspace_test.cc
     LINK_LIBS colmap_mvs
