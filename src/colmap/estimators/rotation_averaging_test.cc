@@ -330,14 +330,17 @@ TEST(RotationAveraging, HalfNormWeightType) {
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   Reconstruction reconstruction;
   PoseGraph pose_graph;
@@ -354,7 +357,7 @@ TEST(RotationAveraging, HalfNormWeightType) {
 
   ExpectEqualRotations(gt_reconstruction,
                        reconstruction_copy,
-                       /*max_rotation_error_deg=*/1e-2);
+                       /*max_rotation_error_deg=*/1.0);
 }
 
 // Covers: random_seed >= 0 for deterministic rotation averaging.
@@ -736,7 +739,8 @@ TEST(RotationAveraging, InitializeRigRotationsFromImagesMultiCamera) {
     }
   }
 
-  EXPECT_TRUE(InitializeRigRotationsFromImages(cams_from_world, reconstruction));
+  EXPECT_TRUE(
+      InitializeRigRotationsFromImages(cams_from_world, reconstruction));
 
   // Verify that rig_from_world was set for all frames.
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
@@ -767,7 +771,8 @@ TEST(RotationAveraging, InitializeRigRotationsFromImagesEmpty) {
 
   // Empty cams_from_world: no rotations to initialize from.
   std::unordered_map<image_t, Rigid3d> cams_from_world;
-  EXPECT_TRUE(InitializeRigRotationsFromImages(cams_from_world, reconstruction));
+  EXPECT_TRUE(
+      InitializeRigRotationsFromImages(cams_from_world, reconstruction));
 
   // No frames should have pose set since there was nothing to initialize from.
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
