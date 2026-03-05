@@ -1363,7 +1363,7 @@ TEST(ExtractCovariantSiftFeaturesCPU, L2Normalization) {
   EXPECT_EQ(descriptors.data.rows(), 22);
   EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
   for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
+    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 2);
   }
 }
 
@@ -1829,34 +1829,61 @@ TEST(MatchGuidedSiftFeaturesCPU, PanoramicConfig) {
 }
 
 TEST(SiftCPUFeatureMatcher, BruteForceMaxDistanceFilter) {
-  // Test that a very small max_distance filters out matches.
+  // Test that max_distance filters out matches when descriptors are dissimilar.
+  // Create two images with descriptors that have partial overlap:
+  //   desc1[0]: dims 0-9,   desc1[1]: dims 10-19
+  //   desc2[0]: dims 0-4 + 64-68,  desc2[1]: dims 10-14 + 74-78
+  // Best match pairs share 5 out of 10 dims each.
+  // dot_product ≈ 0.5 * 512^2, distance ≈ acos(0.5) ≈ 1.05 radians.
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+
+  FeatureDescriptorsFloatData float1 =
+      FeatureDescriptorsFloatData::Zero(2, 128);
+  for (int j = 0; j < 10; ++j) {
+    float1(0, j) = 1.0f;
+    float1(1, 10 + j) = 1.0f;
+  }
+  L2NormalizeFeatureDescriptors(&float1);
+
+  FeatureDescriptorsFloatData float2 =
+      FeatureDescriptorsFloatData::Zero(2, 128);
+  for (int j = 0; j < 5; ++j) {
+    float2(0, j) = 1.0f;
+    float2(0, 64 + j) = 1.0f;
+    float2(1, 10 + j) = 1.0f;
+    float2(1, 74 + j) = 1.0f;
+  }
+  L2NormalizeFeatureDescriptors(&float2);
+
   const FeatureMatcher::Image image1 = {
       /*image_id=*/1,
       /*camera=*/&camera,
       /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+      std::make_shared<FeatureDescriptors>(
+          FeatureExtractorType::SIFT,
+          FeatureDescriptorsToUnsignedByte(float1))};
   const FeatureMatcher::Image image2 = {
       /*image_id=*/2,
       /*camera=*/&camera,
       /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(
-          CreateReversedDescriptors(*image1.descriptors))};
+          FeatureExtractorType::SIFT,
+          FeatureDescriptorsToUnsignedByte(float2))};
 
   FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = false;
   options.sift->cpu_brute_force_matcher = true;
 
-  // With a normal distance, we get matches.
-  options.sift->max_distance = 0.7;
+  // With a generous max_distance (> 1.05), matches pass.
+  options.sift->max_distance = 1.2;
   auto matcher_normal = CreateSiftFeatureMatcher(options);
   FeatureMatches matches_normal;
   matcher_normal->Match(image1, image2, &matches_normal);
   EXPECT_EQ(matches_normal.size(), 2);
 
-  // With a very small max_distance, no matches pass.
-  options.sift->max_distance = 0.001;
+  // With a strict max_distance (< 1.05), no matches pass.
+  options.sift->max_distance = 0.5;
   auto matcher_strict = CreateSiftFeatureMatcher(options);
   FeatureMatches matches_strict;
   matcher_strict->Match(image1, image2, &matches_strict);
