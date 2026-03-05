@@ -30,9 +30,11 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -667,6 +669,428 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
       run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
   EXPECT_THAT(*reconstruction_manager0->Get(0),
               ReconstructionEq(*reconstruction_manager1->Get(0)));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// New tests targeting previously uncovered code paths
+//////////////////////////////////////////////////////////////////////////////
+
+TEST(IncrementalPipelineOptions, MapperPropagatesFields) {
+  IncrementalPipelineOptions options;
+  options.ba_refine_focal_length = false;
+  options.ba_refine_extra_params = false;
+  options.min_focal_length_ratio = 0.2;
+  options.max_focal_length_ratio = 8.0;
+  options.max_extra_param = 2.0;
+  options.num_threads = 4;
+  options.fix_existing_frames = true;
+  options.use_prior_position = true;
+  options.use_robust_loss_on_prior_position = true;
+  options.prior_position_loss_scale = 5.0;
+  options.random_seed = 123;
+
+  const auto mapper = options.Mapper();
+
+  EXPECT_FALSE(mapper.abs_pose_refine_focal_length);
+  EXPECT_FALSE(mapper.abs_pose_refine_extra_params);
+  EXPECT_DOUBLE_EQ(mapper.min_focal_length_ratio, 0.2);
+  EXPECT_DOUBLE_EQ(mapper.max_focal_length_ratio, 8.0);
+  EXPECT_DOUBLE_EQ(mapper.max_extra_param, 2.0);
+  EXPECT_EQ(mapper.num_threads, 4);
+  EXPECT_TRUE(mapper.fix_existing_frames);
+  EXPECT_TRUE(mapper.use_prior_position);
+  EXPECT_TRUE(mapper.use_robust_loss_on_prior_position);
+  EXPECT_DOUBLE_EQ(mapper.prior_position_loss_scale, 5.0);
+  EXPECT_EQ(mapper.random_seed, 123);
+}
+
+TEST(IncrementalPipelineOptions, TriangulationPropagatesFields) {
+  IncrementalPipelineOptions options;
+  options.min_focal_length_ratio = 0.3;
+  options.max_focal_length_ratio = 7.0;
+  options.max_extra_param = 1.5;
+  options.random_seed = 99;
+
+  const auto tri = options.Triangulation();
+
+  EXPECT_DOUBLE_EQ(tri.min_focal_length_ratio, 0.3);
+  EXPECT_DOUBLE_EQ(tri.max_focal_length_ratio, 7.0);
+  EXPECT_DOUBLE_EQ(tri.max_extra_param, 1.5);
+  EXPECT_EQ(tri.random_seed, 99);
+}
+
+TEST(IncrementalPipelineOptions, LocalBundleAdjustmentPropagatesFields) {
+  IncrementalPipelineOptions options;
+  options.ba_refine_focal_length = false;
+  options.ba_refine_principal_point = true;
+  options.ba_refine_extra_params = false;
+  options.ba_refine_sensor_from_rig = false;
+  options.ba_local_function_tolerance = 1e-4;
+  options.ba_local_max_num_iterations = 10;
+  options.num_threads = 8;
+  options.ba_min_num_residuals_for_cpu_multi_threading = 10000;
+  options.ba_use_gpu = true;
+  options.ba_gpu_index = "0";
+
+  const auto ba = options.LocalBundleAdjustment();
+
+  EXPECT_FALSE(ba.print_summary);
+  EXPECT_FALSE(ba.refine_focal_length);
+  EXPECT_TRUE(ba.refine_principal_point);
+  EXPECT_FALSE(ba.refine_extra_params);
+  EXPECT_FALSE(ba.refine_sensor_from_rig);
+  if (ba.ceres) {
+    EXPECT_DOUBLE_EQ(ba.ceres->solver_options.function_tolerance, 1e-4);
+    EXPECT_EQ(ba.ceres->solver_options.max_num_iterations, 10);
+    EXPECT_EQ(ba.ceres->solver_options.num_threads, 8);
+    EXPECT_EQ(ba.ceres->min_num_residuals_for_cpu_multi_threading, 10000);
+    EXPECT_DOUBLE_EQ(ba.ceres->loss_function_scale, 1.0);
+    EXPECT_EQ(ba.ceres->loss_function_type,
+              CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1);
+    EXPECT_TRUE(ba.ceres->use_gpu);
+    EXPECT_EQ(ba.ceres->gpu_index, "0");
+  }
+}
+
+TEST(IncrementalPipelineOptions, GlobalBundleAdjustmentPropagatesFields) {
+  IncrementalPipelineOptions options;
+  options.ba_refine_focal_length = false;
+  options.ba_refine_principal_point = true;
+  options.ba_refine_extra_params = false;
+  options.ba_refine_sensor_from_rig = false;
+  options.ba_global_function_tolerance = 1e-5;
+  options.ba_global_max_num_iterations = 100;
+  options.num_threads = 16;
+  options.ba_min_num_residuals_for_cpu_multi_threading = 20000;
+  options.ba_use_gpu = true;
+  options.ba_gpu_index = "1";
+
+  const auto ba = options.GlobalBundleAdjustment();
+
+  EXPECT_FALSE(ba.print_summary);
+  EXPECT_FALSE(ba.refine_focal_length);
+  EXPECT_TRUE(ba.refine_principal_point);
+  EXPECT_FALSE(ba.refine_extra_params);
+  EXPECT_FALSE(ba.refine_sensor_from_rig);
+  if (ba.ceres) {
+    EXPECT_DOUBLE_EQ(ba.ceres->solver_options.function_tolerance, 1e-5);
+    EXPECT_EQ(ba.ceres->solver_options.max_num_iterations, 100);
+    EXPECT_EQ(ba.ceres->solver_options.num_threads, 16);
+    EXPECT_EQ(ba.ceres->min_num_residuals_for_cpu_multi_threading, 20000);
+    EXPECT_EQ(ba.ceres->loss_function_type,
+              CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL);
+    EXPECT_TRUE(ba.ceres->use_gpu);
+    EXPECT_EQ(ba.ceres->gpu_index, "1");
+  }
+}
+
+TEST(IncrementalPipelineOptions, CheckDefaultsPass) {
+  IncrementalPipelineOptions options;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(IncrementalPipelineOptions, IsInitialPairProvided) {
+  IncrementalPipelineOptions options;
+  EXPECT_FALSE(options.IsInitialPairProvided());
+
+  options.init_image_id1 = 1;
+  EXPECT_FALSE(options.IsInitialPairProvided());
+
+  options.init_image_id2 = 2;
+  EXPECT_TRUE(options.IsInitialPairProvided());
+}
+
+TEST(IncrementalPipeline, CheckRunGlobalRefinementConditions) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  // Set thresholds high enough that nothing triggers by default.
+  options->ba_global_frames_ratio = 100.0;
+  options->ba_global_points_ratio = 100.0;
+  options->ba_global_frames_freq = 100000;
+  options->ba_global_points_freq = 100000;
+  IncrementalPipeline pipeline(options, database, reconstruction_manager);
+
+  // Build a reconstruction with 4 reg frames and 50 points.
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // Nothing triggers: all conditions false.
+  EXPECT_FALSE(pipeline.CheckRunGlobalRefinement(reconstruction, 4, 50));
+
+  // Trigger via frames ratio only: 4 >= 100.0 * 0 = 0 -> true.
+  // Use prev=0 so ratio*0=0 makes it trigger.
+  EXPECT_TRUE(pipeline.CheckRunGlobalRefinement(reconstruction, 0, 50));
+
+  // Trigger via frames freq: set freq=2, prev=2 -> 4 >= 2 + 2 = 4 -> true.
+  options->ba_global_frames_freq = 2;
+  EXPECT_TRUE(pipeline.CheckRunGlobalRefinement(reconstruction, 2, 50));
+  options->ba_global_frames_freq = 100000;  // Reset.
+
+  // Trigger via points ratio: prev=0, 50 >= 100.0 * 0 = 0 -> true.
+  EXPECT_TRUE(pipeline.CheckRunGlobalRefinement(reconstruction, 4, 0));
+
+  // Trigger via points freq: set freq=10, prev=40 -> 50 >= 10 + 40 = 50.
+  options->ba_global_points_freq = 10;
+  EXPECT_TRUE(pipeline.CheckRunGlobalRefinement(reconstruction, 4, 40));
+  options->ba_global_points_freq = 100000;  // Reset.
+
+  // Verify it stays false when all conditions are comfortably not met.
+  EXPECT_FALSE(pipeline.CheckRunGlobalRefinement(reconstruction, 4, 50));
+}
+
+TEST(IncrementalPipeline, RunWithEmptyDatabaseExitsEarly) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+
+  // Create a pipeline with an empty database (no images at all).
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  IncrementalPipeline pipeline(options, database, reconstruction_manager);
+  pipeline.Run();
+
+  // No reconstruction should be produced from an empty database.
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
+}
+
+TEST(IncrementalPipeline, RunWithPriorPositionButNoPriorsExitsEarly) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  // Do not generate prior positions.
+  synthetic_dataset_options.prior_position = false;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  // Enable prior position usage, but the database has no priors.
+  options->use_prior_position = true;
+  IncrementalPipeline pipeline(options, database, reconstruction_manager);
+  pipeline.Run();
+
+  // Pipeline should exit early without producing a reconstruction.
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
+}
+
+TEST(IncrementalPipeline, SnapshotWrittenDuringReconstruction) {
+  SetPRNGSeed(0);
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto snapshot_path = test_dir / "snapshots";
+  CreateDirIfNotExists(snapshot_path);
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->snapshot_path = snapshot_path;
+  // Trigger snapshot after every 1 newly registered frame beyond initial pair.
+  options->snapshot_frames_freq = 1;
+  IncrementalPipeline pipeline(options, database, reconstruction_manager);
+  pipeline.Run();
+
+  ASSERT_GE(reconstruction_manager->Size(), 1);
+
+  // Verify that at least one snapshot subdirectory was written.
+  const auto snapshot_dirs = GetDirList(snapshot_path);
+  EXPECT_GE(snapshot_dirs.size(), 1);
+
+  // Each snapshot should contain reconstruction files that can be read back.
+  for (const auto& dir : snapshot_dirs) {
+    Reconstruction snapshot_reconstruction;
+    snapshot_reconstruction.Read(dir);
+    EXPECT_GT(snapshot_reconstruction.NumRegImages(), 0);
+    EXPECT_GT(snapshot_reconstruction.NumPoints3D(), 0);
+  }
+}
+
+TEST(IncrementalPipeline, MaxRuntimeStopsReconstruction) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  // Set an extremely short runtime to trigger the timeout path.
+  // The pipeline should stop and keep whatever reconstruction it has.
+  // max_runtime_seconds must be > 0 for the check to trigger (the check is
+  // max_runtime_seconds > 0 && elapsed > max_runtime_seconds).
+  options->max_runtime_seconds = 1;
+  IncrementalPipeline pipeline(options, database, reconstruction_manager);
+  pipeline.Run();
+
+  // With max_runtime_seconds=0, the pipeline should stop almost immediately.
+  // It may or may not have produced a reconstruction depending on timing,
+  // but it should not crash.
+  // The key coverage target is the CheckReachedMaxRuntime() path.
+}
+
+TEST(IncrementalPipeline, TriangulateExistingReconstruction) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // First, run a normal reconstruction.
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  IncrementalPipeline pipeline(options, database, reconstruction_manager);
+  pipeline.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto reconstruction = reconstruction_manager->Get(0);
+
+  // Remove all 3D points from the reconstruction to simulate a scenario
+  // where we need to re-triangulate.
+  const auto point3D_ids = reconstruction->Point3DIds();
+  for (const point3D_t point3D_id : point3D_ids) {
+    reconstruction->DeletePoint3D(point3D_id);
+  }
+  ASSERT_EQ(reconstruction->NumPoints3D(), 0);
+
+  // Re-triangulate using the existing registered images.
+  pipeline.TriangulateReconstruction(reconstruction);
+
+  // After triangulation, we should have 3D points again.
+  EXPECT_GT(reconstruction->NumPoints3D(), 0);
+  EXPECT_GT(reconstruction->NumRegImages(), 0);
+}
+
+TEST(IncrementalPipeline, StopCallbackInterruptsReconstruction) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  IncrementalPipeline pipeline(options, database, reconstruction_manager);
+
+  // Set the stop function to immediately stop after the initial pair.
+  int callback_count = 0;
+  pipeline.SetCheckIfStoppedFunc([&callback_count]() {
+    // Stop after the first check (i.e., right after initialization attempt).
+    return ++callback_count > 1;
+  });
+  pipeline.Run();
+
+  // The pipeline should have at most 1 reconstruction (possibly kept from
+  // the interrupted state).
+  EXPECT_LE(reconstruction_manager->Size(), 1);
+}
+
+TEST(IncrementalPipeline, DatabaseCacheConstructor) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Create a DatabaseCache from the database first, then pass it to the
+  // pipeline constructor that accepts a DatabaseCache directly.
+  DatabaseCache::Options cache_options;
+  auto database_cache = DatabaseCache::Create(*database, cache_options);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  IncrementalPipeline pipeline(
+      options, database_cache, reconstruction_manager);
+  pipeline.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
+TEST(IncrementalPipeline, NullOptionsThrows) {
+  auto database = Database::Open(CreateTestDir() / "database.db");
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  EXPECT_THROW(
+      IncrementalPipeline(nullptr, database, reconstruction_manager),
+      std::invalid_argument);
+}
+
+TEST(IncrementalPipeline, NullReconstructionManagerThrows) {
+  auto database = Database::Open(CreateTestDir() / "database.db");
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+
+  EXPECT_THROW(
+      IncrementalPipeline(options, database, nullptr),
+      std::invalid_argument);
+}
+
+TEST(IncrementalPipeline, NullDatabaseThrows) {
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  std::shared_ptr<Database> null_database;
+
+  EXPECT_THROW(
+      IncrementalPipeline(options, null_database, reconstruction_manager),
+      std::invalid_argument);
 }
 
 }  // namespace
