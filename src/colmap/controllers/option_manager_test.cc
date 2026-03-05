@@ -590,8 +590,8 @@ TEST(OptionManager, WriteAndReadBundleAdjustmentOptions) {
   EXPECT_FALSE(reader.bundle_adjustment->refine_focal_length);
   EXPECT_TRUE(reader.bundle_adjustment->refine_principal_point);
   EXPECT_EQ(reader.bundle_adjustment->min_track_length, 5);
-  EXPECT_EQ(
-      reader.bundle_adjustment->ceres->solver_options.max_num_iterations, 200);
+  EXPECT_EQ(reader.bundle_adjustment->ceres->solver_options.max_num_iterations,
+            200);
 }
 
 TEST(OptionManager, WriteAndReadStereoOptions) {
