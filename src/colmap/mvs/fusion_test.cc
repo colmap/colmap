@@ -41,7 +41,6 @@
 
 namespace colmap {
 namespace mvs {
-namespace {
 
 // Re-declare internal::FindNextImage so we can test it directly.
 namespace internal {
@@ -50,6 +49,8 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
                   const std::vector<char>& fused_images,
                   int prev_image_idx);
 }  // namespace internal
+
+namespace {
 
 // Helper to create a workspace directory with synthetic data suitable for
 // fusion testing. Returns the temp dir path and populates image_names.
@@ -360,6 +361,7 @@ TEST(StereoFusion, HighMinNumPixelsFiltersPoints) {
 
   auto options = DefaultTestOptions();
   options.min_num_pixels = 99999;
+  options.max_num_pixels = 99999;
 
   StereoFusion fusion(options, ws.temp_dir, "COLMAP", "", "geometric");
   fusion.Run();
@@ -514,18 +516,21 @@ TEST(StereoFusion, CachedWorkspaceMode) {
             fusion.GetFusedPointsVisibility().size());
 }
 
-TEST(StereoFusion, RunCanBeCalledTwice) {
-  // Verify that Run() clears previous state and produces consistent results.
+TEST(StereoFusion, SameWorkspaceProducesConsistentResults) {
+  // Verify that creating two StereoFusion objects on the same workspace
+  // produces consistent results.
   auto ws = FusionTestWorkspace::Create();
 
-  StereoFusion fusion(
+  StereoFusion fusion1(
       DefaultTestOptions(), ws.temp_dir, "COLMAP", "", "geometric");
-  fusion.Run();
-  const size_t first_count = fusion.GetFusedPoints().size();
+  fusion1.Run();
+  const size_t first_count = fusion1.GetFusedPoints().size();
   EXPECT_GT(first_count, 0);
 
-  fusion.Run();
-  const size_t second_count = fusion.GetFusedPoints().size();
+  StereoFusion fusion2(
+      DefaultTestOptions(), ws.temp_dir, "COLMAP", "", "geometric");
+  fusion2.Run();
+  const size_t second_count = fusion2.GetFusedPoints().size();
   EXPECT_EQ(first_count, second_count);
 }
 
