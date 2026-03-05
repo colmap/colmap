@@ -260,11 +260,12 @@ TEST(EstimateTwoViewGeometryPose, FailureDueToInvalidConfig) {
       CreateTwoViewGeometryPoseTestData(
           TwoViewGeometry::ConfigurationType::CALIBRATED);
 
-  for (const auto config : {TwoViewGeometry::ConfigurationType::UNDEFINED,
-                            TwoViewGeometry::ConfigurationType::DEGENERATE,
-                            TwoViewGeometry::ConfigurationType::WATERMARK,
-                            TwoViewGeometry::ConfigurationType::MULTIPLE,
-                            TwoViewGeometry::ConfigurationType::CALIBRATED_RIG}) {
+  for (const auto config :
+       {TwoViewGeometry::ConfigurationType::UNDEFINED,
+        TwoViewGeometry::ConfigurationType::DEGENERATE,
+        TwoViewGeometry::ConfigurationType::WATERMARK,
+        TwoViewGeometry::ConfigurationType::MULTIPLE,
+        TwoViewGeometry::ConfigurationType::CALIBRATED_RIG}) {
     TwoViewGeometry geometry;
     geometry.config = config;
     geometry.E = test_data.geometry.E;
