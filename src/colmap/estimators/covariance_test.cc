@@ -35,6 +35,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
+#include <unordered_set>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -324,6 +326,729 @@ INSTANTIATE_TEST_SUITE_P(
           BACovarianceTestOptions test_options;
           return std::make_pair(options, test_options);
         }()));
+
+// Helper to set up a solved BA problem and return the covariance, the
+// reconstruction, and the ceres problem for further querying.
+struct SolvedBAProblem {
+  Reconstruction reconstruction;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster;
+  std::shared_ptr<ceres::Problem> problem;
+  std::optional<BACovariance> ba_cov;
+  std::vector<internal::PoseParam> poses;
+};
+
+SolvedBAProblem SetUpSolvedBA(const BACovarianceOptions& cov_options,
+                              bool fixed_cam_intrinsics = false) {
+  SetPRNGSeed(0);
+
+  SolvedBAProblem result;
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &result.reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &result.reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : result.reconstruction.Images()) {
+    config.AddImage(image_id);
+    if (fixed_cam_intrinsics) {
+      config.SetConstantCamIntrinsics(image.CameraId());
+    }
+  }
+
+  // Fix Gauge by setting 3 points constant.
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : result.reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  result.bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, result.reconstruction);
+  const auto summary = result.bundle_adjuster->Solve();
+  CHECK(summary->IsSolutionUsable());
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(result.bundle_adjuster.get());
+  CHECK_NOTNULL(ceres_ba);
+  result.problem = ceres_ba->Problem();
+
+  result.ba_cov =
+      EstimateBACovariance(cov_options, result.reconstruction, *ceres_ba);
+  CHECK(result.ba_cov.has_value());
+
+  result.poses =
+      internal::GetPoseParams(result.reconstruction, *result.problem);
+
+  return result;
+}
+
+// Test GetCam2CovFromCam1 success path: compute relative pose covariance
+// between two cameras and verify it produces a 6x6 symmetric PSD matrix.
+TEST(BACovarianceTest, GetCam2CovFromCam1Success) {
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::ALL;
+  auto solved = SetUpSolvedBA(options);
+
+  ASSERT_GE(solved.poses.size(), 2);
+
+  const image_t id1 = solved.poses[0].image_id;
+  const image_t id2 = solved.poses[1].image_id;
+  const Rigid3d& cam1_from_world =
+      solved.reconstruction.Image(id1).CamFromWorld();
+  const Rigid3d& cam2_from_world =
+      solved.reconstruction.Image(id2).CamFromWorld();
+
+  const auto rel_cov =
+      solved.ba_cov->GetCam2CovFromCam1(id1, cam1_from_world, id2, cam2_from_world);
+  ASSERT_TRUE(rel_cov.has_value());
+  EXPECT_EQ(rel_cov->rows(), 6);
+  EXPECT_EQ(rel_cov->cols(), 6);
+
+  // Covariance matrix should be symmetric.
+  ExpectNearEigenMatrixXd(*rel_cov, rel_cov->transpose(), 1e-10);
+
+  // Covariance matrix should be positive semi-definite (all eigenvalues >= 0).
+  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigensolver(*rel_cov);
+  ASSERT_EQ(eigensolver.info(), Eigen::Success);
+  for (int i = 0; i < eigensolver.eigenvalues().size(); ++i) {
+    EXPECT_GE(eigensolver.eigenvalues()(i), -1e-10);
+  }
+
+  // All diagonal entries should be positive (variances).
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_GT((*rel_cov)(i, i), 0.0);
+  }
+}
+
+// Test GetCam2CovFromCam1 returns nullopt when image_id1 is invalid.
+TEST(BACovarianceTest, GetCam2CovFromCam1InvalidImage1) {
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::ALL;
+  auto solved = SetUpSolvedBA(options);
+
+  ASSERT_GE(solved.poses.size(), 2);
+  const image_t id2 = solved.poses[1].image_id;
+  const Rigid3d& cam2_from_world =
+      solved.reconstruction.Image(id2).CamFromWorld();
+
+  const auto rel_cov = solved.ba_cov->GetCam2CovFromCam1(
+      kInvalidImageId, Rigid3d(), id2, cam2_from_world);
+  ASSERT_FALSE(rel_cov.has_value());
+}
+
+// Test GetCam2CovFromCam1 returns nullopt when image_id2 is invalid.
+TEST(BACovarianceTest, GetCam2CovFromCam1InvalidImage2) {
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::ALL;
+  auto solved = SetUpSolvedBA(options);
+
+  ASSERT_GE(solved.poses.size(), 1);
+  const image_t id1 = solved.poses[0].image_id;
+  const Rigid3d& cam1_from_world =
+      solved.reconstruction.Image(id1).CamFromWorld();
+
+  const auto rel_cov = solved.ba_cov->GetCam2CovFromCam1(
+      id1, cam1_from_world, kInvalidImageId, Rigid3d());
+  ASSERT_FALSE(rel_cov.has_value());
+}
+
+// Test GetCam2CovFromCam1 returns nullopt when poses are partially constant
+// (covariance rows != 6). Uses constant_rig_from_world_rotation to fix
+// rotation for all poses, making tangent size 3 (translation only).
+TEST(BACovarianceTest, GetCam2CovFromCam1PartiallyConstantPoses) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentOptions ba_options;
+  // Fix rotation for all poses, only refine translation. This makes the
+  // tangent size 3 instead of 6.
+  ba_options.constant_rig_from_world_rotation = true;
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+    config.SetConstantCamIntrinsics(image.CameraId());
+  }
+
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  auto bundle_adjuster =
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+
+  BACovarianceOptions cov_options;
+  cov_options.params = BACovarianceOptions::Params::POSES;
+  auto ba_cov_opt =
+      EstimateBACovariance(cov_options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(ba_cov_opt.has_value());
+
+  auto problem = ceres_ba->Problem();
+  const auto poses = internal::GetPoseParams(reconstruction, *problem);
+  ASSERT_GE(poses.size(), 2);
+
+  // GetCamCovFromWorld should return 3x3 matrices (translation only).
+  for (const auto& pose : poses) {
+    const auto cov = ba_cov_opt->GetCamCovFromWorld(pose.image_id);
+    ASSERT_TRUE(cov.has_value());
+    EXPECT_EQ(cov->rows(), 3);
+    EXPECT_EQ(cov->cols(), 3);
+  }
+
+  // GetCam2CovFromCam1 should return nullopt because poses are partially
+  // constant (rows != 6).
+  const Rigid3d& cam1_from_world =
+      reconstruction.Image(poses[0].image_id).CamFromWorld();
+  const Rigid3d& cam2_from_world =
+      reconstruction.Image(poses[1].image_id).CamFromWorld();
+  const auto rel_cov = ba_cov_opt->GetCam2CovFromCam1(
+      poses[0].image_id,
+      cam1_from_world,
+      poses[1].image_id,
+      cam2_from_world);
+  ASSERT_FALSE(rel_cov.has_value());
+}
+
+// Test EstimateBACovarianceFromProblem directly (not through the
+// CeresBundleAdjuster wrapper).
+TEST(BACovarianceTest, EstimateBACovarianceFromProblemDirect) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+  }
+
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+  auto problem = ceres_ba->Problem();
+
+  // Call EstimateBACovarianceFromProblem directly.
+  BACovarianceOptions cov_options;
+  cov_options.params = BACovarianceOptions::Params::ALL;
+  auto ba_cov_from_problem =
+      EstimateBACovarianceFromProblem(cov_options, reconstruction, *problem);
+  ASSERT_TRUE(ba_cov_from_problem.has_value());
+
+  // Also get covariance via the wrapper for comparison.
+  auto ba_cov_from_wrapper =
+      EstimateBACovariance(cov_options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(ba_cov_from_wrapper.has_value());
+
+  // Both should produce the same pose covariances.
+  const auto poses = internal::GetPoseParams(reconstruction, *problem);
+  for (const auto& pose : poses) {
+    const auto cov_direct =
+        ba_cov_from_problem->GetCamCovFromWorld(pose.image_id);
+    const auto cov_wrapper =
+        ba_cov_from_wrapper->GetCamCovFromWorld(pose.image_id);
+    ASSERT_TRUE(cov_direct.has_value());
+    ASSERT_TRUE(cov_wrapper.has_value());
+    ExpectNearEigenMatrixXd(*cov_direct, *cov_wrapper, 1e-10);
+  }
+}
+
+// Test experimental_custom_poses: supply a custom set of pose parameter
+// blocks for covariance estimation.
+TEST(BACovarianceTest, ExperimentalCustomPoses) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+  }
+
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+  auto problem = ceres_ba->Problem();
+
+  // Get all poses normally.
+  const auto all_poses = internal::GetPoseParams(reconstruction, *problem);
+  ASSERT_GE(all_poses.size(), 3);
+
+  // Use only a subset of poses as custom_poses.
+  std::vector<internal::PoseParam> custom_poses(all_poses.begin(),
+                                                all_poses.begin() + 2);
+
+  BACovarianceOptions cov_options;
+  cov_options.params = BACovarianceOptions::Params::POSES;
+  cov_options.experimental_custom_poses = custom_poses;
+
+  auto ba_cov_opt =
+      EstimateBACovarianceFromProblem(cov_options, reconstruction, *problem);
+  ASSERT_TRUE(ba_cov_opt.has_value());
+
+  // The custom poses should have covariance.
+  for (const auto& pose : custom_poses) {
+    const auto cov = ba_cov_opt->GetCamCovFromWorld(pose.image_id);
+    ASSERT_TRUE(cov.has_value());
+    EXPECT_EQ(cov->rows(), 6);
+    EXPECT_EQ(cov->cols(), 6);
+  }
+
+  // Poses not in the custom set should not have covariance.
+  const auto cov_excluded =
+      ba_cov_opt->GetCamCovFromWorld(all_poses[2].image_id);
+  ASSERT_FALSE(cov_excluded.has_value());
+}
+
+// Test POSES_AND_POINTS mode with fixed intrinsics: exercises
+// SchurEliminateOtherParams code path where other params exist but their
+// covariance is not requested.
+TEST(BACovarianceTest, PosesAndPointsWithIntrinsicsSchurElimination) {
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POSES_AND_POINTS;
+  // Intrinsics are variable but we only ask for POSES_AND_POINTS, so the
+  // other params (intrinsics) must be Schur-eliminated.
+  auto solved = SetUpSolvedBA(options, /*fixed_cam_intrinsics=*/false);
+
+  // Pose covariance should be available.
+  ASSERT_FALSE(solved.poses.empty());
+  for (const auto& pose : solved.poses) {
+    const auto cov = solved.ba_cov->GetCamCovFromWorld(pose.image_id);
+    ASSERT_TRUE(cov.has_value());
+    EXPECT_EQ(cov->rows(), 6);
+    EXPECT_EQ(cov->cols(), 6);
+
+    // Verify symmetry.
+    ExpectNearEigenMatrixXd(*cov, cov->transpose(), 1e-10);
+
+    // Verify positive semi-definite.
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigensolver(*cov);
+    ASSERT_EQ(eigensolver.info(), Eigen::Success);
+    for (int i = 0; i < eigensolver.eigenvalues().size(); ++i) {
+      EXPECT_GE(eigensolver.eigenvalues()(i), -1e-10);
+    }
+  }
+
+  // Point covariance should also be available.
+  const auto points =
+      internal::GetPointParams(solved.reconstruction, *solved.problem);
+  ASSERT_FALSE(points.empty());
+  for (const auto& point : points) {
+    const auto cov = solved.ba_cov->GetPointCov(point.point3D_id);
+    ASSERT_TRUE(cov.has_value());
+  }
+
+  // Other params covariance should NOT be available (not requested).
+  const auto others =
+      GetOtherParams(*solved.problem, solved.poses, points);
+  for (const double* other : others) {
+    ASSERT_FALSE(solved.ba_cov->GetOtherParamsCov(other).has_value());
+  }
+}
+
+// Test POINTS-only mode with all poses and intrinsics fixed: exercises the
+// early return path where no pose/other covs are computed and L_inv is empty.
+TEST(BACovarianceTest, PointsOnlyWithFixedPosesAndIntrinsics) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+    config.SetConstantRigFromWorldPose(image.FrameId());
+    config.SetConstantCamIntrinsics(image.CameraId());
+  }
+
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+
+  BACovarianceOptions cov_options;
+  cov_options.params = BACovarianceOptions::Params::POINTS;
+  auto ba_cov_opt =
+      EstimateBACovariance(cov_options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(ba_cov_opt.has_value());
+
+  // Point covs should be available.
+  const auto problem = ceres_ba->Problem();
+  const auto points = internal::GetPointParams(reconstruction, *problem);
+  ASSERT_FALSE(points.empty());
+  for (const auto& point : points) {
+    const auto cov = ba_cov_opt->GetPointCov(point.point3D_id);
+    ASSERT_TRUE(cov.has_value());
+    EXPECT_EQ(cov->rows(), 3);
+    EXPECT_EQ(cov->cols(), 3);
+
+    // Verify symmetry.
+    ExpectNearEigenMatrixXd(*cov, cov->transpose(), 1e-10);
+
+    // Verify positive semi-definite.
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigensolver(*cov);
+    ASSERT_EQ(eigensolver.info(), Eigen::Success);
+    for (int i = 0; i < eigensolver.eigenvalues().size(); ++i) {
+      EXPECT_GE(eigensolver.eigenvalues()(i), -1e-10);
+    }
+  }
+
+  // Pose covs should not be available (not requested and poses are constant).
+  const auto poses = internal::GetPoseParams(reconstruction, *problem);
+  ASSERT_TRUE(poses.empty());  // All poses are constant.
+}
+
+// Test that pose covariance matrices are symmetric and positive semi-definite.
+TEST(BACovarianceTest, PoseCovarianceIsSymmetricAndPSD) {
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POSES;
+  auto solved = SetUpSolvedBA(options, /*fixed_cam_intrinsics=*/true);
+
+  ASSERT_FALSE(solved.poses.empty());
+
+  for (const auto& pose : solved.poses) {
+    const auto cov = solved.ba_cov->GetCamCovFromWorld(pose.image_id);
+    ASSERT_TRUE(cov.has_value());
+    EXPECT_EQ(cov->rows(), cov->cols());
+
+    // Symmetry.
+    ExpectNearEigenMatrixXd(*cov, cov->transpose(), 1e-10);
+
+    // Positive semi-definite.
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigensolver(*cov);
+    ASSERT_EQ(eigensolver.info(), Eigen::Success);
+    for (int i = 0; i < eigensolver.eigenvalues().size(); ++i) {
+      EXPECT_GE(eigensolver.eigenvalues()(i), -1e-10);
+    }
+  }
+}
+
+// Test cross-covariance relationship: cov(A, B) = cov(B, A)^T.
+TEST(BACovarianceTest, CrossCovarianceTransposeRelationship) {
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::ALL;
+  auto solved = SetUpSolvedBA(options);
+
+  ASSERT_GE(solved.poses.size(), 2);
+  const image_t id1 = solved.poses[0].image_id;
+  const image_t id2 = solved.poses[1].image_id;
+
+  const auto cov_12 = solved.ba_cov->GetCamCrossCovFromWorld(id1, id2);
+  const auto cov_21 = solved.ba_cov->GetCamCrossCovFromWorld(id2, id1);
+  ASSERT_TRUE(cov_12.has_value());
+  ASSERT_TRUE(cov_21.has_value());
+
+  // cov(1,2) should equal cov(2,1)^T.
+  ExpectNearEigenMatrixXd(*cov_12, cov_21->transpose(), 1e-10);
+}
+
+// Test that self-cross-covariance equals the regular covariance.
+TEST(BACovarianceTest, SelfCrossCovarianceEqualsCovariance) {
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::ALL;
+  auto solved = SetUpSolvedBA(options);
+
+  ASSERT_FALSE(solved.poses.empty());
+  const image_t id = solved.poses[0].image_id;
+
+  const auto cov = solved.ba_cov->GetCamCovFromWorld(id);
+  const auto cross_cov = solved.ba_cov->GetCamCrossCovFromWorld(id, id);
+  ASSERT_TRUE(cov.has_value());
+  ASSERT_TRUE(cross_cov.has_value());
+
+  ExpectNearEigenMatrixXd(*cov, *cross_cov, 1e-10);
+}
+
+// Test that damping affects the result: higher damping should generally
+// produce smaller covariance values (regularization effect).
+TEST(BACovarianceTest, DampingAffectsCovariance) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+    config.SetConstantCamIntrinsics(image.CameraId());
+  }
+
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+
+  // Low damping.
+  BACovarianceOptions options_low;
+  options_low.params = BACovarianceOptions::Params::POSES_AND_POINTS;
+  options_low.damping = 1e-10;
+  auto ba_cov_low =
+      EstimateBACovariance(options_low, reconstruction, *ceres_ba);
+  ASSERT_TRUE(ba_cov_low.has_value());
+
+  // High damping.
+  BACovarianceOptions options_high;
+  options_high.params = BACovarianceOptions::Params::POSES_AND_POINTS;
+  options_high.damping = 1.0;
+  auto ba_cov_high =
+      EstimateBACovariance(options_high, reconstruction, *ceres_ba);
+  ASSERT_TRUE(ba_cov_high.has_value());
+
+  const auto poses = internal::GetPoseParams(reconstruction, *ceres_ba->Problem());
+  ASSERT_FALSE(poses.empty());
+
+  // Higher damping should produce covariance with smaller or equal trace
+  // (sum of variances). The damping adds to the diagonal of the Hessian,
+  // shrinking the inverse.
+  const auto cov_low = ba_cov_low->GetCamCovFromWorld(poses[0].image_id);
+  const auto cov_high = ba_cov_high->GetCamCovFromWorld(poses[0].image_id);
+  ASSERT_TRUE(cov_low.has_value());
+  ASSERT_TRUE(cov_high.has_value());
+  EXPECT_GT(cov_low->trace(), cov_high->trace());
+}
+
+// Test GetOtherParams excludes both pose and point params, returning only
+// remaining variable blocks (e.g., intrinsics).
+TEST(BACovarianceTest, GetOtherParamsExcludesPosesAndPoints) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+  }
+
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  bundle_adjuster->Solve();
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+  auto problem = ceres_ba->Problem();
+
+  const auto poses = internal::GetPoseParams(reconstruction, *problem);
+  const auto points = internal::GetPointParams(reconstruction, *problem);
+  const auto others = internal::GetOtherParams(*problem, poses, points);
+
+  // With 1 camera, intrinsics are the "other" params.
+  ASSERT_EQ(others.size(), 1);
+
+  // Verify none of the other params are pose or point params.
+  std::unordered_set<const double*> pose_and_point_ptrs;
+  for (const auto& pose : poses) {
+    pose_and_point_ptrs.insert(pose.cam_from_world);
+  }
+  for (const auto& point : points) {
+    pose_and_point_ptrs.insert(point.xyz);
+  }
+  for (const double* other : others) {
+    EXPECT_EQ(pose_and_point_ptrs.count(other), 0);
+  }
+}
+
+// Test GetPointParams and GetPoseParams skip constant parameter blocks.
+TEST(BACovarianceTest, GetParamsSkipsConstantBlocks) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  bool first_pose_fixed = false;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+    if (!first_pose_fixed) {
+      config.SetConstantRigFromWorldPose(image.FrameId());
+      first_pose_fixed = true;
+    }
+  }
+
+  // Fix all points.
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    config.AddConstantPoint(point3D_id);
+  }
+
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  bundle_adjuster->Solve();
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+  auto problem = ceres_ba->Problem();
+
+  const auto poses = internal::GetPoseParams(reconstruction, *problem);
+  // One pose is fixed, so we should have num_frames - 1 variable poses.
+  EXPECT_EQ(poses.size(), 4);
+
+  const auto points = internal::GetPointParams(reconstruction, *problem);
+  // All points are fixed.
+  EXPECT_TRUE(points.empty());
+}
+
+// Test GetOtherParams with all intrinsics set constant: should return empty.
+TEST(BACovarianceTest, GetOtherParamsEmptyWhenIntrinsicsConstant) {
+  SetPRNGSeed(0);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 20;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    config.AddImage(image_id);
+    config.SetConstantCamIntrinsics(image.CameraId());
+  }
+
+  int num_constant = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  bundle_adjuster->Solve();
+
+  auto* ceres_ba =
+      dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+  auto problem = ceres_ba->Problem();
+
+  const auto poses = internal::GetPoseParams(reconstruction, *problem);
+  const auto points = internal::GetPointParams(reconstruction, *problem);
+  const auto others = internal::GetOtherParams(*problem, poses, points);
+  EXPECT_TRUE(others.empty());
+}
 
 }  // namespace
 }  // namespace colmap
