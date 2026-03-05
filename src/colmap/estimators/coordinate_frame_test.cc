@@ -36,6 +36,7 @@
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
+#include <array>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -141,8 +142,8 @@ TEST(EstimateManhattanWorldFrame, Synthetic) {
 
   // 3 cameras with combined pitch (around X) and yaw (around Y) so that both
   // the horizontal and vertical vanishing points are at finite image locations.
-  const double pitch_deg[] = {10.0, 10.0, 8.0};
-  const double yaw_deg[] = {15.0, -15.0, 5.0};
+  const std::array<double, 3> pitch_deg = {10.0, 10.0, 8.0};
+  const std::array<double, 3> yaw_deg = {15.0, -15.0, 5.0};
 
   const auto test_dir = CreateTestDir();
 
@@ -151,7 +152,7 @@ TEST(EstimateManhattanWorldFrame, Synthetic) {
       1, CameraModelId::kSimplePinhole, kFocal, kWidth, kHeight);
   reconstruction.AddCameraWithTrivialRig(camera);
 
-  for (int cam_idx = 0; cam_idx < 3; ++cam_idx) {
+  for (size_t cam_idx = 0; cam_idx < pitch_deg.size(); ++cam_idx) {
     const Eigen::Quaterniond cam_from_world_rot(
         Eigen::AngleAxisd(DegToRad(pitch_deg[cam_idx]),
                           Eigen::Vector3d::UnitX()) *
@@ -220,11 +221,14 @@ TEST(EstimateManhattanWorldFrame, Synthetic) {
   const Eigen::Vector3d expected_forward = manhattan_from_world.col(2);
 
   // Rightward direction (col 0) must align with the rotated X axis.
-  EXPECT_LT(std::abs(frame.col(0).dot(expected_rightward) - 1), 1e-3);
+  // The sign of the rightward and forward axes is ambiguous, so check absolute
+  // dot product.
+  EXPECT_LT(std::abs(std::abs(frame.col(0).dot(expected_rightward)) - 1), 1e-3);
   // Gravity direction (col 1) must align with the rotated Y axis.
+  // The sign is deterministic (flipped to match +Y in the implementation).
   EXPECT_LT(std::abs(frame.col(1).dot(expected_downward) - 1), 1e-3);
   // Forward direction (col 2) must align with the rotated Z axis.
-  EXPECT_LT(std::abs(frame.col(2).dot(expected_forward) - 1), 1e-3);
+  EXPECT_LT(std::abs(std::abs(frame.col(2).dot(expected_forward)) - 1), 1e-3);
 
   // Verify orthonormality.
   EXPECT_NEAR(frame.col(0).norm(), 1.0, 1e-6);
