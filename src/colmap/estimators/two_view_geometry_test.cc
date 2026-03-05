@@ -1126,11 +1126,8 @@ TEST(TwoViewGeometryFromKnownRelativePose, TooFewInliers) {
 TEST(DetectWatermarkMatches, NoWatermarkForCentralPoints) {
   SetPRNGSeed(0);
 
-  Camera camera;
-  camera.camera_id = 1;
-  camera.InitializeWithId(SimpleRadialCameraModel::model_id, 1280, 1024, 768);
-  camera.width = 1024;
-  camera.height = 768;
+  Camera camera = Camera::CreateFromModelId(
+      1, SimpleRadialCameraModel::model_id, 1280, 1024, 768);
 
   const size_t num_points = 50;
   std::vector<Eigen::Vector2d> points1(num_points);
@@ -1153,11 +1150,8 @@ TEST(DetectWatermarkMatches, NoWatermarkForCentralPoints) {
 TEST(DetectWatermarkMatches, WatermarkForBorderTranslation) {
   SetPRNGSeed(0);
 
-  Camera camera;
-  camera.camera_id = 1;
-  camera.InitializeWithId(SimpleRadialCameraModel::model_id, 1280, 1024, 768);
-  camera.width = 1024;
-  camera.height = 768;
+  Camera camera = Camera::CreateFromModelId(
+      1, SimpleRadialCameraModel::model_id, 1280, 1024, 768);
 
   const size_t num_points = 50;
   std::vector<Eigen::Vector2d> points1(num_points);
