@@ -254,6 +254,32 @@ TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
   }
 }
 
+TEST(EstimateTwoViewGeometryPose, FailureDueToInvalidConfig) {
+  SetPRNGSeed(0);
+  const TwoViewGeometryPoseTestData test_data =
+      CreateTwoViewGeometryPoseTestData(
+          TwoViewGeometry::ConfigurationType::CALIBRATED);
+
+  for (const auto config : {TwoViewGeometry::ConfigurationType::UNDEFINED,
+                            TwoViewGeometry::ConfigurationType::DEGENERATE,
+                            TwoViewGeometry::ConfigurationType::WATERMARK,
+                            TwoViewGeometry::ConfigurationType::MULTIPLE,
+                            TwoViewGeometry::ConfigurationType::CALIBRATED_RIG}) {
+    TwoViewGeometry geometry;
+    geometry.config = config;
+    geometry.E = test_data.geometry.E;
+    geometry.F = test_data.geometry.E;
+    geometry.H = test_data.geometry.E;
+    geometry.inlier_matches = test_data.geometry.inlier_matches;
+    EXPECT_FALSE(EstimateTwoViewGeometryPose(test_data.camera1,
+                                             test_data.points1,
+                                             test_data.camera2,
+                                             test_data.points2,
+                                             &geometry))
+        << config;
+  }
+}
+
 TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
   constexpr int kNumTests = 100;
   int num_failures = 0;
@@ -384,6 +410,80 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
                           data.matches);
 
   return data;
+}
+
+TEST(TwoViewGeometryOptions, CheckValid) {
+  TwoViewGeometryOptions options;
+  EXPECT_TRUE(options.Check());
+}
+
+TEST(TwoViewGeometryOptions, CheckInvalid) {
+  {
+    TwoViewGeometryOptions options;
+    options.min_num_inliers = -1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.min_E_F_inlier_ratio = -0.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.min_E_F_inlier_ratio = 1.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.max_H_inlier_ratio = -0.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.max_H_inlier_ratio = 1.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.watermark_min_inlier_ratio = -0.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.watermark_min_inlier_ratio = 1.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.watermark_border_size = -0.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.watermark_border_size = 1.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.ransac_options.max_error = -1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.ransac_options.min_inlier_ratio = -0.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.ransac_options.confidence = 1.1;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    TwoViewGeometryOptions options;
+    options.ransac_options.min_num_trials = 10000;
+    options.ransac_options.max_num_trials = 100;
+    EXPECT_FALSE(options.Check());
+  }
 }
 
 TEST(EstimateTwoViewGeometry, DetectWatermark) {
@@ -659,6 +759,300 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
   EXPECT_NE(geometry1.H, geometry3.H);
 }
 
+TEST(EstimateTwoViewGeometry, CalibratedTooFewMatches) {
+  SetPRNGSeed(0);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 5;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions options;
+  options.min_num_inliers = 100;
+
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                           test_data.points1,
+                                                           test_data.camera2,
+                                                           test_data.points2,
+                                                           test_data.matches,
+                                                           options);
+
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+  EXPECT_EQ(geometry.inlier_matches.size(), 0);
+}
+
+TEST(EstimateTwoViewGeometry, UncalibratedTooFewMatches) {
+  SetPRNGSeed(0);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 5;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions options;
+  options.min_num_inliers = 100;
+
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                           test_data.points1,
+                                                           test_data.camera2,
+                                                           test_data.points2,
+                                                           test_data.matches,
+                                                           options);
+
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+  EXPECT_EQ(geometry.inlier_matches.size(), 0);
+}
+
+TEST(EstimateTwoViewGeometry, ForceHomographyTooFewMatches) {
+  SetPRNGSeed(0);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 5;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions options;
+  options.force_H_use = true;
+  options.min_num_inliers = 100;
+
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                           test_data.points1,
+                                                           test_data.camera2,
+                                                           test_data.points2,
+                                                           test_data.matches,
+                                                           options);
+
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+  EXPECT_EQ(geometry.inlier_matches.size(), 0);
+}
+
+TEST(EstimateTwoViewGeometry, CalibratedWithComputeRelativePose) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions options;
+  options.compute_relative_pose = true;
+  options.ransac_options.random_seed = 42;
+
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                           test_data.points1,
+                                                           test_data.camera2,
+                                                           test_data.points2,
+                                                           test_data.matches,
+                                                           options);
+
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
+  EXPECT_GT(geometry.inlier_matches.size(), 0);
+  EXPECT_TRUE(geometry.cam2_from_cam1.has_value());
+  EXPECT_GT(geometry.tri_angle, 0);
+}
+
+TEST(EstimateTwoViewGeometry, UncalibratedWithComputeRelativePose) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions options;
+  options.compute_relative_pose = true;
+  options.ransac_options.random_seed = 42;
+
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                           test_data.points1,
+                                                           test_data.camera2,
+                                                           test_data.points2,
+                                                           test_data.matches,
+                                                           options);
+
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::UNCALIBRATED);
+  EXPECT_GT(geometry.inlier_matches.size(), 0);
+  EXPECT_TRUE(geometry.cam2_from_cam1.has_value());
+  EXPECT_GT(geometry.tri_angle, 0);
+}
+
+TEST(EstimateTwoViewGeometry, ForceHomographyWithComputeRelativePose) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions options;
+  options.force_H_use = true;
+  options.compute_relative_pose = true;
+  options.ransac_options.random_seed = 42;
+
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                           test_data.points1,
+                                                           test_data.camera2,
+                                                           test_data.points2,
+                                                           test_data.matches,
+                                                           options);
+
+  EXPECT_NE(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+  EXPECT_GT(geometry.inlier_matches.size(), 0);
+  EXPECT_TRUE(geometry.cam2_from_cam1.has_value());
+}
+
+TEST(EstimateTwoViewGeometry, CalibratedMinInlierRatioFilters) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.inlier_match_ratio = 0.3;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 10;
+  const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
+      synthetic_dataset_options, synthetic_noise_options);
+
+  // Without min_inlier_ratio, should succeed.
+  TwoViewGeometryOptions options;
+  options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry1 = EstimateTwoViewGeometry(test_data.camera1,
+                                                            test_data.points1,
+                                                            test_data.camera2,
+                                                            test_data.points2,
+                                                            test_data.matches,
+                                                            options);
+  EXPECT_NE(geometry1.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+
+  // With a very high min_inlier_ratio, should be degenerate.
+  options.min_inlier_ratio = 0.99;
+  options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry2 = EstimateTwoViewGeometry(test_data.camera1,
+                                                            test_data.points1,
+                                                            test_data.camera2,
+                                                            test_data.points2,
+                                                            test_data.matches,
+                                                            options);
+  EXPECT_EQ(geometry2.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+}
+
+TEST(FilterStationaryMatches, RemovesStationaryPoints) {
+  std::vector<Eigen::Vector2d> points1 = {
+      Eigen::Vector2d(100, 200),
+      Eigen::Vector2d(300, 400),
+      Eigen::Vector2d(500, 600),
+      Eigen::Vector2d(700, 800),
+  };
+  // points2[0] and points2[2] are identical to points1 (stationary).
+  // points2[1] and points2[3] differ by more than max_error.
+  std::vector<Eigen::Vector2d> points2 = {
+      Eigen::Vector2d(100, 200),
+      Eigen::Vector2d(350, 450),
+      Eigen::Vector2d(500, 600),
+      Eigen::Vector2d(800, 900),
+  };
+
+  FeatureMatches matches;
+  matches.emplace_back(0, 0);
+  matches.emplace_back(1, 1);
+  matches.emplace_back(2, 2);
+  matches.emplace_back(3, 3);
+
+  FilterStationaryMatches(/*max_error=*/4.0, points1, points2, &matches);
+
+  // Only matches 1 and 3 should remain (displacement > 4).
+  ASSERT_EQ(matches.size(), 2);
+  EXPECT_EQ(matches[0].point2D_idx1, 1);
+  EXPECT_EQ(matches[0].point2D_idx2, 1);
+  EXPECT_EQ(matches[1].point2D_idx1, 3);
+  EXPECT_EQ(matches[1].point2D_idx2, 3);
+}
+
+TEST(FilterStationaryMatches, KeepsAllWhenNoneStationary) {
+  std::vector<Eigen::Vector2d> points1 = {
+      Eigen::Vector2d(0, 0),
+      Eigen::Vector2d(100, 100),
+  };
+  std::vector<Eigen::Vector2d> points2 = {
+      Eigen::Vector2d(50, 50),
+      Eigen::Vector2d(200, 200),
+  };
+
+  FeatureMatches matches;
+  matches.emplace_back(0, 0);
+  matches.emplace_back(1, 1);
+
+  FilterStationaryMatches(/*max_error=*/4.0, points1, points2, &matches);
+
+  EXPECT_EQ(matches.size(), 2);
+}
+
+TEST(FilterStationaryMatches, RemovesAllWhenAllStationary) {
+  std::vector<Eigen::Vector2d> points1 = {
+      Eigen::Vector2d(10, 20),
+      Eigen::Vector2d(30, 40),
+  };
+  std::vector<Eigen::Vector2d> points2 = {
+      Eigen::Vector2d(10, 20),
+      Eigen::Vector2d(30, 40),
+  };
+
+  FeatureMatches matches;
+  matches.emplace_back(0, 0);
+  matches.emplace_back(1, 1);
+
+  FilterStationaryMatches(/*max_error=*/4.0, points1, points2, &matches);
+
+  EXPECT_EQ(matches.size(), 0);
+}
+
+TEST(FilterStationaryMatches, BoundaryError) {
+  // Test that displacement exactly at max_error is still filtered.
+  std::vector<Eigen::Vector2d> points1 = {
+      Eigen::Vector2d(0, 0),
+  };
+  std::vector<Eigen::Vector2d> points2 = {
+      Eigen::Vector2d(4.0, 0),
+  };
+
+  FeatureMatches matches;
+  matches.emplace_back(0, 0);
+
+  FilterStationaryMatches(/*max_error=*/4.0, points1, points2, &matches);
+
+  // Displacement = 4.0, squared = 16.0, max_error_squared = 16.0.
+  // Condition is squaredNorm() <= max_error_squared, so this is filtered.
+  EXPECT_EQ(matches.size(), 0);
+}
+
 TEST(TwoViewGeometryFromKnownRelativePose, Nominal) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
@@ -681,6 +1075,104 @@ TEST(TwoViewGeometryFromKnownRelativePose, Nominal) {
     EXPECT_EQ(geometry.E, test_data.geometry.E);
     EXPECT_EQ(geometry.inlier_matches, test_data.geometry.inlier_matches);
   }
+}
+
+TEST(TwoViewGeometryFromKnownRelativePose, TooFewMatches) {
+  SetPRNGSeed(0);
+  const TwoViewGeometryPoseTestData test_data =
+      CreateTwoViewGeometryPoseTestData(
+          TwoViewGeometry::ConfigurationType::CALIBRATED);
+
+  // Pass empty matches with min_num_inliers > 0.
+  FeatureMatches empty_matches;
+  TwoViewGeometry geometry =
+      TwoViewGeometryFromKnownRelativePose(test_data.camera1,
+                                           test_data.points1,
+                                           test_data.camera2,
+                                           test_data.points2,
+                                           *test_data.geometry.cam2_from_cam1,
+                                           empty_matches,
+                                           /*min_num_inliers=*/15,
+                                           /*max_error=*/4.0);
+
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+  EXPECT_EQ(geometry.inlier_matches.size(), 0);
+}
+
+TEST(TwoViewGeometryFromKnownRelativePose, TooFewInliers) {
+  SetPRNGSeed(0);
+  const TwoViewGeometryPoseTestData test_data =
+      CreateTwoViewGeometryPoseTestData(
+          TwoViewGeometry::ConfigurationType::CALIBRATED);
+
+  // Use a wildly wrong pose so no matches are inliers.
+  Rigid3d wrong_pose;
+  wrong_pose.translation() = Eigen::Vector3d(100, 200, 300);
+
+  TwoViewGeometry geometry =
+      TwoViewGeometryFromKnownRelativePose(test_data.camera1,
+                                           test_data.points1,
+                                           test_data.camera2,
+                                           test_data.points2,
+                                           wrong_pose,
+                                           test_data.geometry.inlier_matches,
+                                           /*min_num_inliers=*/15,
+                                           /*max_error=*/4.0);
+
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+}
+
+TEST(DetectWatermarkMatches, NoWatermarkForCentralPoints) {
+  SetPRNGSeed(0);
+
+  Camera camera;
+  camera.camera_id = 1;
+  camera.InitializeWithId(SimpleRadialCameraModel::model_id, 1280, 1024, 768);
+  camera.width = 1024;
+  camera.height = 768;
+
+  const size_t num_points = 50;
+  std::vector<Eigen::Vector2d> points1(num_points);
+  std::vector<Eigen::Vector2d> points2(num_points);
+  std::vector<char> inlier_mask(num_points, 1);
+
+  // Place points in the center of the image, far from borders.
+  for (size_t i = 0; i < num_points; ++i) {
+    const double x = 300 + static_cast<double>(i) / num_points * 400;
+    const double y = 200 + static_cast<double>(i) / num_points * 300;
+    points1[i] = Eigen::Vector2d(x, y);
+    points2[i] = Eigen::Vector2d(x + 5, y + 5);
+  }
+
+  TwoViewGeometryOptions options;
+  EXPECT_FALSE(DetectWatermarkMatches(
+      camera, points1, camera, points2, num_points, inlier_mask, options));
+}
+
+TEST(DetectWatermarkMatches, WatermarkForBorderTranslation) {
+  SetPRNGSeed(0);
+
+  Camera camera;
+  camera.camera_id = 1;
+  camera.InitializeWithId(SimpleRadialCameraModel::model_id, 1280, 1024, 768);
+  camera.width = 1024;
+  camera.height = 768;
+
+  const size_t num_points = 50;
+  std::vector<Eigen::Vector2d> points1(num_points);
+  std::vector<Eigen::Vector2d> points2(num_points);
+  std::vector<char> inlier_mask(num_points, 1);
+
+  // Place all points in the border region with a pure translation.
+  for (size_t i = 0; i < num_points; ++i) {
+    const double y = static_cast<double>(i) / num_points * camera.height;
+    points1[i] = Eigen::Vector2d(0, y);
+    points2[i] = Eigen::Vector2d(camera.width - 1, y);
+  }
+
+  TwoViewGeometryOptions options;
+  EXPECT_TRUE(DetectWatermarkMatches(
+      camera, points1, camera, points2, num_points, inlier_mask, options));
 }
 
 struct RigTwoViewGeometryTestData {
@@ -757,6 +1249,34 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
             /*ttol=*/1e-3));
     EXPECT_GT(geometry.inlier_matches.size(), 0);
   }
+}
+
+TEST(EstimateRigTwoViewGeometries, EmptyMatches) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const RigTwoViewGeometryTestData test_data =
+      CreateRigTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions options;
+  options.ransac_options.random_seed = 42;
+
+  // Pass empty matches.
+  std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>
+      empty_matches;
+  const auto geometries =
+      EstimateRigTwoViewGeometries(test_data.rig1,
+                                   test_data.rig2,
+                                   test_data.reconstruction.Images(),
+                                   test_data.reconstruction.Cameras(),
+                                   empty_matches,
+                                   options);
+  EXPECT_EQ(geometries.size(), 0);
 }
 
 TEST(EstimateMultipleTwoViewGeometries, SingleGeometry) {
