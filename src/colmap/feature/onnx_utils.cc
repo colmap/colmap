@@ -140,9 +140,8 @@ void ONNXModel::InitializeSession(const std::string& model_path,
 
   VLOG(2) << "Loading ONNX model from " << model_path;
 #ifdef _WIN32
-  unsigned int kCodePage = GetACP();
   const int wide_len =
-      MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, nullptr, 0);
+      MultiByteToWideChar(GetACP(), 0, model_path.c_str(), -1, nullptr, 0);
   std::wstring model_path_wide(wide_len, L'\0');
   MultiByteToWideChar(
       kCodePage, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
