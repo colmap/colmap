@@ -30,20 +30,21 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
-#include "generated/solver.h"
+#ifdef CASPAR_ENABLED
+#include <solver.h>
+#endif
 
 namespace colmap {
 
-std::unique_ptr<BundleAdjuster> CreateCasparBundleAdjuster(
-    BundleAdjustmentOptions options,
-    BundleAdjustmentConfig config,
+std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
+    const BundleAdjustmentOptions& options,
+    const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction);
 
+#ifdef CASPAR_ENABLED
 struct CasparBundleAdjustmentSummary : public BundleAdjustmentSummary {
-    
-    static std::shared_ptr<CasparBundleAdjustmentSummary> Create(
-        const caspar::SolveResult& caspar_summary
-    );
+  static std::shared_ptr<CasparBundleAdjustmentSummary> Create(
+      const caspar::SolveResult& caspar_summary);
 };
-
+#endif
 }  // namespace colmap

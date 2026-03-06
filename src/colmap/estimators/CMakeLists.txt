@@ -76,7 +76,8 @@ COLMAP_ADD_LIBRARY(
 )
 
 if(CASPAR_ENABLED)
-    target_link_libraries(colmap_estimators PRIVATE caspar_lib_core)
+    target_link_libraries(colmap_estimators PUBLIC caspar_lib_core)
+    add_dependencies(colmap_estimators caspar_generate)
 endif()
 
 if(CUDA_ENABLED)
@@ -98,6 +99,13 @@ COLMAP_ADD_TEST(
     SRCS bundle_adjustment_ceres_test.cc
     LINK_LIBS colmap_estimators
 )
+if(CASPAR_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME bundle_adjustment_caspar_test
+        SRCS bundle_adjustment_caspar_test.cc
+        LINK_LIBS colmap_estimators
+    )
+endif()
 COLMAP_ADD_TEST(
     NAME coordinate_frame_test
     SRCS coordinate_frame_test.cc

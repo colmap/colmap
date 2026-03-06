@@ -3,7 +3,8 @@ from pathlib import Path
 import numpy as np
 import symforce
 
-symforce.set_epsilon_to_number(float(10 * np.finfo(np.float32).eps))
+USE_DOUBLE=True
+symforce.set_epsilon_to_number(1e-15 if USE_DOUBLE else 1e-6)
 import symforce.symbolic as sf
 from symforce import typing as T
 from symforce.experimental.caspar import CasparLibrary

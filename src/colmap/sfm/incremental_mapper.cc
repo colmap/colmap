@@ -1120,7 +1120,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
 #ifdef CASPAR_ENABLED
 
-    bundle_adjuster = CreateCasparBundleAdjuster(
+    bundle_adjuster = CreateDefaultCasparBundleAdjuster(
         ba_options, ba_config, *reconstruction_);
 
 #else
@@ -1169,7 +1169,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
 
 #ifdef CASPAR_ENABLED
-    bundle_adjuster = CreateCasparBundleAdjuster(
+    bundle_adjuster = CreateDefaultCasparBundleAdjuster(
         ba_options, ba_config, *reconstruction_);
 #else
     bundle_adjuster = CreateDefaultBundleAdjuster(
