@@ -35,6 +35,8 @@
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/ply.h"
+#include "colmap/util/testing.h"
 
 #include <sstream>
 
@@ -1096,6 +1098,243 @@ TEST(Reconstruction, IsValid) {
     reconstruction_copy.Frame(1).ResetPose();
     EXPECT_FALSE(reconstruction_copy.IsValid());
   }
+}
+
+TEST(Reconstruction, DeRegisterFrame) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(3, &reconstruction);
+  Track track;
+  track.AddElement(1, 0);
+  track.AddElement(2, 0);
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
+
+  EXPECT_EQ(reconstruction.NumRegFrames(), 3);
+  EXPECT_EQ(reconstruction.NumRegImages(), 3);
+
+  reconstruction.DeRegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 2);
+  EXPECT_EQ(reconstruction.NumRegImages(), 2);
+  EXPECT_TRUE(reconstruction.ExistsFrame(1));
+  EXPECT_FALSE(reconstruction.Frame(1).HasPose());
+  // The 3D point had observations in images 1 and 2; after de-registering
+  // frame 1, the point should be deleted (track becomes too short).
+  EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id));
+
+  // De-registering an already de-registered frame is a no-op (with warning)
+  reconstruction.DeRegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 2);
+}
+
+TEST(Reconstruction, TearDown) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 10;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // De-register one frame to create an unregistered frame
+  const auto reg_frames_before = reconstruction.NumRegFrames();
+  const auto frame_ids = reconstruction.RegFrameIds();
+  reconstruction.DeRegisterFrame(frame_ids[0]);
+  EXPECT_EQ(reconstruction.NumRegFrames(), reg_frames_before - 1);
+
+  // TearDown should remove the unregistered frame and its images
+  const auto num_frames_before = reconstruction.NumFrames();
+  reconstruction.TearDown();
+  EXPECT_LT(reconstruction.NumFrames(), num_frames_before);
+  EXPECT_EQ(reconstruction.NumFrames(), reconstruction.NumRegFrames());
+  ExpectValidPtrs(reconstruction);
+}
+
+TEST(Reconstruction, ConvertToPLY) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  reconstruction.AddPoint3D(
+      Eigen::Vector3d(1, 2, 3), Track(), Eigen::Vector3ub(255, 0, 0));
+  reconstruction.AddPoint3D(
+      Eigen::Vector3d(4, 5, 6), Track(), Eigen::Vector3ub(0, 255, 0));
+
+  const std::vector<PlyPoint> ply_points = reconstruction.ConvertToPLY();
+  EXPECT_EQ(ply_points.size(), 2);
+
+  // Decompose into individual EXPECT calls by locating both expected points.
+  const auto it_p1 =
+      std::find_if(ply_points.begin(), ply_points.end(), [](const PlyPoint& p) {
+        return std::abs(p.x - 1.0) < 1e-6;
+      });
+  const auto it_p2 =
+      std::find_if(ply_points.begin(), ply_points.end(), [](const PlyPoint& p) {
+        return std::abs(p.x - 4.0) < 1e-6;
+      });
+
+  ASSERT_NE(it_p1, ply_points.end());
+  ASSERT_NE(it_p2, ply_points.end());
+
+  EXPECT_NEAR(it_p1->y, 2.0, 1e-6);
+  EXPECT_NEAR(it_p1->z, 3.0, 1e-6);
+  EXPECT_EQ(it_p1->r, 255);
+  EXPECT_EQ(it_p1->g, 0);
+  EXPECT_EQ(it_p1->b, 0);
+
+  EXPECT_NEAR(it_p2->y, 5.0, 1e-6);
+  EXPECT_NEAR(it_p2->z, 6.0, 1e-6);
+  EXPECT_EQ(it_p2->r, 0);
+  EXPECT_EQ(it_p2->g, 255);
+  EXPECT_EQ(it_p2->b, 0);
+}
+
+TEST(Reconstruction, ImportPLYFromVector) {
+  Reconstruction reconstruction;
+  std::vector<PlyPoint> ply_points(2);
+  ply_points[0].x = 1;
+  ply_points[0].y = 2;
+  ply_points[0].z = 3;
+  ply_points[0].r = 100;
+  ply_points[0].g = 150;
+  ply_points[0].b = 200;
+  ply_points[1].x = 4;
+  ply_points[1].y = 5;
+  ply_points[1].z = 6;
+  ply_points[1].r = 50;
+  ply_points[1].g = 60;
+  ply_points[1].b = 70;
+
+  reconstruction.ImportPLY(ply_points);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 2);
+
+  // Verify the points were imported correctly by locating both expected points.
+  const auto points3D = reconstruction.Points3D();
+
+  const auto it_p1 = std::find_if(
+      points3D.begin(), points3D.end(), [](const auto& id_point3D) {
+        const auto& point3D = id_point3D.second;
+        return std::abs(point3D.xyz(0) - 1.0) < 1e-6;
+      });
+  const auto it_p2 = std::find_if(
+      points3D.begin(), points3D.end(), [](const auto& id_point3D) {
+        const auto& point3D = id_point3D.second;
+        return std::abs(point3D.xyz(0) - 4.0) < 1e-6;
+      });
+
+  ASSERT_NE(it_p1, points3D.end());
+  ASSERT_NE(it_p2, points3D.end());
+
+  EXPECT_NEAR(it_p1->second.xyz(1), 2.0, 1e-6);
+  EXPECT_NEAR(it_p1->second.xyz(2), 3.0, 1e-6);
+  EXPECT_EQ(it_p1->second.color(0), 100);
+  EXPECT_EQ(it_p1->second.color(1), 150);
+  EXPECT_EQ(it_p1->second.color(2), 200);
+
+  EXPECT_NEAR(it_p2->second.xyz(1), 5.0, 1e-6);
+  EXPECT_NEAR(it_p2->second.xyz(2), 6.0, 1e-6);
+  EXPECT_EQ(it_p2->second.color(0), 50);
+  EXPECT_EQ(it_p2->second.color(1), 60);
+  EXPECT_EQ(it_p2->second.color(2), 70);
+}
+
+TEST(Reconstruction, Point3DIds) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  const point3D_t p1 =
+      reconstruction.AddPoint3D(Eigen::Vector3d(1, 2, 3), Track());
+  const point3D_t p2 =
+      reconstruction.AddPoint3D(Eigen::Vector3d(4, 5, 6), Track());
+
+  auto ids = reconstruction.Point3DIds();
+  EXPECT_EQ(ids.size(), 2);
+  EXPECT_EQ(ids.count(p1), 1);
+  EXPECT_EQ(ids.count(p2), 1);
+}
+
+TEST(Reconstruction, ReadWriteTextRoundtrip) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 5;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const auto test_dir = CreateTestDir();
+  reconstruction.WriteText(test_dir);
+
+  Reconstruction loaded;
+  loaded.ReadText(test_dir);
+
+  EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
+  ExpectValidPtrs(loaded);
+}
+
+TEST(Reconstruction, ReadWriteBinaryRoundtrip) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 5;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const auto test_dir = CreateTestDir();
+  reconstruction.WriteBinary(test_dir);
+
+  Reconstruction loaded;
+  loaded.ReadBinary(test_dir);
+
+  EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
+  ExpectValidPtrs(loaded);
+}
+
+TEST(Reconstruction, ReadAutoDetectFormat) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 3;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // Write binary and verify Read auto-detects binary format
+  {
+    const auto test_dir = CreateTestDir();
+    reconstruction.WriteBinary(test_dir);
+
+    Reconstruction loaded;
+    loaded.Read(test_dir);
+
+    EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
+    ExpectValidPtrs(loaded);
+  }
+
+  // Write text and verify Read auto-detects text format
+  {
+    const auto test_dir = CreateTestDir();
+    reconstruction.WriteText(test_dir);
+
+    Reconstruction loaded;
+    loaded.Read(test_dir);
+
+    EXPECT_THAT(loaded, ReconstructionEq(reconstruction));
+    ExpectValidPtrs(loaded);
+  }
+}
+
+TEST(Reconstruction, CreateImageDirs) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  reconstruction.Image(1).SetName("subdir1/image1.jpg");
+  reconstruction.Image(2).SetName("subdir2/subdir3/image2.jpg");
+
+  const auto test_dir = CreateTestDir();
+  reconstruction.CreateImageDirs(test_dir);
+
+  EXPECT_TRUE(std::filesystem::exists(test_dir / "subdir1"));
+  EXPECT_TRUE(std::filesystem::exists(test_dir / "subdir2" / "subdir3"));
 }
 
 }  // namespace

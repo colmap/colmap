@@ -58,7 +58,7 @@ struct Model {
 
   // Get the image index for the given image name.
   int GetImageIdx(const std::string& name) const;
-  std::string GetImageName(int image_idx) const;
+  const std::string& GetImageName(int image_idx) const;
 
   // For each image, determine the maximally overlapping images, sorted based on
   // the number of shared points subject to a minimum robust average

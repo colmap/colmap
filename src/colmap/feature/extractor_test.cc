@@ -1,4 +1,4 @@
-// Copysight (c), ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -84,6 +84,72 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   EXPECT_EQ(options.EffMaxImageSize(), 1280);
   options.type = FeatureExtractorType::ALIKED_N32;
   EXPECT_EQ(options.EffMaxImageSize(), 1280);
+}
+
+TEST(FeatureExtractionOptions, CopyAssignment) {
+  FeatureExtractionOptions options;
+  options.max_image_size = 999;
+  options.sift->max_num_features += 200;
+  options.aliked->max_num_features += 300;
+
+  // Test copy assignment into a default-constructed instance.
+  FeatureExtractionOptions assigned;
+  assigned = options;
+
+  EXPECT_EQ(assigned.max_image_size, 999);
+  EXPECT_EQ(assigned.sift->max_num_features, options.sift->max_num_features);
+  EXPECT_EQ(assigned.aliked->max_num_features,
+            options.aliked->max_num_features);
+
+  // Verify deep copy (different pointer instances).
+  EXPECT_NE(assigned.sift.get(), options.sift.get());
+  EXPECT_NE(assigned.aliked.get(), options.aliked.get());
+
+  // Mutating the copy must not affect the original.
+  assigned.sift->max_num_features += 1;
+  EXPECT_NE(assigned.sift->max_num_features, options.sift->max_num_features);
+
+  // Test self-assignment (assign via const ref to avoid -Wself-assign).
+  const auto* sift_ptr_before = options.sift.get();
+  const auto* aliked_ptr_before = options.aliked.get();
+  const auto max_image_size_before = options.max_image_size;
+  const auto& self_ref = options;
+  options = self_ref;
+  EXPECT_EQ(options.sift.get(), sift_ptr_before);
+  EXPECT_EQ(options.aliked.get(), aliked_ptr_before);
+  EXPECT_EQ(options.max_image_size, max_image_size_before);
+}
+
+TEST(FeatureExtractionOptions, RequiresRGB) {
+  FeatureExtractionOptions options;
+
+  const std::vector<std::pair<FeatureExtractorType, bool>> kTestCases = {
+      {FeatureExtractorType::SIFT, false},
+      {FeatureExtractorType::ALIKED_N16ROT, true},
+      {FeatureExtractorType::ALIKED_N32, true},
+  };
+
+  for (const auto& [type, expected] : kTestCases) {
+    options.type = type;
+    EXPECT_EQ(options.RequiresRGB(), expected);
+  }
+}
+
+TEST(FeatureExtractionOptions, CheckAndRequiresOpenGLWithNoGpu) {
+  FeatureExtractionOptions options;
+  options.use_gpu = false;
+
+  const std::vector<FeatureExtractorType> kTypes = {
+      FeatureExtractorType::SIFT,
+      FeatureExtractorType::ALIKED_N16ROT,
+      FeatureExtractorType::ALIKED_N32,
+  };
+
+  for (const auto& type : kTypes) {
+    options.type = type;
+    EXPECT_TRUE(options.Check());
+    EXPECT_FALSE(options.RequiresOpenGL());
+  }
 }
 
 }  // namespace

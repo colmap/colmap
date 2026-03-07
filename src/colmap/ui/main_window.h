@@ -136,7 +136,7 @@ class MainWindow : public QMainWindow {
 
   void SetOptions();
   void ResetOptions();
-  void SetLogLevel();
+  void SetLogOptions();
 
   void About();
   void Documentation();
@@ -231,7 +231,7 @@ class MainWindow : public QMainWindow {
   QAction* action_extract_colors_;
   QAction* action_set_options_;
   QAction* action_reset_options_;
-  QAction* action_set_log_level_;
+  QAction* action_set_log_options_;
 
   QAction* action_about_;
   QAction* action_documentation_;

@@ -248,6 +248,16 @@ if(ONNX_ENABLED)
         message(STATUS "Configuring onnxruntime...")
 
         set(ONNX_VERSION "1.24.1")
+        # ONNX Runtime >= 1.22 GPU binaries are built with CUDA >= 12
+        if(ONNX_VERSION VERSION_GREATER_EQUAL "1.22"
+           AND CUDA_ENABLED AND CUDA_FOUND AND CUDAToolkit_VERSION VERSION_LESS "12.0")
+            message(WARNING
+                "ONNX Runtime ${ONNX_VERSION} GPU binary is built with CUDA >= 12, "
+                "but CUDA ${CUDAToolkit_VERSION} was detected. The ONNX Runtime CUDA "
+                "execution provider may fail at runtime, CPU execution will continue to work. "
+                "Consider upgrading CUDA to >= 12 or using a source-built onnxruntime.")
+        endif()
+
         if(IS_MACOS)
             if(CMAKE_OSX_ARCHITECTURES)
                 set(_COLMAP_MACOS_ARCH ${CMAKE_OSX_ARCHITECTURES})
@@ -255,7 +265,7 @@ if(ONNX_ENABLED)
                 set(_COLMAP_MACOS_ARCH ${CMAKE_SYSTEM_PROCESSOR})
             endif()
             if(_COLMAP_MACOS_ARCH STREQUAL "x86_64")
-                message(FATAL_ERRROR "x86_64 is not supported for onnxruntime")
+                message(FATAL_ERROR "x86_64 is not supported for onnxruntime")
             else()
                 FetchContent_Declare(onnxruntime
                     URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz

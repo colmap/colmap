@@ -33,10 +33,16 @@
 #include "colmap/optim/random_sampler.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/threading.h"
 
+#include <atomic>
 #include <cfloat>
 #include <optional>
 #include <vector>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace colmap {
 
@@ -65,6 +71,10 @@ struct RANSACOptions {
   // or a fixed value to make results reproducible.
   int random_seed = -1;
 
+  // Number of threads for parallel RANSAC. 1 = serial (default).
+  // -1 uses all available hardware threads.
+  int num_threads = 1;
+
   void Check() const {
     THROW_CHECK_GT(max_error, 0);
     THROW_CHECK_GE(min_inlier_ratio, 0);
@@ -73,6 +83,8 @@ struct RANSACOptions {
     THROW_CHECK_LE(confidence, 1);
     THROW_CHECK_LE(min_num_trials, max_num_trials);
     THROW_CHECK_GE(random_seed, -1);
+    THROW_CHECK_GE(num_threads, -1);
+    THROW_CHECK_NE(num_threads, 0);
   }
 };
 
@@ -203,12 +215,6 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     const std::vector<typename Estimator::Y_t>& Y) {
   THROW_CHECK_EQ(X.size(), Y.size());
 
-  if constexpr (is_randomized_sampler<Sampler>::value) {
-    if (options_.random_seed != -1) {
-      SetPRNGSeed(options_.random_seed);
-    }
-  }
-
   const size_t num_samples = X.size();
 
   Report report;
@@ -222,62 +228,110 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   typename SupportMeasurer::Support best_support;
   std::optional<typename Estimator::M_t> best_model;
 
-  bool abort = false;
-
   const double max_residual = options_.max_error * options_.max_error;
-
-  std::vector<double> residuals(num_samples);
-
-  std::vector<typename Estimator::X_t> X_rand(Estimator::kMinNumSamples);
-  std::vector<typename Estimator::Y_t> Y_rand(Estimator::kMinNumSamples);
-  std::vector<typename Estimator::M_t> sample_models;
-
-  sampler.Initialize(num_samples);
-
-  size_t max_num_trials =
-      std::min<size_t>(options_.max_num_trials, sampler.MaxNumSamples());
-  size_t dyn_max_num_trials = max_num_trials;
   const size_t min_num_trials = options_.min_num_trials;
 
-  for (report.num_trials = 0; report.num_trials < max_num_trials;
-       ++report.num_trials) {
-    if (abort) {
-      report.num_trials += 1;
-      break;
+  sampler.Initialize(num_samples);
+  const size_t max_num_trials =
+      std::min<size_t>(options_.max_num_trials, sampler.MaxNumSamples());
+
+  [[maybe_unused]] const int num_threads =
+      GetEffectiveNumThreads(options_.num_threads);
+  if constexpr (!std::is_same_v<Sampler, RandomSampler>) {
+    THROW_CHECK_EQ(num_threads, 1)
+        << "Parallel RANSAC only supports RandomSampler";
+  }
+
+  std::atomic<size_t> trial_counter(0);
+  std::atomic<size_t> dyn_max_num_trials(max_num_trials);
+  std::atomic<bool> abort_flag(false);
+
+// This creates a parallel region that runs with num_threads threads (or
+// serially when num_threads == 1 via the if-clause). Without OpenMP, the
+// pragma is absent and the block runs once serially.
+#ifdef _OPENMP
+#pragma omp parallel num_threads(num_threads) if (num_threads > 1)
+#endif
+  {
+    // Per-thread copies of mutable objects. Each thread needs its own sampler
+    // (see random_sampler.h) and its own estimator/support_measurer instances.
+    Sampler thread_sampler(Estimator::kMinNumSamples);
+    thread_sampler.Initialize(num_samples);
+    Estimator thread_estimator = estimator;
+    SupportMeasurer thread_support_measurer = support_measurer;
+
+    // Seed per-thread PRNG with distinct seed.
+    if constexpr (is_randomized_sampler<Sampler>::value) {
+      if (options_.random_seed != -1) {
+#ifdef _OPENMP
+        SetPRNGSeed(options_.random_seed + omp_get_thread_num());
+#else
+        SetPRNGSeed(options_.random_seed);
+#endif
+      }
     }
 
-    sampler.SampleXY(X, Y, &X_rand, &Y_rand);
+    // Per-thread working buffers.
+    std::vector<double> residuals;
+    std::vector<typename Estimator::X_t> X_rand(Estimator::kMinNumSamples);
+    std::vector<typename Estimator::Y_t> Y_rand(Estimator::kMinNumSamples);
+    std::vector<typename Estimator::M_t> sample_models;
 
-    // Estimate model for current subset.
-    sample_models.clear();
-    estimator.Estimate(X_rand, Y_rand, &sample_models);
-
-    // Iterate through all estimated models.
-    for (const auto& sample_model : sample_models) {
-      estimator.Residuals(X, Y, sample_model, &residuals);
-      THROW_CHECK_EQ(residuals.size(), num_samples);
-
-      const auto support = support_measurer.Evaluate(residuals, max_residual);
-
-      // Save as best subset if better than all previous subsets.
-      if (support_measurer.IsLeftBetter(support, best_support)) {
-        best_support = support;
-        best_model = sample_model;
-
-        dyn_max_num_trials =
-            ComputeNumTrials(best_support.num_inliers,
-                             num_samples,
-                             options_.confidence,
-                             options_.dyn_num_trials_multiplier);
+    while (true) {
+      const size_t curr_thread_trial =
+          trial_counter.fetch_add(1, std::memory_order_relaxed);
+      if (curr_thread_trial >= max_num_trials ||
+          abort_flag.load(std::memory_order_relaxed)) {
+        break;
       }
 
-      if (report.num_trials >= dyn_max_num_trials &&
-          report.num_trials >= min_num_trials) {
-        abort = true;
+      thread_sampler.SampleXY(X, Y, &X_rand, &Y_rand);
+
+      // Estimate model for current subset.
+      sample_models.clear();
+      thread_estimator.Estimate(X_rand, Y_rand, &sample_models);
+
+      // Iterate through all estimated models.
+      for (const auto& sample_model : sample_models) {
+        thread_estimator.Residuals(X, Y, sample_model, &residuals);
+        THROW_CHECK_EQ(residuals.size(), num_samples);
+
+        const auto support =
+            thread_support_measurer.Evaluate(residuals, max_residual);
+
+        // Save as best subset if better than all previous subsets.
+#ifdef _OPENMP
+#pragma omp critical
+#endif
+        {
+          if (thread_support_measurer.IsLeftBetter(support, best_support)) {
+            best_support = support;
+            best_model = sample_model;
+
+            dyn_max_num_trials.store(
+                ComputeNumTrials(best_support.num_inliers,
+                                 num_samples,
+                                 options_.confidence,
+                                 options_.dyn_num_trials_multiplier),
+                std::memory_order_relaxed);
+          }
+        }
+
+        if (curr_thread_trial >=
+                dyn_max_num_trials.load(std::memory_order_relaxed) &&
+            curr_thread_trial >= min_num_trials) {
+          abort_flag.store(true, std::memory_order_relaxed);
+          break;
+        }
+      }
+
+      if (abort_flag.load(std::memory_order_relaxed)) {
         break;
       }
     }
   }
+
+  report.num_trials = trial_counter.load();
 
   if (!best_model.has_value()) {
     return report;
@@ -297,6 +351,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   // best model twice, but saves to copy and fill the inlier mask for each
   // evaluated model. Some benchmarking revealed that this approach is faster.
 
+  std::vector<double> residuals(num_samples);
   estimator.Residuals(X, Y, report.model, &residuals);
   THROW_CHECK_EQ(residuals.size(), num_samples);
 
