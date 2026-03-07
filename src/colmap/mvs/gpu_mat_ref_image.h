@@ -80,8 +80,13 @@ struct BilateralWeightComputer {
     const float spatial_dist_squared =
         row_diff * row_diff + col_diff * col_diff;
     const float color_dist = color1 - color2;
-    return exp(-spatial_dist_squared * spatial_normalization_ -
-               color_dist * color_dist * color_normalization_);
+    // Use fast intrinsic (~2 + floor(abs(1.16 * x)) ULP error vs 2 ULP for
+    // expf). For typical parameters (sigma_spatial=3, sigma_color=0.3), the
+    // argument magnitude is usually <= ~10, giving ~13 ULP max error — roughly
+    // 3-4 significant decimal digits lost out of ~7 for float32. Acceptable
+    // here since bilateral weights are approximate by nature.
+    return __expf(-spatial_dist_squared * spatial_normalization_ -
+                  color_dist * color_dist * color_normalization_);
   }
 
  private:
