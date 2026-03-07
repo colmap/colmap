@@ -42,6 +42,7 @@ COLMAP_ADD_LIBRARY(
         model.h model.cc
         normal_map.h normal_map.cc
         patch_match_options.h patch_match_options.cc
+        texture_mapping.h texture_mapping.cc
         workspace.h workspace.cc
     PUBLIC_LINK_LIBS
         colmap_util
@@ -98,6 +99,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME normal_map_test
     SRCS normal_map_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME texture_mapping_test
+    SRCS texture_mapping_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(

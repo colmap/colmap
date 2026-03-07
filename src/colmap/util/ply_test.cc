@@ -299,5 +299,104 @@ TEST(Ply, RoundTripBinaryPlyMesh) {
   }
 }
 
+PlyTexturedMesh CreateTestTexturedMesh() {
+  PlyTexturedMesh textured_mesh;
+  textured_mesh.texture_file = "texture.png";
+
+  textured_mesh.mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
+  textured_mesh.mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
+  textured_mesh.mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  textured_mesh.mesh.vertices.emplace_back(1.0f, 1.0f, 1.0f);
+
+  textured_mesh.mesh.faces.emplace_back(0, 1, 2);
+  textured_mesh.mesh.faces.emplace_back(1, 3, 2);
+
+  // 6 UV floats per face (u1,v1, u2,v2, u3,v3)
+  // Face 0
+  textured_mesh.face_uvs.push_back(0.0f);
+  textured_mesh.face_uvs.push_back(0.0f);
+  textured_mesh.face_uvs.push_back(1.0f);
+  textured_mesh.face_uvs.push_back(0.0f);
+  textured_mesh.face_uvs.push_back(0.0f);
+  textured_mesh.face_uvs.push_back(1.0f);
+  // Face 1
+  textured_mesh.face_uvs.push_back(0.5f);
+  textured_mesh.face_uvs.push_back(0.5f);
+  textured_mesh.face_uvs.push_back(1.0f);
+  textured_mesh.face_uvs.push_back(1.0f);
+  textured_mesh.face_uvs.push_back(0.25f);
+  textured_mesh.face_uvs.push_back(0.75f);
+
+  return textured_mesh;
+}
+
+void VerifyTexturedMesh(const PlyTexturedMesh& loaded,
+                        const PlyTexturedMesh& original) {
+  EXPECT_EQ(loaded.texture_file, original.texture_file);
+
+  ASSERT_EQ(loaded.mesh.vertices.size(), original.mesh.vertices.size());
+  ASSERT_EQ(loaded.mesh.faces.size(), original.mesh.faces.size());
+  ASSERT_EQ(loaded.face_uvs.size(), original.face_uvs.size());
+
+  for (size_t i = 0; i < original.mesh.vertices.size(); ++i) {
+    EXPECT_EQ(loaded.mesh.vertices[i].x, original.mesh.vertices[i].x);
+    EXPECT_EQ(loaded.mesh.vertices[i].y, original.mesh.vertices[i].y);
+    EXPECT_EQ(loaded.mesh.vertices[i].z, original.mesh.vertices[i].z);
+  }
+
+  for (size_t i = 0; i < original.mesh.faces.size(); ++i) {
+    EXPECT_EQ(loaded.mesh.faces[i].vertex_idx1,
+              original.mesh.faces[i].vertex_idx1);
+    EXPECT_EQ(loaded.mesh.faces[i].vertex_idx2,
+              original.mesh.faces[i].vertex_idx2);
+    EXPECT_EQ(loaded.mesh.faces[i].vertex_idx3,
+              original.mesh.faces[i].vertex_idx3);
+  }
+
+  for (size_t i = 0; i < original.face_uvs.size(); ++i) {
+    EXPECT_EQ(loaded.face_uvs[i], original.face_uvs[i]);
+  }
+}
+
+TEST(Ply, RoundTripTextTexturedPlyMesh) {
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "textured_mesh.ply";
+
+  PlyTexturedMesh original = CreateTestTexturedMesh();
+  WriteTextTexturedPlyMesh(test_file, original);
+  PlyTexturedMesh loaded = ReadTexturedPlyMesh(test_file);
+  VerifyTexturedMesh(loaded, original);
+}
+
+TEST(Ply, RoundTripBinaryTexturedPlyMesh) {
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "textured_mesh.ply";
+
+  PlyTexturedMesh original = CreateTestTexturedMesh();
+  WriteBinaryTexturedPlyMesh(test_file, original);
+  PlyTexturedMesh loaded = ReadTexturedPlyMesh(test_file);
+  VerifyTexturedMesh(loaded, original);
+}
+
+TEST(Ply, ReadTexturedPlyMeshWithoutTexcoords) {
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "mesh.ply";
+
+  // Write a plain mesh (no texcoords) and read it with ReadTexturedPlyMesh.
+  PlyMesh plain_mesh;
+  plain_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
+  plain_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
+  plain_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  plain_mesh.faces.emplace_back(0, 1, 2);
+
+  WriteTextPlyMesh(test_file, plain_mesh);
+  PlyTexturedMesh loaded = ReadTexturedPlyMesh(test_file);
+
+  ASSERT_EQ(loaded.mesh.vertices.size(), 3);
+  ASSERT_EQ(loaded.mesh.faces.size(), 1);
+  EXPECT_TRUE(loaded.face_uvs.empty());
+  EXPECT_TRUE(loaded.texture_file.empty());
+}
+
 }  // namespace
 }  // namespace colmap
