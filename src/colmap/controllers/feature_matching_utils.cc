@@ -256,6 +256,8 @@ FeatureMatcherController::FeatureMatcherController(
       is_setup_(false) {
   THROW_CHECK(matching_options_.Check());
   THROW_CHECK(geometry_options_.Check());
+  THROW_CHECK_EQ(geometry_options_.ransac_options.num_threads, 1)
+      << "Parallel RANSAC is not supported inside multi-threaded matching";
 
   const int num_threads = GetEffectiveNumThreads(matching_options_.num_threads);
   THROW_CHECK_GT(num_threads, 0);
