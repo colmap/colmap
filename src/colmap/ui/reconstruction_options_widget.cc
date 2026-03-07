@@ -93,6 +93,10 @@ class MapperRegistrationOptionsWidget : public OptionsWidget {
     AddOptionDouble(&options->mapper->mapper.abs_pose_min_inlier_ratio,
                     "abs_pose_min_inlier_ratio");
     AddOptionInt(&options->mapper->mapper.max_reg_trials, "max_reg_trials", 1);
+    AddOptionBool(&options->mapper->structure_less_registration_fallback,
+                  "structure_less_registration_fallback");
+    AddOptionBool(&options->mapper->structure_less_registration_only,
+                  "structure_less_registration_only");
   }
 };
 
