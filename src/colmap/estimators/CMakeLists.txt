@@ -122,13 +122,13 @@ COLMAP_ADD_TEST(
 )
 
 COLMAP_ADD_TEST(
-    NAME glomap_gravity_refinement_test
+    NAME gravity_refinement_test
     SRCS gravity_refinement_test.cc
     LINK_LIBS colmap_estimators
 )
 
 COLMAP_ADD_TEST(
-    NAME glomap_global_positioning_test
+    NAME global_positioning_test
     SRCS global_positioning_test.cc
     LINK_LIBS colmap_estimators
 )
