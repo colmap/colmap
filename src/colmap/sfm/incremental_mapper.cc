@@ -304,12 +304,14 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // (manually or through EXIF) and if it was not already estimated previously
   // from another image (when multiple images share the same camera parameters).
 
+  // Note that we use single-threaded RANSAC here, because benchmarking showed
+  // no significant speedup for multi-threaded RANSAC here (as opposed to the
+  // generalized absolute pose estimation).
   AbsolutePoseEstimationOptions abs_pose_options;
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
   abs_pose_options.ransac_options.random_seed = options.random_seed;
-  abs_pose_options.ransac_options.num_threads = options.num_threads;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
   if (options.constant_cameras.count(image.CameraId()) > 0) {
@@ -698,6 +700,9 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   abs_pose_options.ransac_options.max_error = 0.5 * options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
+  // As opposed to structure-based resectioning, structure-less resectioning
+  // is based on an expensive minimal solver, so we use multi-threading, which
+  // leads to a significant speedup based on benchmarking.
   abs_pose_options.ransac_options.num_threads = options.num_threads;
 
   BundleAdjustmentOptions abs_pose_refinement_options;
