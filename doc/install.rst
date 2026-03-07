@@ -246,10 +246,10 @@ vcpkg, first run ``./vcpkg integrate install`` (under Windows use pwsh and
     cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
     cmake --build . --config release --target colmap --parallel 24
 
-Anaconda
---------
+Anaconda/Mamba
+--------------
 
-Install miniconda and run the following commands::
+Install miniconda/micromamba and run the following commands::
 
     conda create -n colmap python=3.12
     conda config --add channels conda-forge
