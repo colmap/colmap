@@ -200,7 +200,7 @@ COLMAP_ADD_TEST(
 )
 
 COLMAP_ADD_TEST(
-    NAME glomap_pose_graph_test
+    NAME pose_graph_test
     SRCS pose_graph_test.cc
     LINK_LIBS colmap_scene
 )
