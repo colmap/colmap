@@ -32,23 +32,33 @@ set(FOLDER_NAME "estimators")
 add_subdirectory(cost_functions)
 add_subdirectory(solvers)
 
+set(ESTIMATORS_SRCS
+    alignment.h alignment.cc
+    bundle_adjustment.h bundle_adjustment.cc
+    bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
+    coordinate_frame.h coordinate_frame.cc
+    covariance.h covariance.cc
+    generalized_pose.h generalized_pose.cc
+    global_positioning.h global_positioning.cc
+    gravity_refinement.h gravity_refinement.cc
+    pose.h pose.cc
+    rotation_averaging.h rotation_averaging.cc
+    rotation_averaging_impl.h rotation_averaging_impl.cc
+    triangulation.h triangulation.cc
+    two_view_geometry.h two_view_geometry.cc
+    view_graph_calibration.h view_graph_calibration.cc
+)
+
+if(CASPAR_ENABLED)
+    list(APPEND ESTIMATORS_SRCS
+        bundle_adjustment_caspar.h
+        bundle_adjustment_caspar.cc
+    )
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators
-    SRCS
-        alignment.h alignment.cc
-        bundle_adjustment.h bundle_adjustment.cc
-        bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
-        coordinate_frame.h coordinate_frame.cc
-        covariance.h covariance.cc
-        generalized_pose.h generalized_pose.cc
-        global_positioning.h global_positioning.cc
-        gravity_refinement.h gravity_refinement.cc
-        pose.h pose.cc
-        rotation_averaging.h rotation_averaging.cc
-        rotation_averaging_impl.h rotation_averaging_impl.cc
-        triangulation.h triangulation.cc
-        two_view_geometry.h two_view_geometry.cc
-        view_graph_calibration.h view_graph_calibration.cc
+    SRCS ${ESTIMATORS_SRCS}
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
@@ -64,6 +74,11 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
         PoseLib::PoseLib
 )
+
+if(CASPAR_ENABLED)
+    target_link_libraries(colmap_estimators PUBLIC caspar_lib_core)
+    add_dependencies(colmap_estimators caspar_generate)
+endif()
 
 if(CUDA_ENABLED)
     target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)
@@ -84,6 +99,13 @@ COLMAP_ADD_TEST(
     SRCS bundle_adjustment_ceres_test.cc
     LINK_LIBS colmap_estimators
 )
+if(CASPAR_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME bundle_adjustment_caspar_test
+        SRCS bundle_adjustment_caspar_test.cc
+        LINK_LIBS colmap_estimators
+    )
+endif()
 COLMAP_ADD_TEST(
     NAME coordinate_frame_test
     SRCS coordinate_frame_test.cc

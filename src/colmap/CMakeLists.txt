@@ -58,6 +58,86 @@ if(CUDA_ENABLED)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
 endif()
 
+if(CASPAR_ENABLED)
+    # Get first Python interpreter found 
+    # (best for finding active venv)
+    cmake_policy(SET CMP0094 NEW)
+
+    message(STATUS "Enabling CASPAR support")
+    add_compile_definitions(CASPAR_ENABLED)
+
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    find_package(CUDAToolkit REQUIRED)
+
+    set(CASPAR_CAMERA_MODEL "SIMPLE_RADIAL" CACHE STRING
+        "Camera model to build the Caspar solver for")
+    set_property(CACHE CASPAR_CAMERA_MODEL PROPERTY STRINGS
+        SIMPLE_RADIAL PINHOLE)
+
+    string(TOLOWER ${CASPAR_CAMERA_MODEL} _caspar_model_lower)
+
+    set(_caspar_solver_script
+        "${CMAKE_CURRENT_SOURCE_DIR}/estimators/caspar/${_caspar_model_lower}_solver.py")
+    set(_caspar_adapter_src
+        "${CMAKE_CURRENT_SOURCE_DIR}/estimators/caspar/adapters/caspar_model_adapter_${_caspar_model_lower}.h")
+
+    set(CASPAR_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/caspar_generated")
+    set(_caspar_solver_header "${CASPAR_GEN_DIR}/solver.h")
+    set(_caspar_lib           "${CASPAR_GEN_DIR}/build/libcaspar_lib_core.a")
+    set(_caspar_adapter_dst   "${CASPAR_GEN_DIR}/caspar_model_adapter.h")
+
+    if(NOT EXISTS ${_caspar_solver_script})
+        message(FATAL_ERROR
+            "Caspar: no solver spec for model '${CASPAR_CAMERA_MODEL}'.\n"
+            "Expected: ${_caspar_solver_script}")
+    endif()
+    if(NOT EXISTS ${_caspar_adapter_src})
+        message(FATAL_ERROR
+            "Caspar: no adapter for model '${CASPAR_CAMERA_MODEL}'.\n"
+            "Expected: ${_caspar_adapter_src}")
+    endif()
+
+    set(CASPAR_USE_DOUBLE OFF CACHE BOOL "Use double precision in Caspar solver")
+
+    set(_caspar_precision_arg "")
+    if(CASPAR_USE_DOUBLE)
+        set(_caspar_precision_arg "--double")
+        add_compile_definitions(CASPAR_USE_DOUBLE)
+    endif()
+
+    # The script receives CASPAR_GEN_DIR as argv[1] and writes both
+    # solver.h and libcaspar_lib_core.a there.
+    # Both are declared as OUTPUT so the build system tracks them correctly
+    # and only reruns this command when the spec file changes.
+    add_custom_command(
+        OUTPUT  ${_caspar_solver_header} ${_caspar_lib}
+        COMMAND ${Python3_EXECUTABLE} ${_caspar_solver_script}
+                ${CASPAR_GEN_DIR} ${_caspar_precision_arg}
+        DEPENDS ${_caspar_solver_script}
+        COMMENT "Generating Caspar solver (${CASPAR_CAMERA_MODEL}, ${_caspar_precision_arg})..."
+        VERBATIM
+    )
+
+    add_custom_target(caspar_generate
+        DEPENDS ${_caspar_solver_header} ${_caspar_lib}
+    )
+
+    add_library(caspar_lib_core STATIC IMPORTED GLOBAL)
+    set_target_properties(caspar_lib_core PROPERTIES
+        IMPORTED_LOCATION             ${_caspar_lib}
+        INTERFACE_INCLUDE_DIRECTORIES ${CASPAR_GEN_DIR}
+    )
+    target_link_libraries(caspar_lib_core INTERFACE CUDA::cudart)
+
+    # configure_file destination is also in the build tree.
+    # CASPAR_GEN_DIR is already on the include path via caspar_lib_core,
+    # so #include "caspar_model_adapter.h" resolves correctly.
+    configure_file(${_caspar_adapter_src} ${_caspar_adapter_dst} COPYONLY)
+
+    message(STATUS "Caspar camera model:  ${CASPAR_CAMERA_MODEL}")
+    message(STATUS "Caspar output dir:    ${CASPAR_GEN_DIR}")
+endif()
+
 if(COVERAGE_ENABLED)
     add_compile_options(-coverage -fprofile-update=atomic)
     add_link_options(-coverage)
