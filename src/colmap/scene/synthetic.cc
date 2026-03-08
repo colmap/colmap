@@ -321,6 +321,128 @@ void PosePriorPositionWGS84ToCartesian(PosePrior& pose_prior) {
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
 }
 
+std::pair<rig_t, std::vector<sensor_t>> SynthesizeCamerasAndRig(
+    const BaseSyntheticOptions& options,
+    int rig_idx,
+    bool has_prior_focal_length,
+    Reconstruction* reconstruction,
+    Database* database = nullptr) {
+  Rig rig;
+
+  std::vector<sensor_t> camera_sensor_ids;
+  camera_sensor_ids.reserve(options.num_cameras_per_rig);
+  for (int camera_idx = 0; camera_idx < options.num_cameras_per_rig;
+       ++camera_idx) {
+    Camera camera;
+    camera.width = options.camera_width;
+    camera.height = options.camera_height;
+    camera.model_id = options.camera_model_id;
+    camera.params = options.camera_params;
+    THROW_CHECK(camera.VerifyParams());
+    camera.has_prior_focal_length = has_prior_focal_length;
+    camera.camera_id =
+        (database == nullptr)
+            ? (rig_idx * options.num_cameras_per_rig + camera_idx + 1)
+            : database->WriteCamera(camera);
+    reconstruction->AddCamera(camera);
+
+    if (rig.NumSensors() == 0) {
+      rig.AddRefSensor(camera.SensorId());
+    } else {
+      Rigid3d sensor_from_rig;
+      if (options.sensor_from_rig_rotation_stddev > 0) {
+        // Generate a random rotation around the Z-axis.
+        // This is to avoid 2D points fall behind the camera.
+        const double angle = std::clamp(
+            RandomGaussian<double>(0, options.sensor_from_rig_rotation_stddev),
+            -180.0,
+            180.0);
+        sensor_from_rig.rotation() = Eigen::Quaterniond(
+            Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
+      }
+      if (options.sensor_from_rig_translation_stddev > 0) {
+        sensor_from_rig.translation() =
+            Eigen::Vector3d(RandomGaussian<double>(
+                                0, options.sensor_from_rig_translation_stddev),
+                            RandomGaussian<double>(
+                                0, options.sensor_from_rig_translation_stddev),
+                            RandomGaussian<double>(
+                                0, options.sensor_from_rig_translation_stddev));
+      }
+      rig.AddSensor(camera.SensorId(), sensor_from_rig);
+    }
+
+    camera_sensor_ids.push_back(camera.SensorId());
+  }
+
+  const rig_t rig_id =
+      (database == nullptr) ? rig_idx + 1 : database->WriteRig(rig);
+  rig.SetRigId(rig_id);
+  reconstruction->AddRig(rig);
+
+  return {rig_id, std::move(camera_sensor_ids)};
+}
+
+PosePrior SynthesizePosePrior(const Rigid3d& cam_from_world,
+                              const data_t& corr_data_id,
+                              const BaseSyntheticOptions& options) {
+  PosePrior pose_prior;
+  pose_prior.corr_data_id = corr_data_id;
+
+  if (options.prior_position) {
+    pose_prior.position = cam_from_world.TgtOriginInSrc();
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    switch (options.prior_position_coordinate_system) {
+      case PosePrior::CoordinateSystem::CARTESIAN:
+        break;
+      case PosePrior::CoordinateSystem::WGS84:
+        PosePriorPositionCartesianToWGS84(pose_prior);
+        break;
+      default:
+        LOG(FATAL) << "Invalid PosePrior::CoordinateSystem specified";
+    }
+  }
+
+  if (options.prior_gravity) {
+    pose_prior.gravity =
+        (cam_from_world.rotation() * options.prior_gravity_in_world)
+            .normalized();
+  }
+
+  return pose_prior;
+}
+
+void SynthesizePosePriorNoise(PosePrior& pose_prior,
+                              double position_stddev,
+                              double gravity_stddev) {
+  if (position_stddev > 0 && pose_prior.HasPosition()) {
+    const bool prior_in_wgs84 =
+        pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84;
+    if (prior_in_wgs84) {
+      PosePriorPositionWGS84ToCartesian(pose_prior);
+    }
+    pose_prior.position +=
+        Eigen::Vector3d(RandomGaussian<double>(0, position_stddev),
+                        RandomGaussian<double>(0, position_stddev),
+                        RandomGaussian<double>(0, position_stddev));
+    if (!pose_prior.HasPositionCov()) {
+      pose_prior.position_covariance = Eigen::Matrix3d::Zero();
+    }
+    pose_prior.position_covariance +=
+        position_stddev * position_stddev * Eigen::Matrix3d::Identity();
+    if (prior_in_wgs84) {
+      PosePriorPositionCartesianToWGS84(pose_prior);
+    }
+  }
+  if (gravity_stddev > 0 && pose_prior.HasGravity()) {
+    const double angle = RandomGaussian<double>(0, DegToRad(gravity_stddev));
+    const Eigen::Vector3d axis =
+        pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
+    pose_prior.gravity =
+        (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
+  }
+}
+
 }  // namespace
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
@@ -380,59 +502,13 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   }
 
   for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
-    Rig rig;
-
-    std::vector<sensor_t> camera_sensor_ids;
-    camera_sensor_ids.reserve(options.num_cameras_per_rig);
-    for (int camera_idx = 0; camera_idx < options.num_cameras_per_rig;
-         ++camera_idx) {
-      Camera camera;
-      camera.width = options.camera_width;
-      camera.height = options.camera_height;
-      camera.model_id = options.camera_model_id;
-      camera.params = options.camera_params;
-      THROW_CHECK(camera.VerifyParams());
-      camera.has_prior_focal_length = options.camera_has_prior_focal_length;
-      camera.camera_id =
-          (database == nullptr)
-              ? (rig_idx * options.num_cameras_per_rig + camera_idx + 1)
-              : database->WriteCamera(camera);
-      reconstruction->AddCamera(camera);
-
-      if (rig.NumSensors() == 0) {
-        rig.AddRefSensor(camera.SensorId());
-      } else {
-        Rigid3d sensor_from_rig;
-        if (options.sensor_from_rig_rotation_stddev > 0) {
-          // Generate a random rotation around the Z-axis.
-          // This is to avoid 2D points fall behind the camera.
-          const double angle =
-              std::clamp(RandomGaussian<double>(
-                             0, options.sensor_from_rig_rotation_stddev),
-                         -180.0,
-                         180.0);
-          sensor_from_rig.rotation() = Eigen::Quaterniond(
-              Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
-        }
-        if (options.sensor_from_rig_translation_stddev > 0) {
-          sensor_from_rig.translation() = Eigen::Vector3d(
-              RandomGaussian<double>(
-                  0, options.sensor_from_rig_translation_stddev),
-              RandomGaussian<double>(
-                  0, options.sensor_from_rig_translation_stddev),
-              RandomGaussian<double>(
-                  0, options.sensor_from_rig_translation_stddev));
-        }
-        rig.AddSensor(camera.SensorId(), sensor_from_rig);
-      }
-
-      camera_sensor_ids.push_back(camera.SensorId());
-    }
-
-    const rig_t rig_id =
-        (database == nullptr) ? rig_idx + 1 : database->WriteRig(rig);
-    rig.SetRigId(rig_id);
-    reconstruction->AddRig(rig);
+    const auto [rig_id, camera_sensor_ids] =
+        SynthesizeCamerasAndRig(options,
+                                rig_idx,
+                                options.camera_has_prior_focal_length,
+                                reconstruction,
+                                database);
+    const Rig& rig = reconstruction->Rig(rig_id);
 
     for (int frame_idx = 0; frame_idx < options.num_frames_per_rig;
          ++frame_idx) {
@@ -480,30 +556,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         cams_from_world.push_back(cam_from_world);
 
         if (options.prior_position || options.prior_gravity) {
-          PosePrior pose_prior;
-
-          if (options.prior_position) {
-            pose_prior.position = cam_from_world.TgtOriginInSrc();
-            pose_prior.coordinate_system =
-                PosePrior::CoordinateSystem::CARTESIAN;
-            switch (options.prior_position_coordinate_system) {
-              case PosePrior::CoordinateSystem::CARTESIAN:
-                break;
-              case PosePrior::CoordinateSystem::WGS84:
-                PosePriorPositionCartesianToWGS84(pose_prior);
-                break;
-              default:
-                LOG(FATAL) << "Invalid PosePrior::CoordinateSystem specified";
-            }
-          }
-
-          if (options.prior_gravity) {
-            pose_prior.gravity =
-                (cam_from_world.rotation() * options.prior_gravity_in_world)
-                    .normalized();
-          }
-
-          pose_prior.corr_data_id = image.DataId();
+          PosePrior pose_prior =
+              SynthesizePosePrior(cam_from_world, image.DataId(), options);
           pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
         }
       }
@@ -719,34 +773,9 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
   if (database != nullptr && (options.prior_position_stddev > 0.0 ||
                               options.prior_gravity_stddev > 0.0)) {
     for (auto& pose_prior : database->ReadAllPosePriors()) {
-      if (options.prior_position_stddev > 0.) {
-        const bool prior_in_wgs84 =
-            pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84;
-        if (prior_in_wgs84) {
-          PosePriorPositionWGS84ToCartesian(pose_prior);
-        }
-        pose_prior.position += Eigen::Vector3d(
-            RandomGaussian<double>(0, options.prior_position_stddev),
-            RandomGaussian<double>(0, options.prior_position_stddev),
-            RandomGaussian<double>(0, options.prior_position_stddev));
-        if (!pose_prior.HasPositionCov()) {
-          pose_prior.position_covariance = Eigen::Matrix3d::Zero();
-        }
-        pose_prior.position_covariance += options.prior_position_stddev *
-                                          options.prior_position_stddev *
-                                          Eigen::Matrix3d::Identity();
-        if (prior_in_wgs84) {
-          PosePriorPositionCartesianToWGS84(pose_prior);
-        }
-      }
-      if (options.prior_gravity_stddev > 0.) {
-        const double angle =
-            RandomGaussian<double>(0, DegToRad(options.prior_gravity_stddev));
-        const Eigen::Vector3d axis =
-            pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
-        pose_prior.gravity =
-            (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
-      }
+      SynthesizePosePriorNoise(pose_prior,
+                               options.prior_position_stddev,
+                               options.prior_gravity_stddev);
       database->UpdatePosePrior(pose_prior);
     }
   }
@@ -860,57 +889,16 @@ SyntheticPoseGraphData SynthesizePoseGraph(
   int total_num_images = 0;
 
   for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
-    Rig rig;
-
-    std::vector<sensor_t> camera_sensor_ids;
-    camera_sensor_ids.reserve(options.num_cameras_per_rig);
-    for (int camera_idx = 0; camera_idx < options.num_cameras_per_rig;
-         ++camera_idx) {
-      Camera camera;
-      camera.width = options.camera_width;
-      camera.height = options.camera_height;
-      camera.model_id = options.camera_model_id;
-      camera.params = options.camera_params;
-      THROW_CHECK(camera.VerifyParams());
-      camera.camera_id = rig_idx * options.num_cameras_per_rig + camera_idx + 1;
-      data.reconstruction.AddCamera(camera);
-
-      if (rig.NumSensors() == 0) {
-        rig.AddRefSensor(camera.SensorId());
-      } else {
-        Rigid3d sensor_from_rig;
-        if (options.sensor_from_rig_rotation_stddev > 0) {
-          const double angle =
-              std::clamp(RandomGaussian<double>(
-                             0, options.sensor_from_rig_rotation_stddev),
-                         -180.0,
-                         180.0);
-          sensor_from_rig.rotation() = Eigen::Quaterniond(
-              Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
-        }
-        if (options.sensor_from_rig_translation_stddev > 0) {
-          sensor_from_rig.translation() = Eigen::Vector3d(
-              RandomGaussian<double>(
-                  0, options.sensor_from_rig_translation_stddev),
-              RandomGaussian<double>(
-                  0, options.sensor_from_rig_translation_stddev),
-              RandomGaussian<double>(
-                  0, options.sensor_from_rig_translation_stddev));
-        }
-        rig.AddSensor(camera.SensorId(), sensor_from_rig);
-      }
-
-      camera_sensor_ids.push_back(camera.SensorId());
-    }
-
-    const rig_t rig_id = rig_idx + 1;
-    rig.SetRigId(rig_id);
-    data.reconstruction.AddRig(rig);
+    const auto [rig_id, camera_sensor_ids] =
+        SynthesizeCamerasAndRig(options,
+                                rig_idx,
+                                /*has_prior_focal_length=*/false,
+                                &data.reconstruction);
 
     for (int frame_idx = 0; frame_idx < options.num_frames_per_rig;
          ++frame_idx) {
       Frame frame;
-      frame.SetRigId(rig.RigId());
+      frame.SetRigId(rig_id);
 
       // Synthesize frames as sphere centered at world origin.
       const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
@@ -1010,37 +998,12 @@ SyntheticPoseGraphData SynthesizePoseGraph(
     for (const frame_t frame_id : data.reconstruction.RegFrameIds()) {
       const auto& frame = data.reconstruction.Frame(frame_id);
       for (const data_t& data_id : frame.ImageIds()) {
-        const image_t image_id = data_id.id;
-        const auto& image = data.reconstruction.Image(image_id);
+        const auto& image = data.reconstruction.Image(data_id.id);
         if (!image.IsRefInFrame()) {
           continue;
         }
-
-        const Rigid3d cam_from_world = image.CamFromWorld();
-        PosePrior pose_prior;
-        pose_prior.corr_data_id = image.DataId();
-
-        if (options.prior_position) {
-          pose_prior.position = cam_from_world.TgtOriginInSrc();
-          pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-          switch (options.prior_position_coordinate_system) {
-            case PosePrior::CoordinateSystem::CARTESIAN:
-              break;
-            case PosePrior::CoordinateSystem::WGS84:
-              PosePriorPositionCartesianToWGS84(pose_prior);
-              break;
-            default:
-              LOG(FATAL) << "Invalid PosePrior::CoordinateSystem specified";
-          }
-        }
-
-        if (options.prior_gravity) {
-          pose_prior.gravity =
-              (cam_from_world.rotation() * options.prior_gravity_in_world)
-                  .normalized();
-        }
-
-        data.pose_priors.push_back(pose_prior);
+        data.pose_priors.push_back(
+            SynthesizePosePrior(image.CamFromWorld(), image.DataId(), options));
       }
     }
   }
@@ -1083,34 +1046,9 @@ void SynthesizePoseGraphNoise(const SyntheticPoseGraphNoiseOptions& options,
 
   if (options.prior_position_stddev > 0 || options.prior_gravity_stddev > 0) {
     for (auto& pose_prior : data->pose_priors) {
-      if (options.prior_position_stddev > 0 && pose_prior.HasPosition()) {
-        const bool prior_in_wgs84 =
-            pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84;
-        if (prior_in_wgs84) {
-          PosePriorPositionWGS84ToCartesian(pose_prior);
-        }
-        pose_prior.position += Eigen::Vector3d(
-            RandomGaussian<double>(0, options.prior_position_stddev),
-            RandomGaussian<double>(0, options.prior_position_stddev),
-            RandomGaussian<double>(0, options.prior_position_stddev));
-        if (!pose_prior.HasPositionCov()) {
-          pose_prior.position_covariance = Eigen::Matrix3d::Zero();
-        }
-        pose_prior.position_covariance += options.prior_position_stddev *
-                                          options.prior_position_stddev *
-                                          Eigen::Matrix3d::Identity();
-        if (prior_in_wgs84) {
-          PosePriorPositionCartesianToWGS84(pose_prior);
-        }
-      }
-      if (options.prior_gravity_stddev > 0 && pose_prior.HasGravity()) {
-        const double angle =
-            RandomGaussian<double>(0, DegToRad(options.prior_gravity_stddev));
-        const Eigen::Vector3d axis =
-            pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
-        pose_prior.gravity =
-            (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
-      }
+      SynthesizePosePriorNoise(pose_prior,
+                               options.prior_position_stddev,
+                               options.prior_gravity_stddev);
     }
   }
 }
