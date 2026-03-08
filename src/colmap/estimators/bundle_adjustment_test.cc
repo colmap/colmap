@@ -312,12 +312,12 @@ TEST_P(BundleAdjusterBackendTest, Nominal) {
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
   synthetic_noise_options.point3D_stddev = 0.1;
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
 
   BundleAdjustmentConfig config;
   for (const image_t image_id : reconstruction.RegImageIds()) {
@@ -373,13 +373,12 @@ TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.point3D_stddev = 0.1;
-  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
-  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
-  synthetic_noise_options.prior_position_stddev = 0.05;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  ReconstructionNoiseOptions reconstruction_noise_options;
+  reconstruction_noise_options.point2D_stddev = 0.5;
+  reconstruction_noise_options.point3D_stddev = 0.1;
+  reconstruction_noise_options.rig_from_world_rotation_stddev = 0.5;
+  reconstruction_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeReconstructionNoise(reconstruction_noise_options, &reconstruction);
 
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
 

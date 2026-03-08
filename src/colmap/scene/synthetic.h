@@ -30,7 +30,9 @@
 #pragma once
 
 #include "colmap/feature/types.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/database.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
@@ -39,6 +41,7 @@
 namespace colmap {
 
 struct SyntheticDatasetOptions {
+  // Scene structure options.
   int num_rigs = 2;
   int num_cameras_per_rig = 1;
   int num_frames_per_rig = 5;
@@ -47,6 +50,7 @@ struct SyntheticDatasetOptions {
   // points (dense visibility). If > 0, observations are pruned to exactly this
   // many per point. Must be -1 or >= 2.
   int track_length = -1;
+  int num_points2D_without_point3D = 10;
 
   double sensor_from_rig_translation_stddev = 0.05;
   // Random rotation in degrees around the z-axis of the sensor.
@@ -58,16 +62,10 @@ struct SyntheticDatasetOptions {
   std::vector<double> camera_params = {1280, 512, 384, 0.05};
   bool camera_has_prior_focal_length = false;
 
-  // The type of feature descriptors to synthesize.
-  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
+  // The synthesized image file extension.
+  std::string image_extension = ".png";
 
-  int num_points2D_without_point3D = 10;
-
-  double inlier_match_ratio = 1.0;
-
-  // Whether to include decomposed relative poses in two-view geometries.
-  bool two_view_geometry_has_relative_pose = false;
-
+  // Match topology options.
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
     EXHAUSTIVE = 1,
@@ -79,42 +77,78 @@ struct SyntheticDatasetOptions {
     SPARSE = 3,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
-
   // Sparsity parameter for SPARSE match config, in range [0, 1].
   // 0 = fully connected view graph, equivalent to EXHAUSTIVE (all edges)
   // 1 = empty view graph (no edges)
   double match_sparsity = 0.0;
 
+  // Prior options.
   bool prior_position = false;
   PosePrior::CoordinateSystem prior_position_coordinate_system =
       PosePrior::CoordinateSystem::CARTESIAN;
   bool prior_gravity = false;
   Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
 
-  // The synthesized image file extension.
-  std::string image_extension = ".png";
+  // Database-only options.
+  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
+  double inlier_match_ratio = 1.0;
+  // Whether to include decomposed relative poses in two-view geometries.
+  bool two_view_geometry_has_relative_pose = false;
 };
 
+struct SyntheticDataset {
+  Reconstruction reconstruction;
+  PoseGraph pose_graph;
+  std::vector<PosePrior> pose_priors;
+};
+
+// Synthesize a full dataset including reconstruction, pose graph, and pose
+// priors. Optionally populates the database. Appends to existing data.
+void SynthesizeDataset(const SyntheticDatasetOptions& options,
+                       SyntheticDataset* dataset,
+                       Database* database = nullptr);
+// Convenience overload that only populates a reconstruction and optionally the
+// database, without producing a pose graph or pose priors.
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database = nullptr);
 
-struct SyntheticNoiseOptions {
+struct ReconstructionNoiseOptions {
   double rig_from_world_translation_stddev = 0.0;
   // Random rotation in degrees around the z-axis of the rig.
   double rig_from_world_rotation_stddev = 0.0;
   double point3D_stddev = 0.0;
   double point2D_stddev = 0.0;
-
-  // Translational standard deviation of the prior position in meters.
-  double prior_position_stddev = 1.5;
-  // Rotational standard deviation of the prior gravity in degrees.
-  double prior_gravity_stddev = 1.0;
 };
 
-void SynthesizeNoise(const SyntheticNoiseOptions& options,
-                     Reconstruction* reconstruction,
-                     Database* database = nullptr);
+struct PoseGraphNoiseOptions {
+  // Relative rotation noise in degrees for pose graph edges.
+  double rel_rotation_noise_deg = 0.0;
+  // Relative translation direction noise in degrees for pose graph edges.
+  double rel_translation_noise_deg = 0.0;
+};
+
+struct PosePriorNoiseOptions {
+  // Translational standard deviation of the prior position in meters.
+  double prior_position_stddev = 0.0;
+  // Rotational standard deviation of the prior gravity in degrees.
+  double prior_gravity_stddev = 0.0;
+};
+
+// Add Gaussian noise to frame poses, 2D/3D points in the reconstruction.
+// Optionally updates keypoints in the database.
+void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
+                                   Reconstruction* reconstruction,
+                                   Database* database = nullptr);
+// Add noise to relative poses in pose graph edges.
+void SynthesizePoseGraphNoise(const PoseGraphNoiseOptions& options,
+                              PoseGraph* pose_graph);
+// Add noise to position/gravity pose priors. At least one of pose_priors or
+// database must be non-null. If pose_priors is null, priors are read from the
+// database, noised, and written back.
+void SynthesizePosePriorNoise(const PosePriorNoiseOptions& options,
+                              std::vector<PosePrior>* pose_priors = nullptr,
+                              Database* database = nullptr);
 
 struct SyntheticImageOptions {
   int feature_peak_radius = 2;

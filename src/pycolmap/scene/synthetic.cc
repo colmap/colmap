@@ -1,5 +1,8 @@
 #include "colmap/scene/synthetic.h"
 
+#include "colmap/geometry/pose_prior.h"
+#include "colmap/scene/pose_graph.h"
+
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
@@ -79,40 +82,69 @@ void BindSynthetic(py::module& m) {
                          "Prior gravity direction in world coordinates.");
   MakeDataclass(PySyntheticDatasetOptions);
 
-  m.def(
-      "synthesize_dataset",
-      [](const SyntheticDatasetOptions& options, Database* database = nullptr) {
-        Reconstruction reconstruction;
-        SynthesizeDataset(options, &reconstruction, database);
-        return reconstruction;
-      },
-      "options"_a,
-      "database"_a = py::none());
+  auto PySyntheticDataset =
+      py::classh<SyntheticDataset>(m, "SyntheticDataset")
+          .def(py::init<>())
+          .def_readwrite("reconstruction", &SyntheticDataset::reconstruction)
+          .def_readwrite("pose_graph", &SyntheticDataset::pose_graph)
+          .def_readwrite("pose_priors", &SyntheticDataset::pose_priors);
+  MakeDataclass(PySyntheticDataset);
 
-  auto PySyntheticNoiseOptions =
-      py::classh<SyntheticNoiseOptions>(m, "SyntheticNoiseOptions")
+  m.def("synthesize_dataset",
+        static_cast<void (*)(
+            const SyntheticDatasetOptions&, SyntheticDataset*, Database*)>(
+            &SynthesizeDataset),
+        "options"_a,
+        "dataset"_a,
+        "database"_a = py::none());
+
+  auto PyReconstructionNoiseOptions =
+      py::classh<ReconstructionNoiseOptions>(m, "ReconstructionNoiseOptions")
           .def(py::init<>())
           .def_readwrite(
               "rig_from_world_translation_stddev",
-              &SyntheticNoiseOptions::rig_from_world_translation_stddev)
+              &ReconstructionNoiseOptions::rig_from_world_translation_stddev)
           .def_readwrite(
               "rig_from_world_rotation_stddev",
-              &SyntheticNoiseOptions::rig_from_world_rotation_stddev,
+              &ReconstructionNoiseOptions::rig_from_world_rotation_stddev,
               "Random rotation in degrees around the z-axis of the rig.")
           .def_readwrite("point3D_stddev",
-                         &SyntheticNoiseOptions::point3D_stddev)
+                         &ReconstructionNoiseOptions::point3D_stddev)
           .def_readwrite("point2D_stddev",
-                         &SyntheticNoiseOptions::point2D_stddev)
-          .def_readwrite("prior_position_stddev",
-                         &SyntheticNoiseOptions::prior_position_stddev)
-          .def_readwrite("prior_gravity_stddev",
-                         &SyntheticNoiseOptions::prior_gravity_stddev);
-  MakeDataclass(PySyntheticNoiseOptions);
+                         &ReconstructionNoiseOptions::point2D_stddev);
+  MakeDataclass(PyReconstructionNoiseOptions);
 
-  m.def("synthesize_noise",
-        &SynthesizeNoise,
+  auto PyPoseGraphNoiseOptions =
+      py::classh<PoseGraphNoiseOptions>(m, "PoseGraphNoiseOptions")
+          .def(py::init<>())
+          .def_readwrite("rel_rotation_noise_deg",
+                         &PoseGraphNoiseOptions::rel_rotation_noise_deg)
+          .def_readwrite("rel_translation_noise_deg",
+                         &PoseGraphNoiseOptions::rel_translation_noise_deg);
+  MakeDataclass(PyPoseGraphNoiseOptions);
+
+  auto PyPosePriorNoiseOptions =
+      py::classh<PosePriorNoiseOptions>(m, "PosePriorNoiseOptions")
+          .def(py::init<>())
+          .def_readwrite("prior_position_stddev",
+                         &PosePriorNoiseOptions::prior_position_stddev)
+          .def_readwrite("prior_gravity_stddev",
+                         &PosePriorNoiseOptions::prior_gravity_stddev);
+  MakeDataclass(PyPosePriorNoiseOptions);
+
+  m.def("synthesize_reconstruction_noise",
+        &SynthesizeReconstructionNoise,
         "options"_a,
         "reconstruction"_a,
+        "database"_a = py::none());
+  m.def("synthesize_pose_graph_noise",
+        &SynthesizePoseGraphNoise,
+        "options"_a,
+        "pose_graph"_a);
+  m.def("synthesize_pose_prior_noise",
+        &SynthesizePosePriorNoise,
+        "options"_a,
+        "pose_priors"_a = py::none(),
         "database"_a = py::none());
 
   auto PySyntheticImageOptions =

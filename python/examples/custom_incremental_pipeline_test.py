@@ -55,8 +55,9 @@ def test_without_noise(tmp_path: Path) -> None:
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 50
-        gt_reconstruction = pycolmap.synthesize_dataset(
-            synthetic_dataset_options, database
+        gt_dataset = pycolmap.SyntheticDataset()
+        pycolmap.synthesize_dataset(
+            synthetic_dataset_options, gt_dataset, database
         )
 
     custom_incremental_pipeline.main(
@@ -67,7 +68,7 @@ def test_without_noise(tmp_path: Path) -> None:
     )
 
     expect_equal_reconstructions(
-        gt_reconstruction,
+        gt_dataset.reconstruction,
         pycolmap.Reconstruction(output_path / "0"),
         max_rotation_error_deg=1e-2,
         max_proj_center_error=1e-4,
@@ -89,12 +90,15 @@ def test_with_noise(tmp_path: Path) -> None:
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 100
-        gt_reconstruction = pycolmap.synthesize_dataset(
-            synthetic_dataset_options, database
+        gt_dataset = pycolmap.SyntheticDataset()
+        pycolmap.synthesize_dataset(
+            synthetic_dataset_options, gt_dataset, database
         )
-        synthetic_noise_options = pycolmap.SyntheticNoiseOptions()
+        synthetic_noise_options = pycolmap.ReconstructionNoiseOptions()
         synthetic_noise_options.point2D_stddev = 0.5
-        pycolmap.synthesize_noise(synthetic_noise_options, gt_reconstruction)
+        pycolmap.synthesize_reconstruction_noise(
+            synthetic_noise_options, gt_dataset.reconstruction
+        )
 
     custom_incremental_pipeline.main(
         database_path=database_path,
@@ -104,7 +108,7 @@ def test_with_noise(tmp_path: Path) -> None:
     )
 
     expect_equal_reconstructions(
-        gt_reconstruction,
+        gt_dataset.reconstruction,
         pycolmap.Reconstruction(output_path / "0"),
         max_rotation_error_deg=1e-1,
         max_proj_center_error=1e-1,
@@ -126,12 +130,14 @@ def test_multi_reconstruction(tmp_path: Path) -> None:
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 5
         synthetic_dataset_options.num_points3D = 50
-        gt_reconstruction1 = pycolmap.synthesize_dataset(
-            synthetic_dataset_options, database
+        gt_dataset1 = pycolmap.SyntheticDataset()
+        pycolmap.synthesize_dataset(
+            synthetic_dataset_options, gt_dataset1, database
         )
         synthetic_dataset_options.num_frames_per_rig = 4
-        gt_reconstruction2 = pycolmap.synthesize_dataset(
-            synthetic_dataset_options, database
+        gt_dataset2 = pycolmap.SyntheticDataset()
+        pycolmap.synthesize_dataset(
+            synthetic_dataset_options, gt_dataset2, database
         )
 
     options = create_test_options()
@@ -146,18 +152,21 @@ def test_multi_reconstruction(tmp_path: Path) -> None:
     assert len(list(output_path.iterdir())) == 2
     reconstruction1 = pycolmap.Reconstruction(output_path / "0")
     reconstruction2 = pycolmap.Reconstruction(output_path / "1")
-    if reconstruction1 == gt_reconstruction2.num_reg_images():
+    if (
+        reconstruction1.num_reg_images()
+        == gt_dataset2.reconstruction.num_reg_images()
+    ):
         reconstruction1, reconstruction2 = reconstruction2, reconstruction1
 
     expect_equal_reconstructions(
-        gt_reconstruction1,
+        gt_dataset1.reconstruction,
         reconstruction1,
         max_rotation_error_deg=1e-2,
         max_proj_center_error=1e-4,
         num_obs_tolerance=0,
     )
     expect_equal_reconstructions(
-        gt_reconstruction2,
+        gt_dataset2.reconstruction,
         reconstruction2,
         max_rotation_error_deg=1e-2,
         max_proj_center_error=1e-4,
@@ -182,8 +191,9 @@ def test_chained_matches(tmp_path: Path) -> None:
         synthetic_dataset_options.match_config = (
             pycolmap.SyntheticDatasetMatchConfig.CHAINED
         )
-        gt_reconstruction = pycolmap.synthesize_dataset(
-            synthetic_dataset_options, database
+        gt_dataset = pycolmap.SyntheticDataset()
+        pycolmap.synthesize_dataset(
+            synthetic_dataset_options, gt_dataset, database
         )
 
     custom_incremental_pipeline.main(
@@ -194,7 +204,7 @@ def test_chained_matches(tmp_path: Path) -> None:
     )
 
     expect_equal_reconstructions(
-        gt_reconstruction,
+        gt_dataset.reconstruction,
         pycolmap.Reconstruction(output_path / "0"),
         max_rotation_error_deg=1e-2,
         max_proj_center_error=1e-4,

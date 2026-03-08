@@ -47,12 +47,13 @@ namespace {
 
 TEST(SynthesizeDataset, Nominal) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 2;
   options.num_cameras_per_rig = 3;
   options.num_frames_per_rig = 3;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset, database.get());
+  auto& reconstruction = dataset.reconstruction;
 
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
@@ -115,6 +116,20 @@ TEST(SynthesizeDataset, Nominal) {
   EXPECT_EQ(database->NumVerifiedImagePairs(), num_image_pairs);
   EXPECT_EQ(database->NumInlierMatches(),
             num_image_pairs * options.num_points3D);
+
+  // Verify pose graph edges match GT relative poses.
+  EXPECT_EQ(dataset.pose_graph.NumEdges(), num_image_pairs);
+  for (const auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const Rigid3d expected_cam2_from_cam1 =
+        reconstruction.Image(image_id2).CamFromWorld() *
+        Inverse(reconstruction.Image(image_id1).CamFromWorld());
+    EXPECT_LT(edge.cam2_from_cam1.rotation().angularDistance(
+                  expected_cam2_from_cam1.rotation()),
+              1e-10);
+    EXPECT_THAT(edge.cam2_from_cam1.translation(),
+                EigenMatrixNear(expected_cam2_from_cam1.translation(), 1e-10));
+  }
 
   EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.ComputeCentroid(0, 1).norm(), 0, 0.2);
@@ -210,16 +225,16 @@ TEST(SynthesizeDataset, MultipleTimes) {
 
 TEST(SynthesizeDataset, WithPriors) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.prior_position = true;
   options.prior_gravity = true;
   options.prior_gravity_in_world = Eigen::Vector3d::Random().normalized();
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset, database.get());
+  auto& reconstruction = dataset.reconstruction;
 
-  const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
   std::unordered_map<image_t, const PosePrior*> image_to_prior;
-  for (const auto& pose_prior : pose_priors) {
+  for (const auto& pose_prior : dataset.pose_priors) {
     EXPECT_EQ(pose_prior.corr_data_id.sensor_id.type, SensorType::CAMERA);
     image_to_prior[pose_prior.corr_data_id.id] = &pose_prior;
   }
@@ -237,10 +252,10 @@ TEST(SynthesizeDataset, WithPriors) {
 
 TEST(SynthesizeDataset, MultiReconstruction) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction1;
-  Reconstruction reconstruction2;
   SyntheticDatasetOptions options;
+  Reconstruction reconstruction1;
   SynthesizeDataset(options, &reconstruction1, database.get());
+  Reconstruction reconstruction2;
   SynthesizeDataset(options, &reconstruction2, database.get());
 
   const int num_cameras = options.num_rigs * options.num_cameras_per_rig;
@@ -261,10 +276,10 @@ TEST(SynthesizeDataset, MultiReconstruction) {
 
 TEST(SynthesizeDataset, ExhaustiveMatches) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.match_config = SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset, database.get());
 
   const int num_images = options.num_rigs * options.num_cameras_per_rig *
                          options.num_frames_per_rig;
@@ -273,14 +288,15 @@ TEST(SynthesizeDataset, ExhaustiveMatches) {
   EXPECT_EQ(database->NumVerifiedImagePairs(), num_image_pairs);
   EXPECT_EQ(database->NumInlierMatches(),
             num_image_pairs * options.num_points3D);
+  EXPECT_EQ(dataset.pose_graph.NumEdges(), num_image_pairs);
 }
 
 TEST(SynthesizeDataset, ChainedMatches) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.match_config = SyntheticDatasetOptions::MatchConfig::CHAINED;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset, database.get());
 
   const int num_images = options.num_rigs * options.num_cameras_per_rig *
                          options.num_frames_per_rig;
@@ -297,14 +313,20 @@ TEST(SynthesizeDataset, ChainedMatches) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     EXPECT_EQ(image_id1 + 1, image_id2);
   }
+
+  EXPECT_EQ(dataset.pose_graph.NumEdges(), num_image_pairs);
+  for (const auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    EXPECT_EQ(image_id1 + 1, image_id2);
+  }
 }
 
 TEST(SynthesizeDataset, SparseMatchesZeroSparsity) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.match_config = SyntheticDatasetOptions::MatchConfig::SPARSE;
   options.match_sparsity = 0.0;
+  Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
   const int num_images = options.num_rigs * options.num_cameras_per_rig *
                          options.num_frames_per_rig;
@@ -315,10 +337,10 @@ TEST(SynthesizeDataset, SparseMatchesZeroSparsity) {
 
 TEST(SynthesizeDataset, SparseMatchesFullSparsity) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.match_config = SyntheticDatasetOptions::MatchConfig::SPARSE;
   options.match_sparsity = 1.0;
+  Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
   EXPECT_EQ(database->NumMatchedImagePairs(), 0);
   EXPECT_EQ(database->NumVerifiedImagePairs(), 0);
@@ -326,13 +348,13 @@ TEST(SynthesizeDataset, SparseMatchesFullSparsity) {
 
 TEST(SynthesizeDataset, SparseMatchesPartialSparsity) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 1;
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 8;
   options.match_config = SyntheticDatasetOptions::MatchConfig::SPARSE;
   options.match_sparsity = 0.5;
+  Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
 
   const int num_images = options.num_rigs * options.num_cameras_per_rig *
@@ -354,14 +376,12 @@ TEST(SynthesizeDataset, SparseMatchesPartialSparsity) {
 }
 
 TEST(SynthesizeDataset, NoDatabase) {
-  auto database = Database::Open(kInMemorySqliteDatabasePath);
   SyntheticDatasetOptions options;
   Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction);
 }
 
 TEST(SynthesizeDataset, TrackLength) {
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 2;
   options.num_cameras_per_rig = 1;
@@ -369,6 +389,7 @@ TEST(SynthesizeDataset, TrackLength) {
   options.num_points3D = 50;
   options.num_points2D_without_point3D = 0;
   options.track_length = 3;
+  Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction);
 
   const int num_images = options.num_rigs * options.num_cameras_per_rig *
@@ -384,14 +405,13 @@ TEST(SynthesizeDataset, TrackLength) {
 TEST(SynthesizeDataset, Determinism) {
   SyntheticDatasetOptions options;
 
-  Reconstruction reconstruction1;
   SetPRNGSeed(42);
+  Reconstruction reconstruction1;
   SynthesizeDataset(options, &reconstruction1);
 
-  Reconstruction reconstruction2;
   SetPRNGSeed(42);
+  Reconstruction reconstruction2;
   SynthesizeDataset(options, &reconstruction2);
-
   EXPECT_EQ(reconstruction1.Rigs(), reconstruction2.Rigs());
   EXPECT_EQ(reconstruction1.Frames(), reconstruction2.Frames());
   EXPECT_EQ(reconstruction1.Cameras(), reconstruction2.Cameras());
@@ -399,16 +419,17 @@ TEST(SynthesizeDataset, Determinism) {
   EXPECT_EQ(reconstruction1.Points3D(), reconstruction2.Points3D());
 }
 
-TEST(SynthesizeNoise, Point2DNoise) {
+TEST(SynthesizeReconstructionNoise, Point2DNoise) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
+  Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
   EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 
   for (const auto& [image_id, image] : reconstruction.Images()) {
@@ -422,32 +443,34 @@ TEST(SynthesizeNoise, Point2DNoise) {
   }
 }
 
-TEST(SynthesizeNoise, Point3DNoise) {
+TEST(SynthesizeReconstructionNoise, Point3DNoise) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
 
+  Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
   EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point3D_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 }
 
-TEST(SynthesizeNoise, RigFromWorldNoise) {
+TEST(SynthesizeReconstructionNoise, RigFromWorldNoise) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
 
+  Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
   EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 }
 
@@ -459,21 +482,22 @@ std::unordered_map<pose_prior_t, PosePrior> ReadPosePriors(Database& database) {
   return pose_priors;
 }
 
-TEST(SynthesizeNoise, PriorPositionNoise) {
+TEST(SynthesizePosePriorNoise, PriorPositionNoise) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.prior_position = true;
   options.prior_position_coordinate_system = PosePrior::CoordinateSystem::WGS84;
 
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset, database.get());
   const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
       ReadPosePriors(*database);
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  PosePriorNoiseOptions synthetic_noise_options;
   synthetic_noise_options.prior_position_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
-  for (const auto& pose_prior : database->ReadAllPosePriors()) {
+  SynthesizePosePriorNoise(
+      synthetic_noise_options, &dataset.pose_priors, database.get());
+  for (const auto& pose_prior : dataset.pose_priors) {
     // Check that some noise was added.
     EXPECT_THAT(pose_prior.position,
                 testing::Not(EigenMatrixEq(
@@ -491,20 +515,21 @@ TEST(SynthesizeNoise, PriorPositionNoise) {
   }
 }
 
-TEST(SynthesizeNoise, PriorGravityNoise) {
+TEST(SynthesizePosePriorNoise, PriorGravityNoise) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.prior_gravity = true;
 
-  SynthesizeDataset(options, &reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset, database.get());
   const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
       ReadPosePriors(*database);
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  PosePriorNoiseOptions synthetic_noise_options;
   synthetic_noise_options.prior_gravity_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
-  for (const auto& pose_prior : database->ReadAllPosePriors()) {
+  SynthesizePosePriorNoise(
+      synthetic_noise_options, &dataset.pose_priors, database.get());
+  for (const auto& pose_prior : dataset.pose_priors) {
     const double angle = std::acos(pose_prior.gravity.dot(
         orig_pose_priors.at(pose_prior.pose_prior_id).gravity));
     // Check that some noise was added.
@@ -514,8 +539,103 @@ TEST(SynthesizeNoise, PriorGravityNoise) {
   }
 }
 
+TEST(SynthesizePoseGraphNoise, RelRotationNoise) {
+  SetPRNGSeed(42);
+
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.num_points3D = 0;
+  options.num_points2D_without_point3D = 0;
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset);
+
+  // Save original rotations.
+  std::unordered_map<image_pair_t, Eigen::Quaterniond> orig_rotations;
+  for (const auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
+    orig_rotations[pair_id] = edge.cam2_from_cam1.rotation();
+  }
+
+  PoseGraphNoiseOptions noise_options;
+  noise_options.rel_rotation_noise_deg = 2.0;
+  SynthesizePoseGraphNoise(noise_options, &dataset.pose_graph);
+
+  for (const auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
+    const double angular_dist = edge.cam2_from_cam1.rotation().angularDistance(
+        orig_rotations.at(pair_id));
+    EXPECT_GT(angular_dist, 0);
+    EXPECT_LT(RadToDeg(angular_dist),
+              10 * noise_options.rel_rotation_noise_deg);
+  }
+}
+
+TEST(SynthesizePoseGraphNoise, RelTranslationNoise) {
+  SetPRNGSeed(42);
+
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.num_points3D = 0;
+  options.num_points2D_without_point3D = 0;
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset);
+
+  // Save original translations.
+  std::unordered_map<image_pair_t, Eigen::Vector3d> orig_translations;
+  for (const auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
+    orig_translations[pair_id] = edge.cam2_from_cam1.translation();
+  }
+
+  PoseGraphNoiseOptions noise_options;
+  noise_options.rel_translation_noise_deg = 2.0;
+  SynthesizePoseGraphNoise(noise_options, &dataset.pose_graph);
+
+  for (const auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
+    const Eigen::Vector3d& orig_t = orig_translations.at(pair_id);
+    if (orig_t.norm() > 1e-10) {
+      const double angle = std::acos(
+          std::clamp(edge.cam2_from_cam1.translation().normalized().dot(
+                         orig_t.normalized()),
+                     -1.0,
+                     1.0));
+      EXPECT_GT(angle, 0);
+      EXPECT_LT(RadToDeg(angle), 10 * noise_options.rel_translation_noise_deg);
+    }
+  }
+}
+
+TEST(SynthesizePosePriorNoise, PosePriorsWithoutDatabase) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 4;
+  options.num_points3D = 0;
+  options.num_points2D_without_point3D = 0;
+  options.prior_position = true;
+  options.prior_gravity = true;
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset);
+
+  std::vector<Eigen::Vector3d> orig_positions;
+  for (const auto& pp : dataset.pose_priors) {
+    orig_positions.push_back(pp.position);
+  }
+
+  PosePriorNoiseOptions noise_options;
+  noise_options.prior_position_stddev = 1.0;
+  noise_options.prior_gravity_stddev = 1.0;
+  SynthesizePosePriorNoise(noise_options, &dataset.pose_priors);
+
+  for (size_t i = 0; i < dataset.pose_priors.size(); ++i) {
+    EXPECT_THAT(dataset.pose_priors[i].position,
+                testing::Not(EigenMatrixEq(orig_positions[i])));
+    EXPECT_TRUE(dataset.pose_priors[i].HasPositionCov());
+  }
+}
+
 TEST(SynthesizeImages, Nominal) {
-  Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -524,6 +644,7 @@ TEST(SynthesizeImages, Nominal) {
   synthetic_dataset_options.num_points2D_without_point3D = 20;
   synthetic_dataset_options.camera_width = 320;
   synthetic_dataset_options.camera_height = 240;
+  Reconstruction reconstruction;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   const auto test_dir = CreateTestDir();

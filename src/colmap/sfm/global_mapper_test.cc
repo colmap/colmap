@@ -131,9 +131,10 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<Reconstruction>();
 

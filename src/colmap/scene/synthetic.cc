@@ -323,9 +323,38 @@ void PosePriorPositionWGS84ToCartesian(PosePrior& pose_prior) {
 
 }  // namespace
 
+void SynthesizePoseGraphEdges(const SyntheticDatasetOptions& options,
+                              const Reconstruction& reconstruction,
+                              const std::vector<image_pair_t>& image_pairs,
+                              PoseGraph* pose_graph) {
+  for (const image_pair_t pair_id : image_pairs) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const Rigid3d cam2_from_cam1 =
+        reconstruction.Image(image_id2).CamFromWorld() *
+        Inverse(reconstruction.Image(image_id1).CamFromWorld());
+    PoseGraph::Edge edge(cam2_from_cam1);
+    edge.num_matches = options.num_points3D > 0 ? options.num_points3D : 50;
+    pose_graph->AddEdge(image_id1, image_id2, edge);
+  }
+}
+
+std::vector<image_pair_t> ExtractChainedImagePairs(
+    const Reconstruction& reconstruction) {
+  std::vector<image_t> image_ids = reconstruction.RegImageIds();
+  std::sort(image_ids.begin(), image_ids.end());
+  std::vector<image_pair_t> pairs;
+  for (size_t i = 1; i < image_ids.size(); ++i) {
+    if (image_ids[i] == image_ids[i - 1] + 1) {
+      pairs.push_back(ImagePairToPairId(image_ids[i - 1], image_ids[i]));
+    }
+  }
+  return pairs;
+}
+
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
-                       Reconstruction* reconstruction,
+                       SyntheticDataset* dataset,
                        Database* database) {
+  Reconstruction* reconstruction = &dataset->reconstruction;
   THROW_CHECK_GT(options.num_rigs, 0);
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
   THROW_CHECK_GT(options.num_frames_per_rig, 0);
@@ -340,7 +369,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                    << "), skipping observation pruning.";
     }
   }
-  THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
+  if (database != nullptr) {
+    THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
+  }
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
@@ -504,7 +535,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           }
 
           pose_prior.corr_data_id = image.DataId();
-          pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+          if (database != nullptr) {
+            pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+          }
+          dataset->pose_priors.push_back(pose_prior);
         }
       }
 
@@ -653,18 +687,46 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     }
   }
 
+  // Build pose graph edges.
+  {
+    std::vector<image_pair_t> image_pairs;
+    switch (options.match_config) {
+      case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
+        image_pairs = ExtractExhaustiveImagePairs(*reconstruction);
+        break;
+      case SyntheticDatasetOptions::MatchConfig::CHAINED:
+        image_pairs = ExtractChainedImagePairs(*reconstruction);
+        break;
+      case SyntheticDatasetOptions::MatchConfig::SPARSE:
+        // For sparse mode, use exhaustive pairs (same set that was filtered).
+        image_pairs = ExtractExhaustiveImagePairs(*reconstruction);
+        break;
+      default:
+        LOG(FATAL_THROW) << "Invalid MatchConfig specified";
+    }
+    SynthesizePoseGraphEdges(
+        options, *reconstruction, image_pairs, &dataset->pose_graph);
+  }
+
   reconstruction->UpdatePoint3DErrors();
 }
 
-void SynthesizeNoise(const SyntheticNoiseOptions& options,
-                     Reconstruction* reconstruction,
-                     Database* database) {
+void SynthesizeDataset(const SyntheticDatasetOptions& options,
+                       Reconstruction* reconstruction,
+                       Database* database) {
+  SyntheticDataset dataset;
+  dataset.reconstruction = std::move(*reconstruction);
+  SynthesizeDataset(options, &dataset, database);
+  *reconstruction = std::move(dataset.reconstruction);
+}
+
+void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
+                                   Reconstruction* reconstruction,
+                                   Database* database) {
   THROW_CHECK_GE(options.rig_from_world_translation_stddev, 0.);
   THROW_CHECK_GE(options.rig_from_world_rotation_stddev, 0.);
   THROW_CHECK_GE(options.point3D_stddev, 0.);
   THROW_CHECK_GE(options.point2D_stddev, 0.);
-  THROW_CHECK_GE(options.prior_position_stddev, 0.);
-  THROW_CHECK_GE(options.prior_gravity_stddev, 0.);
 
   for (const frame_t frame_id : reconstruction->RegFrameIds()) {
     Rigid3d& rig_from_world = reconstruction->Frame(frame_id).RigFromWorld();
@@ -716,9 +778,59 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
     }
   }
 
-  if (database != nullptr && (options.prior_position_stddev > 0.0 ||
-                              options.prior_gravity_stddev > 0.0)) {
-    for (auto& pose_prior : database->ReadAllPosePriors()) {
+  reconstruction->UpdatePoint3DErrors();
+}
+
+void SynthesizePoseGraphNoise(const PoseGraphNoiseOptions& options,
+                              PoseGraph* pose_graph) {
+  THROW_CHECK_GE(options.rel_rotation_noise_deg, 0.);
+  THROW_CHECK_GE(options.rel_translation_noise_deg, 0.);
+
+  if (options.rel_rotation_noise_deg > 0.0 ||
+      options.rel_translation_noise_deg > 0.0) {
+    for (auto& [pair_id, edge] : pose_graph->Edges()) {
+      if (options.rel_rotation_noise_deg > 0.0) {
+        const double angle = std::clamp(
+            RandomGaussian<double>(0, options.rel_rotation_noise_deg),
+            -180.0,
+            180.0);
+        edge.cam2_from_cam1.rotation() *= Eigen::Quaterniond(Eigen::AngleAxisd(
+            DegToRad(angle), Eigen::Vector3d::Random().normalized()));
+      }
+      if (options.rel_translation_noise_deg > 0.0) {
+        const Eigen::Vector3d t = edge.cam2_from_cam1.translation();
+        if (t.norm() > 1e-10) {
+          const double angle = std::clamp(
+              RandomGaussian<double>(0, options.rel_translation_noise_deg),
+              -180.0,
+              180.0);
+          const Eigen::Vector3d axis =
+              t.cross(Eigen::Vector3d::Random()).normalized();
+          edge.cam2_from_cam1.translation() =
+              (Eigen::AngleAxisd(DegToRad(angle), axis) * t);
+        }
+      }
+    }
+  }
+}
+
+void SynthesizePosePriorNoise(const PosePriorNoiseOptions& options,
+                              std::vector<PosePrior>* pose_priors,
+                              Database* database) {
+  THROW_CHECK(pose_priors != nullptr || database != nullptr);
+  THROW_CHECK_GE(options.prior_position_stddev, 0.);
+  THROW_CHECK_GE(options.prior_gravity_stddev, 0.);
+
+  // If no in-memory vector provided, read from database.
+  std::vector<PosePrior> db_pose_priors;
+  if (pose_priors == nullptr) {
+    db_pose_priors = database->ReadAllPosePriors();
+    pose_priors = &db_pose_priors;
+  }
+
+  if (options.prior_position_stddev > 0.0 ||
+      options.prior_gravity_stddev > 0.0) {
+    for (auto& pose_prior : *pose_priors) {
       if (options.prior_position_stddev > 0.) {
         const bool prior_in_wgs84 =
             pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84;
@@ -747,11 +859,11 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
         pose_prior.gravity =
             (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
       }
-      database->UpdatePosePrior(pose_prior);
+      if (database != nullptr) {
+        database->UpdatePosePrior(pose_prior);
+      }
     }
   }
-
-  reconstruction->UpdatePoint3DErrors();
 }
 
 void SynthesizeImages(const SyntheticImageOptions& options,

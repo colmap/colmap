@@ -31,8 +31,6 @@
 
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/database_cache.h"
-#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 
@@ -41,38 +39,29 @@
 namespace colmap {
 namespace {
 
-void LoadReconstructionAndPoseGraph(const Database& database,
-                                    Reconstruction* reconstruction,
-                                    PoseGraph* pose_graph) {
-  DatabaseCache database_cache;
-  DatabaseCache::Options options;
-  database_cache.Load(database, options);
-  reconstruction->Load(database_cache);
-  pose_graph->Load(*database_cache.CorrespondenceGraph());
+Reconstruction CopyAndDeregisterAllFrames(
+    const Reconstruction& reconstruction) {
+  Reconstruction copy = reconstruction;
+  for (const frame_t frame_id : std::vector<frame_t>(
+           copy.RegFrameIds().begin(), copy.RegFrameIds().end())) {
+    copy.DeRegisterFrame(frame_id);
+  }
+  return copy;
 }
 
-struct TestData {
-  std::shared_ptr<Database> database;
-  Reconstruction gt_reconstruction;
-  Reconstruction reconstruction;
-  PoseGraph pose_graph;
-  std::vector<PosePrior> pose_priors;
-};
-
-TestData CreateTestData(const SyntheticDatasetOptions& dataset_options,
-                        const SyntheticNoiseOptions* noise_options = nullptr) {
-  TestData data;
-  data.database = Database::Open(kInMemorySqliteDatabasePath);
-  SynthesizeDataset(
-      dataset_options, &data.gt_reconstruction, data.database.get());
-  if (noise_options) {
-    SynthesizeNoise(
-        *noise_options, &data.gt_reconstruction, data.database.get());
+SyntheticDataset CreateTestData(
+    const SyntheticDatasetOptions& dataset_options,
+    const PoseGraphNoiseOptions* pose_graph_noise = nullptr,
+    const PosePriorNoiseOptions* pose_prior_noise = nullptr) {
+  SyntheticDataset dataset;
+  SynthesizeDataset(dataset_options, &dataset);
+  if (pose_graph_noise) {
+    SynthesizePoseGraphNoise(*pose_graph_noise, &dataset.pose_graph);
   }
-  LoadReconstructionAndPoseGraph(
-      *data.database, &data.reconstruction, &data.pose_graph);
-  data.pose_priors = data.database->ReadAllPosePriors();
-  return data;
+  if (pose_prior_noise) {
+    SynthesizePosePriorNoise(*pose_prior_noise, &dataset.pose_priors);
+  }
+  return dataset;
 }
 
 RotationEstimatorOptions CreateRATestOptions(bool use_gravity = false) {
@@ -140,18 +129,19 @@ TEST(RotationAveraging, WithoutNoise) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
+  auto dataset = CreateTestData(synthetic_dataset_options);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
-  RunAndVerifyRotationAveraging(data.gt_reconstruction,
-                                data.reconstruction,
-                                data.pose_graph,
-                                data.pose_priors,
+  RunAndVerifyRotationAveraging(dataset.reconstruction,
+                                reconstruction,
+                                dataset.pose_graph,
+                                dataset.pose_priors,
                                 {false},
                                 /*max_rotation_error_deg=*/1e-2);
 }
@@ -163,16 +153,17 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
+  auto dataset = CreateTestData(synthetic_dataset_options);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
 
-  RunAndVerifyRotationAveraging(data.gt_reconstruction,
-                                data.reconstruction,
-                                data.pose_graph,
-                                data.pose_priors,
+  RunAndVerifyRotationAveraging(dataset.reconstruction,
+                                reconstruction,
+                                dataset.pose_graph,
+                                dataset.pose_priors,
                                 {true, false},
                                 /*max_rotation_error_deg=*/1e-2);
 }
@@ -184,73 +175,75 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
-
-  ResetSensorsFromRig(data.reconstruction);
+  auto dataset = CreateTestData(synthetic_dataset_options);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
+  ResetSensorsFromRig(reconstruction);
 
   // For unknown rigs, it is not supported to use gravity.
-  RunAndVerifyRotationAveraging(data.gt_reconstruction,
-                                data.reconstruction,
-                                data.pose_graph,
-                                data.pose_priors,
+  RunAndVerifyRotationAveraging(dataset.reconstruction,
+                                reconstruction,
+                                dataset.pose_graph,
+                                dataset.pose_priors,
                                 {false},
                                 /*max_rotation_error_deg=*/1e-2);
 }
 
-TEST(RotationAveraging, WithNoiseAndOutliers) {
+TEST(RotationAveraging, WithNoise) {
   SetPRNGSeed(1);
 
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
-  synthetic_noise_options.prior_gravity_stddev = 3e-1;
-  auto data =
-      CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
+  PoseGraphNoiseOptions pose_graph_noise;
+  pose_graph_noise.rel_rotation_noise_deg = 2.0;
+  PosePriorNoiseOptions pose_prior_noise;
+  pose_prior_noise.prior_gravity_stddev = 3e-1;
+  auto dataset = CreateTestData(
+      synthetic_dataset_options, &pose_graph_noise, &pose_prior_noise);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
-  RunAndVerifyRotationAveraging(data.gt_reconstruction,
-                                data.reconstruction,
-                                data.pose_graph,
-                                data.pose_priors,
+  RunAndVerifyRotationAveraging(dataset.reconstruction,
+                                reconstruction,
+                                dataset.pose_graph,
+                                dataset.pose_priors,
                                 {false},
                                 /*max_rotation_error_deg=*/3);
 }
 
-TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
+TEST(RotationAveraging, WithNoiseWithNonTrivialKnownRigs) {
   SetPRNGSeed(1);
 
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 7;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
-  synthetic_noise_options.prior_gravity_stddev = 3e-1;
-  auto data =
-      CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
+  PoseGraphNoiseOptions pose_graph_noise;
+  pose_graph_noise.rel_rotation_noise_deg = 2.0;
+  PosePriorNoiseOptions pose_prior_noise;
+  pose_prior_noise.prior_gravity_stddev = 3e-1;
+  auto dataset = CreateTestData(
+      synthetic_dataset_options, &pose_graph_noise, &pose_prior_noise);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
-  RunAndVerifyRotationAveraging(data.gt_reconstruction,
-                                data.reconstruction,
-                                data.pose_graph,
-                                data.pose_priors,
+  RunAndVerifyRotationAveraging(dataset.reconstruction,
+                                reconstruction,
+                                dataset.pose_graph,
+                                dataset.pose_priors,
                                 {false},
                                 /*max_rotation_error_deg=*/2.);
 }
@@ -262,24 +255,24 @@ TEST(RotationAveraging, DeterministicRandomSeed) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
+  auto dataset = CreateTestData(synthetic_dataset_options);
 
   RotationEstimatorOptions options = CreateRATestOptions();
   options.random_seed = 42;
 
   // Run twice with the same seed and verify identical results.
-  Reconstruction reconstruction1 = data.reconstruction;
-  PoseGraph pose_graph1 = data.pose_graph;
+  auto reconstruction1 = CopyAndDeregisterAllFrames(dataset.reconstruction);
+  PoseGraph pose_graph1 = dataset.pose_graph;
   EXPECT_TRUE(RunRotationAveraging(
-      options, pose_graph1, reconstruction1, data.pose_priors));
+      options, pose_graph1, reconstruction1, dataset.pose_priors));
 
-  Reconstruction reconstruction2 = data.reconstruction;
-  PoseGraph pose_graph2 = data.pose_graph;
+  auto reconstruction2 = CopyAndDeregisterAllFrames(dataset.reconstruction);
+  PoseGraph pose_graph2 = dataset.pose_graph;
   EXPECT_TRUE(RunRotationAveraging(
-      options, pose_graph2, reconstruction2, data.pose_priors));
+      options, pose_graph2, reconstruction2, dataset.pose_priors));
 
   ExpectEqualRotations(
       reconstruction1, reconstruction2, /*max_rotation_error_deg=*/0);
@@ -292,18 +285,19 @@ TEST(RotationAveraging, EmptyPoseGraph) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 3;
-  synthetic_dataset_options.num_points3D = 20;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  auto dataset = CreateTestData(synthetic_dataset_options);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
 
   // Invalidate all edges so connected components are empty.
-  for (auto& [pair_id, edge] : data.pose_graph.Edges()) {
+  for (auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
     edge.valid = false;
   }
 
   RotationEstimatorOptions options = CreateRATestOptions();
   EXPECT_FALSE(RunRotationAveraging(
-      options, data.pose_graph, data.reconstruction, data.pose_priors));
+      options, dataset.pose_graph, reconstruction, dataset.pose_priors));
 }
 
 TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
@@ -313,13 +307,13 @@ TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
-
-  ResetSensorsFromRig(data.reconstruction);
+  auto dataset = CreateTestData(synthetic_dataset_options);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
+  ResetSensorsFromRig(reconstruction);
 
   // With gravity enabled and unknown rig sensors, EstimateRotations should
   // fail inside RunRotationAveraging because AllSensorsFromRigKnown returns
@@ -330,15 +324,15 @@ TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
   RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
 
   std::unordered_set<image_t> active_image_ids;
-  for (const auto& [image_id, image] : data.reconstruction.Images()) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
     active_image_ids.insert(image_id);
   }
 
   RotationEstimator estimator(options);
-  EXPECT_FALSE(estimator.EstimateRotations(data.pose_graph,
-                                           data.pose_priors,
+  EXPECT_FALSE(estimator.EstimateRotations(dataset.pose_graph,
+                                           dataset.pose_priors,
                                            active_image_ids,
-                                           data.reconstruction));
+                                           reconstruction));
 }
 
 // Covers: InitializeRigRotationsFromImages standalone (lines 465-564) with
@@ -351,28 +345,29 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
+  auto dataset = CreateTestData(synthetic_dataset_options);
 
   // Build cams_from_world from the ground truth.
   std::unordered_map<image_t, Rigid3d> cams_from_world;
-  for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
+  for (const auto& [image_id, image] : dataset.reconstruction.Images()) {
     if (image.HasPose()) {
       cams_from_world[image_id] = image.CamFromWorld();
     }
   }
 
-  ResetSensorsFromRig(data.reconstruction);
+  auto reconstruction = CopyAndDeregisterAllFrames(dataset.reconstruction);
+  ResetSensorsFromRig(reconstruction);
 
   EXPECT_TRUE(
-      InitializeRigRotationsFromImages(cams_from_world, data.reconstruction));
+      InitializeRigRotationsFromImages(cams_from_world, reconstruction));
 
-  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
       EXPECT_LT(sensor_from_rig->rotation().angularDistance(
-                    data.gt_reconstruction.Rig(rig_id)
+                    dataset.reconstruction.Rig(rig_id)
                         .SensorFromRig(sensor_id)
                         .rotation()),
                 1e-6);

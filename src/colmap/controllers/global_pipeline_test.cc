@@ -85,9 +85,10 @@ TEST(GlobalPipeline, SfMWithRandomSeedStability) {
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
     GlobalPipelineOptions options;
