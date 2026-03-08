@@ -30,6 +30,7 @@
 #include "colmap/ui/render_options_widget.h"
 
 #include "colmap/ui/colormaps.h"
+#include "colmap/ui/render_options.h"
 
 namespace colmap {
 
@@ -176,6 +177,10 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   AddSpacer();
 
   AddOptionBool(&options->render->image_connections, "Image connections");
+
+  AddSpacer();
+
+  AddOptionBool(&options->render->mesh_wireframe, "Mesh wireframe");
 
   AddSpacer();
 

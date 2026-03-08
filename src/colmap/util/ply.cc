@@ -435,6 +435,21 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
   size_t num_vertices = 0;
   size_t num_faces = 0;
 
+  // Track vertex properties for proper parsing.
+  bool in_vertex_section = false;
+  bool in_face_section = false;
+  std::string face_count_type = "uchar";
+  std::string face_index_type = "int";
+  size_t num_bytes_per_vertex = 0;
+  int num_vertex_props = 0;
+
+  // Vertex property indices (for ASCII) and byte positions (for binary).
+  int X_index = -1, Y_index = -1, Z_index = -1;
+  int R_index = -1, G_index = -1, B_index = -1;
+  int X_byte_pos = -1, Y_byte_pos = -1, Z_byte_pos = -1;
+  int R_byte_pos = -1, G_byte_pos = -1, B_byte_pos = -1;
+  bool X_double = false, Y_double = false, Z_double = false;
+
   while (std::getline(file, line)) {
     StringTrim(&line);
 
@@ -461,61 +476,183 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
     const std::vector<std::string> line_elems = StringSplit(line, " ");
 
     if (line_elems.size() >= 3 && line_elems[0] == "element") {
+      in_vertex_section = false;
+      in_face_section = false;
       if (line_elems[1] == "vertex") {
         num_vertices = std::stoll(line_elems[2]);
+        in_vertex_section = true;
       } else if (line_elems[1] == "face") {
         num_faces = std::stoll(line_elems[2]);
+        in_face_section = true;
+      }
+    }
+
+    // Parse face property list to determine the index data type.
+    // Format: property list <count_type> <index_type> vertex_index
+    if (in_face_section && line_elems.size() >= 5 &&
+        line_elems[0] == "property" && line_elems[1] == "list") {
+      face_count_type = line_elems[2];
+      face_index_type = line_elems[3];
+    }
+
+    if (in_vertex_section && line_elems.size() >= 3 &&
+        line_elems[0] == "property") {
+      const std::string& dtype = line_elems[1];
+      const std::string& pname = line_elems[2];
+
+      if (pname == "x") {
+        X_index = num_vertex_props;
+        X_byte_pos = num_bytes_per_vertex;
+        X_double = (dtype == "double" || dtype == "float64");
+      } else if (pname == "y") {
+        Y_index = num_vertex_props;
+        Y_byte_pos = num_bytes_per_vertex;
+        Y_double = (dtype == "double" || dtype == "float64");
+      } else if (pname == "z") {
+        Z_index = num_vertex_props;
+        Z_byte_pos = num_bytes_per_vertex;
+        Z_double = (dtype == "double" || dtype == "float64");
+      } else if (pname == "red" || pname == "r" || pname == "diffuse_red") {
+        R_index = num_vertex_props;
+        R_byte_pos = num_bytes_per_vertex;
+      } else if (pname == "green" || pname == "g" || pname == "diffuse_green") {
+        G_index = num_vertex_props;
+        G_byte_pos = num_bytes_per_vertex;
+      } else if (pname == "blue" || pname == "b" || pname == "diffuse_blue") {
+        B_index = num_vertex_props;
+        B_byte_pos = num_bytes_per_vertex;
+      }
+
+      num_vertex_props += 1;
+      if (dtype == "float" || dtype == "float32") {
+        num_bytes_per_vertex += 4;
+      } else if (dtype == "double" || dtype == "float64") {
+        num_bytes_per_vertex += 8;
+      } else if (dtype == "uchar" || dtype == "uint8") {
+        num_bytes_per_vertex += 1;
+      } else if (dtype == "int" || dtype == "int32") {
+        num_bytes_per_vertex += 4;
+      } else if (dtype == "uint" || dtype == "uint32") {
+        num_bytes_per_vertex += 4;
+      } else if (dtype == "short" || dtype == "int16") {
+        num_bytes_per_vertex += 2;
+      } else if (dtype == "ushort" || dtype == "uint16") {
+        num_bytes_per_vertex += 2;
+      } else if (dtype == "char" || dtype == "int8") {
+        num_bytes_per_vertex += 1;
+      } else {
+        LOG(FATAL_THROW) << "Invalid vertex data type: " << dtype;
       }
     }
   }
+
+  THROW_CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
+      << "Invalid PLY mesh format: x, y, z properties missing";
+
+  const bool has_colors = (R_index != -1) && (G_index != -1) && (B_index != -1);
 
   mesh.vertices.reserve(num_vertices);
   mesh.faces.reserve(num_faces);
 
   if (is_binary) {
     // Read binary vertex data
+    std::vector<char> buffer(num_bytes_per_vertex);
     for (size_t i = 0; i < num_vertices; ++i) {
-      float x, y, z;
-      file.read(reinterpret_cast<char*>(&x), sizeof(float));
-      file.read(reinterpret_cast<char*>(&y), sizeof(float));
-      file.read(reinterpret_cast<char*>(&z), sizeof(float));
+      file.read(buffer.data(), num_bytes_per_vertex);
 
+      float x, y, z;
       if (is_little_endian) {
-        x = LittleEndianToNative(x);
-        y = LittleEndianToNative(y);
-        z = LittleEndianToNative(z);
+        x = LittleEndianToNative(
+            X_double ? static_cast<float>(
+                           *reinterpret_cast<double*>(&buffer[X_byte_pos]))
+                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
+        y = LittleEndianToNative(
+            Y_double ? static_cast<float>(
+                           *reinterpret_cast<double*>(&buffer[Y_byte_pos]))
+                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
+        z = LittleEndianToNative(
+            Z_double ? static_cast<float>(
+                           *reinterpret_cast<double*>(&buffer[Z_byte_pos]))
+                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
       } else {
-        x = BigEndianToNative(x);
-        y = BigEndianToNative(y);
-        z = BigEndianToNative(z);
+        x = BigEndianToNative(
+            X_double ? static_cast<float>(
+                           *reinterpret_cast<double*>(&buffer[X_byte_pos]))
+                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
+        y = BigEndianToNative(
+            Y_double ? static_cast<float>(
+                           *reinterpret_cast<double*>(&buffer[Y_byte_pos]))
+                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
+        z = BigEndianToNative(
+            Z_double ? static_cast<float>(
+                           *reinterpret_cast<double*>(&buffer[Z_byte_pos]))
+                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
       }
 
-      mesh.vertices.emplace_back(x, y, z);
+      if (has_colors) {
+        const uint8_t r = *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]);
+        const uint8_t g = *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]);
+        const uint8_t b = *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]);
+        mesh.vertices.emplace_back(x, y, z, r, g, b);
+      } else {
+        mesh.vertices.emplace_back(x, y, z);
+      }
     }
 
     // Read binary face data
+    // Determine byte sizes of the face count and index types from the header.
+    auto PlyTypeBytes = [](const std::string& type) -> size_t {
+      if (type == "int" || type == "int32" || type == "uint" ||
+          type == "uint32" || type == "float" || type == "float32") {
+        return 4;
+      } else if (type == "short" || type == "int16" || type == "ushort" ||
+                 type == "uint16") {
+        return 2;
+      } else if (type == "char" || type == "int8" || type == "uchar" ||
+                 type == "uint8") {
+        return 1;
+      }
+      return 4;
+    };
+
+    const size_t face_count_bytes = PlyTypeBytes(face_count_type);
+    const size_t face_index_bytes = PlyTypeBytes(face_index_type);
+
+    std::vector<char> face_buffer(std::max(face_count_bytes, face_index_bytes));
     for (size_t i = 0; i < num_faces; ++i) {
-      uint8_t num_face_vertices;
-      file.read(reinterpret_cast<char*>(&num_face_vertices), sizeof(uint8_t));
+      file.read(face_buffer.data(), face_count_bytes);
+      int num_face_vertices = 0;
+      if (face_count_bytes == 4) {
+        int32_t val = *reinterpret_cast<int32_t*>(face_buffer.data());
+        num_face_vertices = is_little_endian ? LittleEndianToNative(val)
+                                             : BigEndianToNative(val);
+      } else if (face_count_bytes == 2) {
+        int16_t val = *reinterpret_cast<int16_t*>(face_buffer.data());
+        num_face_vertices = is_little_endian ? LittleEndianToNative(val)
+                                             : BigEndianToNative(val);
+      } else {
+        num_face_vertices = *reinterpret_cast<uint8_t*>(face_buffer.data());
+      }
       THROW_CHECK_EQ(num_face_vertices, 3)
           << "Only triangular faces are supported";
 
-      int idx1, idx2, idx3;
-      file.read(reinterpret_cast<char*>(&idx1), sizeof(int));
-      file.read(reinterpret_cast<char*>(&idx2), sizeof(int));
-      file.read(reinterpret_cast<char*>(&idx3), sizeof(int));
-
-      if (is_little_endian) {
-        idx1 = LittleEndianToNative(idx1);
-        idx2 = LittleEndianToNative(idx2);
-        idx3 = LittleEndianToNative(idx3);
-      } else {
-        idx1 = BigEndianToNative(idx1);
-        idx2 = BigEndianToNative(idx2);
-        idx3 = BigEndianToNative(idx3);
+      int indices[3];
+      for (int j = 0; j < 3; ++j) {
+        file.read(face_buffer.data(), face_index_bytes);
+        if (face_index_bytes == 4) {
+          int32_t val = *reinterpret_cast<int32_t*>(face_buffer.data());
+          indices[j] = is_little_endian ? LittleEndianToNative(val)
+                                        : BigEndianToNative(val);
+        } else if (face_index_bytes == 2) {
+          int16_t val = *reinterpret_cast<int16_t*>(face_buffer.data());
+          indices[j] = is_little_endian ? LittleEndianToNative(val)
+                                        : BigEndianToNative(val);
+        } else {
+          indices[j] = *reinterpret_cast<uint8_t*>(face_buffer.data());
+        }
       }
 
-      mesh.faces.emplace_back(idx1, idx2, idx3);
+      mesh.faces.emplace_back(indices[0], indices[1], indices[2]);
     }
   } else {
     // Read ASCII vertex data
@@ -524,9 +661,26 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
       StringTrim(&line);
       std::stringstream line_stream(line);
 
-      float x, y, z;
-      line_stream >> x >> y >> z;
-      mesh.vertices.emplace_back(x, y, z);
+      std::string item;
+      std::vector<std::string> items;
+      while (!line_stream.eof()) {
+        std::getline(line_stream, item, ' ');
+        StringTrim(&item);
+        items.push_back(item);
+      }
+
+      const float x = std::stof(items.at(X_index));
+      const float y = std::stof(items.at(Y_index));
+      const float z = std::stof(items.at(Z_index));
+
+      if (has_colors) {
+        const uint8_t r = static_cast<uint8_t>(std::stoi(items.at(R_index)));
+        const uint8_t g = static_cast<uint8_t>(std::stoi(items.at(G_index)));
+        const uint8_t b = static_cast<uint8_t>(std::stoi(items.at(B_index)));
+        mesh.vertices.emplace_back(x, y, z, r, g, b);
+      } else {
+        mesh.vertices.emplace_back(x, y, z);
+      }
     }
 
     // Read ASCII face data

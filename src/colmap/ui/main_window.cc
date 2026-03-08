@@ -30,7 +30,9 @@
 #include "colmap/ui/main_window.h"
 
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/ui/render_options.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/ply.h"
 #include "colmap/util/version.h"
 
 #include <QDir>
@@ -397,11 +399,21 @@ void MainWindow::CreateActions() {
   connect(action_import_, &QAction::triggered, this, &MainWindow::Import);
   blocking_actions_.push_back(action_import_);
 
-  action_import_from_ = new QAction(
-      QIcon(":/media/import-from.png"), tr("Import model from..."), this);
-  connect(
-      action_import_from_, &QAction::triggered, this, &MainWindow::ImportFrom);
-  blocking_actions_.push_back(action_import_from_);
+  action_import_point_cloud_ = new QAction(
+      QIcon(":/media/import-from.png"), tr("Import point cloud"), this);
+  connect(action_import_point_cloud_,
+          &QAction::triggered,
+          this,
+          &MainWindow::ImportPointCloud);
+  blocking_actions_.push_back(action_import_point_cloud_);
+
+  action_import_surface_mesh_ = new QAction(
+      QIcon(":/media/import-from.png"), tr("Import surface mesh"), this);
+  connect(action_import_surface_mesh_,
+          &QAction::triggered,
+          this,
+          &MainWindow::ImportSurfaceMesh);
+  blocking_actions_.push_back(action_import_surface_mesh_);
 
   action_export_ =
       new QAction(QIcon(":/media/export.png"), tr("Export model"), this);
@@ -698,7 +710,8 @@ void MainWindow::CreateMenus() {
   file_menu->addAction(action_project_save_as_);
   file_menu->addSeparator();
   file_menu->addAction(action_import_);
-  file_menu->addAction(action_import_from_);
+  file_menu->addAction(action_import_point_cloud_);
+  file_menu->addAction(action_import_surface_mesh_);
   file_menu->addSeparator();
   file_menu->addAction(action_export_);
   file_menu->addAction(action_export_all_);
@@ -891,19 +904,22 @@ bool MainWindow::ProjectOpen() {
                                    tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
-  // If selection not canceled
-  if (project_path != "") {
-    if (options_.ReRead(project_path)) {
-      *options_.project_path = project_path;
-      project_widget_->SetDatabasePath(*options_.database_path);
-      project_widget_->SetImagePath(*options_.image_path);
-      UpdateWindowTitle();
-      SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
-      return true;
-    } else {
-      ShowInvalidProjectError();
-    }
+
+  if (project_path.empty()) {
+    // Selection cancelled.
+    return false;
   }
+
+  if (options_.ReRead(project_path)) {
+    *options_.project_path = project_path;
+    project_widget_->SetDatabasePath(*options_.database_path);
+    project_widget_->SetImagePath(*options_.image_path);
+    UpdateWindowTitle();
+    SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
+    return true;
+  }
+
+  ShowInvalidProjectError();
 
   return false;
 }
@@ -970,15 +986,17 @@ void MainWindow::Import() {
   ImportReconstruction(import_path);
 }
 
-void MainWindow::ImportFrom() {
+void MainWindow::ImportPointCloud() {
   const std::string import_path =
-      QFileDialog::getOpenFileName(
-          this, tr("Select source..."), GetLastOpen(kLastImportExport))
+      QFileDialog::getOpenFileName(this,
+                                   tr("Select point cloud file..."),
+                                   GetLastOpen(kLastImportExport),
+                                   tr("PLY files (*.ply)"))
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (import_path == "") {
+  if (import_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -989,20 +1007,47 @@ void MainWindow::ImportFrom() {
     return;
   }
 
-  if (!HasFileExtension(import_path, ".ply")) {
-    QMessageBox::critical(
-        this, "", tr("Invalid file format (supported formats: PLY)"));
+  thread_control_widget_->StartFunction(
+      "Importing point cloud...", [this, import_path]() {
+        try {
+          model_viewer_widget_->point_cloud = ReadPly(import_path);
+          action_render_now_->trigger();
+        } catch (const std::exception& e) {
+          LOG(ERROR) << "Failed to read point cloud: " << e.what();
+        }
+      });
+}
+
+void MainWindow::ImportSurfaceMesh() {
+  const std::string mesh_path =
+      QFileDialog::getOpenFileName(this,
+                                   tr("Select surface mesh file..."),
+                                   GetLastOpen(kLastImportExport),
+                                   tr("PLY files (*.ply)"))
+          .toUtf8()
+          .constData();
+
+  if (mesh_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
-  thread_control_widget_->StartFunction("Importing...", [this, import_path]() {
-    const size_t reconstruction_idx = reconstruction_manager_->Add();
-    reconstruction_manager_->Get(reconstruction_idx)->ImportPLY(import_path);
-    options_.render->min_track_len = 0;
-    reconstruction_manager_widget_->Update();
-    reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
-    action_render_now_->trigger();
-  });
+  SetLastOpen(kLastImportExport, QString::fromStdString(mesh_path));
+
+  if (!ExistsFile(mesh_path)) {
+    QMessageBox::critical(this, "", tr("Invalid file"));
+    return;
+  }
+
+  thread_control_widget_->StartFunction(
+      "Importing surface mesh...", [this, mesh_path]() {
+        try {
+          model_viewer_widget_->surface_mesh = ReadPlyMesh(mesh_path);
+          action_render_now_->trigger();
+        } catch (const std::exception& e) {
+          LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+        }
+      });
 }
 
 void MainWindow::Export() {
@@ -1018,7 +1063,7 @@ void MainWindow::Export() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
+  // Selection cancelled?
   if (export_path.empty()) {
     return;
   }
@@ -1073,7 +1118,7 @@ void MainWindow::ExportAll() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
+  // Selection cancelled?
   if (export_path.empty()) {
     return;
   }
@@ -1102,8 +1147,8 @@ void MainWindow::ExportAs() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1145,8 +1190,8 @@ void MainWindow::ExportAsText() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1376,7 +1421,13 @@ void MainWindow::RenderNow() {
 
 void MainWindow::RenderSelectedReconstruction() {
   if (reconstruction_manager_->Size() == 0) {
-    RenderClear();
+    if (model_viewer_widget_->surface_mesh.has_value() ||
+        model_viewer_widget_->point_cloud.has_value()) {
+      model_viewer_widget_->reconstruction = nullptr;
+      model_viewer_widget_->ReloadReconstruction();
+    } else {
+      RenderClear();
+    }
     return;
   }
 

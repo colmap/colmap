@@ -51,10 +51,22 @@ struct PlyMeshVertex {
   PlyMeshVertex() : x(0), y(0), z(0) {}
   PlyMeshVertex(const float x, const float y, const float z)
       : x(x), y(y), z(z) {}
+  PlyMeshVertex(const float x,
+                const float y,
+                const float z,
+                const uint8_t r,
+                const uint8_t g,
+                const uint8_t b)
+      : x(x), y(y), z(z), r(r), g(g), b(b) {}
 
   float x = 0.0f;
   float y = 0.0f;
   float z = 0.0f;
+
+  // Default color is gray.
+  uint8_t r = 200;
+  uint8_t g = 200;
+  uint8_t b = 200;
 };
 
 struct PlyMeshFace {
