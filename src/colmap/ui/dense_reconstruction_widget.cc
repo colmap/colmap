@@ -319,6 +319,10 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   grid->setColumnStretch(4, 1);
 
   image_viewer_widget_ = new ImageViewerWidget(this);
+  image_viewer_widget_->setWindowFlags(Qt::Dialog | Qt::WindowTitleHint |
+                                       Qt::WindowMinimizeButtonHint |
+                                       Qt::WindowMaximizeButtonHint |
+                                       Qt::WindowCloseButtonHint);
 
   refresh_workspace_action_ = new QAction(this);
   connect(refresh_workspace_action_,

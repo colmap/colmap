@@ -498,21 +498,16 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
       }
 
       num_vertex_props += 1;
-      if (dtype == "float" || dtype == "float32") {
+      if (dtype == "float" || dtype == "float32" || dtype == "int" ||
+          dtype == "int32" || dtype == "uint" || dtype == "uint32") {
         num_bytes_per_vertex += 4;
       } else if (dtype == "double" || dtype == "float64") {
         num_bytes_per_vertex += 8;
-      } else if (dtype == "uchar" || dtype == "uint8") {
-        num_bytes_per_vertex += 1;
-      } else if (dtype == "int" || dtype == "int32") {
-        num_bytes_per_vertex += 4;
-      } else if (dtype == "uint" || dtype == "uint32") {
-        num_bytes_per_vertex += 4;
-      } else if (dtype == "short" || dtype == "int16") {
+      } else if (dtype == "short" || dtype == "int16" || dtype == "ushort" ||
+                 dtype == "uint16") {
         num_bytes_per_vertex += 2;
-      } else if (dtype == "ushort" || dtype == "uint16") {
-        num_bytes_per_vertex += 2;
-      } else if (dtype == "char" || dtype == "int8") {
+      } else if (dtype == "uchar" || dtype == "uint8" || dtype == "char" ||
+                 dtype == "int8") {
         num_bytes_per_vertex += 1;
       } else {
         LOG(FATAL_THROW) << "Invalid vertex data type: " << dtype;
