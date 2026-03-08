@@ -183,7 +183,7 @@ void COLMAPUndistorter::Run() {
                                              : options_.image_ids;
   const size_t num_images = image_ids.size();
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(num_images);
   for (const image_t image_id : image_ids) {
@@ -297,11 +297,13 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
 PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& camera_options,
                                  const Reconstruction& reconstruction,
                                  const std::filesystem::path& image_path,
-                                 const std::filesystem::path& output_path)
+                                 const std::filesystem::path& output_path,
+                                 const int num_threads)
     : camera_options_(camera_options),
       reconstruction_(reconstruction),
       image_path_(image_path),
-      output_path_(output_path) {}
+      output_path_(output_path),
+      num_threads_(num_threads) {}
 
 void PMVSUndistorter::Run() {
   LOG_HEADING1("Image undistortion (CMVS/PMVS)");
@@ -314,7 +316,7 @@ void PMVSUndistorter::Run() {
   CreateDirIfNotExists(output_path_ / "pmvs" / "visualize");
   CreateDirIfNotExists(output_path_ / "pmvs" / "models");
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(num_threads_);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
@@ -533,11 +535,13 @@ void PMVSUndistorter::WriteOptionFile() const {
 CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
                                      const Reconstruction& reconstruction,
                                      const std::filesystem::path& image_path,
-                                     const std::filesystem::path& output_path)
+                                     const std::filesystem::path& output_path,
+                                     const int num_threads)
     : options_(options),
       image_path_(image_path),
       output_path_(output_path),
-      reconstruction_(reconstruction) {}
+      reconstruction_(reconstruction),
+      num_threads_(num_threads) {}
 
 void CMPMVSUndistorter::Run() {
   LOG_HEADING1("Image undistortion (CMP-MVS)");
@@ -545,7 +549,7 @@ void CMPMVSUndistorter::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(num_threads_);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
@@ -618,7 +622,7 @@ void StandaloneImageUndistorter::Run() {
 
   CreateDirIfNotExists(output_path_);
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   const size_t num_images = options_.image_names_and_cameras.size();
   futures.reserve(num_images);
@@ -689,7 +693,7 @@ void StereoImageRectifier::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<void>> futures;
   futures.reserve(options_.stereo_pairs.size());
   for (const auto& stereo_pair : options_.stereo_pairs) {

@@ -364,7 +364,9 @@ void AutomaticReconstructionController::RunDenseMapper() {
       UndistortCameraOptions undistortion_options;
       undistortion_options.max_image_size =
           option_manager_.patch_match_stereo->max_image_size;
-      COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+      COLMAPUndistorter::Options undistorter_opts;
+      undistorter_opts.num_threads = options_.num_threads;
+      COLMAPUndistorter undistorter(undistorter_opts,
                                     undistortion_options,
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
