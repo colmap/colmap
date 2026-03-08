@@ -38,13 +38,13 @@
 namespace colmap {
 namespace {
 
-Reconstruction DeRegisterAllFrames(const Reconstruction& reconstruction) {
-  Reconstruction result = reconstruction;
-  const auto reg_ids = result.RegFrameIds();
+Reconstruction DeRegisterAllFrames(const Reconstruction& gt_reconstruction) {
+  Reconstruction reconstruction = gt_reconstruction;
+  const auto reg_ids = reconstruction.RegFrameIds();
   for (const frame_t frame_id : reg_ids) {
-    result.DeRegisterFrame(frame_id);
+    reconstruction.DeRegisterFrame(frame_id);
   }
-  return result;
+  return reconstruction;
 }
 
 void SynthesizeGravityOutliers(std::vector<PosePrior>& pose_priors,
