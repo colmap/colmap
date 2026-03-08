@@ -41,7 +41,6 @@
 namespace colmap {
 
 struct SyntheticDatasetOptions {
-  // Scene structure options.
   int num_rigs = 2;
   int num_cameras_per_rig = 1;
   int num_frames_per_rig = 5;
@@ -50,7 +49,6 @@ struct SyntheticDatasetOptions {
   // points (dense visibility). If > 0, observations are pruned to exactly this
   // many per point. Must be -1 or >= 2.
   int track_length = -1;
-  int num_points2D_without_point3D = 10;
 
   double sensor_from_rig_translation_stddev = 0.05;
   // Random rotation in degrees around the z-axis of the sensor.
@@ -62,10 +60,16 @@ struct SyntheticDatasetOptions {
   std::vector<double> camera_params = {1280, 512, 384, 0.05};
   bool camera_has_prior_focal_length = false;
 
-  // The synthesized image file extension.
-  std::string image_extension = ".png";
+  // The type of feature descriptors to synthesize.
+  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
 
-  // Match topology options.
+  int num_points2D_without_point3D = 10;
+
+  double inlier_match_ratio = 1.0;
+
+  // Whether to include decomposed relative poses in two-view geometries.
+  bool two_view_geometry_has_relative_pose = false;
+
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
     EXHAUSTIVE = 1,
@@ -77,23 +81,20 @@ struct SyntheticDatasetOptions {
     SPARSE = 3,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
+
   // Sparsity parameter for SPARSE match config, in range [0, 1].
   // 0 = fully connected view graph, equivalent to EXHAUSTIVE (all edges)
   // 1 = empty view graph (no edges)
   double match_sparsity = 0.0;
 
-  // Prior options.
   bool prior_position = false;
   PosePrior::CoordinateSystem prior_position_coordinate_system =
       PosePrior::CoordinateSystem::CARTESIAN;
   bool prior_gravity = false;
   Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
 
-  // Database-only options.
-  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
-  double inlier_match_ratio = 1.0;
-  // Whether to include decomposed relative poses in two-view geometries.
-  bool two_view_geometry_has_relative_pose = false;
+  // The synthesized image file extension.
+  std::string image_extension = ".png";
 };
 
 struct SyntheticDataset {

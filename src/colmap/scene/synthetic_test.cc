@@ -619,6 +619,7 @@ TEST(SynthesizePosePriorNoise, PosePriorsWithoutDatabase) {
   SynthesizeDataset(options, &dataset);
 
   std::vector<Eigen::Vector3d> orig_positions;
+  orig_positions.reserve(dataset.pose_priors.size());
   for (const auto& pp : dataset.pose_priors) {
     orig_positions.push_back(pp.position);
   }
