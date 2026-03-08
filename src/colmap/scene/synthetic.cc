@@ -42,6 +42,14 @@
 namespace colmap {
 namespace {
 
+Eigen::Vector3d RandomPerpendicularAxis(const Eigen::Vector3d& v) {
+  Eigen::Vector3d axis;
+  do {
+    axis = v.cross(Eigen::Vector3d::Random());
+  } while (axis.squaredNorm() < 1e-12);
+  return axis.normalized();
+}
+
 void AddOutlierMatches(double inlier_ratio,
                        int num_points2D1,
                        int num_points2D2,
@@ -436,8 +444,7 @@ void SynthesizePosePriorNoise(PosePrior& pose_prior,
   }
   if (gravity_stddev > 0 && pose_prior.HasGravity()) {
     const double angle = RandomGaussian<double>(0, DegToRad(gravity_stddev));
-    const Eigen::Vector3d axis =
-        pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
+    const Eigen::Vector3d axis = RandomPerpendicularAxis(pose_prior.gravity);
     pose_prior.gravity =
         (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
   }
@@ -1034,9 +1041,8 @@ void SynthesizePoseGraphNoise(const SyntheticPoseGraphNoiseOptions& options,
             RandomGaussian<double>(0, options.rel_translation_noise_deg),
             -180.0,
             180.0);
-        const Eigen::Vector3d axis = edge.cam2_from_cam1.translation()
-                                         .cross(Eigen::Vector3d::Random())
-                                         .normalized();
+        const Eigen::Vector3d axis =
+            RandomPerpendicularAxis(edge.cam2_from_cam1.translation());
         edge.cam2_from_cam1.translation() =
             Eigen::AngleAxisd(DegToRad(angle), axis) *
             edge.cam2_from_cam1.translation();
