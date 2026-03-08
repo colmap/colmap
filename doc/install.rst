@@ -249,7 +249,7 @@ vcpkg, first run ``./vcpkg integrate install`` (under Windows use pwsh and
 Anaconda/Mamba
 --------------
 
-Install miniconda/micromamba and run the following commands::
+Install miniconda and run the following commands. You can replace ``conda`` with ``mamba`` for faster package installation::
 
     conda create -n colmap python=3.12
     conda config --add channels conda-forge
