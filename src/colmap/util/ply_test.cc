@@ -531,7 +531,6 @@ TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
     bin_file.write(reinterpret_cast<const char*>(pos2), sizeof(pos2));
     bin_file.write(reinterpret_cast<const char*>(norm2), sizeof(norm2));
     bin_file.write(reinterpret_cast<const char*>(col2), sizeof(col2));
-    // Face: 3 0 1 2
     const uint8_t num_verts = 3;
     const int idx[] = {0, 1, 2};
     bin_file.write(reinterpret_cast<const char*>(&num_verts),
