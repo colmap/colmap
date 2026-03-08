@@ -13,44 +13,61 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindSynthetic(py::module& m) {
+  auto PyBaseSyntheticOptions =
+      py::classh<BaseSyntheticOptions>(m, "BaseSyntheticOptions")
+          .def(py::init<>())
+          .def_readwrite("num_rigs", &BaseSyntheticOptions::num_rigs)
+          .def_readwrite("num_cameras_per_rig",
+                         &BaseSyntheticOptions::num_cameras_per_rig)
+          .def_readwrite("num_frames_per_rig",
+                         &BaseSyntheticOptions::num_frames_per_rig)
+          .def_readwrite(
+              "sensor_from_rig_translation_stddev",
+              &BaseSyntheticOptions::sensor_from_rig_translation_stddev)
+          .def_readwrite(
+              "sensor_from_rig_rotation_stddev",
+              &BaseSyntheticOptions::sensor_from_rig_rotation_stddev,
+              "Random rotation in degrees around the z-axis of the sensor.")
+          .def_readwrite("camera_width", &BaseSyntheticOptions::camera_width)
+          .def_readwrite("camera_height", &BaseSyntheticOptions::camera_height)
+          .def_readwrite("camera_model_id",
+                         &BaseSyntheticOptions::camera_model_id)
+          .def_readwrite("camera_params", &BaseSyntheticOptions::camera_params)
+          .def_readwrite("match_config", &BaseSyntheticOptions::match_config)
+          .def_readwrite("match_sparsity",
+                         &BaseSyntheticOptions::match_sparsity,
+                         "Sparsity parameter for SPARSE match config [0,1].")
+          .def_readwrite("prior_position",
+                         &BaseSyntheticOptions::prior_position)
+          .def_readwrite("prior_gravity", &BaseSyntheticOptions::prior_gravity)
+          .def_readwrite(
+              "prior_position_coordinate_system",
+              &BaseSyntheticOptions::prior_position_coordinate_system)
+          .def_readwrite("prior_gravity_in_world",
+                         &BaseSyntheticOptions::prior_gravity_in_world,
+                         "Prior gravity direction in world coordinates.");
+  MakeDataclass(PyBaseSyntheticOptions);
+
   auto PySyntheticMatchConfig =
-      py::enum_<SyntheticDatasetOptions::MatchConfig>(
+      py::enum_<BaseSyntheticOptions::MatchConfig>(
           m, "SyntheticDatasetMatchConfig")
-          .value("EXHAUSTIVE", SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE)
-          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED)
-          .value("SPARSE", SyntheticDatasetOptions::MatchConfig::SPARSE);
+          .value("EXHAUSTIVE", BaseSyntheticOptions::MatchConfig::EXHAUSTIVE)
+          .value("CHAINED", BaseSyntheticOptions::MatchConfig::CHAINED)
+          .value("SPARSE", BaseSyntheticOptions::MatchConfig::SPARSE);
   AddStringToEnumConstructor(PySyntheticMatchConfig);
 
   auto PySyntheticDatasetOptions =
-      py::classh<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")
+      py::classh<SyntheticDatasetOptions, BaseSyntheticOptions>(
+          m, "SyntheticDatasetOptions")
           .def(py::init<>())
           .def_readwrite("feature_type",
                          &SyntheticDatasetOptions::feature_type,
                          "The type of feature descriptors to synthesize.")
-          .def_readwrite("num_rigs", &SyntheticDatasetOptions::num_rigs)
-          .def_readwrite("num_cameras_per_rig",
-                         &SyntheticDatasetOptions::num_cameras_per_rig)
-          .def_readwrite("num_frames_per_rig",
-                         &SyntheticDatasetOptions::num_frames_per_rig)
           .def_readwrite("num_points3D", &SyntheticDatasetOptions::num_points3D)
           .def_readwrite("track_length",
                          &SyntheticDatasetOptions::track_length,
                          "Target track length per 3D point. -1 = dense "
                          "visibility (default), >= 2 = pruned observations.")
-          .def_readwrite(
-              "sensor_from_rig_translation_stddev",
-              &SyntheticDatasetOptions::sensor_from_rig_translation_stddev)
-          .def_readwrite(
-              "sensor_from_rig_rotation_stddev",
-              &SyntheticDatasetOptions::sensor_from_rig_rotation_stddev,
-              "Random rotation in degrees around the z-axis of the sensor.")
-          .def_readwrite("camera_width", &SyntheticDatasetOptions::camera_width)
-          .def_readwrite("camera_height",
-                         &SyntheticDatasetOptions::camera_height)
-          .def_readwrite("camera_model_id",
-                         &SyntheticDatasetOptions::camera_model_id)
-          .def_readwrite("camera_params",
-                         &SyntheticDatasetOptions::camera_params)
           .def_readwrite(
               "camera_has_prior_focal_length",
               &SyntheticDatasetOptions::camera_has_prior_focal_length)
@@ -62,21 +79,7 @@ void BindSynthetic(py::module& m) {
               "two_view_geometry_has_relative_pose",
               &SyntheticDatasetOptions::two_view_geometry_has_relative_pose,
               "Whether to include decomposed relative poses in two-view "
-              "geometries.")
-          .def_readwrite("match_config", &SyntheticDatasetOptions::match_config)
-          .def_readwrite("match_sparsity",
-                         &SyntheticDatasetOptions::match_sparsity,
-                         "Sparsity parameter for SPARSE match config [0,1].")
-          .def_readwrite("prior_position",
-                         &SyntheticDatasetOptions::prior_position)
-          .def_readwrite("prior_gravity",
-                         &SyntheticDatasetOptions::prior_gravity)
-          .def_readwrite(
-              "prior_position_coordinate_system",
-              &SyntheticDatasetOptions::prior_position_coordinate_system)
-          .def_readwrite("prior_gravity_in_world",
-                         &SyntheticDatasetOptions::prior_gravity_in_world,
-                         "Prior gravity direction in world coordinates.");
+              "geometries.");
   MakeDataclass(PySyntheticDatasetOptions);
 
   m.def(
@@ -133,4 +136,38 @@ void BindSynthetic(py::module& m) {
         "options"_a,
         "reconstruction"_a,
         "image_path"_a);
+
+  auto PySyntheticPoseGraphData =
+      py::classh<SyntheticPoseGraphData>(m, "SyntheticPoseGraphData")
+          .def(py::init<>())
+          .def_readwrite("reconstruction",
+                         &SyntheticPoseGraphData::reconstruction)
+          .def_readwrite("pose_graph", &SyntheticPoseGraphData::pose_graph)
+          .def_readwrite("pose_priors", &SyntheticPoseGraphData::pose_priors);
+  MakeDataclass(PySyntheticPoseGraphData);
+
+  m.attr("SyntheticPoseGraphOptions") = m.attr("BaseSyntheticOptions");
+
+  m.def("synthesize_pose_graph", &SynthesizePoseGraph, "options"_a);
+
+  auto PySyntheticPoseGraphNoiseOptions =
+      py::classh<SyntheticPoseGraphNoiseOptions>(
+          m, "SyntheticPoseGraphNoiseOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "rel_rotation_noise_deg",
+              &SyntheticPoseGraphNoiseOptions::rel_rotation_noise_deg)
+          .def_readwrite(
+              "rel_translation_noise_deg",
+              &SyntheticPoseGraphNoiseOptions::rel_translation_noise_deg)
+          .def_readwrite("prior_position_stddev",
+                         &SyntheticPoseGraphNoiseOptions::prior_position_stddev)
+          .def_readwrite("prior_gravity_stddev",
+                         &SyntheticPoseGraphNoiseOptions::prior_gravity_stddev);
+  MakeDataclass(PySyntheticPoseGraphNoiseOptions);
+
+  m.def("synthesize_pose_graph_noise",
+        &SynthesizePoseGraphNoise,
+        "options"_a,
+        "data"_a);
 }

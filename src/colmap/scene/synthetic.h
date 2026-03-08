@@ -30,7 +30,9 @@
 #pragma once
 
 #include "colmap/feature/types.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/database.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
@@ -38,15 +40,10 @@
 
 namespace colmap {
 
-struct SyntheticDatasetOptions {
+struct BaseSyntheticOptions {
   int num_rigs = 2;
   int num_cameras_per_rig = 1;
   int num_frames_per_rig = 5;
-  int num_points3D = 100;
-  // Target track length per 3D point. If -1 (default), all images observe all
-  // points (dense visibility). If > 0, observations are pruned to exactly this
-  // many per point. Must be -1 or >= 2.
-  int track_length = -1;
 
   double sensor_from_rig_translation_stddev = 0.05;
   // Random rotation in degrees around the z-axis of the sensor.
@@ -56,17 +53,6 @@ struct SyntheticDatasetOptions {
   int camera_height = 768;
   CameraModelId camera_model_id = SimpleRadialCameraModel::model_id;
   std::vector<double> camera_params = {1280, 512, 384, 0.05};
-  bool camera_has_prior_focal_length = false;
-
-  // The type of feature descriptors to synthesize.
-  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
-
-  int num_points2D_without_point3D = 10;
-
-  double inlier_match_ratio = 1.0;
-
-  // Whether to include decomposed relative poses in two-view geometries.
-  bool two_view_geometry_has_relative_pose = false;
 
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
@@ -90,6 +76,26 @@ struct SyntheticDatasetOptions {
       PosePrior::CoordinateSystem::CARTESIAN;
   bool prior_gravity = false;
   Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
+};
+
+struct SyntheticDatasetOptions : BaseSyntheticOptions {
+  int num_points3D = 100;
+  // Target track length per 3D point. If -1 (default), all images observe all
+  // points (dense visibility). If > 0, observations are pruned to exactly this
+  // many per point. Must be -1 or >= 2.
+  int track_length = -1;
+
+  bool camera_has_prior_focal_length = false;
+
+  // The type of feature descriptors to synthesize.
+  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
+
+  int num_points2D_without_point3D = 10;
+
+  double inlier_match_ratio = 1.0;
+
+  // Whether to include decomposed relative poses in two-view geometries.
+  bool two_view_geometry_has_relative_pose = false;
 
   // The synthesized image file extension.
   std::string image_extension = ".png";
@@ -129,5 +135,31 @@ struct SyntheticImageOptions {
 void SynthesizeImages(const SyntheticImageOptions& options,
                       const Reconstruction& reconstruction,
                       const std::filesystem::path& image_path);
+
+using SyntheticPoseGraphOptions = BaseSyntheticOptions;
+
+struct SyntheticPoseGraphData {
+  Reconstruction
+      reconstruction;  // registered frames with GT poses, no 3D points
+  PoseGraph pose_graph;
+  std::vector<PosePrior> pose_priors;
+};
+
+SyntheticPoseGraphData SynthesizePoseGraph(
+    const SyntheticPoseGraphOptions& options);
+
+struct SyntheticPoseGraphNoiseOptions {
+  // Noise on PoseGraph edges (relative poses).
+  double rel_rotation_noise_deg = 0.0;
+  double rel_translation_noise_deg = 0.0;
+
+  // Translational standard deviation of the prior position in meters.
+  double prior_position_stddev = 1.5;
+  // Rotational standard deviation of the prior gravity in degrees.
+  double prior_gravity_stddev = 1.0;
+};
+
+void SynthesizePoseGraphNoise(const SyntheticPoseGraphNoiseOptions& options,
+                              SyntheticPoseGraphData* data);
 
 }  // namespace colmap

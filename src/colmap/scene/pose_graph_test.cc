@@ -280,13 +280,12 @@ TEST(PoseGraph, Load) {
 
 TEST(PoseGraph, MarkConnectedComponents) {
   // Create a reconstruction with 5 images (5 rigs, 1 camera each, 1 frame each)
-  SyntheticDatasetOptions synthetic_options;
+  SyntheticPoseGraphOptions synthetic_options;
   synthetic_options.num_rigs = 5;
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 1;
-  synthetic_options.num_points3D = 10;
-  Reconstruction reconstruction;
-  SynthesizeDataset(synthetic_options, &reconstruction);
+  auto data = SynthesizePoseGraph(synthetic_options);
+  Reconstruction& reconstruction = data.reconstruction;
 
   // Get image IDs from the reconstruction
   const auto reg_image_ids = reconstruction.RegImageIds();
@@ -336,13 +335,12 @@ TEST(PoseGraph, MarkConnectedComponents) {
 }
 
 TEST(PoseGraph, ComputeLargestConnectedFrameComponentEmpty) {
-  SyntheticDatasetOptions synthetic_options;
+  SyntheticPoseGraphOptions synthetic_options;
   synthetic_options.num_rigs = 3;
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 1;
-  synthetic_options.num_points3D = 10;
-  Reconstruction reconstruction;
-  SynthesizeDataset(synthetic_options, &reconstruction);
+  auto data = SynthesizePoseGraph(synthetic_options);
+  Reconstruction& reconstruction = data.reconstruction;
 
   // Pose graph with no edges
   PoseGraph pose_graph;

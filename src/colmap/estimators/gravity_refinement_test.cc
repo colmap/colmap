@@ -31,24 +31,20 @@
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/database_cache.h"
-#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-void LoadReconstructionAndPoseGraph(const Database& database,
-                                    Reconstruction* reconstruction,
-                                    PoseGraph* pose_graph) {
-  DatabaseCache database_cache;
-  DatabaseCache::Options options;
-  database_cache.Load(database, options);
-  reconstruction->Load(database_cache);
-  pose_graph->Load(*database_cache.CorrespondenceGraph());
+Reconstruction DeRegisterAllFrames(const Reconstruction& reconstruction) {
+  Reconstruction result = reconstruction;
+  const auto reg_ids = result.RegFrameIds();
+  for (const frame_t frame_id : reg_ids) {
+    result.DeRegisterFrame(frame_id);
+  }
+  return result;
 }
 
 void SynthesizeGravityOutliers(std::vector<PosePrior>& pose_priors,
@@ -90,68 +86,46 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
 TEST(GravityRefinement, RefineGravity) {
   SetPRNGSeed(1);
 
-  const auto database_path = CreateTestDir() / "database.db";
+  SyntheticPoseGraphOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 25;
+  options.prior_gravity = true;
+  auto data = SynthesizePoseGraph(options);
 
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 25;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SynthesizeGravityOutliers(data.pose_priors, /*outlier_ratio=*/0.3);
 
-  Reconstruction reconstruction;
-  PoseGraph pose_graph;
-  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
-
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
-
+  Reconstruction reconstruction = DeRegisterAllFrames(data.reconstruction);
   GravityRefinerOptions opt_grav_refine;
   RunGravityRefinement(
-      opt_grav_refine, pose_graph, reconstruction, pose_priors);
+      opt_grav_refine, data.pose_graph, reconstruction, data.pose_priors);
 
-  ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
-                     gt_reconstruction,
-                     pose_priors,
+  ExpectEqualGravity(options.prior_gravity_in_world,
+                     data.reconstruction,
+                     data.pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }
 
 TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   SetPRNGSeed(1);
 
-  const auto database_path = CreateTestDir() / "database.db";
+  SyntheticPoseGraphOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 25;
+  options.prior_gravity = true;
+  auto data = SynthesizePoseGraph(options);
 
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 2;
-  synthetic_dataset_options.num_frames_per_rig = 25;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SynthesizeGravityOutliers(data.pose_priors, /*outlier_ratio=*/0.3);
 
-  Reconstruction reconstruction;
-  PoseGraph pose_graph;
-  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
-
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
-
+  Reconstruction reconstruction = DeRegisterAllFrames(data.reconstruction);
   GravityRefinerOptions opt_grav_refine;
   RunGravityRefinement(
-      opt_grav_refine, pose_graph, reconstruction, pose_priors);
+      opt_grav_refine, data.pose_graph, reconstruction, data.pose_priors);
 
-  ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
-                     gt_reconstruction,
-                     pose_priors,
+  ExpectEqualGravity(options.prior_gravity_in_world,
+                     data.reconstruction,
+                     data.pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }
 

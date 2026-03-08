@@ -840,4 +840,279 @@ void SynthesizeImages(const SyntheticImageOptions& options,
   }
 }
 
+SyntheticPoseGraphData SynthesizePoseGraph(
+    const SyntheticPoseGraphOptions& options) {
+  THROW_CHECK_GT(options.num_rigs, 0);
+  THROW_CHECK_GT(options.num_cameras_per_rig, 0);
+  THROW_CHECK_GT(options.num_frames_per_rig, 0);
+  THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
+  THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
+  THROW_CHECK_GE(options.match_sparsity, 0.);
+  THROW_CHECK_LE(options.match_sparsity, 1.);
+
+  if (PRNG == nullptr) {
+    SetPRNGSeed();
+  }
+
+  SyntheticPoseGraphData data;
+
+  // Build reconstruction: cameras, rigs, frames with poses, images.
+  int total_num_images = 0;
+
+  for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
+    Rig rig;
+
+    std::vector<sensor_t> camera_sensor_ids;
+    camera_sensor_ids.reserve(options.num_cameras_per_rig);
+    for (int camera_idx = 0; camera_idx < options.num_cameras_per_rig;
+         ++camera_idx) {
+      Camera camera;
+      camera.width = options.camera_width;
+      camera.height = options.camera_height;
+      camera.model_id = options.camera_model_id;
+      camera.params = options.camera_params;
+      THROW_CHECK(camera.VerifyParams());
+      camera.camera_id = rig_idx * options.num_cameras_per_rig + camera_idx + 1;
+      data.reconstruction.AddCamera(camera);
+
+      if (rig.NumSensors() == 0) {
+        rig.AddRefSensor(camera.SensorId());
+      } else {
+        Rigid3d sensor_from_rig;
+        if (options.sensor_from_rig_rotation_stddev > 0) {
+          const double angle =
+              std::clamp(RandomGaussian<double>(
+                             0, options.sensor_from_rig_rotation_stddev),
+                         -180.0,
+                         180.0);
+          sensor_from_rig.rotation() = Eigen::Quaterniond(
+              Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
+        }
+        if (options.sensor_from_rig_translation_stddev > 0) {
+          sensor_from_rig.translation() = Eigen::Vector3d(
+              RandomGaussian<double>(
+                  0, options.sensor_from_rig_translation_stddev),
+              RandomGaussian<double>(
+                  0, options.sensor_from_rig_translation_stddev),
+              RandomGaussian<double>(
+                  0, options.sensor_from_rig_translation_stddev));
+        }
+        rig.AddSensor(camera.SensorId(), sensor_from_rig);
+      }
+
+      camera_sensor_ids.push_back(camera.SensorId());
+    }
+
+    const rig_t rig_id = rig_idx + 1;
+    rig.SetRigId(rig_id);
+    data.reconstruction.AddRig(rig);
+
+    for (int frame_idx = 0; frame_idx < options.num_frames_per_rig;
+         ++frame_idx) {
+      Frame frame;
+      frame.SetRigId(rig.RigId());
+
+      // Synthesize frames as sphere centered at world origin.
+      const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
+      const Eigen::Vector3d proj_center = -5 * view_dir;
+      Rigid3d rig_from_world;
+      rig_from_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
+          view_dir, Eigen::Vector3d(0, 0, 1));
+      rig_from_world.translation() = rig_from_world.rotation() * -proj_center;
+
+      frame.SetRigFromWorld(rig_from_world);
+
+      std::vector<Image> images;
+      images.reserve(options.num_cameras_per_rig);
+      for (const auto& sensor_id : camera_sensor_ids) {
+        ++total_num_images;
+
+        Image& image = images.emplace_back();
+        image.SetName(
+            StringPrintf("camera%06d_frame%06d.png", sensor_id.id, frame_idx));
+        image.SetCameraId(sensor_id.id);
+        image.SetImageId(total_num_images);
+
+        frame.AddDataId(image.DataId());
+      }
+
+      const frame_t frame_id =
+          rig_idx * options.num_frames_per_rig + frame_idx + 1;
+      frame.SetFrameId(frame_id);
+      data.reconstruction.AddFrame(std::move(frame));
+
+      for (auto& image : images) {
+        image.SetFrameId(frame_id);
+        data.reconstruction.AddImage(std::move(image));
+      }
+    }
+  }
+
+  // Build PoseGraph edges.
+  std::vector<image_pair_t> image_pairs;
+  switch (options.match_config) {
+    case BaseSyntheticOptions::MatchConfig::EXHAUSTIVE:
+      image_pairs = ExtractExhaustiveImagePairs(data.reconstruction);
+      break;
+    case BaseSyntheticOptions::MatchConfig::CHAINED: {
+      const std::vector<image_t> reg_ids = data.reconstruction.RegImageIds();
+      for (size_t i = 1; i < reg_ids.size(); ++i) {
+        const image_t id1 = std::min(reg_ids[i - 1], reg_ids[i]);
+        const image_t id2 = std::max(reg_ids[i - 1], reg_ids[i]);
+        image_pairs.push_back(ImagePairToPairId(id1, id2));
+      }
+      break;
+    }
+    case BaseSyntheticOptions::MatchConfig::SPARSE: {
+      image_pairs = ExtractExhaustiveImagePairs(data.reconstruction);
+      if (options.match_sparsity > 0.0 && options.match_sparsity < 1.0) {
+        std::set<image_t> all_image_ids;
+        for (const image_t image_id : data.reconstruction.RegImageIds()) {
+          all_image_ids.insert(image_id);
+        }
+        const size_t num_edges_to_remove =
+            static_cast<size_t>(options.match_sparsity * image_pairs.size());
+        std::shuffle(image_pairs.begin(), image_pairs.end(), *PRNG);
+        std::set<image_pair_t> remaining(image_pairs.begin(),
+                                         image_pairs.end());
+        size_t edges_removed = 0;
+        for (const image_pair_t pair_id : image_pairs) {
+          if (edges_removed >= num_edges_to_remove) break;
+          remaining.erase(pair_id);
+          if (IsViewGraphConnected(all_image_ids, remaining)) {
+            edges_removed++;
+          } else {
+            remaining.insert(pair_id);
+          }
+        }
+        image_pairs.assign(remaining.begin(), remaining.end());
+      } else if (options.match_sparsity >= 1.0) {
+        image_pairs.clear();
+      }
+      break;
+    }
+    default:
+      LOG(FATAL_THROW) << "Invalid MatchConfig specified";
+  }
+
+  for (const image_pair_t pair_id : image_pairs) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const auto& image1 = data.reconstruction.Image(image_id1);
+    const auto& image2 = data.reconstruction.Image(image_id2);
+    const Rigid3d cam2_from_cam1 =
+        image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+    PoseGraph::Edge edge(cam2_from_cam1);
+    data.pose_graph.AddEdge(image_id1, image_id2, edge);
+  }
+
+  // Build PosePriors.
+  if (options.prior_position || options.prior_gravity) {
+    for (const frame_t frame_id : data.reconstruction.RegFrameIds()) {
+      const auto& frame = data.reconstruction.Frame(frame_id);
+      for (const data_t& data_id : frame.ImageIds()) {
+        const image_t image_id = data_id.id;
+        const auto& image = data.reconstruction.Image(image_id);
+        if (!image.IsRefInFrame()) {
+          continue;
+        }
+
+        const Rigid3d cam_from_world = image.CamFromWorld();
+        PosePrior pose_prior;
+        pose_prior.corr_data_id = image.DataId();
+
+        if (options.prior_position) {
+          pose_prior.position = cam_from_world.TgtOriginInSrc();
+          pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+          switch (options.prior_position_coordinate_system) {
+            case PosePrior::CoordinateSystem::CARTESIAN:
+              break;
+            case PosePrior::CoordinateSystem::WGS84:
+              PosePriorPositionCartesianToWGS84(pose_prior);
+              break;
+            default:
+              LOG(FATAL) << "Invalid PosePrior::CoordinateSystem specified";
+          }
+        }
+
+        if (options.prior_gravity) {
+          pose_prior.gravity =
+              (cam_from_world.rotation() * options.prior_gravity_in_world)
+                  .normalized();
+        }
+
+        data.pose_priors.push_back(pose_prior);
+      }
+    }
+  }
+
+  return data;
+}
+
+void SynthesizePoseGraphNoise(const SyntheticPoseGraphNoiseOptions& options,
+                              SyntheticPoseGraphData* data) {
+  THROW_CHECK_GE(options.rel_rotation_noise_deg, 0.);
+  THROW_CHECK_GE(options.rel_translation_noise_deg, 0.);
+  THROW_CHECK_GE(options.prior_position_stddev, 0.);
+  THROW_CHECK_GE(options.prior_gravity_stddev, 0.);
+
+  if (options.rel_rotation_noise_deg > 0 ||
+      options.rel_translation_noise_deg > 0) {
+    for (auto& [pair_id, edge] : data->pose_graph.Edges()) {
+      if (options.rel_rotation_noise_deg > 0) {
+        const double angle = std::clamp(
+            RandomGaussian<double>(0, options.rel_rotation_noise_deg),
+            -180.0,
+            180.0);
+        edge.cam2_from_cam1.rotation() *= Eigen::Quaterniond(Eigen::AngleAxisd(
+            DegToRad(angle), Eigen::Vector3d::Random().normalized()));
+      }
+      if (options.rel_translation_noise_deg > 0) {
+        const double angle = std::clamp(
+            RandomGaussian<double>(0, options.rel_translation_noise_deg),
+            -180.0,
+            180.0);
+        const Eigen::Vector3d axis = edge.cam2_from_cam1.translation()
+                                         .cross(Eigen::Vector3d::Random())
+                                         .normalized();
+        edge.cam2_from_cam1.translation() =
+            Eigen::AngleAxisd(DegToRad(angle), axis) *
+            edge.cam2_from_cam1.translation();
+      }
+    }
+  }
+
+  if (options.prior_position_stddev > 0 || options.prior_gravity_stddev > 0) {
+    for (auto& pose_prior : data->pose_priors) {
+      if (options.prior_position_stddev > 0 && pose_prior.HasPosition()) {
+        const bool prior_in_wgs84 =
+            pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84;
+        if (prior_in_wgs84) {
+          PosePriorPositionWGS84ToCartesian(pose_prior);
+        }
+        pose_prior.position += Eigen::Vector3d(
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev));
+        if (!pose_prior.HasPositionCov()) {
+          pose_prior.position_covariance = Eigen::Matrix3d::Zero();
+        }
+        pose_prior.position_covariance += options.prior_position_stddev *
+                                          options.prior_position_stddev *
+                                          Eigen::Matrix3d::Identity();
+        if (prior_in_wgs84) {
+          PosePriorPositionCartesianToWGS84(pose_prior);
+        }
+      }
+      if (options.prior_gravity_stddev > 0 && pose_prior.HasGravity()) {
+        const double angle =
+            RandomGaussian<double>(0, DegToRad(options.prior_gravity_stddev));
+        const Eigen::Vector3d axis =
+            pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
+        pose_prior.gravity =
+            (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
+      }
+    }
+  }
+}
+
 }  // namespace colmap

@@ -539,5 +539,161 @@ TEST(SynthesizeImages, Nominal) {
   }
 }
 
+TEST(SynthesizePoseGraph, Nominal) {
+  SetPRNGSeed(1);
+
+  SyntheticPoseGraphOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 4;
+  options.prior_gravity = true;
+  options.prior_position = true;
+  auto data = SynthesizePoseGraph(options);
+
+  const int num_cameras = options.num_rigs * options.num_cameras_per_rig;
+  const int num_frames = options.num_rigs * options.num_frames_per_rig;
+  const int num_images = num_cameras * options.num_frames_per_rig;
+
+  // Reconstruction should have registered frames with poses.
+  EXPECT_EQ(data.reconstruction.NumCameras(), num_cameras);
+  EXPECT_EQ(data.reconstruction.NumRigs(), options.num_rigs);
+  EXPECT_EQ(data.reconstruction.NumFrames(), num_frames);
+  EXPECT_EQ(data.reconstruction.NumImages(), num_images);
+  EXPECT_EQ(data.reconstruction.NumRegFrames(), num_frames);
+  EXPECT_EQ(data.reconstruction.NumPoints3D(), 0);
+
+  // Pose graph should have exhaustive edges (all image pairs).
+  const size_t num_image_pairs = num_images * (num_images - 1) / 2;
+  EXPECT_EQ(data.pose_graph.NumEdges(), num_image_pairs);
+
+  // Pose priors: one per ref image per frame.
+  EXPECT_EQ(data.pose_priors.size(), num_frames);
+  for (const auto& prior : data.pose_priors) {
+    EXPECT_TRUE(prior.HasPosition());
+    EXPECT_TRUE(prior.HasGravity());
+  }
+}
+
+TEST(SynthesizePoseGraph, ChainedMatches) {
+  SetPRNGSeed(1);
+
+  SyntheticPoseGraphOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.match_config = BaseSyntheticOptions::MatchConfig::CHAINED;
+  auto data = SynthesizePoseGraph(options);
+
+  // Chained: consecutive image pairs.
+  EXPECT_EQ(data.pose_graph.NumEdges(), options.num_frames_per_rig - 1);
+}
+
+TEST(SynthesizePoseGraphNoise, RelPoseNoise) {
+  SetPRNGSeed(1);
+
+  SyntheticPoseGraphOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  auto data = SynthesizePoseGraph(options);
+
+  const PoseGraph gt_pose_graph = data.pose_graph;
+
+  SyntheticPoseGraphNoiseOptions noise_options;
+  noise_options.rel_rotation_noise_deg = 1.0;
+  noise_options.rel_translation_noise_deg = 1.0;
+  noise_options.prior_position_stddev = 0.0;
+  noise_options.prior_gravity_stddev = 0.0;
+  SynthesizePoseGraphNoise(noise_options, &data);
+
+  for (const auto& [pair_id, edge] : data.pose_graph.Edges()) {
+    const auto& gt_edge = gt_pose_graph.Edges().at(pair_id);
+    const double rotation_error =
+        edge.cam2_from_cam1.rotation().angularDistance(
+            gt_edge.cam2_from_cam1.rotation());
+    // Check that some noise was added.
+    EXPECT_GT(rotation_error, 0);
+    // Check that the noisy values are somewhat close to the original ones.
+    EXPECT_LT(RadToDeg(rotation_error),
+              10 * noise_options.rel_rotation_noise_deg);
+
+    const double translation_angle = std::acos(
+        std::clamp(edge.cam2_from_cam1.translation().normalized().dot(
+                       gt_edge.cam2_from_cam1.translation().normalized()),
+                   -1.0,
+                   1.0));
+    EXPECT_GT(translation_angle, 0);
+    EXPECT_LT(RadToDeg(translation_angle),
+              10 * noise_options.rel_translation_noise_deg);
+  }
+}
+
+TEST(SynthesizePoseGraphNoise, PriorPositionNoise) {
+  SetPRNGSeed(1);
+
+  SyntheticPoseGraphOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.prior_position = true;
+  auto data = SynthesizePoseGraph(options);
+
+  const std::vector<PosePrior> gt_priors = data.pose_priors;
+
+  SyntheticPoseGraphNoiseOptions noise_options;
+  noise_options.rel_rotation_noise_deg = 0.0;
+  noise_options.rel_translation_noise_deg = 0.0;
+  noise_options.prior_position_stddev = 0.5;
+  noise_options.prior_gravity_stddev = 0.0;
+  SynthesizePoseGraphNoise(noise_options, &data);
+
+  ASSERT_EQ(data.pose_priors.size(), gt_priors.size());
+  for (size_t i = 0; i < data.pose_priors.size(); ++i) {
+    const auto& prior = data.pose_priors[i];
+    const auto& gt_prior = gt_priors[i];
+    // Check that some noise was added.
+    EXPECT_THAT(prior.position, testing::Not(EigenMatrixEq(gt_prior.position)));
+    // Check that the noisy positions are somewhat close to the original ones.
+    EXPECT_THAT(prior.position,
+                EigenMatrixNear(gt_prior.position,
+                                10 * noise_options.prior_position_stddev));
+    EXPECT_TRUE(prior.HasPositionCov());
+    EXPECT_NEAR(prior.position_covariance.trace() / 3.0,
+                noise_options.prior_position_stddev *
+                    noise_options.prior_position_stddev,
+                1e-6);
+  }
+}
+
+TEST(SynthesizePoseGraphNoise, PriorGravityNoise) {
+  SetPRNGSeed(1);
+
+  SyntheticPoseGraphOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.prior_gravity = true;
+  auto data = SynthesizePoseGraph(options);
+
+  const std::vector<PosePrior> gt_priors = data.pose_priors;
+
+  SyntheticPoseGraphNoiseOptions noise_options;
+  noise_options.rel_rotation_noise_deg = 0.0;
+  noise_options.rel_translation_noise_deg = 0.0;
+  noise_options.prior_position_stddev = 0.0;
+  noise_options.prior_gravity_stddev = 1.0;
+  SynthesizePoseGraphNoise(noise_options, &data);
+
+  ASSERT_EQ(data.pose_priors.size(), gt_priors.size());
+  for (size_t i = 0; i < data.pose_priors.size(); ++i) {
+    const double angle =
+        std::acos(data.pose_priors[i].gravity.dot(gt_priors[i].gravity));
+    // Check that some noise was added.
+    EXPECT_GT(angle, 0);
+    // Check that the noisy directions are somewhat close to the original ones.
+    EXPECT_LT(angle, 10 * DegToRad(noise_options.prior_gravity_stddev));
+  }
+}
+
 }  // namespace
 }  // namespace colmap
