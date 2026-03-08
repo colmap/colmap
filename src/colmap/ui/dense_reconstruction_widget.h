@@ -66,6 +66,7 @@ class DenseReconstructionWidget : public QWidget {
 
   void WriteFusedPoints();
   void WriteSurfaceMesh();
+  void LoadAndDisplayMesh(const std::filesystem::path& mesh_path);
 
   QWidget* GenerateTableButtonWidget(const std::string& image_name,
                                      const std::string& type);

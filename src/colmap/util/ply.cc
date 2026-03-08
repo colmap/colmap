@@ -34,11 +34,22 @@
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 
+#include <cstring>
 #include <fstream>
 
 #include <Eigen/Core>
 
 namespace colmap {
+namespace {
+
+template <typename T>
+T ReadFromBuffer(const char* buffer, size_t offset) {
+  T value;
+  std::memcpy(&value, buffer + offset, sizeof(T));
+  return value;
+}
+
+}  // namespace
 
 std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
@@ -210,74 +221,39 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
   points.reserve(num_vertices);
 
   if (is_binary) {
+    auto ReadCoord = [&](const char* buf, bool is_double, size_t byte_pos) {
+      if (is_double) {
+        const auto val = ReadFromBuffer<double>(buf, byte_pos);
+        return static_cast<float>(is_little_endian ? LittleEndianToNative(val)
+                                                   : BigEndianToNative(val));
+      } else {
+        const auto val = ReadFromBuffer<float>(buf, byte_pos);
+        return is_little_endian ? LittleEndianToNative(val)
+                                : BigEndianToNative(val);
+      }
+    };
+
     std::vector<char> buffer(num_bytes_per_line);
     for (size_t i = 0; i < num_vertices; ++i) {
       file.read(buffer.data(), num_bytes_per_line);
+      THROW_CHECK(file.good()) << "Unexpected end of PLY file at vertex " << i;
 
       PlyPoint point;
 
-      if (is_little_endian) {
-        point.x = LittleEndianToNative(
-            X_double ? *reinterpret_cast<double*>(&buffer[X_byte_pos])
-                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        point.y = LittleEndianToNative(
-            Y_double ? *reinterpret_cast<double*>(&buffer[Y_byte_pos])
-                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        point.z = LittleEndianToNative(
-            Z_double ? *reinterpret_cast<double*>(&buffer[Z_byte_pos])
-                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
+      point.x = ReadCoord(buffer.data(), X_double, X_byte_pos);
+      point.y = ReadCoord(buffer.data(), Y_double, Y_byte_pos);
+      point.z = ReadCoord(buffer.data(), Z_double, Z_byte_pos);
 
-        if (!is_normal_missing) {
-          point.nx = LittleEndianToNative(
-              NX_double ? *reinterpret_cast<double*>(&buffer[NX_byte_pos])
-                        : *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
-          point.ny = LittleEndianToNative(
-              NY_double ? *reinterpret_cast<double*>(&buffer[NY_byte_pos])
-                        : *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
-          point.nz = LittleEndianToNative(
-              NZ_double ? *reinterpret_cast<double*>(&buffer[NZ_byte_pos])
-                        : *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
-        }
+      if (!is_normal_missing) {
+        point.nx = ReadCoord(buffer.data(), NX_double, NX_byte_pos);
+        point.ny = ReadCoord(buffer.data(), NY_double, NY_byte_pos);
+        point.nz = ReadCoord(buffer.data(), NZ_double, NZ_byte_pos);
+      }
 
-        if (!is_rgb_missing) {
-          point.r = LittleEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
-          point.g = LittleEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
-          point.b = LittleEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
-        }
-      } else {
-        point.x = BigEndianToNative(
-            X_double ? *reinterpret_cast<double*>(&buffer[X_byte_pos])
-                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        point.y = BigEndianToNative(
-            Y_double ? *reinterpret_cast<double*>(&buffer[Y_byte_pos])
-                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        point.z = BigEndianToNative(
-            Z_double ? *reinterpret_cast<double*>(&buffer[Z_byte_pos])
-                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
-
-        if (!is_normal_missing) {
-          point.nx = BigEndianToNative(
-              NX_double ? *reinterpret_cast<double*>(&buffer[NX_byte_pos])
-                        : *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
-          point.ny = BigEndianToNative(
-              NY_double ? *reinterpret_cast<double*>(&buffer[NY_byte_pos])
-                        : *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
-          point.nz = BigEndianToNative(
-              NZ_double ? *reinterpret_cast<double*>(&buffer[NZ_byte_pos])
-                        : *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
-        }
-
-        if (!is_rgb_missing) {
-          point.r = BigEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
-          point.g = BigEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
-          point.b = BigEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
-        }
+      if (!is_rgb_missing) {
+        point.r = ReadFromBuffer<uint8_t>(buffer.data(), R_byte_pos);
+        point.g = ReadFromBuffer<uint8_t>(buffer.data(), G_byte_pos);
+        point.b = ReadFromBuffer<uint8_t>(buffer.data(), B_byte_pos);
       }
 
       points.push_back(point);
@@ -289,9 +265,7 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
 
       std::string item;
       std::vector<std::string> items;
-      while (!line_stream.eof()) {
-        std::getline(line_stream, item, ' ');
-        StringTrim(&item);
+      while (line_stream >> item) {
         items.push_back(item);
       }
 
@@ -555,44 +529,46 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
   mesh.faces.reserve(num_faces);
 
   if (is_binary) {
+    auto ReadCoord = [&](const char* buf, bool is_double, size_t byte_pos) {
+      if (is_double) {
+        const auto val = ReadFromBuffer<double>(buf, byte_pos);
+        return static_cast<float>(is_little_endian ? LittleEndianToNative(val)
+                                                   : BigEndianToNative(val));
+      } else {
+        const auto val = ReadFromBuffer<float>(buf, byte_pos);
+        return is_little_endian ? LittleEndianToNative(val)
+                                : BigEndianToNative(val);
+      }
+    };
+
+    auto ReadInt = [&](const char* buf, size_t num_bytes) {
+      if (num_bytes == 4) {
+        const auto val = ReadFromBuffer<int32_t>(buf, 0);
+        return static_cast<int>(is_little_endian ? LittleEndianToNative(val)
+                                                 : BigEndianToNative(val));
+      } else if (num_bytes == 2) {
+        const auto val = ReadFromBuffer<int16_t>(buf, 0);
+        return static_cast<int>(is_little_endian ? LittleEndianToNative(val)
+                                                 : BigEndianToNative(val));
+      } else {
+        return static_cast<int>(ReadFromBuffer<uint8_t>(buf, 0));
+      }
+    };
+
     // Read binary vertex data
     std::vector<char> buffer(num_bytes_per_vertex);
     for (size_t i = 0; i < num_vertices; ++i) {
       file.read(buffer.data(), num_bytes_per_vertex);
+      THROW_CHECK(file.good()) << "Unexpected end of PLY file at vertex " << i;
 
-      float x, y, z;
-      if (is_little_endian) {
-        x = LittleEndianToNative(
-            X_double ? static_cast<float>(
-                           *reinterpret_cast<double*>(&buffer[X_byte_pos]))
-                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        y = LittleEndianToNative(
-            Y_double ? static_cast<float>(
-                           *reinterpret_cast<double*>(&buffer[Y_byte_pos]))
-                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        z = LittleEndianToNative(
-            Z_double ? static_cast<float>(
-                           *reinterpret_cast<double*>(&buffer[Z_byte_pos]))
-                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
-      } else {
-        x = BigEndianToNative(
-            X_double ? static_cast<float>(
-                           *reinterpret_cast<double*>(&buffer[X_byte_pos]))
-                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        y = BigEndianToNative(
-            Y_double ? static_cast<float>(
-                           *reinterpret_cast<double*>(&buffer[Y_byte_pos]))
-                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        z = BigEndianToNative(
-            Z_double ? static_cast<float>(
-                           *reinterpret_cast<double*>(&buffer[Z_byte_pos]))
-                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
-      }
+      const float x = ReadCoord(buffer.data(), X_double, X_byte_pos);
+      const float y = ReadCoord(buffer.data(), Y_double, Y_byte_pos);
+      const float z = ReadCoord(buffer.data(), Z_double, Z_byte_pos);
 
       if (has_colors) {
-        const uint8_t r = *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]);
-        const uint8_t g = *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]);
-        const uint8_t b = *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]);
+        const uint8_t r = ReadFromBuffer<uint8_t>(buffer.data(), R_byte_pos);
+        const uint8_t g = ReadFromBuffer<uint8_t>(buffer.data(), G_byte_pos);
+        const uint8_t b = ReadFromBuffer<uint8_t>(buffer.data(), B_byte_pos);
         mesh.vertices.emplace_back(x, y, z, r, g, b);
       } else {
         mesh.vertices.emplace_back(x, y, z);
@@ -603,7 +579,7 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
     // Determine byte sizes of the face count and index types from the header.
     auto PlyTypeBytes = [](const std::string& type) -> size_t {
       if (type == "int" || type == "int32" || type == "uint" ||
-          type == "uint32" || type == "float" || type == "float32") {
+          type == "uint32") {
         return 4;
       } else if (type == "short" || type == "int16" || type == "ushort" ||
                  type == "uint16") {
@@ -612,7 +588,8 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
                  type == "uint8") {
         return 1;
       }
-      return 4;
+      LOG(FATAL_THROW) << "Unsupported PLY face data type: " << type;
+      return 0;
     };
 
     const size_t face_count_bytes = PlyTypeBytes(face_count_type);
@@ -621,35 +598,19 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
     std::vector<char> face_buffer(std::max(face_count_bytes, face_index_bytes));
     for (size_t i = 0; i < num_faces; ++i) {
       file.read(face_buffer.data(), face_count_bytes);
-      int num_face_vertices = 0;
-      if (face_count_bytes == 4) {
-        int32_t val = *reinterpret_cast<int32_t*>(face_buffer.data());
-        num_face_vertices = is_little_endian ? LittleEndianToNative(val)
-                                             : BigEndianToNative(val);
-      } else if (face_count_bytes == 2) {
-        int16_t val = *reinterpret_cast<int16_t*>(face_buffer.data());
-        num_face_vertices = is_little_endian ? LittleEndianToNative(val)
-                                             : BigEndianToNative(val);
-      } else {
-        num_face_vertices = *reinterpret_cast<uint8_t*>(face_buffer.data());
-      }
+      THROW_CHECK(file.good()) << "Unexpected end of PLY file at face " << i;
+
+      const int num_face_vertices =
+          ReadInt(face_buffer.data(), face_count_bytes);
       THROW_CHECK_EQ(num_face_vertices, 3)
           << "Only triangular faces are supported";
 
       int indices[3];
       for (int j = 0; j < 3; ++j) {
         file.read(face_buffer.data(), face_index_bytes);
-        if (face_index_bytes == 4) {
-          int32_t val = *reinterpret_cast<int32_t*>(face_buffer.data());
-          indices[j] = is_little_endian ? LittleEndianToNative(val)
-                                        : BigEndianToNative(val);
-        } else if (face_index_bytes == 2) {
-          int16_t val = *reinterpret_cast<int16_t*>(face_buffer.data());
-          indices[j] = is_little_endian ? LittleEndianToNative(val)
-                                        : BigEndianToNative(val);
-        } else {
-          indices[j] = *reinterpret_cast<uint8_t*>(face_buffer.data());
-        }
+        THROW_CHECK(file.good())
+            << "Unexpected end of PLY file at face " << i << " index " << j;
+        indices[j] = ReadInt(face_buffer.data(), face_index_bytes);
       }
 
       mesh.faces.emplace_back(indices[0], indices[1], indices[2]);
@@ -663,9 +624,7 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
 
       std::string item;
       std::vector<std::string> items;
-      while (!line_stream.eof()) {
-        std::getline(line_stream, item, ' ');
-        StringTrim(&item);
+      while (line_stream >> item) {
         items.push_back(item);
       }
 

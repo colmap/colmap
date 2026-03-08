@@ -433,6 +433,16 @@ void DenseReconstructionWidget::Fusion() {
   thread_control_widget_->StartThread("Fusion...", true, std::move(fuser));
 }
 
+void DenseReconstructionWidget::LoadAndDisplayMesh(
+    const std::filesystem::path& mesh_path) {
+  try {
+    main_window_->model_viewer_widget_->surface_mesh = ReadPlyMesh(mesh_path);
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+  }
+  write_surface_mesh_action_->trigger();
+}
+
 void DenseReconstructionWidget::PoissonMeshing() {
   const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
@@ -445,13 +455,7 @@ void DenseReconstructionWidget::PoissonMeshing() {
           mvs::PoissonMeshing(*options_->poisson_meshing,
                               workspace_path / kFusedFileName,
                               workspace_path / kPoissonMeshedFileName);
-          try {
-            main_window_->model_viewer_widget_->surface_mesh =
-                ReadPlyMesh(workspace_path / kPoissonMeshedFileName);
-          } catch (const std::exception& e) {
-            LOG(ERROR) << "Failed to read surface mesh: " << e.what();
-          }
-          write_surface_mesh_action_->trigger();
+          LoadAndDisplayMesh(workspace_path / kPoissonMeshedFileName);
         });
   }
 }
@@ -469,13 +473,7 @@ void DenseReconstructionWidget::DelaunayMeshing() {
           mvs::DenseDelaunayMeshing(*options_->delaunay_meshing,
                                     workspace_path,
                                     workspace_path / kDelaunayMeshedFileName);
-          try {
-            main_window_->model_viewer_widget_->surface_mesh =
-                ReadPlyMesh(workspace_path / kDelaunayMeshedFileName);
-          } catch (const std::exception& e) {
-            LOG(ERROR) << "Failed to read surface mesh: " << e.what();
-          }
-          write_surface_mesh_action_->trigger();
+          LoadAndDisplayMesh(workspace_path / kDelaunayMeshedFileName);
         });
   }
 #else

@@ -395,6 +395,7 @@ void ModelViewerWidget::resizeGL(int width, int height) {
 
 void ModelViewerWidget::ReloadReconstruction() {
   if (reconstruction == nullptr) {
+    ComputeModelOriginAndScale();
     UploadPointCloudData();
     UploadSurfaceMeshData();
     update();
@@ -867,22 +868,43 @@ void ModelViewerWidget::SetupView() {
 }
 
 void ModelViewerWidget::ComputeModelOriginAndScale() {
-  if (reg_image_ids.empty()) {
+  std::vector<double> x_coords;
+  std::vector<double> y_coords;
+  std::vector<double> z_coords;
+
+  if (!reg_image_ids.empty()) {
+    x_coords.resize(reg_image_ids.size());
+    y_coords.resize(reg_image_ids.size());
+    z_coords.resize(reg_image_ids.size());
+    for (size_t i = 0; i < reg_image_ids.size(); ++i) {
+      const Image& image = images[reg_image_ids[i]];
+      const Eigen::Vector3d proj_center = image.ProjectionCenter();
+      x_coords[i] = proj_center.x();
+      y_coords[i] = proj_center.y();
+      z_coords[i] = proj_center.z();
+    }
+  } else if (point_cloud.has_value() && !point_cloud->empty()) {
+    x_coords.reserve(point_cloud->size());
+    y_coords.reserve(point_cloud->size());
+    z_coords.reserve(point_cloud->size());
+    for (const auto& point : *point_cloud) {
+      x_coords.push_back(point.x);
+      y_coords.push_back(point.y);
+      z_coords.push_back(point.z);
+    }
+  } else if (surface_mesh.has_value() && !surface_mesh->vertices.empty()) {
+    x_coords.reserve(surface_mesh->vertices.size());
+    y_coords.reserve(surface_mesh->vertices.size());
+    z_coords.reserve(surface_mesh->vertices.size());
+    for (const auto& vertex : surface_mesh->vertices) {
+      x_coords.push_back(vertex.x);
+      y_coords.push_back(vertex.y);
+      z_coords.push_back(vertex.z);
+    }
+  } else {
     model_origin_.setZero();
     model_scale_ = 1;
     return;
-  }
-
-  const size_t num_reg_images = reg_image_ids.size();
-  std::vector<double> x_coords(num_reg_images);
-  std::vector<double> y_coords(num_reg_images);
-  std::vector<double> z_coords(num_reg_images);
-  for (size_t i = 0; i < num_reg_images; ++i) {
-    const Image& image = images[reg_image_ids[i]];
-    const Eigen::Vector3d proj_center = image.ProjectionCenter();
-    x_coords[i] = proj_center.x();
-    y_coords[i] = proj_center.y();
-    z_coords[i] = proj_center.z();
   }
 
   model_origin_ =
