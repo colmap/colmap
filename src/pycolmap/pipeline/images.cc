@@ -112,8 +112,6 @@ void UndistortImages(const std::filesystem::path& output_path,
   if (output_type != "COLMAP") {
     LOG_IF(WARNING, !image_names.empty())
         << "Ignoring `image_names` for output type " << output_type;
-    LOG_IF(WARNING, jpeg_quality != -1)
-        << "Ignoring `jpeg_quality` for output type " << output_type;
     LOG_IF(WARNING, num_patch_match_src_images != -1)
         << "Ignoring `num_patch_match_src_images` for output type "
         << output_type;
@@ -149,17 +147,23 @@ void UndistortImages(const std::filesystem::path& output_path,
                                                       image_path,
                                                       output_path);
   } else if (output_type == "PMVS") {
-    undistorter = std::make_unique<PMVSUndistorter>(undistort_camera_options,
+    PMVSUndistorter::Options pmvs_options;
+    pmvs_options.jpeg_quality = jpeg_quality;
+    pmvs_options.num_threads = num_threads;
+    undistorter = std::make_unique<PMVSUndistorter>(pmvs_options,
+                                                    undistort_camera_options,
                                                     reconstruction,
                                                     image_path,
-                                                    output_path,
-                                                    num_threads);
+                                                    output_path);
   } else if (output_type == "CMP-MVS") {
-    undistorter = std::make_unique<CMPMVSUndistorter>(undistort_camera_options,
+    CMPMVSUndistorter::Options cmpmvs_options;
+    cmpmvs_options.jpeg_quality = jpeg_quality;
+    cmpmvs_options.num_threads = num_threads;
+    undistorter = std::make_unique<CMPMVSUndistorter>(cmpmvs_options,
+                                                      undistort_camera_options,
                                                       reconstruction,
                                                       image_path,
-                                                      output_path,
-                                                      num_threads);
+                                                      output_path);
   } else {
     LOG(FATAL_THROW)
         << "Invalid `output_type` - supported values are {'COLMAP', "

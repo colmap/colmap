@@ -294,16 +294,19 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
   WriteCOLMAPCommands(geometric, ".", "COLMAP", "option-all", "", "", &file);
 }
 
-PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& camera_options,
+PMVSUndistorter::PMVSUndistorter(const Options& options,
+                                 const UndistortCameraOptions& camera_options,
                                  const Reconstruction& reconstruction,
                                  const std::filesystem::path& image_path,
-                                 const std::filesystem::path& output_path,
-                                 const int num_threads)
-    : camera_options_(camera_options),
+                                 const std::filesystem::path& output_path)
+    : options_(options),
+      camera_options_(camera_options),
       reconstruction_(reconstruction),
       image_path_(image_path),
-      output_path_(output_path),
-      num_threads_(num_threads) {}
+      output_path_(output_path) {
+  THROW_CHECK_GE(options_.jpeg_quality, -1);
+  THROW_CHECK_LE(options_.jpeg_quality, 100);
+}
 
 void PMVSUndistorter::Run() {
   LOG_HEADING1("Image undistortion (CMVS/PMVS)");
@@ -316,7 +319,7 @@ void PMVSUndistorter::Run() {
   CreateDirIfNotExists(output_path_ / "pmvs" / "visualize");
   CreateDirIfNotExists(output_path_ / "pmvs" / "models");
 
-  ThreadPool thread_pool(num_threads_);
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
@@ -391,6 +394,8 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
                  &undistorted_camera);
 
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
+  MaybeSetJpegQuality(
+      output_image_path, undistorted_bitmap, options_.jpeg_quality);
   return undistorted_bitmap.Write(output_image_path);
 }
 
@@ -532,16 +537,20 @@ void PMVSUndistorter::WriteOptionFile() const {
   file << "oimages 0\n";
 }
 
-CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
-                                     const Reconstruction& reconstruction,
-                                     const std::filesystem::path& image_path,
-                                     const std::filesystem::path& output_path,
-                                     const int num_threads)
+CMPMVSUndistorter::CMPMVSUndistorter(
+    const Options& options,
+    const UndistortCameraOptions& camera_options,
+    const Reconstruction& reconstruction,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path)
     : options_(options),
+      camera_options_(camera_options),
       image_path_(image_path),
       output_path_(output_path),
-      reconstruction_(reconstruction),
-      num_threads_(num_threads) {}
+      reconstruction_(reconstruction) {
+  THROW_CHECK_GE(options_.jpeg_quality, -1);
+  THROW_CHECK_LE(options_.jpeg_quality, 100);
+}
 
 void CMPMVSUndistorter::Run() {
   LOG_HEADING1("Image undistortion (CMP-MVS)");
@@ -549,7 +558,7 @@ void CMPMVSUndistorter::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  ThreadPool thread_pool(num_threads_);
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
@@ -591,13 +600,15 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
-  UndistortImage(options_,
+  UndistortImage(camera_options_,
                  distorted_bitmap,
                  camera,
                  &undistorted_bitmap,
                  &undistorted_camera);
 
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
+  MaybeSetJpegQuality(
+      output_image_path, undistorted_bitmap, options_.jpeg_quality);
   return undistorted_bitmap.Write(output_image_path);
 }
 
@@ -650,9 +661,17 @@ bool StandaloneImageUndistorter::Undistort(const size_t image_idx) const {
       options_.image_names_and_cameras[image_idx];
 
   const auto output_image_path = output_path_ / image_name;
+  const auto input_image_path = image_path_ / image_name;
+
+  // Check if the image is already undistorted and copy from source if no
+  // scaling is needed
+  if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
+      ExistsFile(input_image_path)) {
+    FileCopy(input_image_path, output_image_path, options_.copy_type);
+    return true;
+  }
 
   Bitmap distorted_bitmap;
-  const auto input_image_path = image_path_ / image_name;
   if (!distorted_bitmap.Read(input_image_path)) {
     LOG(ERROR) << "Cannot read image at path " << input_image_path;
     return false;

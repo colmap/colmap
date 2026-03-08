@@ -87,11 +87,21 @@ class COLMAPUndistorter : public BaseController {
 // Undistort images and prepare data for CMVS/PMVS.
 class PMVSUndistorter : public BaseController {
  public:
-  PMVSUndistorter(const UndistortCameraOptions& camera_options,
+  struct Options {
+    // JPEG quality setting in the range [0, 100]. A value of -1 uses the
+    // default (quality 100). Lower values produce smaller file sizes.
+    int jpeg_quality = -1;
+
+    // Number of threads to use for undistortion. A value of -1 uses all
+    // available CPU cores.
+    int num_threads = -1;
+  };
+
+  PMVSUndistorter(const Options& options,
+                  const UndistortCameraOptions& camera_options,
                   const Reconstruction& reconstruction,
                   const std::filesystem::path& image_path,
-                  const std::filesystem::path& output_path,
-                  int num_threads = -1);
+                  const std::filesystem::path& output_path);
 
   void Run();
 
@@ -104,32 +114,42 @@ class PMVSUndistorter : public BaseController {
   void WriteCOLMAPScript(bool geometric) const;
   void WriteCMVSCOLMAPScript(bool geometric) const;
 
+  const Options options_;
   const UndistortCameraOptions camera_options_;
   const Reconstruction& reconstruction_;
   const std::filesystem::path image_path_;
   const std::filesystem::path output_path_;
-  const int num_threads_;
 };
 
 // Undistort images and prepare data for CMP-MVS.
 class CMPMVSUndistorter : public BaseController {
  public:
-  CMPMVSUndistorter(const UndistortCameraOptions& options,
+  struct Options {
+    // JPEG quality setting in the range [0, 100]. A value of -1 uses the
+    // default (quality 100). Lower values produce smaller file sizes.
+    int jpeg_quality = -1;
+
+    // Number of threads to use for undistortion. A value of -1 uses all
+    // available CPU cores.
+    int num_threads = -1;
+  };
+
+  CMPMVSUndistorter(const Options& options,
+                    const UndistortCameraOptions& camera_options,
                     const Reconstruction& reconstruction,
                     const std::filesystem::path& image_path,
-                    const std::filesystem::path& output_path,
-                    int num_threads = -1);
+                    const std::filesystem::path& output_path);
 
   void Run();
 
  private:
   bool Undistort(size_t reg_image_idx) const;
 
-  const UndistortCameraOptions options_;
+  const Options options_;
+  const UndistortCameraOptions camera_options_;
   const std::filesystem::path image_path_;
   const std::filesystem::path output_path_;
   const Reconstruction& reconstruction_;
-  const int num_threads_;
 };
 
 // Undistort images and export undistorted cameras without the need for a
@@ -140,6 +160,10 @@ class StandaloneImageUndistorter : public BaseController {
   struct Options {
     // The images and cameras to undistort.
     std::vector<std::pair<std::string, Camera>> image_names_and_cameras;
+
+    // The copy type to use when copying already undistorted images to the
+    // output directory.
+    FileCopyType copy_type = FileCopyType::COPY;
 
     // JPEG quality setting in the range [0, 100]. A value of -1 uses the
     // default (quality 100). Lower values produce smaller file sizes.

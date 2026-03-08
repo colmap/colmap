@@ -98,19 +98,25 @@ void UndistortionWidget::Undistort() {
                                               *options_->image_path,
                                               output_path_));
     } else if (output_format_->currentIndex() == 1) {
+      PMVSUndistorter::Options pmvs_options;
+      pmvs_options.jpeg_quality = colmap_options_.jpeg_quality;
+      pmvs_options.num_threads = num_threads_;
       undistorter = std::make_unique<ControllerThread<PMVSUndistorter>>(
-          std::make_shared<PMVSUndistorter>(camera_options_,
+          std::make_shared<PMVSUndistorter>(pmvs_options,
+                                            camera_options_,
                                             *reconstruction_,
                                             *options_->image_path,
-                                            output_path_,
-                                            num_threads_));
+                                            output_path_));
     } else if (output_format_->currentIndex() == 2) {
+      CMPMVSUndistorter::Options cmpmvs_options;
+      cmpmvs_options.jpeg_quality = colmap_options_.jpeg_quality;
+      cmpmvs_options.num_threads = num_threads_;
       undistorter = std::make_unique<ControllerThread<CMPMVSUndistorter>>(
-          std::make_shared<CMPMVSUndistorter>(camera_options_,
+          std::make_shared<CMPMVSUndistorter>(cmpmvs_options,
+                                              camera_options_,
                                               *reconstruction_,
                                               *options_->image_path,
-                                              output_path_,
-                                              num_threads_));
+                                              output_path_));
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;
