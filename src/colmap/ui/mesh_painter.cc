@@ -91,10 +91,18 @@ void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
   shader_program_.setAttributeBuffer(
       "a_normal", GL_FLOAT, 3 * sizeof(GLfloat), 3, sizeof(MeshPainter::Data));
 
-  // a_color: 3 floats at offset 6*sizeof(float)
+  // a_color: use glVertexAttribPointer directly because Qt's
+  // setAttributeBuffer does not support the normalized parameter,
+  // which is needed to map uint8 [0,255] to float [0.0,1.0] in the shader.
   shader_program_.enableAttributeArray("a_color");
-  shader_program_.setAttributeBuffer(
-      "a_color", GL_FLOAT, 6 * sizeof(GLfloat), 3, sizeof(MeshPainter::Data));
+  gl_funcs->glVertexAttribPointer(
+      shader_program_.attributeLocation("a_color"),
+      3,
+      GL_UNSIGNED_BYTE,
+      GL_TRUE,
+      sizeof(MeshPainter::Data),
+      reinterpret_cast<const void*>(  // NOLINT(performance-no-int-to-ptr)
+          6 * sizeof(GLfloat)));
 
   vbo_.release();
   vao_.release();

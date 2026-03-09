@@ -29,7 +29,9 @@
 
 #pragma once
 
-#include "colmap/scene/reconstruction.h"
+#include "colmap/scene/camera.h"
+#include "colmap/scene/image.h"
+#include "colmap/scene/point3D.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
