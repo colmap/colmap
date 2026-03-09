@@ -77,7 +77,6 @@ COLMAP_ADD_LIBRARY(
 
 if(CASPAR_ENABLED)
     target_link_libraries(colmap_estimators PUBLIC caspar_lib_core)
-    add_dependencies(colmap_estimators caspar_generate)
 endif()
 
 if(CUDA_ENABLED)
