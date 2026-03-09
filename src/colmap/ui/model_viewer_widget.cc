@@ -36,6 +36,7 @@ using RGBAColor = Eigen::Matrix<uint8_t, 4, 1>;
 
 // Color of a selected 3D point.
 const RGBAColor kSelectedPointColor(0, 255, 0, 255);
+const RGBAColor kSelectedPointToCamColor(0, 255, 0, 204);
 
 // Color of the viewing frustum if the image is selected.
 const RGBAColor kSelectedImagePlaneColor(255, 0, 255, 153);
@@ -1144,10 +1145,10 @@ void ModelViewerWidget::UploadPointConnectionData() {
   line.point1 = PointPainter::Data(xyz(0),
                                    xyz(1),
                                    xyz(2),
-                                   kSelectedPointColor(0),
-                                   kSelectedPointColor(1),
-                                   kSelectedPointColor(2),
-                                   204);
+                                   kSelectedPointToCamColor(0),
+                                   kSelectedPointToCamColor(1),
+                                   kSelectedPointToCamColor(2),
+                                   kSelectedPointToCamColor(3));
 
   // All images in which 3D point is observed.
   for (const auto& track_el : point3D.track.Elements()) {
@@ -1158,10 +1159,10 @@ void ModelViewerWidget::UploadPointConnectionData() {
     line.point2 = PointPainter::Data(conn_proj_center(0),
                                      conn_proj_center(1),
                                      conn_proj_center(2),
-                                     kSelectedPointColor(0),
-                                     kSelectedPointColor(1),
-                                     kSelectedPointColor(2),
-                                     204);
+                                     kSelectedPointToCamColor(0),
+                                     kSelectedPointToCamColor(1),
+                                     kSelectedPointToCamColor(2),
+                                     kSelectedPointToCamColor(3));
     line_data.push_back(line);
   }
 
