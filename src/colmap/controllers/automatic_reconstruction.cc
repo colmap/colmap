@@ -43,6 +43,7 @@
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 namespace colmap {
 
@@ -105,6 +106,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.patch_match_stereo->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
+  option_manager_.delaunay_meshing->num_threads = options_.num_threads;
 
   option_manager_.vocab_tree_pairing->vocab_tree_path =
       GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
@@ -240,6 +242,8 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
+  LOG_HEADING1("Feature extraction");
+
   THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
@@ -249,6 +253,8 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
 }
 
 void AutomaticReconstructionController::RunFeatureMatching() {
+  LOG_HEADING1("Feature matching");
+
   Thread* matcher = nullptr;
   if (options_.data_type == DataType::VIDEO) {
     matcher = sequential_matcher_.get();
@@ -274,6 +280,8 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
+  LOG_HEADING1("Sparse reconstruction");
+
   const auto sparse_path = options_.workspace_path / "sparse";
   if (ExistsDir(sparse_path)) {
     auto dir_list = GetDirList(sparse_path);
@@ -334,6 +342,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
+  LOG_HEADING1("Dense reconstruction");
+
   CreateDirIfNotExists(options_.workspace_path / "dense");
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
@@ -353,6 +363,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
     }
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
+      LOG(WARNING) << "Skipping dense reconstruction because it is already "
+                      "computed";
       continue;
     }
 
