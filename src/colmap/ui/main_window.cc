@@ -321,19 +321,23 @@ void MainWindow::dropEvent(QDropEvent* event) {
   const std::string drop_path =
       mime_data->urls().first().toLocalFile().toStdString();
 
-  if (QFileInfo(QString::fromStdString(drop_path)).isDir()) {
-    ImportReconstruction(drop_path);
-  } else if (QFileInfo(QString::fromStdString(drop_path))
-                 .suffix()
-                 .compare("ply", Qt::CaseInsensitive) == 0) {
-    if (HasPlyMeshFaces(drop_path)) {
-      ImportSurfaceMesh(drop_path);
+  try {
+    if (QFileInfo(QString::fromStdString(drop_path)).isDir()) {
+      ImportReconstruction(drop_path);
+    } else if (QFileInfo(QString::fromStdString(drop_path))
+                   .suffix()
+                   .compare("ply", Qt::CaseInsensitive) == 0) {
+      if (HasPlyMeshFaces(drop_path)) {
+        ImportSurfaceMesh(drop_path);
+      } else {
+        ImportPointCloud(drop_path);
+      }
     } else {
-      ImportPointCloud(drop_path);
+      QMessageBox::critical(
+          this, "", tr("Unsupported file type. Only PLY files are supported."));
     }
-  } else {
-    QMessageBox::critical(
-        this, "", tr("Unsupported file type. Only PLY files are supported."));
+  } catch (const std::exception& e) {
+    QMessageBox::critical(this, "", tr("Failed to import: ") + e.what());
   }
 }
 
