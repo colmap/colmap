@@ -85,7 +85,8 @@ int RunMeshSimplifier(int argc, char** argv) {
   std::filesystem::path output_path;
 
   OptionManager options;
-  options.AddRequiredOption("input_path", &input_path, "Path to input PLY mesh");
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to input PLY mesh");
   options.AddRequiredOption(
       "output_path", &output_path, "Path to output PLY mesh");
   options.AddMeshSimplificationOptions();
@@ -102,7 +103,8 @@ int RunMeshSimplifier(int argc, char** argv) {
   LOG(INFO) << "Input mesh: " << mesh.vertices.size() << " vertices, "
             << mesh.faces.size() << " faces";
 
-  const PlyMesh simplified = mvs::SimplifyMesh(mesh, *options.mesh_simplification);
+  const PlyMesh simplified =
+      mvs::SimplifyMesh(mesh, *options.mesh_simplification);
 
   LOG(INFO) << "Writing simplified mesh to " << output_path;
   WriteBinaryPlyMesh(output_path, simplified);
