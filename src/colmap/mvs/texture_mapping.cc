@@ -60,6 +60,8 @@ namespace colmap {
 namespace mvs {
 namespace {
 
+#if defined(COLMAP_CGAL_ENABLED)
+
 // Map from face index to its adjacent face indices.
 using FaceAdjacencyMap = std::vector<std::vector<size_t>>;
 
@@ -176,8 +178,6 @@ FaceAdjacencyMap BuildFaceAdjacency(const PlyMesh& mesh) {
   return adjacency;
 }
 
-#if defined(COLMAP_CGAL_ENABLED)
-
 using CGALKernel = CGAL::Simple_cartesian<float>;
 using CGALPoint = CGALKernel::Point_3;
 using CGALTriangle = CGALKernel::Triangle_3;
@@ -229,7 +229,7 @@ struct OcclusionTester {
     const CGALPoint target(vertex.x(), vertex.y(), vertex.z());
     const CGALSegment segment(origin, target);
 
-    auto intersection = tree.any_intersection(segment);
+    const auto intersection = tree.any_intersection(segment);
     if (!intersection) return false;
 
     const auto& primitive_id = intersection->second;
@@ -457,6 +457,35 @@ std::vector<RegionProjection> ComputeRegionProjections(
   return projections;
 }
 
+void ScaleRegionProjections(std::vector<RegionProjection>& projections,
+                            const double scale) {
+  const float sf = static_cast<float>(scale);
+  for (auto& rp : projections) {
+    for (auto& fp : rp.face_projections) {
+      for (auto& p : fp) {
+        p *= sf;
+      }
+    }
+    // Recompute bounding box from scaled projections.
+    float min_x = std::numeric_limits<float>::max();
+    float min_y = std::numeric_limits<float>::max();
+    float max_x = std::numeric_limits<float>::lowest();
+    float max_y = std::numeric_limits<float>::lowest();
+    for (const auto& fp : rp.face_projections) {
+      for (const auto& p : fp) {
+        min_x = std::min(min_x, p.x());
+        min_y = std::min(min_y, p.y());
+        max_x = std::max(max_x, p.x());
+        max_y = std::max(max_y, p.y());
+      }
+    }
+    rp.bbox_x = static_cast<int>(std::floor(min_x));
+    rp.bbox_y = static_cast<int>(std::floor(min_y));
+    rp.bbox_width = static_cast<int>(std::ceil(max_x)) - rp.bbox_x + 1;
+    rp.bbox_height = static_cast<int>(std::ceil(max_y)) - rp.bbox_y + 1;
+  }
+}
+
 AtlasLayout PackAtlas(const std::vector<RegionProjection>& projections,
                       const std::vector<FaceRegion>& regions,
                       const int padding) {
@@ -661,6 +690,9 @@ void BakeTexture(Bitmap* atlas,
               {atlas_verts[0].y(), atlas_verts[1].y(), atlas_verts[2].y()}))) +
               1);
 
+      const float texture_inv_scale_factor =
+          static_cast<float>(1.0 / options.texture_scale_factor);
+
       for (int py = min_py; py <= max_py; ++py) {
         for (int px = min_px; px <= max_px; ++px) {
           const Eigen::Vector2f pixel_center(px + 0.5f, py + 0.5f);
@@ -670,9 +702,11 @@ void BakeTexture(Bitmap* atlas,
           const float min_bary = std::min({bary.x(), bary.y(), bary.z()});
           if (min_bary < -1e-4f) continue;
 
-          const Eigen::Vector2f img_pos = bary.x() * rp.face_projections[i][0] +
-                                          bary.y() * rp.face_projections[i][1] +
-                                          bary.z() * rp.face_projections[i][2];
+          const Eigen::Vector2f img_pos =
+              (bary.x() * rp.face_projections[i][0] +
+               bary.y() * rp.face_projections[i][1] +
+               bary.z() * rp.face_projections[i][2]) *
+              texture_inv_scale_factor;
 
           BitmapColor<float> color;
           if (!src_bmp.InterpolateBilinear(static_cast<double>(img_pos.x()),
@@ -988,6 +1022,7 @@ bool MeshTextureMappingOptions::Check() const {
   CHECK_OPTION_GE(atlas_patch_padding, 0);
   CHECK_OPTION_GE(inpaint_radius, 0);
   CHECK_OPTION_GT(color_correction_regularization, 0.0);
+  CHECK_OPTION_GT(texture_scale_factor, 0.0);
   return true;
 }
 
@@ -1001,6 +1036,7 @@ void MeshTextureMappingOptions::Print() const {
   PrintOption(apply_color_correction);
   PrintOption(color_correction_regularization);
   PrintOption(num_threads);
+  PrintOption(texture_scale_factor);
 }
 
 #undef PrintOption
@@ -1054,8 +1090,14 @@ MeshTextureMappingResult MeshTextureMapping(
   LOG(INFO) << "Found " << regions.size() << " regions";
 
   LOG(INFO) << "Computing region projections...";
-  const std::vector<RegionProjection> projections =
+  std::vector<RegionProjection> projections =
       ComputeRegionProjections(mesh, regions, images);
+
+  if (options.texture_scale_factor != 1.0) {
+    LOG(INFO) << "Scaling region projections by factor "
+              << options.texture_scale_factor << "...";
+    ScaleRegionProjections(projections, options.texture_scale_factor);
+  }
 
   LOG(INFO) << "Packing texture atlas...";
   const AtlasLayout layout =

@@ -946,6 +946,8 @@ void OptionManager::AddMeshTextureMappingOptions() {
                    &mesh_texture_mapping->color_correction_regularization);
   AddDefaultOption("MeshTextureMapping.num_threads",
                    &mesh_texture_mapping->num_threads);
+  AddDefaultOption("MeshTextureMapping.texture_scale_factor",
+                   &mesh_texture_mapping->texture_scale_factor);
 }
 
 void OptionManager::AddRenderOptions() {

@@ -66,6 +66,12 @@ struct MeshTextureMappingOptions {
   // Number of threads (default: all available).
   int num_threads = -1;
 
+  // Scale factor for the texture atlas resolution.
+  // 1.0 = native source-image resolution (default).
+  // < 1.0 = lower resolution (e.g. 0.5 = half).
+  // > 1.0 = higher resolution (e.g. 2.0 = double).
+  double texture_scale_factor = 1.0;
+
   bool Check() const;
   void Print() const;
 };
