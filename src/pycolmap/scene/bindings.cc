@@ -43,6 +43,6 @@ void BindScene(py::module& m) {
   BindReconstruction(m);
   BindReconstructionManager(m);
   BindSceneRig(m);
-  BindSynthetic(m);
   BindPoseGraph(m);
+  BindSynthetic(m);
 }
