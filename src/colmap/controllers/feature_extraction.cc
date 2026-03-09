@@ -284,8 +284,8 @@ class FeatureWriterThread : public Thread {
                                   image_data.image.Name().c_str());
 
         if (image_data.status != ImageReader::Status::SUCCESS) {
-          LOG(ERROR) << image_data.image.Name() << " "
-                     << ImageReader::StatusToString(image_data.status);
+          LOG(WARNING) << image_data.image.Name() << " "
+                       << ImageReader::StatusToString(image_data.status);
           continue;
         }
 
