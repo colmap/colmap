@@ -141,9 +141,11 @@ struct PosePriorNoiseOptions {
 void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
                                    Reconstruction* reconstruction,
                                    Database* database = nullptr);
-// Add noise to relative poses in pose graph edges.
+// Add noise to relative poses in pose graph edges. Optionally updates the
+// corresponding two-view geometries in the database.
 void SynthesizePoseGraphNoise(const PoseGraphNoiseOptions& options,
-                              PoseGraph* pose_graph);
+                              PoseGraph* pose_graph,
+                              Database* database = nullptr);
 // Add noise to position/gravity pose priors. At least one of pose_priors or
 // database must be non-null. If pose_priors is null, priors are read from the
 // database, noised, and written back.

@@ -606,6 +606,36 @@ TEST(SynthesizePoseGraphNoise, RelTranslationNoise) {
   }
 }
 
+TEST(SynthesizePoseGraphNoise, UpdatesDatabase) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.two_view_geometry_has_relative_pose = true;
+  SyntheticDataset dataset;
+  SynthesizeDataset(options, &dataset, database.get());
+
+  PoseGraphNoiseOptions noise_options;
+  noise_options.rel_rotation_noise_deg = 2.0;
+  noise_options.rel_translation_noise_deg = 2.0;
+  SynthesizePoseGraphNoise(noise_options, &dataset.pose_graph, database.get());
+
+  for (const auto& [pair_id, edge] : dataset.pose_graph.Edges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const TwoViewGeometry two_view_geometry =
+        database->ReadTwoViewGeometry(image_id1, image_id2);
+    ASSERT_TRUE(two_view_geometry.cam2_from_cam1.has_value());
+    EXPECT_LT(two_view_geometry.cam2_from_cam1->rotation().angularDistance(
+                  edge.cam2_from_cam1.rotation()),
+              1e-10);
+    EXPECT_THAT(two_view_geometry.cam2_from_cam1->translation(),
+                EigenMatrixNear(edge.cam2_from_cam1.translation(), 1e-10));
+  }
+}
+
 TEST(SynthesizePosePriorNoise, PosePriorsWithoutDatabase) {
   SyntheticDatasetOptions options;
   options.num_rigs = 1;

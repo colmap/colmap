@@ -715,9 +715,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database) {
   SyntheticDataset dataset;
-  dataset.reconstruction = std::move(*reconstruction);
+  dataset.reconstruction = *reconstruction;
   SynthesizeDataset(options, &dataset, database);
-  *reconstruction = std::move(dataset.reconstruction);
+  *reconstruction = dataset.reconstruction;
 }
 
 void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
@@ -782,34 +782,44 @@ void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
 }
 
 void SynthesizePoseGraphNoise(const PoseGraphNoiseOptions& options,
-                              PoseGraph* pose_graph) {
+                              PoseGraph* pose_graph,
+                              Database* database) {
   THROW_CHECK_GE(options.rel_rotation_noise_deg, 0.);
   THROW_CHECK_GE(options.rel_translation_noise_deg, 0.);
 
-  if (options.rel_rotation_noise_deg > 0.0 ||
-      options.rel_translation_noise_deg > 0.0) {
-    for (auto& [pair_id, edge] : pose_graph->Edges()) {
-      if (options.rel_rotation_noise_deg > 0.0) {
+  if (options.rel_rotation_noise_deg == 0.0 &&
+      options.rel_translation_noise_deg == 0.0) {
+    return;
+  }
+
+  for (auto& [pair_id, edge] : pose_graph->Edges()) {
+    if (options.rel_rotation_noise_deg > 0.0) {
+      const double angle =
+          std::clamp(RandomGaussian<double>(0, options.rel_rotation_noise_deg),
+                     -180.0,
+                     180.0);
+      edge.cam2_from_cam1.rotation() *= Eigen::Quaterniond(Eigen::AngleAxisd(
+          DegToRad(angle), Eigen::Vector3d::Random().normalized()));
+    }
+    if (options.rel_translation_noise_deg > 0.0) {
+      const Eigen::Vector3d t = edge.cam2_from_cam1.translation();
+      if (t.squaredNorm() > 1e-20) {
         const double angle = std::clamp(
-            RandomGaussian<double>(0, options.rel_rotation_noise_deg),
+            RandomGaussian<double>(0, options.rel_translation_noise_deg),
             -180.0,
             180.0);
-        edge.cam2_from_cam1.rotation() *= Eigen::Quaterniond(Eigen::AngleAxisd(
-            DegToRad(angle), Eigen::Vector3d::Random().normalized()));
+        const Eigen::Vector3d axis =
+            t.cross(Eigen::Vector3d::Random()).normalized();
+        edge.cam2_from_cam1.translation() =
+            (Eigen::AngleAxisd(DegToRad(angle), axis) * t);
       }
-      if (options.rel_translation_noise_deg > 0.0) {
-        const Eigen::Vector3d t = edge.cam2_from_cam1.translation();
-        if (t.norm() > 1e-10) {
-          const double angle = std::clamp(
-              RandomGaussian<double>(0, options.rel_translation_noise_deg),
-              -180.0,
-              180.0);
-          const Eigen::Vector3d axis =
-              t.cross(Eigen::Vector3d::Random()).normalized();
-          edge.cam2_from_cam1.translation() =
-              (Eigen::AngleAxisd(DegToRad(angle), axis) * t);
-        }
-      }
+    }
+    if (database != nullptr) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      TwoViewGeometry two_view_geometry =
+          database->ReadTwoViewGeometry(image_id1, image_id2);
+      two_view_geometry.cam2_from_cam1 = edge.cam2_from_cam1;
+      database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geometry);
     }
   }
 }
