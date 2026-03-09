@@ -29,48 +29,46 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
-
-#include <iostream>
+#include <QtCore>
+#include <QtOpenGL>
 
 namespace colmap {
 
-struct RenderOptions {
-  enum ProjectionType {
-    PERSPECTIVE,
-    ORTHOGRAPHIC,
+class MeshPainter {
+ public:
+  MeshPainter();
+  ~MeshPainter();
+
+  struct Data {
+    Data() : px(0), py(0), pz(0), nx(0), ny(0), nz(0), r(0), g(0), b(0) {}
+    Data(float px,
+         float py,
+         float pz,
+         float nx,
+         float ny,
+         float nz,
+         float r,
+         float g,
+         float b)
+        : px(px), py(py), pz(pz), nx(nx), ny(ny), nz(nz), r(r), g(g), b(b) {}
+
+    float px, py, pz;
+    float nx, ny, nz;
+    float r, g, b;
   };
 
-  // Minimum track length for a point to be rendered.
-  int min_track_len = 3;
+  void Setup();
+  void Upload(const std::vector<MeshPainter::Data>& data);
+  void Render(const QMatrix4x4& pmv_matrix,
+              const QMatrix4x4& model_view_matrix,
+              bool wireframe);
 
-  // Maximum error for a point to be rendered.
-  double max_error = 2;
+ private:
+  QOpenGLShaderProgram shader_program_;
+  QOpenGLVertexArrayObject vao_;
+  QOpenGLBuffer vbo_;
 
-  // The rate of registered images at which to refresh.
-  int refresh_rate = 1;
-
-  // Whether to automatically adjust the refresh rate. The bigger the
-  // reconstruction gets, the less frequently the scene is rendered.
-  bool adapt_refresh_rate = true;
-
-  // Whether to visualize image connections.
-  bool image_connections = false;
-
-  // Whether to render the mesh as wireframe.
-  bool mesh_wireframe = false;
-
-  // The projection type of the renderer.
-  int projection_type = ProjectionType::PERSPECTIVE;
-
-  inline bool Check() const {
-    CHECK_OPTION_GE(min_track_len, 0);
-    CHECK_OPTION_GE(max_error, 0);
-    CHECK_OPTION_GT(refresh_rate, 0);
-    CHECK_OPTION(projection_type == ProjectionType::PERSPECTIVE ||
-                 projection_type == ProjectionType::ORTHOGRAPHIC);
-    return true;
-  }
+  size_t num_vertices_;
 };
 
 }  // namespace colmap

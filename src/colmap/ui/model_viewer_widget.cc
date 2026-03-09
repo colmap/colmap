@@ -30,6 +30,7 @@
 #include "colmap/ui/model_viewer_widget.h"
 
 #include "colmap/math/math.h"
+#include "colmap/ui/render_options.h"
 
 // Color of a selected 3D point.
 const Eigen::Vector4f kSelectedPointColor(0.0f, 1.0f, 0.0f, 1.0f);
@@ -368,7 +369,12 @@ void ModelViewerWidget::paintGL() {
 
   // Points
   point_painter_.Render(pmv_matrix, point_size_);
+  point_cloud_painter_.Render(pmv_matrix, point_size_);
   point_connection_painter_.Render(pmv_matrix, width(), height(), 1);
+
+  // Mesh
+  mesh_painter_.Render(
+      pmv_matrix, model_view_matrix_, options_->render->mesh_wireframe);
 
   // Images
   image_line_painter_.Render(pmv_matrix, width(), height(), 1);
@@ -389,6 +395,10 @@ void ModelViewerWidget::resizeGL(int width, int height) {
 
 void ModelViewerWidget::ReloadReconstruction() {
   if (reconstruction == nullptr) {
+    ComputeModelOriginAndScale();
+    UploadPointCloudData();
+    UploadSurfaceMeshData();
+    update();
     return;
   }
 
@@ -441,6 +451,8 @@ void ModelViewerWidget::ClearReconstruction() {
   points3D.clear();
   reg_image_ids.clear();
   reconstruction = nullptr;
+  point_cloud.reset();
+  surface_mesh.reset();
   selected_image_id_ = kInvalidImageId;
   selected_point3D_id_ = kInvalidPoint3DId;
   Upload();
@@ -840,6 +852,9 @@ void ModelViewerWidget::SetupPainters() {
   movie_grabber_path_painter_.Setup();
   movie_grabber_line_painter_.Setup();
   movie_grabber_triangle_painter_.Setup();
+
+  point_cloud_painter_.Setup();
+  mesh_painter_.Setup();
 }
 
 void ModelViewerWidget::SetupView() {
@@ -853,22 +868,43 @@ void ModelViewerWidget::SetupView() {
 }
 
 void ModelViewerWidget::ComputeModelOriginAndScale() {
-  if (reg_image_ids.empty()) {
+  std::vector<double> x_coords;
+  std::vector<double> y_coords;
+  std::vector<double> z_coords;
+
+  if (!reg_image_ids.empty()) {
+    x_coords.resize(reg_image_ids.size());
+    y_coords.resize(reg_image_ids.size());
+    z_coords.resize(reg_image_ids.size());
+    for (size_t i = 0; i < reg_image_ids.size(); ++i) {
+      const Image& image = images[reg_image_ids[i]];
+      const Eigen::Vector3d proj_center = image.ProjectionCenter();
+      x_coords[i] = proj_center.x();
+      y_coords[i] = proj_center.y();
+      z_coords[i] = proj_center.z();
+    }
+  } else if (point_cloud.has_value() && !point_cloud->empty()) {
+    x_coords.reserve(point_cloud->size());
+    y_coords.reserve(point_cloud->size());
+    z_coords.reserve(point_cloud->size());
+    for (const auto& point : *point_cloud) {
+      x_coords.push_back(point.x);
+      y_coords.push_back(point.y);
+      z_coords.push_back(point.z);
+    }
+  } else if (surface_mesh.has_value() && !surface_mesh->vertices.empty()) {
+    x_coords.reserve(surface_mesh->vertices.size());
+    y_coords.reserve(surface_mesh->vertices.size());
+    z_coords.reserve(surface_mesh->vertices.size());
+    for (const auto& vertex : surface_mesh->vertices) {
+      x_coords.push_back(vertex.x);
+      y_coords.push_back(vertex.y);
+      z_coords.push_back(vertex.z);
+    }
+  } else {
     model_origin_.setZero();
     model_scale_ = 1;
     return;
-  }
-
-  const size_t num_reg_images = reg_image_ids.size();
-  std::vector<double> x_coords(num_reg_images);
-  std::vector<double> y_coords(num_reg_images);
-  std::vector<double> z_coords(num_reg_images);
-  for (size_t i = 0; i < num_reg_images; ++i) {
-    const Image& image = images[reg_image_ids[i]];
-    const Eigen::Vector3d proj_center = image.ProjectionCenter();
-    x_coords[i] = proj_center.x();
-    y_coords[i] = proj_center.y();
-    z_coords[i] = proj_center.z();
   }
 
   model_origin_ =
@@ -893,6 +929,8 @@ void ModelViewerWidget::Upload() {
   UploadMovieGrabberData();
   UploadPointConnectionData();
   UploadImageConnectionData();
+  UploadPointCloudData();
+  UploadSurfaceMeshData();
 
   update();
 }
@@ -1315,6 +1353,111 @@ void ModelViewerWidget::UploadMovieGrabberData() {
   movie_grabber_path_painter_.Upload(path_data);
   movie_grabber_line_painter_.Upload(line_data);
   movie_grabber_triangle_painter_.Upload(triangle_data);
+}
+
+void ModelViewerWidget::UploadPointCloudData() {
+  makeCurrent();
+
+  if (!point_cloud.has_value() || point_cloud->empty()) {
+    point_cloud_painter_.Upload({});
+    return;
+  }
+
+  std::vector<PointPainter::Data> data;
+  data.reserve(point_cloud->size());
+
+  for (const auto& point : *point_cloud) {
+    const float x =
+        static_cast<float>(model_scale_ * (point.x + model_origin_(0)));
+    const float y =
+        static_cast<float>(model_scale_ * (point.y + model_origin_(1)));
+    const float z =
+        static_cast<float>(model_scale_ * (point.z + model_origin_(2)));
+    data.emplace_back(
+        x, y, z, point.r / 255.0f, point.g / 255.0f, point.b / 255.0f, 1.0f);
+  }
+
+  point_cloud_painter_.Upload(data);
+}
+
+void ModelViewerWidget::UploadSurfaceMeshData() {
+  makeCurrent();
+
+  if (!surface_mesh.has_value() || surface_mesh->faces.empty()) {
+    mesh_painter_.Upload({});
+    return;
+  }
+
+  std::vector<MeshPainter::Data> data;
+  data.reserve(surface_mesh->faces.size() * 3);
+
+  for (const PlyMeshFace& face : surface_mesh->faces) {
+    const PlyMeshVertex& v0 = surface_mesh->vertices.at(face.vertex_idx1);
+    const PlyMeshVertex& v1 = surface_mesh->vertices.at(face.vertex_idx2);
+    const PlyMeshVertex& v2 = surface_mesh->vertices.at(face.vertex_idx3);
+
+    // Transform vertices by model_origin_ and model_scale_
+    const Eigen::Vector3f p0(
+        static_cast<float>(model_scale_ * (v0.x + model_origin_(0))),
+        static_cast<float>(model_scale_ * (v0.y + model_origin_(1))),
+        static_cast<float>(model_scale_ * (v0.z + model_origin_(2))));
+    const Eigen::Vector3f p1(
+        static_cast<float>(model_scale_ * (v1.x + model_origin_(0))),
+        static_cast<float>(model_scale_ * (v1.y + model_origin_(1))),
+        static_cast<float>(model_scale_ * (v1.z + model_origin_(2))));
+    const Eigen::Vector3f p2(
+        static_cast<float>(model_scale_ * (v2.x + model_origin_(0))),
+        static_cast<float>(model_scale_ * (v2.y + model_origin_(1))),
+        static_cast<float>(model_scale_ * (v2.z + model_origin_(2))));
+
+    // Compute face normal from cross product
+    const Eigen::Vector3f edge1 = p1 - p0;
+    const Eigen::Vector3f edge2 = p2 - p0;
+    const Eigen::Vector3f normal = edge1.cross(edge2).normalized();
+
+    // Convert vertex colors from uint8 to float [0,1]
+    constexpr float kNormalization = 1.0f / 255.0f;
+    const float c0r = v0.r * kNormalization;
+    const float c0g = v0.g * kNormalization;
+    const float c0b = v0.b * kNormalization;
+    const float c1r = v1.r * kNormalization;
+    const float c1g = v1.g * kNormalization;
+    const float c1b = v1.b * kNormalization;
+    const float c2r = v2.r * kNormalization;
+    const float c2g = v2.g * kNormalization;
+    const float c2b = v2.b * kNormalization;
+
+    // Flat shading: same normal for all three vertices
+    data.emplace_back(p0.x(),
+                      p0.y(),
+                      p0.z(),
+                      normal.x(),
+                      normal.y(),
+                      normal.z(),
+                      c0r,
+                      c0g,
+                      c0b);
+    data.emplace_back(p1.x(),
+                      p1.y(),
+                      p1.z(),
+                      normal.x(),
+                      normal.y(),
+                      normal.z(),
+                      c1r,
+                      c1g,
+                      c1b);
+    data.emplace_back(p2.x(),
+                      p2.y(),
+                      p2.z(),
+                      normal.x(),
+                      normal.y(),
+                      normal.z(),
+                      c2r,
+                      c2g,
+                      c2b);
+  }
+
+  mesh_painter_.Upload(data);
 }
 
 void ModelViewerWidget::ComposeProjectionMatrix() {
