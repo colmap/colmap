@@ -121,6 +121,101 @@ if(CUDA_ENABLED)
             CUDA::curand
     )
 
+    # Work around NVCC miscompilation on Blackwell GPUs (sm_100+).
+    # The PatchMatch kernels are miscompiled at -O2/-O3 when generating native
+    # SASS for sm_100+. Instead, we emit sm_90 PTX which Blackwell GPUs
+    # JIT-compile at first launch, bypassing the buggy codegen path.
+    # See: https://github.com/colmap/colmap/issues/3514
+    #      https://github.com/ggml-org/llama.cpp/issues/18331
+    set(_COLMAP_BLACKWELL_TARGET FALSE)
+
+    foreach(_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
+        # For explicit numeric architectures, strip suffix and check value.
+        string(REGEX REPLACE "[-].*" "" _arch_num "${_arch}")
+        if(_arch_num MATCHES "^[0-9]+$" AND _arch_num GREATER_EQUAL 100)
+            set(_COLMAP_BLACKWELL_TARGET TRUE)
+            break()
+        endif()
+    endforeach()
+
+    # For "native", "all", "all-major": query the actual GPU at configure time.
+    if(NOT _COLMAP_BLACKWELL_TARGET)
+        foreach(_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
+            if(_arch STREQUAL "native" OR _arch STREQUAL "all" OR
+               _arch STREQUAL "all-major")
+                execute_process(
+                    COMMAND nvidia-smi
+                        --query-gpu=compute_cap
+                        --format=csv,noheader
+                    OUTPUT_VARIABLE _GPU_COMPUTE_CAPS
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_QUIET
+                    RESULT_VARIABLE _NVIDIA_SMI_RESULT
+                )
+                if(_NVIDIA_SMI_RESULT EQUAL 0 AND _GPU_COMPUTE_CAPS)
+                    string(REPLACE "\n" ";" _GPU_COMPUTE_CAPS
+                           "${_GPU_COMPUTE_CAPS}")
+                    foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
+                        string(STRIP "${_cap}" _cap)
+                        string(REGEX MATCH "^([0-9]+)" _major "${_cap}")
+                        if(_major AND _major GREATER_EQUAL 10)
+                            set(_COLMAP_BLACKWELL_TARGET TRUE)
+                            break()
+                        endif()
+                    endforeach()
+                endif()
+                break()
+            endif()
+        endforeach()
+    endif()
+
+    if(_COLMAP_BLACKWELL_TARGET)
+        message(WARNING
+            "Blackwell GPU (sm_100+) detected. Replacing sm_100+ architectures "
+            "with 90-virtual (PTX) for colmap_mvs_cuda to work around an NVCC "
+            "compiler bug. Blackwell GPUs will JIT-compile from PTX at first "
+            "launch (see https://github.com/colmap/colmap/issues/3514).")
+
+        # Build filtered architecture list: keep archs < 100, drop >= 100.
+        set(_COLMAP_MVS_CUDA_ARCHS)
+        foreach(_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
+            string(REGEX REPLACE "[-].*" "" _arch_num "${_arch}")
+            if(_arch_num MATCHES "^[0-9]+$")
+                if(_arch_num LESS 100)
+                    list(APPEND _COLMAP_MVS_CUDA_ARCHS "${_arch}")
+                endif()
+            elseif(_arch STREQUAL "native" OR _arch STREQUAL "all" OR
+                   _arch STREQUAL "all-major")
+                # Replace keyword with explicit non-Blackwell GPU architectures.
+                if(_NVIDIA_SMI_RESULT EQUAL 0 AND _GPU_COMPUTE_CAPS)
+                    foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
+                        string(STRIP "${_cap}" _cap)
+                        string(REGEX MATCH
+                               "^([0-9]+)\\.([0-9]+)" _match "${_cap}")
+                        if(_match)
+                            math(EXPR _sm
+                                 "${CMAKE_MATCH_1} * 10 + ${CMAKE_MATCH_2}")
+                            if(_sm LESS 100)
+                                list(APPEND _COLMAP_MVS_CUDA_ARCHS "${_sm}")
+                            endif()
+                        endif()
+                    endforeach()
+                endif()
+            else()
+                list(APPEND _COLMAP_MVS_CUDA_ARCHS "${_arch}")
+            endif()
+        endforeach()
+
+        # Add PTX for the highest pre-Blackwell arch so Blackwell GPUs
+        # can JIT-compile at runtime.
+        list(APPEND _COLMAP_MVS_CUDA_ARCHS "90-virtual")
+        list(REMOVE_DUPLICATES _COLMAP_MVS_CUDA_ARCHS)
+
+        set_target_properties(colmap_mvs_cuda PROPERTIES
+            CUDA_ARCHITECTURES "${_COLMAP_MVS_CUDA_ARCHS}"
+        )
+    endif()
+
     COLMAP_ADD_TEST(
         NAME gpu_mat_test
         SRCS gpu_mat_test.cu
