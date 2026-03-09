@@ -352,8 +352,11 @@ std::vector<image_pair_t> ExtractChainedImagePairs(
 }
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
-                       SyntheticDataset* dataset,
-                       Database* database) {
+                       SyntheticDataset* dataset) {
+  if (!options.database_path.empty() && dataset->database == nullptr) {
+    dataset->database = Database::Open(options.database_path);
+  }
+  Database* database = dataset->database.get();
   Reconstruction* reconstruction = &dataset->reconstruction;
   THROW_CHECK_GT(options.num_rigs, 0);
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
@@ -716,7 +719,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Database* database) {
   SyntheticDataset dataset;
   dataset.reconstruction = *reconstruction;
-  SynthesizeDataset(options, &dataset, database);
+  if (database != nullptr) {
+    dataset.database = std::shared_ptr<Database>(database, [](Database*) {});
+  }
+  SynthesizeDataset(options, &dataset);
   *reconstruction = dataset.reconstruction;
 }
 
@@ -874,6 +880,31 @@ void SynthesizePosePriorNoise(const PosePriorNoiseOptions& options,
       }
     }
   }
+}
+
+void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
+                                   SyntheticDataset* dataset) {
+  SynthesizeReconstructionNoise(
+      options, &dataset->reconstruction, dataset->database.get());
+}
+
+void SynthesizePoseGraphNoise(const PoseGraphNoiseOptions& options,
+                              SyntheticDataset* dataset) {
+  SynthesizePoseGraphNoise(
+      options, &dataset->pose_graph, dataset->database.get());
+}
+
+void SynthesizePosePriorNoise(const PosePriorNoiseOptions& options,
+                              SyntheticDataset* dataset) {
+  SynthesizePosePriorNoise(
+      options, &dataset->pose_priors, dataset->database.get());
+}
+
+void SynthesizeDatasetNoise(const DatasetNoiseOptions& options,
+                            SyntheticDataset* dataset) {
+  SynthesizeReconstructionNoise(options.reconstruction, dataset);
+  SynthesizePoseGraphNoise(options.pose_graph, dataset);
+  SynthesizePosePriorNoise(options.pose_prior, dataset);
 }
 
 void SynthesizeImages(const SyntheticImageOptions& options,

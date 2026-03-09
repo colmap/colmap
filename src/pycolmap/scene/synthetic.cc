@@ -79,7 +79,10 @@ void BindSynthetic(py::module& m) {
               &SyntheticDatasetOptions::prior_position_coordinate_system)
           .def_readwrite("prior_gravity_in_world",
                          &SyntheticDatasetOptions::prior_gravity_in_world,
-                         "Prior gravity direction in world coordinates.");
+                         "Prior gravity direction in world coordinates.")
+          .def_readwrite("database_path",
+                         &SyntheticDatasetOptions::database_path,
+                         "If non-empty, a database is created at this path.");
   MakeDataclass(PySyntheticDatasetOptions);
 
   auto PySyntheticDataset =
@@ -87,16 +90,16 @@ void BindSynthetic(py::module& m) {
           .def(py::init<>())
           .def_readwrite("reconstruction", &SyntheticDataset::reconstruction)
           .def_readwrite("pose_graph", &SyntheticDataset::pose_graph)
-          .def_readwrite("pose_priors", &SyntheticDataset::pose_priors);
+          .def_readwrite("pose_priors", &SyntheticDataset::pose_priors)
+          .def_readwrite("database", &SyntheticDataset::database);
   MakeDataclass(PySyntheticDataset);
 
-  m.def("synthesize_dataset",
-        static_cast<void (*)(
-            const SyntheticDatasetOptions&, SyntheticDataset*, Database*)>(
-            &SynthesizeDataset),
-        "options"_a,
-        "dataset"_a,
-        "database"_a = py::none());
+  m.def(
+      "synthesize_dataset",
+      static_cast<void (*)(const SyntheticDatasetOptions&, SyntheticDataset*)>(
+          &SynthesizeDataset),
+      "options"_a,
+      "dataset"_a);
 
   auto PyReconstructionNoiseOptions =
       py::classh<ReconstructionNoiseOptions>(m, "ReconstructionNoiseOptions")
@@ -133,20 +136,55 @@ void BindSynthetic(py::module& m) {
   MakeDataclass(PyPosePriorNoiseOptions);
 
   m.def("synthesize_reconstruction_noise",
-        &SynthesizeReconstructionNoise,
+        static_cast<void (*)(
+            const ReconstructionNoiseOptions&, Reconstruction*, Database*)>(
+            &SynthesizeReconstructionNoise),
         "options"_a,
         "reconstruction"_a,
         "database"_a = py::none());
+  m.def(
+      "synthesize_reconstruction_noise",
+      static_cast<void (*)(const ReconstructionNoiseOptions&,
+                           SyntheticDataset*)>(&SynthesizeReconstructionNoise),
+      "options"_a,
+      "dataset"_a);
   m.def("synthesize_pose_graph_noise",
-        &SynthesizePoseGraphNoise,
+        static_cast<void (*)(
+            const PoseGraphNoiseOptions&, PoseGraph*, Database*)>(
+            &SynthesizePoseGraphNoise),
         "options"_a,
         "pose_graph"_a,
         "database"_a = py::none());
+  m.def("synthesize_pose_graph_noise",
+        static_cast<void (*)(const PoseGraphNoiseOptions&, SyntheticDataset*)>(
+            &SynthesizePoseGraphNoise),
+        "options"_a,
+        "dataset"_a);
   m.def("synthesize_pose_prior_noise",
-        &SynthesizePosePriorNoise,
+        static_cast<void (*)(
+            const PosePriorNoiseOptions&, std::vector<PosePrior>*, Database*)>(
+            &SynthesizePosePriorNoise),
         "options"_a,
         "pose_priors"_a = py::none(),
         "database"_a = py::none());
+  m.def("synthesize_pose_prior_noise",
+        static_cast<void (*)(const PosePriorNoiseOptions&, SyntheticDataset*)>(
+            &SynthesizePosePriorNoise),
+        "options"_a,
+        "dataset"_a);
+
+  auto PyDatasetNoiseOptions =
+      py::classh<DatasetNoiseOptions>(m, "DatasetNoiseOptions")
+          .def(py::init<>())
+          .def_readwrite("reconstruction", &DatasetNoiseOptions::reconstruction)
+          .def_readwrite("pose_graph", &DatasetNoiseOptions::pose_graph)
+          .def_readwrite("pose_prior", &DatasetNoiseOptions::pose_prior);
+  MakeDataclass(PyDatasetNoiseOptions);
+
+  m.def("synthesize_dataset_noise",
+        &SynthesizeDatasetNoise,
+        "options"_a,
+        "dataset"_a);
 
   auto PySyntheticImageOptions =
       py::classh<SyntheticImageOptions>(m, "SyntheticImageOptions")
