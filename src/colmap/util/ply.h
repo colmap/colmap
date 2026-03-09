@@ -108,4 +108,7 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path);
 void WriteTextPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh);
 void WriteBinaryPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh);
 
+// Returns true if the PLY file contains face elements (i.e., is a mesh).
+bool HasPlyMeshFaces(const std::filesystem::path& path);
+
 }  // namespace colmap

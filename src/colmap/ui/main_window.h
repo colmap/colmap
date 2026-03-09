@@ -91,7 +91,9 @@ class MainWindow : public QMainWindow {
   void ProjectSaveAs();
   void Import();
   void ImportPointCloud();
+  void ImportPointCloud(const std::string& import_path);
   void ImportSurfaceMesh();
+  void ImportSurfaceMesh(const std::string& import_path);
   void Export();
   void ExportAll();
   void ExportAs();
