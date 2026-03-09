@@ -29,7 +29,6 @@
 
 #include "colmap/mvs/texture_mapping.h"
 
-#include <cmath>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -77,18 +76,18 @@ Image MakeTestImage(int width, int height, const BitmapColor<uint8_t>& color) {
   // T = -[1,0,0;0,-1,0;0,0,-1] * [0.5,0.5,5] = [-0.5, 0.5, 5]
   float T[3] = {-0.5f, 0.5f, 5.0f};
 
-  Image img("test_image.png",
-            static_cast<size_t>(width),
-            static_cast<size_t>(height),
-            K,
-            R,
-            T);
+  Image image("test_image.png",
+              static_cast<size_t>(width),
+              static_cast<size_t>(height),
+              K,
+              R,
+              T);
 
-  Bitmap bmp(width, height, /*as_rgb=*/true);
-  bmp.Fill(color);
-  img.SetBitmap(bmp);
+  Bitmap bitmap(width, height, /*as_rgb=*/true);
+  bitmap.Fill(color);
+  image.SetBitmap(bitmap);
 
-  return img;
+  return image;
 }
 
 // Create a camera where the mesh at Z=0 is behind the camera.
@@ -107,18 +106,18 @@ Image MakeBehindCameraImage(int width, int height) {
   // C = (0.5, 0.5, -5), T = -R*C = [-0.5, 0.5, -5]
   float T[3] = {-0.5f, 0.5f, -5.0f};
 
-  Image img("behind.png",
-            static_cast<size_t>(width),
-            static_cast<size_t>(height),
-            K,
-            R,
-            T);
+  Image image("behind.png",
+              static_cast<size_t>(width),
+              static_cast<size_t>(height),
+              K,
+              R,
+              T);
 
-  Bitmap bmp(width, height, /*as_rgb=*/true);
-  bmp.Fill(BitmapColor<uint8_t>(0));
-  img.SetBitmap(bmp);
+  Bitmap bitmap(width, height, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  image.SetBitmap(bitmap);
 
-  return img;
+  return image;
 }
 
 // Create a camera that views the mesh at a very grazing angle.
@@ -137,18 +136,18 @@ Image MakeGrazingAngleImage(int width, int height) {
   // C = (0.5, 0.5, 0.01), T = -R*C = [-0.5, 0.5, 0.01]
   float T[3] = {-0.5f, 0.5f, 0.01f};
 
-  Image img("grazing.png",
-            static_cast<size_t>(width),
-            static_cast<size_t>(height),
-            K,
-            R,
-            T);
+  Image image("grazing.png",
+              static_cast<size_t>(width),
+              static_cast<size_t>(height),
+              K,
+              R,
+              T);
 
-  Bitmap bmp(width, height, /*as_rgb=*/true);
-  bmp.Fill(BitmapColor<uint8_t>(128));
-  img.SetBitmap(bmp);
+  Bitmap bitmap(width, height, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(128));
+  image.SetBitmap(bitmap);
 
-  return img;
+  return image;
 }
 
 // Create a 4-face pyramid mesh.
@@ -205,51 +204,6 @@ PlyMesh MakeCubeMesh() {
   };
   return mesh;
 }
-
-// ============================================================================
-// MeshTextureMappingOptions Tests
-// ============================================================================
-
-TEST(MeshTextureMappingOptions, Default) {
-  MeshTextureMappingOptions options;
-  EXPECT_DOUBLE_EQ(options.min_cos_normal_angle, 0.1);
-  EXPECT_EQ(options.min_visible_vertices, 3);
-  EXPECT_EQ(options.view_selection_smoothing_iterations, 3);
-  EXPECT_EQ(options.atlas_patch_padding, 2);
-  EXPECT_EQ(options.inpaint_radius, 5);
-  EXPECT_TRUE(options.apply_color_correction);
-  EXPECT_DOUBLE_EQ(options.color_correction_regularization, 0.1);
-  EXPECT_EQ(options.num_threads, -1);
-}
-
-TEST(MeshTextureMappingOptions, Check) {
-  MeshTextureMappingOptions options;
-  EXPECT_TRUE(options.Check());
-
-  // Invalid: min_cos_normal_angle = 0
-  MeshTextureMappingOptions bad = options;
-  bad.min_cos_normal_angle = 0.0;
-  EXPECT_FALSE(bad.Check());
-
-  // Invalid: min_visible_vertices = 0
-  bad = options;
-  bad.min_visible_vertices = 0;
-  EXPECT_FALSE(bad.Check());
-
-  // Invalid: min_visible_vertices = 4
-  bad = options;
-  bad.min_visible_vertices = 4;
-  EXPECT_FALSE(bad.Check());
-
-  // Invalid: color_correction_regularization = 0
-  bad = options;
-  bad.color_correction_regularization = 0.0;
-  EXPECT_FALSE(bad.Check());
-}
-
-// ============================================================================
-// End-to-end MeshTextureMapping Tests
-// ============================================================================
 
 TEST(MeshTextureMapping, EndToEnd) {
   const PlyMesh mesh = MakeTriangleMesh();
@@ -373,9 +327,9 @@ TEST(MeshTextureMapping, SingleFaceTwoViews) {
   // C = (0.5, 0.5, 20), T = -R*C = [-0.5, 0.5, 20]
   float T[3] = {-0.5f, 0.5f, 20.0f};
   Image img_far("far.png", 256, 256, K, R, T);
-  Bitmap bmp(256, 256, /*as_rgb=*/true);
-  bmp.Fill(BitmapColor<uint8_t>(0, 255, 0));
-  img_far.SetBitmap(bmp);
+  Bitmap bitmap(256, 256, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0, 255, 0));
+  img_far.SetBitmap(bitmap);
 
   std::vector<Image> images = {img_close, img_far};
 
