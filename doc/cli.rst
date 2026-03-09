@@ -308,7 +308,7 @@ available as ``colmap [command]``:
   Metric (QEM) decimation. This reduces the number of faces in a mesh while
   preserving its overall shape and appearance. Key options include
   ``--MeshSimplification.target_face_ratio`` to control the fraction of faces
-  to retain (default 0.5), ``--MeshSimplification.max_error`` to set a maximum
+  to retain (default 0.1), ``--MeshSimplification.max_error`` to set a maximum
   quadric error threshold (0 = disabled), and
   ``--MeshSimplification.boundary_weight`` to control boundary edge preservation
   (default 1000). Supports multi-threaded initialization via

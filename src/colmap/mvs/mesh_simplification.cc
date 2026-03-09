@@ -200,55 +200,36 @@ bool WouldCauseFlip(const std::vector<VertexData>& vertices,
                     const size_t v1,
                     const size_t v2,
                     const Eigen::Vector3d& new_pos) {
-  // Check faces adjacent to v1 (excluding shared faces with v2).
-  for (const size_t fi : vertices[v1].adjacent_faces) {
-    if (face_removed[fi]) continue;
-    const auto& f = face_indices[fi];
-    if (f[0] == v2 || f[1] == v2 || f[2] == v2) continue;
+  // Check whether moving v_check to new_pos would flip any of its
+  // adjacent faces (excluding faces shared with v_other).
+  const auto would_flip_vertex = [&](const size_t v_check,
+                                     const size_t v_other) -> bool {
+    for (const size_t fi : vertices[v_check].adjacent_faces) {
+      if (face_removed[fi]) continue;
+      const auto& f = face_indices[fi];
+      if (f[0] == v_other || f[1] == v_other || f[2] == v_other) continue;
 
-    const Eigen::Vector3d& p0 = vertices[f[0]].position;
-    const Eigen::Vector3d& p1 = vertices[f[1]].position;
-    const Eigen::Vector3d& p2 = vertices[f[2]].position;
-    const Eigen::Vector3d old_normal = (p1 - p0).cross(p2 - p0);
+      const Eigen::Vector3d& p0 = vertices[f[0]].position;
+      const Eigen::Vector3d& p1 = vertices[f[1]].position;
+      const Eigen::Vector3d& p2 = vertices[f[2]].position;
+      const Eigen::Vector3d old_normal = (p1 - p0).cross(p2 - p0);
 
-    Eigen::Vector3d np0 = p0, np1 = p1, np2 = p2;
-    if (f[0] == v1) {
-      np0 = new_pos;
-    } else if (f[1] == v1) {
-      np1 = new_pos;
-    } else if (f[2] == v1) {
-      np2 = new_pos;
+      Eigen::Vector3d np0 = p0, np1 = p1, np2 = p2;
+      if (f[0] == v_check) {
+        np0 = new_pos;
+      } else if (f[1] == v_check) {
+        np1 = new_pos;
+      } else if (f[2] == v_check) {
+        np2 = new_pos;
+      }
+      const Eigen::Vector3d new_normal = (np1 - np0).cross(np2 - np0);
+
+      if (old_normal.dot(new_normal) < 0) return true;
     }
-    const Eigen::Vector3d new_normal = (np1 - np0).cross(np2 - np0);
+    return false;
+  };
 
-    if (old_normal.dot(new_normal) < 0) return true;
-  }
-
-  // Check faces adjacent to v2 (excluding shared faces with v1).
-  for (const size_t fi : vertices[v2].adjacent_faces) {
-    if (face_removed[fi]) continue;
-    const auto& f = face_indices[fi];
-    if (f[0] == v1 || f[1] == v1 || f[2] == v1) continue;
-
-    const Eigen::Vector3d& p0 = vertices[f[0]].position;
-    const Eigen::Vector3d& p1 = vertices[f[1]].position;
-    const Eigen::Vector3d& p2 = vertices[f[2]].position;
-    const Eigen::Vector3d old_normal = (p1 - p0).cross(p2 - p0);
-
-    Eigen::Vector3d np0 = p0, np1 = p1, np2 = p2;
-    if (f[0] == v2) {
-      np0 = new_pos;
-    } else if (f[1] == v2) {
-      np1 = new_pos;
-    } else if (f[2] == v2) {
-      np2 = new_pos;
-    }
-    const Eigen::Vector3d new_normal = (np1 - np0).cross(np2 - np0);
-
-    if (old_normal.dot(new_normal) < 0) return true;
-  }
-
-  return false;
+  return would_flip_vertex(v1, v2) || would_flip_vertex(v2, v1);
 }
 
 }  // namespace
@@ -259,6 +240,18 @@ PlyMesh SimplifyMesh(const PlyMesh& mesh,
 
   if (mesh.faces.empty() || mesh.vertices.empty()) {
     return mesh;
+  }
+
+  // Validate that all face vertex indices are within bounds.
+  const size_t num_verts = mesh.vertices.size();
+  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+    const auto& face = mesh.faces[fi];
+    THROW_CHECK_LT(face.vertex_idx1, num_verts)
+        << "Face " << fi << " has out-of-bounds vertex index";
+    THROW_CHECK_LT(face.vertex_idx2, num_verts)
+        << "Face " << fi << " has out-of-bounds vertex index";
+    THROW_CHECK_LT(face.vertex_idx3, num_verts)
+        << "Face " << fi << " has out-of-bounds vertex index";
   }
 
   const size_t num_faces = mesh.faces.size();

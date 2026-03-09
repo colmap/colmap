@@ -44,11 +44,12 @@ PlyMesh CreateTetrahedronMesh() {
   mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f, 0, 255, 0);
   mesh.vertices.emplace_back(
       0.5f, static_cast<float>(std::sqrt(3.0) / 2.0), 0.0f, 0, 0, 255);
-  mesh.vertices.emplace_back(
-      0.5f,
-      static_cast<float>(std::sqrt(3.0) / 6.0),
-      static_cast<float>(std::sqrt(6.0) / 3.0),
-      255, 255, 0);
+  mesh.vertices.emplace_back(0.5f,
+                             static_cast<float>(std::sqrt(3.0) / 6.0),
+                             static_cast<float>(std::sqrt(6.0) / 3.0),
+                             255,
+                             255,
+                             0);
 
   mesh.faces.emplace_back(0, 2, 1);
   mesh.faces.emplace_back(0, 1, 3);
@@ -61,13 +62,12 @@ PlyMesh CreateGridMesh(const int n) {
   PlyMesh mesh;
   for (int j = 0; j <= n; ++j) {
     for (int i = 0; i <= n; ++i) {
-      mesh.vertices.emplace_back(
-          static_cast<float>(i),
-          static_cast<float>(j),
-          0.0f,
-          static_cast<uint8_t>(i * 255 / std::max(n, 1)),
-          static_cast<uint8_t>(j * 255 / std::max(n, 1)),
-          128);
+      mesh.vertices.emplace_back(static_cast<float>(i),
+                                 static_cast<float>(j),
+                                 0.0f,
+                                 static_cast<uint8_t>(i * 255 / std::max(n, 1)),
+                                 static_cast<uint8_t>(j * 255 / std::max(n, 1)),
+                                 128);
     }
   }
   for (int j = 0; j < n; ++j) {
@@ -266,6 +266,20 @@ TEST(SimplifyMesh, SingleTriangle) {
   // A single triangle cannot be simplified below 1 face.
   EXPECT_EQ(result.faces.size(), 1);
   EXPECT_EQ(result.vertices.size(), 3);
+}
+
+TEST(SimplifyMesh, OutOfBoundsVertexIndex) {
+  PlyMesh mesh;
+  mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f, 255, 0, 0);
+  mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f, 0, 255, 0);
+  mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f, 0, 0, 255);
+  // Face references vertex index 5, which is out of bounds.
+  mesh.faces.emplace_back(0, 1, 5);
+
+  MeshSimplificationOptions options;
+  options.target_face_ratio = 0.5;
+
+  EXPECT_THROW(SimplifyMesh(mesh, options), std::exception);
 }
 
 TEST(SimplifyMesh, LargerMeshStressTest) {
