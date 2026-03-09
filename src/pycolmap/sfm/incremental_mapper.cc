@@ -257,7 +257,8 @@ void BindIncrementalPipeline(py::module& m) {
           .value("STOP", Status::STOP)
           .value("UNKNOWN_SENSOR_FROM_RIG", Status::UNKNOWN_SENSOR_FROM_RIG)
           .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
-          .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR);
+          .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
+          .value("SOLVER_FAILURE", Status::SOLVER_FAILURE);
   AddStringToEnumConstructor(PyStatus);
 
   py::classh<IncrementalPipeline>(

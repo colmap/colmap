@@ -172,6 +172,7 @@ class IncrementalMapper {
     size_t num_completed_observations = 0;
     size_t num_filtered_observations = 0;
     size_t num_adjusted_observations = 0;
+    bool solver_success = true;
   };
 
   // Create incremental mapper. The database cache must live for the entire
@@ -262,7 +263,8 @@ class IncrementalMapper {
                           const BundleAdjustmentOptions& ba_options);
 
   // Perform multiple rounds of local bundle adjustment.
-  void IterativeLocalRefinement(
+  // Returns false if the bundle adjustment solver fails.
+  bool IterativeLocalRefinement(
       int max_num_refinements,
       double max_refinement_change,
       const Options& options,
@@ -271,7 +273,8 @@ class IncrementalMapper {
       image_t image_id);
 
   // Perform multiple rounds of global bundle adjustment.
-  void IterativeGlobalRefinement(
+  // Returns false if the bundle adjustment solver fails.
+  bool IterativeGlobalRefinement(
       int max_num_refinements,
       double max_refinement_change,
       const Options& options,

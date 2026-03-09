@@ -217,6 +217,7 @@ class IncrementalPipeline : public BaseController {
     NO_INITIAL_PAIR,
     BAD_INITIAL_PAIR,
     UNKNOWN_SENSOR_FROM_RIG,
+    SOLVER_FAILURE,
   };
 
   IncrementalPipeline(
@@ -257,7 +258,7 @@ class IncrementalPipeline : public BaseController {
       const IncrementalMapper::Options& mapper_options,
       Reconstruction& reconstruction);
 
-  void TriangulateReconstruction(
+  bool TriangulateReconstruction(
       const std::shared_ptr<Reconstruction>& reconstruction);
 
   bool CheckRunGlobalRefinement(const Reconstruction& reconstruction,

@@ -100,7 +100,10 @@ void BundleAdjustmentController::Run() {
   // Run bundle adjustment.
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
-  bundle_adjuster->Solve();
+  const auto summary = bundle_adjuster->Solve();
+  if (!summary->IsSolutionUsable()) {
+    LOG(ERROR) << "Bundle adjustment solution is not usable.";
+  }
   reconstruction_->UpdatePoint3DErrors();
 
   run_timer.PrintMinutes();

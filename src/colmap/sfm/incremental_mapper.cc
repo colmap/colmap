@@ -1017,6 +1017,11 @@ IncrementalMapper::AdjustLocalBundle(
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
     const auto summary = bundle_adjuster->Solve();
+    if (!summary->IsSolutionUsable()) {
+      LOG(ERROR) << "Local bundle adjustment solver failed.";
+      report.solver_success = false;
+      return report;
+    }
 
     report.num_adjusted_observations = summary->num_residuals / 2;
 
@@ -1146,6 +1151,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   // Optimize the redundant 3D points with all other parameters fixed.
   if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
     if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
+      LOG(ERROR) << "Global bundle adjuster solution is not usable.";
       return false;
     }
 
@@ -1169,10 +1175,15 @@ bool IncrementalMapper::AdjustGlobalBundle(
         custom_ba_options, ba_config, *reconstruction_);
   }
 
-  return bundle_adjuster->Solve()->IsSolutionUsable();
+  if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
+    LOG(ERROR) << "Global bundle adjuster solution is not usable.";
+    return false;
+  }
+
+  return true;
 }
 
-void IncrementalMapper::IterativeLocalRefinement(
+bool IncrementalMapper::IterativeLocalRefinement(
     const int max_num_refinements,
     const double max_refinement_change,
     const Options& options,
@@ -1186,6 +1197,9 @@ void IncrementalMapper::IterativeLocalRefinement(
                                           tri_options,
                                           image_id,
                                           GetModifiedPoints3D());
+    if (!report.solver_success) {
+      return false;
+    }
     VLOG(1) << "=> Merged observations: " << report.num_merged_observations;
     VLOG(1) << "=> Completed observations: "
             << report.num_completed_observations;
@@ -1208,9 +1222,10 @@ void IncrementalMapper::IterativeLocalRefinement(
     }
   }
   ClearModifiedPoints3D();
+  return true;
 }
 
-void IncrementalMapper::IterativeGlobalRefinement(
+bool IncrementalMapper::IterativeGlobalRefinement(
     const int max_num_refinements,
     const double max_refinement_change,
     const Options& options,
@@ -1223,7 +1238,9 @@ void IncrementalMapper::IterativeGlobalRefinement(
           << num_retriangulated_observations;
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
-    AdjustGlobalBundle(options, ba_options);
+    if (!AdjustGlobalBundle(options, ba_options)) {
+      return false;
+    }
     if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
@@ -1241,6 +1258,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
     }
   }
   ClearModifiedPoints3D();
+  return true;
 }
 
 size_t IncrementalMapper::FilterFrames(const Options& options) {

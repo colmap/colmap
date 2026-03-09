@@ -69,8 +69,14 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
     LOG(INFO) << summary.BriefReport();
   }
 
+  if (!summary.IsSolutionUsable()) {
+    LOG(ERROR)
+        << "Global positioning solver failed. The solution is not usable.";
+    return false;
+  }
+
   ConvertBackResults(reconstruction);
-  return summary.IsSolutionUsable();
+  return true;
 }
 
 void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,

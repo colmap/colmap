@@ -72,16 +72,19 @@ DatabaseCache::Options CreateDatabaseCacheOptions(
   return database_cache_options;
 }
 
-void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
+bool IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                const IncrementalMapper::Options& mapper_options,
                                IncrementalMapper& mapper) {
   LOG(INFO) << "Retriangulation and Global bundle adjustment";
-  mapper.IterativeGlobalRefinement(options.ba_global_max_refinements,
-                                   options.ba_global_max_refinement_change,
-                                   mapper_options,
-                                   options.GlobalBundleAdjustment(),
-                                   options.Triangulation());
+  if (!mapper.IterativeGlobalRefinement(options.ba_global_max_refinements,
+                                        options.ba_global_max_refinement_change,
+                                        mapper_options,
+                                        options.GlobalBundleAdjustment(),
+                                        options.Triangulation())) {
+    return false;
+  }
   mapper.FilterFrames(mapper_options);
+  return true;
 }
 
 void ExtractColors(const std::filesystem::path& image_path,
@@ -417,7 +420,10 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   }
 
   LOG(INFO) << "Global bundle adjustment";
-  mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
+  if (!mapper.AdjustGlobalBundle(mapper_options,
+                                 options_->GlobalBundleAdjustment())) {
+    return Status::SOLVER_FAILURE;
+  }
   reconstruction.Normalize();
   mapper.FilterPoints(mapper_options);
   mapper.FilterFrames(mapper_options);
@@ -570,16 +576,21 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       for (const data_t& data_id : image.FramePtr()->ImageIds()) {
         mapper.TriangulateImage(options_->Triangulation(), data_id.id);
       }
-      mapper.IterativeLocalRefinement(options_->ba_local_max_refinements,
-                                      options_->ba_local_max_refinement_change,
-                                      mapper_options,
-                                      options_->LocalBundleAdjustment(),
-                                      options_->Triangulation(),
-                                      next_image_id);
+      if (!mapper.IterativeLocalRefinement(
+              options_->ba_local_max_refinements,
+              options_->ba_local_max_refinement_change,
+              mapper_options,
+              options_->LocalBundleAdjustment(),
+              options_->Triangulation(),
+              next_image_id)) {
+        return Status::SOLVER_FAILURE;
+      }
 
       if (CheckRunGlobalRefinement(
               *reconstruction, ba_prev_num_reg_frames, ba_prev_num_points)) {
-        IterativeGlobalRefinement(*options_, mapper_options, mapper);
+        if (!IterativeGlobalRefinement(*options_, mapper_options, mapper)) {
+          return Status::SOLVER_FAILURE;
+        }
         ba_prev_num_points = reconstruction->NumPoints3D();
         ba_prev_num_reg_frames = reconstruction->NumRegFrames();
       }
@@ -610,7 +621,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     // bundle adjustment and try again to register one image. If this fails
     // once, then exit the incremental mapping.
     if (!reg_next_success && prev_reg_next_success) {
-      IterativeGlobalRefinement(*options_, mapper_options, mapper);
+      if (!IterativeGlobalRefinement(*options_, mapper_options, mapper)) {
+        return Status::SOLVER_FAILURE;
+      }
     }
   } while (reg_next_success || prev_reg_next_success);
 
@@ -622,7 +635,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   if (reconstruction->NumRegFrames() > 0 &&
       reconstruction->NumRegFrames() != ba_prev_num_reg_frames &&
       reconstruction->NumPoints3D() != ba_prev_num_points) {
-    IterativeGlobalRefinement(*options_, mapper_options, mapper);
+    if (!IterativeGlobalRefinement(*options_, mapper_options, mapper)) {
+      return Status::SOLVER_FAILURE;
+    }
   }
   return Status::SUCCESS;
 }
@@ -691,6 +706,13 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
         return Status::CONTINUE;
       }
 
+      case Status::SOLVER_FAILURE: {
+        LOG(ERROR) << "Aborting reconstruction due to solver failure.";
+        mapper.EndReconstruction(/*discard=*/false);
+        reconstruction_manager_->Delete(reconstruction_idx);
+        return Status::STOP;
+      }
+
       case Status::SUCCESS: {
         // Remember the total number of registered images before potentially
         // discarding it below due to small size, so we can exit out of the main
@@ -736,7 +758,7 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
   return Status::CONTINUE;
 }
 
-void IncrementalPipeline::TriangulateReconstruction(
+bool IncrementalPipeline::TriangulateReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
   THROW_CHECK_GT(database_cache_->NumImages(), 0)
       << "No images with matches found in the database";
@@ -761,18 +783,23 @@ void IncrementalPipeline::TriangulateReconstruction(
   }
 
   LOG(INFO) << "Retriangulation and Global bundle adjustment";
-  mapper.IterativeGlobalRefinement(options_->ba_global_max_refinements,
-                                   options_->ba_global_max_refinement_change,
-                                   options_->Mapper(),
-                                   options_->GlobalBundleAdjustment(),
-                                   options_->Triangulation(),
-                                   /*normalize_reconstruction=*/false);
+  if (!mapper.IterativeGlobalRefinement(
+          options_->ba_global_max_refinements,
+          options_->ba_global_max_refinement_change,
+          options_->Mapper(),
+          options_->GlobalBundleAdjustment(),
+          options_->Triangulation(),
+          /*normalize_reconstruction=*/false)) {
+    mapper.EndReconstruction(/*discard=*/false);
+    return false;
+  }
   mapper.EndReconstruction(/*discard=*/false);
 
   reconstruction->UpdatePoint3DErrors();
 
   LOG(INFO) << "Extracting colors";
   reconstruction->ExtractColorsForAllImages(options_->image_path);
+  return true;
 }
 
 void IncrementalPipeline::RegisterCallbacks() {

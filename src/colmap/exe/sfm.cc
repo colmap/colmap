@@ -631,7 +631,10 @@ void RunPointTriangulatorImpl(
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(
       custom_options, Database::Open(database_path), reconstruction_manager);
-  mapper.TriangulateReconstruction(reconstruction);
+  if (!mapper.TriangulateReconstruction(reconstruction)) {
+    LOG(ERROR) << "Triangulation failed due to solver failure.";
+    return;
+  }
   reconstruction->Write(output_path);
 }
 

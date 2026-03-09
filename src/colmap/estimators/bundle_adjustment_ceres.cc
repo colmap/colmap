@@ -34,6 +34,7 @@
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
@@ -607,7 +608,10 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
   std::shared_ptr<BundleAdjustmentSummary> Solve() override {
     if (problem_->NumResiduals() == 0) {
-      return std::make_shared<BundleAdjustmentSummary>();
+      auto summary = std::make_shared<BundleAdjustmentSummary>();
+      summary->termination_type =
+          BundleAdjustmentTerminationType::NO_CONVERGENCE;
+      return summary;
     }
 
     const ceres::Solver::Options solver_options =
