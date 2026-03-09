@@ -363,8 +363,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
     }
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
-      LOG(WARNING) << "Skipping dense reconstruction because it is already "
-                      "computed";
+      LOG(INFO) << "Skipping dense reconstruction for model " << i
+               << " as it already exists.";
       continue;
     }
 
