@@ -140,7 +140,8 @@ void BindSynthetic(py::module& m) {
   m.def("synthesize_pose_graph_noise",
         &SynthesizePoseGraphNoise,
         "options"_a,
-        "pose_graph"_a);
+        "pose_graph"_a,
+        "database"_a = py::none());
   m.def("synthesize_pose_prior_noise",
         &SynthesizePosePriorNoise,
         "options"_a,
