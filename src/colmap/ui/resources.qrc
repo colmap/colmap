@@ -7,6 +7,9 @@
     <file>shaders/lines.f.glsl</file>
     <file>shaders/triangles.v.glsl</file>
     <file>shaders/triangles.f.glsl</file>
+    <file>shaders/mesh.v.glsl</file>
+    <file>shaders/mesh.g.glsl</file>
+    <file>shaders/mesh.f.glsl</file>
 
     <file>media/project-new.png</file>
     <file>media/project-open.png</file>

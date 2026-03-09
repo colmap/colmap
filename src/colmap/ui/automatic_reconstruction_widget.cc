@@ -211,13 +211,30 @@ void AutomaticReconstructionWidget::RenderResult() {
   }
 
   if (options_.dense) {
+    const auto dense_path = options_.workspace_path / "dense" / "0";
+    std::filesystem::path meshing_path;
+    if (options_.mesher == AutomaticReconstructionController::Mesher::POISSON) {
+      meshing_path = dense_path / "meshed-poisson.ply";
+    } else {
+      meshing_path = dense_path / "meshed-delaunay.ply";
+    }
+
+    if (ExistsFile(meshing_path)) {
+      try {
+        main_window_->model_viewer_widget_->surface_mesh =
+            ReadPlyMesh(meshing_path);
+        main_window_->RenderNow();
+      } catch (const std::exception& e) {
+        LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+      }
+    }
+
     QMessageBox::information(
         this,
         "",
-        tr("To visualize the reconstructed dense point cloud, navigate to the "
-           "<i>dense</i> sub-folder in your workspace with <i>File > Import "
-           "model from...</i>. To visualize the meshed model, you must use an "
-           "external viewer such as Meshlab."));
+        tr("To visualize the reconstructed dense point cloud or surface mesh, "
+           "navigate to the <i>dense</i> sub-folder in your workspace with "
+           "<i>File > Import...</i>."));
   }
 }
 

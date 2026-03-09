@@ -30,6 +30,8 @@
 #include "colmap/optim/loransac.h"
 
 #include "colmap/estimators/solvers/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -39,6 +41,58 @@
 namespace colmap {
 namespace {
 
+struct SimilarityTransformTestData {
+  Sim3d expected_tgt_from_src;
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  size_t num_samples;
+  size_t num_outliers;
+};
+
+SimilarityTransformTestData GenerateTestData(const size_t num_samples = 1000,
+                                             const size_t num_outliers = 400) {
+  SimilarityTransformTestData data;
+  data.num_samples = num_samples;
+  data.num_outliers = num_outliers;
+
+  SetPRNGSeed(0);
+  data.expected_tgt_from_src =
+      Sim3d(2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
+
+  for (size_t i = 0; i < num_samples; ++i) {
+    data.src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
+    data.tgt.push_back(data.expected_tgt_from_src * data.src.back());
+  }
+
+  for (size_t i = 0; i < num_outliers; ++i) {
+    data.tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+                                  RandomUniformReal(-4000.0, -3000.0),
+                                  RandomUniformReal(-5000.0, -4000.0));
+  }
+
+  return data;
+}
+
+template <typename Report>
+void ValidateReport(const Report& report,
+                    const SimilarityTransformTestData& data) {
+  EXPECT_TRUE(report.success);
+  EXPECT_GT(report.num_trials, 0);
+
+  EXPECT_EQ(report.support.num_inliers, data.num_samples - data.num_outliers);
+  for (size_t i = 0; i < data.num_samples; ++i) {
+    if (i < data.num_outliers) {
+      EXPECT_FALSE(report.inlier_mask[i]);
+    } else {
+      EXPECT_TRUE(report.inlier_mask[i]);
+    }
+  }
+
+  const double matrix_diff =
+      (data.expected_tgt_from_src.ToMatrix() - report.model).norm();
+  EXPECT_LT(matrix_diff, 1e-6);
+}
+
 TEST(LORANSAC, Report) {
   LORANSAC<SimilarityTransformEstimator<3>,
            SimilarityTransformEstimator<3>>::Report report;
@@ -47,6 +101,33 @@ TEST(LORANSAC, Report) {
   EXPECT_EQ(report.support.num_inliers, 0);
   EXPECT_EQ(report.support.residual_sum, std::numeric_limits<double>::max());
   EXPECT_EQ(report.inlier_mask.size(), 0);
+}
+
+TEST(LORANSAC, SimilarityTransform) {
+  const auto data = GenerateTestData();
+
+  RANSACOptions options;
+  options.max_error = 10;
+  options.random_seed = kDefaultPRNGSeed;
+  LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
+      loransac(options);
+  const auto report = loransac.Estimate(data.src, data.tgt);
+
+  ValidateReport(report, data);
+}
+
+TEST(LORANSAC, ParallelSimilarityTransform) {
+  const auto data = GenerateTestData();
+
+  RANSACOptions options;
+  options.max_error = 10;
+  options.random_seed = kDefaultPRNGSeed;
+  options.num_threads = 4;
+  LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
+      loransac(options);
+  const auto report = loransac.Estimate(data.src, data.tgt);
+
+  ValidateReport(report, data);
 }
 
 }  // namespace

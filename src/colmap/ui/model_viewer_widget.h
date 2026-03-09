@@ -30,20 +30,21 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/ui/colormaps.h"
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/ui/line_painter.h"
+#include "colmap/ui/mesh_painter.h"
 #include "colmap/ui/movie_grabber_widget.h"
 #include "colmap/ui/point_painter.h"
 #include "colmap/ui/point_viewer_widget.h"
-#include "colmap/ui/render_options.h"
 #include "colmap/ui/triangle_painter.h"
+#include "colmap/util/ply.h"
 
 #include <QOpenGLFunctions_3_2_Core>
 #include <QtCore>
 #include <QtOpenGL>
+#include <optional>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QOpenGLWidget>
 #endif
@@ -127,6 +128,9 @@ class ModelViewerWidget : public QOpenGLWidget,
   std::unordered_map<point3D_t, Point3D> points3D;
   std::vector<image_t> reg_image_ids;
 
+  std::optional<std::vector<PlyPoint>> point_cloud;
+  std::optional<PlyMesh> surface_mesh;
+
   QLabel* statusbar_status_label;
 
  protected:
@@ -152,6 +156,8 @@ class ModelViewerWidget : public QOpenGLWidget,
   void UploadImageData(bool selection_mode = false);
   void UploadImageConnectionData();
   void UploadMovieGrabberData();
+  void UploadPointCloudData();
+  void UploadSurfaceMeshData();
 
   void ComposeProjectionMatrix();
 
@@ -182,6 +188,9 @@ class ModelViewerWidget : public QOpenGLWidget,
   LinePainter movie_grabber_path_painter_;
   LinePainter movie_grabber_line_painter_;
   TrianglePainter movie_grabber_triangle_painter_;
+
+  PointPainter point_cloud_painter_;
+  MeshPainter mesh_painter_;
 
   PointViewerWidget* point_viewer_widget_;
   DatabaseImageViewerWidget* image_viewer_widget_;
