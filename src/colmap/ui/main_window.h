@@ -90,10 +90,8 @@ class MainWindow : public QMainWindow {
   void ProjectSave();
   void ProjectSaveAs();
   void Import();
-  void ImportPointCloud();
-  void ImportPointCloud(const std::string& import_path);
-  void ImportSurfaceMesh();
-  void ImportSurfaceMesh(const std::string& import_path);
+  void ImportFrom();
+  void ImportFrom(const std::string& import_path);
   void Export();
   void ExportAll();
   void ExportAs();
@@ -195,8 +193,7 @@ class MainWindow : public QMainWindow {
   QAction* action_project_save_;
   QAction* action_project_save_as_;
   QAction* action_import_;
-  QAction* action_import_point_cloud_;
-  QAction* action_import_surface_mesh_;
+  QAction* action_import_from_;
   QAction* action_export_;
   QAction* action_export_all_;
   QAction* action_export_as_;
