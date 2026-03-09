@@ -287,7 +287,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
     if (dir_list.size() > 0) {
-      LOG(WARNING)
+      LOG(INFO)
           << "Skipping sparse reconstruction because it is already computed";
       for (const auto& dir : dir_list) {
         reconstruction_manager_->Read(dir);
@@ -364,7 +364,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
       LOG(INFO) << "Skipping dense reconstruction for model " << i
-               << " as it already exists.";
+                << " as it already exists.";
       continue;
     }
 
