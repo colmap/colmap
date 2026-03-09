@@ -31,6 +31,7 @@
 
 #include <QtCore>
 #include <QtOpenGL>
+#include <cstdint>
 
 namespace colmap {
 
@@ -47,14 +48,14 @@ class MeshPainter {
          float nx,
          float ny,
          float nz,
-         float r,
-         float g,
-         float b)
+         uint8_t r,
+         uint8_t g,
+         uint8_t b)
         : px(px), py(py), pz(pz), nx(nx), ny(ny), nz(nz), r(r), g(g), b(b) {}
 
     float px, py, pz;
     float nx, ny, nz;
-    float r, g, b;
+    uint8_t r, g, b;
   };
 
   void Setup();
