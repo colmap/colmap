@@ -938,8 +938,7 @@ void MainWindow::ProjectSave() {
                                      tr("Project file (*.ini)"))
             .toUtf8()
             .constData();
-    // If selection not canceled
-    if (project_path != "") {
+    if (!project_path.empty()) {
       if (!HasFileExtension(project_path, ".ini")) {
         project_path += ".ini";
       }
@@ -1118,8 +1117,8 @@ void MainWindow::ExportAll() {
           .toUtf8()
           .constData();
 
-  // Selection cancelled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
