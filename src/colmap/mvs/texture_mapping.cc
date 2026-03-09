@@ -190,19 +190,27 @@ using CGALAABBTree = CGAL::AABB_tree<CGALTraits>;
 
 struct OcclusionTester {
   std::vector<CGALTriangle> triangles;
+  // Maps from index in `triangles` back to the original face index.
+  std::vector<size_t> triangle_to_face;
   CGALAABBTree tree;
 
   void Build(const PlyMesh& mesh) {
     const size_t num_faces = mesh.faces.size();
-    triangles.resize(num_faces);
+    triangles.reserve(num_faces);
+    triangle_to_face.reserve(num_faces);
     for (size_t i = 0; i < num_faces; ++i) {
       const std::array<size_t, 3> idx = GetFaceIndices(mesh.faces[i]);
       const Eigen::Vector3f v0 = GetVertex(mesh, idx[0]);
       const Eigen::Vector3f v1 = GetVertex(mesh, idx[1]);
       const Eigen::Vector3f v2 = GetVertex(mesh, idx[2]);
-      triangles[i] = CGALTriangle(CGALPoint(v0.x(), v0.y(), v0.z()),
-                                  CGALPoint(v1.x(), v1.y(), v1.z()),
-                                  CGALPoint(v2.x(), v2.y(), v2.z()));
+      // Skip degenerate (zero-area) triangles that cause CGAL assertion
+      // failures in intersection tests.
+      const Eigen::Vector3f cross = (v1 - v0).cross(v2 - v0);
+      if (cross.squaredNorm() < 1e-20f) continue;
+      triangles.emplace_back(CGALPoint(v0.x(), v0.y(), v0.z()),
+                             CGALPoint(v1.x(), v1.y(), v1.z()),
+                             CGALPoint(v2.x(), v2.y(), v2.z()));
+      triangle_to_face.push_back(i);
     }
     tree.rebuild(triangles.begin(), triangles.end());
     tree.accelerate_distance_queries();
@@ -225,9 +233,10 @@ struct OcclusionTester {
     if (!intersection) return false;
 
     const auto& primitive_id = intersection->second;
-    const size_t hit_idx =
+    const size_t tri_idx =
         static_cast<size_t>(primitive_id - triangles.begin());
-    if (hit_idx == face_idx) return false;
+    const size_t hit_face = triangle_to_face[tri_idx];
+    if (hit_face == face_idx) return false;
 
     const auto* hit_point = std::get_if<CGALPoint>(&(intersection->first));
     if (hit_point) {
