@@ -129,8 +129,36 @@ if(CUDA_ENABLED)
     #      https://github.com/ggml-org/llama.cpp/issues/18331
     set(_COLMAP_BLACKWELL_TARGET FALSE)
 
+    # Check if any native architecture keywords are present.
+    set(_HAS_NATIVE_ARCH_KEYWORD FALSE)
     foreach(_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
-        # For explicit numeric architectures, strip suffix and check value.
+        if(_arch STREQUAL "native" OR _arch STREQUAL "all" OR
+           _arch STREQUAL "all-major")
+            set(_HAS_NATIVE_ARCH_KEYWORD TRUE)
+            break()
+        endif()
+    endforeach()
+
+    # Query the actual GPUs if native keywords are used, since the filtering
+    # logic below needs to resolve them into explicit architectures.
+    if(_HAS_NATIVE_ARCH_KEYWORD)
+        execute_process(
+            COMMAND nvidia-smi
+                --query-gpu=compute_cap
+                --format=csv,noheader
+            OUTPUT_VARIABLE _GPU_COMPUTE_CAPS
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+            RESULT_VARIABLE _NVIDIA_SMI_RESULT
+        )
+        if(_NVIDIA_SMI_RESULT EQUAL 0 AND _GPU_COMPUTE_CAPS)
+            string(REPLACE "\n" ";" _GPU_COMPUTE_CAPS
+                   "${_GPU_COMPUTE_CAPS}")
+        endif()
+    endif()
+
+    # Detect Blackwell from explicit numeric architectures.
+    foreach(_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
         string(REGEX REPLACE "[-].*" "" _arch_num "${_arch}")
         if(_arch_num MATCHES "^[0-9]+$" AND _arch_num GREATER_EQUAL 100)
             set(_COLMAP_BLACKWELL_TARGET TRUE)
@@ -138,35 +166,18 @@ if(CUDA_ENABLED)
         endif()
     endforeach()
 
-    # For "native", "all", "all-major": query the actual GPU at configure time.
-    if(NOT _COLMAP_BLACKWELL_TARGET)
-        foreach(_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
-            if(_arch STREQUAL "native" OR _arch STREQUAL "all" OR
-               _arch STREQUAL "all-major")
-                execute_process(
-                    COMMAND nvidia-smi
-                        --query-gpu=compute_cap
-                        --format=csv,noheader
-                    OUTPUT_VARIABLE _GPU_COMPUTE_CAPS
-                    OUTPUT_STRIP_TRAILING_WHITESPACE
-                    ERROR_QUIET
-                    RESULT_VARIABLE _NVIDIA_SMI_RESULT
-                )
-                if(_NVIDIA_SMI_RESULT EQUAL 0 AND _GPU_COMPUTE_CAPS)
-                    string(REPLACE "\n" ";" _GPU_COMPUTE_CAPS
-                           "${_GPU_COMPUTE_CAPS}")
-                    foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
-                        string(STRIP "${_cap}" _cap)
-                        string(REGEX MATCH "^([0-9]+)" _major "${_cap}")
-                        if(_major AND _major GREATER_EQUAL 10)
-                            set(_COLMAP_BLACKWELL_TARGET TRUE)
-                            break()
-                        endif()
-                    endforeach()
+    # Detect Blackwell from nvidia-smi output for native keywords.
+    if(NOT _COLMAP_BLACKWELL_TARGET AND _HAS_NATIVE_ARCH_KEYWORD)
+        if(_NVIDIA_SMI_RESULT EQUAL 0 AND _GPU_COMPUTE_CAPS)
+            foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
+                string(STRIP "${_cap}" _cap)
+                string(REGEX MATCH "^([0-9]+)" _major "${_cap}")
+                if(_major AND _major GREATER_EQUAL 10)
+                    set(_COLMAP_BLACKWELL_TARGET TRUE)
+                    break()
                 endif()
-                break()
-            endif()
-        endforeach()
+            endforeach()
+        endif()
     endif()
 
     if(_COLMAP_BLACKWELL_TARGET)
