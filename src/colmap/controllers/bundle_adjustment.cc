@@ -102,7 +102,14 @@ void BundleAdjustmentController::Run() {
       CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   const auto summary = bundle_adjuster->Solve();
   if (!summary->IsSolutionUsable()) {
-    LOG(ERROR) << "Bundle adjustment solution is not usable.";
+    if (summary->IsUnrecoverableFailure()) {
+      LOG(ERROR) << "Bundle adjustment failed due to unrecoverable error: "
+                 << summary->message;
+    } else {
+      LOG(WARNING)
+          << "Bundle adjustment solver failed with a recoverable error: "
+          << summary->message;
+    }
     return;
   }
 

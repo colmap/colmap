@@ -1,5 +1,6 @@
 #include "colmap/estimators/global_positioning.h"
 
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
@@ -70,8 +71,24 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   }
 
   if (!summary.IsSolutionUsable()) {
-    LOG(ERROR)
-        << "Global positioning solver failed. The solution is not usable.";
+    if (summary.termination_type == ceres::FAILURE) {
+      // Use a temporary CeresBundleAdjustmentSummary to classify the failure.
+      CeresBundleAdjustmentSummary ba_summary;
+      ba_summary.termination_type = BundleAdjustmentTerminationType::FAILURE;
+      ba_summary.ceres_summary = summary;
+      if (ba_summary.IsUnrecoverableFailure()) {
+        LOG(ERROR) << "Global positioning solver failed due to an "
+                      "unrecoverable error: "
+                   << summary.message;
+      } else {
+        LOG(ERROR)
+            << "Global positioning solver failed due to a recoverable error: "
+            << summary.message;
+      }
+    } else {
+      LOG(ERROR)
+          << "Global positioning solver failed. The solution is not usable.";
+    }
     return false;
   }
 

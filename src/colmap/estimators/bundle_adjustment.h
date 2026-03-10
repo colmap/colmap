@@ -67,8 +67,20 @@ struct BundleAdjustmentSummary {
   // Excludes residuals where all connected parameters are constant.
   int num_residuals = 0;
 
+  // Backend-specific human-readable termination message from the solver.
+  std::string message;
+
+  // Returns true if the solution is usable.
   bool IsSolutionUsable() const;
-  virtual std::string BriefReport() const;
+
+  // Returns true if a solver FAILURE is due to unrecoverable infrastructure
+  // issues (GPU memory allocation, CUDA init, Jacobian creation) that warrant
+  // aborting the pipeline. Returns false for numerical/transient failures
+  // where the solver has restored original parameters and the pipeline can
+  // continue.
+  virtual bool IsUnrecoverableFailure() const = 0;
+
+  virtual std::string BriefReport() const = 0;
 
   virtual ~BundleAdjustmentSummary() = default;
 };

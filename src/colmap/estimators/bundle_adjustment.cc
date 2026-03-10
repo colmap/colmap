@@ -39,13 +39,6 @@ bool BundleAdjustmentSummary::IsSolutionUsable() const {
          termination_type == BundleAdjustmentTerminationType::USER_SUCCESS;
 }
 
-std::string BundleAdjustmentSummary::BriefReport() const {
-  return "Bundle adjustment report: termination=" +
-         std::string(
-             BundleAdjustmentTerminationTypeToString(termination_type)) +
-         ", num_residuals=" + std::to_string(num_residuals);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////

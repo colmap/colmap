@@ -88,12 +88,29 @@ CeresBundleAdjustmentSummary::Create(
   summary->termination_type =
       CeresTerminationTypeToTerminationType(ceres_summary.termination_type);
   summary->num_residuals = ceres_summary.num_residuals_reduced;
+  summary->message = ceres_summary.message;
   summary->ceres_summary = ceres_summary;
   return summary;
 }
 
 std::string CeresBundleAdjustmentSummary::BriefReport() const {
   return ceres_summary.BriefReport();
+}
+
+bool CeresBundleAdjustmentSummary::IsUnrecoverableFailure() const {
+  if (termination_type != BundleAdjustmentTerminationType::FAILURE) {
+    return false;
+  }
+  // Infrastructure failures that won't recover by continuing:
+  // - "CUDA initialization failed": cuDSS/cuBLAS/cuSPARSE init failure
+  // - "non-numeric": linear solver FATAL_ERROR (cuDSS ALLOC_FAILED, etc.)
+  // - "Unable to create Jacobian": Jacobian matrix allocation failure
+  // Everything else is a numerical/transient failure where Ceres has restored
+  // original parameters and the pipeline can safely continue.
+  const std::string& msg = ceres_summary.message;
+  return msg.find("CUDA initialization failed") != std::string::npos ||
+         msg.find("non-numeric") != std::string::npos ||
+         msg.find("Unable to create Jacobian") != std::string::npos;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -608,7 +625,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
   std::shared_ptr<BundleAdjustmentSummary> Solve() override {
     if (problem_->NumResiduals() == 0) {
-      auto summary = std::make_shared<BundleAdjustmentSummary>();
+      auto summary = std::make_shared<CeresBundleAdjustmentSummary>();
       summary->termination_type =
           BundleAdjustmentTerminationType::NO_CONVERGENCE;
       return summary;
@@ -909,7 +926,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     std::shared_ptr<ceres::Problem> problem =
         default_bundle_adjuster_->Problem();
     if (problem->NumResiduals() == 0) {
-      return std::make_shared<BundleAdjustmentSummary>();
+      return std::make_shared<CeresBundleAdjustmentSummary>();
     }
 
     const ceres::Solver::Options solver_options =

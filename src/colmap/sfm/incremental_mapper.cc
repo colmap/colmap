@@ -1018,9 +1018,16 @@ IncrementalMapper::AdjustLocalBundle(
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
     const auto summary = bundle_adjuster->Solve();
     if (!summary->IsSolutionUsable()) {
-      LOG(ERROR) << "Local bundle adjustment solver failed.";
-      report.solver_success = false;
-      return report;
+      if (summary->IsUnrecoverableFailure()) {
+        LOG(ERROR)
+            << "Local bundle adjustment failed due to an unrecoverable error: "
+            << summary->message;
+        report.solver_success = false;
+        return report;
+      }
+      LOG(WARNING) << "Local bundle adjustment solver failed due to a "
+                      "recoverable error: "
+                   << summary->message;
     }
 
     report.num_adjusted_observations = summary->num_residuals / 2;
@@ -1150,9 +1157,17 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Optimize the redundant 3D points with all other parameters fixed.
   if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
-    if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
-      LOG(ERROR) << "Global bundle adjuster solution is not usable.";
-      return false;
+    const auto redundant_summary = bundle_adjuster->Solve();
+    if (!redundant_summary->IsSolutionUsable()) {
+      if (redundant_summary->IsUnrecoverableFailure()) {
+        LOG(ERROR)
+            << "Global bundle adjustment failed due to an unrecoverable error: "
+            << redundant_summary->message;
+        return false;
+      }
+      LOG(WARNING) << "Global bundle adjustment solver failed due to a "
+                      "recoverable error: "
+                   << redundant_summary->message;
     }
 
     ba_config = BundleAdjustmentConfig();
@@ -1175,9 +1190,17 @@ bool IncrementalMapper::AdjustGlobalBundle(
         custom_ba_options, ba_config, *reconstruction_);
   }
 
-  if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
-    LOG(ERROR) << "Global bundle adjuster solution is not usable.";
-    return false;
+  const auto summary = bundle_adjuster->Solve();
+  if (!summary->IsSolutionUsable()) {
+    if (summary->IsUnrecoverableFailure()) {
+      LOG(ERROR)
+          << "Global bundle adjustment failed due to an unrecoverable error: "
+          << summary->message;
+      return false;
+    }
+    LOG(WARNING)
+        << "Global bundle adjustment solver failed due to a recoverable error: "
+        << summary->message;
   }
 
   return true;

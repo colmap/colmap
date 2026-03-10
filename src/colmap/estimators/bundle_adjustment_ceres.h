@@ -92,6 +92,7 @@ struct CeresBundleAdjustmentOptions {
 struct CeresBundleAdjustmentSummary : public BundleAdjustmentSummary {
   ceres::Solver::Summary ceres_summary;
 
+  bool IsUnrecoverableFailure() const override;
   std::string BriefReport() const override;
 
   static std::shared_ptr<CeresBundleAdjustmentSummary> Create(
