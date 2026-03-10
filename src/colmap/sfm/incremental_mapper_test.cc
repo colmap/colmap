@@ -450,5 +450,6 @@ TEST_F(IncrementalMapperTest, FilterPointsRemovesCorruptedPoint) {
   EXPECT_GT(num_filtered_observations, 0);
   EXPECT_FALSE(reconstruction_->ExistsPoint3D(corrupted_point3D_id));
 }
+
 }  // namespace
 }  // namespace colmap
