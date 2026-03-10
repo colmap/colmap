@@ -89,7 +89,7 @@ void ValidateDescriptorNorms(const FeatureDescriptors& descriptors) {
 }
 
 void ExpectReversedMatches(const FeatureMatches& matches) {
-  EXPECT_EQ(matches.size(), 2);
+  ASSERT_EQ(matches.size(), 2);
   EXPECT_EQ(matches[0].point2D_idx1, 0);
   EXPECT_EQ(matches[0].point2D_idx2, 1);
   EXPECT_EQ(matches[1].point2D_idx1, 1);
@@ -97,7 +97,7 @@ void ExpectReversedMatches(const FeatureMatches& matches) {
 }
 
 void ExpectReversedInlierMatches(const TwoViewGeometry& two_view_geometry) {
-  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
+  ASSERT_EQ(two_view_geometry.inlier_matches.size(), 2);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
