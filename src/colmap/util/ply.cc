@@ -42,6 +42,9 @@
 namespace colmap {
 namespace {
 
+constexpr size_t kMaxPlyVertices = 1llu << 32;
+constexpr size_t kMaxPlyFaces = 1llu << 32;
+
 template <typename T>
 T ReadFromBuffer(const char* buffer, size_t offset) {
   T value;
@@ -217,6 +220,33 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
 
   THROW_CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
       << "Invalid PLY file format: x, y, z properties missing";
+
+  // Validate byte positions against buffer size to prevent out-of-bounds reads
+  // from crafted PLY headers.
+  if (is_binary && num_bytes_per_line > 0) {
+    auto CheckBytePos = [&](int byte_pos, size_t type_size, const char* name) {
+      if (byte_pos >= 0) {
+        THROW_CHECK_LE(static_cast<size_t>(byte_pos) + type_size,
+                       num_bytes_per_line)
+            << "PLY property " << name
+            << " byte position exceeds line buffer size";
+      }
+    };
+    CheckBytePos(X_byte_pos, X_double ? sizeof(double) : sizeof(float), "x");
+    CheckBytePos(Y_byte_pos, Y_double ? sizeof(double) : sizeof(float), "y");
+    CheckBytePos(Z_byte_pos, Z_double ? sizeof(double) : sizeof(float), "z");
+    CheckBytePos(NX_byte_pos, NX_double ? sizeof(double) : sizeof(float), "nx");
+    CheckBytePos(NY_byte_pos, NY_double ? sizeof(double) : sizeof(float), "ny");
+    CheckBytePos(NZ_byte_pos, NZ_double ? sizeof(double) : sizeof(float), "nz");
+    CheckBytePos(R_byte_pos, sizeof(uint8_t), "r");
+    CheckBytePos(G_byte_pos, sizeof(uint8_t), "g");
+    CheckBytePos(B_byte_pos, sizeof(uint8_t), "b");
+  }
+
+  // Sanity-check num_vertices to prevent unbounded memory allocation from
+  // a crafted PLY header.
+  THROW_CHECK_LE(num_vertices, kMaxPlyVertices)
+      << "PLY file declares too many vertices";
 
   points.reserve(num_vertices);
 
@@ -520,6 +550,31 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
 
   const bool has_colors = (R_index != -1) && (G_index != -1) && (B_index != -1);
 
+  // Validate byte positions against buffer size for binary PLY mesh files.
+  if (is_binary && num_bytes_per_vertex > 0) {
+    auto CheckBytePos = [&](int byte_pos, size_t type_size, const char* name) {
+      if (byte_pos >= 0) {
+        THROW_CHECK_LE(static_cast<size_t>(byte_pos) + type_size,
+                       num_bytes_per_vertex)
+            << "PLY mesh property " << name
+            << " byte position exceeds vertex buffer size";
+      }
+    };
+    CheckBytePos(X_byte_pos, X_double ? sizeof(double) : sizeof(float), "x");
+    CheckBytePos(Y_byte_pos, Y_double ? sizeof(double) : sizeof(float), "y");
+    CheckBytePos(Z_byte_pos, Z_double ? sizeof(double) : sizeof(float), "z");
+    if (has_colors) {
+      CheckBytePos(R_byte_pos, sizeof(uint8_t), "r");
+      CheckBytePos(G_byte_pos, sizeof(uint8_t), "g");
+      CheckBytePos(B_byte_pos, sizeof(uint8_t), "b");
+    }
+  }
+
+  // Sanity-check counts to prevent unbounded memory allocation.
+  THROW_CHECK_LE(num_vertices, kMaxPlyVertices)
+      << "PLY mesh declares too many vertices";
+  THROW_CHECK_LE(num_faces, kMaxPlyFaces) << "PLY mesh declares too many faces";
+
   mesh.vertices.reserve(num_vertices);
   mesh.faces.reserve(num_faces);
 
@@ -606,6 +661,10 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
         THROW_CHECK(file.good())
             << "Unexpected end of PLY file at face " << i << " index " << j;
         indices[j] = ReadInt(face_buffer.data(), face_index_bytes);
+        THROW_CHECK_GE(indices[j], 0)
+            << "Negative face vertex index at face " << i;
+        THROW_CHECK_LT(indices[j], static_cast<int>(num_vertices))
+            << "Face vertex index out of bounds at face " << i;
       }
 
       mesh.faces.emplace_back(indices[0], indices[1], indices[2]);
@@ -650,6 +709,15 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
 
       int idx1, idx2, idx3;
       line_stream >> idx1 >> idx2 >> idx3;
+      THROW_CHECK_GE(idx1, 0) << "Negative face vertex index at face " << i;
+      THROW_CHECK_GE(idx2, 0) << "Negative face vertex index at face " << i;
+      THROW_CHECK_GE(idx3, 0) << "Negative face vertex index at face " << i;
+      THROW_CHECK_LT(idx1, static_cast<int>(num_vertices))
+          << "Face vertex index out of bounds at face " << i;
+      THROW_CHECK_LT(idx2, static_cast<int>(num_vertices))
+          << "Face vertex index out of bounds at face " << i;
+      THROW_CHECK_LT(idx3, static_cast<int>(num_vertices))
+          << "Face vertex index out of bounds at face " << i;
       mesh.faces.emplace_back(idx1, idx2, idx3);
     }
   }

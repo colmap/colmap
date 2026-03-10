@@ -263,7 +263,13 @@ void ReadBinaryBlob(const std::filesystem::path& path,
   THROW_CHECK_FILE_OPEN(file, path);
   file.seekg(0, std::ios::end);
   const size_t num_bytes = file.tellg();
-  data->resize(num_bytes);
+  try {
+    data->resize(num_bytes);
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Failed to allocate " << num_bytes
+               << " bytes for binary blob from " << path << ": " << e.what();
+    throw;
+  }
   file.seekg(0, std::ios::beg);
   file.read(data->data(), num_bytes);
 }
