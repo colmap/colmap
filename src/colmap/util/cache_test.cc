@@ -437,7 +437,7 @@ TEST(ThreadSafeLRUCache, Clear) {
 }
 
 TEST(LRUCache, ExceptionSafety) {
-  // Test L1: If load_fn_ throws, the cache should remain in a consistent state.
+  // If load_fn_ throws, the cache should remain in a consistent state.
   int load_count = 0;
   LRUCache<int, int> cache(5, [&load_count](const int key) {
     ++load_count;
@@ -475,7 +475,7 @@ TEST(LRUCache, ExceptionSafety) {
 }
 
 TEST(MemoryConstrainedLRUCache, PopNumBytesConsistency) {
-  // Test L8: Pop should maintain correct num_bytes tracking.
+  // Pop should maintain correct num_bytes tracking.
   MemoryConstrainedLRUCache<int, SizedElem> cache(
       100, [](const int key) { return std::make_shared<SizedElem>(key); });
 
@@ -505,8 +505,7 @@ TEST(MemoryConstrainedLRUCache, PopNumBytesConsistency) {
 }
 
 TEST(MemoryConstrainedLRUCache, UpdateNumBytesConsistency) {
-  // Test L8: UpdateNumBytes should correctly track byte counts even when
-  // elements shrink.
+  // Should correctly track byte counts even when elements shrink.
   MemoryConstrainedLRUCache<int, SizedElem> cache(
       100, [](const int key) { return std::make_shared<SizedElem>(key); });
 
