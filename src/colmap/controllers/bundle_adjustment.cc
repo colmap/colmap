@@ -103,7 +103,9 @@ void BundleAdjustmentController::Run() {
   const auto summary = bundle_adjuster->Solve();
   if (!summary->IsSolutionUsable()) {
     LOG(ERROR) << "Bundle adjustment solution is not usable.";
+    return;
   }
+
   reconstruction_->UpdatePoint3DErrors();
 
   run_timer.PrintMinutes();
