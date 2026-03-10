@@ -34,6 +34,8 @@
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 
+#include <algorithm>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -82,10 +84,71 @@ class IncrementalMapperTest : public ::testing::Test {
   }
 
   void RegisterAllRemainingImages() {
-    const auto next_image_ids = mapper_->FindNextImages(options_);
-    for (const auto image_id : next_image_ids) {
-      if (mapper_->RegisterNextImage(options_, image_id)) {
-        mapper_->TriangulateImage(tri_options_, image_id);
+    while (true) {
+      bool any_image_registered = false;
+      const auto next_image_ids = mapper_->FindNextImages(options_);
+      for (const auto image_id : next_image_ids) {
+        if (mapper_->RegisterNextImage(options_, image_id)) {
+          mapper_->TriangulateImage(tri_options_, image_id);
+          any_image_registered = true;
+        }
+      }
+      if (!any_image_registered) {
+        break;
+      }
+    }
+  }
+
+  bool IsFrameRegistered(const frame_t frame_id) const {
+    const auto& reg_frame_ids = reconstruction_->RegFrameIds();
+    return std::find(reg_frame_ids.begin(), reg_frame_ids.end(), frame_id) !=
+           reg_frame_ids.end();
+  }
+
+  size_t CountFramePoints3D(const frame_t frame_id) const {
+    size_t num_points3D = 0;
+    const auto& frame = reconstruction_->Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      num_points3D += reconstruction_->Image(data_id.id).NumPoints3D();
+    }
+    return num_points3D;
+  }
+
+  size_t CountRegisteredFramesWithZeroPoints3D() const {
+    size_t num_zero_point_frames = 0;
+    for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+      if (CountFramePoints3D(frame_id) == 0) {
+        num_zero_point_frames += 1;
+      }
+    }
+    return num_zero_point_frames;
+  }
+
+  frame_t FindRegisteredFrameWithPoints3D() const {
+    for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+      if (CountFramePoints3D(frame_id) > 0) {
+        return frame_id;
+      }
+    }
+    return kInvalidFrameId;
+  }
+
+  void DeleteAllObservationsInFrame(const frame_t frame_id) {
+    std::vector<std::pair<image_t, point2D_t>> observations_to_delete;
+    const auto& frame = reconstruction_->Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      const auto& image = reconstruction_->Image(data_id.id);
+      for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+           ++point2D_idx) {
+        if (image.Point2D(point2D_idx).HasPoint3D()) {
+          observations_to_delete.emplace_back(data_id.id, point2D_idx);
+        }
+      }
+    }
+
+    for (const auto& [image_id, point2D_idx] : observations_to_delete) {
+      if (reconstruction_->Image(image_id).Point2D(point2D_idx).HasPoint3D()) {
+        mapper_->ObservationManager().DeleteObservation(image_id, point2D_idx);
       }
     }
   }
@@ -101,6 +164,14 @@ class IncrementalMapperTest : public ::testing::Test {
   image_t image_id1_ = kInvalidImageId;
   image_t image_id2_ = kInvalidImageId;
   Rigid3d cam2_from_cam1_;
+};
+
+class IncrementalMapperLargeDatasetTest : public IncrementalMapperTest {
+ protected:
+  void SetUp() override {
+    synthetic_options_.num_frames_per_rig = 12;
+    IncrementalMapperTest::SetUp();
+  }
 };
 
 // Standalone test: needs to check state before BeginReconstruction.
@@ -291,5 +362,87 @@ TEST_F(IncrementalMapperTest, ResetInitializationStats) {
   EXPECT_NE(image_id4, kInvalidImageId);
 }
 
+// Frame filtering is disabled before the 20-frame mapper threshold.
+TEST_F(IncrementalMapperTest, FilterFramesNoOpBelowMinFrames) {
+  FindAndRegisterInitialPair();
+  TriangulateInitialPair();
+  RegisterAllRemainingImages();
+
+  ASSERT_LT(reconstruction_->NumRegFrames(), 20);
+
+  const frame_t target_frame_id = FindRegisteredFrameWithPoints3D();
+  ASSERT_NE(target_frame_id, kInvalidFrameId);
+  ASSERT_TRUE(IsFrameRegistered(target_frame_id));
+  ASSERT_GT(CountFramePoints3D(target_frame_id), 0);
+
+  DeleteAllObservationsInFrame(target_frame_id);
+  ASSERT_EQ(CountFramePoints3D(target_frame_id), 0);
+
+  const size_t num_reg_frames_before = reconstruction_->NumRegFrames();
+  const size_t num_filtered_frames = mapper_->FilterFrames(options_);
+
+  EXPECT_EQ(num_filtered_frames, 0);
+  EXPECT_EQ(reconstruction_->NumRegFrames(), num_reg_frames_before);
+  EXPECT_TRUE(IsFrameRegistered(target_frame_id));
+  EXPECT_EQ(mapper_->FilteredFrames().count(target_frame_id), 0);
+}
+
+// At or above threshold, filtering removes the chosen zero-observation frame.
+TEST_F(IncrementalMapperLargeDatasetTest,
+       FilterFramesRemovesZeroObservationFrameAfterThreshold) {
+  FindAndRegisterInitialPair();
+  TriangulateInitialPair();
+  RegisterAllRemainingImages();
+
+  ASSERT_GE(reconstruction_->NumRegFrames(), 20);
+
+  const frame_t target_frame_id = FindRegisteredFrameWithPoints3D();
+  ASSERT_NE(target_frame_id, kInvalidFrameId);
+  ASSERT_TRUE(IsFrameRegistered(target_frame_id));
+  ASSERT_GT(CountFramePoints3D(target_frame_id), 0);
+
+  DeleteAllObservationsInFrame(target_frame_id);
+  ASSERT_EQ(CountFramePoints3D(target_frame_id), 0);
+  ASSERT_TRUE(IsFrameRegistered(target_frame_id));
+  ASSERT_EQ(CountRegisteredFramesWithZeroPoints3D(), 1);
+
+  const size_t num_reg_frames_before = reconstruction_->NumRegFrames();
+  const size_t num_filtered_frames = mapper_->FilterFrames(options_);
+
+  EXPECT_EQ(num_filtered_frames, 1);
+  EXPECT_EQ(reconstruction_->NumRegFrames(), num_reg_frames_before - 1);
+  EXPECT_FALSE(IsFrameRegistered(target_frame_id));
+  EXPECT_EQ(mapper_->FilteredFrames().count(target_frame_id), 1);
+}
+
+// Strict reprojection filtering removes the intentionally corrupted point.
+TEST_F(IncrementalMapperTest, FilterPointsRemovesCorruptedPoint) {
+  FindAndRegisterInitialPair();
+  TriangulateInitialPair();
+  RegisterAllRemainingImages();
+
+  ASSERT_GT(reconstruction_->NumPoints3D(), 0);
+
+  point3D_t corrupted_point3D_id = kInvalidPoint3DId;
+  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
+    if (point3D.track.Length() >= 2) {
+      corrupted_point3D_id = point3D_id;
+      break;
+    }
+  }
+
+  ASSERT_NE(corrupted_point3D_id, kInvalidPoint3DId);
+  reconstruction_->Point3D(corrupted_point3D_id).xyz +=
+      Eigen::Vector3d(100, 100, 100);
+
+  IncrementalMapper::Options strict_options = options_;
+  strict_options.filter_max_reproj_error = 0.1;
+  strict_options.filter_min_tri_angle = 0.0;
+  const size_t num_filtered_observations =
+      mapper_->FilterPoints(strict_options);
+
+  EXPECT_GT(num_filtered_observations, 0);
+  EXPECT_FALSE(reconstruction_->ExistsPoint3D(corrupted_point3D_id));
+}
 }  // namespace
 }  // namespace colmap
