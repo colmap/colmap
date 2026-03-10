@@ -99,6 +99,14 @@ class IncrementalMapperTest : public ::testing::Test {
     }
   }
 
+  void BeginWithSynthesizedReconstruction() {
+    if (mapper_->Reconstruction()) {
+      mapper_->EndReconstruction(/*discard=*/false);
+    }
+    reconstruction_ = std::make_shared<Reconstruction>(gt_reconstruction_);
+    mapper_->BeginReconstruction(reconstruction_);
+  }
+
   bool IsFrameRegistered(const frame_t frame_id) const {
     const auto& reg_frame_ids = reconstruction_->RegFrameIds();
     return std::find(reg_frame_ids.begin(), reg_frame_ids.end(), frame_id) !=
@@ -364,9 +372,7 @@ TEST_F(IncrementalMapperTest, ResetInitializationStats) {
 
 // Frame filtering is disabled before the 20-frame mapper threshold.
 TEST_F(IncrementalMapperTest, FilterFramesNoOpBelowMinFrames) {
-  FindAndRegisterInitialPair();
-  TriangulateInitialPair();
-  RegisterAllRemainingImages();
+  BeginWithSynthesizedReconstruction();
 
   ASSERT_LT(reconstruction_->NumRegFrames(), 20);
 
@@ -390,9 +396,7 @@ TEST_F(IncrementalMapperTest, FilterFramesNoOpBelowMinFrames) {
 // At or above threshold, filtering removes the chosen zero-observation frame.
 TEST_F(IncrementalMapperLargeDatasetTest,
        FilterFramesRemovesZeroObservationFrameAfterThreshold) {
-  FindAndRegisterInitialPair();
-  TriangulateInitialPair();
-  RegisterAllRemainingImages();
+  BeginWithSynthesizedReconstruction();
 
   ASSERT_GE(reconstruction_->NumRegFrames(), 20);
 
@@ -417,27 +421,16 @@ TEST_F(IncrementalMapperLargeDatasetTest,
 
 // Strict reprojection filtering removes the intentionally corrupted point.
 TEST_F(IncrementalMapperTest, FilterPointsRemovesCorruptedPoint) {
-  FindAndRegisterInitialPair();
-  TriangulateInitialPair();
-  RegisterAllRemainingImages();
+  BeginWithSynthesizedReconstruction();
 
   ASSERT_GT(reconstruction_->NumPoints3D(), 0);
 
-  point3D_t corrupted_point3D_id = kInvalidPoint3DId;
-  std::vector<point3D_t> point3D_ids;
-  point3D_ids.reserve(reconstruction_->NumPoints3D());
-  for (const auto& [point3D_id, _] : reconstruction_->Points3D()) {
-    point3D_ids.push_back(point3D_id);
-  }
-  std::sort(point3D_ids.begin(), point3D_ids.end());
-  for (const point3D_t point3D_id : point3D_ids) {
-    if (reconstruction_->Point3D(point3D_id).track.Length() >= 2) {
-      corrupted_point3D_id = point3D_id;
-      break;
-    }
-  }
-
-  ASSERT_NE(corrupted_point3D_id, kInvalidPoint3DId);
+  const auto point3D_ids = reconstruction_->Point3DIds();
+  ASSERT_FALSE(point3D_ids.empty());
+  const auto it = std::max_element(point3D_ids.begin(), point3D_ids.end());
+  ASSERT_NE(it, point3D_ids.end());
+  const point3D_t corrupted_point3D_id = *it;
+  ASSERT_GE(reconstruction_->Point3D(corrupted_point3D_id).track.Length(), 2);
   reconstruction_->Point3D(corrupted_point3D_id).xyz +=
       Eigen::Vector3d(100, 100, 100);
 
