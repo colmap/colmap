@@ -117,7 +117,7 @@ void ConsistencyGraph::InitializeMap(const size_t width, const size_t height) {
   map_.resize(height, width);
   map_.setConstant(kNoConsistentImageIds);
   for (size_t i = 0; i < data_.size();) {
-    THROW_CHECK_LE(i + 2, data_.size())
+    THROW_CHECK_LT(i + 2, data_.size())
         << "Corrupt consistency graph: insufficient data at offset " << i;
     const int col = data_.at(i);
     const int row = data_.at(i + 1);
