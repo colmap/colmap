@@ -77,10 +77,11 @@ void BindBundleAdjuster(py::module& m) {
   using BASummary = BundleAdjustmentSummary;
   auto PyBundleAdjustmentSummary =
       py::classh<BASummary>(m, "BundleAdjustmentSummary")
-          .def(py::init<>())
           .def_readwrite("termination_type", &BASummary::termination_type)
           .def_readwrite("num_residuals", &BASummary::num_residuals)
+          .def_readonly("message", &BASummary::message)
           .def("is_solution_usable", &BASummary::IsSolutionUsable)
+          .def("is_unrecoverable_failure", &BASummary::IsUnrecoverableFailure)
           .def("brief_report", &BASummary::BriefReport);
   MakeDataclass(PyBundleAdjustmentSummary);
 
