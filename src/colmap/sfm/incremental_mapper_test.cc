@@ -424,8 +424,14 @@ TEST_F(IncrementalMapperTest, FilterPointsRemovesCorruptedPoint) {
   ASSERT_GT(reconstruction_->NumPoints3D(), 0);
 
   point3D_t corrupted_point3D_id = kInvalidPoint3DId;
-  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
-    if (point3D.track.Length() >= 2) {
+  std::vector<point3D_t> point3D_ids;
+  point3D_ids.reserve(reconstruction_->NumPoints3D());
+  for (const auto& [point3D_id, _] : reconstruction_->Points3D()) {
+    point3D_ids.push_back(point3D_id);
+  }
+  std::sort(point3D_ids.begin(), point3D_ids.end());
+  for (const point3D_t point3D_id : point3D_ids) {
+    if (reconstruction_->Point3D(point3D_id).track.Length() >= 2) {
       corrupted_point3D_id = point3D_id;
       break;
     }
