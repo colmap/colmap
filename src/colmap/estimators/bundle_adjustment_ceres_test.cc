@@ -133,12 +133,12 @@ TEST(DefaultBundleAdjuster, Nominal) {
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
   synthetic_noise_options.point3D_stddev = 0.1;
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
 
   BundleAdjustmentConfig config;
   for (const image_t image_id : reconstruction.RegImageIds()) {
@@ -173,12 +173,12 @@ TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
   synthetic_noise_options.point3D_stddev = 0.1;
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
 
   BundleAdjustmentConfig config;
   for (const image_t image_id : reconstruction.RegImageIds()) {
@@ -209,9 +209,9 @@ TEST(DefaultBundleAdjuster, TwoView) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -258,9 +258,9 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
   synthetic_dataset_options.num_frames_per_rig = 2;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -313,9 +313,9 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -369,9 +369,9 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -426,9 +426,9 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -490,9 +490,9 @@ TEST(DefaultBundleAdjuster, ConstantRigFromWorldRotation) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -559,9 +559,9 @@ TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -610,9 +610,9 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const auto variable_point3D_id =
       reconstruction.Image(3).Point2D(0).point3D_id;
   reconstruction.DeleteObservation(3, 0);
@@ -672,9 +672,9 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
 
   const point3D_t variable_point3D_id =
       reconstruction.Image(3).Point2D(0).point3D_id;
@@ -744,9 +744,9 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   const point3D_t constant_point3D_id1 = 1;
@@ -803,9 +803,9 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -858,9 +858,9 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -922,9 +922,9 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -998,9 +998,9 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -1062,9 +1062,9 @@ TEST(DefaultBundleAdjuster, ConstantPoints3D) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 20;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -1358,9 +1358,9 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -1403,12 +1403,11 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point3D_stddev = 0.2;
   synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
-  synthetic_noise_options.prior_position_stddev = 0.05;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
 
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
   // Add 2 outlier priors with very large covariance
@@ -1507,12 +1506,11 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point3D_stddev = 0.2;
   synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
-  synthetic_noise_options.prior_position_stddev = 0.05;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeReconstructionNoise(synthetic_noise_options, &reconstruction);
 
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
   // Add 2 confident but wrong priors.

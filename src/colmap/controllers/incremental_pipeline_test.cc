@@ -245,9 +245,10 @@ TEST(IncrementalPipeline, WithNoise) {
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
@@ -446,10 +447,10 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
   synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.prior_position_stddev = 0.0;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &gt_reconstruction, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
@@ -520,10 +521,14 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
   synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.prior_position_stddev = 1.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  ReconstructionNoiseOptions reconstruction_noise_options;
+  reconstruction_noise_options.point2D_stddev = 0.5;
+  SynthesizeReconstructionNoise(
+      reconstruction_noise_options, &gt_reconstruction, database.get());
+  PosePriorNoiseOptions pose_prior_noise_options;
+  pose_prior_noise_options.prior_position_stddev = 1.5;
+  SynthesizePosePriorNoise(
+      pose_prior_noise_options, /*pose_priors=*/nullptr, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
@@ -560,10 +565,14 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
       PosePrior::CoordinateSystem::WGS84;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.prior_position_stddev = 1.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  ReconstructionNoiseOptions reconstruction_noise_options;
+  reconstruction_noise_options.point2D_stddev = 0.5;
+  SynthesizeReconstructionNoise(
+      reconstruction_noise_options, &gt_reconstruction, database.get());
+  PosePriorNoiseOptions pose_prior_noise_options;
+  pose_prior_noise_options.prior_position_stddev = 1.5;
+  SynthesizePosePriorNoise(
+      pose_prior_noise_options, /*pose_priors=*/nullptr, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
@@ -599,9 +608,10 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   synthetic_dataset_options.prior_position = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
+  ReconstructionNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  SynthesizeReconstructionNoise(
+      synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
     auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
@@ -641,10 +651,14 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.1;
-  synthetic_noise_options.prior_position_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+  ReconstructionNoiseOptions reconstruction_noise_options;
+  reconstruction_noise_options.point2D_stddev = 0.1;
+  SynthesizeReconstructionNoise(
+      reconstruction_noise_options, &gt_reconstruction, database.get());
+  PosePriorNoiseOptions pose_prior_noise_options;
+  pose_prior_noise_options.prior_position_stddev = 0.1;
+  SynthesizePosePriorNoise(
+      pose_prior_noise_options, /*pose_priors=*/nullptr, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
     auto mapper_options = std::make_shared<IncrementalPipelineOptions>();

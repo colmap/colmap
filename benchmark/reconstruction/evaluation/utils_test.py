@@ -362,7 +362,9 @@ def create_test_reconstruction():
     synthetic_dataset_options.num_cameras_per_rig = 1
     synthetic_dataset_options.num_frames_per_rig = 5
     synthetic_dataset_options.num_points3D = 0
-    return pycolmap.synthesize_dataset(synthetic_dataset_options)
+    gt_dataset = pycolmap.SyntheticDataset()
+    pycolmap.synthesize_dataset(synthetic_dataset_options, gt_dataset)
+    return gt_dataset.reconstruction
 
 
 class TestComputeAbsErrors:

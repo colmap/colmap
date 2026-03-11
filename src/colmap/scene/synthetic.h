@@ -30,11 +30,14 @@
 #pragma once
 
 #include "colmap/feature/types.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/database.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
 #include <filesystem>
+#include <memory>
 
 namespace colmap {
 
@@ -93,28 +96,86 @@ struct SyntheticDatasetOptions {
 
   // The synthesized image file extension.
   std::string image_extension = ".png";
+
+  // If non-empty, a database is created at this path and populated alongside
+  // the reconstruction. Ignored when database is already set in
+  // SyntheticDataset.
+  std::filesystem::path database_path;
 };
 
+struct SyntheticDataset {
+  Reconstruction reconstruction;
+  PoseGraph pose_graph;
+  std::vector<PosePrior> pose_priors;
+  std::shared_ptr<Database> database;
+};
+
+// Synthesize a full dataset including reconstruction, pose graph, and pose
+// priors. If options.database_path is non-empty and dataset->database is null,
+// a database is opened at that path. Appends to existing data.
+void SynthesizeDataset(const SyntheticDatasetOptions& options,
+                       SyntheticDataset* dataset);
+// Convenience overload that only populates a reconstruction and optionally the
+// database, without producing a pose graph or pose priors.
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database = nullptr);
 
-struct SyntheticNoiseOptions {
+struct ReconstructionNoiseOptions {
   double rig_from_world_translation_stddev = 0.0;
   // Random rotation in degrees around the z-axis of the rig.
   double rig_from_world_rotation_stddev = 0.0;
   double point3D_stddev = 0.0;
   double point2D_stddev = 0.0;
-
-  // Translational standard deviation of the prior position in meters.
-  double prior_position_stddev = 1.5;
-  // Rotational standard deviation of the prior gravity in degrees.
-  double prior_gravity_stddev = 1.0;
 };
 
-void SynthesizeNoise(const SyntheticNoiseOptions& options,
-                     Reconstruction* reconstruction,
-                     Database* database = nullptr);
+struct PoseGraphNoiseOptions {
+  // Relative rotation noise in degrees for pose graph edges.
+  double rel_rotation_noise_deg = 0.0;
+  // Relative translation direction noise in degrees for pose graph edges.
+  double rel_translation_noise_deg = 0.0;
+};
+
+struct PosePriorNoiseOptions {
+  // Translational standard deviation of the prior position in meters.
+  double prior_position_stddev = 0.0;
+  // Rotational standard deviation of the prior gravity in degrees.
+  double prior_gravity_stddev = 0.0;
+};
+
+// Add Gaussian noise to frame poses, 2D/3D points in the reconstruction.
+// Optionally updates keypoints in the database.
+void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
+                                   Reconstruction* reconstruction,
+                                   Database* database = nullptr);
+void SynthesizeReconstructionNoise(const ReconstructionNoiseOptions& options,
+                                   SyntheticDataset* dataset);
+// Add noise to relative poses in pose graph edges. Optionally updates the
+// corresponding two-view geometries in the database.
+void SynthesizePoseGraphNoise(const PoseGraphNoiseOptions& options,
+                              PoseGraph* pose_graph,
+                              Database* database = nullptr);
+void SynthesizePoseGraphNoise(const PoseGraphNoiseOptions& options,
+                              SyntheticDataset* dataset);
+// Add noise to position/gravity pose priors. At least one of pose_priors or
+// database must be non-null. If pose_priors is null, priors are read from the
+// database, noised, and written back.
+void SynthesizePosePriorNoise(const PosePriorNoiseOptions& options,
+                              std::vector<PosePrior>* pose_priors = nullptr,
+                              Database* database = nullptr);
+void SynthesizePosePriorNoise(const PosePriorNoiseOptions& options,
+                              SyntheticDataset* dataset);
+
+struct DatasetNoiseOptions {
+  ReconstructionNoiseOptions reconstruction;
+  PoseGraphNoiseOptions pose_graph;
+  PosePriorNoiseOptions pose_prior;
+};
+
+// Convenience function that applies reconstruction, pose graph, and pose prior
+// noise in one call.
+void SynthesizeDatasetNoise(const DatasetNoiseOptions& options,
+                            SyntheticDataset* dataset);
 
 struct SyntheticImageOptions {
   int feature_peak_radius = 2;

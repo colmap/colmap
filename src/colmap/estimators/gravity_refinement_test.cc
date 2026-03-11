@@ -31,25 +31,13 @@
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
-
-void LoadReconstructionAndPoseGraph(const Database& database,
-                                    Reconstruction* reconstruction,
-                                    PoseGraph* pose_graph) {
-  DatabaseCache database_cache;
-  DatabaseCache::Options options;
-  database_cache.Load(database, options);
-  reconstruction->Load(database_cache);
-  pose_graph->Load(*database_cache.CorrespondenceGraph());
-}
 
 void SynthesizeGravityOutliers(std::vector<PosePrior>& pose_priors,
                                double outlier_ratio = 0.0) {
@@ -90,33 +78,25 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
 TEST(GravityRefinement, RefineGravity) {
   SetPRNGSeed(1);
 
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 25;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(synthetic_dataset_options, &dataset);
 
-  Reconstruction reconstruction;
-  PoseGraph pose_graph;
-  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
-
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  std::vector<PosePrior> pose_priors = dataset.pose_priors;
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
   RunGravityRefinement(
-      opt_grav_refine, pose_graph, reconstruction, pose_priors);
+      opt_grav_refine, dataset.pose_graph, dataset.reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
-                     gt_reconstruction,
+                     dataset.reconstruction,
                      pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }
@@ -124,33 +104,25 @@ TEST(GravityRefinement, RefineGravity) {
 TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   SetPRNGSeed(1);
 
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 25;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points3D = 0;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SyntheticDataset dataset;
+  SynthesizeDataset(synthetic_dataset_options, &dataset);
 
-  Reconstruction reconstruction;
-  PoseGraph pose_graph;
-  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
-
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  std::vector<PosePrior> pose_priors = dataset.pose_priors;
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
   RunGravityRefinement(
-      opt_grav_refine, pose_graph, reconstruction, pose_priors);
+      opt_grav_refine, dataset.pose_graph, dataset.reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
-                     gt_reconstruction,
+                     dataset.reconstruction,
                      pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }

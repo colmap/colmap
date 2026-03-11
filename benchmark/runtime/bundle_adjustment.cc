@@ -79,12 +79,12 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     reconstruction_ = std::make_unique<Reconstruction>();
     SynthesizeDataset(dataset_options, reconstruction_.get());
 
-    SyntheticNoiseOptions noise_options;
+    ReconstructionNoiseOptions noise_options;
     noise_options.point2D_stddev = 1.0;
     noise_options.point3D_stddev = 0.05;
     noise_options.rig_from_world_translation_stddev = 0.01;
     noise_options.rig_from_world_rotation_stddev = 1.0;
-    SynthesizeNoise(noise_options, reconstruction_.get());
+    SynthesizeReconstructionNoise(noise_options, reconstruction_.get());
 
     for (const image_t image_id : reconstruction_->RegImageIds()) {
       config_.AddImage(image_id);
