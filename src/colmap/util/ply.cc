@@ -1062,4 +1062,33 @@ void WriteBinaryTexturedPlyMesh(const std::filesystem::path& path,
   binary_file.close();
 }
 
+bool HasPlyMeshFaces(const std::filesystem::path& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+
+  std::string line;
+  while (std::getline(file, line)) {
+    StringTrim(&line);
+
+    if (line == "end_header") {
+      break;
+    }
+
+    const std::vector<std::string> line_elems = StringSplit(line, " ");
+    if (line_elems.size() >= 3 && line_elems[0] == "element" &&
+        line_elems[1] == "face") {
+      try {
+        if (std::stoll(line_elems[2]) > 0) {
+          return true;
+        }
+      } catch (const std::exception& e) {
+        LOG(WARNING) << "Malformed face element line in PLY header: "
+                     << e.what();
+      }
+    }
+  }
+
+  return false;
+}
+
 }  // namespace colmap
