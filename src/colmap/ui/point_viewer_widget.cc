@@ -191,7 +191,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const double reproj_error = (point2D.xy - *proj_point2D).norm();
 
     Bitmap bitmap;
-    const std::string path = JoinPaths(*options_->image_path, image.Name());
+    const std::filesystem::path path = *options_->image_path / image.Name();
     if (!bitmap.Read(path, /*as_rgb=*/true, /*linearize=*/false)) {
       LOG(ERROR) << "Cannot read image at path " << path;
       continue;

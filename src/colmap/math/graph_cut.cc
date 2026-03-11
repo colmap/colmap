@@ -87,10 +87,10 @@ class MetisGraph {
         continue;
       }
 
-      for (const auto& edge : adjacency_list[i]) {
+      for (const auto& [neighbor_idx, weight] : adjacency_list[i]) {
         edge_idx += 1;
-        adjncy_.push_back(edge.first);
-        adjwgt_.push_back(edge.second);
+        adjncy_.push_back(neighbor_idx);
+        adjwgt_.push_back(weight);
       }
     }
 
@@ -148,20 +148,19 @@ void ComputeMinGraphCutStoerWagner(
   THROW_CHECK_EQ(edges.size(), weights.size());
   THROW_CHECK_GE(edges.size(), 2);
 
-  typedef boost::property<boost::edge_weight_t, int> edge_weight_t;
-  typedef boost::adjacency_list<boost::vecS,
-                                boost::vecS,
-                                boost::undirectedS,
-                                boost::no_property,
-                                edge_weight_t>
-      undirected_graph_t;
+  using edge_weight_t = boost::property<boost::edge_weight_t, int>;
+  using undirected_graph_t = boost::adjacency_list<boost::vecS,
+                                                   boost::vecS,
+                                                   boost::undirectedS,
+                                                   boost::no_property,
+                                                   edge_weight_t>;
 
   int max_vertex_index = 0;
-  for (const auto& edge : edges) {
-    THROW_CHECK_GE(edge.first, 0);
-    THROW_CHECK_GE(edge.second, 0);
-    max_vertex_index = std::max(max_vertex_index, edge.first);
-    max_vertex_index = std::max(max_vertex_index, edge.second);
+  for (const auto& [v1, v2] : edges) {
+    THROW_CHECK_GE(v1, 0);
+    THROW_CHECK_GE(v2, 0);
+    max_vertex_index = std::max(max_vertex_index, v1);
+    max_vertex_index = std::max(max_vertex_index, v2);
   }
 
   const undirected_graph_t graph(edges.begin(),

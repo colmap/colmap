@@ -154,8 +154,8 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
 
 template <typename T>
 CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() {
-  CUDA_SAFE_CALL(cudaFreeArray(array_));
   CUDA_SAFE_CALL(cudaDestroyTextureObject(texture_));
+  CUDA_SAFE_CALL(cudaFreeArray(array_));
 }
 
 template <typename T>

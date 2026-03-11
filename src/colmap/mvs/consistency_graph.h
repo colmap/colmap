@@ -30,9 +30,8 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/types.h"
 
-#include <string>
+#include <filesystem>
 #include <vector>
 
 #include <Eigen/Core>
@@ -61,8 +60,8 @@ class ConsistencyGraph {
                     int* num_images,
                     const int** image_idxs) const;
 
-  void Read(const std::string& path);
-  void Write(const std::string& path) const;
+  void Read(const std::filesystem::path& path);
+  void Write(const std::filesystem::path& path) const;
 
  private:
   void InitializeMap(size_t width, size_t height);

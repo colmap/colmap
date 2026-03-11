@@ -6,14 +6,12 @@ IncludeBlocks: Regroup
 IncludeCategories:
   - Regex:    '^"colmap'
     Priority: 1
-  - Regex:    '^"glomap'
-    Priority: 2
   - Regex:    '^"pycolmap'
-    Priority: 3
+    Priority: 2
   - Regex:    '^"thirdparty'
-    Priority: 4
+    Priority: 3
   - Regex:    '^<[[:alnum:]_]+>'
-    Priority: 5
+    Priority: 4
   - Regex:    '.*'
-    Priority: 6
+    Priority: 5
 SortIncludes: true

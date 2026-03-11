@@ -40,7 +40,7 @@
 
 namespace {
 
-typedef std::function<int(int, char**)> command_func_t;
+using command_func_t = std::function<int(int, char**)>;
 
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
@@ -111,6 +111,7 @@ int main(int argc, char** argv) {
                         &colmap::RunImageUndistorterStandalone);
   commands.emplace_back("mapper", &colmap::RunMapper);
   commands.emplace_back("matches_importer", &colmap::RunMatchesImporter);
+  commands.emplace_back("mesh_simplifier", &colmap::RunMeshSimplifier);
   commands.emplace_back("model_aligner", &colmap::RunModelAligner);
   commands.emplace_back("model_analyzer", &colmap::RunModelAnalyzer);
   commands.emplace_back("model_comparer", &colmap::RunModelComparer);
@@ -127,6 +128,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
+  commands.emplace_back("reconstruction_clusterer",
+                        &colmap::RunReconstructionClusterer);
   commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
   commands.emplace_back("rotation_averager", &colmap::RunRotationAverager);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);

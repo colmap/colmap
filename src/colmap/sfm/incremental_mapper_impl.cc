@@ -30,18 +30,42 @@
 #include "colmap/sfm/incremental_mapper_impl.h"
 
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/scene/projection.h"
-#include "colmap/util/misc.h"
+#include "colmap/math/math.h"
 #include "colmap/util/threading.h"
 
 #include <array>
-#include <fstream>
 
 namespace colmap {
 namespace {
+
+// Struct to hold meta-data for ranking images during initialization.
+// Used by both FindFirstInitialImage and FindSecondInitialImage.
+struct InitImageInfo {
+  image_t image_id;
+  bool prior_focal_length;
+  size_t num_correspondences;
+};
+
+// Compare images for sorting: prefer images with prior focal length,
+// then by number of correspondences (descending).
+inline bool CompareImageInfo(const InitImageInfo& a, const InitImageInfo& b) {
+  if (a.prior_focal_length != b.prior_focal_length) {
+    return a.prior_focal_length > b.prior_focal_length;
+  }
+  return a.num_correspondences > b.num_correspondences;
+}
+
+std::vector<image_t> ExtractSortedImageIds(
+    std::vector<InitImageInfo>& image_infos) {
+  std::sort(image_infos.begin(), image_infos.end(), CompareImageInfo);
+  std::vector<image_t> image_ids(image_infos.size());
+  for (size_t i = 0; i < image_infos.size(); ++i) {
+    image_ids[i] = image_infos[i].image_id;
+  }
+  return image_ids;
+}
 
 void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
                              std::vector<image_t>* sorted_images_ids) {
@@ -82,19 +106,12 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const Reconstruction& reconstruction,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations) {
-  // Struct to hold meta-data for ranking images.
-  struct ImageInfo {
-    image_t image_id;
-    bool prior_focal_length;
-    image_t num_correspondences;
-  };
-
   const size_t init_max_reg_trials =
       static_cast<size_t>(options.init_max_reg_trials);
 
   // Collect information of all not yet registered images with
   // correspondences.
-  std::vector<ImageInfo> image_infos;
+  std::vector<InitImageInfo> image_infos;
   image_infos.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
     // Only images with correspondences can be registered.
@@ -117,40 +134,13 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
       continue;
     }
 
-    const Camera& camera = *image.CameraPtr();
-    ImageInfo image_info;
-    image_info.image_id = image_id;
-    image_info.prior_focal_length = camera.has_prior_focal_length;
-    image_info.num_correspondences =
-        correspondence_graph.NumCorrespondencesForImage(image_id);
-    image_infos.push_back(image_info);
+    image_infos.push_back(
+        {image_id,
+         image.CameraPtr()->has_prior_focal_length,
+         correspondence_graph.NumCorrespondencesForImage(image_id)});
   }
 
-  // Sort images such that images with a prior focal length and more
-  // correspondences are preferred, i.e. they appear in the front of the list.
-  std::sort(
-      image_infos.begin(),
-      image_infos.end(),
-      [](const ImageInfo& image_info1, const ImageInfo& image_info2) {
-        if (image_info1.prior_focal_length && !image_info2.prior_focal_length) {
-          return true;
-        } else if (!image_info1.prior_focal_length &&
-                   image_info2.prior_focal_length) {
-          return false;
-        } else {
-          return image_info1.num_correspondences >
-                 image_info2.num_correspondences;
-        }
-      });
-
-  // Extract image identifiers in sorted order.
-  std::vector<image_t> image_ids;
-  image_ids.reserve(image_infos.size());
-  for (const ImageInfo& image_info : image_infos) {
-    image_ids.push_back(image_info.image_id);
-  }
-
-  return image_ids;
+  return ExtractSortedImageIds(image_infos);
 }
 
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
@@ -177,56 +167,22 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     }
   }
 
-  // Struct to hold meta-data for ranking images.
-  struct ImageInfo {
-    image_t image_id;
-    bool prior_focal_length;
-    point2D_t num_correspondences;
-  };
-
   const size_t init_min_num_inliers =
       static_cast<size_t>(options.init_min_num_inliers);
 
   // Compose image information in a compact form for sorting.
-  std::vector<ImageInfo> image_infos;
+  std::vector<InitImageInfo> image_infos;
   image_infos.reserve(num_correspondences.size());
   for (const auto& [image_id, num_corrs] : num_correspondences) {
     if (num_corrs >= init_min_num_inliers) {
       const Image& image = reconstruction.Image(image_id);
-      const Camera& camera = *image.CameraPtr();
-      ImageInfo image_info;
-      image_info.image_id = image_id;
-      image_info.prior_focal_length = camera.has_prior_focal_length;
-      image_info.num_correspondences = num_corrs;
-      image_infos.push_back(image_info);
+      image_infos.push_back({image_id,
+                             image.CameraPtr()->has_prior_focal_length,
+                             static_cast<size_t>(num_corrs)});
     }
   }
 
-  // Sort images such that images with a prior focal length and more
-  // correspondences are preferred, i.e. they appear in the front of the list.
-  std::sort(
-      image_infos.begin(),
-      image_infos.end(),
-      [](const ImageInfo& image_info1, const ImageInfo& image_info2) {
-        if (image_info1.prior_focal_length && !image_info2.prior_focal_length) {
-          return true;
-        } else if (!image_info1.prior_focal_length &&
-                   image_info2.prior_focal_length) {
-          return false;
-        } else {
-          return image_info1.num_correspondences >
-                 image_info2.num_correspondences;
-        }
-      });
-
-  // Extract image identifiers in sorted order.
-  std::vector<image_t> image_ids;
-  image_ids.reserve(image_infos.size());
-  for (const ImageInfo& image_info : image_infos) {
-    image_ids.push_back(image_info.image_id);
-  }
-
-  return image_ids;
+  return ExtractSortedImageIds(image_infos);
 }
 
 bool IncrementalMapperImpl::FindInitialImagePair(
@@ -353,7 +309,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
     const ObservationManager& obs_manager,
-    const std::unordered_set<image_t>& filtered_images,
+    const std::unordered_set<frame_t>& filtered_frames,
     std::unordered_map<image_t, size_t>& num_reg_trials,
     bool structure_less) {
   THROW_CHECK(options.Check());
@@ -407,7 +363,8 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
     const float rank = rank_image_func(image_id, obs_manager);
-    if (filtered_images.count(image_id) == 0 && image_num_reg_trials == 0) {
+    const frame_t frame_id = image.FrameId();
+    if (filtered_frames.count(frame_id) == 0 && image_num_reg_trials == 0) {
       image_ranks.emplace_back(image_id, rank);
     } else {
       other_image_ranks.emplace_back(image_id, rank);
@@ -629,6 +586,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     return it->second;
   };
 
+  FeatureMatches matches;
   for (const data_t& image_id1 : frame1.ImageIds()) {
     const Image& image1 = database_cache.Image(image_id1.id);
     const Camera& camera1 = database_cache.Camera(image1.CameraId());
@@ -639,9 +597,8 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
       const Camera& camera2 = database_cache.Camera(image2.CameraId());
       const size_t camera_idx2 = maybe_add_camera(rig2, camera2);
 
-      const FeatureMatches matches =
-          database_cache.CorrespondenceGraph()
-              ->FindCorrespondencesBetweenImages(image_id1.id, image_id2.id);
+      database_cache.CorrespondenceGraph()->ExtractMatchesBetweenImages(
+          image_id1.id, image_id2.id, matches);
       for (const auto& match : matches) {
         points2D1.push_back(image1.Point2D(match.point2D_idx1).xy);
         points2D2.push_back(image2.Point2D(match.point2D_idx2).xy);
@@ -720,9 +677,9 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
   const Camera& camera2 = database_cache.Camera(image2.CameraId());
 
-  const FeatureMatches matches =
-      database_cache.CorrespondenceGraph()->FindCorrespondencesBetweenImages(
-          image_id1, image_id2);
+  FeatureMatches matches;
+  database_cache.CorrespondenceGraph()->ExtractMatchesBetweenImages(
+      image_id1, image_id2, matches);
 
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());
@@ -751,13 +708,13 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   VLOG(3) << "Initial image pair with config " << two_view_geometry.config
           << ", " << two_view_geometry.inlier_matches.size()
           << " inlier matches, "
-          << two_view_geometry.cam2_from_cam1->translation.z()
+          << two_view_geometry.cam2_from_cam1->translation().z()
           << " z translation, " << RadToDeg(two_view_geometry.tri_angle)
           << " deg triangulation angle";
 
   if (static_cast<int>(two_view_geometry.inlier_matches.size()) <
           options.init_min_num_inliers ||
-      std::abs(two_view_geometry.cam2_from_cam1->translation.z()) >=
+      std::abs(two_view_geometry.cam2_from_cam1->translation().z()) >=
           options.init_max_forward_motion ||
       two_view_geometry.tri_angle <= DegToRad(options.init_min_tri_angle)) {
     return false;

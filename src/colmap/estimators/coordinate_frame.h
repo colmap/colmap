@@ -32,7 +32,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
 
-#include <Eigen/Core>
+#include <filesystem>
 
 namespace colmap {
 
@@ -67,7 +67,7 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction,
-    const std::string& image_path);
+    const std::filesystem::path& image_path);
 #endif
 
 // Aligns the reconstruction to the plane defined by running PCA on the 3D

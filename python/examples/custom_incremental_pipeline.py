@@ -10,24 +10,49 @@ import custom_bundle_adjustment
 import enlighten
 
 import pycolmap
-from pycolmap import logging
+from pycolmap import (
+    IncrementalMapper,
+    IncrementalMapperOptions,
+    IncrementalPipeline,
+    IncrementalPipelineCallback,
+    IncrementalPipelineOptions,
+    IncrementalPipelineStatus,
+    Reconstruction,
+    ReconstructionManager,
+    logging,
+)
 
 
-def write_snapshot(
-    reconstruction: pycolmap.Reconstruction, snapshot_path: Path
-) -> None:
+def write_snapshot(reconstruction: Reconstruction, snapshot_path: Path) -> None:
     logging.info("Creating snapshot")
     timestamp = time.time() * 1000
     path = snapshot_path / f"{timestamp:010d}"
     path.mkdir(exist_ok=True, parents=True)
     logging.verbose(1, f"=> Writing to {path}")
-    reconstruction.write(str(path))
+    reconstruction.write(path)
+
+
+def has_unknown_sensor_from_rig(
+    reconstruction: Reconstruction,
+) -> bool:
+    parameterized_rig_ids = set()
+    for image in reconstruction.images.values():
+        parameterized_rig_ids.add(image.frame.rig_id)
+    for rig_id in parameterized_rig_ids:
+        rig = reconstruction.rig(rig_id)
+        for sensor_id, sensor_from_rig in rig.non_ref_sensors.items():
+            if (
+                sensor_id.type == pycolmap.SensorType.CAMERA
+                and sensor_from_rig is None
+            ):
+                return True
+    return False
 
 
 def iterative_global_refinement(
-    options: pycolmap.IncrementalPipelineOptions,
-    mapper_options: pycolmap.IncrementalMapperOptions,
-    mapper: pycolmap.IncrementalMapper,
+    options: IncrementalPipelineOptions,
+    mapper_options: IncrementalMapperOptions,
+    mapper: IncrementalMapper,
 ) -> None:
     logging.info("Retriangulation and Global bundle adjustment")
     # The following is equivalent to mapper.iterative_global_refinement(...)
@@ -43,11 +68,11 @@ def iterative_global_refinement(
 
 
 def initialize_reconstruction(
-    controller: pycolmap.IncrementalPipeline,
-    mapper: pycolmap.IncrementalMapper,
-    mapper_options: pycolmap.IncrementalMapperOptions,
-    reconstruction: pycolmap.Reconstruction,
-) -> pycolmap.IncrementalMapperStatus:
+    controller: IncrementalPipeline,
+    mapper: IncrementalMapper,
+    mapper_options: IncrementalMapperOptions,
+    reconstruction: Reconstruction,
+) -> IncrementalPipelineStatus:
     """Equivalent to IncrementalPipeline.initialize_reconstruction(...)"""
     options = controller.options
     init_pair = (options.init_image_id1, options.init_image_id2)
@@ -58,18 +83,18 @@ def initialize_reconstruction(
         ret = mapper.find_initial_image_pair(mapper_options, *init_pair)
         if ret is None:
             logging.info("No good initial image pair found.")
-            return pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR
+            return IncrementalPipelineStatus.NO_INITIAL_PAIR
         init_pair, init_cam2_from_cam1 = ret
     else:
         if not all(reconstruction.exists_image(i) for i in init_pair):
             logging.info(f"=> Initial image pair {init_pair} does not exist.")
-            return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
+            return IncrementalPipelineStatus.NO_INITIAL_PAIR
         maybe_init_cam2_from_cam1 = mapper.estimate_initial_two_view_geometry(
             mapper_options, *init_pair
         )
         if maybe_init_cam2_from_cam1 is None:
-            logging.info("Provided pair is insuitable for initialization")
-            return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
+            logging.info("Provided pair is unsuitable for initialization")
+            return IncrementalPipelineStatus.BAD_INITIAL_PAIR
         init_cam2_from_cam1 = maybe_init_cam2_from_cam1
     logging.info(
         f"Registering initial image pair #{init_pair[0]} and #{init_pair[1]}"
@@ -77,11 +102,14 @@ def initialize_reconstruction(
     mapper.register_initial_image_pair(
         mapper_options, *init_pair, init_cam2_from_cam1
     )
+
+    tri_options = options.get_triangulation()
+    tri_options.min_angle = mapper_options.init_min_tri_angle
     for image_id in init_pair:
         image = reconstruction.images[image_id]
         assert image.frame is not None
         for data_id in image.frame.image_ids:
-            mapper.triangulate_image(options.get_triangulation(), data_id.id)
+            mapper.triangulate_image(tri_options, data_id.id)
 
     logging.info("Global bundle adjustment")
     # The following is equivalent to: mapper.adjust_global_bundle(...)
@@ -97,30 +125,33 @@ def initialize_reconstruction(
         reconstruction.num_reg_frames() == 0
         or reconstruction.num_points3D() == 0
     ):
-        return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
+        return IncrementalPipelineStatus.BAD_INITIAL_PAIR
     if options.extract_colors:
         reconstruction.extract_colors_for_all_images(options.image_path)
-    return pycolmap.IncrementalMapperStatus.SUCCESS
+    return IncrementalPipelineStatus.SUCCESS
 
 
 def reconstruct_sub_model(
-    controller: pycolmap.IncrementalPipeline,
-    mapper: pycolmap.IncrementalMapper,
-    mapper_options: pycolmap.IncrementalMapperOptions,
-    reconstruction: pycolmap.Reconstruction,
-) -> pycolmap.IncrementalMapperStatus:
+    controller: IncrementalPipeline,
+    mapper: IncrementalMapper,
+    mapper_options: IncrementalMapperOptions,
+    reconstruction: Reconstruction,
+) -> IncrementalPipelineStatus:
     """Equivalent to IncrementalPipeline.reconstruct_sub_model(...)"""
-    # register initial pair
     mapper.begin_reconstruction(reconstruction)
+
+    if has_unknown_sensor_from_rig(reconstruction):
+        return IncrementalPipelineStatus.UNKNOWN_SENSOR_FROM_RIG
+
     if reconstruction.num_reg_frames() == 0:
         init_status = initialize_reconstruction(
             controller, mapper, mapper_options, reconstruction
         )
-        if init_status != pycolmap.IncrementalMapperStatus.SUCCESS:
+        if init_status != IncrementalPipelineStatus.SUCCESS:
             return init_status
-        controller.callback(
-            pycolmap.IncrementalMapperCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK
-        )
+    controller.callback(
+        IncrementalPipelineCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK
+    )
 
     options = controller.options
 
@@ -140,8 +171,11 @@ def reconstruct_sub_model(
     while True:
         if not (reg_next_success or prev_reg_next_success):
             break
+        if controller.check_reached_max_runtime():
+            break
         prev_reg_next_success = reg_next_success
         reg_next_success = False
+        next_image_id = None
         for structure_less in structure_less_flags:
             next_images = mapper.find_next_images(
                 mapper_options, structure_less=structure_less
@@ -149,7 +183,7 @@ def reconstruct_sub_model(
             for reg_trial, next_image_id in enumerate(next_images):
                 logging.info(
                     f"Registering image #{next_image_id} "
-                    f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
+                    f"(num_reg_frames={reconstruction.num_reg_frames()})"
                 )
                 if structure_less:
                     logging.info(
@@ -191,12 +225,12 @@ def reconstruct_sub_model(
                 kMinNumInitialRegTrials = 30
                 if (
                     reg_trial >= kMinNumInitialRegTrials
-                    and reconstruction.num_reg_frames() < options.min_model_size
+                    and reconstruction.num_reg_images() < options.min_model_size
                 ):
                     break
             if reg_next_success:
                 break
-        if reg_next_success:
+        if reg_next_success and next_image_id is not None:
             image = reconstruction.images[next_image_id]
             assert image.frame is not None
             for data_id in image.frame.image_ids:
@@ -219,16 +253,16 @@ def reconstruct_sub_model(
                 iterative_global_refinement(options, mapper_options, mapper)
                 ba_prev_num_points = reconstruction.num_points3D()
                 ba_prev_num_reg_frames = reconstruction.num_reg_frames()
-            if (
-                options.extract_colors
-                and not reconstruction.extract_colors_for_image(
-                    next_image_id, options.image_path
-                )
-            ):
-                logging.warning(
-                    f"Could not read image {next_image_id} "
-                    f"at path {options.image_path}"
-                )
+            if options.extract_colors:
+                for data_id in image.frame.image_ids:
+                    if not reconstruction.extract_colors_for_image(
+                        data_id.id, options.image_path
+                    ):
+                        logging.warning(
+                            f"Could not read image "
+                            f"{reconstruction.images[data_id.id].name} "
+                            f"at path {options.image_path}"
+                        )
             if (
                 options.snapshot_frames_freq > 0
                 and reconstruction.num_reg_frames()
@@ -237,27 +271,32 @@ def reconstruct_sub_model(
                 snapshot_prev_num_reg_frames = reconstruction.num_reg_frames()
                 write_snapshot(reconstruction, Path(options.snapshot_path))
             controller.callback(
-                pycolmap.IncrementalMapperCallback.NEXT_IMAGE_REG_CALLBACK
+                IncrementalPipelineCallback.NEXT_IMAGE_REG_CALLBACK
             )
         if mapper.num_shared_reg_images() >= int(options.max_model_overlap):
             break
         if (not reg_next_success) and prev_reg_next_success:
             iterative_global_refinement(options, mapper_options, mapper)
+
+    if controller.check_reached_max_runtime():
+        return pycolmap.IncrementalPipelineStatus.INTERRUPTED
+
+    # Only run final global BA, if last incremental BA was not global
     if (
-        reconstruction.num_reg_frames() >= 2
+        reconstruction.num_reg_frames() > 0
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
         and reconstruction.num_points3D() != ba_prev_num_points
     ):
         iterative_global_refinement(options, mapper_options, mapper)
-    return pycolmap.IncrementalMapperStatus.SUCCESS
+    return IncrementalPipelineStatus.SUCCESS
 
 
 def reconstruct(
-    controller: pycolmap.IncrementalPipeline,
-    mapper: pycolmap.IncrementalMapper,
-    mapper_options: pycolmap.IncrementalMapperOptions,
+    controller: IncrementalPipeline,
+    mapper: IncrementalMapper,
+    mapper_options: IncrementalMapperOptions,
     continue_reconstruction: bool,
-) -> None:
+) -> IncrementalPipelineStatus:
     """Equivalent to IncrementalPipeline.reconstruct(...)"""
     options = controller.options
 
@@ -265,6 +304,8 @@ def reconstruct(
     reconstruction_manager = controller.reconstruction_manager
 
     for num_trials in range(options.init_num_trials):
+        if controller.check_reached_max_runtime():
+            break
         if not continue_reconstruction or num_trials > 0:
             reconstruction_idx = reconstruction_manager.add()
         else:
@@ -274,66 +315,85 @@ def reconstruct(
         status = reconstruct_sub_model(
             controller, mapper, mapper_options, reconstruction
         )
-        if status == pycolmap.IncrementalMapperStatus.INTERRUPTED:
+        if status == IncrementalPipelineStatus.INTERRUPTED:
+            reconstruction.update_point_3d_errors()
             logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
             pycolmap.align_reconstruction_to_orig_rig_scales(
                 database_cache.rigs, reconstruction
             )
-        elif status == pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR:
-            logging.info("Disacarding reconstruction due to no initial pair")
+        elif status == IncrementalPipelineStatus.UNKNOWN_SENSOR_FROM_RIG:
+            logging.error(
+                "Discarding reconstruction due to unknown sensor_from_rig "
+                "poses. Either explicitly define the poses by configuring the "
+                "rigs or first run reconstruction without configured rigs and "
+                "then derive the poses from the initial reconstruction for a "
+                "subsequent reconstruction with rig constraints. See "
+                "documentation for detailed instructions."
+            )
             mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
-            return
-        elif status == pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR:
+            return IncrementalPipelineStatus.STOP
+        elif status == IncrementalPipelineStatus.BAD_INITIAL_PAIR:
             logging.info("Disacarding reconstruction due to bad initial pair")
             mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
-        elif status == pycolmap.IncrementalMapperStatus.SUCCESS:
-            total_num_reg_frames = mapper.num_total_reg_images()
-            min_model_size = min(
-                0.8 * database_cache.num_images(), options.min_model_size
-            )
+        elif status == IncrementalPipelineStatus.NO_INITIAL_PAIR:
+            logging.info("Disacarding reconstruction due to no initial pair")
+            mapper.end_reconstruction(True)
+            reconstruction_manager.delete(reconstruction_idx)
+            return IncrementalPipelineStatus.CONTINUE
+        elif status == IncrementalPipelineStatus.SUCCESS:
+            num_reg_images = reconstruction.num_reg_images()
+            total_num_reg_images = mapper.num_total_reg_images()
             if (
                 options.multiple_models
                 and reconstruction_manager.size() > 1
-                and (
-                    reconstruction.num_reg_frames() < min_model_size
-                    or reconstruction.num_reg_frames() == 0
-                )
-            ):
+                and num_reg_images < options.min_model_size
+            ) or num_reg_images == 0:
                 logging.info(
                     "Discarding reconstruction due to insufficient size"
                 )
                 mapper.end_reconstruction(True)
                 reconstruction_manager.delete(reconstruction_idx)
             else:
+                reconstruction.update_point_3d_errors()
                 logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
                 pycolmap.align_reconstruction_to_orig_rig_scales(
                     database_cache.rigs, reconstruction
                 )
             controller.callback(
-                pycolmap.IncrementalMapperCallback.LAST_IMAGE_REG_CALLBACK
+                IncrementalPipelineCallback.LAST_IMAGE_REG_CALLBACK
             )
             if (
                 not options.multiple_models
                 or reconstruction_manager.size() >= options.max_num_models
-                or total_num_reg_frames >= database_cache.num_images() - 1
+                or total_num_reg_images >= database_cache.num_images() - 1
             ):
-                return
+                return IncrementalPipelineStatus.STOP
         else:
             logging.fatal(f"Unknown reconstruction status: {status}")
 
+    return IncrementalPipelineStatus.CONTINUE
 
-def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
+
+def main_incremental_mapper(controller: IncrementalPipeline) -> None:
     """Equivalent to IncrementalPipeline.run()"""
     timer = pycolmap.Timer()
     timer.start()
 
     database_cache = controller.database_cache
+
     if database_cache.num_images() == 0:
         logging.warning("No images with matches found in the database")
+        return
+
+    if (
+        controller.options.use_prior_position
+        and database_cache.num_pose_priors() == 0
+    ):
+        logging.warning("No pose priors")
         return
 
     reconstruction_manager = controller.reconstruction_manager
@@ -345,12 +405,23 @@ def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
             "but multiple are given"
         )
 
-    mapper = pycolmap.IncrementalMapper(database_cache)
+    num_images = database_cache.num_images()
+    mapper = IncrementalMapper(database_cache)
     mapper_options = controller.options.get_mapper()
-    reconstruct(controller, mapper, mapper_options, continue_reconstruction)
+    if (
+        reconstruct(controller, mapper, mapper_options, continue_reconstruction)
+        == IncrementalPipelineStatus.STOP
+    ):
+        return
+
+    def should_stop():
+        return (
+            mapper.num_total_reg_images() == num_images
+            or controller.check_reached_max_runtime()
+        )
 
     for _ in range(2):  # number of relaxations
-        if mapper.num_total_reg_images() == database_cache.num_images():
+        if should_stop():
             break
 
         logging.info("=> Relaxing the initialization constraints")
@@ -358,19 +429,33 @@ def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
             mapper_options.init_min_num_inliers / 2
         )
         mapper.reset_initialization_stats()
-        reconstruct(
-            controller, mapper, mapper_options, continue_reconstruction=False
-        )
+        if (
+            reconstruct(
+                controller,
+                mapper,
+                mapper_options,
+                continue_reconstruction=False,
+            )
+            == IncrementalPipelineStatus.STOP
+        ):
+            return
 
-        if mapper.num_total_reg_images() == database_cache.num_images():
+        if should_stop():
             break
 
         logging.info("=> Relaxing the initialization constraints")
         mapper_options.init_min_tri_angle /= 2
         mapper.reset_initialization_stats()
-        reconstruct(
-            controller, mapper, mapper_options, continue_reconstruction=False
-        )
+        if (
+            reconstruct(
+                controller,
+                mapper,
+                mapper_options,
+                continue_reconstruction=False,
+            )
+            == IncrementalPipelineStatus.STOP
+        ):
+            return
     timer.print_minutes()
 
 
@@ -378,25 +463,23 @@ def main(
     database_path: Path,
     image_path: Path,
     output_path: Path,
-    options: pycolmap.IncrementalPipelineOptions | None = None,
+    options: IncrementalPipelineOptions | None = None,
     input_path: Path | None = None,
-) -> dict[int, pycolmap.Reconstruction]:
+) -> dict[int, Reconstruction]:
     if options is None:
-        options = pycolmap.IncrementalPipelineOptions()
-    options.image_path = str(image_path)
+        options = IncrementalPipelineOptions()
+    options.image_path = image_path
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():
         logging.fatal(f"Image path does not exist: {image_path}")
     output_path.mkdir(exist_ok=True, parents=True)
-    reconstruction_manager = pycolmap.ReconstructionManager()
+    reconstruction_manager = ReconstructionManager()
     if input_path:
-        reconstruction_manager.read(str(input_path))
+        reconstruction_manager.read(input_path)
 
-    with pycolmap.Database.open(str(database_path)) as database:
-        mapper = pycolmap.IncrementalPipeline(
-            options, database, reconstruction_manager
-        )
+    with pycolmap.Database.open(database_path) as database:
+        mapper = IncrementalPipeline(options, database, reconstruction_manager)
         num_images = database.num_images()
         with enlighten.Manager() as manager:
             with manager.counter(
@@ -404,17 +487,17 @@ def main(
             ) as pbar:
                 pbar.update(0, force=True)
                 mapper.add_callback(
-                    pycolmap.IncrementalMapperCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK,
+                    IncrementalPipelineCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK,
                     lambda: pbar.update(2),
                 )
                 mapper.add_callback(
-                    pycolmap.IncrementalMapperCallback.NEXT_IMAGE_REG_CALLBACK,
+                    IncrementalPipelineCallback.NEXT_IMAGE_REG_CALLBACK,
                     lambda: pbar.update(1),
                 )
                 main_incremental_mapper(mapper)
 
     # write and output
-    reconstruction_manager.write(str(output_path))
+    reconstruction_manager.write(output_path)
     reconstructions = {}
     for i in range(reconstruction_manager.size()):
         reconstructions[i] = reconstruction_manager.get(i)

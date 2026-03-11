@@ -32,6 +32,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/threading.h"
 
+#include <fstream>
 #include <numeric>
 
 namespace colmap {
@@ -46,10 +47,10 @@ Workspace::Workspace(const Options& options) : options_(options) {
     }
   }
 
-  depth_map_path_ = EnsureTrailingSlash(
-      JoinPaths(options_.workspace_path, options_.stereo_folder, "depth_maps"));
-  normal_map_path_ = EnsureTrailingSlash(JoinPaths(
-      options_.workspace_path, options_.stereo_folder, "normal_maps"));
+  depth_map_path_ =
+      options_.workspace_path / options_.stereo_folder / "depth_maps";
+  normal_map_path_ =
+      options_.workspace_path / options_.stereo_folder / "normal_maps";
 }
 
 std::string Workspace::GetFileName(const int image_idx) const {
@@ -116,27 +117,27 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
 }
 
 const Bitmap& Workspace::GetBitmap(const int image_idx) {
-  return *bitmaps_[image_idx];
+  return *THROW_CHECK_NOTNULL(bitmaps_.at(image_idx));
 }
 
 const DepthMap& Workspace::GetDepthMap(const int image_idx) {
-  return *depth_maps_[image_idx];
+  return *THROW_CHECK_NOTNULL(depth_maps_.at(image_idx));
 }
 
 const NormalMap& Workspace::GetNormalMap(const int image_idx) {
-  return *normal_maps_[image_idx];
+  return *THROW_CHECK_NOTNULL(normal_maps_.at(image_idx));
 }
 
-std::string Workspace::GetBitmapPath(const int image_idx) const {
+std::filesystem::path Workspace::GetBitmapPath(const int image_idx) const {
   return model_.images.at(image_idx).GetPath();
 }
 
-std::string Workspace::GetDepthMapPath(const int image_idx) const {
-  return depth_map_path_ + GetFileName(image_idx);
+std::filesystem::path Workspace::GetDepthMapPath(const int image_idx) const {
+  return depth_map_path_ / GetFileName(image_idx);
 }
 
-std::string Workspace::GetNormalMapPath(const int image_idx) const {
-  return normal_map_path_ + GetFileName(image_idx);
+std::filesystem::path Workspace::GetNormalMapPath(const int image_idx) const {
+  return normal_map_path_ / GetFileName(image_idx);
 }
 
 bool Workspace::HasBitmap(const int image_idx) const {
@@ -175,7 +176,11 @@ CachedWorkspace::CachedWorkspace(const Options& options)
              [](const int) { return std::make_shared<CachedImage>(); }) {}
 
 const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
-  auto cached_image = cache_.Get(image_idx);
+  std::shared_ptr<CachedImage> cached_image;
+  {
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    cached_image = cache_.Get(image_idx);
+  }
   std::lock_guard<std::mutex> lock(cached_image->mutex);
   if (!cached_image->bitmap) {
     cached_image->bitmap = std::make_unique<Bitmap>();
@@ -185,13 +190,21 @@ const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
                                     model_.images.at(image_idx).GetHeight());
     }
     cached_image->num_bytes += cached_image->bitmap->NumBytes();
-    cache_.UpdateNumBytes(image_idx);
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    // Handle the case where another thread has already evicted the image.
+    if (cache_.Exists(image_idx)) {
+      cache_.UpdateNumBytes(image_idx);
+    }
   }
   return *cached_image->bitmap;
 }
 
 const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
-  auto cached_image = cache_.Get(image_idx);
+  std::shared_ptr<CachedImage> cached_image;
+  {
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    cached_image = cache_.Get(image_idx);
+  }
   std::lock_guard<std::mutex> lock(cached_image->mutex);
   if (!cached_image->depth_map) {
     cached_image->depth_map = std::make_unique<DepthMap>();
@@ -202,13 +215,21 @@ const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
           model_.images.at(image_idx).GetHeight());
     }
     cached_image->num_bytes += cached_image->depth_map->GetNumBytes();
-    cache_.UpdateNumBytes(image_idx);
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    // Handle the case where another thread has already evicted the image.
+    if (cache_.Exists(image_idx)) {
+      cache_.UpdateNumBytes(image_idx);
+    }
   }
   return *cached_image->depth_map;
 }
 
 const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
-  auto cached_image = cache_.Get(image_idx);
+  std::shared_ptr<CachedImage> cached_image;
+  {
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    cached_image = cache_.Get(image_idx);
+  }
   std::lock_guard<std::mutex> lock(cached_image->mutex);
   if (!cached_image->normal_map) {
     cached_image->normal_map = std::make_unique<NormalMap>();
@@ -219,24 +240,26 @@ const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
           model_.images.at(image_idx).GetHeight());
     }
     cached_image->num_bytes += cached_image->normal_map->GetNumBytes();
-    cache_.UpdateNumBytes(image_idx);
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    // Handle the case where another thread has already evicted the image.
+    if (cache_.Exists(image_idx)) {
+      cache_.UpdateNumBytes(image_idx);
+    }
   }
   return *cached_image->normal_map;
 }
 
 void ImportPMVSWorkspace(const Workspace& workspace,
                          const std::string& option_name) {
-  const std::string& workspace_path = workspace.GetOptions().workspace_path;
-  const std::string& stereo_folder = workspace.GetOptions().stereo_folder;
+  const auto& workspace_path = workspace.GetOptions().workspace_path;
+  const auto& stereo_folder = workspace.GetOptions().stereo_folder;
 
-  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder));
-  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "depth_maps"));
-  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "normal_maps"));
-  CreateDirIfNotExists(
-      JoinPaths(workspace_path, stereo_folder, "consistency_graphs"));
+  CreateDirIfNotExists(workspace_path / stereo_folder);
+  CreateDirIfNotExists(workspace_path / stereo_folder / "depth_maps");
+  CreateDirIfNotExists(workspace_path / stereo_folder / "normal_maps");
+  CreateDirIfNotExists(workspace_path / stereo_folder / "consistency_graphs");
 
-  const auto option_lines =
-      ReadTextFileLines(JoinPaths(workspace_path, option_name));
+  const auto option_lines = ReadTextFileLines(workspace_path / option_name);
   for (const auto& line : option_lines) {
     if (!StringStartsWith(line, "timages")) {
       continue;
@@ -275,9 +298,8 @@ void ImportPMVSWorkspace(const Workspace& workspace,
         workspace.GetModel().GetMaxOverlappingImagesFromPMVS();
 
     const auto patch_match_path =
-        JoinPaths(workspace_path, stereo_folder, "patch-match.cfg");
-    const auto fusion_path =
-        JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
+        workspace_path / stereo_folder / "patch-match.cfg";
+    const auto fusion_path = workspace_path / stereo_folder / "fusion.cfg";
     std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
     std::ofstream fusion_file(fusion_path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(patch_match_file, patch_match_path);

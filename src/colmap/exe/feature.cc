@@ -88,7 +88,7 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
 }
 
 int RunFeatureExtractor(int argc, char** argv) {
-  std::string image_list_path;
+  std::filesystem::path image_list_path;
   int camera_mode = -1;
   std::string descriptor_normalization = "l1_root";
 
@@ -153,8 +153,8 @@ int RunFeatureExtractor(int argc, char** argv) {
 }
 
 int RunFeatureImporter(int argc, char** argv) {
-  std::string import_path;
-  std::string image_list_path;
+  std::filesystem::path import_path;
+  std::filesystem::path image_list_path;
   int camera_mode = -1;
 
   OptionManager options;
@@ -225,7 +225,7 @@ int RunExhaustiveMatcher(int argc, char** argv) {
 }
 
 int RunMatchesImporter(int argc, char** argv) {
-  std::string match_list_path;
+  std::filesystem::path match_list_path;
   std::string match_type = "pairs";
 
   OptionManager options;
@@ -414,7 +414,7 @@ int RunGeometricVerifier(int argc, char** argv) {
 
 void RunGuidedGeometricVerifierImpl(
     const Reconstruction& reconstruction,
-    const std::string& database_path,
+    const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
     int num_threads) {
@@ -461,7 +461,7 @@ void RunGuidedGeometricVerifierImpl(
 }
 
 int RunGuidedGeometricVerifier(int argc, char** argv) {
-  std::string input_path;
+  std::filesystem::path input_path;
   ExistingMatchedPairingOptions pairing_options;
   int num_threads = -1;
 

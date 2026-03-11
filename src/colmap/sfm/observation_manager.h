@@ -103,6 +103,13 @@ class ObservationManager {
                                 const std::unordered_set<image_t>& image_ids);
   size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
 
+  // Filter points with track length below threshold.
+  //
+  // @param min_track_length   Minimum track length to keep a point.
+  //
+  // @return                   The number of filtered observations.
+  size_t FilterPoints3DWithShortTracks(size_t min_track_length);
+
   // Filter observations that have negative depth.
   //
   // @return    The number of filtered observations.

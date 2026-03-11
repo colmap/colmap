@@ -44,9 +44,9 @@ int RunGraphicalUserInterface(int argc, char** argv) {
          "support or Qt dependency was not found.";
   return EXIT_FAILURE;
 #else
-  colmap::OptionManager options;
+  OptionManager options;
 
-  std::string import_path;
+  std::filesystem::path import_path;
 
   if (argc > 1) {
     options.AddDefaultOption("import_path", &import_path);
@@ -65,7 +65,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 #endif
   app.setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
-  colmap::MainWindow main_window(std::move(options));
+  MainWindow main_window(std::move(options));
   main_window.show();
 
   if (!import_path.empty()) {
@@ -77,7 +77,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 }
 
 int RunProjectGenerator(int argc, char** argv) {
-  std::string output_path;
+  std::filesystem::path output_path;
   std::string quality = "high";
 
   OptionManager options;

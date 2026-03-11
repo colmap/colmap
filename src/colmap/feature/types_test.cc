@@ -214,16 +214,89 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NE(keypoint, FeatureKeypoint(1, 2, 1, 0));
 }
 
+TEST(FeatureKeypoint, Rot90) {
+  FeatureKeypoint kp(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f);
+  int w = 10, h = 20;
+
+  FeatureKeypoint kp1 = kp;
+  kp1.Rot90(1, w, h);  // 90 CCW
+  EXPECT_FLOAT_EQ(kp1.x, 2.0f);
+  EXPECT_FLOAT_EQ(kp1.y, 10.0f - 1.0f);
+  EXPECT_FLOAT_EQ(kp1.a11, 5.0f);
+  EXPECT_FLOAT_EQ(kp1.a12, 6.0f);
+  EXPECT_FLOAT_EQ(kp1.a21, -3.0f);
+  EXPECT_FLOAT_EQ(kp1.a22, -4.0f);
+
+  FeatureKeypoint kp2 = kp;
+  kp2.Rot90(2, w, h);  // 180 CCW
+  EXPECT_FLOAT_EQ(kp2.x, 10.0f - 1.0f);
+  EXPECT_FLOAT_EQ(kp2.y, 20.0f - 2.0f);
+  EXPECT_FLOAT_EQ(kp2.a11, -3.0f);
+  EXPECT_FLOAT_EQ(kp2.a12, -4.0f);
+  EXPECT_FLOAT_EQ(kp2.a21, -5.0f);
+  EXPECT_FLOAT_EQ(kp2.a22, -6.0f);
+
+  FeatureKeypoint kp3 = kp;
+  kp3.Rot90(3, w, h);  // 270 CCW
+  EXPECT_FLOAT_EQ(kp3.x, 20.0f - 2.0f);
+  EXPECT_FLOAT_EQ(kp3.y, 1.0f);
+  EXPECT_FLOAT_EQ(kp3.a11, -5.0f);
+  EXPECT_FLOAT_EQ(kp3.a12, -6.0f);
+  EXPECT_FLOAT_EQ(kp3.a21, 3.0f);
+  EXPECT_FLOAT_EQ(kp3.a22, 4.0f);
+
+  FeatureKeypoint kp_identity = kp;
+  kp_identity.Rot90(0, w, h);
+  EXPECT_EQ(kp_identity, kp);
+
+  FeatureKeypoint kp_identity4 = kp;
+  kp_identity4.Rot90(4, w, h);
+  EXPECT_EQ(kp_identity4, kp);
+
+  FeatureKeypoint kp_neg1 = kp;
+  kp_neg1.Rot90(-1, w, h);  // same as 3
+  EXPECT_EQ(kp_neg1, kp3);
+}
+
 TEST(FeatureDescriptors, Nominal) {
-  FeatureDescriptors descriptors = FeatureDescriptors::Random(2, 3);
-  EXPECT_EQ(descriptors.rows(), 2);
-  EXPECT_EQ(descriptors.cols(), 3);
-  EXPECT_EQ(descriptors(0, 0), descriptors.data()[0]);
-  EXPECT_EQ(descriptors(0, 1), descriptors.data()[1]);
-  EXPECT_EQ(descriptors(0, 2), descriptors.data()[2]);
-  EXPECT_EQ(descriptors(1, 0), descriptors.data()[3]);
-  EXPECT_EQ(descriptors(1, 1), descriptors.data()[4]);
-  EXPECT_EQ(descriptors(1, 2), descriptors.data()[5]);
+  FeatureDescriptors descriptors(FeatureExtractorType::SIFT,
+                                 FeatureDescriptorsData::Random(2, 3));
+  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(descriptors.data.rows(), 2);
+  EXPECT_EQ(descriptors.data.cols(), 3);
+  EXPECT_EQ(descriptors.data(0, 0), descriptors.data.data()[0]);
+  EXPECT_EQ(descriptors.data(0, 1), descriptors.data.data()[1]);
+  EXPECT_EQ(descriptors.data(0, 2), descriptors.data.data()[2]);
+  EXPECT_EQ(descriptors.data(1, 0), descriptors.data.data()[3]);
+  EXPECT_EQ(descriptors.data(1, 1), descriptors.data.data()[4]);
+  EXPECT_EQ(descriptors.data(1, 2), descriptors.data.data()[5]);
+}
+
+TEST(FeatureDescriptors, SiftConversion) {
+  // SIFT uses value cast (uint8 <-> float)
+  const FeatureDescriptors original(FeatureExtractorType::SIFT,
+                                    FeatureDescriptorsData::Random(10, 128));
+  const FeatureDescriptorsFloat as_float = original.ToFloat();
+  EXPECT_EQ(as_float.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(as_float.data.cols(), original.data.cols());
+  EXPECT_EQ(as_float.data, original.data.cast<float>());
+
+  const FeatureDescriptors recovered = as_float.ToBytes();
+  EXPECT_EQ(recovered.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(recovered.data, original.data);
+}
+
+TEST(FeatureDescriptors, AlikedConversion) {
+  // ALIKED uses reinterpret cast (float32 bytes <-> float)
+  const FeatureDescriptors original(FeatureExtractorType::ALIKED_N16ROT,
+                                    FeatureDescriptorsData::Random(10, 512));
+  const FeatureDescriptorsFloat as_float = original.ToFloat();
+  EXPECT_EQ(as_float.type, FeatureExtractorType::ALIKED_N16ROT);
+  EXPECT_EQ(as_float.data.cols() * sizeof(float), original.data.cols());
+
+  const FeatureDescriptors recovered = as_float.ToBytes();
+  EXPECT_EQ(recovered.type, FeatureExtractorType::ALIKED_N16ROT);
+  EXPECT_EQ(recovered.data, original.data);
 }
 
 TEST(FeatureMatches, Nominal) {
@@ -237,6 +310,32 @@ TEST(FeatureMatches, Nominal) {
 
   EXPECT_EQ(match, match);
   EXPECT_NE(match, FeatureMatch(0, 1));
+}
+
+TEST(KeypointsMatrixConversion, Roundtrip) {
+  FeatureKeypoints keypoints;
+  keypoints.emplace_back(1.0f, 2.0f, 3.0f, 0.5f);
+  keypoints.emplace_back(4.0f, 5.0f, 1.0f, -0.3f);
+  keypoints.emplace_back(10.0f, 20.0f, 0.5f, 0.0f);
+  const FeatureKeypoints recovered =
+      KeypointsFromMatrix(KeypointsToMatrix(keypoints));
+  ASSERT_EQ(recovered.size(), keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    EXPECT_EQ(recovered[i].x, keypoints[i].x);
+    EXPECT_EQ(recovered[i].y, keypoints[i].y);
+    EXPECT_NEAR(recovered[i].ComputeScale(), keypoints[i].ComputeScale(), 1e-5);
+    EXPECT_NEAR(recovered[i].ComputeOrientation(),
+                keypoints[i].ComputeOrientation(),
+                1e-5);
+  }
+}
+
+TEST(MatchesMatrixConversion, Roundtrip) {
+  FeatureMatches matches;
+  matches.emplace_back(0, 5);
+  matches.emplace_back(3, 7);
+  matches.emplace_back(100, 200);
+  EXPECT_EQ(MatchesFromMatrix(MatchesToMatrix(matches)), matches);
 }
 
 }  // namespace

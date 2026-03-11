@@ -32,6 +32,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -84,19 +85,24 @@ class BaseOptionManager {
                             EnumT (*from_string_fn)(std::string_view),
                             const std::string& help_text = "");
 
-  virtual void Reset();
+  // Reset all internal state. If reset_logging is true, restore glog defaults.
+  // Higher-level applications may override the logging configuration.
+  virtual void Reset(bool reset_logging = true);
   virtual void ResetOptions(bool reset_paths);
 
   virtual bool Check();
 
   bool Parse(int argc, char** argv);
-  virtual bool Read(const std::string& path);
-  bool ReRead(const std::string& path);
-  void Write(const std::string& path) const;
+  virtual bool Read(const std::filesystem::path& path,
+                    bool allow_unregistered = true);
+  bool ReRead(const std::filesystem::path& path,
+              bool reset_logging = true,
+              bool allow_unregistered = true);
+  void Write(const std::filesystem::path& path) const;
 
-  std::shared_ptr<std::string> project_path;
-  std::shared_ptr<std::string> database_path;
-  std::shared_ptr<std::string> image_path;
+  std::shared_ptr<std::filesystem::path> project_path;
+  std::shared_ptr<std::filesystem::path> database_path;
+  std::shared_ptr<std::filesystem::path> image_path;
 
  protected:
   template <typename T>
@@ -116,10 +122,15 @@ class BaseOptionManager {
 
   std::shared_ptr<boost::program_options::options_description> desc_;
 
+  // Log destination choice: {stderr, stdout, file, stderr_and_file}.
+  std::string log_target_ = "stderr_and_file";
+
   std::vector<std::pair<std::string, const bool*>> options_bool_;
   std::vector<std::pair<std::string, const int*>> options_int_;
   std::vector<std::pair<std::string, const double*>> options_double_;
   std::vector<std::pair<std::string, const std::string*>> options_string_;
+  std::vector<std::pair<std::string, const std::filesystem::path*>>
+      options_path_;
 
   // Storage for enum options: string value and conversion callback.
   // Uses unique_ptr for pointer stability when the vector grows.
@@ -137,20 +148,33 @@ class BaseOptionManager {
  private:
   // Non-virtual implementations called from constructor and virtual methods.
   // These avoid the clang-tidy warning about virtual calls during construction.
-  void ResetImpl();
+  void ResetImpl(bool reset_logging);
   void ResetOptionsImpl(bool reset_paths);
 
   // Apply string->enum conversions for all registered enum options.
   void ApplyEnumConversions();
+
+  // Map simplified log output options to glog flags.
+  void ApplyLogFlags();
 };
 
 template <typename T>
 void BaseOptionManager::AddRequiredOption(const std::string& name,
                                           T* option,
                                           const std::string& help_text) {
-  desc_->add_options()(name.c_str(),
-                       boost::program_options::value<T>(option)->required(),
-                       help_text.c_str());
+  if constexpr (std::is_same<T, std::filesystem::path>::value) {
+    // Boost program options does not support std::filesystem::path by default.
+    // We treat it as a string and manualy convert it using a notifier.
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<std::string>()->required()->notifier(
+            [option](const std::string& val) { *option = val; }),
+        help_text.c_str());
+  } else {
+    desc_->add_options()(name.c_str(),
+                         boost::program_options::value<T>(option)->required(),
+                         help_text.c_str());
+  }
   RegisterOption(name, option);
 }
 
@@ -163,6 +187,15 @@ void BaseOptionManager::AddDefaultOption(const std::string& name,
         name.c_str(),
         boost::program_options::value<T>(option)->default_value(
             *option, StringPrintf("%.3g", *option)),
+        help_text.c_str());
+  } else if constexpr (std::is_same<T, std::filesystem::path>::value) {
+    // Boost program options does not support std::filesystem::path by default.
+    // We treat it as a string and manualy convert it using a notifier.
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<std::string>()
+            ->default_value(option->string())
+            ->notifier([option](const std::string& val) { *option = val; }),
         help_text.c_str());
   } else {
     desc_->add_options()(
@@ -185,8 +218,11 @@ void BaseOptionManager::RegisterOption(const std::string& name,
   } else if constexpr (std::is_same<T, std::string>::value) {
     options_string_.emplace_back(name,
                                  reinterpret_cast<const std::string*>(option));
+  } else if constexpr (std::is_same<T, std::filesystem::path>::value) {
+    options_path_.emplace_back(
+        name, reinterpret_cast<const std::filesystem::path*>(option));
   } else {
-    LOG(FATAL_THROW) << "Unsupported option type";
+    static_assert(always_false<T>::value, "Unsupported option type");
   }
 }
 

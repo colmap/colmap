@@ -159,8 +159,8 @@ class ReconstructionNearMatcher : public testing::MatcherInterface<T> {
         return false;
       }
       if (max_scale_error_.has_value() &&
-          !(std::abs(rhs_from_lhs.scale - 1.0) < *max_scale_error_)) {
-        *listener << " have different scale: " << rhs_from_lhs.scale;
+          !(std::abs(rhs_from_lhs.scale() - 1.0) < *max_scale_error_)) {
+        *listener << " have different scale: " << rhs_from_lhs.scale();
         return false;
       }
     }

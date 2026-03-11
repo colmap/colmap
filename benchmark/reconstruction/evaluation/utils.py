@@ -188,6 +188,11 @@ def parse_args() -> argparse.Namespace:
         help="Number of processes for parallel reconstruction.",
     )
     parser.add_argument(
+        "--feature",
+        default="sift",
+        choices=["sift", "aliked"],
+    )
+    parser.add_argument(
         "--mapper",
         default="incremental",
         choices=["incremental", "hierarchical", "global"],
@@ -326,6 +331,8 @@ def colmap_reconstruction(
         "1" if args.use_gpu else "0",
         "--num_threads",
         str(num_threads),
+        "--feature",
+        args.feature,
         "--mapper",
         args.mapper,
         "--quality",

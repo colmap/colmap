@@ -35,6 +35,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
@@ -129,23 +130,23 @@ TwoViewGeometryPoseTestData CreateTwoViewGeometryPoseTestData(
         data.camera1.CalibrationMatrix());
   } else if (config == TwoViewGeometry::ConfigurationType::PLANAR) {
     const Eigen::Vector3d homography_plane_normal =
-        image1.CamFromWorld().rotation *
+        image1.CamFromWorld().rotation() *
         -(image1.ViewingDirection() + image2.ViewingDirection()).normalized();
     constexpr double kHomographyPlaneDistance = 1;
     data.geometry.H = HomographyMatrixFromPose(
         data.camera1.CalibrationMatrix(),
         data.camera2.CalibrationMatrix(),
-        data.geometry.cam2_from_cam1->rotation.matrix(),
-        data.geometry.cam2_from_cam1->translation,
+        data.geometry.cam2_from_cam1->rotation().matrix(),
+        data.geometry.cam2_from_cam1->translation(),
         homography_plane_normal,
         kHomographyPlaneDistance);
   } else if (config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
-    data.geometry.cam2_from_cam1->translation = Eigen::Vector3d::Zero();
+    data.geometry.cam2_from_cam1->translation() = Eigen::Vector3d::Zero();
     data.geometry.H = HomographyMatrixFromPose(
         data.camera1.CalibrationMatrix(),
         data.camera2.CalibrationMatrix(),
-        data.geometry.cam2_from_cam1->rotation.matrix(),
-        data.geometry.cam2_from_cam1->translation,
+        data.geometry.cam2_from_cam1->rotation().matrix(),
+        data.geometry.cam2_from_cam1->translation(),
         Eigen::Vector3d::UnitZ(),
         1);
   } else {
@@ -182,13 +183,13 @@ bool CheckEqualTwoViewGeometry(const TwoViewGeometry& geometry,
   const double tri_angle_error =
       std::abs(geometry.tri_angle - expected_geometry.tri_angle);
   const double rotation_error =
-      geometry.cam2_from_cam1->rotation.angularDistance(
-          expected_geometry.cam2_from_cam1->rotation);
+      geometry.cam2_from_cam1->rotation().angularDistance(
+          expected_geometry.cam2_from_cam1->rotation());
   const double translation_error =
-      (geometry.cam2_from_cam1->translation -
+      (geometry.cam2_from_cam1->translation() -
        (normalized_translation
-            ? expected_geometry.cam2_from_cam1->translation.normalized()
-            : expected_geometry.cam2_from_cam1->translation))
+            ? expected_geometry.cam2_from_cam1->translation().normalized()
+            : expected_geometry.cam2_from_cam1->translation()))
           .norm();
   if (tri_angle_error > tri_angle_tol || rotation_error > rotation_tol ||
       translation_error > translation_tol) {
@@ -887,6 +888,49 @@ TEST(EstimateMultipleTwoViewGeometries, MultipleGeometries) {
 
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::MULTIPLE);
   EXPECT_EQ(geometry.inlier_matches.size(), matches1.size() + matches2.size());
+}
+
+TEST(MaybeDecomposeRelativePoses, Nominal) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+
+  // Load the database into a cache.
+  DatabaseCache::Options cache_options;
+  auto cache = DatabaseCache::Create(*database, cache_options);
+
+  // Verify the two-view geometry exists but has no decomposed pose yet.
+  const auto corr_graph = cache->CorrespondenceGraph();
+  TwoViewGeometry geometry_before = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
+  EXPECT_FALSE(geometry_before.cam2_from_cam1.has_value());
+
+  // Decompose poses - should update cache without throwing.
+  MaybeDecomposeRelativePoses(cache.get());
+
+  // Verify the geometry was updated with a decomposed pose.
+  TwoViewGeometry geometry_after = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
+  EXPECT_TRUE(geometry_after.cam2_from_cam1.has_value());
+
+  // Calling again should skip already decomposed geometries.
+  MaybeDecomposeRelativePoses(cache.get());
+
+  TwoViewGeometry geometry_second = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
+  EXPECT_EQ(geometry_after.cam2_from_cam1->rotation().coeffs(),
+            geometry_second.cam2_from_cam1->rotation().coeffs());
+  EXPECT_EQ(geometry_after.cam2_from_cam1->translation(),
+            geometry_second.cam2_from_cam1->translation());
 }
 
 }  // namespace

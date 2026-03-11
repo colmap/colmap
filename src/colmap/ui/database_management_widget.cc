@@ -90,9 +90,8 @@ void TwoViewInfoTab::ShowMatches() {
   const size_t idx =
       sorted_matches_idxs_[select->selectedRows().begin()->row()];
   const auto& selection = matches_[idx];
-  const std::string path1 = JoinPaths(*options_->image_path, image_->Name());
-  const std::string path2 =
-      JoinPaths(*options_->image_path, selection.first->Name());
+  const auto path1 = *options_->image_path / image_->Name();
+  const auto path2 = *options_->image_path / selection.first->Name();
   const auto keypoints1 = database_->ReadKeypoints(image_->ImageId());
   const auto keypoints2 = database_->ReadKeypoints(selection.first->ImageId());
 
@@ -566,7 +565,7 @@ void ImageTab::ShowImage() {
   const std::vector<char> tri_mask(keypoints.size(), false);
 
   image_viewer_widget_->ReadAndShowWithKeypoints(
-      JoinPaths(*options_->image_path, image.Name()), keypoints, tri_mask);
+      *options_->image_path / image.Name(), keypoints, tri_mask);
   image_viewer_widget_->setWindowTitle(
       QString::fromStdString("Image " + std::to_string(image.ImageId())));
 }

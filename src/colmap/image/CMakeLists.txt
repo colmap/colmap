@@ -38,9 +38,9 @@ COLMAP_ADD_LIBRARY(
         warp.h warp.cc
     PUBLIC_LINK_LIBS
         colmap_scene
+        colmap_util
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
-        colmap_util
         colmap_sensor
         colmap_vlfeat
 )

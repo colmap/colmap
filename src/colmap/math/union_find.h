@@ -75,6 +75,17 @@ class UnionFind {
     }
   }
 
+  // Path-compress all elements so each points directly to its root.
+  // Call this once after all Union operations and before iterating Parents().
+  void Compress() {
+    for (auto& [elem, parent] : parent_) {
+      parent = Find(elem);
+    }
+  }
+
+  // Access all elements and their parents in the union-find structure.
+  const std::unordered_map<T, T>& Parents() const { return parent_; }
+
  private:
   // Map to store the parent of each element.
   std::unordered_map<T, T> parent_;

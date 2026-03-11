@@ -29,7 +29,7 @@
 
 #include "colmap/retrieval/vote_and_verify.h"
 
-#include "colmap/estimators/affine_transform.h"
+#include "colmap/estimators/solvers/affine_transform.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"

@@ -300,6 +300,38 @@ TEST(ObservationManager, FilterAllPoints) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
+TEST(ObservationManager, FilterPoints3DWithShortTracks) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(4, reconstruction);
+  ObservationManager obs_manager(reconstruction);
+
+  const point3D_t point3D_id1 =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+  reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
+
+  const point3D_t point3D_id2 =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+  reconstruction.AddObservation(point3D_id2, TrackElement(1, 1));
+  reconstruction.AddObservation(point3D_id2, TrackElement(2, 1));
+
+  const point3D_t point3D_id3 =
+      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+  reconstruction.AddObservation(point3D_id3, TrackElement(1, 2));
+  reconstruction.AddObservation(point3D_id3, TrackElement(2, 2));
+  reconstruction.AddObservation(point3D_id3, TrackElement(3, 2));
+
+  EXPECT_EQ(reconstruction.NumPoints3D(), 3);
+
+  EXPECT_EQ(obs_manager.FilterPoints3DWithShortTracks(2), 1);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 2);
+
+  EXPECT_EQ(obs_manager.FilterPoints3DWithShortTracks(3), 2);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 1);
+
+  EXPECT_EQ(obs_manager.FilterPoints3DWithShortTracks(4), 3);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+}
+
 TEST(ObservationManager, FilterObservationsWithNegativeDepth) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, reconstruction);
@@ -380,11 +412,12 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 10);
   correspondence_graph->AddImage(kImageId2, 10);
-  FeatureMatches matches;
+  TwoViewGeometry two_view_geometry;
   for (size_t i = 0; i < 10; ++i) {
-    matches.emplace_back(i, i);
+    two_view_geometry.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId2, two_view_geometry);
   correspondence_graph->Finalize();
   ObservationManager obs_manager(reconstruction, correspondence_graph);
 
@@ -458,23 +491,26 @@ TEST(ObservationManager, NumVisibleCorrespondences) {
   correspondence_graph->AddImage(kImageId2, 10);
   correspondence_graph->AddImage(kImageId3, 10);
 
-  FeatureMatches matches12;
+  TwoViewGeometry two_view_geometry12;
   for (size_t i = 0; i < 5; ++i) {
-    matches12.emplace_back(i, i);
+    two_view_geometry12.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches12);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId2, two_view_geometry12);
 
-  FeatureMatches matches13;
+  TwoViewGeometry two_view_geometry13;
   for (size_t i = 5; i < 8; ++i) {
-    matches13.emplace_back(i, i);
+    two_view_geometry13.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId3, matches13);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId3, two_view_geometry13);
 
-  FeatureMatches matches23;
+  TwoViewGeometry two_view_geometry23;
   for (size_t i = 0; i < 2; ++i) {
-    matches23.emplace_back(i, i + 5);
+    two_view_geometry23.inlier_matches.emplace_back(i, i + 5);
   }
-  correspondence_graph->AddCorrespondences(kImageId2, kImageId3, matches23);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId2, kImageId3, two_view_geometry23);
 
   correspondence_graph->Finalize();
 
@@ -551,11 +587,12 @@ TEST(ObservationManager, Point3DVisibilityScore) {
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 16);
   correspondence_graph->AddImage(kImageId2, 16);
-  FeatureMatches matches;
+  TwoViewGeometry two_view_geometry;
   for (size_t i = 0; i < 16; ++i) {
-    matches.emplace_back(i, i);
+    two_view_geometry.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId2, two_view_geometry);
   correspondence_graph->Finalize();
   ObservationManager obs_manager(reconstruction, correspondence_graph);
 

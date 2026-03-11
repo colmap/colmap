@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/feature_matching.h"
 
+#include "colmap/feature/types.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -57,14 +58,16 @@ std::unique_ptr<retrieval::VisualIndex> CreateSyntheticVisualIndex() {
   auto visual_index = retrieval::VisualIndex::Create();
   retrieval::VisualIndex::BuildOptions build_options;
   build_options.num_visual_words = 5;
-  visual_index->Build(build_options,
-                      retrieval::VisualIndex::Descriptors::Random(50, 128));
+  visual_index->Build(
+      build_options,
+      FeatureDescriptorsFloat(FeatureExtractorType::SIFT,
+                              FeatureDescriptorsFloatData::Random(50, 128)));
   return visual_index;
 }
 
 TEST(CreateExhaustiveFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearMatches();
@@ -87,9 +90,9 @@ TEST(CreateExhaustiveFeatureMatcher, Nominal) {
 }
 
 TEST(CreateVocabTreeFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string vocab_tree_path = test_dir + "/vocab_tree.bin";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto vocab_tree_path = test_dir / "vocab_tree.bin";
 
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
@@ -122,8 +125,8 @@ TEST(CreateVocabTreeFeatureMatcher, Nominal) {
 }
 
 TEST(CreateSequentialFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/5, *database);
   database->ClearMatches();
@@ -152,8 +155,8 @@ TEST(CreateSequentialFeatureMatcher, Nominal) {
 }
 
 TEST(CreateSpatialFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearMatches();
@@ -180,8 +183,8 @@ TEST(CreateSpatialFeatureMatcher, Nominal) {
 }
 
 TEST(CreateTransitiveFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearMatches();
@@ -222,9 +225,9 @@ TEST(CreateTransitiveFeatureMatcher, Nominal) {
 }
 
 TEST(CreateImagePairsFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string match_list_path = test_dir + "/match_list.txt";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto match_list_path = test_dir / "match_list.txt";
 
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
@@ -261,9 +264,9 @@ TEST(CreateImagePairsFeatureMatcher, Nominal) {
 }
 
 TEST(CreateFeaturePairsFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string match_list_path = test_dir + "/feature_match_list.txt";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto match_list_path = test_dir / "feature_match_list.txt";
 
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/3, *database);
@@ -309,8 +312,8 @@ TEST(CreateFeaturePairsFeatureMatcher, Nominal) {
 }
 
 TEST(CreateGeometricVerifier, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearTwoViewGeometries();
@@ -332,9 +335,114 @@ TEST(CreateGeometricVerifier, Nominal) {
   EXPECT_GE(database->ReadTwoViewGeometries().size(), 3);
 }
 
+void ExpectRigVerificationResults(const Database& database,
+                                  int num_expected_matches,
+                                  int num_expected_calibrated,
+                                  int num_expected_calibrated_rig) {
+  // Verify that two-view geometries were created.
+  int num_calibrated = 0;
+  int num_calibrated_rig = 0;
+  int num_others = 0;
+  for (const auto& [pair_id, two_view_geometry] :
+       database.ReadTwoViewGeometries()) {
+    EXPECT_EQ(two_view_geometry.inlier_matches.size(), num_expected_matches);
+    switch (two_view_geometry.config) {
+      case TwoViewGeometry::CALIBRATED:
+        ++num_calibrated;
+        break;
+      case TwoViewGeometry::CALIBRATED_RIG:
+        ++num_calibrated_rig;
+        break;
+      default:
+        ++num_others;
+    }
+  }
+  // Two calibrated pairs between images in the same frames.
+  EXPECT_EQ(num_calibrated, num_expected_calibrated);
+  // Four calibrated pairs between images in different frames.
+  EXPECT_EQ(num_calibrated_rig, num_expected_calibrated_rig);
+  EXPECT_EQ(num_others, 0);
+}
+
+TEST(CreateGeometricVerifier, RigVerificationWithNonTrivialFrames) {
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 25;
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+
+  ExistingMatchedPairingOptions pairing_options;
+
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = -1;
+  verifier_options.rig_verification = true;
+
+  TwoViewGeometryOptions geometry_options;
+  geometry_options.min_num_inliers = 5;
+
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
+  ASSERT_NE(verifier, nullptr);
+  verifier->Start();
+  verifier->Wait();
+
+  // All pairs should be overwritten with calibrated rig pairs.
+  ExpectRigVerificationResults(*database,
+                               synthetic_dataset_options.num_points3D,
+                               /*num_expected_calibrated=*/0,
+                               /*num_expected_calibrated_rig=*/15);
+}
+
+TEST(CreateGeometricVerifier, RigVerificationWithTrivialFrames) {
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 25;
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+
+  ExistingMatchedPairingOptions pairing_options;
+
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = 1;
+  verifier_options.rig_verification = true;
+
+  TwoViewGeometryOptions geometry_options;
+  geometry_options.min_num_inliers = 5;
+
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
+  ASSERT_NE(verifier, nullptr);
+  verifier->Start();
+  verifier->Wait();
+
+  // Trivial frames should be skipped and unmodified.
+  ExpectRigVerificationResults(*database,
+                               synthetic_dataset_options.num_points3D,
+                               /*num_expected_calibrated=*/1,
+                               /*num_expected_calibrated_rig=*/0);
+}
+
 TEST(CreateGeometricVerifier, Guided) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
 
@@ -344,6 +452,7 @@ TEST(CreateGeometricVerifier, Guided) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -377,8 +486,8 @@ TEST(CreateGeometricVerifier, Guided) {
     EXPECT_EQ(two_view_geometries[i].first, gt_two_view_geometries[i].first);
     EXPECT_EQ(two_view_geometries[i].second.cam2_from_cam1,
               gt_two_view_geometries[i].second.cam2_from_cam1);
-    EXPECT_TRUE(gt_two_view_geometries[i].second.E.isApprox(
-        two_view_geometries[i].second.E));
+    EXPECT_TRUE(gt_two_view_geometries[i].second.E.value().isApprox(
+        two_view_geometries[i].second.E.value()));
     // Should at least have all the original inliers. Some generated outliers
     // can be accidentally inliers as well.
     EXPECT_GE(two_view_geometries[i].second.inlier_matches.size(),

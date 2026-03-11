@@ -57,6 +57,9 @@ struct RenderOptions {
   // Whether to visualize image connections.
   bool image_connections = false;
 
+  // Whether to render the mesh as wireframe.
+  bool mesh_wireframe = false;
+
   // The projection type of the renderer.
   int projection_type = ProjectionType::PERSPECTIVE;
 

@@ -45,13 +45,14 @@ class Sim3dEqMatcher : public testing::MatcherInterface<T> {
   bool MatchAndExplain(T lhs,
                        testing::MatchResultListener* listener) const override {
     // Note that with use !(a == b) to handle NaNs.
-    if (!(lhs.scale == rhs_.scale)) {
+    if (!(lhs.scale() == rhs_.scale())) {
       return false;
     }
-    if (!(lhs.rotation.coeffs() == rhs_.rotation.coeffs())) {
+    if (!(lhs.rotation().coeffs() == rhs_.rotation().coeffs())) {
       return false;
     }
-    if (!(lhs.translation == rhs_.translation)) {
+    if (!(Eigen::Vector3d(lhs.translation()) ==
+          Eigen::Vector3d(rhs_.translation()))) {
       return false;
     }
     return true;
@@ -78,19 +79,19 @@ class Sim3dNearMatcher : public testing::MatcherInterface<T> {
   bool MatchAndExplain(T lhs,
                        testing::MatchResultListener* listener) const override {
     // Note that with use !(a <= b) to handle NaNs.
-    if (!(std::abs(lhs.scale - rhs_.scale) <= stol_)) {
+    if (!(std::abs(lhs.scale() - rhs_.scale()) <= stol_)) {
       *listener << " exceed scale threshold " << stol_;
       return false;
     }
-    if (!(lhs.rotation.angularDistance(rhs_.rotation) <= rtol_)) {
+    if (!(lhs.rotation().angularDistance(rhs_.rotation()) <= rtol_)) {
       *listener << " exceed rotation threshold " << rtol_;
       return false;
     }
-    if (rhs_.translation.isZero()) {
+    if (rhs_.translation().isZero()) {
       // isApprox() is not well-defined for zero matrices.
-      return lhs.translation.norm() <= ttol_;
+      return lhs.translation().norm() <= ttol_;
     } else {
-      if (!lhs.translation.isApprox(rhs_.translation, ttol_)) {
+      if (!lhs.translation().isApprox(rhs_.translation(), ttol_)) {
         *listener << " exceed translation threshold " << ttol_;
         return false;
       }

@@ -81,6 +81,12 @@ of commands as an alternative to the automatic reconstruction command::
         --input_path $DATASET_PATH/dense \
         --output_path $DATASET_PATH/dense/meshed-delaunay.ply
 
+    # Optionally simplify a dense mesh to reduce its size.
+    $ colmap mesh_simplifier \
+        --input_path $DATASET_PATH/dense/meshed-poisson.ply \
+        --output_path $DATASET_PATH/dense/meshed-poisson-simplified.ply \
+        --MeshSimplification.target_face_ratio 0.25
+
 If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
 supported by your system. If no CUDA enabled device is available, you can
@@ -124,6 +130,9 @@ The available commands can be listed using the command::
           exhaustive_matcher
           feature_extractor
           feature_importer
+          geometric_verifier
+          global_mapper
+          guided_geometric_verifier
           hierarchical_mapper
           image_deleter
           image_filterer
@@ -133,6 +142,7 @@ The available commands can be listed using the command::
           image_undistorter_standalone
           mapper
           matches_importer
+          mesh_simplifier
           model_aligner
           model_analyzer
           model_comparer
@@ -148,11 +158,14 @@ The available commands can be listed using the command::
           pose_prior_mapper
           poisson_mesher
           project_generator
+          reconstruction_clusterer
           rig_configurator
+          rotation_averager
           sequential_matcher
           spatial_matcher
           stereo_fusion
           transitive_matcher
+          view_graph_calibrator
           vocab_tree_builder
           vocab_tree_matcher
           vocab_tree_retriever
@@ -167,8 +180,12 @@ the available options, e.g.::
 
             -h [ --help ]
             --default_random_seed arg (=0)
-            --log_to_stderr arg (=1)
+            --log_target arg (=stderr_and_file)
+                                  {stderr, stdout, file, stderr_and_file}
+            --log_path arg
             --log_level arg (=0)
+            --log_severity arg (=0)    0:INFO, 1:WARNING, 2:ERROR, 3:FATAL
+            --log_color arg (=1)
             --project_path arg
             --database_path arg
             --image_path arg
@@ -219,7 +236,12 @@ available as ``colmap [command]``:
   :ref:`Graphical User Interface <gui>` for more information.
 
 - ``automatic_reconstructor``: Automatically reconstruct sparse and dense model
-  for a set of input images.
+  for a set of input images. Key options include ``--quality`` (LOW, MEDIUM,
+  HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
+  for different capture scenarios, ``--feature`` (SIFT, ALIKED) to select the
+  feature extraction algorithm, ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL)
+  to choose the SfM pipeline, and ``--mesher`` (POISSON, DELAUNAY) to select the
+  surface reconstruction method.
 
 - ``project_generator``: Generate project files at different quality settings.
 
@@ -230,10 +252,27 @@ available as ``colmap [command]``:
   ``spatial_matcher``, ``transitive_matcher``, ``matches_importer``:
   Perform feature matching after performing feature extraction.
 
+- ``geometric_verifier``: Run standalone geometric verification on existing
+  feature matches in the database. This estimates two-view geometries
+  (fundamental/essential matrices, homographies) for matched image pairs.
+
+- ``guided_geometric_verifier``: Run geometric verification guided by an
+  existing sparse reconstruction. Uses the known relative camera poses to
+  improve match verification results.
+
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
   performing feature extraction and matching.
 
-- ``pose_prior_mapper`` Sparse 3D reconstruction / mapping using pose priors.
+- ``global_mapper``: Sparse 3D reconstruction using the global SfM pipeline.
+  Unlike the incremental ``mapper``, the global approach solves for all camera
+  poses simultaneously using rotation averaging and global positioning. This
+  can be faster for large datasets but may be less robust to outliers.
+  The global mapper depends on reasonably good focal length priors to perform
+  well. Run ``view_graph_calibrator`` before ``global_mapper`` to calibrate
+  camera intrinsics and estimate relative poses from the view graph, or provide
+  camera calibrations manually.
+
+- ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose priors.
 
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.
@@ -264,6 +303,16 @@ available as ``colmap [command]``:
 
 - ``delaunay_mesher``: Meshing of the reconstructed sparse or dense point cloud
   using a graph cut on the Delaunay triangulation and visibility voting.
+
+- ``mesh_simplifier``: Simplify a triangle mesh (PLY format) using Quadric Error
+  Metric (QEM) decimation. This reduces the number of faces in a mesh while
+  preserving its overall shape and appearance. Key options include
+  ``--MeshSimplification.target_face_ratio`` to control the fraction of faces
+  to retain (default 0.1), ``--MeshSimplification.max_error`` to set a maximum
+  quadric error threshold (0 = disabled), and
+  ``--MeshSimplification.boundary_weight`` to control boundary edge preservation
+  (default 1000). Supports multi-threaded initialization via
+  ``--MeshSimplification.num_threads``.
 
 - ``image_registrator``: Register new images in the database against an existing
   model, e.g., when extracting features and matching newly added images in a
@@ -328,6 +377,19 @@ available as ``colmap [command]``:
 
 - ``vocab_tree_retriever``: Perform vocabulary tree based image retrieval.
 
+- ``reconstruction_clusterer``: Split a reconstruction into smaller
+  sub-model clusters. Useful for managing and processing large-scale
+  reconstructions.
+
+- ``rotation_averager``: Run standalone rotation averaging on the view graph.
+  Estimates global camera rotations from pairwise relative rotations.
+
+- ``view_graph_calibrator``: Calibrate camera intrinsics using the view graph.
+  Estimates focal lengths and other intrinsic parameters from pairwise
+  geometric relations. Should be run before ``global_mapper``, if no good
+  prior camera intrinsics are known, since the global mapper
+  depends on reasonably good focal length priors to perform well.
+
 
 Visualization
 -------------
@@ -336,9 +398,9 @@ If you want to quickly visualize the outputs of the sparse or dense
 reconstruction pipelines, COLMAP offers you the following possibilities:
 
 - The sparse point cloud obtained with the ``mapper`` can be visualized via the
-  COLMAP GUI by importing the following files: choose ``File > Import Model``
-  and select the folder where the three files, ``cameras.txt``, ``images.txt``,
-  and ``points3d.txt`` are located.
+  COLMAP GUI by importing the model files: choose ``File > Import Model``
+  and select the folder containing the sparse model files (``cameras.txt``,
+  ``images.txt``, ``points3D.txt``, etc.).
 
 - The dense point cloud obtained with the ``stereo_fusion`` can be visualized
   via the COLMAP GUI by importing ``fused.ply``: choose
@@ -346,4 +408,6 @@ reconstruction pipelines, COLMAP offers you the following possibilities:
 
 - The dense mesh model ``meshed-*.ply`` obtained with the ``poisson_mesher`` or
   the ``delaunay_mesher`` can currently not be visualized with COLMAP, instead
-  you can use an external viewer, such as Meshlab.
+  you can use an external viewer, such as Meshlab. Use the ``mesh_simplifier``
+  command to reduce the mesh size for faster visualization or downstream
+  processing.

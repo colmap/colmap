@@ -118,7 +118,7 @@ void ImageViewerWidget::ShowPixmap(const QPixmap& pixmap) {
   raise();
 }
 
-void ImageViewerWidget::ReadAndShow(const std::string& path) {
+void ImageViewerWidget::ReadAndShow(const std::filesystem::path& path) {
   Bitmap bitmap;
   if (!bitmap.Read(path, /*as_rgb=*/true)) {
     LOG(ERROR) << "Cannot read image at path " << path;
@@ -168,8 +168,9 @@ FeatureImageViewerWidget::FeatureImageViewerWidget(
           this,
           &FeatureImageViewerWidget::ShowOrHide);
 }
+
 void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
-    const std::string& path,
+    const std::filesystem::path& path,
     const FeatureKeypoints& keypoints,
     const std::vector<char>& tri_mask) {
   Bitmap bitmap;
@@ -186,15 +187,13 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
 
   FeatureKeypoints keypoints_tri(num_tri_keypoints);
   FeatureKeypoints keypoints_not_tri(keypoints.size() - num_tri_keypoints);
-  size_t i_tri = 0;
-  size_t i_not_tri = 0;
+  size_t idx_tri = 0;
+  size_t idx_not_tri = 0;
   for (size_t i = 0; i < tri_mask.size(); ++i) {
     if (tri_mask[i]) {
-      keypoints_tri[i_tri] = keypoints[i];
-      i_tri += 1;
+      keypoints_tri[idx_tri++] = keypoints[i];
     } else {
-      keypoints_not_tri[i_not_tri] = keypoints[i];
-      i_not_tri += 1;
+      keypoints_not_tri[idx_not_tri++] = keypoints[i];
     }
   }
 
@@ -209,8 +208,8 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
 }
 
 void FeatureImageViewerWidget::ReadAndShowWithMatches(
-    const std::string& path1,
-    const std::string& path2,
+    const std::filesystem::path& path1,
+    const std::filesystem::path& path2,
     const FeatureKeypoints& keypoints1,
     const FeatureKeypoints& keypoints2,
     const FeatureMatches& matches) {
@@ -374,7 +373,7 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
     keypoints[i].y = static_cast<float>(image.Point2D(i).xy(1));
   }
 
-  const std::string path = JoinPaths(*options_->image_path, image.Name());
+  const auto path = *options_->image_path / image.Name();
   ReadAndShowWithKeypoints(path, keypoints, tri_mask);
 }
 

@@ -209,9 +209,6 @@ void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
         "return_covariance"_a = false,
         "Robustly estimate generalized absolute pose using LO-RANSAC"
         "followed by non-linear refinement.");
-  DefDeprecation(m,
-                 "rig_absolute_pose_estimation",
-                 "estimate_and_refine_generalized_absolute_pose");
 
   m.def("estimate_generalized_relative_pose",
         &PyEstimateGeneralizedRelativePose,

@@ -31,7 +31,6 @@
 
 #include "colmap/util/logging.h"
 
-#include <filesystem>
 #include <mutex>
 #include <set>
 
@@ -39,7 +38,7 @@
 
 namespace colmap {
 
-std::string CreateTestDir() {
+std::filesystem::path CreateTestDir() {
   const testing::TestInfo* test_info = THROW_CHECK_NOTNULL(
       testing::UnitTest::GetInstance()->current_test_info());
   std::ostringstream test_name_stream;
@@ -48,7 +47,7 @@ std::string CreateTestDir() {
 
   const std::filesystem::path test_dir =
       std::filesystem::temp_directory_path() / "colmap_test_data" / test_name;
-  LOG(INFO) << "Creating test directory: " << test_dir.string();
+  LOG(INFO) << "Creating test directory: " << test_dir;
 
   // Create directory once. Cleanup artifacts from previous test runs.
   static std::mutex mutex;
@@ -62,7 +61,7 @@ std::string CreateTestDir() {
   }
   existing_test_names.insert(test_name);
 
-  return test_dir.string();
+  return test_dir;
 }
 
 }  // namespace colmap

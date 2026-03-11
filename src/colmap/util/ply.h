@@ -30,7 +30,7 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
+#include <filesystem>
 #include <vector>
 
 namespace colmap {
@@ -51,10 +51,22 @@ struct PlyMeshVertex {
   PlyMeshVertex() : x(0), y(0), z(0) {}
   PlyMeshVertex(const float x, const float y, const float z)
       : x(x), y(y), z(z) {}
+  PlyMeshVertex(const float x,
+                const float y,
+                const float z,
+                const uint8_t r,
+                const uint8_t g,
+                const uint8_t b)
+      : x(x), y(y), z(z), r(r), g(g), b(b) {}
 
   float x = 0.0f;
   float y = 0.0f;
   float z = 0.0f;
+
+  // Default color is gray.
+  uint8_t r = 200;
+  uint8_t g = 200;
+  uint8_t b = 200;
 };
 
 struct PlyMeshFace {
@@ -77,20 +89,26 @@ struct PlyMesh {
 };
 
 // Read PLY point cloud from text or binary file.
-std::vector<PlyPoint> ReadPly(const std::string& path);
+std::vector<PlyPoint> ReadPly(const std::filesystem::path& path);
 
 // Write PLY point cloud to text or binary file.
-void WriteTextPlyPoints(const std::string& path,
+void WriteTextPlyPoints(const std::filesystem::path& path,
                         const std::vector<PlyPoint>& points,
                         bool write_normal = true,
                         bool write_rgb = true);
-void WriteBinaryPlyPoints(const std::string& path,
+void WriteBinaryPlyPoints(const std::filesystem::path& path,
                           const std::vector<PlyPoint>& points,
                           bool write_normal = true,
                           bool write_rgb = true);
 
+// Read PLY mesh from text or binary file.
+PlyMesh ReadPlyMesh(const std::filesystem::path& path);
+
 // Write PLY mesh to text or binary file.
-void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh);
-void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh);
+void WriteTextPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh);
+void WriteBinaryPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh);
+
+// Returns true if the PLY file contains face elements (i.e., is a mesh).
+bool HasPlyMeshFaces(const std::filesystem::path& path);
 
 }  // namespace colmap

@@ -24,7 +24,9 @@ void BindPoint3D(py::module& m) {
       .def_readwrite("xyz", &Point3D::xyz)
       .def_readwrite("color", &Point3D::color)
       .def_readwrite("error", &Point3D::error)
-      .def_readwrite("track", &Point3D::track);
+      .def_readwrite("track", &Point3D::track)
+      .def(
+          "has_error", &Point3D::HasError, "Check if error has been computed.");
   MakeDataclass(PyPoint3D);
 
   py::bind_map<Point3DMap>(m, "Point3DMap");

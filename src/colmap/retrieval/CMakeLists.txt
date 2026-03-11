@@ -37,15 +37,17 @@ COLMAP_ADD_LIBRARY(
         inverted_file.h
         inverted_file_entry.h
         inverted_index.h
-        resources.h
+        resources.h resources.cc
         utils.h
         visual_index.h visual_index.cc
         vote_and_verify.h vote_and_verify.cc
     PUBLIC_LINK_LIBS
+        colmap_util
+        colmap_math
+        colmap_feature_types
         Boost::boost
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
-        colmap_math
         colmap_estimators
         colmap_optim
         faiss

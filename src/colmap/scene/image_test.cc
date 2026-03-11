@@ -156,9 +156,9 @@ TEST(Image, SetResetPose) {
   EXPECT_ANY_THROW(image.CamFromWorld());
   frame.SetRigFromWorld(Rigid3d());
   EXPECT_TRUE(image.HasPose());
-  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
+  EXPECT_EQ(image.CamFromWorld().rotation().coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
+  EXPECT_EQ(image.CamFromWorld().translation(), Eigen::Vector3d::Zero());
   image.FramePtr()->ResetPose();
   EXPECT_FALSE(image.HasPose());
   EXPECT_ANY_THROW(image.CamFromWorld());

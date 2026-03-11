@@ -85,5 +85,39 @@ TEST(PosePrior, Print) {
             "coordinate_system=CARTESIAN, gravity=[0, 0, 1])");
 }
 
+TEST(PosePrior, GravityFromExifOrientation) {
+  EXPECT_EQ(GravityFromExifOrientation(1).value(), Eigen::Vector3d(0, 1, 0));
+  EXPECT_EQ(GravityFromExifOrientation(3).value(), Eigen::Vector3d(0, -1, 0));
+  EXPECT_EQ(GravityFromExifOrientation(6).value(), Eigen::Vector3d(1, 0, 0));
+  EXPECT_EQ(GravityFromExifOrientation(8).value(), Eigen::Vector3d(-1, 0, 0));
+  EXPECT_FALSE(GravityFromExifOrientation(2).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(4).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(5).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(7).has_value());
+}
+
+TEST(PosePrior, ComputeRot90FromGravity) {
+  Eigen::Vector3d gravity(0, 1, 0);  // Normal
+  EXPECT_EQ(ComputeRot90FromGravity(gravity), 0);
+
+  // Gravity is +x (right). Need 90 CW (270 CCW) to make upright.
+  gravity = Eigen::Vector3d(1, 0, 0);
+  EXPECT_EQ(ComputeRot90FromGravity(gravity), 3);
+
+  // Gravity is -y (up). Need 180 CCW to make upright.
+  gravity = Eigen::Vector3d(0, -1, 0);
+  EXPECT_EQ(ComputeRot90FromGravity(gravity), 2);
+
+  // Gravity is -x (left). Need 90 CCW to make upright.
+  gravity = Eigen::Vector3d(-1, 0, 0);
+  EXPECT_EQ(ComputeRot90FromGravity(gravity), 1);
+
+  // Robustness to slight inaccuracies.
+  gravity = Eigen::Vector3d(0.01, 0.99, 0.1);
+  EXPECT_EQ(ComputeRot90FromGravity(gravity), 0);
+  gravity = Eigen::Vector3d(0.99, -0.01, 0.1);
+  EXPECT_EQ(ComputeRot90FromGravity(gravity), 3);
+}
+
 }  // namespace
 }  // namespace colmap

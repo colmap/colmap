@@ -29,6 +29,7 @@
 
 #include "colmap/geometry/pose_prior.h"
 
+#include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {
@@ -78,6 +79,39 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
          << PosePrior::CoordinateSystemToString(prior.coordinate_system)
          << ", gravity=[" << prior.gravity.format(kVecFmt) << "])";
   return stream;
+}
+
+std::optional<Eigen::Vector3d> GravityFromExifOrientation(int orientation) {
+  switch (orientation) {
+    case 1:  // Normal
+      return Eigen::Vector3d(0, 1, 0);
+    case 3:  // Rotate 180
+      return Eigen::Vector3d(0, -1, 0);
+    case 6:  // Rotate 90 CW
+      return Eigen::Vector3d(1, 0, 0);
+    case 8:  // Rotate 270 CW
+      return Eigen::Vector3d(-1, 0, 0);
+    case 2:
+    case 4:
+    case 5:
+    case 7:
+      LOG(WARNING) << "Unsupported EXIF orientation: " << orientation;
+      return std::nullopt;
+    default:
+      LOG(FATAL) << "Unknown EXIF orientation: " << orientation;
+  }
+}
+
+int ComputeRot90FromGravity(const Eigen::Vector3d& gravity) {
+  // Calculate the angle of gravity in image space, then find number of 90 deg
+  // CCW rotations needed to make the image upright (where gravity is at pi/2).
+  const double angle = std::atan2(gravity.y(), gravity.x());
+  constexpr double kHalfPi = M_PI / 2.0;
+  int rot90_ccw = static_cast<int>(std::round((angle - kHalfPi) / kHalfPi)) % 4;
+  if (rot90_ccw < 0) {
+    rot90_ccw += 4;
+  }
+  return rot90_ccw;
 }
 
 }  // namespace colmap

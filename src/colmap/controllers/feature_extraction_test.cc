@@ -52,17 +52,16 @@ Bitmap CreateTestBitmap() {
 }
 
 TEST(CreateFeatureExtractorController, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string image_path = test_dir + "/images";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto image_path = test_dir / "images";
   CreateDirIfNotExists(image_path);
 
   // Create test images
   const int kNumImages = 2;
   const Bitmap test_bitmap = CreateTestBitmap();
   for (int i = 0; i < kNumImages; ++i) {
-    test_bitmap.Write(
-        std::string(image_path).append("/").append(std::to_string(i) + ".png"));
+    test_bitmap.Write(image_path / (std::to_string(i) + ".png"));
   }
 
   // Set up options
@@ -95,20 +94,22 @@ TEST(CreateFeatureExtractorController, Nominal) {
 
     // Check that features were extracted
     EXPECT_GT(keypoints.size(), 0);
-    EXPECT_EQ(keypoints.size(), descriptors.rows());
+    EXPECT_EQ(keypoints.size(), descriptors.data.rows());
+    EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+    EXPECT_EQ(descriptors.data.cols(), 128);
   }
 }
 
 TEST(CreateFeatureExtractorController, WithCameraMask) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string image_path = test_dir + "/images";
-  const std::string mask_path = test_dir + "/mask.png";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto image_path = test_dir / "images";
+  const auto mask_path = test_dir / "mask.png";
   CreateDirIfNotExists(image_path);
 
   // Create test image with features
   const Bitmap test_bitmap = CreateTestBitmap();
-  test_bitmap.Write(image_path + "/test.png");
+  test_bitmap.Write(image_path / "test.png");
 
   // Create a mask that only allows the center region (white = keep, black =
   // mask) The test bitmap has a white square from (30,30) to (70,70) We'll
@@ -147,7 +148,7 @@ TEST(CreateFeatureExtractorController, WithCameraMask) {
   EXPECT_GT(num_features_no_mask, 0);
 
   // Now extract with mask
-  const std::string database_path_masked = test_dir + "/database_masked.db";
+  const auto database_path_masked = test_dir / "database_masked.db";
   ImageReaderOptions reader_options_masked;
   reader_options_masked.image_path = image_path;
   reader_options_masked.camera_mask_path = mask_path;
@@ -181,14 +182,16 @@ TEST(CreateFeatureExtractorController, WithCameraMask) {
   }
 
   // Descriptors should match keypoints count
-  EXPECT_EQ(descriptors_masked.rows(), keypoints_masked.size());
+  EXPECT_EQ(descriptors_masked.data.rows(), keypoints_masked.size());
+  EXPECT_EQ(descriptors_masked.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(descriptors_masked.data.cols(), 128);
 }
 
 TEST(CreateFeatureImporterController, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string image_path = test_dir + "/images";
-  const std::string import_path = test_dir + "/features";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto image_path = test_dir / "images";
+  const auto import_path = test_dir / "features";
   CreateDirIfNotExists(image_path);
   CreateDirIfNotExists(import_path);
 
@@ -198,14 +201,12 @@ TEST(CreateFeatureImporterController, Nominal) {
   // Create test images
   const Bitmap test_bitmap = CreateTestBitmap();
   for (int i = 0; i < kNumImages; ++i) {
-    test_bitmap.Write(
-        std::string(image_path).append("/").append(std::to_string(i) + ".png"));
+    test_bitmap.Write(image_path / (std::to_string(i) + ".png"));
   }
 
   // Create feature text files for each image
   for (int i = 0; i < kNumImages; ++i) {
-    const std::string feature_file =
-        import_path + "/" + std::to_string(i) + ".png.txt";
+    const auto feature_file = import_path / (std::to_string(i) + ".png.txt");
     std::ofstream file(feature_file);
     ASSERT_TRUE(file.is_open());
 
@@ -255,8 +256,9 @@ TEST(CreateFeatureImporterController, Nominal) {
 
     // Check that features were imported correctly
     EXPECT_EQ(keypoints.size(), kNumFeatures);
-    EXPECT_EQ(descriptors.rows(), kNumFeatures);
-    EXPECT_EQ(descriptors.cols(), 128);
+    EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+    EXPECT_EQ(descriptors.data.rows(), kNumFeatures);
+    EXPECT_EQ(descriptors.data.cols(), 128);
 
     // Verify some keypoint values
     EXPECT_FLOAT_EQ(keypoints[0].x, 10.0f);

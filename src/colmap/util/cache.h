@@ -70,8 +70,8 @@ class LRUCache {
   void Clear();
 
  private:
-  typedef typename std::pair<key_t, std::shared_ptr<value_t>> key_value_pair_t;
-  typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
+  using key_value_pair_t = typename std::pair<key_t, std::shared_ptr<value_t>>;
+  using list_iterator_t = typename std::list<key_value_pair_t>::iterator;
 
   // Maximum number of least-recently-used elements the cache remembers.
   const size_t max_num_elems_;
@@ -166,8 +166,8 @@ class MemoryConstrainedLRUCache {
   void Clear();
 
  private:
-  typedef typename std::pair<key_t, std::shared_ptr<value_t>> key_value_pair_t;
-  typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
+  using key_value_pair_t = typename std::pair<key_t, std::shared_ptr<value_t>>;
+  using list_iterator_t = typename std::list<key_value_pair_t>::iterator;
 
   const size_t max_num_bytes_;
   size_t num_bytes_;
@@ -212,17 +212,15 @@ template <typename key_t, typename value_t>
 std::shared_ptr<value_t> LRUCache<key_t, value_t>::Get(const key_t& key) {
   const auto it = elems_map_.find(key);
   if (it == elems_map_.end()) {
-    auto it = elems_map_.find(key);
-    elems_list_.emplace_front(key, load_fn_(key));
-    if (it != elems_map_.end()) {
-      elems_list_.erase(it->second);
-      elems_map_.erase(it);
-    }
-    it = elems_map_.emplace_hint(it, key, elems_list_.begin());
+    // Call load_fn_ before modifying the cache data structures so that if it
+    // throws, the cache remains in a consistent state.
+    auto value = load_fn_(key);
+    elems_list_.emplace_front(key, std::move(value));
+    elems_map_.emplace(key, elems_list_.begin());
     if (elems_map_.size() > max_num_elems_) {
       Pop();
     }
-    return it->second->second;
+    return elems_list_.front().second;
   } else {
     elems_list_.splice(elems_list_.begin(), elems_list_, it->second);
     return it->second->second;
@@ -411,8 +409,9 @@ void MemoryConstrainedLRUCache<key_t, value_t>::Pop() {
     auto last = elems_list_.end();
     --last;
     const auto it = elems_map_.find(last->first);
+    THROW_CHECK_GE(num_bytes_, it->second.second)
+        << "Unsigned underflow in MemoryConstrainedLRUCache::Pop";
     num_bytes_ -= it->second.second;
-    THROW_CHECK_GE(num_bytes_, 0);
     elems_map_.erase(it);
     elems_list_.pop_back();
   }
@@ -422,8 +421,9 @@ template <typename key_t, typename value_t>
 void MemoryConstrainedLRUCache<key_t, value_t>::UpdateNumBytes(
     const key_t& key) {
   size_t& num_bytes = elems_map_.at(key).second;
+  THROW_CHECK_GE(num_bytes_, num_bytes)
+      << "Unsigned underflow in MemoryConstrainedLRUCache::UpdateNumBytes";
   num_bytes_ -= num_bytes;
-  THROW_CHECK_GE(num_bytes_, 0);
   num_bytes = Get(key)->NumBytes();
   num_bytes_ += num_bytes;
 

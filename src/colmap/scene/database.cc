@@ -29,7 +29,10 @@
 
 #include "colmap/scene/database.h"
 
+#include "colmap/optim/random_sampler.h"
 #include "colmap/scene/database_sqlite.h"
+
+#include <numeric>
 
 namespace colmap {
 
@@ -41,7 +44,7 @@ void Database::Register(Factory factory) {
 
 Database::~Database() = default;
 
-std::shared_ptr<Database> Database::Open(const std::string& path) {
+std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
   for (auto it = factories_.rbegin(); it != factories_.rend(); ++it) {
     try {
       return (*it)(path);
@@ -148,9 +151,11 @@ void Database::Merge(const Database& database1,
 
   auto update_frame =
       [](const Frame& frame,
+         const std::unordered_map<rig_t, rig_t>& new_rig_ids,
          const std::unordered_map<camera_t, camera_t>& new_camera_ids,
          const std::unordered_map<image_t, image_t>& new_image_ids) {
         Frame updated_frame = frame;
+        updated_frame.SetRigId(new_rig_ids.at(frame.RigId()));
         updated_frame.ClearDataIds();
         for (data_t data_id : frame.DataIds()) {
           switch (data_id.sensor_id.type) {
@@ -170,12 +175,12 @@ void Database::Merge(const Database& database1,
 
   for (Frame& frame : database1.ReadAllFrames()) {
     merged_database->WriteFrame(
-        update_frame(frame, new_camera_ids1, new_image_ids1));
+        update_frame(frame, new_rig_ids1, new_camera_ids1, new_image_ids1));
   }
 
   for (Frame& frame : database2.ReadAllFrames()) {
     merged_database->WriteFrame(
-        update_frame(frame, new_camera_ids2, new_image_ids2));
+        update_frame(frame, new_rig_ids2, new_camera_ids2, new_image_ids2));
   }
 
   // Merge the pose priors.
@@ -263,5 +268,73 @@ DatabaseTransaction::DatabaseTransaction(Database* database)
 }
 
 DatabaseTransaction::~DatabaseTransaction() { database_->EndTransaction(); }
+
+FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(const Database& database,
+                                                      int max_num_descriptors) {
+  const std::vector<Image> images = database.ReadAllImages();
+  const size_t total_num_descriptors = database.NumDescriptors();
+
+  if (total_num_descriptors == 0) {
+    return FeatureDescriptorsFloat();
+  }
+
+  FeatureDescriptorsFloat result;
+  result.type = FeatureExtractorType::UNDEFINED;
+
+  std::vector<size_t> descriptor_idxs;
+  if (max_num_descriptors < 0 ||
+      static_cast<size_t>(max_num_descriptors) >= total_num_descriptors) {
+    descriptor_idxs.resize(total_num_descriptors);
+    std::iota(descriptor_idxs.begin(), descriptor_idxs.end(), 0);
+  } else {
+    // Random subset of images in the database.
+    THROW_CHECK_LE(max_num_descriptors, total_num_descriptors);
+    RandomSampler random_sampler(max_num_descriptors);
+    random_sampler.Initialize(total_num_descriptors);
+    random_sampler.Sample(&descriptor_idxs);
+    std::sort(descriptor_idxs.begin(), descriptor_idxs.end());
+  }
+
+  int image_idx = -1;
+  FeatureDescriptorsFloat image_descriptors;
+  size_t image_descriptor_start = 0;
+  size_t image_descriptor_end = 0;
+  auto read_next_image = [&]() {
+    ++image_idx;
+    THROW_CHECK_LT(image_idx, images.size());
+    const Image& image = images[image_idx];
+    image_descriptors = database.ReadDescriptors(image.ImageId()).ToFloat();
+    image_descriptor_start = image_descriptor_end;
+    image_descriptor_end =
+        image_descriptor_start + image_descriptors.data.rows();
+  };
+
+  size_t descriptor_row = 0;
+  for (const size_t descriptor_idx : descriptor_idxs) {
+    while (descriptor_idx >= image_descriptor_end) {
+      read_next_image();
+    }
+
+    // Check that all images have the same feature type.
+    if (result.type == FeatureExtractorType::UNDEFINED) {
+      THROW_CHECK_NE(image_descriptors.type, FeatureExtractorType::UNDEFINED);
+      result.type = image_descriptors.type;
+      result.data.resize(descriptor_idxs.size(), image_descriptors.data.cols());
+    } else {
+      THROW_CHECK_EQ(result.type, image_descriptors.type)
+          << "All images must have the same feature type";
+      THROW_CHECK_EQ(image_descriptors.data.cols(), result.data.cols())
+          << "All images must have the same descriptor dimensionality";
+    }
+
+    result.data.row(descriptor_row) =
+        image_descriptors.data.row(descriptor_idx - image_descriptor_start);
+    ++descriptor_row;
+  }
+
+  THROW_CHECK_EQ(descriptor_row, descriptor_idxs.size());
+
+  return result;
+}
 
 }  // namespace colmap

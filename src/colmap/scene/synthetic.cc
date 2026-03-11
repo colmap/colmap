@@ -31,10 +31,11 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/file.h"
 
 #include <Eigen/Geometry>
 
@@ -54,64 +55,108 @@ void AddOutlierMatches(double inlier_ratio,
   std::shuffle(matches->begin(), matches->end(), *PRNG);
 }
 
-void SynthesizeExhaustiveMatches(double inlier_match_ratio,
-                                 Reconstruction* reconstruction,
-                                 Database* database) {
-  for (const image_t image_id1 : reconstruction->RegImageIds()) {
-    const auto& image1 = reconstruction->Image(image_id1);
-    const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
-    const auto num_points2D1 = image1.NumPoints2D();
-    for (const image_t image_id2 : reconstruction->RegImageIds()) {
-      if (image_id1 == image_id2) {
+std::vector<image_pair_t> ExtractExhaustiveImagePairs(
+    const Reconstruction& reconstruction) {
+  const size_t num_exhaustive_pairs =
+      reconstruction.NumRegImages() * (reconstruction.NumRegImages() - 1) / 2;
+  std::vector<image_pair_t> image_pairs;
+  image_pairs.reserve(num_exhaustive_pairs);
+  for (const image_t image_id1 : reconstruction.RegImageIds()) {
+    for (const image_t image_id2 : reconstruction.RegImageIds()) {
+      if (image_id1 >= image_id2) {
+        continue;
+      }
+      image_pairs.push_back(ImagePairToPairId(image_id1, image_id2));
+    }
+  }
+  THROW_CHECK_EQ(image_pairs.size(), num_exhaustive_pairs);
+  return image_pairs;
+}
+
+TwoViewGeometry BuildTwoViewGeometry(bool has_relative_pose,
+                                     const Reconstruction& reconstruction,
+                                     const image_pair_t pair_id) {
+  const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+
+  const auto& image1 = reconstruction.Image(image_id1);
+  const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
+  const auto num_points2D1 = image1.NumPoints2D();
+  const auto& image2 = reconstruction.Image(image_id2);
+  const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
+  const auto num_points2D2 = image2.NumPoints2D();
+
+  TwoViewGeometry two_view_geometry;
+  const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
+                             image2.CameraPtr()->has_prior_focal_length;
+  two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
+                                           : TwoViewGeometry::UNCALIBRATED;
+  const Rigid3d cam2_from_cam1 =
+      image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+  if (has_relative_pose) {
+    two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+  }
+  two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
+  two_view_geometry.F =
+      FundamentalFromEssentialMatrix(K2, two_view_geometry.E.value(), K1);
+
+  for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
+       ++point2D_idx1) {
+    const auto& point2D1 = image1.Point2D(point2D_idx1);
+    if (!point2D1.HasPoint3D()) {
+      continue;
+    }
+    for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
+         ++point2D_idx2) {
+      const auto& point2D2 = image2.Point2D(point2D_idx2);
+      if (point2D1.point3D_id == point2D2.point3D_id) {
+        two_view_geometry.inlier_matches.emplace_back(point2D_idx1,
+                                                      point2D_idx2);
         break;
       }
-      const auto& image2 = reconstruction->Image(image_id2);
-      const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
-      const auto num_points2D2 = image2.NumPoints2D();
-
-      TwoViewGeometry two_view_geometry;
-      const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
-                                 image2.CameraPtr()->has_prior_focal_length;
-      two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
-                                               : TwoViewGeometry::UNCALIBRATED;
-      two_view_geometry.cam2_from_cam1 =
-          image2.CamFromWorld() * Inverse(image1.CamFromWorld());
-      two_view_geometry.E =
-          EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
-      two_view_geometry.F =
-          FundamentalFromEssentialMatrix(K2, two_view_geometry.E, K1);
-      for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
-           ++point2D_idx1) {
-        const auto& point2D1 = image1.Point2D(point2D_idx1);
-        if (!point2D1.HasPoint3D()) {
-          continue;
-        }
-        for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
-             ++point2D_idx2) {
-          const auto& point2D2 = image2.Point2D(point2D_idx2);
-          if (point2D1.point3D_id == point2D2.point3D_id) {
-            two_view_geometry.inlier_matches.emplace_back(point2D_idx1,
-                                                          point2D_idx2);
-            break;
-          }
-        }
-      }
-
-      FeatureMatches matches = two_view_geometry.inlier_matches;
-      AddOutlierMatches(
-          inlier_match_ratio, num_points2D1, num_points2D2, &matches);
-
-      if (!database->ExistsMatches(image_id1, image_id2)) {
-        database->WriteMatches(image_id1, image_id2, matches);
-      }
-      if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
-        database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
-      }
     }
+  }
+  return two_view_geometry;
+}
+
+void WriteTwoViewGeometryToDatabase(const image_pair_t pair_id,
+                                    const TwoViewGeometry& two_view_geometry,
+                                    double inlier_match_ratio,
+                                    const Reconstruction& reconstruction,
+                                    Database* database) {
+  const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+  const auto& image1 = reconstruction.Image(image_id1);
+  const auto& image2 = reconstruction.Image(image_id2);
+
+  FeatureMatches matches = two_view_geometry.inlier_matches;
+  AddOutlierMatches(
+      inlier_match_ratio, image1.NumPoints2D(), image2.NumPoints2D(), &matches);
+
+  if (!database->ExistsMatches(image_id1, image_id2)) {
+    database->WriteMatches(image_id1, image_id2, matches);
+  }
+  if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
+    database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  }
+}
+
+void SynthesizeExhaustiveMatches(double inlier_match_ratio,
+                                 bool has_relative_pose,
+                                 Reconstruction* reconstruction,
+                                 Database* database) {
+  for (const image_pair_t pair_id :
+       ExtractExhaustiveImagePairs(*reconstruction)) {
+    const TwoViewGeometry two_view_geometry =
+        BuildTwoViewGeometry(has_relative_pose, *reconstruction, pair_id);
+    WriteTwoViewGeometryToDatabase(pair_id,
+                                   two_view_geometry,
+                                   inlier_match_ratio,
+                                   *reconstruction,
+                                   database);
   }
 }
 
 void SynthesizeChainedMatches(double inlier_match_ratio,
+                              bool has_relative_pose,
                               Reconstruction* reconstruction,
                               Database* database) {
   std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
@@ -150,27 +195,112 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
         camera1.has_prior_focal_length && camera2.has_prior_focal_length;
     two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
                                              : TwoViewGeometry::UNCALIBRATED;
-    two_view_geometry.cam2_from_cam1 =
+    const Rigid3d cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());
-    two_view_geometry.E =
-        EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
+    if (has_relative_pose) {
+      two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+    }
+    two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
     two_view_geometry.F =
         FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
-                                       two_view_geometry.E,
+                                       two_view_geometry.E.value(),
                                        camera1.CalibrationMatrix());
 
-    FeatureMatches matches = two_view_geometry.inlier_matches;
-    AddOutlierMatches(inlier_match_ratio,
-                      image1.NumPoints2D(),
-                      image2.NumPoints2D(),
-                      &matches);
+    WriteTwoViewGeometryToDatabase(pair_id,
+                                   two_view_geometry,
+                                   inlier_match_ratio,
+                                   *reconstruction,
+                                   database);
+  }
+}
 
-    if (!database->ExistsMatches(image_id1, image_id2)) {
-      database->WriteMatches(image_id1, image_id2, matches);
+bool IsViewGraphConnected(const std::set<image_t>& images,
+                          const std::set<image_pair_t>& image_pairs) {
+  if (images.empty()) {
+    return true;
+  }
+  if (images.size() == 1) {
+    return true;
+  }
+  if (image_pairs.empty()) {
+    return false;
+  }
+
+  // Use UnionFind to check connectivity.
+  UnionFind<image_t> uf;
+  uf.Reserve(images.size());
+
+  for (const image_pair_t pair_id : image_pairs) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    uf.Union(image_id1, image_id2);
+  }
+
+  // Check that all images have the same root.
+  const image_t root = uf.Find(*images.begin());
+  for (const image_t node : images) {
+    if (uf.Find(node) != root) {
+      return false;
     }
-    if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
-      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  }
+  return true;
+}
+
+void SynthesizeSparseMatches(double inlier_match_ratio,
+                             bool has_relative_pose,
+                             double sparsity,
+                             Reconstruction* reconstruction,
+                             Database* database) {
+  THROW_CHECK_GE(sparsity, 0.0);
+  THROW_CHECK_LE(sparsity, 1.0);
+
+  if (sparsity == 0.0) {
+    SynthesizeExhaustiveMatches(
+        inlier_match_ratio, has_relative_pose, reconstruction, database);
+    return;
+  }
+
+  if (sparsity == 1.0) {
+    return;
+  }
+
+  std::vector<image_pair_t> remaining_image_pairs =
+      ExtractExhaustiveImagePairs(*reconstruction);
+
+  std::set<image_t> all_image_ids;
+  for (const image_t image_id : reconstruction->RegImageIds()) {
+    all_image_ids.insert(image_id);
+  }
+
+  const size_t num_edges_total = remaining_image_pairs.size();
+  const size_t num_edges_to_remove =
+      static_cast<size_t>(sparsity * num_edges_total);
+
+  // Try to remove edges randomly while maintaining connectivity.
+  std::shuffle(
+      remaining_image_pairs.begin(), remaining_image_pairs.end(), *PRNG);
+  std::set<image_pair_t> remaining_edges_set(remaining_image_pairs.begin(),
+                                             remaining_image_pairs.end());
+  size_t edges_removed = 0;
+  for (const image_pair_t pair_id : remaining_image_pairs) {
+    if (edges_removed >= num_edges_to_remove) {
+      break;
     }
+    remaining_edges_set.erase(pair_id);
+    if (IsViewGraphConnected(all_image_ids, remaining_edges_set)) {
+      edges_removed++;
+    } else {
+      remaining_edges_set.insert(pair_id);
+    }
+  }
+
+  for (const image_pair_t pair_id : remaining_edges_set) {
+    const TwoViewGeometry two_view_geometry =
+        BuildTwoViewGeometry(has_relative_pose, *reconstruction, pair_id);
+    WriteTwoViewGeometryToDatabase(pair_id,
+                                   two_view_geometry,
+                                   inlier_match_ratio,
+                                   *reconstruction,
+                                   database);
   }
 }
 
@@ -187,9 +317,7 @@ void PosePriorPositionCartesianToWGS84(PosePrior& pose_prior) {
 
 void PosePriorPositionWGS84ToCartesian(PosePrior& pose_prior) {
   pose_prior.position = kGPSTransform.EllipsoidToENU(
-      {Eigen::Vector3d(kLat0, kLon0, kAlt0), pose_prior.position},
-      kLat0,
-      kLon0)[1];
+      {pose_prior.position}, kLat0, kLon0, kAlt0)[0];
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
 }
 
@@ -202,9 +330,24 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
   THROW_CHECK_GT(options.num_frames_per_rig, 0);
   THROW_CHECK_GE(options.num_points3D, 0);
+  THROW_CHECK(options.track_length == -1 || options.track_length >= 2);
+  if (options.track_length > 0) {
+    const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                           options.num_frames_per_rig;
+    if (options.track_length > num_images) {
+      LOG(WARNING) << "track_length (" << options.track_length
+                   << ") exceeds number of images (" << num_images
+                   << "), skipping observation pruning.";
+    }
+  }
+  THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
+  THROW_CHECK_GE(options.match_sparsity, 0.);
+  THROW_CHECK_LE(options.match_sparsity, 1.);
+  THROW_CHECK(!options.image_extension.empty());
+  THROW_CHECK(options.image_extension[0] == '.');
 
   if (PRNG == nullptr) {
     SetPRNGSeed();
@@ -222,6 +365,19 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   int total_num_images = (database == nullptr) ? 0 : database->NumImages();
   int total_num_descriptors =
       (database == nullptr) ? 0 : database->NumDescriptors();
+
+  int desc_dim = 0;
+  switch (options.feature_type) {
+    case FeatureExtractorType::SIFT:
+      desc_dim = 128;
+      break;
+    case FeatureExtractorType::UNDEFINED:
+      desc_dim = 0;
+      break;
+    default:
+      LOG(FATAL_THROW) << "Invalid FeatureExtractorType specified: "
+                       << static_cast<int>(options.feature_type);
+  }
 
   for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
     Rig rig;
@@ -255,11 +411,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                              0, options.sensor_from_rig_rotation_stddev),
                          -180.0,
                          180.0);
-          sensor_from_rig.rotation = Eigen::Quaterniond(
+          sensor_from_rig.rotation() = Eigen::Quaterniond(
               Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
         }
         if (options.sensor_from_rig_translation_stddev > 0) {
-          sensor_from_rig.translation = Eigen::Vector3d(
+          sensor_from_rig.translation() = Eigen::Vector3d(
               RandomGaussian<double>(
                   0, options.sensor_from_rig_translation_stddev),
               RandomGaussian<double>(
@@ -287,9 +443,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
       const Eigen::Vector3d proj_center = -5 * view_dir;
       Rigid3d rig_from_world;
-      rig_from_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      rig_from_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           view_dir, Eigen::Vector3d(0, 0, 1));
-      rig_from_world.translation = rig_from_world.rotation * -proj_center;
+      rig_from_world.translation() = rig_from_world.rotation() * -proj_center;
 
       frame.SetRigFromWorld(rig_from_world);
 
@@ -301,8 +457,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         ++total_num_images;
 
         Image& image = images.emplace_back();
-        image.SetName(
-            StringPrintf("camera%06d_frame%06d.png", sensor_id.id, frame_idx));
+        image.SetName(StringPrintf("camera%06d_frame%06d%s",
+                                   sensor_id.id,
+                                   frame_idx,
+                                   options.image_extension.c_str()));
         image.SetCameraId(sensor_id.id);
         const image_t image_id = (database == nullptr)
                                      ? total_num_images
@@ -341,7 +499,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
           if (options.prior_gravity) {
             pose_prior.gravity =
-                (cam_from_world.rotation * options.prior_gravity_in_world)
+                (cam_from_world.rotation() * options.prior_gravity_in_world)
                     .normalized();
           }
 
@@ -380,10 +538,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           Point2D point2D;
           const std::optional<Eigen::Vector2d> proj_point2D =
               camera.ImgFromCam(cam_from_world * point3D.xyz);
-          if (!proj_point2D.has_value()) {
-            continue;  // Point is behind the camera.
-          }
-          point2D.xy = proj_point2D.value();
+          THROW_CHECK(proj_point2D.has_value());
+          point2D.xy = *proj_point2D;
           if (point2D.xy(0) >= 0 && point2D.xy(1) >= 0 &&
               point2D.xy(0) <= camera.width && point2D.xy(1) <= camera.height) {
             point2D.point3D_id = point3D_id;
@@ -408,7 +564,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           // Create keypoints to add to database.
           FeatureKeypoints keypoints;
           keypoints.reserve(points2D.size());
-          FeatureDescriptors descriptors(points2D.size(), 128);
+          FeatureDescriptors descriptors;
+          descriptors.type = options.feature_type;
+          descriptors.data.resize(points2D.size(), desc_dim);
           std::uniform_int_distribution<int> feature_distribution(0, 255);
           for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
                ++point2D_idx) {
@@ -421,8 +579,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                                                ? point2D.point3D_id
                                                : options.num_points3D +
                                                      (++total_num_descriptors));
-            for (int d = 0; d < descriptors.cols(); ++d) {
-              descriptors(point2D_idx, d) =
+            for (int d = 0; d < descriptors.data.cols(); ++d) {
+              descriptors.data(point2D_idx, d) =
                   feature_distribution(feature_generator);
             }
           }
@@ -450,15 +608,48 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   if (database != nullptr) {
     switch (options.match_config) {
       case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
-        SynthesizeExhaustiveMatches(
-            options.inlier_match_ratio, reconstruction, database);
+        SynthesizeExhaustiveMatches(options.inlier_match_ratio,
+                                    options.two_view_geometry_has_relative_pose,
+                                    reconstruction,
+                                    database);
         break;
       case SyntheticDatasetOptions::MatchConfig::CHAINED:
-        SynthesizeChainedMatches(
-            options.inlier_match_ratio, reconstruction, database);
+        SynthesizeChainedMatches(options.inlier_match_ratio,
+                                 options.two_view_geometry_has_relative_pose,
+                                 reconstruction,
+                                 database);
+        break;
+      case SyntheticDatasetOptions::MatchConfig::SPARSE:
+        SynthesizeSparseMatches(options.inlier_match_ratio,
+                                options.two_view_geometry_has_relative_pose,
+                                options.match_sparsity,
+                                reconstruction,
+                                database);
         break;
       default:
         LOG(FATAL_THROW) << "Invalid MatchConfig specified";
+    }
+  }
+
+  if (options.track_length > 0) {
+    std::vector<point3D_t> point3D_ids;
+    point3D_ids.reserve(reconstruction->NumPoints3D());
+    for (const auto& [point3D_id, _] : reconstruction->Points3D()) {
+      point3D_ids.push_back(point3D_id);
+    }
+    for (const point3D_t point3D_id : point3D_ids) {
+      const auto& track = reconstruction->Point3D(point3D_id).track;
+      if (static_cast<int>(track.Length()) <= options.track_length) {
+        continue;
+      }
+      auto elements = track.Elements();
+      std::shuffle(elements.begin(), elements.end(), *PRNG);
+      const int num_to_delete =
+          static_cast<int>(elements.size()) - options.track_length;
+      for (int i = 0; i < num_to_delete; ++i) {
+        reconstruction->DeleteObservation(elements[i].image_id,
+                                          elements[i].point2D_idx);
+      }
     }
   }
 
@@ -483,12 +674,12 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
           RandomGaussian<double>(0, options.rig_from_world_rotation_stddev),
           -180.0,
           180.0);
-      rig_from_world.rotation *= Eigen::Quaterniond(
+      rig_from_world.rotation() *= Eigen::Quaterniond(
           Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d::UnitZ()));
     }
 
     if (options.rig_from_world_translation_stddev > 0.0) {
-      rig_from_world.translation += Eigen::Vector3d(
+      rig_from_world.translation() += Eigen::Vector3d(
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev));
@@ -565,7 +756,7 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
 
 void SynthesizeImages(const SyntheticImageOptions& options,
                       const Reconstruction& reconstruction,
-                      const std::string& image_path) {
+                      const std::filesystem::path& image_path) {
   THROW_CHECK_GT(options.feature_patch_radius, 0);
   THROW_CHECK_LT(options.feature_peak_radius, options.feature_patch_radius);
   THROW_CHECK_GT(options.feature_patch_max_brightness, 0);
@@ -642,7 +833,7 @@ void SynthesizeImages(const SyntheticImageOptions& options,
       }
     }
 
-    const std::string output_image_path = JoinPaths(image_path, image.Name());
+    const auto output_image_path = image_path / image.Name();
     if (!bitmap.Write(output_image_path)) {
       LOG(ERROR) << "Failed to write image to " << output_image_path;
     }

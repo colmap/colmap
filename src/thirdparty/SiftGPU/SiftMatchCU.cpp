@@ -126,7 +126,7 @@ void SiftMatchCU::SetDescriptors(int index, int num, const float* descriptors,
   SetDescriptors(index, num, pub, id);
 }
 
-void SiftMatchCU::SetFeautreLocation(int index, const float* locations,
+void SiftMatchCU::SetFeatureLocation(int index, const float* locations,
                                      int gap) {
   if (_num_sift[index] <= 0) return;
   _texLoc[index].InitTexture(_num_sift[index], 1, 2);

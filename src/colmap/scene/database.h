@@ -38,6 +38,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <mutex>
 #include <vector>
 
@@ -45,12 +46,12 @@
 
 namespace colmap {
 
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureKeypointsBlob;
-typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptorsBlob;
-typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
-    FeatureMatchesBlob;
+using FeatureKeypointsBlob =
+    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using FeatureDescriptorsBlob =
+    Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using FeatureMatchesBlob =
+    Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>;
 
 // Database class to read and write images, features, cameras, matches, etc.
 // from a SQLite database. The class is not thread-safe and must not be accessed
@@ -69,7 +70,8 @@ class Database {
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
   // runtime_error in that case.
-  using Factory = std::function<std::shared_ptr<Database>(const std::string&)>;
+  using Factory =
+      std::function<std::shared_ptr<Database>(const std::filesystem::path&)>;
 
   // Register a factory to open a database implementation. Database factories
   // are tried in reverse order of registration. In other words, later
@@ -77,7 +79,7 @@ class Database {
   static void Register(Factory factory);
 
   // Open database and throw a runtime_error if none of the factories succeeds.
-  static std::shared_ptr<Database> Open(const std::string& path);
+  static std::shared_ptr<Database> Open(const std::filesystem::path& path);
 
   // Explicitly close the database before destruction.
   virtual void Close() = 0;
@@ -343,5 +345,9 @@ class DatabaseTransaction {
   Database* database_;
   std::unique_lock<std::mutex> database_lock_;
 };
+
+// Loads random descriptors from random images in the database.
+FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(const Database& database,
+                                                      int max_num_descriptors);
 
 }  // namespace colmap

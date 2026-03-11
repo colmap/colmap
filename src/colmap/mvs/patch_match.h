@@ -31,16 +31,14 @@
 
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
-#include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/patch_match_options.h"
 #ifndef __CUDACC__
 #include "colmap/util/base_controller.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #endif
 
-#include <iostream>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -131,10 +129,10 @@ class PatchMatch {
 class PatchMatchController : public BaseController {
  public:
   PatchMatchController(const PatchMatchOptions& options,
-                       const std::string& workspace_path,
+                       const std::filesystem::path& workspace_path,
                        const std::string& workspace_format,
                        const std::string& pmvs_option_name,
-                       const std::string& config_path = "");
+                       const std::filesystem::path& config_path = "");
   void Run();
 
  private:
@@ -144,12 +142,13 @@ class PatchMatchController : public BaseController {
   void ProcessProblem(const PatchMatchOptions& options, size_t problem_idx);
 
   const PatchMatchOptions options_;
-  const std::string workspace_path_;
+  const std::filesystem::path workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;
-  const std::string config_path_;
+  const std::filesystem::path config_path_;
 
   std::unique_ptr<ThreadPool> thread_pool_;
+  std::unique_ptr<ThreadPool> io_thread_pool_;
   std::mutex workspace_mutex_;
   std::unique_ptr<Workspace> workspace_;
   std::vector<PatchMatch::Problem> problems_;

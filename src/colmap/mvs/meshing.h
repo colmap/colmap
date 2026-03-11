@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <string>
+#include <filesystem>
 
 namespace colmap {
 namespace mvs {
@@ -98,8 +98,8 @@ struct DelaunayMeshingOptions {
 
 // Perform Poisson surface reconstruction and return true if successful.
 bool PoissonMeshing(const PoissonMeshingOptions& options,
-                    const std::string& input_path,
-                    const std::string& output_path);
+                    const std::filesystem::path& input_path,
+                    const std::filesystem::path& output_path);
 
 #if defined(COLMAP_CGAL_ENABLED)
 
@@ -114,11 +114,11 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
 // COLMAP workspace folder, which has been fully processed by the stereo and
 // fusion pipeline.
 void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                           const std::string& input_path,
-                           const std::string& output_path);
+                           const std::filesystem::path& input_path,
+                           const std::filesystem::path& output_path);
 void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                          const std::string& input_path,
-                          const std::string& output_path);
+                          const std::filesystem::path& input_path,
+                          const std::filesystem::path& output_path);
 
 #endif  // COLMAP_CGAL_ENABLED
 

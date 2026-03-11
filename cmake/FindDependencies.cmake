@@ -4,10 +4,6 @@ else()
     set(COLMAP_FIND_TYPE REQUIRED)
 endif()
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
-    cmake_policy(SET CMP0167 NEW)
-endif()
-
 # Track all the compile definitions
 set(COLMAP_COMPILE_DEFINITIONS)
 if(LSD_ENABLED)
@@ -85,6 +81,13 @@ if(CGAL_FOUND)
             CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     endif()
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
+else()
+    if(CGAL_ENABLED)
+        set(CGAL_ENABLED OFF)
+        message(STATUS "Disabling CGAL support (not found)")
+    else()
+        message(STATUS "Disabling CGAL support")
+    endif()
 endif()
 
 if(DOWNLOAD_ENABLED)
@@ -173,6 +176,8 @@ if(CUDA_ENABLED)
             message(STATUS "Disabling CUDA support (not found)")
         endif()
     endif()
+else()
+    message(STATUS "Disabling CUDA support")
 endif()
 
 if(CUDA_ENABLED AND CUDA_FOUND)
@@ -192,11 +197,218 @@ if(CUDA_ENABLED AND CUDA_FOUND)
         set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
     endif()
 
+    # Handle MSVC runtime library for CUDA to support static CRT linking.
+    # CMake's default CUDA flags use /MD (dynamic), but if the user is building
+    # with static CRT (/MT), we need to override the CUDA flags to match.
+    if(IS_MSVC)
+        # Detect the runtime library from CMAKE_MSVC_RUNTIME_LIBRARY or CXX flags
+        set(_COLMAP_USE_STATIC_RUNTIME OFF)
+
+        if(DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+            if(CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "MultiThreaded" AND
+               NOT CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "DLL")
+                set(_COLMAP_USE_STATIC_RUNTIME ON)
+            endif()
+        elseif(CMAKE_CXX_FLAGS_DEBUG MATCHES "/MTd" OR
+               CMAKE_CXX_FLAGS_RELEASE MATCHES "/MT[^d]" OR
+               CMAKE_CXX_FLAGS MATCHES "/MT")
+            set(_COLMAP_USE_STATIC_RUNTIME ON)
+        endif()
+
+        if(_COLMAP_USE_STATIC_RUNTIME)
+            message(STATUS "CUDA: Using static MSVC runtime library (/MT)")
+            # Replace /MD with /MT in CUDA flags for each build type
+            foreach(_BUILD_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+                if(DEFINED CMAKE_CUDA_FLAGS_${_BUILD_TYPE})
+                    string(REPLACE "-MDd" "-MTd" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "-MD" "-MT" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "/MDd" "/MTd" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "/MD" "/MT" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                endif()
+            endforeach()
+        endif()
+
+        unset(_COLMAP_USE_STATIC_RUNTIME)
+    endif()
+
     message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "
                     "archs: ${CMAKE_CUDA_ARCHITECTURES})")
 else()
     set(CUDA_ENABLED OFF)
-    message(STATUS "Disabling CUDA support")
+endif()
+
+if(ONNX_ENABLED)
+    if(FETCH_ONNX)
+        include(FetchContent)
+
+        message(STATUS "Configuring onnxruntime...")
+
+        set(ONNX_VERSION "1.24.1")
+        # ONNX Runtime >= 1.22 GPU binaries are built with CUDA >= 12
+        if(ONNX_VERSION VERSION_GREATER_EQUAL "1.22"
+           AND CUDA_ENABLED AND CUDA_FOUND AND CUDAToolkit_VERSION VERSION_LESS "12.0")
+            message(WARNING
+                "ONNX Runtime ${ONNX_VERSION} GPU binary is built with CUDA >= 12, "
+                "but CUDA ${CUDAToolkit_VERSION} was detected. The ONNX Runtime CUDA "
+                "execution provider may fail at runtime, CPU execution will continue to work. "
+                "Consider upgrading CUDA to >= 12 or using a source-built onnxruntime.")
+        endif()
+
+        if(IS_MACOS)
+            if(CMAKE_OSX_ARCHITECTURES)
+                set(_COLMAP_MACOS_ARCH ${CMAKE_OSX_ARCHITECTURES})
+            else()
+                set(_COLMAP_MACOS_ARCH ${CMAKE_SYSTEM_PROCESSOR})
+            endif()
+            if(_COLMAP_MACOS_ARCH STREQUAL "x86_64")
+                message(FATAL_ERROR "x86_64 is not supported for onnxruntime")
+            else()
+                FetchContent_Declare(onnxruntime
+                    URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
+                    URL_HASH SHA256=c2969315cd9ce0f5fa04f6b53ff72cb92f87f7dcf38e88cacfa40c8f983fbba9
+                    ${_fetch_content_declare_args}
+                )
+            endif()
+        elseif(IS_LINUX)
+            if(IS_ARM64)
+                FetchContent_Declare(onnxruntime
+                    URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-aarch64-${ONNX_VERSION}.tgz
+                    URL_HASH SHA256=0f56edd68f7602df790b68b874a46b115add037e88385c6c842bb763b39b9f89
+                    ${_fetch_content_declare_args}
+                )
+            else()
+                if(CUDA_ENABLED)
+                    FetchContent_Declare(onnxruntime
+                        URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
+                        URL_HASH SHA256=1c468821456b7863640555e31ee5b71e56bb959874b9db0dbf79503997993673
+                        ${_fetch_content_declare_args}
+                    )
+                else()
+                    FetchContent_Declare(onnxruntime
+                        URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz
+                        URL_HASH SHA256=9142552248b735920f9390027e4512a2cacf8946a1ffcbe9071a5c210531026f
+                        ${_fetch_content_declare_args}
+                    )
+                endif()
+            endif()
+        elseif(IS_WINDOWS)
+            FetchContent_Declare(onnxruntime
+                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
+                URL_HASH SHA256=176af2aade9eb9e429cd2a738aa5d71a1f20ec7123e4b99a382ad62b9db970fb
+                ${_fetch_content_declare_args}
+            )
+        endif()
+
+        FetchContent_MakeAvailable(onnxruntime)
+
+        set(ONNX_INCLUDE_DIR ${onnxruntime_BINARY_DIR}/include/onnxruntime)
+        if(NOT EXISTS ${ONNX_INCLUDE_DIR})
+            file(MAKE_DIRECTORY ${ONNX_INCLUDE_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/include/ DESTINATION ${ONNX_INCLUDE_DIR}/)
+        endif()
+        set(onnxruntime_LIB_DIR ${onnxruntime_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
+        if(NOT EXISTS ${onnxruntime_LIB_DIR})
+            file(MAKE_DIRECTORY ${onnxruntime_LIB_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${onnxruntime_LIB_DIR})
+            file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/cmake)
+            file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/pkgconfig)
+        endif()
+        if(NOT IS_WINDOWS)
+            set(ONNX_DATA_DIR ${onnxruntime_BINARY_DIR}/share/onnxruntime)
+            if(NOT EXISTS ${ONNX_DATA_DIR})
+                file(MAKE_DIRECTORY ${ONNX_DATA_DIR})
+                file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
+                file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
+                # The downloaded cmake configs may reference lib64/ (e.g. on Linux x64),
+                # but the actual install directory depends on CMAKE_INSTALL_LIBDIR
+                # (lib/ or lib64/ depending on the distro). Patch the configs to match.
+                if(IS_LINUX AND NOT IS_ARM64)
+                    file(GLOB _onnx_cmake_configs "${ONNX_DATA_DIR}/cmake/*.cmake")
+                    foreach(_config_file ${_onnx_cmake_configs})
+                        file(READ "${_config_file}" _config_content)
+                        string(REPLACE "/lib64/" "/${CMAKE_INSTALL_LIBDIR}/" _config_content "${_config_content}")
+                        file(WRITE "${_config_file}" "${_config_content}")
+                    endforeach()
+                endif()
+            endif()
+            set(onnxruntime_CONFIG_DIR_HINTS ${ONNX_DATA_DIR}/cmake CACHE PATH "ONNX Runtime config directory hints")
+        endif()
+
+        set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include CACHE PATH "ONNX Runtime include directory hints")
+        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_BINARY_DIR}/lib CACHE PATH "ONNX Runtime library directory hints")
+        find_package(onnxruntime ${COLMAP_FIND_TYPE})
+
+        install(DIRECTORY "${onnxruntime_BINARY_DIR}/include/" TYPE INCLUDE)
+        if(IS_WINDOWS)
+            # On Windows, selectively install Libs to lib/. Always install core Libs.
+            # For not supporting TensorRT/ROCM/etc. as a runtime, so not installing it intentionally.
+            install(FILES
+                "${onnxruntime_LIB_DIR}/onnxruntime.lib"
+                "${onnxruntime_LIB_DIR}/onnxruntime_providers_shared.lib"
+                TYPE LIB)
+            # Only install CUDA provider Lib if CUDA is enabled.
+            if(CUDA_ENABLED)
+                install(FILES
+                    "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.lib"
+                    TYPE LIB)
+            endif()
+            # On Windows, selectively install DLLs to bin/. Always install core DLLs.
+            # For not supporting TensorRT/ROCM/etc. as a runtime, so not installing it intentionally.
+            install(FILES
+                "${onnxruntime_LIB_DIR}/onnxruntime.dll"
+                "${onnxruntime_LIB_DIR}/onnxruntime_providers_shared.dll"
+                TYPE BIN)
+            # Only install CUDA provider DLL if CUDA is enabled.
+            if(CUDA_ENABLED)
+                install(FILES
+                    "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.dll"
+                    TYPE BIN)
+            endif()
+        else()
+            # On Linux/macOS, selectively install library files. Always install core libraries.
+            # Not supporting TensorRT/ROCM/etc. as a runtime, so not installing them.
+            if(IS_MACOS)
+                file(GLOB onnxruntime_CORE_LIBS
+                    "${onnxruntime_LIB_DIR}/libonnxruntime.dylib"
+                    "${onnxruntime_LIB_DIR}/libonnxruntime.*.dylib"
+                    "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.dylib")
+                install(FILES ${onnxruntime_CORE_LIBS} TYPE LIB)
+            else()
+                file(GLOB onnxruntime_CORE_LIBS
+                    "${onnxruntime_LIB_DIR}/libonnxruntime.so*"
+                    "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.so*")
+                install(FILES ${onnxruntime_CORE_LIBS} TYPE LIB)
+                # Only install CUDA provider if CUDA is enabled.
+                if(CUDA_ENABLED)
+                    file(GLOB onnxruntime_CUDA_LIBS
+                        "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.so*")
+                    install(FILES ${onnxruntime_CUDA_LIBS} TYPE LIB)
+                endif()
+            endif()
+        endif()
+        if(EXISTS "${onnxruntime_BINARY_DIR}/share")
+            install(DIRECTORY "${onnxruntime_BINARY_DIR}/share/" TYPE DATA)
+        endif()
+
+        message(STATUS "Configuring onnxruntime... done")
+    else()
+        find_package(onnxruntime ${COLMAP_FIND_TYPE})
+        if(NOT onnxruntime_FOUND)
+            message(STATUS "Disabling ONNX support (not found)")
+            set(ONNX_ENABLED OFF)
+        endif()
+    endif()
+else()
+    message(STATUS "Disabling ONNX support")
+endif()
+
+if(TARGET onnxruntime::onnxruntime)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
+    message(STATUS "Enabling ONNX support")
 endif()
 
 if(GUI_ENABLED)
