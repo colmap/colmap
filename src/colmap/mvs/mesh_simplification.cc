@@ -304,12 +304,12 @@ PlyMesh SimplifyMesh(const PlyMesh& mesh,
     if (!face_removed[fi]) ++current_faces;
   }
 
-  // Compute initial quadrics.
+  // Step 1: Compute initial quadrics.
   const int eff_num_threads = GetEffectiveNumThreads(options.num_threads);
   LOG(INFO) << "Computing vertex quadrics using " << eff_num_threads
             << " threads...";
 
-  // Compute per-face quadric matrices in parallel.
+  // Compute per-face quadric matrices in parallel (Section 5).
   std::vector<Eigen::Matrix4d> face_quadrics(num_faces,
                                              Eigen::Matrix4d::Zero());
   {
@@ -345,7 +345,7 @@ PlyMesh SimplifyMesh(const PlyMesh& mesh,
   face_quadrics.clear();
   face_quadrics.shrink_to_fit();
 
-  // Boundary preservation quadrics.
+  // Boundary preservation quadrics (Section 6, geometric discontinuity only).
   if (options.boundary_weight > 0) {
     LOG(INFO) << "Computing boundary preservation quadrics...";
     // Build edge-to-face mapping.
@@ -390,14 +390,11 @@ PlyMesh SimplifyMesh(const PlyMesh& mesh,
     }
   }
 
-  // Initialize priority queue.
   LOG(INFO) << "Computing initial edge collapse candidates...";
-  using MinHeap = std::priority_queue<CollapseCandidate,
-                                      std::vector<CollapseCandidate>,
-                                      CompareCandidateCost>;
 
-  // Collect unique edges — each undirected edge (vi, vj) with vi < vj
-  // is emitted exactly once since adjacency is symmetric.
+  // Step 2: Collect unique edges — only real mesh edges (vi, vj) with vi < vj
+  // are considered (not pairs of close-enough vertices as in Section 8).
+  // Each undirected edge is emitted exactly once since adjacency is symmetric.
   std::vector<Edge> unique_edges;
   for (size_t vi = 0; vi < num_vertices; ++vi) {
     if (vertex_data[vi].removed) continue;
@@ -408,7 +405,7 @@ PlyMesh SimplifyMesh(const PlyMesh& mesh,
     }
   }
 
-  // Compute collapse candidates in parallel.
+  // Step 3: Compute collapse candidates in parallel.
   std::vector<CollapseCandidate> initial_candidates(unique_edges.size());
   {
     const int64_t num_edges_signed = static_cast<int64_t>(unique_edges.size());
@@ -421,13 +418,16 @@ PlyMesh SimplifyMesh(const PlyMesh& mesh,
     }
   }
 
-  // Build PQ from the computed candidates in O(n).
+  // Step 4: Initialize priority queue from the computed candidates in O(n).
+  using MinHeap = std::priority_queue<CollapseCandidate,
+                                      std::vector<CollapseCandidate>,
+                                      CompareCandidateCost>;
   MinHeap pq(CompareCandidateCost{}, std::move(initial_candidates));
 
   LOG(INFO) << "Collapsing edges: " << current_faces << " -> " << target_faces
             << " target faces, " << pq.size() << " initial edge candidates";
 
-  // Iterative collapse loop.
+  // Step 5: Iterative collapse loop.
   const size_t faces_to_remove = current_faces - target_faces;
   size_t faces_removed = 0;
   int last_progress_percent = -1;

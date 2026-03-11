@@ -58,6 +58,19 @@ PlyMesh CreateTetrahedronMesh() {
   return mesh;
 }
 
+void AddGridFaces(PlyMesh& mesh, const int n) {
+  for (int j = 0; j < n; ++j) {
+    for (int i = 0; i < n; ++i) {
+      const size_t v00 = j * (n + 1) + i;
+      const size_t v10 = j * (n + 1) + (i + 1);
+      const size_t v01 = (j + 1) * (n + 1) + i;
+      const size_t v11 = (j + 1) * (n + 1) + (i + 1);
+      mesh.faces.emplace_back(v00, v10, v11);
+      mesh.faces.emplace_back(v00, v11, v01);
+    }
+  }
+}
+
 PlyMesh CreateGridMesh(const int n) {
   PlyMesh mesh;
   for (int j = 0; j <= n; ++j) {
@@ -70,16 +83,7 @@ PlyMesh CreateGridMesh(const int n) {
                                  128);
     }
   }
-  for (int j = 0; j < n; ++j) {
-    for (int i = 0; i < n; ++i) {
-      const size_t v00 = j * (n + 1) + i;
-      const size_t v10 = j * (n + 1) + (i + 1);
-      const size_t v01 = (j + 1) * (n + 1) + i;
-      const size_t v11 = (j + 1) * (n + 1) + (i + 1);
-      mesh.faces.emplace_back(v00, v10, v11);
-      mesh.faces.emplace_back(v00, v11, v01);
-    }
-  }
+  AddGridFaces(mesh, n);
   return mesh;
 }
 
@@ -93,16 +97,7 @@ PlyMesh CreateWavyGridMesh(const int n) {
       mesh.vertices.emplace_back(x, y, z);
     }
   }
-  for (int j = 0; j < n; ++j) {
-    for (int i = 0; i < n; ++i) {
-      const size_t v00 = j * (n + 1) + i;
-      const size_t v10 = j * (n + 1) + (i + 1);
-      const size_t v01 = (j + 1) * (n + 1) + i;
-      const size_t v11 = (j + 1) * (n + 1) + (i + 1);
-      mesh.faces.emplace_back(v00, v10, v11);
-      mesh.faces.emplace_back(v00, v11, v01);
-    }
-  }
+  AddGridFaces(mesh, n);
   return mesh;
 }
 
@@ -300,6 +295,32 @@ TEST(SimplifyMesh, LargerMeshStressTest) {
     EXPECT_LT(face.vertex_idx1, result.vertices.size());
     EXPECT_LT(face.vertex_idx2, result.vertices.size());
     EXPECT_LT(face.vertex_idx3, result.vertices.size());
+  }
+}
+
+TEST(SimplifyMesh, OptimalVertexPlacement) {
+  // Simplify a flat grid mesh and verify that the QEM optimal vertex
+  // positions remain on the original surface (z=0 plane) and within
+  // the bounding box of the original mesh.
+  const auto mesh = CreateGridMesh(4);  // 32 faces
+
+  MeshSimplificationOptions options;
+  options.target_face_ratio = 0.25;
+  options.boundary_weight = 0.0;
+
+  const auto result = SimplifyMesh(mesh, options);
+
+  EXPECT_LT(result.faces.size(), mesh.faces.size());
+  EXPECT_GT(result.vertices.size(), 0);
+
+  for (const auto& v : result.vertices) {
+    // All vertices should remain on the z=0 plane.
+    EXPECT_NEAR(v.z, 0.0f, 1e-5f);
+    // All vertices should remain within the original bounding box.
+    EXPECT_GE(v.x, -0.01f);
+    EXPECT_LE(v.x, 4.01f);
+    EXPECT_GE(v.y, -0.01f);
+    EXPECT_LE(v.y, 4.01f);
   }
 }
 
