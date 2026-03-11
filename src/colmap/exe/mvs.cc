@@ -82,7 +82,39 @@ int RunDelaunayMesher(int argc, char** argv) {
 #endif  // COLMAP_CGAL_ENABLED
 }
 
-int RunMeshTextureMapper(int argc, char** argv) {
+int RunMeshSimplifier(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to input PLY mesh");
+  options.AddRequiredOption(
+      "output_path", &output_path, "Path to output PLY mesh");
+  options.AddMeshSimplificationOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+  THROW_CHECK_FILE_EXISTS(input_path);
+  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+
+  LOG(INFO) << "Reading mesh from " << input_path;
+  const PlyMesh mesh = ReadPlyMesh(input_path);
+  LOG(INFO) << "Input mesh: " << mesh.vertices.size() << " vertices, "
+            << mesh.faces.size() << " faces";
+
+  const PlyMesh simplified =
+      mvs::SimplifyMesh(mesh, *options.mesh_simplification);
+
+  LOG(INFO) << "Writing simplified mesh to " << output_path;
+  WriteBinaryPlyMesh(output_path, simplified);
+
+  return EXIT_SUCCESS;
+}
+
+int RunMeshTexturer(int argc, char** argv) {
   std::filesystem::path workspace_path;
   std::filesystem::path input_path;
   std::filesystem::path output_path;
