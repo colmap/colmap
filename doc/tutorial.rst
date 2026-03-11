@@ -121,8 +121,11 @@ information for every pixel in an image. Fusion of the depth and normal maps of
 multiple images in 3D then produces a dense point cloud of the scene. Using the
 depth and normal information of the fused point cloud, algorithms such as the
 (screened) Poisson surface reconstruction [kazhdan2013]_ can then recover the 3D
-surface geometry of the scene. More information on Multi-View Stereo in general
-and the algorithms in COLMAP can be found in [schoenberger16mvs]_.
+surface geometry of the scene. The resulting meshes can optionally be simplified
+using Quadric Error Metric (QEM) decimation [garland1997]_ to reduce their
+complexity while preserving shape and appearance. More information on Multi-View
+Stereo in general and the algorithms in COLMAP can be found in
+[schoenberger16mvs]_.
 
 
 Preface
@@ -437,6 +440,8 @@ integrated dense reconstruction pipeline to produce depth and normal maps for
 all registered images, to fuse the depth and normal maps into a dense point
 cloud with normal information, and to finally estimate a dense surface from the
 fused point cloud using Poisson [kazhdan2013]_ or Delaunay reconstruction.
+Optionally, the resulting meshes can be simplified using the ``mesh_simplifier``
+command to reduce the number of faces while preserving the overall shape.
 
 To get started, import your sparse 3D model into COLMAP (or select the
 reconstructed model after finishing the previous sparse reconstruction steps).

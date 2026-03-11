@@ -81,6 +81,12 @@ of commands as an alternative to the automatic reconstruction command::
         --input_path $DATASET_PATH/dense \
         --output_path $DATASET_PATH/dense/meshed-delaunay.ply
 
+    # Optionally simplify a dense mesh to reduce its size.
+    $ colmap mesh_simplifier \
+        --input_path $DATASET_PATH/dense/meshed-poisson.ply \
+        --output_path $DATASET_PATH/dense/meshed-poisson-simplified.ply \
+        --MeshSimplification.target_face_ratio 0.25
+
 If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
 supported by your system. If no CUDA enabled device is available, you can
@@ -136,6 +142,7 @@ The available commands can be listed using the command::
           image_undistorter_standalone
           mapper
           matches_importer
+          mesh_simplifier
           model_aligner
           model_analyzer
           model_comparer
@@ -297,6 +304,16 @@ available as ``colmap [command]``:
 - ``delaunay_mesher``: Meshing of the reconstructed sparse or dense point cloud
   using a graph cut on the Delaunay triangulation and visibility voting.
 
+- ``mesh_simplifier``: Simplify a triangle mesh (PLY format) using Quadric Error
+  Metric (QEM) decimation. This reduces the number of faces in a mesh while
+  preserving its overall shape and appearance. Key options include
+  ``--MeshSimplification.target_face_ratio`` to control the fraction of faces
+  to retain (default 0.1), ``--MeshSimplification.max_error`` to set a maximum
+  quadric error threshold (0 = disabled), and
+  ``--MeshSimplification.boundary_weight`` to control boundary edge preservation
+  (default 1000). Supports multi-threaded initialization via
+  ``--MeshSimplification.num_threads``.
+
 - ``image_registrator``: Register new images in the database against an existing
   model, e.g., when extracting features and matching newly added images in a
   database after running ``mapper``. Note that no bundle adjustment or
@@ -391,4 +408,6 @@ reconstruction pipelines, COLMAP offers you the following possibilities:
 
 - The dense mesh model ``meshed-*.ply`` obtained with the ``poisson_mesher`` or
   the ``delaunay_mesher`` can currently not be visualized with COLMAP, instead
-  you can use an external viewer, such as Meshlab.
+  you can use an external viewer, such as Meshlab. Use the ``mesh_simplifier``
+  command to reduce the mesh size for faster visualization or downstream
+  processing.
