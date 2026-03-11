@@ -46,14 +46,14 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db
 
-    $ mkdir $DATASET_PATH/sparse
+    $ mkdir -p $DATASET_PATH/sparse
 
     $ colmap mapper \
         --database_path $DATASET_PATH/database.db \
         --image_path $DATASET_PATH/images \
         --output_path $DATASET_PATH/sparse
 
-    $ mkdir $DATASET_PATH/dense
+    $ mkdir -p $DATASET_PATH/dense
 
     $ colmap image_undistorter \
         --image_path $DATASET_PATH/images \
@@ -110,7 +110,7 @@ it is recommended to work on a copy of the database::
     $ colmap view_graph_calibrator \
         --database_path $DATASET_PATH/database_global.db
 
-    $ mkdir $DATASET_PATH/sparse
+    $ mkdir -p $DATASET_PATH/sparse
 
     $ colmap global_mapper \
         --database_path $DATASET_PATH/database_global.db \
