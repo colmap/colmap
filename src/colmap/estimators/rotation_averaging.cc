@@ -397,8 +397,8 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::vector<PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
-  // Initialize rotations from maximum spanning tree if no gravity priors.
-  if (!options_.skip_initialization && !UseGravity(options_, pose_priors)) {
+  // Initialize rotations from maximum spanning tree.
+  if (!options_.skip_initialization) {
     InitializeFromMaximumSpanningTree(
         pose_graph, active_image_ids, reconstruction);
   }
@@ -512,12 +512,18 @@ bool InitializeRigRotationsFromImages(
   std::vector<double> weights;
   for (auto& [camera_id, rig_id_and_samples] : cam_from_rig_samples) {
     auto& [rig_id, samples] = rig_id_and_samples;
+    // Skip if sensor_from_rig is already fully known.
+    const auto sensor_id = sensor_t(SensorType::CAMERA, camera_id);
+    const auto existing =
+        reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
+    if (existing.has_value() && !existing->translation().hasNaN()) {
+      continue;
+    }
     weights.resize(samples.size(), 1.0);
     const Eigen::Quaterniond cam_from_rig =
         AverageQuaternions(samples, weights);
     reconstruction.Rig(rig_id).SetSensorFromRig(
-        sensor_t(SensorType::CAMERA, camera_id),
-        Rigid3d(cam_from_rig, kUnknownTranslation));
+        sensor_id, Rigid3d(cam_from_rig, kUnknownTranslation));
   }
 
   // Step 2: Compute rig_from_world for each frame by averaging across images.
