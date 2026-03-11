@@ -46,9 +46,15 @@
 #include <Eigen/SparseCore>
 
 #if defined(COLMAP_CGAL_ENABLED)
+#include <CGAL/version.h>
+#if CGAL_VERSION_MAJOR >= 6
 #include <CGAL/AABB_traits_3.h>
-#include <CGAL/AABB_tree.h>
 #include <CGAL/AABB_triangle_primitive_3.h>
+#else
+#include <CGAL/AABB_traits.h>
+#include <CGAL/AABB_triangle_primitive.h>
+#endif
+#include <CGAL/AABB_tree.h>
 #include <CGAL/Simple_cartesian.h>
 #endif  // COLMAP_CGAL_ENABLED
 
@@ -182,10 +188,17 @@ using CGALKernel = CGAL::Simple_cartesian<float>;
 using CGALPoint = CGALKernel::Point_3;
 using CGALTriangle = CGALKernel::Triangle_3;
 using CGALSegment = CGALKernel::Segment_3;
+#if CGAL_VERSION_MAJOR >= 6
 using CGALPrimitiveId =
     CGAL::AABB_triangle_primitive_3<CGALKernel,
                                     std::vector<CGALTriangle>::const_iterator>;
 using CGALTraits = CGAL::AABB_traits_3<CGALKernel, CGALPrimitiveId>;
+#else
+using CGALPrimitiveId =
+    CGAL::AABB_triangle_primitive<CGALKernel,
+                                  std::vector<CGALTriangle>::const_iterator>;
+using CGALTraits = CGAL::AABB_traits<CGALKernel, CGALPrimitiveId>;
+#endif
 using CGALAABBTree = CGAL::AABB_tree<CGALTraits>;
 
 struct OcclusionTester {
