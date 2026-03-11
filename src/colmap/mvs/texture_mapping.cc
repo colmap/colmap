@@ -60,8 +60,6 @@ namespace colmap {
 namespace mvs {
 namespace {
 
-#if defined(COLMAP_CGAL_ENABLED)
-
 // Map from face index to its adjacent face indices.
 using FaceAdjacencyMap = std::vector<std::vector<size_t>>;
 
@@ -177,6 +175,8 @@ FaceAdjacencyMap BuildFaceAdjacency(const PlyMesh& mesh) {
 
   return adjacency;
 }
+
+#if defined(COLMAP_CGAL_ENABLED)
 
 using CGALKernel = CGAL::Simple_cartesian<float>;
 using CGALPoint = CGALKernel::Point_3;
