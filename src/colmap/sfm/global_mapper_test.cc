@@ -36,8 +36,7 @@ TEST(GlobalMapper, WithoutNoise) {
   GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,
@@ -67,8 +66,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,
@@ -108,8 +106,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
     }
   }
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,
@@ -140,8 +137,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,

@@ -448,8 +448,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   return true;
 }
 
-bool GlobalMapper::Solve(const GlobalMapperOptions& options,
-                         std::unordered_map<frame_t, int>& cluster_ids) {
+bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
 
