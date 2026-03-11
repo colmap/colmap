@@ -251,7 +251,11 @@ struct OcclusionTester {
     const size_t hit_face = triangle_to_face[tri_idx];
     if (hit_face == face_idx) return false;
 
+#if CGAL_VERSION_MAJOR >= 6
     const auto* hit_point = std::get_if<CGALPoint>(&(intersection->first));
+#else
+    const auto* hit_point = boost::get<CGALPoint>(&(intersection->first));
+#endif
     if (hit_point) {
       const Eigen::Vector3f hp(hit_point->x(), hit_point->y(), hit_point->z());
       const float hit_dist = (hp - camera_center).norm();
