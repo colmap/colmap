@@ -46,14 +46,14 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db
 
-    $ mkdir $DATASET_PATH/sparse
+    $ mkdir -p $DATASET_PATH/sparse
 
     $ colmap mapper \
         --database_path $DATASET_PATH/database.db \
         --image_path $DATASET_PATH/images \
         --output_path $DATASET_PATH/sparse
 
-    $ mkdir $DATASET_PATH/dense
+    $ mkdir -p $DATASET_PATH/dense
 
     $ colmap image_undistorter \
         --image_path $DATASET_PATH/images \
@@ -92,6 +92,36 @@ of commands as an alternative to the automatic reconstruction command::
         --workspace_path $DATASET_PATH/dense \
         --input_path $DATASET_PATH/dense/meshed-poisson.ply \
         --output_path $DATASET_PATH/dense/textured
+
+To use the global SfM pipeline instead of the incremental mapper, replace the
+``mapper`` step with ``global_mapper``. The global mapper depends on good focal
+length priors, so if reliable intrinsics are not available (e.g., from EXIF or
+lab calibration), you should run ``view_graph_calibrator`` first. This step is
+optional but recommended to improve the quality of global SfM, as was always
+the default in `GLOMAP <https://github.com/colmap/glomap>`_. Note that
+``view_graph_calibrator`` modifies camera intrinsics and two-view geometries
+in the database in-place, so it is recommended to work on a copy of the
+database::
+
+    $ colmap feature_extractor \
+       --database_path $DATASET_PATH/database.db \
+       --image_path $DATASET_PATH/images
+
+    $ colmap exhaustive_matcher \
+       --database_path $DATASET_PATH/database.db
+
+    # Optional but often needed: calibrate intrinsics from the view graph.
+    # This modifies the database in-place, so work on a copy.
+    $ cp $DATASET_PATH/database.db $DATASET_PATH/database_global.db
+    $ colmap view_graph_calibrator \
+        --database_path $DATASET_PATH/database_global.db
+
+    $ mkdir -p $DATASET_PATH/sparse
+
+    $ colmap global_mapper \
+        --database_path $DATASET_PATH/database_global.db \
+        --image_path $DATASET_PATH/images \
+        --output_path $DATASET_PATH/sparse
 
 If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
