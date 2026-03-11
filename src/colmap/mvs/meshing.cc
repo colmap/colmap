@@ -1049,7 +1049,7 @@ void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
   const auto mesh = DelaunayMeshing(options, input_data);
 
   LOG(INFO) << "Writing surface mesh...";
-  WriteBinaryPlyMesh(output_path, mesh);
+  WriteBinaryPlyMesh(output_path, PlyTexturedMesh{mesh});
 
   timer.PrintSeconds();
 }
@@ -1066,7 +1066,7 @@ void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
   const auto mesh = DelaunayMeshing(options, input_data);
 
   LOG(INFO) << "Writing surface mesh...";
-  WriteBinaryPlyMesh(output_path, mesh);
+  WriteBinaryPlyMesh(output_path, PlyTexturedMesh{mesh});
 
   timer.PrintSeconds();
 }

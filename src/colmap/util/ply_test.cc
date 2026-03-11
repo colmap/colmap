@@ -258,9 +258,9 @@ TEST(Ply, RoundTripTextPlyMesh) {
   original_mesh.faces.emplace_back(0, 1, 2);
   original_mesh.faces.emplace_back(1, 3, 2);
 
-  WriteTextPlyMesh(test_file, original_mesh);
+  WriteTextPlyMesh(test_file, PlyTexturedMesh{original_mesh});
 
-  PlyMesh loaded_mesh = ReadPlyMesh(test_file);
+  PlyMesh loaded_mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(loaded_mesh.vertices.size(), original_mesh.vertices.size());
   ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
@@ -298,9 +298,9 @@ TEST(Ply, RoundTripBinaryPlyMesh) {
   original_mesh.faces.emplace_back(0, 1, 2);
   original_mesh.faces.emplace_back(1, 3, 2);
 
-  WriteBinaryPlyMesh(test_file, original_mesh);
+  WriteBinaryPlyMesh(test_file, PlyTexturedMesh{original_mesh});
 
-  PlyMesh loaded_mesh = ReadPlyMesh(test_file);
+  PlyMesh loaded_mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(loaded_mesh.vertices.size(), original_mesh.vertices.size());
   ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
@@ -389,8 +389,8 @@ TEST(Ply, RoundTripTextTexturedPlyMesh) {
   const auto test_file = test_dir / "textured_mesh.ply";
 
   PlyTexturedMesh original = CreateTestTexturedMesh();
-  WriteTextTexturedPlyMesh(test_file, original);
-  PlyTexturedMesh loaded = ReadTexturedPlyMesh(test_file);
+  WriteTextPlyMesh(test_file, original);
+  PlyTexturedMesh loaded = ReadPlyMesh(test_file);
   VerifyTexturedMesh(loaded, original);
 }
 
@@ -399,24 +399,24 @@ TEST(Ply, RoundTripBinaryTexturedPlyMesh) {
   const auto test_file = test_dir / "textured_mesh.ply";
 
   PlyTexturedMesh original = CreateTestTexturedMesh();
-  WriteBinaryTexturedPlyMesh(test_file, original);
-  PlyTexturedMesh loaded = ReadTexturedPlyMesh(test_file);
+  WriteBinaryPlyMesh(test_file, original);
+  PlyTexturedMesh loaded = ReadPlyMesh(test_file);
   VerifyTexturedMesh(loaded, original);
 }
 
-TEST(Ply, ReadTexturedPlyMeshWithoutTexcoords) {
+TEST(Ply, ReadPlyMeshWithoutTexcoords) {
   const auto test_dir = CreateTestDir();
   const auto test_file = test_dir / "mesh.ply";
 
-  // Write a plain mesh (no texcoords) and read it with ReadTexturedPlyMesh.
+  // Write a plain mesh (no texcoords) and read it with ReadPlyMesh.
   PlyMesh plain_mesh;
   plain_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
   plain_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
   plain_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
   plain_mesh.faces.emplace_back(0, 1, 2);
 
-  WriteTextPlyMesh(test_file, plain_mesh);
-  PlyTexturedMesh loaded = ReadTexturedPlyMesh(test_file);
+  WriteTextPlyMesh(test_file, PlyTexturedMesh{plain_mesh});
+  PlyTexturedMesh loaded = ReadPlyMesh(test_file);
 
   ASSERT_EQ(loaded.mesh.vertices.size(), 3);
   ASSERT_EQ(loaded.mesh.faces.size(), 1);
@@ -449,7 +449,7 @@ TEST(Ply, ReadTextPlyMeshWithVertexColors) {
     file << "3 0 1 2\n";
   }
 
-  PlyMesh mesh = ReadPlyMesh(test_file);
+  PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
   ASSERT_EQ(mesh.faces.size(), 1);
@@ -512,7 +512,7 @@ TEST(Ply, ReadBinaryPlyMeshWithVertexColors) {
     bin_file.close();
   }
 
-  const PlyMesh mesh = ReadPlyMesh(test_file);
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
   ASSERT_EQ(mesh.faces.size(), 1);
@@ -563,7 +563,7 @@ TEST(Ply, ReadTextPlyMeshWithExtraProperties) {
     file << "3 0 1 2\n";
   }
 
-  const PlyMesh mesh = ReadPlyMesh(test_file);
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
 
@@ -638,7 +638,7 @@ TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
     bin_file.close();
   }
 
-  const PlyMesh mesh = ReadPlyMesh(test_file);
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
 
@@ -669,7 +669,7 @@ TEST(Ply, HasPlyMeshFacesWithMesh) {
   mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
   mesh.faces.emplace_back(0, 1, 2);
 
-  WriteTextPlyMesh(test_file, mesh);
+  WriteTextPlyMesh(test_file, PlyTexturedMesh{mesh});
   EXPECT_TRUE(HasPlyMeshFaces(test_file));
 }
 
@@ -687,7 +687,7 @@ TEST(Ply, HasPlyMeshFacesWithZeroFaces) {
   const auto test_file = CreateTestDir() / "mesh_no_faces.ply";
 
   PlyMesh mesh;
-  WriteTextPlyMesh(test_file, mesh);
+  WriteTextPlyMesh(test_file, PlyTexturedMesh{mesh});
 
   EXPECT_FALSE(HasPlyMeshFaces(test_file));
 }

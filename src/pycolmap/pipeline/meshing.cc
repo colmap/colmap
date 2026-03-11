@@ -196,9 +196,9 @@ void BindMeshing(py::module& m) {
         THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
         THROW_CHECK_FILE_EXISTS(input_path);
         THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
-        const PlyMesh mesh = ReadPlyMesh(input_path);
+        const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
         const PlyMesh result = mvs::SimplifyMesh(mesh, options);
-        WriteBinaryPlyMesh(output_path, result);
+        WriteBinaryPlyMesh(output_path, PlyTexturedMesh{result});
       },
       "input_path"_a,
       "output_path"_a,

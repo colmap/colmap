@@ -101,7 +101,7 @@ int RunMeshSimplifier(int argc, char** argv) {
   THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
 
   LOG(INFO) << "Reading mesh from " << input_path;
-  const PlyMesh mesh = ReadPlyMesh(input_path);
+  const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
   LOG(INFO) << "Input mesh: " << mesh.vertices.size() << " vertices, "
             << mesh.faces.size() << " faces";
 
@@ -109,7 +109,7 @@ int RunMeshSimplifier(int argc, char** argv) {
       mvs::SimplifyMesh(mesh, *options.mesh_simplification);
 
   LOG(INFO) << "Writing simplified mesh to " << output_path;
-  WriteBinaryPlyMesh(output_path, simplified);
+  WriteBinaryPlyMesh(output_path, PlyTexturedMesh{simplified});
 
   return EXIT_SUCCESS;
 }
@@ -162,7 +162,7 @@ int RunMeshTexturer(int argc, char** argv) {
   }
 
   LOG(INFO) << "Reading input mesh from " << input_path << "...";
-  const PlyMesh mesh = ReadPlyMesh(input_path);
+  const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
   LOG(INFO) << "Mesh has " << mesh.vertices.size() << " vertices and "
             << mesh.faces.size() << " faces";
 
@@ -187,9 +187,9 @@ int RunMeshTexturer(int argc, char** argv) {
   const std::filesystem::path mesh_path = output_path / "mesh.ply";
   LOG(INFO) << "Writing textured mesh to " << mesh_path << "...";
   if (output_type == "bin") {
-    WriteBinaryTexturedPlyMesh(mesh_path, textured_mesh);
+    WriteBinaryPlyMesh(mesh_path, textured_mesh);
   } else {
-    WriteTextTexturedPlyMesh(mesh_path, textured_mesh);
+    WriteTextPlyMesh(mesh_path, textured_mesh);
   }
 
   LOG(INFO) << "Mesh texture mapping complete";
