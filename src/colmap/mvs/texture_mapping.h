@@ -97,6 +97,10 @@ struct MeshTextureMappingResult {
 
 // Produce a texture atlas with UV coordinates for a triangle mesh
 // given calibrated multi-view images.
+//
+// Based on: Waechter, M., Moehrle, N., and Goesele, M.,
+// "Let there be color! Large-scale texturing of 3D reconstructions,"
+// European Conference on Computer Vision (ECCV), 2014.
 MeshTextureMappingResult MeshTextureMapping(
     const PlyMesh& mesh,
     const std::vector<Image>& images,
