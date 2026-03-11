@@ -397,7 +397,9 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::vector<PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
-  // Initialize rotations from maximum spanning tree.
+  // Initialize rotations from maximum spanning tree. Note that without
+  // intialization, the gravity-aligned rotation averaging is prone to random
+  // flips by 180deg.
   if (!options_.skip_initialization) {
     InitializeFromMaximumSpanningTree(
         pose_graph, active_image_ids, reconstruction);
