@@ -93,9 +93,9 @@ length priors, so if reliable intrinsics are not available (e.g., from EXIF or
 lab calibration), you should run ``view_graph_calibrator`` first. This step is
 optional but recommended to improve the quality of global SfM, as was always
 the default in `GLOMAP <https://github.com/colmap/glomap>`_. Note that
-``view_graph_calibrator`` modifies camera intrinsics and two-view geometries in
-the database in-place, so
-it is recommended to work on a copy of the database::
+``view_graph_calibrator`` modifies camera intrinsics and two-view geometries
+in the database in-place, so it is recommended to work on a copy of the
+database::
 
     $ colmap feature_extractor \
        --database_path $DATASET_PATH/database.db \
