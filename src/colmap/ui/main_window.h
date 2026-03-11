@@ -30,8 +30,6 @@
 #pragma once
 
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/sensor/bitmap.h"
 #include "colmap/ui/automatic_reconstruction_widget.h"
 #include "colmap/ui/bundle_adjustment_widget.h"
 #include "colmap/ui/database_management_widget.h"
@@ -90,8 +88,8 @@ class MainWindow : public QMainWindow {
   void ProjectSave();
   void ProjectSaveAs();
   void Import();
-  void ImportPointCloud();
-  void ImportSurfaceMesh();
+  void ImportFrom();
+  void ImportFrom(const std::string& import_path);
   void Export();
   void ExportAll();
   void ExportAs();
@@ -193,8 +191,7 @@ class MainWindow : public QMainWindow {
   QAction* action_project_save_;
   QAction* action_project_save_as_;
   QAction* action_import_;
-  QAction* action_import_point_cloud_;
-  QAction* action_import_surface_mesh_;
+  QAction* action_import_from_;
   QAction* action_export_;
   QAction* action_export_all_;
   QAction* action_export_as_;

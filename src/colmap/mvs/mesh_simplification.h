@@ -29,36 +29,34 @@
 
 #pragma once
 
-#include <QtCore>
-#include <QtOpenGL>
-#include <cstdint>
+#include "colmap/util/ply.h"
 
 namespace colmap {
+namespace mvs {
 
-class PointPainter {
- public:
-  PointPainter();
-  ~PointPainter();
+struct MeshSimplificationOptions {
+  // Fraction of faces to retain, in (0, 1].
+  double target_face_ratio = 0.1;
 
-  struct Data {
-    Data() : x(0), y(0), z(0), r(0), g(0), b(0), a(0) {}
-    Data(float x, float y, float z, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-        : x(x), y(y), z(z), r(r), g(g), b(b), a(a) {}
+  // Maximum quadric error per collapse; 0 = disabled.
+  double max_error = 0.0;
 
-    float x, y, z;
-    uint8_t r, g, b, a;
-  };
+  // Penalty weight for boundary edges; 0 = disabled.
+  double boundary_weight = 1000.0;
 
-  void Setup();
-  void Upload(const std::vector<PointPainter::Data>& data);
-  void Render(const QMatrix4x4& pmv_matrix, float point_size);
+  // Blend colors on collapse vs. pick lower-error vertex.
+  bool interpolate_colors = true;
 
- private:
-  QOpenGLShaderProgram shader_program_;
-  QOpenGLVertexArrayObject vao_;
-  QOpenGLBuffer vbo_;
+  // The number of threads to use for initialization. Default is all threads.
+  int num_threads = -1;
 
-  size_t num_geoms_;
+  bool Check() const;
 };
 
+// Simplify a triangle mesh using Quadric Error Metric (QEM) decimation
+// (Garland & Heckbert, SIGGRAPH 1997).
+PlyMesh SimplifyMesh(const PlyMesh& mesh,
+                     const MeshSimplificationOptions& options);
+
+}  // namespace mvs
 }  // namespace colmap

@@ -660,5 +660,37 @@ TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
   EXPECT_EQ(mesh.vertices[2].b, 30);
 }
 
+TEST(Ply, HasPlyMeshFacesWithMesh) {
+  const auto test_file = CreateTestDir() / "mesh.ply";
+
+  PlyMesh mesh;
+  mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
+  mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
+  mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  mesh.faces.emplace_back(0, 1, 2);
+
+  WriteTextPlyMesh(test_file, mesh);
+  EXPECT_TRUE(HasPlyMeshFaces(test_file));
+}
+
+TEST(Ply, HasPlyMeshFacesWithPointCloud) {
+  const auto test_file = CreateTestDir() / "points.ply";
+
+  std::vector<PlyPoint> points;
+  points.emplace_back();
+
+  WriteTextPlyPoints(test_file, points, false, false);
+  EXPECT_FALSE(HasPlyMeshFaces(test_file));
+}
+
+TEST(Ply, HasPlyMeshFacesWithZeroFaces) {
+  const auto test_file = CreateTestDir() / "mesh_no_faces.ply";
+
+  PlyMesh mesh;
+  WriteTextPlyMesh(test_file, mesh);
+
+  EXPECT_FALSE(HasPlyMeshFaces(test_file));
+}
+
 }  // namespace
 }  // namespace colmap

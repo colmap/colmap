@@ -126,4 +126,7 @@ void WriteTextTexturedPlyMesh(const std::filesystem::path& path,
 void WriteBinaryTexturedPlyMesh(const std::filesystem::path& path,
                                 const PlyTexturedMesh& mesh);
 
+// Returns true if the PLY file contains face elements (i.e., is a mesh).
+bool HasPlyMeshFaces(const std::filesystem::path& path);
+
 }  // namespace colmap

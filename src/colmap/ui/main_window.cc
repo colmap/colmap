@@ -318,7 +318,23 @@ void MainWindow::dropEvent(QDropEvent* event) {
     }
   }
 
-  ImportReconstruction(mime_data->urls().first().toLocalFile().toStdString());
+  const std::string drop_path =
+      mime_data->urls().first().toLocalFile().toStdString();
+
+  try {
+    if (QFileInfo(QString::fromStdString(drop_path)).isDir()) {
+      ImportReconstruction(drop_path);
+    } else if (QFileInfo(QString::fromStdString(drop_path))
+                   .suffix()
+                   .compare("ply", Qt::CaseInsensitive) == 0) {
+      ImportFrom(drop_path);
+    } else {
+      QMessageBox::critical(
+          this, "", tr("Unsupported file type. Only PLY files are supported."));
+    }
+  } catch (const std::exception& e) {
+    QMessageBox::critical(this, "", tr("Failed to import: ") + e.what());
+  }
 }
 
 void MainWindow::CreateWidgets() {
@@ -399,21 +415,13 @@ void MainWindow::CreateActions() {
   connect(action_import_, &QAction::triggered, this, &MainWindow::Import);
   blocking_actions_.push_back(action_import_);
 
-  action_import_point_cloud_ = new QAction(
-      QIcon(":/media/import-from.png"), tr("Import point cloud"), this);
-  connect(action_import_point_cloud_,
+  action_import_from_ = new QAction(
+      QIcon(":/media/import-from.png"), tr("Import from ..."), this);
+  connect(action_import_from_,
           &QAction::triggered,
           this,
-          &MainWindow::ImportPointCloud);
-  blocking_actions_.push_back(action_import_point_cloud_);
-
-  action_import_surface_mesh_ = new QAction(
-      QIcon(":/media/import-from.png"), tr("Import surface mesh"), this);
-  connect(action_import_surface_mesh_,
-          &QAction::triggered,
-          this,
-          &MainWindow::ImportSurfaceMesh);
-  blocking_actions_.push_back(action_import_surface_mesh_);
+          QOverload<>::of(&MainWindow::ImportFrom));
+  blocking_actions_.push_back(action_import_from_);
 
   action_export_ =
       new QAction(QIcon(":/media/export.png"), tr("Export model"), this);
@@ -710,8 +718,7 @@ void MainWindow::CreateMenus() {
   file_menu->addAction(action_project_save_as_);
   file_menu->addSeparator();
   file_menu->addAction(action_import_);
-  file_menu->addAction(action_import_point_cloud_);
-  file_menu->addAction(action_import_surface_mesh_);
+  file_menu->addAction(action_import_from_);
   file_menu->addSeparator();
   file_menu->addAction(action_export_);
   file_menu->addAction(action_export_all_);
@@ -985,10 +992,10 @@ void MainWindow::Import() {
   ImportReconstruction(import_path);
 }
 
-void MainWindow::ImportPointCloud() {
+void MainWindow::ImportFrom() {
   const std::string import_path =
       QFileDialog::getOpenFileName(this,
-                                   tr("Select point cloud file..."),
+                                   tr("Select PLY file..."),
                                    GetLastOpen(kLastImportExport),
                                    tr("PLY files (*.ply)"))
           .toUtf8()
@@ -1000,53 +1007,36 @@ void MainWindow::ImportPointCloud() {
   }
 
   SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
+  ImportFrom(import_path);
+}
 
+void MainWindow::ImportFrom(const std::string& import_path) {
   if (!ExistsFile(import_path)) {
     QMessageBox::critical(this, "", tr("Invalid file"));
     return;
   }
 
-  thread_control_widget_->StartFunction(
-      "Importing point cloud...", [this, import_path]() {
-        try {
-          model_viewer_widget_->point_cloud = ReadPly(import_path);
-          action_render_now_->trigger();
-        } catch (const std::exception& e) {
-          LOG(ERROR) << "Failed to read point cloud: " << e.what();
-        }
-      });
-}
-
-void MainWindow::ImportSurfaceMesh() {
-  const std::string mesh_path =
-      QFileDialog::getOpenFileName(this,
-                                   tr("Select surface mesh file..."),
-                                   GetLastOpen(kLastImportExport),
-                                   tr("PLY files (*.ply)"))
-          .toUtf8()
-          .constData();
-
-  if (mesh_path.empty()) {
-    // Selection cancelled.
-    return;
+  if (HasPlyMeshFaces(import_path)) {
+    thread_control_widget_->StartFunction(
+        "Importing surface mesh...", [this, import_path]() {
+          try {
+            model_viewer_widget_->surface_mesh = ReadPlyMesh(import_path);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+          }
+        });
+  } else {
+    thread_control_widget_->StartFunction(
+        "Importing point cloud...", [this, import_path]() {
+          try {
+            model_viewer_widget_->point_cloud = ReadPly(import_path);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read point cloud: " << e.what();
+          }
+        });
   }
-
-  SetLastOpen(kLastImportExport, QString::fromStdString(mesh_path));
-
-  if (!ExistsFile(mesh_path)) {
-    QMessageBox::critical(this, "", tr("Invalid file"));
-    return;
-  }
-
-  thread_control_widget_->StartFunction(
-      "Importing surface mesh...", [this, mesh_path]() {
-        try {
-          model_viewer_widget_->surface_mesh = ReadPlyMesh(mesh_path);
-          action_render_now_->trigger();
-        } catch (const std::exception& e) {
-          LOG(ERROR) << "Failed to read surface mesh: " << e.what();
-        }
-      });
 }
 
 void MainWindow::Export() {

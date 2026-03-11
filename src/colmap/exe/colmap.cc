@@ -112,6 +112,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("mapper", &colmap::RunMapper);
   commands.emplace_back("matches_importer", &colmap::RunMatchesImporter);
   commands.emplace_back("mesh_texture_mapper", &colmap::RunMeshTextureMapper);
+  commands.emplace_back("mesh_simplifier", &colmap::RunMeshSimplifier);
   commands.emplace_back("model_aligner", &colmap::RunModelAligner);
   commands.emplace_back("model_analyzer", &colmap::RunModelAnalyzer);
   commands.emplace_back("model_comparer", &colmap::RunModelComparer);

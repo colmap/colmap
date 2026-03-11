@@ -40,6 +40,7 @@
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/mvs/texture_mapping.h"
@@ -75,6 +76,7 @@ OptionManager::OptionManager(bool add_project_options)
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
   mesh_texture_mapping = std::make_shared<mvs::MeshTextureMappingOptions>();
+  mesh_simplification = std::make_shared<mvs::MeshSimplificationOptions>();
   render = std::make_shared<RenderOptions>();
 }
 
@@ -183,6 +185,7 @@ void OptionManager::AddAllOptions() {
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
   AddMeshTextureMappingOptions();
+  AddMeshSimplificationOptions();
   AddRenderOptions();
 }
 
@@ -948,6 +951,24 @@ void OptionManager::AddMeshTextureMappingOptions() {
                    &mesh_texture_mapping->num_threads);
   AddDefaultOption("MeshTextureMapping.texture_scale_factor",
                    &mesh_texture_mapping->texture_scale_factor);
+}
+
+void OptionManager::AddMeshSimplificationOptions() {
+  if (added_mesh_simplification_options_) {
+    return;
+  }
+  added_mesh_simplification_options_ = true;
+
+  AddDefaultOption("MeshSimplification.target_face_ratio",
+                   &mesh_simplification->target_face_ratio);
+  AddDefaultOption("MeshSimplification.max_error",
+                   &mesh_simplification->max_error);
+  AddDefaultOption("MeshSimplification.boundary_weight",
+                   &mesh_simplification->boundary_weight);
+  AddDefaultOption("MeshSimplification.interpolate_colors",
+                   &mesh_simplification->interpolate_colors);
+  AddDefaultOption("MeshSimplification.num_threads",
+                   &mesh_simplification->num_threads);
 }
 
 void OptionManager::AddRenderOptions() {

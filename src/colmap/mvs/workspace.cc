@@ -117,15 +117,15 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
 }
 
 const Bitmap& Workspace::GetBitmap(const int image_idx) {
-  return *bitmaps_[image_idx];
+  return *THROW_CHECK_NOTNULL(bitmaps_.at(image_idx));
 }
 
 const DepthMap& Workspace::GetDepthMap(const int image_idx) {
-  return *depth_maps_[image_idx];
+  return *THROW_CHECK_NOTNULL(depth_maps_.at(image_idx));
 }
 
 const NormalMap& Workspace::GetNormalMap(const int image_idx) {
-  return *normal_maps_[image_idx];
+  return *THROW_CHECK_NOTNULL(normal_maps_.at(image_idx));
 }
 
 std::filesystem::path Workspace::GetBitmapPath(const int image_idx) const {

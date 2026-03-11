@@ -53,6 +53,7 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
 
 int RunDelaunayMesher(int argc, char** argv);
 int RunMeshTextureMapper(int argc, char** argv);
+int RunMeshSimplifier(int argc, char** argv);
 int RunPatchMatchStereo(int argc, char** argv);
 int RunPoissonMesher(int argc, char** argv);
 int RunStereoFuser(int argc, char** argv);
