@@ -105,8 +105,7 @@ class GlobalMapper {
       const std::shared_ptr<Reconstruction>& reconstruction);
 
   // Run the global SfM pipeline.
-  bool Solve(const GlobalMapperOptions& options,
-             std::unordered_map<frame_t, int>& cluster_ids);
+  bool Solve(const GlobalMapperOptions& options);
 
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options);
