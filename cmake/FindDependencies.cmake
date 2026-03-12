@@ -305,18 +305,12 @@ if(ONNX_ENABLED)
 
         FetchContent_MakeAvailable(onnxruntime)
 
-        if(IS_LINUX AND NOT IS_ARM64)
-            set(onnxruntime_LIB_DIR_NAME lib64)
-        else()
-            set(onnxruntime_LIB_DIR_NAME lib)
-        endif()
-
         set(ONNX_INCLUDE_DIR ${onnxruntime_BINARY_DIR}/include/onnxruntime)
         if(NOT EXISTS ${ONNX_INCLUDE_DIR})
             file(MAKE_DIRECTORY ${ONNX_INCLUDE_DIR})
             file(COPY ${onnxruntime_SOURCE_DIR}/include/ DESTINATION ${ONNX_INCLUDE_DIR}/)
         endif()
-        set(onnxruntime_LIB_DIR ${onnxruntime_BINARY_DIR}/lib)
+        set(onnxruntime_LIB_DIR ${onnxruntime_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
         if(NOT EXISTS ${onnxruntime_LIB_DIR})
             file(MAKE_DIRECTORY ${onnxruntime_LIB_DIR})
             file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${onnxruntime_LIB_DIR})
@@ -330,12 +324,13 @@ if(ONNX_ENABLED)
                 file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
                 file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
                 # The downloaded cmake configs may reference lib64/ (e.g. on Linux x64),
-                # but we install libraries to lib/. Patch the configs to match.
+                # but the actual install directory depends on CMAKE_INSTALL_LIBDIR
+                # (lib/ or lib64/ depending on the distro). Patch the configs to match.
                 if(IS_LINUX AND NOT IS_ARM64)
                     file(GLOB _onnx_cmake_configs "${ONNX_DATA_DIR}/cmake/*.cmake")
                     foreach(_config_file ${_onnx_cmake_configs})
                         file(READ "${_config_file}" _config_content)
-                        string(REPLACE "/lib64/" "/lib/" _config_content "${_config_content}")
+                        string(REPLACE "/lib64/" "/${CMAKE_INSTALL_LIBDIR}/" _config_content "${_config_content}")
                         file(WRITE "${_config_file}" "${_config_content}")
                     endforeach()
                 endif()

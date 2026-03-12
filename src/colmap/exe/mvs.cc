@@ -31,11 +31,13 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
+#include "colmap/util/ply.h"
 
 namespace colmap {
 
@@ -76,6 +78,38 @@ int RunDelaunayMesher(int argc, char** argv) {
 
   return EXIT_SUCCESS;
 #endif  // COLMAP_CGAL_ENABLED
+}
+
+int RunMeshSimplifier(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to input PLY mesh");
+  options.AddRequiredOption(
+      "output_path", &output_path, "Path to output PLY mesh");
+  options.AddMeshSimplificationOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+  THROW_CHECK_FILE_EXISTS(input_path);
+  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+
+  LOG(INFO) << "Reading mesh from " << input_path;
+  const PlyMesh mesh = ReadPlyMesh(input_path);
+  LOG(INFO) << "Input mesh: " << mesh.vertices.size() << " vertices, "
+            << mesh.faces.size() << " faces";
+
+  const PlyMesh simplified =
+      mvs::SimplifyMesh(mesh, *options.mesh_simplification);
+
+  LOG(INFO) << "Writing simplified mesh to " << output_path;
+  WriteBinaryPlyMesh(output_path, simplified);
+
+  return EXIT_SUCCESS;
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {

@@ -40,6 +40,7 @@
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction_clustering.h"
@@ -73,6 +74,7 @@ OptionManager::OptionManager(bool add_project_options)
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
+  mesh_simplification = std::make_shared<mvs::MeshSimplificationOptions>();
   render = std::make_shared<RenderOptions>();
 }
 
@@ -180,6 +182,7 @@ void OptionManager::AddAllOptions() {
   AddStereoFusionOptions();
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
+  AddMeshSimplificationOptions();
   AddRenderOptions();
 }
 
@@ -919,6 +922,24 @@ void OptionManager::AddDelaunayMeshingOptions() {
                    &delaunay_meshing->max_side_length_percentile);
   AddDefaultOption("DelaunayMeshing.num_threads",
                    &delaunay_meshing->num_threads);
+}
+
+void OptionManager::AddMeshSimplificationOptions() {
+  if (added_mesh_simplification_options_) {
+    return;
+  }
+  added_mesh_simplification_options_ = true;
+
+  AddDefaultOption("MeshSimplification.target_face_ratio",
+                   &mesh_simplification->target_face_ratio);
+  AddDefaultOption("MeshSimplification.max_error",
+                   &mesh_simplification->max_error);
+  AddDefaultOption("MeshSimplification.boundary_weight",
+                   &mesh_simplification->boundary_weight);
+  AddDefaultOption("MeshSimplification.interpolate_colors",
+                   &mesh_simplification->interpolate_colors);
+  AddDefaultOption("MeshSimplification.num_threads",
+                   &mesh_simplification->num_threads);
 }
 
 void OptionManager::AddRenderOptions() {

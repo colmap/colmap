@@ -106,8 +106,7 @@ void GlobalPipeline::Run() {
 
   Timer run_timer;
   run_timer.Start();
-  std::unordered_map<frame_t, int> cluster_ids;
-  if (!global_mapper.Solve(mapper_options, cluster_ids)) {
+  if (!global_mapper.Solve(mapper_options)) {
     LOG(ERROR) << "Global mapper failed to produce a valid reconstruction.";
     return;
   }

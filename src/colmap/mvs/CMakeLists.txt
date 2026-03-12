@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         fusion.h fusion.cc
         image.h image.cc
         mat.h mat.cc
+        mesh_simplification.h mesh_simplification.cc
         meshing.h meshing.cc
         model.h model.cc
         normal_map.h normal_map.cc
@@ -83,6 +84,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME mat_test
     SRCS mat_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME mesh_simplification_test
+    SRCS mesh_simplification_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(

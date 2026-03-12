@@ -46,14 +46,14 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db
 
-    $ mkdir $DATASET_PATH/sparse
+    $ mkdir -p $DATASET_PATH/sparse
 
     $ colmap mapper \
         --database_path $DATASET_PATH/database.db \
         --image_path $DATASET_PATH/images \
         --output_path $DATASET_PATH/sparse
 
-    $ mkdir $DATASET_PATH/dense
+    $ mkdir -p $DATASET_PATH/dense
 
     $ colmap image_undistorter \
         --image_path $DATASET_PATH/images \
@@ -80,6 +80,42 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap delaunay_mesher \
         --input_path $DATASET_PATH/dense \
         --output_path $DATASET_PATH/dense/meshed-delaunay.ply
+
+    # Optionally simplify a dense mesh to reduce its size.
+    $ colmap mesh_simplifier \
+        --input_path $DATASET_PATH/dense/meshed-poisson.ply \
+        --output_path $DATASET_PATH/dense/meshed-poisson-simplified.ply \
+        --MeshSimplification.target_face_ratio 0.25
+
+To use the global SfM pipeline instead of the incremental mapper, replace the
+``mapper`` step with ``global_mapper``. The global mapper depends on good focal
+length priors, so if reliable intrinsics are not available (e.g., from EXIF or
+lab calibration), you should run ``view_graph_calibrator`` first. This step is
+optional but recommended to improve the quality of global SfM, as was always
+the default in `GLOMAP <https://github.com/colmap/glomap>`_. Note that
+``view_graph_calibrator`` modifies camera intrinsics and two-view geometries
+in the database in-place, so it is recommended to work on a copy of the
+database::
+
+    $ colmap feature_extractor \
+       --database_path $DATASET_PATH/database.db \
+       --image_path $DATASET_PATH/images
+
+    $ colmap exhaustive_matcher \
+       --database_path $DATASET_PATH/database.db
+
+    # Optional but often needed: calibrate intrinsics from the view graph.
+    # This modifies the database in-place, so work on a copy.
+    $ cp $DATASET_PATH/database.db $DATASET_PATH/database_global.db
+    $ colmap view_graph_calibrator \
+        --database_path $DATASET_PATH/database_global.db
+
+    $ mkdir -p $DATASET_PATH/sparse
+
+    $ colmap global_mapper \
+        --database_path $DATASET_PATH/database_global.db \
+        --image_path $DATASET_PATH/images \
+        --output_path $DATASET_PATH/sparse
 
 If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
@@ -136,6 +172,7 @@ The available commands can be listed using the command::
           image_undistorter_standalone
           mapper
           matches_importer
+          mesh_simplifier
           model_aligner
           model_analyzer
           model_comparer
@@ -297,6 +334,16 @@ available as ``colmap [command]``:
 - ``delaunay_mesher``: Meshing of the reconstructed sparse or dense point cloud
   using a graph cut on the Delaunay triangulation and visibility voting.
 
+- ``mesh_simplifier``: Simplify a triangle mesh (PLY format) using Quadric Error
+  Metric (QEM) decimation. This reduces the number of faces in a mesh while
+  preserving its overall shape and appearance. Key options include
+  ``--MeshSimplification.target_face_ratio`` to control the fraction of faces
+  to retain (default 0.1), ``--MeshSimplification.max_error`` to set a maximum
+  quadric error threshold (0 = disabled), and
+  ``--MeshSimplification.boundary_weight`` to control boundary edge preservation
+  (default 1000). Supports multi-threaded initialization via
+  ``--MeshSimplification.num_threads``.
+
 - ``image_registrator``: Register new images in the database against an existing
   model, e.g., when extracting features and matching newly added images in a
   database after running ``mapper``. Note that no bundle adjustment or
@@ -391,4 +438,6 @@ reconstruction pipelines, COLMAP offers you the following possibilities:
 
 - The dense mesh model ``meshed-*.ply`` obtained with the ``poisson_mesher`` or
   the ``delaunay_mesher`` can currently not be visualized with COLMAP, instead
-  you can use an external viewer, such as Meshlab.
+  you can use an external viewer, such as Meshlab. Use the ``mesh_simplifier``
+  command to reduce the mesh size for faster visualization or downstream
+  processing.

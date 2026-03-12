@@ -185,6 +185,8 @@ class GpuMat {
 template <typename T>
 GpuMat<T>::GpuMat(const size_t width, const size_t height, const size_t depth)
     : array_ptr_(nullptr), width_(width), height_(height), depth_(depth) {
+  THROW_CHECK_GT(width_, 0) << "GpuMat width must be positive";
+  THROW_CHECK_GT(height_, 0) << "GpuMat height must be positive";
   CUDA_SAFE_CALL(cudaMallocPitch(
       (void**)&array_ptr_, &pitch_, width_ * sizeof(T), height_ * depth_));
 
@@ -273,6 +275,10 @@ void GpuMat<T>::Read(const std::filesystem::path& path) {
       unused_char;
   std::streampos pos = text_file.tellg();
   text_file.close();
+
+  THROW_CHECK_EQ(width, width_) << "File width does not match GpuMat width";
+  THROW_CHECK_EQ(height, height_) << "File height does not match GpuMat height";
+  THROW_CHECK_EQ(depth, depth_) << "File depth does not match GpuMat depth";
 
   std::fstream binary_file(path, std::ios::in | std::ios::binary);
   binary_file.seekg(pos);
