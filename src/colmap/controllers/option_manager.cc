@@ -1011,8 +1011,6 @@ void OptionManager::Reset(bool reset_logging) {
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
-  BaseOptionManager::ResetOptions(reset_paths);
-
   *image_reader = ImageReaderOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
@@ -1033,6 +1031,8 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *delaunay_meshing = mvs::DelaunayMeshingOptions();
   *mesh_texture_mapping = mvs::MeshTextureMappingOptions();
   *render = RenderOptions();
+
+  BaseOptionManager::ResetOptions(reset_paths);
 }
 
 bool OptionManager::Check() {

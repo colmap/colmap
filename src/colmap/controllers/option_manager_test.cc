@@ -348,5 +348,25 @@ TEST(OptionManager, ParseUnknownArgumentsFails) {
   EXPECT_FALSE(options.Parse(argv.size(), argv.data()));
 }
 
+TEST(OptionManager, WriteAfterResetOptions) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+
+  OptionManager options;
+  options.AddAllOptions();
+  *options.database_path = test_dir / "database.db";
+  CreateDirIfNotExists(test_dir / "images");
+  *options.image_path = test_dir / "images";
+
+  // ResetOptions reassigns option structs, which reallocates sub-objects
+  // (e.g., feature_matching->sift, bundle_adjustment->ceres). This must not
+  // invalidate the raw pointers registered by AddAllOptions, otherwise
+  // Write() will dereference dangling pointers.
+  options.ResetOptions(/*reset_paths=*/false);
+
+  EXPECT_NO_THROW(options.Write(config_path));
+  EXPECT_TRUE(ExistsFile(config_path));
+}
+
 }  // namespace
 }  // namespace colmap

@@ -105,7 +105,20 @@ void BaseOptionManager::AddImageOptions() {
 void BaseOptionManager::Reset(bool reset_logging) { ResetImpl(reset_logging); }
 
 void BaseOptionManager::ResetOptions(const bool reset_paths) {
-  ResetOptionsImpl(reset_paths);
+  auto saved_project_path = std::move(*project_path);
+  auto saved_database_path = std::move(*database_path);
+  auto saved_image_path = std::move(*image_path);
+
+  // Re-register all options to update raw pointers, since subclass
+  // ResetOptions() may reallocate internal sub-objects.
+  Reset(/*reset_logging=*/false);
+  AddAllOptions();
+
+  if (!reset_paths) {
+    *project_path = std::move(saved_project_path);
+    *database_path = std::move(saved_database_path);
+    *image_path = std::move(saved_image_path);
+  }
 }
 
 void BaseOptionManager::ResetImpl(bool reset_logging) {
