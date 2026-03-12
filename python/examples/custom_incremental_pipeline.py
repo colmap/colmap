@@ -53,18 +53,20 @@ def iterative_global_refinement(
     options: IncrementalPipelineOptions,
     mapper_options: IncrementalMapperOptions,
     mapper: IncrementalMapper,
-) -> None:
+) -> bool:
     logging.info("Retriangulation and Global bundle adjustment")
     # The following is equivalent to mapper.iterative_global_refinement(...)
-    custom_bundle_adjustment.iterative_global_refinement(
+    if not custom_bundle_adjustment.iterative_global_refinement(
         mapper,
         options.ba_global_max_refinements,
         options.ba_global_max_refinement_change,
         mapper_options,
         options.get_global_bundle_adjustment(),
         options.get_triangulation(),
-    )
+    ):
+        return False
     mapper.filter_frames(mapper_options)
+    return True
 
 
 def initialize_reconstruction(
@@ -113,9 +115,10 @@ def initialize_reconstruction(
 
     logging.info("Global bundle adjustment")
     # The following is equivalent to: mapper.adjust_global_bundle(...)
-    custom_bundle_adjustment.adjust_global_bundle(
+    if not custom_bundle_adjustment.adjust_global_bundle(
         mapper, mapper_options, options.get_global_bundle_adjustment()
-    )
+    ):
+        return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
     reconstruction.normalize()
     mapper.filter_points(mapper_options)
     mapper.filter_frames(mapper_options)
@@ -238,7 +241,7 @@ def reconstruct_sub_model(
                     options.get_triangulation(), data_id.id
                 )
             # This is equivalent to mapper.iterative_local_refinement(...)
-            custom_bundle_adjustment.iterative_local_refinement(
+            if not custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
                 options.ba_local_max_refinements,
                 options.ba_local_max_refinement_change,
@@ -246,11 +249,17 @@ def reconstruct_sub_model(
                 options.get_local_bundle_adjustment(),
                 options.get_triangulation(),
                 next_image_id,
-            )
+            ):
+                return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
             if controller.check_run_global_refinement(
                 reconstruction, ba_prev_num_reg_frames, ba_prev_num_points
             ):
-                iterative_global_refinement(options, mapper_options, mapper)
+                if not iterative_global_refinement(
+                    options, mapper_options, mapper
+                ):
+                    return (
+                        IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
+                    )
                 ba_prev_num_points = reconstruction.num_points3D()
                 ba_prev_num_reg_frames = reconstruction.num_reg_frames()
             if options.extract_colors:
@@ -276,7 +285,8 @@ def reconstruct_sub_model(
         if mapper.num_shared_reg_images() >= int(options.max_model_overlap):
             break
         if (not reg_next_success) and prev_reg_next_success:
-            iterative_global_refinement(options, mapper_options, mapper)
+            if not iterative_global_refinement(options, mapper_options, mapper):
+                return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
 
     if controller.check_reached_max_runtime():
         return pycolmap.IncrementalPipelineStatus.INTERRUPTED
@@ -287,7 +297,8 @@ def reconstruct_sub_model(
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
         and reconstruction.num_points3D() != ba_prev_num_points
     ):
-        iterative_global_refinement(options, mapper_options, mapper)
+        if not iterative_global_refinement(options, mapper_options, mapper):
+            return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
     return IncrementalPipelineStatus.SUCCESS
 
 
@@ -343,6 +354,13 @@ def reconstruct(
             mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
             return IncrementalPipelineStatus.CONTINUE
+        elif status == IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE:
+            logging.error(
+                "Aborting reconstruction due to unrecoverable solver failure."
+            )
+            mapper.end_reconstruction(False)
+            reconstruction_manager.delete(reconstruction_idx)
+            return IncrementalPipelineStatus.STOP
         elif status == IncrementalPipelineStatus.SUCCESS:
             num_reg_images = reconstruction.num_reg_images()
             total_num_reg_images = mapper.num_total_reg_images()

@@ -107,7 +107,7 @@ void BundleAdjustmentController::Run() {
                  << summary->message;
     } else {
       LOG(WARNING)
-          << "Bundle adjustment solver failed with a recoverable error: "
+          << "Bundle adjustment failed with a recoverable error: "
           << summary->message;
     }
     return;

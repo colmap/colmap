@@ -259,11 +259,13 @@ class IncrementalMapper {
       const std::unordered_set<point3D_t>& point3D_ids);
 
   // Global bundle adjustment using Ceres Solver.
+  // Returns false if the solver fails with an unrecoverable error.
+  // Recoverable solver failures are logged as warnings and return true.
   bool AdjustGlobalBundle(const Options& options,
                           const BundleAdjustmentOptions& ba_options);
 
   // Perform multiple rounds of local bundle adjustment.
-  // Returns false if the bundle adjustment solver fails.
+  // Returns false if the solver fails with an unrecoverable error.
   bool IterativeLocalRefinement(
       int max_num_refinements,
       double max_refinement_change,
@@ -273,7 +275,7 @@ class IncrementalMapper {
       image_t image_id);
 
   // Perform multiple rounds of global bundle adjustment.
-  // Returns false if the bundle adjustment solver fails.
+  // Returns false if the solver fails with an unrecoverable error.
   bool IterativeGlobalRefinement(
       int max_num_refinements,
       double max_refinement_change,

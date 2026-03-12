@@ -1025,7 +1025,7 @@ IncrementalMapper::AdjustLocalBundle(
         report.solver_success = false;
         return report;
       }
-      LOG(WARNING) << "Local bundle adjustment solver failed due to a "
+      LOG(WARNING) << "Local bundle adjustment failed due to a "
                       "recoverable error: "
                    << summary->message;
     }
@@ -1165,7 +1165,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
             << redundant_summary->message;
         return false;
       }
-      LOG(WARNING) << "Global bundle adjustment solver failed due to a "
+      LOG(WARNING) << "Global bundle adjustment failed due to a "
                       "recoverable error: "
                    << redundant_summary->message;
     }
@@ -1199,7 +1199,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
       return false;
     }
     LOG(WARNING)
-        << "Global bundle adjustment solver failed due to a recoverable error: "
+        << "Global bundle adjustment failed due to a recoverable error: "
         << summary->message;
   }
 

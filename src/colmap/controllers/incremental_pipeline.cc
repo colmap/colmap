@@ -422,7 +422,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   LOG(INFO) << "Global bundle adjustment";
   if (!mapper.AdjustGlobalBundle(mapper_options,
                                  options_->GlobalBundleAdjustment())) {
-    return Status::SOLVER_FAILURE;
+    return Status::UNRECOVERABLE_SOLVER_FAILURE;
   }
   reconstruction.Normalize();
   mapper.FilterPoints(mapper_options);
@@ -583,13 +583,13 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
               options_->LocalBundleAdjustment(),
               options_->Triangulation(),
               next_image_id)) {
-        return Status::SOLVER_FAILURE;
+        return Status::UNRECOVERABLE_SOLVER_FAILURE;
       }
 
       if (CheckRunGlobalRefinement(
               *reconstruction, ba_prev_num_reg_frames, ba_prev_num_points)) {
         if (!IterativeGlobalRefinement(*options_, mapper_options, mapper)) {
-          return Status::SOLVER_FAILURE;
+          return Status::UNRECOVERABLE_SOLVER_FAILURE;
         }
         ba_prev_num_points = reconstruction->NumPoints3D();
         ba_prev_num_reg_frames = reconstruction->NumRegFrames();
@@ -622,7 +622,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     // once, then exit the incremental mapping.
     if (!reg_next_success && prev_reg_next_success) {
       if (!IterativeGlobalRefinement(*options_, mapper_options, mapper)) {
-        return Status::SOLVER_FAILURE;
+        return Status::UNRECOVERABLE_SOLVER_FAILURE;
       }
     }
   } while (reg_next_success || prev_reg_next_success);
@@ -636,7 +636,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       reconstruction->NumRegFrames() != ba_prev_num_reg_frames &&
       reconstruction->NumPoints3D() != ba_prev_num_points) {
     if (!IterativeGlobalRefinement(*options_, mapper_options, mapper)) {
-      return Status::SOLVER_FAILURE;
+      return Status::UNRECOVERABLE_SOLVER_FAILURE;
     }
   }
   return Status::SUCCESS;
@@ -706,8 +706,9 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
         return Status::CONTINUE;
       }
 
-      case Status::SOLVER_FAILURE: {
-        LOG(ERROR) << "Aborting reconstruction due to solver failure.";
+      case Status::UNRECOVERABLE_SOLVER_FAILURE: {
+        LOG(ERROR) << "Aborting reconstruction due to unrecoverable solver "
+                      "failure.";
         mapper.EndReconstruction(/*discard=*/false);
         reconstruction_manager_->Delete(reconstruction_idx);
         return Status::STOP;

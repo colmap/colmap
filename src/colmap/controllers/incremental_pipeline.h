@@ -217,7 +217,7 @@ class IncrementalPipeline : public BaseController {
     NO_INITIAL_PAIR,
     BAD_INITIAL_PAIR,
     UNKNOWN_SENSOR_FROM_RIG,
-    SOLVER_FAILURE,
+    UNRECOVERABLE_SOLVER_FAILURE,
   };
 
   IncrementalPipeline(

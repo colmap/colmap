@@ -38,7 +38,9 @@ def adjust_global_bundle(
     mapper_options: pycolmap.IncrementalMapperOptions,
     ba_options: pycolmap.BundleAdjustmentOptions,
 ) -> bool:
-    """Equivalent to mapper.adjust_global_bundle(...)"""
+    """Equivalent to mapper.adjust_global_bundle(...)
+    Returns false if the solver fails with an unrecoverable error.
+    Recoverable solver failures are logged as warnings and return true."""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
     reg_frame_ids = reconstruction.reg_frame_ids()
@@ -92,7 +94,18 @@ def adjust_global_bundle(
     )
     logging.info("Global Bundle Adjustment")
     logging.info(summary.brief_report())
-    return summary.is_solution_usable()
+    if not summary.is_solution_usable():
+        if summary.is_unrecoverable_failure():
+            logging.error(
+                "Global bundle adjustment failed due to an "
+                f"unrecoverable error: {summary.message}"
+            )
+            return False
+        logging.warning(
+            "Global bundle adjustment failed due to a "
+            f"recoverable error: {summary.message}"
+        )
+    return True
 
 
 def iterative_global_refinement(
@@ -104,7 +117,8 @@ def iterative_global_refinement(
     tri_options: pycolmap.IncrementalTriangulatorOptions,
     normalize_reconstruction: bool = True,
 ) -> bool:
-    """Equivalent to mapper.iterative_global_refinement(...)"""
+    """Equivalent to mapper.iterative_global_refinement(...)
+    Returns false if the solver fails with an unrecoverable error."""
     reconstruction = mapper.reconstruction
     mapper.complete_and_merge_tracks(tri_options)
     num_retriangulated_observations = mapper.retriangulate(tri_options)
@@ -138,8 +152,10 @@ def adjust_local_bundle(
     tri_options: pycolmap.IncrementalTriangulatorOptions,
     image_id: int,
     point3D_ids: set[int],
-) -> pycolmap.LocalBundleAdjustmentReport:
-    """Equivalent to mapper.adjust_local_bundle(...)"""
+) -> tuple[pycolmap.LocalBundleAdjustmentReport, bool]:
+    """Equivalent to mapper.adjust_local_bundle(...)
+    Returns (report, solver_success). solver_success is false if the solver
+    fails with an unrecoverable error."""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
     report = pycolmap.LocalBundleAdjustmentReport()
@@ -219,6 +235,17 @@ def adjust_local_bundle(
         )
         logging.info("Local Bundle Adjustment")
         logging.info(summary.brief_report())
+        if not summary.is_solution_usable():
+            if summary.is_unrecoverable_failure():
+                logging.error(
+                    "Local bundle adjustment failed due to an "
+                    f"unrecoverable error: {summary.message}"
+                )
+                return report, False
+            logging.warning(
+                "Local bundle adjustment failed due to a "
+                f"recoverable error: {summary.message}"
+            )
 
         image_ids = ba_config.images
         report.num_adjusted_observations = int(summary.num_residuals / 2)
@@ -251,7 +278,7 @@ def adjust_local_bundle(
             point3D_ids,
         )
     )
-    return report
+    return report, True
 
 
 def iterative_local_refinement(
@@ -262,8 +289,9 @@ def iterative_local_refinement(
     ba_options: pycolmap.BundleAdjustmentOptions,
     tri_options: pycolmap.IncrementalTriangulatorOptions,
     image_id: int,
-) -> None:
-    """Equivalent to mapper.iterative_local_refinement(...)"""
+) -> bool:
+    """Equivalent to mapper.iterative_local_refinement(...)
+    Returns false if the solver fails with an unrecoverable error."""
     custom_ba_options = copy.deepcopy(ba_options)
     for _ in range(max_num_refinements):
         # report = mapper.adjust_local_bundle(
@@ -273,7 +301,7 @@ def iterative_local_refinement(
         #     image_id,
         #     mapper.get_modified_points3D(),
         # )
-        report = adjust_local_bundle(
+        report, solver_success = adjust_local_bundle(
             mapper,
             mapper_options,
             custom_ba_options,
@@ -281,6 +309,8 @@ def iterative_local_refinement(
             image_id,
             mapper.get_modified_points3D(),
         )
+        if not solver_success:
+            return False
         logging.verbose(
             1, f"=> Merged observations: {report.num_merged_observations}"
         )
@@ -306,3 +336,4 @@ def iterative_local_refinement(
             pycolmap.LossFunctionType.TRIVIAL
         )
     mapper.clear_modified_points3D()
+    return True
