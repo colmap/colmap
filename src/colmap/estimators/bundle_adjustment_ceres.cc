@@ -620,7 +620,12 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       PrintSolverSummary(ceres_summary, "Bundle adjustment report");
     }
 
-    return CeresBundleAdjustmentSummary::Create(ceres_summary);
+    auto summary = CeresBundleAdjustmentSummary::Create(ceres_summary);
+    if (!summary->IsSolutionUsable()) {
+      LOG(ERROR) << "Bundle adjustment failed: " << ceres_summary.message;
+    }
+
+    return summary;
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
@@ -920,7 +925,13 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       PrintSolverSummary(ceres_summary, "Pose Prior Bundle adjustment report");
     }
 
-    return CeresBundleAdjustmentSummary::Create(ceres_summary);
+    auto summary = CeresBundleAdjustmentSummary::Create(ceres_summary);
+    if (!summary->IsSolutionUsable()) {
+      LOG(ERROR) << "Pose prior bundle adjustment failed: "
+                 << ceres_summary.message;
+    }
+
+    return summary;
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
