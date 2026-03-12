@@ -545,6 +545,15 @@ void ParameterizePoints(
   }
 }
 
+std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
+    const ceres::Solver::Summary& ceres_summary, const std::string& context) {
+  auto summary = CeresBundleAdjustmentSummary::Create(ceres_summary);
+  if (!summary->IsSolutionUsable()) {
+    LOG(ERROR) << context << " failed: " << ceres_summary.message;
+  }
+  return summary;
+}
+
 class DefaultBundleAdjuster : public CeresBundleAdjuster {
  public:
   DefaultBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -620,12 +629,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       PrintSolverSummary(ceres_summary, "Bundle adjustment report");
     }
 
-    auto summary = CeresBundleAdjustmentSummary::Create(ceres_summary);
-    if (!summary->IsSolutionUsable()) {
-      LOG(ERROR) << "Bundle adjustment failed: " << ceres_summary.message;
-    }
-
-    return summary;
+    return CreateSummaryAndLogFailure(ceres_summary, "Bundle adjustment");
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
@@ -925,13 +929,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       PrintSolverSummary(ceres_summary, "Pose Prior Bundle adjustment report");
     }
 
-    auto summary = CeresBundleAdjustmentSummary::Create(ceres_summary);
-    if (!summary->IsSolutionUsable()) {
-      LOG(ERROR) << "Pose prior bundle adjustment failed: "
-                 << ceres_summary.message;
-    }
-
-    return summary;
+    return CreateSummaryAndLogFailure(ceres_summary,
+                                      "Pose prior bundle adjustment");
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
