@@ -554,6 +554,36 @@ std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
   return summary;
 }
 
+ceres::Solver::Summary SolveWithGpuFallback(
+    const BundleAdjustmentOptions& options,
+    const BundleAdjustmentConfig& config,
+    ceres::Problem* problem) {
+  const ceres::Solver::Options solver_options =
+      options.ceres->CreateSolverOptions(config, *problem);
+
+  ceres::Solver::Summary ceres_summary;
+  ceres::Solve(solver_options, problem, &ceres_summary);
+
+  if (ceres_summary.termination_type == ceres::FAILURE &&
+      options.ceres->use_gpu) {
+    const std::string& msg = ceres_summary.message;
+    if (msg.find("CUDA initialization failed") != std::string::npos ||
+        msg.find("non-numeric") != std::string::npos ||
+        msg.find("Unable to create Jacobian") != std::string::npos) {
+      LOG(WARNING) << "GPU bundle adjustment failed (" << msg
+                   << "), retrying with CPU.";
+      auto cpu_options =
+          std::make_shared<CeresBundleAdjustmentOptions>(*options.ceres);
+      cpu_options->use_gpu = false;
+      const ceres::Solver::Options cpu_solver_options =
+          cpu_options->CreateSolverOptions(config, *problem);
+      ceres::Solve(cpu_solver_options, problem, &ceres_summary);
+    }
+  }
+
+  return ceres_summary;
+}
+
 class DefaultBundleAdjuster : public CeresBundleAdjuster {
  public:
   DefaultBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -619,11 +649,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
-    const ceres::Solver::Options solver_options =
-        options_.ceres->CreateSolverOptions(config_, *problem_);
-
-    ceres::Solver::Summary ceres_summary;
-    ceres::Solve(solver_options, problem_.get(), &ceres_summary);
+    const ceres::Solver::Summary ceres_summary =
+        SolveWithGpuFallback(options_, config_, problem_.get());
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
       PrintSolverSummary(ceres_summary, "Bundle adjustment report");
@@ -917,11 +944,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
-    const ceres::Solver::Options solver_options =
-        options_.ceres->CreateSolverOptions(config_, *problem);
-
-    ceres::Solver::Summary ceres_summary;
-    ceres::Solve(solver_options, problem.get(), &ceres_summary);
+    const ceres::Solver::Summary ceres_summary =
+        SolveWithGpuFallback(options_, config_, problem.get());
 
     reconstruction_.Transform(Inverse(normalized_from_metric_));
 
