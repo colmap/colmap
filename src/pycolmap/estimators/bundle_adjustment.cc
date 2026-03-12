@@ -83,7 +83,6 @@ void BindBundleAdjuster(py::module& m) {
           .def("is_solution_usable", &BASummary::IsSolutionUsable)
           .def("is_unrecoverable_failure", &BASummary::IsUnrecoverableFailure)
           .def("brief_report", &BASummary::BriefReport);
-  MakeDataclass(PyBundleAdjustmentSummary);
 
   using CeresBASummary = CeresBundleAdjustmentSummary;
   auto PyCeresBundleAdjustmentSummary =
