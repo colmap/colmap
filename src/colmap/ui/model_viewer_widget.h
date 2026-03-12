@@ -128,7 +128,10 @@ class ModelViewerWidget : public QOpenGLWidget,
   std::vector<image_t> reg_image_ids;
 
   std::optional<std::vector<PlyPoint>> point_cloud;
-  std::optional<PlyMesh> surface_mesh;
+  std::optional<PlyTexturedMesh> surface_mesh;
+  std::vector<uint8_t> surface_texture_data;
+  int surface_texture_width = 0;
+  int surface_texture_height = 0;
 
   QLabel* statusbar_status_label;
 

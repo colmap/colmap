@@ -41,5 +41,9 @@ Bibliography
 .. [lowe04] Lowe, David G. "Distinctive image features from scale-invariant
     keypoints". International journal of computer vision 60.2 (2004): 91-110.
 
+.. [waechter2014] Waechter, Michael and Moehrle, Nils and Goesele, Michael.
+    "Let there be color! Large-scale texturing of 3D reconstructions."
+    European Conference on Computer Vision, 2014.
+
 .. [wu13] Wu, Changchang. "Towards linear-time incremental structure from
     motion." International Conference 3D Vision, 2013.

@@ -387,8 +387,10 @@ void ModelViewerWidget::paintGL() {
   point_connection_painter_.Render(pmv_matrix, width(), height(), 1);
 
   // Mesh
-  mesh_painter_.Render(
-      pmv_matrix, model_view_matrix_, options_->render->mesh_wireframe);
+  mesh_painter_.Render(pmv_matrix,
+                       model_view_matrix_,
+                       options_->render->mesh_wireframe,
+                       options_->render->mesh_color);
 
   // Images
   image_line_painter_.Render(pmv_matrix, width(), height(), 1);
@@ -467,6 +469,9 @@ void ModelViewerWidget::ClearReconstruction() {
   reconstruction = nullptr;
   point_cloud.reset();
   surface_mesh.reset();
+  surface_texture_data.clear();
+  surface_texture_width = 0;
+  surface_texture_height = 0;
   selected_image_id_ = kInvalidImageId;
   selected_point3D_id_ = kInvalidPoint3DId;
   Upload();
@@ -908,11 +913,11 @@ void ModelViewerWidget::ComputeModelOriginAndScale() {
       y_coords.push_back(point.y);
       z_coords.push_back(point.z);
     }
-  } else if (surface_mesh.has_value() && !surface_mesh->vertices.empty()) {
-    x_coords.reserve(surface_mesh->vertices.size());
-    y_coords.reserve(surface_mesh->vertices.size());
-    z_coords.reserve(surface_mesh->vertices.size());
-    for (const auto& vertex : surface_mesh->vertices) {
+  } else if (surface_mesh.has_value() && !surface_mesh->mesh.vertices.empty()) {
+    x_coords.reserve(surface_mesh->mesh.vertices.size());
+    y_coords.reserve(surface_mesh->mesh.vertices.size());
+    z_coords.reserve(surface_mesh->mesh.vertices.size());
+    for (const auto& vertex : surface_mesh->mesh.vertices) {
       x_coords.push_back(vertex.x);
       y_coords.push_back(vertex.y);
       z_coords.push_back(vertex.z);
@@ -1404,18 +1409,22 @@ void ModelViewerWidget::UploadPointCloudData() {
 void ModelViewerWidget::UploadSurfaceMeshData() {
   makeCurrent();
 
-  if (!surface_mesh.has_value() || surface_mesh->faces.empty()) {
+  if (!surface_mesh.has_value() || surface_mesh->mesh.faces.empty()) {
     mesh_painter_.Upload({});
     return;
   }
 
-  std::vector<MeshPainter::Data> data;
-  data.reserve(surface_mesh->faces.size() * 3);
+  const PlyMesh& mesh = surface_mesh->mesh;
+  const bool has_uvs = !surface_mesh->face_uvs.empty();
 
-  for (const PlyMeshFace& face : surface_mesh->faces) {
-    const PlyMeshVertex& v0 = surface_mesh->vertices.at(face.vertex_idx1);
-    const PlyMeshVertex& v1 = surface_mesh->vertices.at(face.vertex_idx2);
-    const PlyMeshVertex& v2 = surface_mesh->vertices.at(face.vertex_idx3);
+  std::vector<MeshPainter::Data> data;
+  data.reserve(mesh.faces.size() * 3);
+
+  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+    const PlyMeshFace& face = mesh.faces[fi];
+    const PlyMeshVertex& v0 = mesh.vertices.at(face.vertex_idx1);
+    const PlyMeshVertex& v1 = mesh.vertices.at(face.vertex_idx2);
+    const PlyMeshVertex& v2 = mesh.vertices.at(face.vertex_idx3);
 
     // Transform vertices by model_origin_ and model_scale_
     const Eigen::Vector3f p0(
@@ -1436,37 +1445,80 @@ void ModelViewerWidget::UploadSurfaceMeshData() {
     const Eigen::Vector3f edge2 = p2 - p0;
     const Eigen::Vector3f normal = edge1.cross(edge2).normalized();
 
-    // Flat shading: same normal for all three vertices
-    data.emplace_back(p0.x(),
-                      p0.y(),
-                      p0.z(),
-                      normal.x(),
-                      normal.y(),
-                      normal.z(),
-                      v0.r,
-                      v0.g,
-                      v0.b);
-    data.emplace_back(p1.x(),
-                      p1.y(),
-                      p1.z(),
-                      normal.x(),
-                      normal.y(),
-                      normal.z(),
-                      v1.r,
-                      v1.g,
-                      v1.b);
-    data.emplace_back(p2.x(),
-                      p2.y(),
-                      p2.z(),
-                      normal.x(),
-                      normal.y(),
-                      normal.z(),
-                      v2.r,
-                      v2.g,
-                      v2.b);
+    if (has_uvs) {
+      const float* uvs = &surface_mesh->face_uvs[fi * 6];
+      data.emplace_back(p0.x(),
+                        p0.y(),
+                        p0.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        uvs[0],
+                        uvs[1],
+                        v0.r,
+                        v0.g,
+                        v0.b);
+      data.emplace_back(p1.x(),
+                        p1.y(),
+                        p1.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        uvs[2],
+                        uvs[3],
+                        v1.r,
+                        v1.g,
+                        v1.b);
+      data.emplace_back(p2.x(),
+                        p2.y(),
+                        p2.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        uvs[4],
+                        uvs[5],
+                        v2.r,
+                        v2.g,
+                        v2.b);
+    } else {
+      data.emplace_back(p0.x(),
+                        p0.y(),
+                        p0.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        v0.r,
+                        v0.g,
+                        v0.b);
+      data.emplace_back(p1.x(),
+                        p1.y(),
+                        p1.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        v1.r,
+                        v1.g,
+                        v1.b);
+      data.emplace_back(p2.x(),
+                        p2.y(),
+                        p2.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        v2.r,
+                        v2.g,
+                        v2.b);
+    }
   }
 
   mesh_painter_.Upload(data);
+
+  if (!surface_texture_data.empty()) {
+    mesh_painter_.UploadTexture(std::move(surface_texture_data),
+                                surface_texture_width,
+                                surface_texture_height,
+                                3);
+  }
 }
 
 void ModelViewerWidget::ComposeProjectionMatrix() {

@@ -60,6 +60,9 @@ struct RenderOptions {
   // Whether to render the mesh as wireframe.
   bool mesh_wireframe = false;
 
+  // Whether to render mesh colors/textures (false = uniform gray).
+  bool mesh_color = true;
+
   // The projection type of the renderer.
   int projection_type = ProjectionType::PERSPECTIVE;
 

@@ -626,6 +626,12 @@ meshing to robustly filter outliers from the sparse or dense point cloud and
 then, in the second step, performing Poisson surface reconstruction to obtain a
 smooth surface.
 
+After meshing, the ``mesh_texturer`` command can be used to produce a textured
+mesh with a texture atlas [waechter2014]_. This assigns each mesh face to the
+best-view camera image based on projected area and viewing angle, and bakes the
+texture into an atlas with per-face UV coordinates. The command requires the
+undistorted workspace produced by ``image_undistorter`` as input.
+
 
 Speedup dense reconstruction
 ----------------------------

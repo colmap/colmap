@@ -87,6 +87,12 @@ of commands as an alternative to the automatic reconstruction command::
         --output_path $DATASET_PATH/dense/meshed-poisson-simplified.ply \
         --MeshSimplification.target_face_ratio 0.25
 
+    # Optionally texture a mesh using the undistorted images.
+    $ colmap mesh_texturer \
+        --workspace_path $DATASET_PATH/dense \
+        --input_path $DATASET_PATH/dense/meshed-poisson.ply \
+        --output_path $DATASET_PATH/dense/textured
+
 To use the global SfM pipeline instead of the incremental mapper, replace the
 ``mapper`` step with ``global_mapper``. The global mapper depends on good focal
 length priors, so if reliable intrinsics are not available (e.g., from EXIF or
@@ -173,6 +179,7 @@ The available commands can be listed using the command::
           mapper
           matches_importer
           mesh_simplifier
+          mesh_texturer
           model_aligner
           model_analyzer
           model_comparer
@@ -344,6 +351,9 @@ available as ``colmap [command]``:
   (default 1000). Supports multi-threaded initialization via
   ``--MeshSimplification.num_threads``.
 
+- ``mesh_texturer``: Produce a texture atlas and UV coordinates for a triangle
+  mesh using calibrated multi-view images.
+
 - ``image_registrator``: Register new images in the database against an existing
   model, e.g., when extracting features and matching newly added images in a
   database after running ``mapper``. Note that no bundle adjustment or
@@ -440,4 +450,5 @@ reconstruction pipelines, COLMAP offers you the following possibilities:
   the ``delaunay_mesher`` can currently not be visualized with COLMAP, instead
   you can use an external viewer, such as Meshlab. Use the ``mesh_simplifier``
   command to reduce the mesh size for faster visualization or downstream
-  processing.
+  processing. Use the ``mesh_texturer`` command to produce a textured mesh
+  with a texture atlas that can be visualized in Meshlab or other 3D viewers.

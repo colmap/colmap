@@ -58,6 +58,7 @@ struct PatchMatchOptions;
 struct StereoFusionOptions;
 struct PoissonMeshingOptions;
 struct DelaunayMeshingOptions;
+struct MeshTextureMappingOptions;
 struct MeshSimplificationOptions;
 }  // namespace mvs
 
@@ -103,6 +104,7 @@ class OptionManager : public BaseOptionManager {
   void AddStereoFusionOptions();
   void AddPoissonMeshingOptions();
   void AddDelaunayMeshingOptions();
+  void AddMeshTextureMappingOptions();
   void AddMeshSimplificationOptions();
   void AddRenderOptions();
 
@@ -133,6 +135,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;
   std::shared_ptr<mvs::PoissonMeshingOptions> poisson_meshing;
   std::shared_ptr<mvs::DelaunayMeshingOptions> delaunay_meshing;
+  std::shared_ptr<mvs::MeshTextureMappingOptions> mesh_texture_mapping;
   std::shared_ptr<mvs::MeshSimplificationOptions> mesh_simplification;
 
   std::shared_ptr<RenderOptions> render;
@@ -164,6 +167,7 @@ class OptionManager : public BaseOptionManager {
   bool added_stereo_fusion_options_ = false;
   bool added_poisson_meshing_options_ = false;
   bool added_delaunay_meshing_options_ = false;
+  bool added_mesh_texture_mapping_options_ = false;
   bool added_mesh_simplification_options_ = false;
   bool added_render_options_ = false;
 };
