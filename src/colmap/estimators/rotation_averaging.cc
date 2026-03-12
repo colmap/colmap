@@ -514,11 +514,16 @@ bool InitializeRigRotationsFromImages(
   std::vector<double> weights;
   for (auto& [camera_id, rig_id_and_samples] : cam_from_rig_samples) {
     auto& [rig_id, samples] = rig_id_and_samples;
-    // Skip if sensor_from_rig is already fully known.
     const auto sensor_id = sensor_t(SensorType::CAMERA, camera_id);
     const auto existing =
         reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
+    // If sensor_from_rig rotation is already known (translation is valid),
+    // preserve the known rotation instead of overwriting with MST-derived
+    // approximation. Reset translation to NaN so downstream code (global
+    // positioning) still estimates it using the variable-rig formulation.
     if (existing.has_value() && !existing->translation().hasNaN()) {
+      reconstruction.Rig(rig_id).SetSensorFromRig(
+          sensor_id, Rigid3d(existing->rotation(), kUnknownTranslation));
       continue;
     }
     weights.resize(samples.size(), 1.0);
