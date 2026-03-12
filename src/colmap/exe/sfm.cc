@@ -364,6 +364,28 @@ int RunMapper(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+bool RunGlobalMapperImpl(
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
+    const std::shared_ptr<GlobalPipelineOptions>& mapper_options,
+    std::shared_ptr<ReconstructionManager>& reconstruction_manager) {
+  GlobalPipelineOptions options = *mapper_options;
+  options.image_path = image_path;
+
+  GlobalPipeline global_mapper(
+      std::move(options), Database::Open(database_path), reconstruction_manager);
+  global_mapper.Run();
+
+  if (reconstruction_manager->Size() == 0) {
+    LOG(ERROR) << "Failed to create sparse model";
+    return false;
+  }
+
+  reconstruction_manager->Write(output_path);
+  return true;
+}
+
 int RunGlobalMapper(int argc, char** argv) {
   std::filesystem::path output_path;
 
@@ -382,23 +404,15 @@ int RunGlobalMapper(int argc, char** argv) {
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-
-  GlobalPipelineOptions global_options = *options.global_mapper;
-  global_options.image_path = *options.image_path;
-
-  GlobalPipeline global_mapper(std::move(global_options),
-                               Database::Open(*options.database_path),
-                               reconstruction_manager);
-  global_mapper.Run();
-
-  if (reconstruction_manager->Size() == 0) {
-    LOG(ERROR) << "Failed to create sparse model";
+  if (!RunGlobalMapperImpl(*options.database_path,
+                           *options.image_path,
+                           output_path,
+                           options.global_mapper,
+                           reconstruction_manager)) {
     return EXIT_FAILURE;
   }
 
-  reconstruction_manager->Write(output_path);
   options.Write(output_path / "project.ini");
-
   return EXIT_SUCCESS;
 }
 
