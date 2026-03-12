@@ -146,13 +146,11 @@ TEST(RotationAveraging, WithoutNoise) {
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   auto data = CreateTestData(synthetic_dataset_options);
 
-  // TODO: The current 1-dof rotation averaging sometimes fails to pick the
-  // right solution (e.g., 180 deg flipped).
   RunAndVerifyRotationAveraging(data.gt_reconstruction,
                                 data.reconstruction,
                                 data.pose_graph,
                                 data.pose_priors,
-                                {false},
+                                {true, false},
                                 /*max_rotation_error_deg=*/1e-2);
 }
 
@@ -218,13 +216,11 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
   auto data =
       CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
 
-  // TODO: The current 1-dof rotation averaging sometimes fails to pick the
-  // right solution (e.g., 180 deg flipped).
   RunAndVerifyRotationAveraging(data.gt_reconstruction,
                                 data.reconstruction,
                                 data.pose_graph,
                                 data.pose_priors,
-                                {false},
+                                {true, false},
                                 /*max_rotation_error_deg=*/3);
 }
 
@@ -245,13 +241,11 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   auto data =
       CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
 
-  // TODO: The current 1-dof rotation averaging sometimes fails to pick the
-  // right solution (e.g., 180 deg flipped).
   RunAndVerifyRotationAveraging(data.gt_reconstruction,
                                 data.reconstruction,
                                 data.pose_graph,
                                 data.pose_priors,
-                                {false},
+                                {true, false},
                                 /*max_rotation_error_deg=*/2.);
 }
 

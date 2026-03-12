@@ -18,6 +18,7 @@ std::shared_ptr<DatabaseCache> CreateDatabaseCache(const Database& database) {
 }
 
 TEST(GlobalMapper, WithoutNoise) {
+  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -45,6 +46,7 @@ TEST(GlobalMapper, WithoutNoise) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
+  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -75,6 +77,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
+  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -115,6 +118,8 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 }
 
 TEST(GlobalMapper, WithNoiseAndOutliers) {
+  SetPRNGSeed(1);
+
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);

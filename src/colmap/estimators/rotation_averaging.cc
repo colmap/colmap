@@ -397,8 +397,10 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::vector<PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
-  // Initialize rotations from maximum spanning tree if no gravity priors.
-  if (!options_.skip_initialization && !UseGravity(options_, pose_priors)) {
+  // Initialize rotations from maximum spanning tree. Note that without
+  // intialization, the gravity-aligned rotation averaging is prone to random
+  // flips by 180deg.
+  if (!options_.skip_initialization) {
     InitializeFromMaximumSpanningTree(
         pose_graph, active_image_ids, reconstruction);
   }
@@ -512,12 +514,23 @@ bool InitializeRigRotationsFromImages(
   std::vector<double> weights;
   for (auto& [camera_id, rig_id_and_samples] : cam_from_rig_samples) {
     auto& [rig_id, samples] = rig_id_and_samples;
+    const auto sensor_id = sensor_t(SensorType::CAMERA, camera_id);
+    const auto existing =
+        reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
+    // If sensor_from_rig rotation is already known (translation is valid),
+    // preserve the known rotation instead of overwriting with MST-derived
+    // approximation. Reset translation to NaN so downstream code (global
+    // positioning) still estimates it using the variable-rig formulation.
+    if (existing.has_value() && !existing->translation().hasNaN()) {
+      reconstruction.Rig(rig_id).SetSensorFromRig(
+          sensor_id, Rigid3d(existing->rotation(), kUnknownTranslation));
+      continue;
+    }
     weights.resize(samples.size(), 1.0);
     const Eigen::Quaterniond cam_from_rig =
         AverageQuaternions(samples, weights);
     reconstruction.Rig(rig_id).SetSensorFromRig(
-        sensor_t(SensorType::CAMERA, camera_id),
-        Rigid3d(cam_from_rig, kUnknownTranslation));
+        sensor_id, Rigid3d(cam_from_rig, kUnknownTranslation));
   }
 
   // Step 2: Compute rig_from_world for each frame by averaging across images.
