@@ -44,6 +44,7 @@
 #include "colmap/util/threading.h"
 
 #include <fstream>
+#include <unordered_map>
 
 namespace colmap {
 namespace {
@@ -146,10 +147,18 @@ void ReadDatabaseCameraLocations(const std::filesystem::path& database_path,
                                  std::vector<std::string>* ref_image_names,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   auto database = Database::Open(database_path);
+
+  // Index pose priors by their associated data ID.
+  std::unordered_map<data_t, PosePrior> pose_priors_by_data_id;
+  for (const auto& pose_prior : database->ReadAllPosePriors()) {
+    pose_priors_by_data_id.emplace(pose_prior.corr_data_id, pose_prior);
+  }
+
   for (const auto& image : database->ReadAllImages()) {
-    if (database->ExistsPosePrior(image.ImageId())) {
+    const auto it = pose_priors_by_data_id.find(image.DataId());
+    if (it != pose_priors_by_data_id.end()) {
       ref_image_names->push_back(image.Name());
-      const auto pose_prior = database->ReadPosePrior(image.ImageId());
+      const auto& pose_prior = it->second;
       if (ref_is_gps) {
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));
