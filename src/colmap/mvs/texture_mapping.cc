@@ -288,13 +288,13 @@ std::vector<int> SelectViews(const PlyMesh& mesh,
   std::vector<double> scores(num_faces * num_images, -1.0);
 
 #ifdef _OPENMP
-  const int num_threads =
+  [[maybe_unused]] const int num_threads =
       options.num_threads > 0
           ? options.num_threads
           : std::max(1, static_cast<int>(omp_get_max_threads()));
 #pragma omp parallel for schedule(dynamic) num_threads(num_threads)
 #endif
-  for (size_t fi = 0; fi < num_faces; ++fi) {
+  for (int64_t fi = 0; fi < static_cast<int64_t>(num_faces); ++fi) {
     const Eigen::Vector3f& normal = face_normals[fi];
     if (normal.squaredNorm() < 1e-10f) continue;
 
