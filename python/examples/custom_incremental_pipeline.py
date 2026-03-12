@@ -284,9 +284,12 @@ def reconstruct_sub_model(
             )
         if mapper.num_shared_reg_images() >= int(options.max_model_overlap):
             break
-        if (not reg_next_success) and prev_reg_next_success:
-            if not iterative_global_refinement(options, mapper_options, mapper):
-                return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
+        if (
+            (not reg_next_success)
+            and prev_reg_next_success
+            and not iterative_global_refinement(options, mapper_options, mapper)
+        ):
+            return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
 
     if controller.check_reached_max_runtime():
         return pycolmap.IncrementalPipelineStatus.INTERRUPTED
@@ -296,9 +299,9 @@ def reconstruct_sub_model(
         reconstruction.num_reg_frames() > 0
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
         and reconstruction.num_points3D() != ba_prev_num_points
+        and not iterative_global_refinement(options, mapper_options, mapper)
     ):
-        if not iterative_global_refinement(options, mapper_options, mapper):
-            return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
+        return IncrementalPipelineStatus.UNRECOVERABLE_SOLVER_FAILURE
     return IncrementalPipelineStatus.SUCCESS
 
 
