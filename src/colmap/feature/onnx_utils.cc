@@ -119,8 +119,14 @@ void ONNXModel::InitializeSession(const std::string& model_path,
                                   int num_threads,
                                   bool use_gpu,
                                   const std::string& gpu_index) {
-  session_options_.SetInterOpNumThreads(num_threads);
+  // Use sequential execution mode with a single inter-op thread, since our
+  // models (ALIKED, LightGlue) are sequential CNNs/Transformers without
+  // independent graph branches. Inter-op parallelism would only cause thread
+  // contention. Intra-op threads parallelize within individual operators
+  // (convolutions, matrix multiplications) and are managed at the caller level.
+  session_options_.SetInterOpNumThreads(1);
   session_options_.SetIntraOpNumThreads(num_threads);
+  session_options_.SetExecutionMode(ORT_SEQUENTIAL);
   session_options_.SetGraphOptimizationLevel(
       GraphOptimizationLevel::ORT_ENABLE_ALL);
   session_options_.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);

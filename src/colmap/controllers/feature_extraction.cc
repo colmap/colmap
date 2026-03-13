@@ -406,9 +406,17 @@ class FeatureExtractorController : public Thread {
           max_image_size, resizer_queue_.get(), extractor_queue_.get()));
     }
 
-    if (!extraction_options_.sift->domain_size_pooling &&
-        !extraction_options_.sift->estimate_affine_shape &&
-        extraction_options_.use_gpu) {
+    // Determine if GPU extraction should be used. SIFT GPU extraction is not
+    // supported with domain_size_pooling or estimate_affine_shape, which
+    // require CPU-based covariant SIFT.
+    auto worker_extraction_options = extraction_options_;
+    if (extraction_options_.type == FeatureExtractorType::SIFT &&
+        (extraction_options_.sift->domain_size_pooling ||
+         extraction_options_.sift->estimate_affine_shape)) {
+      worker_extraction_options.use_gpu = false;
+    }
+
+    if (worker_extraction_options.use_gpu) {
       std::vector<int> gpu_indices =
           CSVToVector<int>(extraction_options_.gpu_index);
       THROW_CHECK_GT(gpu_indices.size(), 0);
@@ -422,11 +430,14 @@ class FeatureExtractorController : public Thread {
       }
 #endif  // COLMAP_CUDA_ENABLED
 
-      auto sift_gpu_options = extraction_options_;
+      // Prevent nested threading, as we multi-thread at the controller level.
+      worker_extraction_options.num_threads =
+          std::max(num_threads / static_cast<int>(gpu_indices.size()), 1);
+
       for (const auto& gpu_index : gpu_indices) {
-        sift_gpu_options.gpu_index = std::to_string(gpu_index);
+        worker_extraction_options.gpu_index = std::to_string(gpu_index);
         extractors_.emplace_back(
-            std::make_unique<FeatureExtractorThread>(sift_gpu_options,
+            std::make_unique<FeatureExtractorThread>(worker_extraction_options,
                                                      camera_mask,
                                                      extractor_queue_.get(),
                                                      writer_queue_.get()));
@@ -449,11 +460,9 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      auto worker_extraction_options = extraction_options_;
-      // Prevent nested threading.
+      // Prevent nested threading, as we multi-thread at the controller level.
       worker_extraction_options.num_threads = 1;
-      // Explicitly disable GPU.
-      worker_extraction_options.use_gpu = false;
+
       for (int i = 0; i < num_threads; ++i) {
         extractors_.emplace_back(
             std::make_unique<FeatureExtractorThread>(worker_extraction_options,
