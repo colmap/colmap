@@ -37,6 +37,7 @@
 #include "colmap/controllers/rotation_averaging.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
+#include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
