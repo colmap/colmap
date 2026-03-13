@@ -22,7 +22,6 @@ New Features
   relative pose estimator for registering images without 3-view overlap.
 * Added division camera models (SIMPLE_DIVISION, DIVISION).
 * Added fisheye camera model without distortion parameters (FISHEYE).
-* Added gravity prior support in pose prior data.
 * Improved Ceres bundle adjustment performance by ~10% through single pose parameter block.
 * Improved Ceres bundle adjustment performance by ~15% for SIMPLE_RADIAL camera model
   and trivial frames through analytical Jacobians.
@@ -30,6 +29,7 @@ New Features
   supporting different optimization backends.
 * Replaced FreeImage with OpenImageIO for ~2.5x faster image I/O, support for more
   image formats, and using an actively maintained dependency with security fixes, etc.
+* Added guided geometric verification using a known reconstruction.
 * Added view graph calibration as a new module.
 * Added reconstruction clustering as a new module.
 * Added mesh simplification using Quadric Error Metric (QEM) decimation.
@@ -66,7 +66,6 @@ Bug Fixes
 * Fixed undefined behavior in feature match swapping.
 * Fixed SVD computation in affine transform.
 * Fixed 2D association issue at ``AddPoint3D`` with ``point3D_id``.
-* Fixed backwards compatibility of reading databases created before Jul 2023.
 * Fixed several issues in database merging.
 * Fixed MVS workspace image downsizing.
 * Fixed pycolmap to respect ``fix_existing_frames`` option.
