@@ -86,7 +86,7 @@ CeresBundleAdjustmentSummary::Create(ceres::Solver::Summary ceres_summary) {
   summary->termination_type =
       CeresTerminationTypeToTerminationType(ceres_summary.termination_type);
   summary->num_residuals = ceres_summary.num_residuals_reduced;
-  summary->ceres_summary = ceres_summary;
+  summary->ceres_summary = std::move(ceres_summary);
   return summary;
 }
 
