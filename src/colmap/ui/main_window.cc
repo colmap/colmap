@@ -30,6 +30,7 @@
 #include "colmap/ui/main_window.h"
 
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/ply.h"
@@ -1020,7 +1021,34 @@ void MainWindow::ImportFrom(const std::string& import_path) {
     thread_control_widget_->StartFunction(
         "Importing surface mesh...", [this, import_path]() {
           try {
-            model_viewer_widget_->surface_mesh = ReadPlyMesh(import_path);
+            PlyTexturedMesh textured_mesh = ReadPlyMesh(import_path);
+
+            // Clear any previous texture data.
+            model_viewer_widget_->surface_texture_data.clear();
+            model_viewer_widget_->surface_texture_width = 0;
+            model_viewer_widget_->surface_texture_height = 0;
+
+            // Load texture atlas if the mesh has UV coordinates and a
+            // texture file reference.
+            if (!textured_mesh.face_uvs.empty() &&
+                !textured_mesh.texture_file.empty()) {
+              const auto ply_dir =
+                  std::filesystem::path(import_path).parent_path();
+              const auto texture_path = ply_dir / textured_mesh.texture_file;
+              Bitmap bitmap;
+              if (bitmap.Read(texture_path, /*as_rgb=*/true)) {
+                model_viewer_widget_->surface_texture_data =
+                    bitmap.RowMajorData();
+                model_viewer_widget_->surface_texture_width = bitmap.Width();
+                model_viewer_widget_->surface_texture_height = bitmap.Height();
+              } else {
+                LOG(WARNING) << "Failed to read texture file: " << texture_path
+                             << ". Falling back to vertex colors.";
+                textured_mesh.face_uvs.clear();
+              }
+            }
+
+            model_viewer_widget_->surface_mesh = std::move(textured_mesh);
             action_render_now_->trigger();
           } catch (const std::exception& e) {
             LOG(ERROR) << "Failed to read surface mesh: " << e.what();

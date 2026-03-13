@@ -31,11 +31,15 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/meshing.h"
+#include "colmap/mvs/model.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/mvs/texture_mapping.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
+#include "colmap/util/ply.h"
 
 namespace colmap {
 
@@ -76,6 +80,120 @@ int RunDelaunayMesher(int argc, char** argv) {
 
   return EXIT_SUCCESS;
 #endif  // COLMAP_CGAL_ENABLED
+}
+
+int RunMeshSimplifier(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to input PLY mesh");
+  options.AddRequiredOption(
+      "output_path", &output_path, "Path to output PLY mesh");
+  options.AddMeshSimplificationOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+  THROW_CHECK_FILE_EXISTS(input_path);
+  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+
+  LOG(INFO) << "Reading mesh from " << input_path;
+  const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
+  LOG(INFO) << "Input mesh: " << mesh.vertices.size() << " vertices, "
+            << mesh.faces.size() << " faces";
+
+  const PlyMesh simplified =
+      mvs::SimplifyMesh(mesh, *options.mesh_simplification);
+
+  LOG(INFO) << "Writing simplified mesh to " << output_path;
+  WriteBinaryPlyMesh(output_path, PlyTexturedMesh{simplified});
+
+  return EXIT_SUCCESS;
+}
+
+int RunMeshTexturer(int argc, char** argv) {
+  std::filesystem::path workspace_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+  std::string output_type = "BIN";
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "workspace_path",
+      &workspace_path,
+      "Path to the workspace folder containing undistorted images and "
+      "sparse reconstruction");
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to the input PLY mesh file");
+  options.AddRequiredOption(
+      "output_path",
+      &output_path,
+      "Path to the output directory. The textured mesh PLY and texture "
+      "atlas image will be written here");
+  options.AddDefaultOption("output_type", &output_type, "{BIN, TXT}");
+  options.AddMeshTextureMappingOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  StringToLower(&output_type);
+  THROW_CHECK(output_type == "bin" || output_type == "txt")
+      << "Invalid `output_type` " << output_type
+      << " - supported values are 'BIN' and 'TXT'.";
+
+  LOG(INFO) << "Reading model...";
+  mvs::Model model;
+  model.ReadFromCOLMAP(workspace_path);
+
+  LOG(INFO) << "Loading " << model.images.size() << " images...";
+  for (auto& image : model.images) {
+    Bitmap bitmap;
+    THROW_CHECK(bitmap.Read(image.GetPath(), /*as_rgb=*/true))
+        << "Failed to read image: " << image.GetPath();
+    if (bitmap.Width() != static_cast<int>(image.GetWidth()) ||
+        bitmap.Height() != static_cast<int>(image.GetHeight())) {
+      bitmap.Rescale(static_cast<int>(image.GetWidth()),
+                     static_cast<int>(image.GetHeight()));
+    }
+    image.SetBitmap(bitmap);
+  }
+
+  LOG(INFO) << "Reading input mesh from " << input_path << "...";
+  const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
+  LOG(INFO) << "Mesh has " << mesh.vertices.size() << " vertices and "
+            << mesh.faces.size() << " faces";
+
+  options.mesh_texture_mapping->Print();
+
+  LOG(INFO) << "Running surface texture mapping...";
+  const mvs::MeshTextureMappingResult result = mvs::MeshTextureMapping(
+      mesh, model.images, *options.mesh_texture_mapping);
+
+  CreateDirIfNotExists(output_path);
+
+  const std::filesystem::path texture_filename = "texture.png";
+  const std::filesystem::path texture_path = output_path / texture_filename;
+  LOG(INFO) << "Writing texture atlas to " << texture_path << "...";
+  result.texture_atlas.Write(texture_path);
+
+  PlyTexturedMesh textured_mesh;
+  textured_mesh.mesh = mesh;
+  textured_mesh.face_uvs = result.face_uvs;
+  textured_mesh.texture_file = texture_filename.string();
+
+  const std::filesystem::path mesh_path = output_path / "mesh.ply";
+  LOG(INFO) << "Writing textured mesh to " << mesh_path << "...";
+  if (output_type == "bin") {
+    WriteBinaryPlyMesh(mesh_path, textured_mesh);
+  } else {
+    WriteTextPlyMesh(mesh_path, textured_mesh);
+  }
+
+  LOG(INFO) << "Mesh texture mapping complete";
+  return EXIT_SUCCESS;
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {

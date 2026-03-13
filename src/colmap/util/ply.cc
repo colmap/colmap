@@ -33,14 +33,19 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 
 #include <cstring>
 #include <fstream>
+#include <sstream>
 
 #include <Eigen/Core>
 
 namespace colmap {
 namespace {
+
+constexpr size_t kMaxPlyVertices = 1llu << 32;
+constexpr size_t kMaxPlyFaces = 1llu << 32;
 
 template <typename T>
 T ReadFromBuffer(const char* buffer, size_t offset) {
@@ -217,6 +222,33 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
 
   THROW_CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
       << "Invalid PLY file format: x, y, z properties missing";
+
+  // Validate byte positions against buffer size to prevent out-of-bounds reads
+  // from crafted PLY headers.
+  if (is_binary && num_bytes_per_line > 0) {
+    auto CheckBytePos = [&](int byte_pos, size_t type_size, const char* name) {
+      if (byte_pos >= 0) {
+        THROW_CHECK_LE(static_cast<size_t>(byte_pos) + type_size,
+                       num_bytes_per_line)
+            << "PLY property " << name
+            << " byte position exceeds line buffer size";
+      }
+    };
+    CheckBytePos(X_byte_pos, X_double ? sizeof(double) : sizeof(float), "x");
+    CheckBytePos(Y_byte_pos, Y_double ? sizeof(double) : sizeof(float), "y");
+    CheckBytePos(Z_byte_pos, Z_double ? sizeof(double) : sizeof(float), "z");
+    CheckBytePos(NX_byte_pos, NX_double ? sizeof(double) : sizeof(float), "nx");
+    CheckBytePos(NY_byte_pos, NY_double ? sizeof(double) : sizeof(float), "ny");
+    CheckBytePos(NZ_byte_pos, NZ_double ? sizeof(double) : sizeof(float), "nz");
+    CheckBytePos(R_byte_pos, sizeof(uint8_t), "r");
+    CheckBytePos(G_byte_pos, sizeof(uint8_t), "g");
+    CheckBytePos(B_byte_pos, sizeof(uint8_t), "b");
+  }
+
+  // Sanity-check num_vertices to prevent unbounded memory allocation from
+  // a crafted PLY header.
+  THROW_CHECK_LE(num_vertices, kMaxPlyVertices)
+      << "PLY file declares too many vertices";
 
   points.reserve(num_vertices);
 
@@ -396,11 +428,11 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
   binary_file.close();
 }
 
-PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
+PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  PlyMesh mesh;
+  PlyTexturedMesh result;
 
   std::string line;
 
@@ -408,6 +440,7 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
   bool is_little_endian = false;
   size_t num_vertices = 0;
   size_t num_faces = 0;
+  bool has_texcoord = false;
 
   // Track vertex properties for proper parsing.
   bool in_vertex_section = false;
@@ -447,6 +480,13 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
       }
     }
 
+    if (line.size() >= 19 && line.substr(0, 19) == "comment TextureFile") {
+      const std::vector<std::string> elems = StringSplit(line, " ");
+      if (elems.size() >= 3) {
+        result.texture_file = elems[2];
+      }
+    }
+
     const std::vector<std::string> line_elems = StringSplit(line, " ");
 
     if (line_elems.size() >= 3 && line_elems[0] == "element") {
@@ -461,12 +501,15 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
       }
     }
 
-    // Parse face property list to determine the index data type.
-    // Format: property list <count_type> <index_type> vertex_index
+    // Parse face property lists.
     if (in_face_section && line_elems.size() >= 5 &&
         line_elems[0] == "property" && line_elems[1] == "list") {
-      face_count_type = line_elems[2];
-      face_index_type = line_elems[3];
+      if (line_elems[4] == "texcoord") {
+        has_texcoord = true;
+      } else {
+        face_count_type = line_elems[2];
+        face_index_type = line_elems[3];
+      }
     }
 
     if (in_vertex_section && line_elems.size() >= 3 &&
@@ -520,8 +563,36 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
 
   const bool has_colors = (R_index != -1) && (G_index != -1) && (B_index != -1);
 
-  mesh.vertices.reserve(num_vertices);
-  mesh.faces.reserve(num_faces);
+  // Validate byte positions against buffer size for binary PLY mesh files.
+  if (is_binary && num_bytes_per_vertex > 0) {
+    auto CheckBytePos = [&](int byte_pos, size_t type_size, const char* name) {
+      if (byte_pos >= 0) {
+        THROW_CHECK_LE(static_cast<size_t>(byte_pos) + type_size,
+                       num_bytes_per_vertex)
+            << "PLY mesh property " << name
+            << " byte position exceeds vertex buffer size";
+      }
+    };
+    CheckBytePos(X_byte_pos, X_double ? sizeof(double) : sizeof(float), "x");
+    CheckBytePos(Y_byte_pos, Y_double ? sizeof(double) : sizeof(float), "y");
+    CheckBytePos(Z_byte_pos, Z_double ? sizeof(double) : sizeof(float), "z");
+    if (has_colors) {
+      CheckBytePos(R_byte_pos, sizeof(uint8_t), "r");
+      CheckBytePos(G_byte_pos, sizeof(uint8_t), "g");
+      CheckBytePos(B_byte_pos, sizeof(uint8_t), "b");
+    }
+  }
+
+  // Sanity-check counts to prevent unbounded memory allocation.
+  THROW_CHECK_LE(num_vertices, kMaxPlyVertices)
+      << "PLY mesh declares too many vertices";
+  THROW_CHECK_LE(num_faces, kMaxPlyFaces) << "PLY mesh declares too many faces";
+
+  result.mesh.vertices.reserve(num_vertices);
+  result.mesh.faces.reserve(num_faces);
+  if (has_texcoord) {
+    result.face_uvs.reserve(num_faces * 6);
+  }
 
   if (is_binary) {
     auto ReadCoord = [&](const char* buf, bool is_double, size_t byte_pos) {
@@ -564,9 +635,9 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
         const uint8_t r = ReadFromBuffer<uint8_t>(buffer.data(), R_byte_pos);
         const uint8_t g = ReadFromBuffer<uint8_t>(buffer.data(), G_byte_pos);
         const uint8_t b = ReadFromBuffer<uint8_t>(buffer.data(), B_byte_pos);
-        mesh.vertices.emplace_back(x, y, z, r, g, b);
+        result.mesh.vertices.emplace_back(x, y, z, r, g, b);
       } else {
-        mesh.vertices.emplace_back(x, y, z);
+        result.mesh.vertices.emplace_back(x, y, z);
       }
     }
 
@@ -606,9 +677,31 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
         THROW_CHECK(file.good())
             << "Unexpected end of PLY file at face " << i << " index " << j;
         indices[j] = ReadInt(face_buffer.data(), face_index_bytes);
+        THROW_CHECK_GE(indices[j], 0)
+            << "Negative face vertex index at face " << i;
+        THROW_CHECK_LT(indices[j], static_cast<int>(num_vertices))
+            << "Face vertex index out of bounds at face " << i;
       }
 
-      mesh.faces.emplace_back(indices[0], indices[1], indices[2]);
+      result.mesh.faces.emplace_back(indices[0], indices[1], indices[2]);
+
+      if (has_texcoord) {
+        uint8_t num_texcoords;
+        file.read(reinterpret_cast<char*>(&num_texcoords), sizeof(uint8_t));
+        THROW_CHECK_EQ(num_texcoords, 6)
+            << "Expected 6 texture coordinates per triangular face";
+
+        for (int j = 0; j < 6; ++j) {
+          float uv;
+          file.read(reinterpret_cast<char*>(&uv), sizeof(float));
+          if (is_little_endian) {
+            uv = LittleEndianToNative(uv);
+          } else {
+            uv = BigEndianToNative(uv);
+          }
+          result.face_uvs.push_back(uv);
+        }
+      }
     }
   } else {
     // Read ASCII vertex data
@@ -631,9 +724,9 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
         const uint8_t r = static_cast<uint8_t>(std::stoi(items.at(R_index)));
         const uint8_t g = static_cast<uint8_t>(std::stoi(items.at(G_index)));
         const uint8_t b = static_cast<uint8_t>(std::stoi(items.at(B_index)));
-        mesh.vertices.emplace_back(x, y, z, r, g, b);
+        result.mesh.vertices.emplace_back(x, y, z, r, g, b);
       } else {
-        mesh.vertices.emplace_back(x, y, z);
+        result.mesh.vertices.emplace_back(x, y, z);
       }
     }
 
@@ -650,50 +743,109 @@ PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
 
       int idx1, idx2, idx3;
       line_stream >> idx1 >> idx2 >> idx3;
-      mesh.faces.emplace_back(idx1, idx2, idx3);
+      THROW_CHECK_GE(idx1, 0) << "Negative face vertex index at face " << i;
+      THROW_CHECK_GE(idx2, 0) << "Negative face vertex index at face " << i;
+      THROW_CHECK_GE(idx3, 0) << "Negative face vertex index at face " << i;
+      THROW_CHECK_LT(idx1, static_cast<int>(num_vertices))
+          << "Face vertex index out of bounds at face " << i;
+      THROW_CHECK_LT(idx2, static_cast<int>(num_vertices))
+          << "Face vertex index out of bounds at face " << i;
+      THROW_CHECK_LT(idx3, static_cast<int>(num_vertices))
+          << "Face vertex index out of bounds at face " << i;
+      result.mesh.faces.emplace_back(idx1, idx2, idx3);
+
+      if (has_texcoord) {
+        int num_texcoords;
+        line_stream >> num_texcoords;
+        THROW_CHECK_EQ(num_texcoords, 6)
+            << "Expected 6 texture coordinates per triangular face";
+
+        for (int j = 0; j < 6; ++j) {
+          float uv;
+          line_stream >> uv;
+          result.face_uvs.push_back(uv);
+        }
+      }
     }
   }
 
-  return mesh;
+  return result;
 }
 
-void WriteTextPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh) {
+void WriteTextPlyMesh(const std::filesystem::path& path,
+                      const PlyTexturedMesh& mesh) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
 
+  const bool has_texcoords = !mesh.face_uvs.empty();
+  if (has_texcoords) {
+    THROW_CHECK_EQ(mesh.face_uvs.size(), mesh.mesh.faces.size() * 6)
+        << "Expected 6 UV coordinates per face";
+  }
+
   file << "ply\n";
   file << "format ascii 1.0\n";
-  file << "element vertex " << mesh.vertices.size() << '\n';
+  if (!mesh.texture_file.empty()) {
+    file << "comment TextureFile " << mesh.texture_file << '\n';
+  }
+  file << "element vertex " << mesh.mesh.vertices.size() << '\n';
   file << "property float x\n";
   file << "property float y\n";
   file << "property float z\n";
-  file << "element face " << mesh.faces.size() << '\n';
-  file << "property list uchar int vertex_index\n";
+  file << "element face " << mesh.mesh.faces.size() << '\n';
+  if (has_texcoords) {
+    file << "property list uchar int vertex_indices\n";
+    file << "property list uchar float texcoord\n";
+  } else {
+    file << "property list uchar int vertex_index\n";
+  }
   file << "end_header\n";
 
-  for (const auto& vertex : mesh.vertices) {
+  for (const auto& vertex : mesh.mesh.vertices) {
     file << vertex.x << " " << vertex.y << " " << vertex.z << '\n';
   }
 
-  for (const auto& face : mesh.faces) {
+  for (size_t i = 0; i < mesh.mesh.faces.size(); ++i) {
+    const auto& face = mesh.mesh.faces[i];
     file << "3 " << face.vertex_idx1 << " " << face.vertex_idx2 << " "
-         << face.vertex_idx3 << '\n';
+         << face.vertex_idx3;
+    if (has_texcoords) {
+      file << " 6";
+      for (int j = 0; j < 6; ++j) {
+        file << " " << mesh.face_uvs[i * 6 + j];
+      }
+    }
+    file << '\n';
   }
 }
 
 void WriteBinaryPlyMesh(const std::filesystem::path& path,
-                        const PlyMesh& mesh) {
+                        const PlyTexturedMesh& mesh) {
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(text_file, path);
 
+  const bool has_texcoords = !mesh.face_uvs.empty();
+  if (has_texcoords) {
+    THROW_CHECK_EQ(mesh.face_uvs.size(), mesh.mesh.faces.size() * 6)
+        << "Expected 6 UV coordinates per face";
+  }
+
   text_file << "ply\n";
   text_file << "format binary_little_endian 1.0\n";
-  text_file << "element vertex " << mesh.vertices.size() << '\n';
+  if (!mesh.texture_file.empty()) {
+    text_file << "comment TextureFile " << mesh.texture_file << '\n';
+  }
+  text_file << "element vertex " << mesh.mesh.vertices.size() << '\n';
   text_file << "property float x\n";
   text_file << "property float y\n";
   text_file << "property float z\n";
-  text_file << "element face " << mesh.faces.size() << '\n';
-  text_file << "property list uchar int vertex_index\n";
+  text_file << "element face " << mesh.mesh.faces.size() << '\n';
+  if (has_texcoords) {
+    text_file << "property list uchar int vertex_indices\n";
+    text_file << "property list uchar float texcoord\n";
+  } else {
+    text_file << "property list uchar int vertex_index\n";
+  }
   text_file << "end_header\n";
   text_file.close();
 
@@ -701,21 +853,30 @@ void WriteBinaryPlyMesh(const std::filesystem::path& path,
                            std::ios::out | std::ios::binary | std::ios::app);
   THROW_CHECK_FILE_OPEN(binary_file, path);
 
-  for (const auto& vertex : mesh.vertices) {
+  for (const auto& vertex : mesh.mesh.vertices) {
     WriteBinaryLittleEndian<float>(&binary_file, vertex.x);
     WriteBinaryLittleEndian<float>(&binary_file, vertex.y);
     WriteBinaryLittleEndian<float>(&binary_file, vertex.z);
   }
 
-  for (const auto& face : mesh.faces) {
-    THROW_CHECK_LT(face.vertex_idx1, mesh.vertices.size());
-    THROW_CHECK_LT(face.vertex_idx2, mesh.vertices.size());
-    THROW_CHECK_LT(face.vertex_idx3, mesh.vertices.size());
+  for (size_t i = 0; i < mesh.mesh.faces.size(); ++i) {
+    const auto& face = mesh.mesh.faces[i];
+    THROW_CHECK_LT(face.vertex_idx1, mesh.mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx2, mesh.mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx3, mesh.mesh.vertices.size());
     const uint8_t kNumVertices = 3;
     WriteBinaryLittleEndian<uint8_t>(&binary_file, kNumVertices);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx1);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx2);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx3);
+
+    if (has_texcoords) {
+      const uint8_t kNumTexcoords = 6;
+      WriteBinaryLittleEndian<uint8_t>(&binary_file, kNumTexcoords);
+      for (int j = 0; j < 6; ++j) {
+        WriteBinaryLittleEndian<float>(&binary_file, mesh.face_uvs[i * 6 + j]);
+      }
+    }
   }
 
   binary_file.close();

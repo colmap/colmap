@@ -665,7 +665,8 @@ bool RotationAveragingSolver::SolveL1Regression(
   Eigen::VectorXd step(problem.NumParameters());
 
   int iteration = 0;
-  for (iteration = 0; iteration < options_.max_num_l1_iterations; iteration++) {
+
+  for (; iteration < options_.max_num_l1_iterations; iteration++) {
     VLOG(2) << "L1 ADMM iteration: " << iteration;
 
     problem.ComputeResiduals();

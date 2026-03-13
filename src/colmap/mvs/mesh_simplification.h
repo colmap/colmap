@@ -29,33 +29,34 @@
 
 #pragma once
 
-#include "colmap/mvs/fusion.h"
-#include "colmap/mvs/patch_match_options.h"
-#include "colmap/scene/reconstruction.h"
-
-#include <filesystem>
+#include "colmap/util/ply.h"
 
 namespace colmap {
+namespace mvs {
 
-void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
-                             const std::string& workspace_format,
-                             const std::string& pmvs_option_name,
-                             const mvs::PatchMatchOptions& options,
-                             const std::filesystem::path& config_path);
+struct MeshSimplificationOptions {
+  // Fraction of faces to retain, in (0, 1].
+  double target_face_ratio = 0.1;
 
-Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
-                                  const std::filesystem::path& workspace_path,
-                                  std::string workspace_format,
-                                  const std::string& pmvs_option_name,
-                                  std::string input_type,
-                                  const mvs::StereoFusionOptions& options,
-                                  std::string output_type);
+  // Maximum quadric error per collapse; 0 = disabled.
+  double max_error = 0.0;
 
-int RunDelaunayMesher(int argc, char** argv);
-int RunMeshSimplifier(int argc, char** argv);
-int RunMeshTexturer(int argc, char** argv);
-int RunPatchMatchStereo(int argc, char** argv);
-int RunPoissonMesher(int argc, char** argv);
-int RunStereoFuser(int argc, char** argv);
+  // Penalty weight for boundary edges; 0 = disabled.
+  double boundary_weight = 1000.0;
 
+  // Blend colors on collapse vs. pick lower-error vertex.
+  bool interpolate_colors = true;
+
+  // The number of threads to use for initialization. Default is all threads.
+  int num_threads = -1;
+
+  bool Check() const;
+};
+
+// Simplify a triangle mesh using Quadric Error Metric (QEM) decimation
+// (Garland & Heckbert, SIGGRAPH 1997).
+PlyMesh SimplifyMesh(const PlyMesh& mesh,
+                     const MeshSimplificationOptions& options);
+
+}  // namespace mvs
 }  // namespace colmap

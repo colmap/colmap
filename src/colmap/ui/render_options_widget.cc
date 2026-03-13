@@ -181,6 +181,7 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   AddSpacer();
 
   AddOptionBool(&options->render->mesh_wireframe, "Mesh wireframe");
+  AddOptionBool(&options->render->mesh_color, "Mesh color");
 
   AddSpacer();
 
