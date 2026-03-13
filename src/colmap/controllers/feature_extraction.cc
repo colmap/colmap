@@ -395,7 +395,7 @@ class FeatureExtractorController : public Thread {
     // Make sure that we only have limited number of objects in the queue to
     // avoid excess in memory usage since images and features take lots of
     // memory.
-    const int kQueueSize = 1;
+    constexpr int kQueueSize = 1;
     resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
@@ -434,7 +434,7 @@ class FeatureExtractorController : public Thread {
       worker_extraction_options.num_threads =
           std::max(num_threads / static_cast<int>(gpu_indices.size()), 1);
 
-      for (const auto& gpu_index : gpu_indices) {
+      for (const int gpu_index : gpu_indices) {
         worker_extraction_options.gpu_index = std::to_string(gpu_index);
         extractors_.emplace_back(
             std::make_unique<FeatureExtractorThread>(worker_extraction_options,
@@ -460,10 +460,29 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      // Prevent nested threading, as we multi-thread at the controller level.
-      worker_extraction_options.num_threads = 1;
+      int num_extractors = 0;
+      switch (extraction_options_.type) {
+        case FeatureExtractorType::SIFT:
+          // Prevent nested threading, as we multi-thread at the controller
+          // level as SIFT extraction doesn't require much RAM per extractor.
+          num_extractors = num_threads;
+          worker_extraction_options.num_threads = 1;
+          break;
+        case FeatureExtractorType::ALIKED_N16ROT:
+        case FeatureExtractorType::ALIKED_N32:
+          // Use a single extractor with parallelization per image because
+          // ALIKED requires a lot of RAM per extractor and would otherwise OOM.
+          num_extractors = 1;
+          worker_extraction_options.num_threads = num_threads;
+          break;
+        default:
+          LOG(FATAL_THROW) << "Unknown feature extractor type: "
+                           << FeatureExtractorTypeToString(
+                                  extraction_options_.type);
+      }
 
-      for (int i = 0; i < num_threads; ++i) {
+      THROW_CHECK_GT(num_extractors, 0);
+      for (int i = 0; i < num_extractors; ++i) {
         extractors_.emplace_back(
             std::make_unique<FeatureExtractorThread>(worker_extraction_options,
                                                      camera_mask,
