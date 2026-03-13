@@ -32,7 +32,7 @@ class ConstPixel(sf.V2):   pass
 
 
 # Calibration parameters are kept as a single packed node rather than split
-# into focal_length / principal_point / extra_params sub-nodes.
+# into focal_length / extra_params sub-nodes.
 #  Splitting also exceeds the 48KB GPU shared memory
 # limit per thread block in Caspar's kernel design.
 #
@@ -54,7 +54,6 @@ class ConstPinholeCalib(sf.V4):      pass
 
 
 # --- Registrar ---
-
 def _make_variant(core_fn, name: str, base_params: list, hints: dict, fixed: dict):
     new_hints = {}
     for p in base_params:
@@ -67,7 +66,7 @@ def _make_variant(core_fn, name: str, base_params: list, hints: dict, fixed: dic
     const_params   = [p for p in base_params if p in fixed]
     ordered = tunable_params + const_params
 
-    # Accept both positional and keyword args — Caspar calls fn(**symbolic_args)
+    # Accept both positional and keyword args, Caspar calls fn(**symbolic_args)
     def wrapper(*args, **kwargs):
         merged = {**dict(zip(ordered, args)), **kwargs}
         return core_fn(*[merged[p] for p in base_params])
@@ -108,7 +107,6 @@ def register_camera_model(caslib, model_name: str, core_fn, fixable_params: dict
 
 
 # --- Camera models ---
-
 def simple_radial_core(
     pose:  T.Annotated[Pose,               mem.TunableShared],
     calib: T.Annotated[SimpleRadialCalib,  mem.TunableShared],
@@ -157,14 +155,25 @@ caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 #     Pose into rotation and translation sub-nodes)
 #   - refine_sensor_from_rig not supported (single camera per rig assumed)
 
+# All subsets of fixable_params are generated as factor variants.
+# The C++ adapter currently only dispatches to variants where calib
+# is always tunable (base, fixed_pose, fixed_point, fixed_pose_fixed_point).
+# The fixed_calib variants (fixed_calib, fixed_pose_fixed_calib,
+# fixed_point_fixed_calib) are generated but passed as 0-sized to the
+# solver constructor, so they allocate no GPU memory.
+# To enable them: add dispatch logic in AddFactorForObservation and
+# corresponding Set*Factors methods in ICasparModelAdapter.
+
 FIXABLE_SIMPLE_RADIAL = {
     'pose':  ConstPose,
     'point': ConstPoint,
+    'calib': ConstSimpleRadialCalib
 }
 
 FIXABLE_PINHOLE = {
     'pose':  ConstPose,
     'point': ConstPoint,
+    'calib': ConstPinholeCalib
 }
 
 register_camera_model(caslib, "simple_radial", simple_radial_core, FIXABLE_SIMPLE_RADIAL)

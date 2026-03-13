@@ -30,12 +30,50 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
+
+#include <array>
+#include <cstddef>
+#include <vector>
 #ifdef CASPAR_ENABLED
 #include <solver.h>
 #endif
 
-namespace colmap {
+#ifdef CASPAR_USE_DOUBLE
+typedef double StorageType;
+#else
+typedef float StorageType;
+#endif
 
+#define CASPAR_NUM_VARIANTS 4
+enum class FactorVariant {
+  BASE,
+  FIXED_POSE,
+  FIXED_POINT,
+  FIXED_POSE_FIXED_POINT
+};
+
+struct VariantData {
+  // Indexed args, tunable nodes (empty when param is fixed)
+  std::vector<unsigned int> pose_indices;
+  std::vector<unsigned int> calib_indices;
+  std::vector<unsigned int> point_indices;
+
+  // Constant data
+  std::vector<StorageType> const_poses;   // 7 entries per factor
+  std::vector<StorageType> const_points;  // 3 entries per factor
+
+  // Always present
+  std::vector<StorageType> pixels;  // 2 entries per factor
+  size_t num_factors = 0;
+};
+
+struct ModelData {
+  std::vector<StorageType> calib_data;
+  std::array<VariantData, CASPAR_NUM_VARIANTS>
+      variants{};  // Indexed by FactorVariant
+};
+
+namespace colmap {
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
