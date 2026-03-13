@@ -309,7 +309,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
     const ObservationManager& obs_manager,
-    const std::unordered_set<image_t>& filtered_images,
+    const std::unordered_set<frame_t>& filtered_frames,
     std::unordered_map<image_t, size_t>& num_reg_trials,
     bool structure_less) {
   THROW_CHECK(options.Check());
@@ -363,7 +363,8 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
     const float rank = rank_image_func(image_id, obs_manager);
-    if (filtered_images.count(image_id) == 0 && image_num_reg_trials == 0) {
+    const frame_t frame_id = image.FrameId();
+    if (filtered_frames.count(frame_id) == 0 && image_num_reg_trials == 0) {
       image_ranks.emplace_back(image_id, rank);
     } else {
       other_image_ranks.emplace_back(image_id, rank);

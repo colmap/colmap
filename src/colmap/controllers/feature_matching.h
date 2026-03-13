@@ -29,9 +29,9 @@
 
 #pragma once
 
+#include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/matcher.h"
-#include "colmap/feature/pairing.h"
 #include "colmap/util/threading.h"
 
 #include <memory>

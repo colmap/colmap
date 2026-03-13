@@ -29,15 +29,10 @@
 
 #pragma once
 
-#include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
-#include "colmap/mvs/normal_map.h"
 
-#include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <map>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -63,7 +58,7 @@ struct Model {
 
   // Get the image index for the given image name.
   int GetImageIdx(const std::string& name) const;
-  std::string GetImageName(int image_idx) const;
+  const std::string& GetImageName(int image_idx) const;
 
   // For each image, determine the maximally overlapping images, sorted based on
   // the number of shared points subject to a minimum robust average

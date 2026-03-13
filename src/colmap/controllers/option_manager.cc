@@ -32,16 +32,18 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
+#include "colmap/controllers/pairing.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
-#include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/mvs/texture_mapping.h"
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
@@ -73,6 +75,8 @@ OptionManager::OptionManager(bool add_project_options)
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
+  mesh_texture_mapping = std::make_shared<mvs::MeshTextureMappingOptions>();
+  mesh_simplification = std::make_shared<mvs::MeshSimplificationOptions>();
   render = std::make_shared<RenderOptions>();
 }
 
@@ -99,7 +103,8 @@ void OptionManager::ModifyForInternetData() {
 }
 
 void OptionManager::ModifyForLowQuality() {
-  feature_extraction->max_image_size = 1000;
+  feature_extraction->max_image_size =
+      static_cast<int>(0.3125 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 2048;
   sequential_pairing->loop_detection_num_images /= 2;
   vocab_tree_pairing->max_num_features = 256;
@@ -120,7 +125,8 @@ void OptionManager::ModifyForLowQuality() {
 }
 
 void OptionManager::ModifyForMediumQuality() {
-  feature_extraction->max_image_size = 1600;
+  feature_extraction->max_image_size =
+      static_cast<int>(0.5 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 4096;
   sequential_pairing->loop_detection_num_images /= 1.5;
   vocab_tree_pairing->max_num_features = 1024;
@@ -142,7 +148,8 @@ void OptionManager::ModifyForMediumQuality() {
 
 void OptionManager::ModifyForHighQuality() {
   feature_extraction->sift->estimate_affine_shape = true;
-  feature_extraction->max_image_size = 2400;
+  feature_extraction->max_image_size =
+      static_cast<int>(0.75 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 8192;
   feature_matching->guided_matching = true;
   vocab_tree_pairing->max_num_features = 4096;
@@ -180,6 +187,8 @@ void OptionManager::AddAllOptions() {
   AddStereoFusionOptions();
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
+  AddMeshTextureMappingOptions();
+  AddMeshSimplificationOptions();
   AddRenderOptions();
 }
 
@@ -671,8 +680,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->decompose_relative_pose);
   AddDefaultOption("GlobalMapper.ba_num_iterations",
                    &global_mapper->mapper.ba_num_iterations);
-  AddDefaultOption("GlobalMapper.skip_view_graph_calibration",
-                   &global_mapper->skip_view_graph_calibration);
   AddDefaultOption("GlobalMapper.skip_rotation_averaging",
                    &global_mapper->mapper.skip_rotation_averaging);
   AddDefaultOption("GlobalMapper.skip_track_establishment",
@@ -683,34 +690,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.skip_bundle_adjustment);
   AddDefaultOption("GlobalMapper.skip_retriangulation",
                    &global_mapper->mapper.skip_retriangulation);
-
-  // View graph calibration options.
-  AddDefaultOption("GlobalMapper.vgc_cross_validate_prior_focal_lengths",
-                   &global_mapper->view_graph_calibration
-                        .cross_validate_prior_focal_lengths);
-  AddDefaultOption(
-      "GlobalMapper.vgc_min_calibrated_pair_ratio",
-      &global_mapper->view_graph_calibration.min_calibrated_pair_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_reestimate_relative_pose",
-      &global_mapper->view_graph_calibration.reestimate_relative_pose);
-  AddDefaultOption(
-      "GlobalMapper.vgc_min_focal_length_ratio",
-      &global_mapper->view_graph_calibration.min_focal_length_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_max_focal_length_ratio",
-      &global_mapper->view_graph_calibration.max_focal_length_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_max_calibration_error",
-      &global_mapper->view_graph_calibration.max_calibration_error);
-  AddDefaultOption("GlobalMapper.vgc_relpose_max_error",
-                   &global_mapper->view_graph_calibration.relpose_max_error);
-  AddDefaultOption(
-      "GlobalMapper.vgc_relpose_min_num_inliers",
-      &global_mapper->view_graph_calibration.relpose_min_num_inliers);
-  AddDefaultOption(
-      "GlobalMapper.vgc_relpose_min_inlier_ratio",
-      &global_mapper->view_graph_calibration.relpose_min_inlier_ratio);
 
   // Track establishment options.
   AddDefaultOption(
@@ -881,6 +860,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
                    &patch_match_stereo->allow_missing_files);
   AddDefaultOption("PatchMatchStereo.write_consistency_graph",
                    &patch_match_stereo->write_consistency_graph);
+  AddDefaultOption("PatchMatchStereo.num_threads",
+                   &patch_match_stereo->num_threads);
 }
 
 void OptionManager::AddStereoFusionOptions() {
@@ -949,6 +930,50 @@ void OptionManager::AddDelaunayMeshingOptions() {
                    &delaunay_meshing->num_threads);
 }
 
+void OptionManager::AddMeshTextureMappingOptions() {
+  if (added_mesh_texture_mapping_options_) {
+    return;
+  }
+  added_mesh_texture_mapping_options_ = true;
+
+  AddDefaultOption("MeshTextureMapping.min_cos_normal_angle",
+                   &mesh_texture_mapping->min_cos_normal_angle);
+  AddDefaultOption("MeshTextureMapping.min_visible_vertices",
+                   &mesh_texture_mapping->min_visible_vertices);
+  AddDefaultOption("MeshTextureMapping.view_selection_smoothing_iterations",
+                   &mesh_texture_mapping->view_selection_smoothing_iterations);
+  AddDefaultOption("MeshTextureMapping.atlas_patch_padding",
+                   &mesh_texture_mapping->atlas_patch_padding);
+  AddDefaultOption("MeshTextureMapping.inpaint_radius",
+                   &mesh_texture_mapping->inpaint_radius);
+  AddDefaultOption("MeshTextureMapping.apply_color_correction",
+                   &mesh_texture_mapping->apply_color_correction);
+  AddDefaultOption("MeshTextureMapping.color_correction_regularization",
+                   &mesh_texture_mapping->color_correction_regularization);
+  AddDefaultOption("MeshTextureMapping.num_threads",
+                   &mesh_texture_mapping->num_threads);
+  AddDefaultOption("MeshTextureMapping.texture_scale_factor",
+                   &mesh_texture_mapping->texture_scale_factor);
+}
+
+void OptionManager::AddMeshSimplificationOptions() {
+  if (added_mesh_simplification_options_) {
+    return;
+  }
+  added_mesh_simplification_options_ = true;
+
+  AddDefaultOption("MeshSimplification.target_face_ratio",
+                   &mesh_simplification->target_face_ratio);
+  AddDefaultOption("MeshSimplification.max_error",
+                   &mesh_simplification->max_error);
+  AddDefaultOption("MeshSimplification.boundary_weight",
+                   &mesh_simplification->boundary_weight);
+  AddDefaultOption("MeshSimplification.interpolate_colors",
+                   &mesh_simplification->interpolate_colors);
+  AddDefaultOption("MeshSimplification.num_threads",
+                   &mesh_simplification->num_threads);
+}
+
 void OptionManager::AddRenderOptions() {
   if (added_render_options_) {
     return;
@@ -963,8 +988,8 @@ void OptionManager::AddRenderOptions() {
   AddDefaultOption("Render.projection_type", &render->projection_type);
 }
 
-void OptionManager::Reset() {
-  BaseOptionManager::Reset();
+void OptionManager::Reset(bool reset_logging) {
+  BaseOptionManager::Reset(reset_logging);
 
   added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
@@ -984,12 +1009,11 @@ void OptionManager::Reset() {
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
   added_delaunay_meshing_options_ = false;
+  added_mesh_texture_mapping_options_ = false;
   added_render_options_ = false;
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
-  BaseOptionManager::ResetOptions(reset_paths);
-
   *image_reader = ImageReaderOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
@@ -1008,7 +1032,10 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
   *delaunay_meshing = mvs::DelaunayMeshingOptions();
+  *mesh_texture_mapping = mvs::MeshTextureMappingOptions();
   *render = RenderOptions();
+
+  BaseOptionManager::ResetOptions(reset_paths);
 }
 
 bool OptionManager::Check() {
@@ -1037,6 +1064,7 @@ bool OptionManager::Check() {
   if (stereo_fusion) success = success && stereo_fusion->Check();
   if (poisson_meshing) success = success && poisson_meshing->Check();
   if (delaunay_meshing) success = success && delaunay_meshing->Check();
+  if (mesh_texture_mapping) success = success && mesh_texture_mapping->Check();
 
 #if defined(COLMAP_GUI_ENABLED)
   if (render) success = success && render->Check();
@@ -1045,8 +1073,9 @@ bool OptionManager::Check() {
   return success;
 }
 
-bool OptionManager::Read(const std::filesystem::path& path) {
-  if (!BaseOptionManager::Read(path)) {
+bool OptionManager::Read(const std::filesystem::path& path,
+                         bool allow_unregistered) {
+  if (!BaseOptionManager::Read(path, allow_unregistered)) {
     return false;
   }
   return Check();

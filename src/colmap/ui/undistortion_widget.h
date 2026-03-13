@@ -59,6 +59,7 @@ class UndistortionWidget : public OptionsWidget {
   COLMAPUndistorter::Options colmap_options_;
   UndistortCameraOptions camera_options_;
   std::filesystem::path output_path_;
+  int num_threads_ = -1;
 };
 
 }  // namespace colmap

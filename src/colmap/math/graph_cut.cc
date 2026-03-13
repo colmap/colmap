@@ -148,13 +148,12 @@ void ComputeMinGraphCutStoerWagner(
   THROW_CHECK_EQ(edges.size(), weights.size());
   THROW_CHECK_GE(edges.size(), 2);
 
-  typedef boost::property<boost::edge_weight_t, int> edge_weight_t;
-  typedef boost::adjacency_list<boost::vecS,
-                                boost::vecS,
-                                boost::undirectedS,
-                                boost::no_property,
-                                edge_weight_t>
-      undirected_graph_t;
+  using edge_weight_t = boost::property<boost::edge_weight_t, int>;
+  using undirected_graph_t = boost::adjacency_list<boost::vecS,
+                                                   boost::vecS,
+                                                   boost::undirectedS,
+                                                   boost::no_property,
+                                                   edge_weight_t>;
 
   int max_vertex_index = 0;
   for (const auto& [v1, v2] : edges) {

@@ -57,6 +57,7 @@ COLMAP_ADD_LIBRARY(
         log_widget.h log_widget.cc
         main_window.h main_window.cc
         match_matrix_widget.h match_matrix_widget.cc
+        mesh_painter.h mesh_painter.cc
         model_viewer_widget.h model_viewer_widget.cc
         movie_grabber_widget.h movie_grabber_widget.cc
         options_widget.h options_widget.cc
@@ -78,5 +79,6 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_scene
         colmap_controllers
+        colmap_mvs
         ${COLMAP_UI_QT_LIBS}
 )

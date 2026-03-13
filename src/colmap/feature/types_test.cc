@@ -312,5 +312,31 @@ TEST(FeatureMatches, Nominal) {
   EXPECT_NE(match, FeatureMatch(0, 1));
 }
 
+TEST(KeypointsMatrixConversion, Roundtrip) {
+  FeatureKeypoints keypoints;
+  keypoints.emplace_back(1.0f, 2.0f, 3.0f, 0.5f);
+  keypoints.emplace_back(4.0f, 5.0f, 1.0f, -0.3f);
+  keypoints.emplace_back(10.0f, 20.0f, 0.5f, 0.0f);
+  const FeatureKeypoints recovered =
+      KeypointsFromMatrix(KeypointsToMatrix(keypoints));
+  ASSERT_EQ(recovered.size(), keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    EXPECT_EQ(recovered[i].x, keypoints[i].x);
+    EXPECT_EQ(recovered[i].y, keypoints[i].y);
+    EXPECT_NEAR(recovered[i].ComputeScale(), keypoints[i].ComputeScale(), 1e-5);
+    EXPECT_NEAR(recovered[i].ComputeOrientation(),
+                keypoints[i].ComputeOrientation(),
+                1e-5);
+  }
+}
+
+TEST(MatchesMatrixConversion, Roundtrip) {
+  FeatureMatches matches;
+  matches.emplace_back(0, 5);
+  matches.emplace_back(3, 7);
+  matches.emplace_back(100, 200);
+  EXPECT_EQ(MatchesFromMatrix(MatchesToMatrix(matches)), matches);
+}
+
 }  // namespace
 }  // namespace colmap

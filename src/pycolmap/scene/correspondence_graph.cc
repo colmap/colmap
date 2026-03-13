@@ -101,10 +101,10 @@ void BindCorrespondenceGraph(py::module& m) {
           "extract_matches_between_images",
           [](const CorrespondenceGraph& self,
              const image_t image_id1,
-             const image_t image_id2) -> PyFeatureMatches {
+             const image_t image_id2) -> FeatureMatchesMatrix {
             FeatureMatches matches;
             self.ExtractMatchesBetweenImages(image_id1, image_id2, matches);
-            return FeatureMatchesToMatrix(matches);
+            return MatchesToMatrix(matches);
           },
           "image_id1"_a,
           "image_id2"_a)

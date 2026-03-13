@@ -30,7 +30,10 @@
 #include "colmap/ui/main_window.h"
 
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/sensor/bitmap.h"
+#include "colmap/ui/render_options.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/ply.h"
 #include "colmap/util/version.h"
 
 #include <QDir>
@@ -93,6 +96,66 @@ void SetLastOpen(const QString& key, const QString& pathOrDir) {
   s.endGroup();
 }
 
+std::string GetLogTarget() {
+  if (FLAGS_logtostderr) {
+    return "stderr";
+  }
+
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  if (FLAGS_logtostdout) {
+    return "stdout";
+  }
+#endif
+
+  if (FLAGS_alsologtostderr) {
+    return "stderr_and_file";
+  }
+
+  return "file";
+}
+
+void ApplyLogOptions(const std::string& log_target,
+                     int verbosity,
+                     int min_severity,
+                     bool color) {
+  FLAGS_v = verbosity;
+  FLAGS_minloglevel = min_severity;
+  FLAGS_colorlogtostderr = color;
+
+  FLAGS_logtostderr = false;
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  FLAGS_logtostdout = false;
+#endif
+  FLAGS_alsologtostderr = false;
+
+  if (log_target == "stderr") {
+    FLAGS_logtostderr = true;
+  } else if (log_target == "stdout") {
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+    FLAGS_logtostdout = true;
+#else
+    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                    "Falling back to stderr.";
+    FLAGS_logtostderr = true;
+#endif
+  } else if (log_target == "file") {
+    // default file logging
+  } else if (log_target == "stderr_and_file") {
+    FLAGS_alsologtostderr = true;
+  } else {
+    LOG(ERROR) << "Invalid log_target: " << log_target
+               << ". Falling back to stderr_and_file.";
+    FLAGS_alsologtostderr = true;
+  }
+
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+#endif
+}
 }  // anonymous namespace
 
 static void InitUiResources() { Q_INIT_RESOURCE(resources); }
@@ -230,11 +293,11 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
-  const QMimeData* mime_data = event->mimeData();
-  if (mime_data->hasUrls()) {
-    return event->acceptProposedAction();
-  }
-  event->ignore();
+  HandleDragEvent(event);
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent* event) {
+  HandleDragEvent(event);
 }
 
 void MainWindow::dropEvent(QDropEvent* event) {
@@ -256,7 +319,23 @@ void MainWindow::dropEvent(QDropEvent* event) {
     }
   }
 
-  ImportReconstruction(mime_data->urls().first().toLocalFile().toStdString());
+  const std::string drop_path =
+      mime_data->urls().first().toLocalFile().toStdString();
+
+  try {
+    if (QFileInfo(QString::fromStdString(drop_path)).isDir()) {
+      ImportReconstruction(drop_path);
+    } else if (QFileInfo(QString::fromStdString(drop_path))
+                   .suffix()
+                   .compare("ply", Qt::CaseInsensitive) == 0) {
+      ImportFrom(drop_path);
+    } else {
+      QMessageBox::critical(
+          this, "", tr("Unsupported file type. Only PLY files are supported."));
+    }
+  } catch (const std::exception& e) {
+    QMessageBox::critical(this, "", tr("Failed to import: ") + e.what());
+  }
 }
 
 void MainWindow::CreateWidgets() {
@@ -338,9 +417,11 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_import_);
 
   action_import_from_ = new QAction(
-      QIcon(":/media/import-from.png"), tr("Import model from..."), this);
-  connect(
-      action_import_from_, &QAction::triggered, this, &MainWindow::ImportFrom);
+      QIcon(":/media/import-from.png"), tr("Import from ..."), this);
+  connect(action_import_from_,
+          &QAction::triggered,
+          this,
+          QOverload<>::of(&MainWindow::ImportFrom));
   blocking_actions_.push_back(action_import_from_);
 
   action_export_ =
@@ -582,11 +663,11 @@ void MainWindow::CreateActions() {
           this,
           &MainWindow::ResetOptions);
 
-  action_set_log_level_ = new QAction(tr("Set log level"), this);
-  connect(action_set_log_level_,
+  action_set_log_options_ = new QAction(tr("Set log options"), this);
+  connect(action_set_log_options_,
           &QAction::triggered,
           this,
-          &MainWindow::SetLogLevel);
+          &MainWindow::SetLogOptions);
 
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
@@ -688,7 +769,7 @@ void MainWindow::CreateMenus() {
   extras_menu->addSeparator();
   extras_menu->addAction(action_set_options_);
   extras_menu->addAction(action_reset_options_);
-  extras_menu->addAction(action_set_log_level_);
+  extras_menu->addAction(action_set_log_options_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -803,6 +884,14 @@ void MainWindow::CreateControllers() {
       });
 }
 
+void MainWindow::HandleDragEvent(QDropEvent* event) {
+  if (event->mimeData()->hasUrls()) {
+    event->acceptProposedAction();
+  } else {
+    event->ignore();
+  }
+}
+
 void MainWindow::ProjectNew() {
   if (ReconstructionOverwrite()) {
     project_widget_->Reset();
@@ -823,19 +912,22 @@ bool MainWindow::ProjectOpen() {
                                    tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
-  // If selection not canceled
-  if (project_path != "") {
-    if (options_.ReRead(project_path)) {
-      *options_.project_path = project_path;
-      project_widget_->SetDatabasePath(*options_.database_path);
-      project_widget_->SetImagePath(*options_.image_path);
-      UpdateWindowTitle();
-      SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
-      return true;
-    } else {
-      ShowInvalidProjectError();
-    }
+
+  if (project_path.empty()) {
+    // Selection cancelled.
+    return false;
   }
+
+  if (options_.ReRead(project_path)) {
+    *options_.project_path = project_path;
+    project_widget_->SetDatabasePath(*options_.database_path);
+    project_widget_->SetImagePath(*options_.image_path);
+    UpdateWindowTitle();
+    SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
+    return true;
+  }
+
+  ShowInvalidProjectError();
 
   return false;
 }
@@ -854,8 +946,7 @@ void MainWindow::ProjectSave() {
                                      tr("Project file (*.ini)"))
             .toUtf8()
             .constData();
-    // If selection not canceled
-    if (project_path != "") {
+    if (!project_path.empty()) {
       if (!HasFileExtension(project_path, ".ini")) {
         project_path += ".ini";
       }
@@ -904,37 +995,76 @@ void MainWindow::Import() {
 
 void MainWindow::ImportFrom() {
   const std::string import_path =
-      QFileDialog::getOpenFileName(
-          this, tr("Select source..."), GetLastOpen(kLastImportExport))
+      QFileDialog::getOpenFileName(this,
+                                   tr("Select PLY file..."),
+                                   GetLastOpen(kLastImportExport),
+                                   tr("PLY files (*.ply)"))
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (import_path == "") {
+  if (import_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
   SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
+  ImportFrom(import_path);
+}
 
+void MainWindow::ImportFrom(const std::string& import_path) {
   if (!ExistsFile(import_path)) {
     QMessageBox::critical(this, "", tr("Invalid file"));
     return;
   }
 
-  if (!HasFileExtension(import_path, ".ply")) {
-    QMessageBox::critical(
-        this, "", tr("Invalid file format (supported formats: PLY)"));
-    return;
-  }
+  if (HasPlyMeshFaces(import_path)) {
+    thread_control_widget_->StartFunction(
+        "Importing surface mesh...", [this, import_path]() {
+          try {
+            PlyTexturedMesh textured_mesh = ReadPlyMesh(import_path);
 
-  thread_control_widget_->StartFunction("Importing...", [this, import_path]() {
-    const size_t reconstruction_idx = reconstruction_manager_->Add();
-    reconstruction_manager_->Get(reconstruction_idx)->ImportPLY(import_path);
-    options_.render->min_track_len = 0;
-    reconstruction_manager_widget_->Update();
-    reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
-    action_render_now_->trigger();
-  });
+            // Clear any previous texture data.
+            model_viewer_widget_->surface_texture_data.clear();
+            model_viewer_widget_->surface_texture_width = 0;
+            model_viewer_widget_->surface_texture_height = 0;
+
+            // Load texture atlas if the mesh has UV coordinates and a
+            // texture file reference.
+            if (!textured_mesh.face_uvs.empty() &&
+                !textured_mesh.texture_file.empty()) {
+              const auto ply_dir =
+                  std::filesystem::path(import_path).parent_path();
+              const auto texture_path = ply_dir / textured_mesh.texture_file;
+              Bitmap bitmap;
+              if (bitmap.Read(texture_path, /*as_rgb=*/true)) {
+                model_viewer_widget_->surface_texture_data =
+                    bitmap.RowMajorData();
+                model_viewer_widget_->surface_texture_width = bitmap.Width();
+                model_viewer_widget_->surface_texture_height = bitmap.Height();
+              } else {
+                LOG(WARNING) << "Failed to read texture file: " << texture_path
+                             << ". Falling back to vertex colors.";
+                textured_mesh.face_uvs.clear();
+              }
+            }
+
+            model_viewer_widget_->surface_mesh = std::move(textured_mesh);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+          }
+        });
+  } else {
+    thread_control_widget_->StartFunction(
+        "Importing point cloud...", [this, import_path]() {
+          try {
+            model_viewer_widget_->point_cloud = ReadPly(import_path);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read point cloud: " << e.what();
+          }
+        });
+  }
 }
 
 void MainWindow::Export() {
@@ -950,7 +1080,7 @@ void MainWindow::Export() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
+  // Selection cancelled?
   if (export_path.empty()) {
     return;
   }
@@ -1005,8 +1135,8 @@ void MainWindow::ExportAll() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1034,8 +1164,8 @@ void MainWindow::ExportAs() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1077,8 +1207,8 @@ void MainWindow::ExportAsText() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1308,7 +1438,13 @@ void MainWindow::RenderNow() {
 
 void MainWindow::RenderSelectedReconstruction() {
   if (reconstruction_manager_->Size() == 0) {
-    RenderClear();
+    if (model_viewer_widget_->surface_mesh.has_value() ||
+        model_viewer_widget_->point_cloud.has_value()) {
+      model_viewer_widget_->reconstruction = nullptr;
+      model_viewer_widget_->ReloadReconstruction();
+    } else {
+      RenderClear();
+    }
     return;
   }
 
@@ -1474,15 +1610,60 @@ void MainWindow::ResetOptions() {
   options_.ResetOptions(kResetPaths);
 }
 
-void MainWindow::SetLogLevel() {
-  bool ok = false;
-  const int log_level =
-      QInputDialog::getInt(this, "", "Log Level:", FLAGS_v, 0, 3, 1, &ok);
-  if (!ok) {
-    return;
-  }
+void MainWindow::SetLogOptions() {
+  QDialog dialog(this);
+  dialog.setWindowTitle("Log Options");
+  dialog.resize(220, 160);
 
-  FLAGS_v = log_level;
+  QFormLayout* form_layout = new QFormLayout(&dialog);
+
+  // Log target
+  QComboBox* log_target_box = new QComboBox(&dialog);
+  log_target_box->addItems({"stderr", "stdout", "file", "stderr_and_file"});
+  log_target_box->setCurrentText(GetLogTarget().c_str());
+  log_target_box->setToolTip(
+      QString("Default output path: system temporary directory "
+              "(usually: %1)")
+          .arg(std::filesystem::temp_directory_path().c_str()));
+  form_layout->addRow("Log target", log_target_box);
+
+  // NOTE: glog resolves log file paths during initialization.
+  // Runtime modification of FLAGS_log_dir does not re-open log files,
+  // therefore directory changes are not supported here.
+
+  // Verbosity
+  QSpinBox* verbosity_box = new QSpinBox(&dialog);
+  verbosity_box->setRange(0, 10);
+  verbosity_box->setValue(FLAGS_v);
+  form_layout->addRow("Verbosity", verbosity_box);
+
+  // Minimum severity
+  QComboBox* min_severity_box = new QComboBox(&dialog);
+  min_severity_box->addItems({"INFO", "WARNING", "ERROR", "FATAL"});
+  min_severity_box->setCurrentIndex(FLAGS_minloglevel);
+  form_layout->addRow("Minimum severity", min_severity_box);
+
+  // Color
+  QComboBox* color_box = new QComboBox(&dialog);
+  color_box->addItems({"Disabled", "Enabled"});
+  color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
+
+  form_layout->addRow("Colored logging", color_box);
+
+  QDialogButtonBox* buttons = new QDialogButtonBox(
+      QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+  form_layout->addRow(buttons);
+
+  if (dialog.exec() == QDialog::Accepted) {
+    ApplyLogOptions(log_target_box->currentText().toStdString(),
+                    verbosity_box->value(),
+                    min_severity_box->currentIndex(),
+                    color_box->currentIndex());
+  }
 }
 
 void MainWindow::About() {

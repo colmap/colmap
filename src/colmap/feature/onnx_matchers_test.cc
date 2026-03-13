@@ -403,6 +403,23 @@ TEST_F(AlikedLightGlueONNXMatcherTest, SelfMatching) {
   for (const auto& match : matches) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
   }
+
+  PosePrior pose_prior;
+  // Orientation 6: Rotate 90 CW. Gravity points to +X.
+  pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
+
+  const FeatureMatcher::Image image1_rotated{
+      1, &camera, keypoints, descriptors, &pose_prior};
+  const FeatureMatcher::Image image2_rotated{
+      2, &camera, keypoints, descriptors, &pose_prior};
+
+  matcher->Match(image1_rotated, image2_rotated, &matches);
+
+  // Self-matching with the same pose prior should still produce matches.
+  EXPECT_GT(matches.size(), kNumKeypoints / 2);
+  for (const auto& match : matches) {
+    EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
+  }
 }
 
 TEST_F(AlikedLightGlueONNXMatcherTest, MinScoreFiltering) {
@@ -579,6 +596,23 @@ TEST_F(SiftLightGlueONNXMatcherTest, SelfMatching) {
   matcher->Match(image1, image2, &matches);
 
   // Self-matching should produce a high number of correct matches.
+  EXPECT_GT(matches.size(), kNumKeypoints / 2);
+  for (const auto& match : matches) {
+    EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
+  }
+
+  PosePrior pose_prior;
+  // Orientation 6: Rotate 90 CW. Gravity points to +X.
+  pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
+
+  const FeatureMatcher::Image image1_rotated{
+      1, &camera, keypoints, descriptors, &pose_prior};
+  const FeatureMatcher::Image image2_rotated{
+      2, &camera, keypoints, descriptors, &pose_prior};
+
+  matcher->Match(image1_rotated, image2_rotated, &matches);
+
+  // Self-matching with the same pose prior should still produce matches.
   EXPECT_GT(matches.size(), kNumKeypoints / 2);
   for (const auto& match : matches) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);

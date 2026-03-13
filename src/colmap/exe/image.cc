@@ -163,7 +163,7 @@ int RunImageFilterer(int argc, char** argv) {
   double min_focal_length_ratio = 0.1;
   double max_focal_length_ratio = 10.0;
   double max_extra_param = 100.0;
-  size_t min_num_observations = 10;
+  int min_num_observations = 10;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -193,7 +193,7 @@ int RunImageFilterer(int argc, char** argv) {
     bool enough_observations = false;
     for (const data_t& data_id : frame.ImageIds()) {
       const Image& image = reconstruction.Image(data_id.id);
-      if (image.NumPoints3D() >= min_num_observations) {
+      if (image.NumPoints3D() >= static_cast<size_t>(min_num_observations)) {
         enough_observations = true;
       }
     }
@@ -226,6 +226,7 @@ int RunImageRectifier(int argc, char** argv) {
 
   StereoImageRectifier::Options undistorter_options;
   UndistortCameraOptions undistort_camera_options;
+  int num_threads = -1;
 
   OptionManager options;
   options.AddImageOptions();
@@ -238,6 +239,7 @@ int RunImageRectifier(int argc, char** argv) {
   options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
                            &undistort_camera_options.max_image_size);
+  options.AddDefaultOption("num_threads", &num_threads);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -247,6 +249,7 @@ int RunImageRectifier(int argc, char** argv) {
 
   undistorter_options.stereo_pairs =
       ReadStereoImagePairs(stereo_pairs_list, reconstruction);
+  undistorter_options.num_threads = num_threads;
 
   StereoImageRectifier rectifier(undistorter_options,
                                  undistort_camera_options,
@@ -341,6 +344,8 @@ int RunImageUndistorter(int argc, char** argv) {
 
   COLMAPUndistorter::Options undistorter_options;
   UndistortCameraOptions undistort_camera_options;
+  int jpeg_quality = -1;
+  int num_threads = -1;
 
   OptionManager options;
   options.AddImageOptions();
@@ -363,7 +368,8 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
   options.AddDefaultOption("num_patch_match_src_images",
                            &undistorter_options.num_patch_match_src_images);
-  options.AddDefaultOption("jpeg_quality", &undistorter_options.jpeg_quality);
+  options.AddDefaultOption("jpeg_quality", &jpeg_quality);
+  options.AddDefaultOption("num_threads", &num_threads);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -390,6 +396,8 @@ int RunImageUndistorter(int argc, char** argv) {
 
   StringToUpper(&copy_policy);
   undistorter_options.copy_type = FileCopyTypeFromString(copy_policy);
+  undistorter_options.jpeg_quality = jpeg_quality;
+  undistorter_options.num_threads = num_threads;
 
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
@@ -399,12 +407,20 @@ int RunImageUndistorter(int argc, char** argv) {
                                                       *options.image_path,
                                                       output_path);
   } else if (output_type == "PMVS") {
-    undistorter = std::make_unique<PMVSUndistorter>(undistort_camera_options,
+    PMVSUndistorter::Options pmvs_options;
+    pmvs_options.jpeg_quality = jpeg_quality;
+    pmvs_options.num_threads = num_threads;
+    undistorter = std::make_unique<PMVSUndistorter>(pmvs_options,
+                                                    undistort_camera_options,
                                                     reconstruction,
                                                     *options.image_path,
                                                     output_path);
   } else if (output_type == "CMP-MVS") {
-    undistorter = std::make_unique<CMPMVSUndistorter>(undistort_camera_options,
+    CMPMVSUndistorter::Options cmpmvs_options;
+    cmpmvs_options.jpeg_quality = jpeg_quality;
+    cmpmvs_options.num_threads = num_threads;
+    undistorter = std::make_unique<CMPMVSUndistorter>(cmpmvs_options,
+                                                      undistort_camera_options,
                                                       reconstruction,
                                                       *options.image_path,
                                                       output_path);
@@ -425,11 +441,15 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
   StandaloneImageUndistorter::Options undistorter_options;
   UndistortCameraOptions undistort_camera_options;
+  std::string copy_policy = "copy";
+  int num_threads = -1;
 
   OptionManager options;
   options.AddImageOptions();
   options.AddRequiredOption("input_file", &input_file);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption(
+      "copy_policy", &copy_policy, "{COPY, SOFT_LINK, HARD_LINK}");
   options.AddDefaultOption("blank_pixels",
                            &undistort_camera_options.blank_pixels);
   options.AddDefaultOption("min_scale", &undistort_camera_options.min_scale);
@@ -441,9 +461,15 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
   options.AddDefaultOption("jpeg_quality", &undistorter_options.jpeg_quality);
+  options.AddDefaultOption("num_threads", &num_threads);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
+
+  undistorter_options.num_threads = num_threads;
+
+  StringToUpper(&copy_policy);
+  undistorter_options.copy_type = FileCopyTypeFromString(copy_policy);
 
   CreateDirIfNotExists(output_path);
 

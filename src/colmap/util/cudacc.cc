@@ -56,20 +56,18 @@ void CudaSafeCall(const cudaError_t error,
                   const std::string& file,
                   const int line) {
   if (error != cudaSuccess) {
-    LOG(ERROR) << StringPrintf("CUDA error at %s:%i - %s",
-                               file.c_str(),
-                               line,
-                               cudaGetErrorString(error));
-    exit(EXIT_FAILURE);
+    LOG(FATAL_THROW) << StringPrintf("CUDA error at %s:%i - %s",
+                                     file.c_str(),
+                                     line,
+                                     cudaGetErrorString(error));
   }
 }
 
 void CudaCheck(const char* file, const int line) {
   const cudaError error = cudaGetLastError();
   while (error != cudaSuccess) {
-    LOG(ERROR) << StringPrintf(
+    LOG(FATAL_THROW) << StringPrintf(
         "CUDA error at %s:%i - %s", file, line, cudaGetErrorString(error));
-    exit(EXIT_FAILURE);
   }
 }
 
@@ -77,13 +75,15 @@ void CudaSyncAndCheck(const char* file, const int line) {
   // Synchronizes the default stream which is a nullptr.
   const cudaError error = cudaStreamSynchronize(nullptr);
   if (cudaSuccess != error) {
-    LOG(ERROR) << StringPrintf(
-        "CUDA error at %s:%i - %s", file, line, cudaGetErrorString(error));
-    LOG(ERROR)
-        << "This error is likely caused by the graphics card timeout "
-           "detection mechanism of your operating system. Please refer to "
-           "the FAQ in the documentation on how to solve this problem.";
-    exit(EXIT_FAILURE);
+    LOG(FATAL_THROW)
+        << StringPrintf("CUDA error at %s:%i - %s",
+                        file,
+                        line,
+                        cudaGetErrorString(error))
+        << "\nThis error is likely caused by the graphics card timeout "
+           "detection mechanism of your operating system. Please refer "
+           "to the FAQ in the documentation on how to solve this "
+           "problem.";
   }
 }
 

@@ -49,8 +49,8 @@ struct FeatureMatcherData {
 
 class FeatureMatcherWorker : public Thread {
  public:
-  typedef FeatureMatcherData Input;
-  typedef FeatureMatcherData Output;
+  using Input = FeatureMatcherData;
+  using Output = FeatureMatcherData;
 
   FeatureMatcherWorker(const FeatureMatchingOptions& matching_options,
                        const TwoViewGeometryOptions& geometry_options,

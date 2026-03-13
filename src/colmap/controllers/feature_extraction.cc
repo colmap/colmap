@@ -44,12 +44,13 @@ namespace {
 
 void ScaleKeypoints(int bitmap_width,
                     int bitmap_height,
-                    const Camera& camera,
+                    size_t camera_width,
+                    size_t camera_height,
                     FeatureKeypoints* keypoints) {
-  if (static_cast<size_t>(bitmap_width) != camera.width ||
-      static_cast<size_t>(bitmap_height) != camera.height) {
-    const float scale_x = static_cast<float>(camera.width) / bitmap_width;
-    const float scale_y = static_cast<float>(camera.height) / bitmap_height;
+  if (static_cast<size_t>(bitmap_width) != camera_width ||
+      static_cast<size_t>(bitmap_height) != camera_height) {
+    const float scale_x = static_cast<float>(camera_width) / bitmap_width;
+    const float scale_y = static_cast<float>(camera_height) / bitmap_height;
     for (auto& keypoint : *keypoints) {
       keypoint.Rescale(scale_x, scale_y);
     }
@@ -194,7 +195,7 @@ class FeatureExtractorThread : public Thread {
         if (image_data.status == ImageReader::Status::SUCCESS) {
           const int orig_width = image_data.bitmap.Width();
           const int orig_height = image_data.bitmap.Height();
-          int rot90 =
+          const int rot90 =
               image_data.pose_prior.HasGravity()
                   ? ComputeRot90FromGravity(image_data.pose_prior.gravity)
                   : 0;
@@ -213,7 +214,8 @@ class FeatureExtractorThread : public Thread {
             }
             ScaleKeypoints(orig_width,
                            orig_height,
-                           image_data.camera,
+                           image_data.camera.width,
+                           image_data.camera.height,
                            &image_data.keypoints);
             if (camera_mask_) {
               MaskFeatures(*camera_mask_,
@@ -282,8 +284,8 @@ class FeatureWriterThread : public Thread {
                                   image_data.image.Name().c_str());
 
         if (image_data.status != ImageReader::Status::SUCCESS) {
-          LOG(ERROR) << image_data.image.Name() << " "
-                     << ImageReader::StatusToString(image_data.status);
+          LOG(WARNING) << image_data.image.Name() << " "
+                       << ImageReader::StatusToString(image_data.status);
           continue;
         }
 
@@ -393,7 +395,7 @@ class FeatureExtractorController : public Thread {
     // Make sure that we only have limited number of objects in the queue to
     // avoid excess in memory usage since images and features take lots of
     // memory.
-    const int kQueueSize = 1;
+    constexpr int kQueueSize = 1;
     resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
@@ -404,9 +406,17 @@ class FeatureExtractorController : public Thread {
           max_image_size, resizer_queue_.get(), extractor_queue_.get()));
     }
 
-    if (!extraction_options_.sift->domain_size_pooling &&
-        !extraction_options_.sift->estimate_affine_shape &&
-        extraction_options_.use_gpu) {
+    // Determine if GPU extraction should be used. SIFT GPU extraction is not
+    // supported with domain_size_pooling or estimate_affine_shape, which
+    // require CPU-based covariant SIFT.
+    auto worker_extraction_options = extraction_options_;
+    if (extraction_options_.type == FeatureExtractorType::SIFT &&
+        (extraction_options_.sift->domain_size_pooling ||
+         extraction_options_.sift->estimate_affine_shape)) {
+      worker_extraction_options.use_gpu = false;
+    }
+
+    if (worker_extraction_options.use_gpu) {
       std::vector<int> gpu_indices =
           CSVToVector<int>(extraction_options_.gpu_index);
       THROW_CHECK_GT(gpu_indices.size(), 0);
@@ -420,11 +430,14 @@ class FeatureExtractorController : public Thread {
       }
 #endif  // COLMAP_CUDA_ENABLED
 
-      auto sift_gpu_options = extraction_options_;
-      for (const auto& gpu_index : gpu_indices) {
-        sift_gpu_options.gpu_index = std::to_string(gpu_index);
+      // Prevent nested threading, as we multi-thread at the controller level.
+      worker_extraction_options.num_threads =
+          std::max(num_threads / static_cast<int>(gpu_indices.size()), 1);
+
+      for (const int gpu_index : gpu_indices) {
+        worker_extraction_options.gpu_index = std::to_string(gpu_index);
         extractors_.emplace_back(
-            std::make_unique<FeatureExtractorThread>(sift_gpu_options,
+            std::make_unique<FeatureExtractorThread>(worker_extraction_options,
                                                      camera_mask,
                                                      extractor_queue_.get(),
                                                      writer_queue_.get()));
@@ -447,12 +460,29 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      auto worker_extraction_options = extraction_options_;
-      // Prevent nested threading.
-      worker_extraction_options.num_threads = 1;
-      // Explicitly disable GPU.
-      worker_extraction_options.use_gpu = false;
-      for (int i = 0; i < num_threads; ++i) {
+      int num_extractors = 0;
+      switch (extraction_options_.type) {
+        case FeatureExtractorType::SIFT:
+          // Prevent nested threading, as we multi-thread at the controller
+          // level as SIFT extraction doesn't require much RAM per extractor.
+          num_extractors = num_threads;
+          worker_extraction_options.num_threads = 1;
+          break;
+        case FeatureExtractorType::ALIKED_N16ROT:
+        case FeatureExtractorType::ALIKED_N32:
+          // Use a single extractor with parallelization per image because
+          // ALIKED requires a lot of RAM per extractor and would otherwise OOM.
+          num_extractors = 1;
+          worker_extraction_options.num_threads = num_threads;
+          break;
+        default:
+          LOG(FATAL_THROW) << "Unknown feature extractor type: "
+                           << FeatureExtractorTypeToString(
+                                  extraction_options_.type);
+      }
+
+      THROW_CHECK_GT(num_extractors, 0);
+      for (int i = 0; i < num_extractors; ++i) {
         extractors_.emplace_back(
             std::make_unique<FeatureExtractorThread>(worker_extraction_options,
                                                      camera_mask,

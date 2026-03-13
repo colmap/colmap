@@ -38,10 +38,12 @@ COLMAP_ADD_LIBRARY(
         fusion.h fusion.cc
         image.h image.cc
         mat.h mat.cc
+        mesh_simplification.h mesh_simplification.cc
         meshing.h meshing.cc
         model.h model.cc
         normal_map.h normal_map.cc
         patch_match_options.h patch_match_options.cc
+        texture_mapping.h texture_mapping.cc
         workspace.h workspace.cc
     PUBLIC_LINK_LIBS
         colmap_util
@@ -86,13 +88,28 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
+    NAME mesh_simplification_test
+    SRCS mesh_simplification_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
     NAME meshing_test
     SRCS meshing_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
+    NAME model_test
+    SRCS model_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
     NAME normal_map_test
     SRCS normal_map_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME texture_mapping_test
+    SRCS texture_mapping_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(

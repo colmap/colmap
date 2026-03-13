@@ -34,7 +34,6 @@
 #include "colmap/util/logging.h"
 
 #include <fstream>
-#include <numeric>
 
 namespace colmap {
 namespace mvs {
@@ -118,10 +117,18 @@ void ConsistencyGraph::InitializeMap(const size_t width, const size_t height) {
   map_.resize(height, width);
   map_.setConstant(kNoConsistentImageIds);
   for (size_t i = 0; i < data_.size();) {
+    THROW_CHECK_LT(i + 2, data_.size())
+        << "Corrupt consistency graph: insufficient data at offset " << i;
+    const int col = data_.at(i);
+    const int row = data_.at(i + 1);
     const int num_images = data_.at(i + 2);
+    THROW_CHECK_GE(num_images, 0)
+        << "Corrupt consistency graph: negative num_images at offset " << i;
+    THROW_CHECK_GE(col, 0);
+    THROW_CHECK_LT(col, static_cast<int>(width));
+    THROW_CHECK_GE(row, 0);
+    THROW_CHECK_LT(row, static_cast<int>(height));
     if (num_images > 0) {
-      const int col = data_.at(i);
-      const int row = data_.at(i + 1);
       map_(row, col) = i + 2;
     }
     i += 3 + num_images;

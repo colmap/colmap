@@ -66,3 +66,8 @@ COLMAP_ADD_TEST(
     SRCS observation_manager_test.cc
     LINK_LIBS colmap_sfm
 )
+COLMAP_ADD_TEST(
+    NAME incremental_mapper_test
+    SRCS incremental_mapper_test.cc
+    LINK_LIBS colmap_sfm
+)

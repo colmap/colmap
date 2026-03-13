@@ -30,6 +30,7 @@
 #include "colmap/exe/model.h"
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/reconstruction_clustering.h"
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
 #include "colmap/geometry/bbox.h"
@@ -44,6 +45,7 @@
 #include "colmap/util/threading.h"
 
 #include <fstream>
+#include <unordered_map>
 
 namespace colmap {
 namespace {
@@ -146,10 +148,18 @@ void ReadDatabaseCameraLocations(const std::filesystem::path& database_path,
                                  std::vector<std::string>* ref_image_names,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   auto database = Database::Open(database_path);
+
+  // Index pose priors by their associated data ID.
+  std::unordered_map<data_t, PosePrior> pose_priors_by_data_id;
+  for (const auto& pose_prior : database->ReadAllPosePriors()) {
+    pose_priors_by_data_id.emplace(pose_prior.corr_data_id, pose_prior);
+  }
+
   for (const auto& image : database->ReadAllImages()) {
-    if (database->ExistsPosePrior(image.ImageId())) {
+    const auto it = pose_priors_by_data_id.find(image.DataId());
+    if (it != pose_priors_by_data_id.end()) {
       ref_image_names->push_back(image.Name());
-      const auto pose_prior = database->ReadPosePrior(image.ImageId());
+      const auto& pose_prior = it->second;
       if (ref_is_gps) {
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));
@@ -458,6 +468,46 @@ int RunModelAnalyzer(int argc, char** argv) {
                                 reconstruction.Image(image_id).Name().c_str());
     }
   }
+
+  return EXIT_SUCCESS;
+}
+
+int RunModelClusterer(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddReconstructionClustererOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  LOG_HEADING1("Loading model");
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  ReconstructionClustererController controller(
+      *options.reconstruction_clusterer,
+      reconstruction,
+      reconstruction_manager);
+  controller.Run();
+
+  LOG_HEADING1("Writing clustered model(s)");
+  reconstruction_manager->Write(output_path);
 
   return EXIT_SUCCESS;
 }

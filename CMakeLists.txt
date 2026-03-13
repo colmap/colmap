@@ -57,6 +57,7 @@ option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
+option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Disables default features, as we specify each required feature manually below.
@@ -232,6 +233,9 @@ if(CCACHE_ENABLED)
         message(STATUS "Enabling ccache support")
         set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
         set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
+        if(CUDA_ENABLED)
+            set(CMAKE_CUDA_COMPILER_LAUNCHER ${CCACHE})
+        endif()
     else()
         message(STATUS "Disabling ccache support")
     endif()
@@ -284,6 +288,8 @@ endif()
 
 COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/cost_functions ESTIMATORS_COST_FUNCTIONS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/solvers ESTIMATORS_SOLVERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/geometry GEOMETRY_SRCS *.h *.cc)
@@ -313,6 +319,8 @@ if(ALL_SOURCE_TARGET)
     set(ALL_SRCS
         ${CONTROLLERS_SRCS}
         ${ESTIMATORS_SRCS}
+        ${ESTIMATORS_COST_FUNCTIONS_SRCS}
+        ${ESTIMATORS_SOLVERS_SRCS}
         ${EXE_SRCS}
         ${FEATURE_SRCS}
         ${GEOMETRY_SRCS}
@@ -392,6 +400,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_optim
     colmap_retrieval
     colmap_scene
+    colmap_scene_types
     colmap_sensor
     colmap_sfm
     colmap_util

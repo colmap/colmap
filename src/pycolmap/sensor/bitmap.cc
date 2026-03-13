@@ -1,4 +1,4 @@
-#include "colmap/sensor/bitmap.h"
+#include "pycolmap/sensor/bitmap.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -58,8 +58,6 @@ Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array,
   }
 
   const bool as_rgb = channels != 1;
-  const size_t pitch = width * channels;
-
   Bitmap output(width,
                 height,
                 /*as_rgb=*/as_rgb,

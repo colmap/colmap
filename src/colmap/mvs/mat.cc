@@ -33,7 +33,6 @@
 #include "colmap/util/file.h"
 
 #include <fstream>
-#include <string>
 #include <vector>
 
 namespace colmap {

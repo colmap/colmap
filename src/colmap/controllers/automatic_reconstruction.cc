@@ -36,12 +36,14 @@
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/undistorters.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 namespace colmap {
 
@@ -75,6 +77,19 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
+  // Set feature type first so quality modifiers can query EffMaxImageSize().
+  if (options_.feature == Feature::SIFT) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::SIFT_BRUTEFORCE;
+  } else if (options_.feature == Feature::ALIKED) {
+    option_manager_.feature_extraction->type =
+        FeatureExtractorType::ALIKED_N16ROT;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::ALIKED_BRUTEFORCE;
+  }
+
+  // Apply quality preset (scales max_image_size relative to extractor default).
   if (options_.quality == Quality::LOW) {
     option_manager_.ModifyForLowQuality();
   } else if (options_.quality == Quality::MEDIUM) {
@@ -85,15 +100,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
-  if (options_.feature == Feature::SIFT) {
-    option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
-    option_manager_.feature_matching->type =
-        FeatureMatcherType::SIFT_BRUTEFORCE;
-  } else if (options_.feature == Feature::ALIKED) {
-    option_manager_.feature_extraction->type =
-        FeatureExtractorType::ALIKED_N16ROT;
-    option_manager_.feature_matching->type =
-        FeatureMatcherType::ALIKED_BRUTEFORCE;
+  // Feature-specific overrides that must come after quality.
+  if (options_.feature == Feature::ALIKED) {
     // Guided matching is not supported for ALIKED.
     option_manager_.feature_matching->guided_matching = false;
   }
@@ -102,7 +110,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.sequential_pairing->num_threads = options_.num_threads;
   option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
+  option_manager_.patch_match_stereo->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
+  option_manager_.delaunay_meshing->num_threads = options_.num_threads;
 
   option_manager_.vocab_tree_pairing->vocab_tree_path =
       GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
@@ -238,6 +248,8 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
+  LOG_HEADING1("Feature extraction");
+
   THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
@@ -247,6 +259,8 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
 }
 
 void AutomaticReconstructionController::RunFeatureMatching() {
+  LOG_HEADING1("Feature matching");
+
   Thread* matcher = nullptr;
   if (options_.data_type == DataType::VIDEO) {
     matcher = sequential_matcher_.get();
@@ -272,12 +286,14 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
+  LOG_HEADING1("Sparse reconstruction");
+
   const auto sparse_path = options_.workspace_path / "sparse";
   if (ExistsDir(sparse_path)) {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
     if (dir_list.size() > 0) {
-      LOG(WARNING)
+      LOG(INFO)
           << "Skipping sparse reconstruction because it is already computed";
       for (const auto& dir : dir_list) {
         reconstruction_manager_->Read(dir);
@@ -306,6 +322,10 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::GLOBAL: {
+      ViewGraphCalibrationOptions vgc_options;
+      vgc_options.random_seed = options_.random_seed;
+      vgc_options.solver_options.num_threads = options_.num_threads;
+      CalibrateViewGraph(vgc_options, database.get());
       GlobalPipelineOptions global_options;
       global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
@@ -328,6 +348,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
+  LOG_HEADING1("Dense reconstruction");
+
   CreateDirIfNotExists(options_.workspace_path / "dense");
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
@@ -347,6 +369,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
     }
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
+      LOG(INFO) << "Skipping dense reconstruction for model " << i
+                << " as it already exists.";
       continue;
     }
 
@@ -358,7 +382,9 @@ void AutomaticReconstructionController::RunDenseMapper() {
       UndistortCameraOptions undistortion_options;
       undistortion_options.max_image_size =
           option_manager_.patch_match_stereo->max_image_size;
-      COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+      COLMAPUndistorter::Options undistorter_options;
+      undistorter_options.num_threads = options_.num_threads;
+      COLMAPUndistorter undistorter(std::move(undistorter_options),
                                     undistortion_options,
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,

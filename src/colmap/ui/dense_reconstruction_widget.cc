@@ -35,6 +35,7 @@
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/ui/main_window.h"
+#include "colmap/ui/render_options.h"
 #include "colmap/util/controller_thread.h"
 
 namespace colmap {
@@ -96,6 +97,7 @@ class StereoOptionsTab : public OptionsWidget {
                     1);
     AddOptionBool(&options->patch_match_stereo->write_consistency_graph,
                   "write_consistency_graph");
+    AddOptionInt(&options->patch_match_stereo->num_threads, "num_threads", -1);
   }
 };
 
@@ -317,6 +319,9 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   grid->setColumnStretch(4, 1);
 
   image_viewer_widget_ = new ImageViewerWidget(this);
+  image_viewer_widget_->setWindowFlags(
+      Qt::Dialog | Qt::WindowTitleHint | Qt::WindowMinimizeButtonHint |
+      Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
 
   refresh_workspace_action_ = new QAction(this);
   connect(refresh_workspace_action_,
@@ -330,11 +335,11 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
           this,
           &DenseReconstructionWidget::WriteFusedPoints);
 
-  show_meshing_info_action_ = new QAction(this);
-  connect(show_meshing_info_action_,
+  write_surface_mesh_action_ = new QAction(this);
+  connect(write_surface_mesh_action_,
           &QAction::triggered,
           this,
-          &DenseReconstructionWidget::ShowMeshingInfo);
+          &DenseReconstructionWidget::WriteSurfaceMesh);
 
   RefreshWorkspace();
 }
@@ -415,13 +420,30 @@ void DenseReconstructionWidget::Fusion() {
   auto fuser = std::make_unique<ControllerThread<mvs::StereoFusion>>(
       std::make_shared<mvs::StereoFusion>(
           *options_->stereo_fusion, workspace_path, "COLMAP", "", input_type));
-  fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser = fuser.get()]() {
-    fused_points_ = fuser->GetController()->GetFusedPoints();
-    fused_points_visibility_ =
-        fuser->GetController()->GetFusedPointsVisibility();
-    write_fused_points_action_->trigger();
-  });
+  fuser->AddCallback(
+      Thread::FINISHED_CALLBACK, [this, fuser = fuser.get(), workspace_path]() {
+        auto fused_points = fuser->GetController()->GetFusedPoints();
+        auto fused_points_visibility =
+            fuser->GetController()->GetFusedPointsVisibility();
+        const auto output_path = workspace_path / kFusedFileName;
+        WriteBinaryPlyPoints(output_path, fused_points);
+        mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
+                                   fused_points_visibility);
+        main_window_->model_viewer_widget_->point_cloud =
+            std::move(fused_points);
+        write_fused_points_action_->trigger();
+      });
   thread_control_widget_->StartThread("Fusion...", true, std::move(fuser));
+}
+
+void DenseReconstructionWidget::LoadAndDisplayMesh(
+    const std::filesystem::path& mesh_path) {
+  try {
+    main_window_->model_viewer_widget_->surface_mesh = ReadPlyMesh(mesh_path);
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+  }
+  write_surface_mesh_action_->trigger();
 }
 
 void DenseReconstructionWidget::PoissonMeshing() {
@@ -436,7 +458,7 @@ void DenseReconstructionWidget::PoissonMeshing() {
           mvs::PoissonMeshing(*options_->poisson_meshing,
                               workspace_path / kFusedFileName,
                               workspace_path / kPoissonMeshedFileName);
-          show_meshing_info_action_->trigger();
+          LoadAndDisplayMesh(workspace_path / kPoissonMeshedFileName);
         });
   }
 }
@@ -454,7 +476,7 @@ void DenseReconstructionWidget::DelaunayMeshing() {
           mvs::DenseDelaunayMeshing(*options_->delaunay_meshing,
                                     workspace_path,
                                     workspace_path / kDelaunayMeshedFileName);
-          show_meshing_info_action_->trigger();
+          LoadAndDisplayMesh(workspace_path / kDelaunayMeshedFileName);
         });
   }
 #else
@@ -569,59 +591,13 @@ void DenseReconstructionWidget::RefreshWorkspace() {
 }
 
 void DenseReconstructionWidget::WriteFusedPoints() {
-  const int reply = QMessageBox::question(
-      this,
-      "",
-      tr("Do you want to visualize the point cloud? Otherwise, to visualize "
-         "the reconstructed dense point cloud later, navigate to the "
-         "<i>dense</i> sub-folder in your workspace with <i>File > Import "
-         "model from...</i>."),
-      QMessageBox::Yes | QMessageBox::No);
-  if (reply == QMessageBox::Yes) {
-    const size_t reconstruction_idx =
-        main_window_->reconstruction_manager_->Add();
-    std::shared_ptr<Reconstruction> reconstruction =
-        main_window_->reconstruction_manager_->Get(reconstruction_idx);
-    for (const PlyPoint& point : fused_points_) {
-      reconstruction->AddPoint3D(Eigen::Vector3d(point.x, point.y, point.z),
-                                 Track(),
-                                 Eigen::Vector3ub(point.r, point.g, point.b));
-    }
-
-    options_->render->min_track_len = 0;
-    main_window_->reconstruction_manager_widget_->Update();
-    main_window_->reconstruction_manager_widget_->SelectReconstruction(
-        reconstruction_idx);
-    main_window_->RenderNow();
-  }
-
-  const std::filesystem::path workspace_path =
-      workspace_path_text_->text().toUtf8().constData();
-  if (workspace_path.empty()) {
-    fused_points_ = {};
-    fused_points_visibility_ = {};
-    return;
-  }
-
-  thread_control_widget_->StartFunction(
-      "Exporting...", [this, workspace_path]() {
-        const auto output_path = workspace_path / kFusedFileName;
-        WriteBinaryPlyPoints(output_path, fused_points_);
-        mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
-                                   fused_points_visibility_);
-        fused_points_ = {};
-        fused_points_visibility_ = {};
-        poisson_meshing_button_->setEnabled(true);
-        delaunay_meshing_button_->setEnabled(true);
-      });
+  poisson_meshing_button_->setEnabled(true);
+  delaunay_meshing_button_->setEnabled(true);
+  main_window_->RenderNow();
 }
 
-void DenseReconstructionWidget::ShowMeshingInfo() {
-  QMessageBox::information(
-      this,
-      "",
-      tr("To visualize the meshed model, you must use an external viewer such "
-         "as Meshlab. The model is located in the workspace folder."));
+void DenseReconstructionWidget::WriteSurfaceMesh() {
+  main_window_->RenderNow();
 }
 
 QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(

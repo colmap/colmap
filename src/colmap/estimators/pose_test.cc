@@ -230,6 +230,85 @@ TEST(RefineAbsolutePose, RefineExtraParams) {
   EXPECT_NE(cam_from_world_cov, Eigen::Matrix6d::Zero());
 }
 
+TEST(RefineAbsolutePose, PositionPrior) {
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
+  // Isolate the position-prior-only refinement path without reprojection terms.
+  std::vector<char> inlier_mask(problem.points2D.size(), false);
+
+  AbsolutePoseRefinementOptions options;
+  options.use_position_prior = true;
+  options.position_prior_in_world = Eigen::Vector3d(1.0, 2.0, 3.0);
+  options.position_prior_covariance = Eigen::Matrix3d::Identity();
+  Rigid3d cam_from_world(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY())),
+      Eigen::Vector3d(0.3, -0.5, 0.7));
+  auto compute_position_error = [&](const Rigid3d& cam_from_world_to_check) {
+    return (Inverse(cam_from_world_to_check).translation() -
+            options.position_prior_in_world)
+        .norm();
+  };
+  const double initial_error = compute_position_error(cam_from_world);
+  Camera camera = problem.camera;
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 problem.points2D,
+                                 problem.points3D,
+                                 &cam_from_world,
+                                 &camera));
+  EXPECT_LT(compute_position_error(cam_from_world), initial_error);
+}
+
+TEST(RefineAbsolutePose, PositionPriorCovariance) {
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
+  std::vector<char> inlier_mask(problem.points2D.size(), true);
+
+  AbsolutePoseRefinementOptions weak_prior_options;
+  weak_prior_options.use_position_prior = true;
+  weak_prior_options.position_prior_in_world =
+      Inverse(problem.image.CamFromWorld()).translation() +
+      Eigen::Vector3d(1.0, -0.7, 0.5);
+  // Large covariance = weak prior (high uncertainty).
+  weak_prior_options.position_prior_covariance = Eigen::Matrix3d::Identity();
+
+  AbsolutePoseRefinementOptions strong_prior_options = weak_prior_options;
+  // Small covariance = strong prior (low uncertainty).
+  strong_prior_options.position_prior_covariance =
+      0.01 * Eigen::Matrix3d::Identity();
+
+  const Rigid3d initial_cam_from_world(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX())),
+      problem.image.CamFromWorld().translation() +
+          Eigen::Vector3d(0.2, 0.1, -0.1));
+  Camera weak_prior_camera = problem.camera;
+  Camera strong_prior_camera = problem.camera;
+  Rigid3d weak_prior_cam_from_world = initial_cam_from_world;
+  Rigid3d strong_prior_cam_from_world = initial_cam_from_world;
+
+  EXPECT_TRUE(RefineAbsolutePose(weak_prior_options,
+                                 inlier_mask,
+                                 problem.points2D,
+                                 problem.points3D,
+                                 &weak_prior_cam_from_world,
+                                 &weak_prior_camera));
+  EXPECT_TRUE(RefineAbsolutePose(strong_prior_options,
+                                 inlier_mask,
+                                 problem.points2D,
+                                 problem.points3D,
+                                 &strong_prior_cam_from_world,
+                                 &strong_prior_camera));
+
+  auto compute_position_error = [&](const Rigid3d& cam_from_world_to_check) {
+    return (Inverse(cam_from_world_to_check).translation() -
+            weak_prior_options.position_prior_in_world)
+        .norm();
+  };
+  const double weak_prior_error =
+      compute_position_error(weak_prior_cam_from_world);
+  const double strong_prior_error =
+      compute_position_error(strong_prior_cam_from_world);
+  EXPECT_LT(strong_prior_error, weak_prior_error);
+}
+
 TEST(RefineEssentialMatrix, Nominal) {
   const Rigid3d cam1_from_world;
   const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),

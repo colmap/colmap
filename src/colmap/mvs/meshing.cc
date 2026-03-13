@@ -56,8 +56,8 @@
 
 #if defined(COLMAP_CGAL_ENABLED)
 
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-typedef CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location> Delaunay;
+using K = CGAL::Exact_predicates_inexact_constructions_kernel;
+using Delaunay = CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location>;
 
 namespace std {
 
@@ -743,8 +743,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   LOG(INFO) << "Initializing graph optimization...";
 
-  typedef std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>
-      CellGraphData;
+  using CellGraphData =
+      std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>;
 
   CellGraphData cell_graph_data;
   cell_graph_data.reserve(triangulation.number_of_cells());
@@ -1049,7 +1049,7 @@ void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
   const auto mesh = DelaunayMeshing(options, input_data);
 
   LOG(INFO) << "Writing surface mesh...";
-  WriteBinaryPlyMesh(output_path, mesh);
+  WriteBinaryPlyMesh(output_path, PlyTexturedMesh{mesh});
 
   timer.PrintSeconds();
 }
@@ -1066,7 +1066,7 @@ void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
   const auto mesh = DelaunayMeshing(options, input_data);
 
   LOG(INFO) << "Writing surface mesh...";
-  WriteBinaryPlyMesh(output_path, mesh);
+  WriteBinaryPlyMesh(output_path, PlyTexturedMesh{mesh});
 
   timer.PrintSeconds();
 }

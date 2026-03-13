@@ -349,6 +349,7 @@ class IncrementalMapper {
     // Number of trials to register image in current reconstruction. Used to set
     // an upper bound to the number of trials to register an image.
     std::unordered_map<image_t, size_t> num_reg_trials;
+    std::unordered_map<image_t, size_t> num_structure_less_reg_trials;
   };
 
   // Registers a frame using generalized absolute pose estimation.

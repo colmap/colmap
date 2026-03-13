@@ -36,8 +36,8 @@
 namespace colmap {
 
 // { make1 : ({ model1 : sensor-width in mm }, ...), ... }
-typedef std::vector<std::pair<std::string, float>> camera_make_specs_t;
-typedef std::unordered_map<std::string, camera_make_specs_t> camera_specs_t;
+using camera_make_specs_t = std::vector<std::pair<std::string, float>>;
+using camera_specs_t = std::unordered_map<std::string, camera_make_specs_t>;
 
 camera_specs_t InitializeCameraSpecs();
 

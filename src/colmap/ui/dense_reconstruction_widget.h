@@ -30,9 +30,7 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/mvs/fusion.h"
 #include "colmap/ui/image_viewer_widget.h"
-#include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 
 #include <QtCore>
@@ -67,7 +65,8 @@ class DenseReconstructionWidget : public QWidget {
   void RefreshWorkspace();
 
   void WriteFusedPoints();
-  void ShowMeshingInfo();
+  void WriteSurfaceMesh();
+  void LoadAndDisplayMesh(const std::filesystem::path& mesh_path);
 
   QWidget* GenerateTableButtonWidget(const std::string& image_name,
                                      const std::string& type);
@@ -87,7 +86,7 @@ class DenseReconstructionWidget : public QWidget {
   QPushButton* delaunay_meshing_button_;
   QAction* refresh_workspace_action_;
   QAction* write_fused_points_action_;
-  QAction* show_meshing_info_action_;
+  QAction* write_surface_mesh_action_;
 
   bool photometric_done_;
   bool geometric_done_;
@@ -95,9 +94,6 @@ class DenseReconstructionWidget : public QWidget {
   std::filesystem::path images_path_;
   std::filesystem::path depth_maps_path_;
   std::filesystem::path normal_maps_path_;
-
-  std::vector<PlyPoint> fused_points_;
-  std::vector<std::vector<int>> fused_points_visibility_;
 };
 
 }  // namespace colmap

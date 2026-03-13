@@ -33,17 +33,29 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      FETCHCONTENT_CACHE_VERSION: 1
+      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        id: cache-builds
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        id: cache-fetchcontent
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
 
       - name: Setup Mac
         run: |
@@ -74,14 +86,15 @@ jobs:
         run: |
           export PATH="/usr/local/opt/qt/bin:$PATH"
           cmake --version
-          mkdir build
+          mkdir -p build
           cd build
           cmake .. \
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
             -DWERROR_ENABLED=ON \
-            -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6"
+            -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6" \
+            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           ninja
 
       - name: Run tests

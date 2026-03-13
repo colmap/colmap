@@ -18,6 +18,7 @@ std::shared_ptr<DatabaseCache> CreateDatabaseCache(const Database& database) {
 }
 
 TEST(GlobalMapper, WithoutNoise) {
+  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -36,8 +37,7 @@ TEST(GlobalMapper, WithoutNoise) {
   GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,
@@ -46,6 +46,7 @@ TEST(GlobalMapper, WithoutNoise) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
+  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -67,8 +68,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,
@@ -77,6 +77,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
+  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -108,8 +109,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
     }
   }
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,
@@ -118,6 +118,8 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 }
 
 TEST(GlobalMapper, WithNoiseAndOutliers) {
+  SetPRNGSeed(1);
+
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -140,8 +142,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction,

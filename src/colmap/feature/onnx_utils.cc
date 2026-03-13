@@ -33,6 +33,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <iostream>
 #include <mutex>
 #include <sstream>
 #ifdef _WIN32
@@ -42,6 +43,26 @@
 namespace colmap {
 
 #ifdef COLMAP_ONNX_ENABLED
+
+namespace {
+[[noreturn]] void RethrowONNXException() {
+  try {
+    std::rethrow_exception(std::current_exception());
+  } catch (const Ort::Exception& e) {
+    // ONNX Runtime may write to stderr without a trailing newline.
+    // Insert a newline here to avoid mixing with COLMAP log output.
+    std::cerr << '\n';
+    LOG(ERROR) << "ONNX Runtime error: " << e.what();
+    throw;
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Unexpected exception during ONNX execution: " << e.what();
+    throw;
+  } catch (...) {
+    LOG(ERROR) << "Unknown exception during ONNX execution";
+    throw;
+  }
+}
+}  // namespace
 
 std::string FormatONNXTensorShape(const std::vector<int64_t>& shape) {
   std::ostringstream oss;
@@ -86,8 +107,26 @@ ONNXModel::ONNXModel(std::string model_path,
   }
 
   const int num_eff_threads = GetEffectiveNumThreads(num_threads);
-  session_options_.SetInterOpNumThreads(num_eff_threads);
-  session_options_.SetIntraOpNumThreads(num_eff_threads);
+
+  try {
+    InitializeSession(model_path, num_eff_threads, use_gpu, gpu_index);
+  } catch (...) {
+    RethrowONNXException();
+  }
+}
+
+void ONNXModel::InitializeSession(const std::string& model_path,
+                                  int num_threads,
+                                  bool use_gpu,
+                                  const std::string& gpu_index) {
+  // Use sequential execution mode with a single inter-op thread, since our
+  // models (ALIKED, LightGlue) are sequential CNNs/Transformers without
+  // independent graph branches. Inter-op parallelism would only cause thread
+  // contention. Intra-op threads parallelize within individual operators
+  // (convolutions, matrix multiplications) and are managed at the caller level.
+  session_options_.SetInterOpNumThreads(1);
+  session_options_.SetIntraOpNumThreads(num_threads);
+  session_options_.SetExecutionMode(ORT_SEQUENTIAL);
   session_options_.SetGraphOptimizationLevel(
       GraphOptimizationLevel::ORT_ENABLE_ALL);
   session_options_.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);
@@ -107,12 +146,12 @@ ONNXModel::ONNXModel(std::string model_path,
 
   VLOG(2) << "Loading ONNX model from " << model_path;
 #ifdef _WIN32
-  constexpr int kCodePage = CP_UTF8;
+  const unsigned int code_page = GetACP();
   const int wide_len =
-      MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, nullptr, 0);
+      MultiByteToWideChar(code_page, 0, model_path.c_str(), -1, nullptr, 0);
   std::wstring model_path_wide(wide_len, L'\0');
   MultiByteToWideChar(
-      kCodePage, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
+      code_page, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
   const wchar_t* model_path_cstr = model_path_wide.c_str();
 #else
   const char* model_path_cstr = model_path.c_str();
@@ -149,12 +188,16 @@ ONNXModel::ONNXModel(std::string model_path,
 
 std::vector<Ort::Value> ONNXModel::Run(
     const std::vector<Ort::Value>& input_tensors) const {
-  return session_->Run(Ort::RunOptions(),
-                       input_names_.data(),
-                       input_tensors.data(),
-                       input_tensors.size(),
-                       output_names_.data(),
-                       output_names_.size());
+  try {
+    return session_->Run(Ort::RunOptions(),
+                         input_names_.data(),
+                         input_tensors.data(),
+                         input_tensors.size(),
+                         output_names_.data(),
+                         output_names_.size());
+  } catch (...) {
+    RethrowONNXException();
+  }
 }
 
 #endif  // COLMAP_ONNX_ENABLED
