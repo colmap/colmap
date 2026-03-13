@@ -373,8 +373,9 @@ bool RunGlobalMapperImpl(
   GlobalPipelineOptions options = *mapper_options;
   options.image_path = image_path;
 
-  GlobalPipeline global_mapper(
-      std::move(options), Database::Open(database_path), reconstruction_manager);
+  GlobalPipeline global_mapper(std::move(options),
+                               Database::Open(database_path),
+                               reconstruction_manager);
   global_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {

@@ -175,46 +175,40 @@ void BindSfM(py::module& m) {
   // GlobalMapperOptions
   {
     using Opts = GlobalMapperOptions;
-    auto PyOpts = py::classh<Opts>(m, "GlobalMapperOptions")
-                      .def(py::init<>())
-                      .def_readwrite("num_threads", &Opts::num_threads)
-                      .def_readwrite("random_seed", &Opts::random_seed)
-                      .def_readwrite("rotation_averaging",
-                                     &Opts::rotation_averaging)
-                      .def_readwrite("global_positioning",
-                                     &Opts::global_positioning)
-                      .def_readwrite("bundle_adjustment",
-                                     &Opts::bundle_adjustment)
-                      .def_readwrite("retriangulation", &Opts::retriangulation)
-                      .def_readwrite(
-                          "track_intra_image_consistency_threshold",
-                          &Opts::track_intra_image_consistency_threshold)
-                      .def_readwrite("track_required_tracks_per_view",
-                                     &Opts::track_required_tracks_per_view)
-                      .def_readwrite("track_min_num_views_per_track",
-                                     &Opts::track_min_num_views_per_track)
-                      .def_readwrite("max_angular_reproj_error_deg",
-                                     &Opts::max_angular_reproj_error_deg)
-                      .def_readwrite("max_normalized_reproj_error",
-                                     &Opts::max_normalized_reproj_error)
-                      .def_readwrite("min_tri_angle_deg",
-                                     &Opts::min_tri_angle_deg)
-                      .def_readwrite("ba_num_iterations",
-                                     &Opts::ba_num_iterations)
-                      .def_readwrite("ba_skip_fixed_rotation_stage",
-                                     &Opts::ba_skip_fixed_rotation_stage)
-                      .def_readwrite("ba_skip_joint_optimization_stage",
-                                     &Opts::ba_skip_joint_optimization_stage)
-                      .def_readwrite("skip_rotation_averaging",
-                                     &Opts::skip_rotation_averaging)
-                      .def_readwrite("skip_track_establishment",
-                                     &Opts::skip_track_establishment)
-                      .def_readwrite("skip_global_positioning",
-                                     &Opts::skip_global_positioning)
-                      .def_readwrite("skip_bundle_adjustment",
-                                     &Opts::skip_bundle_adjustment)
-                      .def_readwrite("skip_retriangulation",
-                                     &Opts::skip_retriangulation);
+    auto PyOpts =
+        py::classh<Opts>(m, "GlobalMapperOptions")
+            .def(py::init<>())
+            .def_readwrite("num_threads", &Opts::num_threads)
+            .def_readwrite("random_seed", &Opts::random_seed)
+            .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
+            .def_readwrite("global_positioning", &Opts::global_positioning)
+            .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)
+            .def_readwrite("retriangulation", &Opts::retriangulation)
+            .def_readwrite("track_intra_image_consistency_threshold",
+                           &Opts::track_intra_image_consistency_threshold)
+            .def_readwrite("track_required_tracks_per_view",
+                           &Opts::track_required_tracks_per_view)
+            .def_readwrite("track_min_num_views_per_track",
+                           &Opts::track_min_num_views_per_track)
+            .def_readwrite("max_angular_reproj_error_deg",
+                           &Opts::max_angular_reproj_error_deg)
+            .def_readwrite("max_normalized_reproj_error",
+                           &Opts::max_normalized_reproj_error)
+            .def_readwrite("min_tri_angle_deg", &Opts::min_tri_angle_deg)
+            .def_readwrite("ba_num_iterations", &Opts::ba_num_iterations)
+            .def_readwrite("ba_skip_fixed_rotation_stage",
+                           &Opts::ba_skip_fixed_rotation_stage)
+            .def_readwrite("ba_skip_joint_optimization_stage",
+                           &Opts::ba_skip_joint_optimization_stage)
+            .def_readwrite("skip_rotation_averaging",
+                           &Opts::skip_rotation_averaging)
+            .def_readwrite("skip_track_establishment",
+                           &Opts::skip_track_establishment)
+            .def_readwrite("skip_global_positioning",
+                           &Opts::skip_global_positioning)
+            .def_readwrite("skip_bundle_adjustment",
+                           &Opts::skip_bundle_adjustment)
+            .def_readwrite("skip_retriangulation", &Opts::skip_retriangulation);
     MakeDataclass(PyOpts);
   }
 
@@ -260,14 +254,15 @@ void BindSfM(py::module& m) {
         "initial_image_pair_callback"_a = py::none(),
         "next_image_callback"_a = py::none(),
         "Recover 3D points and unknown camera poses");
-  
-  m.def("global_mapping",
-        &GlobalMapping,
-        "database_path"_a,
-        "image_path"_a,
-        "output_path"_a,
-        py::arg_v("options", GlobalPipelineOptions(), "GlobalPipelineOptions()"),
-        "Recover 3D points and camera poses using global SfM (GLOMAP)");
+
+  m.def(
+      "global_mapping",
+      &GlobalMapping,
+      "database_path"_a,
+      "image_path"_a,
+      "output_path"_a,
+      py::arg_v("options", GlobalPipelineOptions(), "GlobalPipelineOptions()"),
+      "Recover 3D points and camera poses using global SfM (GLOMAP)");
 
   m.def("calibrate_view_graph",
         &ViewGraphCalibration,
