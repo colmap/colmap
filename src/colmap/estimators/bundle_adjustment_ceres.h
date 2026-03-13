@@ -96,7 +96,7 @@ struct CeresBundleAdjustmentSummary : public BundleAdjustmentSummary {
   std::string BriefReport() const override;
 
   static std::shared_ptr<CeresBundleAdjustmentSummary> Create(
-      const ceres::Solver::Summary& ceres_summary);
+      ceres::Solver::Summary ceres_summary);
 };
 
 // Ceres-specific pose prior bundle adjustment options.

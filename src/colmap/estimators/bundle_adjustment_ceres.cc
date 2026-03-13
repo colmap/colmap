@@ -81,13 +81,12 @@ std::unique_ptr<ceres::LossFunction> CreateLossFunction(
 }  // namespace
 
 std::shared_ptr<CeresBundleAdjustmentSummary>
-CeresBundleAdjustmentSummary::Create(
-    const ceres::Solver::Summary& ceres_summary) {
+CeresBundleAdjustmentSummary::Create(ceres::Solver::Summary ceres_summary) {
   auto summary = std::make_shared<CeresBundleAdjustmentSummary>();
   summary->termination_type =
       CeresTerminationTypeToTerminationType(ceres_summary.termination_type);
   summary->num_residuals = ceres_summary.num_residuals_reduced;
-  summary->ceres_summary = ceres_summary;
+  summary->ceres_summary = std::move(ceres_summary);
   return summary;
 }
 
@@ -545,6 +544,15 @@ void ParameterizePoints(
   }
 }
 
+std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
+    ceres::Solver::Summary ceres_summary, const std::string& context) {
+  auto summary = CeresBundleAdjustmentSummary::Create(std::move(ceres_summary));
+  if (!summary->IsSolutionUsable()) {
+    LOG(ERROR) << context << " failed: " << summary->ceres_summary.message;
+  }
+  return summary;
+}
+
 ceres::Solver::Summary SolveWithGpuFallback(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
@@ -640,14 +648,15 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
-    const ceres::Solver::Summary ceres_summary =
+    ceres::Solver::Summary ceres_summary =
         SolveWithGpuFallback(options_, config_, problem_.get());
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
       PrintSolverSummary(ceres_summary, "Bundle adjustment report");
     }
 
-    return CeresBundleAdjustmentSummary::Create(ceres_summary);
+    return CreateSummaryAndLogFailure(std::move(ceres_summary),
+                                      "Bundle adjustment");
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
@@ -935,7 +944,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
-    const ceres::Solver::Summary ceres_summary =
+    ceres::Solver::Summary ceres_summary =
         SolveWithGpuFallback(options_, config_, problem.get());
 
     reconstruction_.Transform(Inverse(normalized_from_metric_));
@@ -944,7 +953,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       PrintSolverSummary(ceres_summary, "Pose Prior Bundle adjustment report");
     }
 
-    return CeresBundleAdjustmentSummary::Create(ceres_summary);
+    return CreateSummaryAndLogFailure(std::move(ceres_summary),
+                                      "Pose prior bundle adjustment");
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
