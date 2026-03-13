@@ -182,6 +182,7 @@ The available commands can be listed using the command::
           mesh_texturer
           model_aligner
           model_analyzer
+          model_clusterer
           model_comparer
           model_converter
           model_cropper
@@ -195,7 +196,6 @@ The available commands can be listed using the command::
           pose_prior_mapper
           poisson_mesher
           project_generator
-          reconstruction_clusterer
           rig_configurator
           rotation_averager
           sequential_matcher
@@ -380,6 +380,10 @@ available as ``colmap [command]``:
 
 - ``model_analyzer``: Print statistics about reconstructions.
 
+- ``model_clusterer``: Split a reconstruction into smaller
+  sub-model clusters. Useful for managing and processing large-scale
+  reconstructions.
+
 - ``model_aligner``: Align/geo-register model to coordinate system of given
   camera centers.
 
@@ -416,10 +420,6 @@ available as ``colmap [command]``:
   in terms of precision/recall vs. speed.
 
 - ``vocab_tree_retriever``: Perform vocabulary tree based image retrieval.
-
-- ``reconstruction_clusterer``: Split a reconstruction into smaller
-  sub-model clusters. Useful for managing and processing large-scale
-  reconstructions.
 
 - ``rotation_averager``: Run standalone rotation averaging on the view graph.
   Estimates global camera rotations from pairwise relative rotations.
