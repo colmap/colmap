@@ -77,6 +77,19 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
+  // Set feature type first so quality modifiers can query EffMaxImageSize().
+  if (options_.feature == Feature::SIFT) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::SIFT_BRUTEFORCE;
+  } else if (options_.feature == Feature::ALIKED) {
+    option_manager_.feature_extraction->type =
+        FeatureExtractorType::ALIKED_N16ROT;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::ALIKED_BRUTEFORCE;
+  }
+
+  // Apply quality preset (scales max_image_size relative to extractor default).
   if (options_.quality == Quality::LOW) {
     option_manager_.ModifyForLowQuality();
   } else if (options_.quality == Quality::MEDIUM) {
@@ -87,15 +100,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
-  if (options_.feature == Feature::SIFT) {
-    option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
-    option_manager_.feature_matching->type =
-        FeatureMatcherType::SIFT_BRUTEFORCE;
-  } else if (options_.feature == Feature::ALIKED) {
-    option_manager_.feature_extraction->type =
-        FeatureExtractorType::ALIKED_N16ROT;
-    option_manager_.feature_matching->type =
-        FeatureMatcherType::ALIKED_BRUTEFORCE;
+  // Feature-specific overrides that must come after quality.
+  if (options_.feature == Feature::ALIKED) {
     // Guided matching is not supported for ALIKED.
     option_manager_.feature_matching->guided_matching = false;
   }
