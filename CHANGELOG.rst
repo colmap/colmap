@@ -12,6 +12,9 @@ New Features
   ``automatic_reconstructor --mapper GLOBAL`` commands. Many fixes and improvements
   have been applied to the GLOMAP codebase as part of this migration.
   GLOMAP is maintained through the COLMAP repository going forward.
+  The global pipeline uses view graph calibration to estimate
+  intrinsics from two-view geometries, which may produce different camera
+  parameters compared to the incremental pipeline's self-calibration.
 * Added ALIKED (N16Rot/N32) feature extraction through ONNX support. Support for brute-force
   and LightGlue matching as well as scalable matching with pre-trained vocabulary trees.
 * Added LightGlue ONNX feature matching for SIFT and ALIKED.
@@ -31,12 +34,12 @@ New Features
   image formats, and using an actively maintained dependency with security fixes, etc.
 * Added guided geometric verification using a known reconstruction.
 * Added view graph calibration as a new module.
-* Added reconstruction clustering as a new module.
+* Added model clustering to partition large reconstructions into
+  smaller, manageable sub-models based on scene connectivity.
 * Added mesh simplification using Quadric Error Metric (QEM) decimation.
 * Added mesh texture mapping for producing textured meshes from calibrated images.
 * Added option to specify JPEG quality during image undistortion.
 * Added support for loading bitmaps with alpha channel.
-* Reduced incremental mapper's minimum model size for small reconstructions.
 * Added option to control refinement of 3D points in bundle adjuster.
 * Added optional support for position prior in absolute pose refinement.
 * Added supernodal CHOLMOD L1 solver support.
@@ -68,7 +71,7 @@ Bug Fixes
 * Fixed 2D association issue at ``AddPoint3D`` with ``point3D_id``.
 * Fixed several issues in database merging.
 * Fixed MVS workspace image downsizing.
-* Fixed pycolmap to respect ``fix_existing_frames`` option.
+* Fixed pycolmap to respect ``fix_existing_frames`` option in the incremental pipeline.
 * Fixed transcription of image IDs in reconstruction from database.
 * Fixed ``BundleAdjustmentConfig::NumResiduals`` ignoring point statistics.
 * Fixed incorrect propagation of incremental options in automatic reconstructor.
@@ -96,13 +99,11 @@ Breaking Changes
 * Feature descriptors are now associated with a type that is propagated through
   the pipeline and storage. Fails matching if descriptor types are inconsistent.
 * Pose priors associated with generic sensor measurement data.
+* ``DatabaseCache`` initialization consolidated into a single options struct
+  instead of scattered arguments.
 * Switched paths from ``std::string`` to ``std::filesystem::path`` throughout
-  the C++ codebase. No impact on the Python interface.
-* Dropped database member in SfM controllers for better modularity and safety.
-* Store two-view geometries in correspondence graph.
-* Store relative poses from two-view geometries in ``DatabaseCache``.
-* Vocab tree training samples random descriptors across all images instead of
-  randomly picking images.
+  the C++ codebase. Python ``pathlib.Path`` objects are now automatically
+  converted. No breaking impact on the Python interface.
 
 Full Change List (sorted temporally)
 ------------------------------------
