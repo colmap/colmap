@@ -27,6 +27,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+// NOTE: On Blackwell GPUs (CUDA compute >= 100), nvcc may miscompile the
+// SweepFromTopToBottom kernel at -O2/-O3 optimization levels, producing
+// all-zero normal maps and corrupted depth maps. The CMake build system
+// excludes sm_100+ architectures for this target and instead emits sm_90
+// PTX, which Blackwell GPUs JIT-compile at first launch.
+// See: https://github.com/colmap/colmap/issues/3514
+
 #define _USE_MATH_DEFINES
 
 #include "colmap/mvs/patch_match_cuda.h"
