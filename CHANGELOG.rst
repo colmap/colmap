@@ -493,6 +493,7 @@ Full Change List (sorted temporally)
 * Scale max_image_size proportionally by feature extractor type in quality presets by @ahojnnes in https://github.com/colmap/colmap/pull/4236
 * Rename reconstruction clusterer command to model clusterer by @ahojnnes in https://github.com/colmap/colmap/pull/4237
 * Fix CPU parallelization for ALIKED by @ahojnnes in https://github.com/colmap/colmap/pull/4238
+* feat: Added global mapping bindings by @TannerGilbert in https://github.com/colmap/colmap/pull/4228
 
 --------------------------
 COLMAP 3.13.0 (11/07/2025)
