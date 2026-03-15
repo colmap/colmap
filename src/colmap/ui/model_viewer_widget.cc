@@ -348,6 +348,12 @@ ModelViewerWidget::ModelViewerWidget(QWidget* parent, OptionManager* options)
   point_size_ = static_cast<float>(devicePixelRatio() * point_size_);
 }
 
+ModelViewerWidget::~ModelViewerWidget() {
+  // Make the OpenGL context current so that painter destructors can
+  // cleanly release VAOs and VBOs.
+  makeCurrent();
+}
+
 void ModelViewerWidget::initializeGL() {
   initializeOpenGLFunctions();
   glEnable(GL_DEPTH_TEST);

@@ -185,8 +185,6 @@ class GpuMat {
 template <typename T>
 GpuMat<T>::GpuMat(const size_t width, const size_t height, const size_t depth)
     : array_ptr_(nullptr), width_(width), height_(height), depth_(depth) {
-  THROW_CHECK_GT(width_, 0) << "GpuMat width must be positive";
-  THROW_CHECK_GT(height_, 0) << "GpuMat height must be positive";
   CUDA_SAFE_CALL(cudaMallocPitch(
       (void**)&array_ptr_, &pitch_, width_ * sizeof(T), height_ * depth_));
 
