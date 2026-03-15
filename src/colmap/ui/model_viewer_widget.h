@@ -75,6 +75,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   const int kDoubleClickInterval = 250;
 
   ModelViewerWidget(QWidget* parent, OptionManager* options);
+  ~ModelViewerWidget() override;
 
   void ReloadReconstruction();
   void ClearReconstruction();
