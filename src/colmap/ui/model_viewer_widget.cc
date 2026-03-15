@@ -352,7 +352,6 @@ ModelViewerWidget::~ModelViewerWidget() {
   // Make the OpenGL context current so that painter destructors can
   // cleanly release VAOs and VBOs.
   makeCurrent();
-  doneCurrent();
 }
 
 void ModelViewerWidget::initializeGL() {
