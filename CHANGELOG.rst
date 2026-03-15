@@ -7,7 +7,7 @@ COLMAP 4.0.1 (03/15/2026)
 
 Bug Fixes
 ---------
-* Add missing lightglue matcher type to GUI
+* Add missing LightGlue matcher type to GUI
 * Fix checks in GpuMap constructor
 * Add destructor to ModelViewerWidget to call makeCurrent()
 
