@@ -123,7 +123,9 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   };
   add_matcher_type(FeatureMatcherType::SIFT_BRUTEFORCE);
 #ifdef COLMAP_ONNX_ENABLED
+  add_matcher_type(FeatureMatcherType::SIFT_LIGHTGLUE);
   add_matcher_type(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  add_matcher_type(FeatureMatcherType::ALIKED_LIGHTGLUE);
 #endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 
