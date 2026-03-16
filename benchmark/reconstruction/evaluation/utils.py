@@ -381,8 +381,8 @@ def compute_frustum_vertices(
 
     world_from_cam = image.cam_from_world().inverse()
     verts_in_world = (
-        world_from_cam.rotation.matrix()
-        @ (verts_in_cam - world_from_cam.translation).T
+        world_from_cam.rotation.matrix() @ verts_in_cam.T
+        + world_from_cam.translation[:, np.newaxis]
     ).T
     return verts_in_world
 
@@ -454,14 +454,13 @@ def filter_covisibility(
     """
     pycolmap.logging.info("Filtering non-covisible image pairs")
 
-    if covisibility_frustum_near is None or covisibility_frustum_far is None:
-        near, far = estimate_depth_range(sparse_gt)
-        if covisibility_frustum_near is not None:
-            near = covisibility_frustum_near
-        if covisibility_frustum_far is not None:
-            far = covisibility_frustum_far
-    else:
-        near, far = covisibility_frustum_near, covisibility_frustum_far
+    near, far = covisibility_frustum_near, covisibility_frustum_far
+    if near is None or far is None:
+        est_near, est_far = estimate_depth_range(sparse_gt)
+        if near is None:
+            near = est_near
+        if far is None:
+            far = est_far
 
     images_gt_by_name: dict[str, pycolmap.Image] = {}
     for image_gt in sparse_gt.images.values():
@@ -480,11 +479,11 @@ def filter_covisibility(
         for db_image in db_images:
             db_id_to_name[db_image.image_id] = db_image.name
 
-        pair_inliers = database.read_two_view_geometry_num_inliers()
-        total_pairs = len(pair_inliers)
+        pair_ids, _ = database.read_two_view_geometry_num_inliers()
+        total_pairs = len(pair_ids)
         filtered_count = 0
 
-        for pair_id in pair_inliers:
+        for pair_id in pair_ids:
             image_id1, image_id2 = pycolmap.pair_id_to_image_pair(pair_id)
             name1 = db_id_to_name.get(image_id1)
             name2 = db_id_to_name.get(image_id2)
