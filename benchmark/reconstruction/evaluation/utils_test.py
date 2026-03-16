@@ -575,7 +575,7 @@ class TestEstimateDepthRanges:
         ranges = estimate_depth_ranges(recon)
         near1, far1 = ranges[1]
         near2, far2 = ranges[2]
-        # Image 1 sees nearby points, image 2 sees distant points (from its frame)
+        # Image 1 sees nearby points, image 2 sees distant points
         assert near1 < 15
         assert near2 < 15
 
