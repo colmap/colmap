@@ -413,6 +413,7 @@ void MainWindow::CreateActions() {
 
   action_import_ =
       new QAction(QIcon(":/media/import.png"), tr("Import model"), this);
+  action_import_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
   connect(action_import_, &QAction::triggered, this, &MainWindow::Import);
   blocking_actions_.push_back(action_import_);
 
@@ -426,6 +427,7 @@ void MainWindow::CreateActions() {
 
   action_export_ =
       new QAction(QIcon(":/media/export.png"), tr("Export model"), this);
+  action_export_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_E));
   connect(action_export_, &QAction::triggered, this, &MainWindow::Export);
   blocking_actions_.push_back(action_export_);
 
