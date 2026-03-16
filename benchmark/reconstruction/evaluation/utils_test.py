@@ -772,7 +772,8 @@ class TestBuildImagePoint3DSets:
         assert len(sets[2]) == 0
 
     def test_partial_overlap(self):
-        # 3 images: img1-img2 share 5 points, img2-img3 share 2, img1-img3 share 0
+        # 3 images: img1-img2 share 5 points
+        # img2-img3 share 2, img1-img3 share 0
         recon = _make_recon_with_tracks(
             num_images=3,
             num_points2D_per_image=10,
