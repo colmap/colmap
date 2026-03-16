@@ -308,53 +308,45 @@ def set_camera_priors(
             updated_camera_ids.add(image.camera_id)
 
 
-def estimate_depth_range(
+def estimate_depth_ranges(
     sparse_gt: pycolmap.Reconstruction,
     percentile_near: float = 2.0,
     percentile_far: float = 98.0,
-    max_num_points: int = 10000,
-) -> tuple[float, float]:
-    """Estimate near/far depth range from GT 3D points.
+    min_num_points: int = 10,
+) -> dict[int, tuple[float, float]]:
+    """Estimate per-image near/far depth range from GT 3D points.
 
-    Projects GT points into each camera and collects positive depths, then
-    returns percentile-based near/far bounds. Subsamples points if there are
-    more than 10000 for performance. Falls back to (0.1, 100.0) if there are
-    no GT points or insufficient depth data.
+    For each image, computes depths of the 3D points visible in that image
+    and returns percentile-based near/far bounds. Falls back to (0.1, 100.0)
+    for images with insufficient depth data.
     """
-    points3D = list(sparse_gt.points3D.values())
-    if len(points3D) == 0:
-        pycolmap.logging.warning(
-            "No GT 3D points available, using default depth range"
-        )
-        return (0.1, 100.0)
+    default_range = (0.1, 100.0)
+    depth_ranges: dict[int, tuple[float, float]] = {}
 
-    if len(points3D) > max_num_points:
-        rng = np.random.default_rng(0)
-        indices = rng.choice(len(points3D), max_num_points, replace=False)
-        points3D = [points3D[i] for i in indices]
+    for image_id, image in sparse_gt.images.items():
+        point3D_ids = image.point3D_ids
+        valid = point3D_ids[point3D_ids != -1]
+        if len(valid) < min_num_points:
+            depth_ranges[image_id] = default_range
+            continue
 
-    point_positions = np.array([p.xyz for p in points3D])
-    all_depths = []
-    for image in sparse_gt.images.values():
+        points_xyz = np.array([sparse_gt.points3D[pid].xyz for pid in valid])
         cam_from_world = image.cam_from_world()
         points_in_cam = (
-            cam_from_world.rotation.matrix() @ point_positions.T
+            cam_from_world.rotation.matrix() @ points_xyz.T
             + cam_from_world.translation[:, np.newaxis]
         )
         depths = points_in_cam[2, :]
-        all_depths.extend(depths[depths > 0].tolist())
+        pos_depths = depths[depths > 0]
 
-    if len(all_depths) < 10:
-        pycolmap.logging.warning(
-            "Insufficient depth data, using default depth range"
-        )
-        return (0.01, 10.0)
+        if len(pos_depths) < min_num_points:
+            depth_ranges[image_id] = default_range
+            continue
 
-    near, far = np.percentile(all_depths, [percentile_near, percentile_far])
-    pycolmap.logging.info(
-        f"Estimated depth range: near={near:.3f}, far={far:.3f}"
-    )
-    return (near, far)
+        near, far = np.percentile(pos_depths, [percentile_near, percentile_far])
+        depth_ranges[image_id] = (float(near), float(far))
+
+    return depth_ranges
 
 
 def compute_frustum_vertices(
@@ -362,20 +354,27 @@ def compute_frustum_vertices(
     camera: pycolmap.Camera,
     near: float,
     far: float,
+    num_steps: int = 5,
 ) -> npt.NDArray[np.floating]:
-    """Compute the 8 vertices of a camera viewing frustum in world coordinates.
+    """Compute sample points on a camera viewing frustum in world coordinates.
 
-    Unprojects the 4 image corners at the near and far depths, then transforms
-    the resulting 8 points from camera space to world space.
+    Samples a grid of points on the image plane (corners, edges, and interior)
+    at multiple depths between near and far, then transforms them to world
+    space for more accurate overlap checks.
     """
     K = camera.calibration_matrix()
     w, h = camera.width, camera.height
-    corners = np.array(
-        [[0, 0, 1], [w, 0, 1], [w, h, 1], [0, h, 1]], dtype=np.float64
+    us = np.linspace(0, w, num_steps)
+    vs = np.linspace(0, h, num_steps)
+    grid_x, grid_y = np.meshgrid(us, vs)
+    pixels = np.stack(
+        [grid_x.ravel(), grid_y.ravel(), np.ones(num_steps * num_steps)],
+        axis=1,
     )
-    rays = (np.linalg.inv(K) @ corners.T).T
+    rays = (np.linalg.inv(K) @ pixels.T).T
 
-    verts_in_cam = np.vstack([rays * near, rays * far])
+    depths = np.linspace(near, far, num_steps)
+    verts_in_cam = np.vstack([rays * d for d in depths])
 
     world_from_cam = image.cam_from_world().inverse()
     verts_in_world = (
@@ -452,13 +451,9 @@ def filter_covisibility(
     """
     pycolmap.logging.info("Filtering non-covisible image pairs")
 
-    near, far = covisibility_frustum_near, covisibility_frustum_far
-    if near is None or far is None:
-        est_near, est_far = estimate_depth_range(sparse_gt)
-        if near is None:
-            near = est_near
-        if far is None:
-            far = est_far
+    depth_ranges: dict[int, tuple[float, float]] = {}
+    if covisibility_frustum_near is None or covisibility_frustum_far is None:
+        depth_ranges = estimate_depth_ranges(sparse_gt)
 
     images_gt_by_name: dict[str, pycolmap.Image] = {}
     for image_gt in sparse_gt.images.values():
@@ -467,6 +462,17 @@ def filter_covisibility(
     frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
     for image_id, image_gt in sparse_gt.images.items():
         camera_gt = sparse_gt.cameras[image_gt.camera_id]
+        est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
+        near = (
+            covisibility_frustum_near
+            if covisibility_frustum_near is not None
+            else est_near
+        )
+        far = (
+            covisibility_frustum_far
+            if covisibility_frustum_far is not None
+            else est_far
+        )
         frustum_vertices[image_id] = compute_frustum_vertices(
             image_gt, camera_gt, near, far
         )
