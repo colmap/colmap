@@ -324,8 +324,11 @@ def estimate_depth_ranges(
     depth_ranges: dict[int, tuple[float, float]] = {}
 
     for image_id, image in sparse_gt.images.items():
-        point3D_ids = image.point3D_ids
-        valid = point3D_ids[point3D_ids != -1]
+        valid = [
+            p.point3D_id
+            for p in image.points2D
+            if p.point3D_id != pycolmap.INVALID_POINT3D_ID
+        ]
         if len(valid) < min_num_points:
             depth_ranges[image_id] = default_range
             continue
@@ -362,19 +365,16 @@ def compute_frustum_vertices(
     at multiple depths between near and far, then transforms them to world
     space for more accurate overlap checks.
     """
-    K = camera.calibration_matrix()
     w, h = camera.width, camera.height
     us = np.linspace(0, w, num_steps)
     vs = np.linspace(0, h, num_steps)
     grid_x, grid_y = np.meshgrid(us, vs)
-    pixels = np.stack(
-        [grid_x.ravel(), grid_y.ravel(), np.ones(num_steps * num_steps)],
-        axis=1,
-    )
-    rays = (np.linalg.inv(K) @ pixels.T).T
+    pixels = np.stack([grid_x.ravel(), grid_y.ravel()], axis=1)
+    cam_points = camera.cam_from_img(pixels)
+    cam_rays = np.column_stack([cam_points, np.ones(len(cam_points))])
 
     depths = np.linspace(near, far, num_steps)
-    verts_in_cam = np.vstack([rays * d for d in depths])
+    verts_in_cam = np.vstack([cam_rays * d for d in depths])
 
     world_from_cam = image.cam_from_world().inverse()
     verts_in_world = (
