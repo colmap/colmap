@@ -79,6 +79,8 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_scene
         colmap_controllers
-        colmap_mvs
         ${COLMAP_UI_QT_LIBS}
 )
+if(MVS_ENABLED)
+    target_link_libraries(colmap_ui PUBLIC colmap_mvs)
+endif()
