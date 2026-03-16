@@ -235,6 +235,14 @@ def parse_args() -> argparse.Namespace:
         help="Maximum viewing angle in degrees for co-visibility check.",
     )
     parser.add_argument(
+        "--covisibility_min_shared_points",
+        type=int,
+        default=5,
+        help="Minimum number of shared GT 3D points for two images to be "
+        "considered covisible. If GT tracks are available and this is > 0, "
+        "track-based covisibility is preferred over frustum-based checking.",
+    )
+    parser.add_argument(
         "--error_type",
         default="relative_auc",
         choices=[
@@ -436,46 +444,81 @@ def check_covisibility(
     )
 
 
+def _build_image_point3D_sets(
+    sparse_gt: pycolmap.Reconstruction,
+) -> dict[int, set[int]]:
+    """Build a mapping from image ID to the set of observed 3D point IDs."""
+    image_points: dict[int, set[int]] = {}
+    for image_id, image in sparse_gt.images.items():
+        image_points[image_id] = {
+            p.point3D_id
+            for p in image.points2D
+            if p.point3D_id != pycolmap.INVALID_POINT3D_ID
+        }
+    return image_points
+
+
 def filter_covisibility(
     database_path: Path,
     sparse_gt: pycolmap.Reconstruction,
     covisibility_frustum_near: float | None,
     covisibility_frustum_far: float | None,
     max_viewing_angle_deg: float,
+    min_shared_points: int = 0,
 ) -> None:
     """Filter non-covisible image pairs from the database.
 
-    Uses GT camera poses and intrinsics to build viewing frustums, then removes
-    match and two-view geometry entries for image pairs whose frustums do not
-    overlap. Near/far planes are auto-detected from GT points if not provided.
+    If the GT reconstruction contains 3D point tracks and min_shared_points > 0,
+    uses track-based covisibility: two images are covisible if they share at
+    least min_shared_points common 3D points. Otherwise, falls back to
+    frustum-based overlap checking using GT camera poses and intrinsics.
     """
     pycolmap.logging.info("Filtering non-covisible image pairs")
 
-    depth_ranges: dict[int, tuple[float, float]] = {}
-    if covisibility_frustum_near is None or covisibility_frustum_far is None:
-        depth_ranges = estimate_depth_ranges(sparse_gt)
+    use_tracks = min_shared_points > 0 and sparse_gt.num_points3D > 0
+    image_point3D_sets: dict[int, set[int]] = {}
+    frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
+
+    if use_tracks:
+        pycolmap.logging.info(
+            f"Using track-based covisibility "
+            f"(min_shared_points={min_shared_points})"
+        )
+        image_point3D_sets = _build_image_point3D_sets(sparse_gt)
+    else:
+        if min_shared_points > 0:
+            pycolmap.logging.warning(
+                "No GT 3D points available for track-based covisibility, "
+                "falling back to frustum-based check"
+            )
+
+        depth_ranges: dict[int, tuple[float, float]] = {}
+        if (
+            covisibility_frustum_near is None
+            or covisibility_frustum_far is None
+        ):
+            depth_ranges = estimate_depth_ranges(sparse_gt)
+
+        for image_id, image_gt in sparse_gt.images.items():
+            camera_gt = sparse_gt.cameras[image_gt.camera_id]
+            est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
+            near = (
+                covisibility_frustum_near
+                if covisibility_frustum_near is not None
+                else est_near
+            )
+            far = (
+                covisibility_frustum_far
+                if covisibility_frustum_far is not None
+                else est_far
+            )
+            frustum_vertices[image_id] = compute_frustum_vertices(
+                image_gt, camera_gt, near, far
+            )
 
     images_gt_by_name: dict[str, pycolmap.Image] = {}
     for image_gt in sparse_gt.images.values():
         images_gt_by_name[image_gt.name] = image_gt
-
-    frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
-    for image_id, image_gt in sparse_gt.images.items():
-        camera_gt = sparse_gt.cameras[image_gt.camera_id]
-        est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
-        near = (
-            covisibility_frustum_near
-            if covisibility_frustum_near is not None
-            else est_near
-        )
-        far = (
-            covisibility_frustum_far
-            if covisibility_frustum_far is not None
-            else est_far
-        )
-        frustum_vertices[image_id] = compute_frustum_vertices(
-            image_gt, camera_gt, near, far
-        )
 
     with pycolmap.Database.open(str(database_path)) as database:
         db_images = database.read_all_images()
@@ -498,15 +541,24 @@ def filter_covisibility(
             gt1 = images_gt_by_name[name1]
             gt2 = images_gt_by_name[name2]
 
-            if not check_covisibility(
-                gt1,
-                sparse_gt.cameras[gt1.camera_id],
-                frustum_vertices[gt1.image_id],
-                gt2,
-                sparse_gt.cameras[gt2.camera_id],
-                frustum_vertices[gt2.image_id],
-                max_viewing_angle_deg,
-            ):
+            if use_tracks:
+                shared = len(
+                    image_point3D_sets[gt1.image_id]
+                    & image_point3D_sets[gt2.image_id]
+                )
+                is_covisible = shared >= min_shared_points
+            else:
+                is_covisible = check_covisibility(
+                    gt1,
+                    sparse_gt.cameras[gt1.camera_id],
+                    frustum_vertices[gt1.image_id],
+                    gt2,
+                    sparse_gt.cameras[gt2.camera_id],
+                    frustum_vertices[gt2.image_id],
+                    max_viewing_angle_deg,
+                )
+
+            if not is_covisible:
                 database.delete_matches(image_id1, image_id2)
                 database.delete_two_view_geometry(image_id1, image_id2)
                 filtered_count += 1
@@ -617,6 +669,7 @@ def colmap_reconstruction(
             args.covisibility_frustum_near,
             args.covisibility_frustum_far,
             args.covisibility_max_viewing_angle,
+            args.covisibility_min_shared_points,
         )
 
     # Decouple matching from sparse reconstruction, because matching will

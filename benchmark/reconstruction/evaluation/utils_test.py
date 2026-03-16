@@ -34,6 +34,7 @@ import pycolmap
 
 from .utils import (
     Metrics,
+    _build_image_point3D_sets,
     check_covisibility,
     compute_abs_errors,
     compute_auc,
@@ -693,3 +694,99 @@ class TestCheckCovisibility:
     def test_covisible_identical_cameras(self):
         recon = self._build_two_camera_recon([0, 0, 0], [0, 0, 0])
         assert self._check(recon)
+
+
+def _make_recon_with_tracks(
+    num_images: int,
+    num_points2D_per_image: int,
+    tracks: list[list[tuple[int, int]]],
+) -> pycolmap.Reconstruction:
+    """Build a reconstruction with images and 3D point tracks.
+
+    Args:
+        num_images: Number of images to create.
+        num_points2D_per_image: Number of 2D points per image.
+        tracks: List of tracks, where each track is a list of
+            (image_id, point2D_idx) tuples.
+    """
+    recon = pycolmap.Reconstruction()
+    cam = _make_camera()
+    recon.add_camera_with_trivial_rig(cam)
+
+    for i in range(1, num_images + 1):
+        _add_image(
+            recon,
+            i,
+            f"img{i}.jpg",
+            np.array([i * 2.0, 0, 0]),
+            num_points2D=num_points2D_per_image,
+        )
+
+    for track in tracks:
+        xyz = np.array([0.0, 0.0, 5.0])
+        elements = [pycolmap.TrackElement(img_id, idx) for img_id, idx in track]
+        recon.add_point3D(xyz, pycolmap.Track(elements))
+
+    return recon
+
+
+class TestBuildImagePoint3DSets:
+    def test_basic_tracks(self):
+        # 2 images, 5 points2D each, 3 shared tracks
+        recon = _make_recon_with_tracks(
+            num_images=2,
+            num_points2D_per_image=5,
+            tracks=[
+                [(1, 0), (2, 0)],
+                [(1, 1), (2, 1)],
+                [(1, 2), (2, 2)],
+            ],
+        )
+        sets = _build_image_point3D_sets(recon)
+        assert len(sets[1]) == 3
+        assert len(sets[2]) == 3
+        assert len(sets[1] & sets[2]) == 3
+
+    def test_no_shared_tracks(self):
+        recon = _make_recon_with_tracks(
+            num_images=2,
+            num_points2D_per_image=5,
+            tracks=[
+                [(1, 0)],
+                [(1, 1)],
+                [(2, 0)],
+                [(2, 1)],
+            ],
+        )
+        sets = _build_image_point3D_sets(recon)
+        assert len(sets[1] & sets[2]) == 0
+
+    def test_no_tracks(self):
+        recon = _make_recon_with_tracks(
+            num_images=2,
+            num_points2D_per_image=5,
+            tracks=[],
+        )
+        sets = _build_image_point3D_sets(recon)
+        assert len(sets[1]) == 0
+        assert len(sets[2]) == 0
+
+    def test_partial_overlap(self):
+        # 3 images: img1-img2 share 5 points, img2-img3 share 2, img1-img3 share 0
+        recon = _make_recon_with_tracks(
+            num_images=3,
+            num_points2D_per_image=10,
+            tracks=[
+                [(1, 0), (2, 0)],
+                [(1, 1), (2, 1)],
+                [(1, 2), (2, 2)],
+                [(1, 3), (2, 3)],
+                [(1, 4), (2, 4)],
+                [(2, 5), (3, 0)],
+                [(2, 6), (3, 1)],
+            ],
+        )
+        sets = _build_image_point3D_sets(recon)
+        assert len(sets[1] & sets[2]) == 5
+        assert len(sets[2] & sets[3]) == 2
+        assert len(sets[1] & sets[3]) == 0
