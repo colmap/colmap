@@ -652,7 +652,7 @@ class TestCheckCovisibility:
 
     def test_covisible_side_by_side(self):
         recon = self._build_two_camera_recon([-0.5, 0, -5], [0.5, 0, -5])
-        assert not self._check(recon)
+        assert self._check(recon)
 
     def test_not_covisible_opposite_directions(self):
         rot_180_y = pycolmap.Rotation3d(np.array([0, 1, 0, 0]))
