@@ -348,11 +348,11 @@ def estimate_depth_range(
         pycolmap.logging.warning(
             "Insufficient depth data, using default depth range"
         )
-        return (0.1, 100.0)
+        return (0.01, 10.0)
 
-    all_depths = np.array(all_depths)
-    near = float(np.percentile(all_depths, percentile_near))
-    far = float(np.percentile(all_depths, percentile_far))
+    all_depths_arr = np.array(all_depths)
+    near = float(np.percentile(all_depths_arr, percentile_near))
+    far = float(np.percentile(all_depths_arr, percentile_far))
     pycolmap.logging.info(
         f"Estimated depth range: near={near:.3f}, far={far:.3f}"
     )
