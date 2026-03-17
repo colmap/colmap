@@ -78,8 +78,6 @@ COLMAP_ADD_LIBRARY(
 )
 
 set(COLMAP_MAIN_SRCS
-    feature.cc
-    sfm.cc
     colmap.cc
     database.cc
     feature.cc

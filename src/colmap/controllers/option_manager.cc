@@ -1055,6 +1055,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *poisson_meshing = mvs::PoissonMeshingOptions();
   *delaunay_meshing = mvs::DelaunayMeshingOptions();
   *mesh_texture_mapping = mvs::MeshTextureMappingOptions();
+  *mesh_simplification = mvs::MeshSimplificationOptions();
 #endif
   *render = RenderOptions();
 
