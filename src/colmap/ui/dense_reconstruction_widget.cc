@@ -31,9 +31,11 @@
 
 #include "colmap/controllers/undistorters.h"
 #include "colmap/image/undistortion.h"
+#if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#endif
 #include "colmap/ui/main_window.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/controller_thread.h"
@@ -45,6 +47,7 @@ const static std::string kFusedFileName = "fused.ply";
 const static std::string kPoissonMeshedFileName = "meshed-poisson.ply";
 const static std::string kDelaunayMeshedFileName = "meshed-delaunay.ply";
 
+#if defined(COLMAP_MVS_ENABLED)
 class StereoOptionsTab : public OptionsWidget {
  public:
   StereoOptionsTab(QWidget* parent, OptionManager* options)
@@ -163,6 +166,7 @@ class MeshingOptionsTab : public OptionsWidget {
     AddOptionInt(&options->delaunay_meshing->num_threads, "num_threads", -1);
   }
 };
+#endif  // COLMAP_MVS_ENABLED
 
 // Read the specified reference image names from a patch match configuration.
 std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
@@ -204,9 +208,11 @@ DenseReconstructionOptionsWidget::DenseReconstructionOptionsWidget(
 
   QTabWidget* tab_widget = new QTabWidget(this);
   tab_widget->setElideMode(Qt::TextElideMode::ElideRight);
+#if defined(COLMAP_MVS_ENABLED)
   tab_widget->addTab(new StereoOptionsTab(this, options), "Stereo");
   tab_widget->addTab(new FusionOptionsTab(this, options), "Fusion");
   tab_widget->addTab(new MeshingOptionsTab(this, options), "Meshing");
+#endif
 
   grid->addWidget(tab_widget, 0, 0);
 }
@@ -385,7 +391,7 @@ void DenseReconstructionWidget::Stereo() {
     return;
   }
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_MVS_ENABLED) && defined(COLMAP_CUDA_ENABLED)
   auto processor =
       std::make_unique<ControllerThread<mvs::PatchMatchController>>(
           std::make_shared<mvs::PatchMatchController>(
@@ -393,6 +399,11 @@ void DenseReconstructionWidget::Stereo() {
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Stereo...", true, std::move(processor));
+#elif !defined(COLMAP_MVS_ENABLED)
+  QMessageBox::critical(this,
+                        "",
+                        tr("Dense stereo reconstruction requires the MVS "
+                           "module, which is not available in this build."));
 #else
   QMessageBox::critical(this,
                         "",
@@ -402,6 +413,12 @@ void DenseReconstructionWidget::Stereo() {
 }
 
 void DenseReconstructionWidget::Fusion() {
+#if !defined(COLMAP_MVS_ENABLED)
+  QMessageBox::critical(this,
+                        "",
+                        tr("Stereo fusion requires the MVS module, which "
+                           "is not available in this build."));
+#else
   const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -434,6 +451,7 @@ void DenseReconstructionWidget::Fusion() {
         write_fused_points_action_->trigger();
       });
   thread_control_widget_->StartThread("Fusion...", true, std::move(fuser));
+#endif
 }
 
 void DenseReconstructionWidget::LoadAndDisplayMesh(
@@ -447,6 +465,12 @@ void DenseReconstructionWidget::LoadAndDisplayMesh(
 }
 
 void DenseReconstructionWidget::PoissonMeshing() {
+#if !defined(COLMAP_MVS_ENABLED)
+  QMessageBox::critical(this,
+                        "",
+                        tr("Poisson meshing requires the MVS module, which "
+                           "is not available in this build."));
+#else
   const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -461,10 +485,16 @@ void DenseReconstructionWidget::PoissonMeshing() {
           LoadAndDisplayMesh(workspace_path / kPoissonMeshedFileName);
         });
   }
+#endif
 }
 
 void DenseReconstructionWidget::DelaunayMeshing() {
-#if defined(COLMAP_CGAL_ENABLED)
+#if !defined(COLMAP_MVS_ENABLED)
+  QMessageBox::critical(this,
+                        "",
+                        tr("Delaunay meshing requires the MVS module, which "
+                           "is not available in this build."));
+#elif defined(COLMAP_CGAL_ENABLED)
   const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -627,11 +657,13 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
     connect(depth_map_button,
             &QPushButton::released,
             [this, image_name, depth_map_path]() {
+#if defined(COLMAP_MVS_ENABLED)
               mvs::DepthMap depth_map;
               depth_map.Read(depth_map_path);
               image_viewer_widget_->setWindowTitle(
                   QString("Depth map for %1").arg(image_name.c_str()));
               image_viewer_widget_->ShowBitmap(depth_map.ToBitmap(2, 98));
+#endif
             });
   } else {
     depth_map_button->setEnabled(false);
@@ -648,11 +680,13 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
     connect(normal_map_button,
             &QPushButton::released,
             [this, image_name, normal_map_path]() {
+#if defined(COLMAP_MVS_ENABLED)
               mvs::NormalMap normal_map;
               normal_map.Read(normal_map_path);
               image_viewer_widget_->setWindowTitle(
                   QString("Normal map for %1").arg(image_name.c_str()));
               image_viewer_widget_->ShowBitmap(normal_map.ToBitmap());
+#endif
             });
   } else {
     normal_map_button->setEnabled(false);

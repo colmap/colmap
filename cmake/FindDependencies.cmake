@@ -456,6 +456,13 @@ else()
     message(STATUS "Disabling GUI support")
 endif()
 
+if(MVS_ENABLED)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_MVS_ENABLED)
+    message(STATUS "Enabling MVS support")
+else()
+    message(STATUS "Disabling MVS support")
+endif()
+
 if(OPENGL_ENABLED)
     if(NOT GUI_ENABLED)
         message(STATUS "Disabling GUI also disables OpenGL")
