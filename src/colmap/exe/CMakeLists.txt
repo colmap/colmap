@@ -71,8 +71,6 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_EXECUTABLE(
     NAME colmap_main
     SRCS
-        feature.cc
-        sfm.cc
         colmap.cc
         database.cc
         feature.cc
