@@ -1139,8 +1139,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     // coordinates. This properly handles non-pinhole camera models (with
     // distortion) where the fundamental matrix relationship doesn't hold.
     const bool use_essential_matrix =
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG;
+        (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+         two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG) &&
+        two_view_geometry->E.has_value();
+    const bool use_fundamental_matrix =
+        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED &&
+        two_view_geometry->F.has_value();
+    const bool use_homography =
+        (two_view_geometry->config == TwoViewGeometry::PLANAR ||
+         two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
+         two_view_geometry->config == TwoViewGeometry::PLANAR_OR_PANORAMIC) &&
+        two_view_geometry->H.has_value();
     const FeatureKeypoints normalized_keypoints1 =
         use_essential_matrix
             ? NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints)
@@ -1150,10 +1159,15 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
             ? NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints)
             : FeatureKeypoints();
 
-    const Eigen::Matrix3f E_or_F = use_essential_matrix
-                                       ? two_view_geometry->E->cast<float>()
-                                       : two_view_geometry->F->cast<float>();
-    const Eigen::Matrix3f H = two_view_geometry->H->cast<float>();
+    const Eigen::Matrix3f E_or_F =
+        use_essential_matrix
+            ? Eigen::Matrix3f(two_view_geometry->E->cast<float>())
+        : use_fundamental_matrix
+            ? Eigen::Matrix3f(two_view_geometry->F->cast<float>())
+            : Eigen::Matrix3f::Zero();
+    const Eigen::Matrix3f H =
+        use_homography ? Eigen::Matrix3f(two_view_geometry->H->cast<float>())
+                       : Eigen::Matrix3f::Zero();
 
     const float max_residual =
         use_essential_matrix
@@ -1162,9 +1176,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
             : static_cast<float>(max_error * max_error);
 
     std::function<bool(float, float, float, float)> guided_filter;
-    if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
-        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
+    if (use_essential_matrix || use_fundamental_matrix) {
       guided_filter =
           [&](const float x1, const float y1, const float x2, const float y2) {
             const Eigen::Vector3f p1(x1, y1, 1.0f);
@@ -1178,10 +1190,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                                    epipolar_line2(1) * epipolar_line2(1);
             return nom * nom > max_residual * denom_sq;
           };
-    } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
-               two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
-               two_view_geometry->config ==
-                   TwoViewGeometry::PLANAR_OR_PANORAMIC) {
+    } else if (use_homography) {
       guided_filter =
           [&](const float x1, const float y1, const float x2, const float y2) {
             const Eigen::Vector3f p1(x1, y1, 1.0f);
