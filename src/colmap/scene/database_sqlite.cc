@@ -159,9 +159,9 @@ MatrixType ReadStaticMatrixBlob(sqlite3_stmt* sql_stmt,
     if (num_bytes > 0) {
       THROW_CHECK_EQ(num_bytes,
                      matrix.size() * sizeof(typename MatrixType::Scalar));
-      memcpy(reinterpret_cast<char*>(matrix.data()),
-             sqlite3_column_blob(sql_stmt, col),
-             num_bytes);
+      std::memcpy(reinterpret_cast<char*>(matrix.data()),
+                  sqlite3_column_blob(sql_stmt, col),
+                  num_bytes);
     } else {
       matrix = MatrixType::Zero();
     }
@@ -195,9 +195,11 @@ MatrixType ReadDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
     THROW_CHECK_EQ(matrix.size() * sizeof(typename MatrixType::Scalar),
                    num_bytes);
 
-    memcpy(reinterpret_cast<char*>(matrix.data()),
-           sqlite3_column_blob(sql_stmt, col + 2),
-           num_bytes);
+    if (num_bytes > 0) {
+      std::memcpy(reinterpret_cast<char*>(matrix.data()),
+                  sqlite3_column_blob(sql_stmt, col + 2),
+                  num_bytes);
+    }
   } else {
     const typename MatrixType::Index rows =
         (MatrixType::RowsAtCompileTime == Eigen::Dynamic)
