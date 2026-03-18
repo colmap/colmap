@@ -2,6 +2,16 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.0.2 (03/18/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Fix ALIKED keypoint score filtering
+* Fix ALIKED extraction with pycolmap
+* Fix missing reset of mesh simplication options
+
+-------------------------
 COLMAP 4.0.1 (03/15/2026)
 -------------------------
 

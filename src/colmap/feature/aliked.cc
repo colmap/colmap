@@ -239,12 +239,13 @@ class AlikedFeatureExtractor : public FeatureExtractor {
 
     const float* keypoints_data = output_tensors[0].GetTensorData<float>();
     const float* descriptors_data = output_tensors[1].GetTensorData<float>();
+    const float* scores_data = output_tensors[2].GetTensorData<float>();
 
     // Convert keypoints from normalized [-1, 1] to pixel coordinates,
     // where ALIKED uses the center of the top-left pixel as (0, 0),
     // while COLMAP uses the top-left pixel's corner as (0, 0).
     // Filter out keypoints in the padded region (outside original image
-    // bounds).
+    // bounds) and keypoints below the min_score threshold.
     const float scale_x = 0.5f * static_cast<float>(padder.padded_width - 1);
     const float scale_y = 0.5f * static_cast<float>(padder.padded_height - 1);
 
@@ -256,6 +257,9 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     std::vector<ValidKeypoint> valid_keypoints;
     valid_keypoints.reserve(num_keypoints);
     for (int i = 0; i < num_keypoints; ++i) {
+      if (scores_data[i] < min_score) {
+        continue;
+      }
       const float norm_x = keypoints_data[2 * i + 0];
       const float norm_y = keypoints_data[2 * i + 1];
       const float px = (norm_x + 1.0f) * scale_x + 0.5f;
