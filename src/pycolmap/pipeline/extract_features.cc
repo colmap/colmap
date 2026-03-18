@@ -34,6 +34,7 @@ void ExtractFeatures(const std::filesystem::path& database_path,
 
   UpdateImageReaderOptionsFromCameraMode(reader_options, camera_mode);
   reader_options.image_path = image_path;
+  reader_options.as_rgb = extraction_options.RequiresRGB();
 
   if (!image_names.empty()) {
     reader_options.image_names = image_names;
