@@ -83,7 +83,7 @@ inline unsigned int PNGReader::nextRow( unsigned char* row )
 	return _currentRow++;
 }
 
-PNGReader::~PNGReader( void )
+inline PNGReader::~PNGReader( void )
 {
 	if( _scratchRow ) delete[] _scratchRow;
 	_scratchRow = NULL;
@@ -119,7 +119,7 @@ inline bool PNGReader::GetInfo( const char* fileName , unsigned int& width , uns
 	return true;
 }
 
-PNGWriter::PNGWriter( const char* fileName , unsigned int width , unsigned int height , unsigned int channels , unsigned int quality )
+inline PNGWriter::PNGWriter( const char* fileName , unsigned int width , unsigned int height , unsigned int channels , unsigned int quality )
 {
 	_currentRow = 0;
 
@@ -151,19 +151,19 @@ PNGWriter::PNGWriter( const char* fileName , unsigned int width , unsigned int h
 		if( swap ) png_set_swap( _png_ptr );
 	}
 }
-PNGWriter::~PNGWriter( void )
+inline PNGWriter::~PNGWriter( void )
 {
 	png_write_end( _png_ptr , NULL );
 	png_destroy_write_struct( &_png_ptr , &_info_ptr );
 	fclose( _fp );
 }
-unsigned int PNGWriter::nextRow( const unsigned char* row )
+inline unsigned int PNGWriter::nextRow( const unsigned char* row )
 {
 	png_write_row( _png_ptr , (png_bytep)row );
 	return _currentRow++;
 }
-unsigned int PNGWriter::nextRows( const unsigned char* rows , unsigned int rowNum )
+inline unsigned int PNGWriter::nextRows( const unsigned char* rows , unsigned int rowNum )
 {
-	for( unsigned int r=0 ; r<rowNum ; r++ ) png_write_row( _png_ptr , (png_bytep)( rows + r * 3 * sizeof( unsigned char ) * _png_ptr->width ) );
+	for( unsigned int r=0 ; r<rowNum ; r++ ) png_write_row( _png_ptr , (png_bytep)( rows + r * _channels * sizeof( unsigned char ) * png_get_image_width( _png_ptr , _info_ptr ) ) );
 	return _currentRow += rowNum;
 }
