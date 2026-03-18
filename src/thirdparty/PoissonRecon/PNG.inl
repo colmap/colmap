@@ -164,6 +164,6 @@ inline unsigned int PNGWriter::nextRow( const unsigned char* row )
 }
 inline unsigned int PNGWriter::nextRows( const unsigned char* rows , unsigned int rowNum )
 {
-	for( unsigned int r=0 ; r<rowNum ; r++ ) png_write_row( _png_ptr , (png_bytep)( rows + r * 3 * sizeof( unsigned char ) * png_get_image_width( _png_ptr , _info_ptr ) ) );
+	for( unsigned int r=0 ; r<rowNum ; r++ ) png_write_row( _png_ptr , (png_bytep)( rows + r * _channels * sizeof( unsigned char ) * png_get_image_width( _png_ptr , _info_ptr ) ) );
 	return _currentRow += rowNum;
 }
