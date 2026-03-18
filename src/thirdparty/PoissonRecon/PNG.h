@@ -31,6 +31,8 @@ DAMAGE.
 
 #include <stdio.h>
 #include <vector>
+#include <zlib.h>
+
 #include "Image.h"
 #include "PNG/png.h"
 
