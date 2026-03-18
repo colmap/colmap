@@ -106,7 +106,9 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
 
         ceres::NumericDiffOptions numeric_diff_options;
         ceres::GradientChecker gradient_checker(
-            analytical_cost_function.get(), static_cast<const std::vector<const ceres::Manifold*>*>(nullptr), numeric_diff_options);
+            analytical_cost_function.get(),
+            static_cast<const std::vector<const ceres::Manifold*>*>(nullptr),
+            numeric_diff_options);
         ceres::GradientChecker::ProbeResults results;
         EXPECT_TRUE(
             gradient_checker.Probe(parameter_blocks.data(), kEps, &results));
