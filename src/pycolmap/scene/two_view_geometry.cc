@@ -19,7 +19,7 @@ namespace py = pybind11;
 
 void BindTwoViewGeometryScene(py::module& m) {
   py::native_enum<TwoViewGeometry::ConfigurationType>(
-      m, "TwoViewGeometryConfiguration", "enum.IntEnum")
+      m, "TwoViewGeometryConfiguration", "enum.Enum")
       .value("UNDEFINED", TwoViewGeometry::UNDEFINED)
       .value("DEGENERATE", TwoViewGeometry::DEGENERATE)
       .value("CALIBRATED", TwoViewGeometry::CALIBRATED)

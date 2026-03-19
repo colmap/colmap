@@ -240,7 +240,7 @@ void BindIncrementalPipeline(py::module& m) {
 
   using CallbackType = IncrementalPipeline::CallbackType;
   py::native_enum<CallbackType>(
-      m, "IncrementalPipelineCallback", "enum.IntEnum")
+      m, "IncrementalPipelineCallback", "enum.Enum")
       .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
              CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
       .value("NEXT_IMAGE_REG_CALLBACK", CallbackType::NEXT_IMAGE_REG_CALLBACK)
@@ -248,7 +248,7 @@ void BindIncrementalPipeline(py::module& m) {
       .finalize();
 
   using Status = IncrementalPipeline::Status;
-  py::native_enum<Status>(m, "IncrementalPipelineStatus", "enum.IntEnum")
+  py::native_enum<Status>(m, "IncrementalPipelineStatus", "enum.Enum")
       .value("SUCCESS", Status::SUCCESS)
       .value("INTERRUPTED", Status::INTERRUPTED)
       .value("CONTINUE", Status::CONTINUE)
@@ -325,7 +325,7 @@ void BindIncrementalPipeline(py::module& m) {
 
 void BindIncrementalMapperOptions(py::module& m) {
   using ImageSelection = IncrementalMapper::Options::ImageSelectionMethod;
-  py::native_enum<ImageSelection>(m, "ImageSelectionMethod", "enum.IntEnum")
+  py::native_enum<ImageSelection>(m, "ImageSelectionMethod", "enum.Enum")
       .value("MAX_VISIBLE_POINTS_NUM", ImageSelection::MAX_VISIBLE_POINTS_NUM)
       .value("MAX_VISIBLE_POINTS_RATIO",
              ImageSelection::MAX_VISIBLE_POINTS_RATIO)

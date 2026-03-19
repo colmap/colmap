@@ -15,7 +15,7 @@ namespace py = pybind11;
 
 void BindFeatureTypes(py::module& m) {
   py::native_enum<FeatureExtractorType>(
-      m, "FeatureExtractorType", "enum.IntEnum")
+      m, "FeatureExtractorType", "enum.Enum")
       .value("UNDEFINED", FeatureExtractorType::UNDEFINED)
       .value("SIFT", FeatureExtractorType::SIFT)
       .value("ALIKED_N16ROT", FeatureExtractorType::ALIKED_N16ROT)

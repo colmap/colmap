@@ -176,7 +176,7 @@ void UndistortImages(const std::filesystem::path& output_path,
 }
 
 void BindImages(py::module& m) {
-  py::native_enum<CameraMode>(m, "CameraMode", "enum.IntEnum")
+  py::native_enum<CameraMode>(m, "CameraMode", "enum.Enum")
       .value("AUTO", CameraMode::AUTO)
       .value("SINGLE", CameraMode::SINGLE)
       .value("PER_FOLDER", CameraMode::PER_FOLDER)
@@ -228,7 +228,7 @@ void BindImages(py::module& m) {
           .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
-  py::native_enum<FileCopyType>(m, "FileCopyType", "enum.IntEnum")
+  py::native_enum<FileCopyType>(m, "FileCopyType", "enum.Enum")
       .value("copy", FileCopyType::COPY)
       .value("softlink", FileCopyType::SOFT_LINK)
       .value("hardlink", FileCopyType::HARD_LINK)

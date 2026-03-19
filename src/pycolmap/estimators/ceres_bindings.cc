@@ -12,24 +12,24 @@
 // https://github.com/cvg/pyceres/blob/main/_pyceres/core/types.h
 // https://github.com/cvg/pyceres/blob/main/_pyceres/core/solver.h
 void BindCeresTypes(py::module& m) {
-  py::native_enum<ceres::Ownership>(m, "Ownership", "enum.IntEnum")
+  py::native_enum<ceres::Ownership>(m, "Ownership", "enum.Enum")
       .value("DO_NOT_TAKE_OWNERSHIP", ceres::Ownership::DO_NOT_TAKE_OWNERSHIP)
       .value("TAKE_OWNERSHIP", ceres::Ownership::TAKE_OWNERSHIP)
       .export_values()
       .finalize();
 
-  py::native_enum<ceres::MinimizerType>(m, "MinimizerType", "enum.IntEnum")
+  py::native_enum<ceres::MinimizerType>(m, "MinimizerType", "enum.Enum")
       .value("LINE_SEARCH", ceres::MinimizerType::LINE_SEARCH)
       .value("TRUST_REGION", ceres::MinimizerType::TRUST_REGION)
       .finalize();
 
-  py::native_enum<ceres::LineSearchType>(m, "LineSearchType", "enum.IntEnum")
+  py::native_enum<ceres::LineSearchType>(m, "LineSearchType", "enum.Enum")
       .value("ARMIJO", ceres::LineSearchType::ARMIJO)
       .value("WOLFE", ceres::LineSearchType::WOLFE)
       .finalize();
 
   py::native_enum<ceres::LineSearchDirectionType>(
-      m, "LineSearchDirectionType", "enum.IntEnum")
+      m, "LineSearchDirectionType", "enum.Enum")
       .value("BFGS", ceres::LineSearchDirectionType::BFGS)
       .value("LBFGS", ceres::LineSearchDirectionType::LBFGS)
       .value("NONLINEAR_CONJUGATE_GRADIENT",
@@ -39,14 +39,14 @@ void BindCeresTypes(py::module& m) {
       .finalize();
 
   py::native_enum<ceres::LineSearchInterpolationType>(
-      m, "LineSearchInterpolationType", "enum.IntEnum")
+      m, "LineSearchInterpolationType", "enum.Enum")
       .value("BISECTION", ceres::LineSearchInterpolationType::BISECTION)
       .value("CUBIC", ceres::LineSearchInterpolationType::CUBIC)
       .value("QUADRATIC", ceres::LineSearchInterpolationType::QUADRATIC)
       .finalize();
 
   py::native_enum<ceres::NonlinearConjugateGradientType>(
-      m, "NonlinearConjugateGradientType", "enum.IntEnum")
+      m, "NonlinearConjugateGradientType", "enum.Enum")
       .value("FLETCHER_REEVES",
              ceres::NonlinearConjugateGradientType::FLETCHER_REEVES)
       .value("HESTENES_STIEFEL",
@@ -56,7 +56,7 @@ void BindCeresTypes(py::module& m) {
       .finalize();
 
   py::native_enum<ceres::LinearSolverType>(
-      m, "LinearSolverType", "enum.IntEnum")
+      m, "LinearSolverType", "enum.Enum")
       .value("DENSE_NORMAL_CHOLESKY",
              ceres::LinearSolverType::DENSE_NORMAL_CHOLESKY)
       .value("DENSE_QR", ceres::LinearSolverType::DENSE_QR)
@@ -68,20 +68,20 @@ void BindCeresTypes(py::module& m) {
       .value("CGNR", ceres::LinearSolverType::CGNR)
       .finalize();
 
-  py::native_enum<ceres::DoglegType>(m, "DoglegType", "enum.IntEnum")
+  py::native_enum<ceres::DoglegType>(m, "DoglegType", "enum.Enum")
       .value("TRADITIONAL_DOGLEG", ceres::DoglegType::TRADITIONAL_DOGLEG)
       .value("SUBSPACE_DOGLEG", ceres::DoglegType::SUBSPACE_DOGLEG)
       .finalize();
 
   py::native_enum<ceres::TrustRegionStrategyType>(
-      m, "TrustRegionStrategyType", "enum.IntEnum")
+      m, "TrustRegionStrategyType", "enum.Enum")
       .value("LEVENBERG_MARQUARDT",
              ceres::TrustRegionStrategyType::LEVENBERG_MARQUARDT)
       .value("DOGLEG", ceres::TrustRegionStrategyType::DOGLEG)
       .finalize();
 
   py::native_enum<ceres::PreconditionerType>(
-      m, "PreconditionerType", "enum.IntEnum")
+      m, "PreconditionerType", "enum.Enum")
       .value("IDENTITY", ceres::PreconditionerType::IDENTITY)
       .value("JACOBI", ceres::PreconditionerType::JACOBI)
       .value("SCHUR_JACOBI", ceres::PreconditionerType::SCHUR_JACOBI)
@@ -91,21 +91,21 @@ void BindCeresTypes(py::module& m) {
       .finalize();
 
   py::native_enum<ceres::VisibilityClusteringType>(
-      m, "VisibilityClusteringType", "enum.IntEnum")
+      m, "VisibilityClusteringType", "enum.Enum")
       .value("CANONICAL_VIEWS",
              ceres::VisibilityClusteringType::CANONICAL_VIEWS)
       .value("SINGLE_LINKAGE", ceres::VisibilityClusteringType::SINGLE_LINKAGE)
       .finalize();
 
   py::native_enum<ceres::DenseLinearAlgebraLibraryType>(
-      m, "DenseLinearAlgebraLibraryType", "enum.IntEnum")
+      m, "DenseLinearAlgebraLibraryType", "enum.Enum")
       .value("EIGEN", ceres::DenseLinearAlgebraLibraryType::EIGEN)
       .value("LAPACK", ceres::DenseLinearAlgebraLibraryType::LAPACK)
       .value("CUDA", ceres::DenseLinearAlgebraLibraryType::CUDA)
       .finalize();
 
   py::native_enum<ceres::SparseLinearAlgebraLibraryType>(
-      m, "SparseLinearAlgebraLibraryType", "enum.IntEnum")
+      m, "SparseLinearAlgebraLibraryType", "enum.Enum")
       .value("SUITE_SPARSE",
              ceres::SparseLinearAlgebraLibraryType::SUITE_SPARSE)
       .value("EIGEN_SPARSE",
@@ -115,26 +115,26 @@ void BindCeresTypes(py::module& m) {
       .value("NO_SPARSE", ceres::SparseLinearAlgebraLibraryType::NO_SPARSE)
       .finalize();
 
-  py::native_enum<ceres::LoggingType>(m, "LoggingType", "enum.IntEnum")
+  py::native_enum<ceres::LoggingType>(m, "LoggingType", "enum.Enum")
       .value("SILENT", ceres::LoggingType::SILENT)
       .value("PER_MINIMIZER_ITERATION",
              ceres::LoggingType::PER_MINIMIZER_ITERATION)
       .finalize();
 
   py::native_enum<ceres::CallbackReturnType>(
-      m, "CallbackReturnType", "enum.IntEnum")
+      m, "CallbackReturnType", "enum.Enum")
       .value("SOLVER_CONTINUE", ceres::CallbackReturnType::SOLVER_CONTINUE)
       .value("SOLVER_ABORT", ceres::CallbackReturnType::SOLVER_ABORT)
       .value("SOLVER_TERMINATE_SUCCESSFULLY",
              ceres::CallbackReturnType::SOLVER_TERMINATE_SUCCESSFULLY)
       .finalize();
 
-  py::native_enum<ceres::DumpFormatType>(m, "DumpFormatType", "enum.IntEnum")
+  py::native_enum<ceres::DumpFormatType>(m, "DumpFormatType", "enum.Enum")
       .value("CONSOLE", ceres::DumpFormatType::CONSOLE)
       .value("TEXTFILE", ceres::DumpFormatType::TEXTFILE)
       .finalize();
 
-  py::native_enum<ceres::TerminationType>(m, "TerminationType", "enum.IntEnum")
+  py::native_enum<ceres::TerminationType>(m, "TerminationType", "enum.Enum")
       .value("CONVERGENCE", ceres::TerminationType::CONVERGENCE)
       .value("NO_CONVERGENCE", ceres::TerminationType::NO_CONVERGENCE)
       .value("FAILURE", ceres::TerminationType::FAILURE)

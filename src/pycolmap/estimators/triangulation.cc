@@ -41,7 +41,7 @@ void BindTriangulationEstimator(py::module& m) {
   auto PyRANSACOptions = m.attr("RANSACOptions");
 
   using ResType = TriangulationEstimator::ResidualType;
-  py::native_enum<ResType>(m, "TriangulationResidualType", "enum.IntEnum")
+  py::native_enum<ResType>(m, "TriangulationResidualType", "enum.Enum")
       .value("ANGULAR_ERROR", ResType::ANGULAR_ERROR)
       .value("REPROJECTION_ERROR", ResType::REPROJECTION_ERROR)
       .finalize();

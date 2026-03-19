@@ -30,7 +30,7 @@ std::vector<const double*> ConvertListOfPyArraysToConstPointers(
 
 void BindCovarianceEstimator(py::module& m) {
   py::native_enum<BACovarianceOptions::Params>(
-      m, "BACovarianceOptionsParams", "enum.IntEnum")
+      m, "BACovarianceOptionsParams", "enum.Enum")
       .value("POSES", BACovarianceOptions::Params::POSES)
       .value("POINTS", BACovarianceOptions::Params::POINTS)
       .value("POSES_AND_POINTS", BACovarianceOptions::Params::POSES_AND_POINTS)

@@ -129,7 +129,7 @@ class Sift {
 
 void BindFeatureExtraction(py::module& m) {
   py::native_enum<SiftExtractionOptions::Normalization>(
-      m, "Normalization", "enum.IntEnum")
+      m, "Normalization", "enum.Enum")
       .value("L1_ROOT",
              SiftExtractionOptions::Normalization::L1_ROOT,
              "L1-normalizes each descriptor followed by element-wise "

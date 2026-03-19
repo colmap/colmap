@@ -25,7 +25,7 @@ namespace py = pybind11;
 
 void BindCamera(py::module& m) {
   py::native_enum<CameraModelId> PyCameraModelId(
-      m, "CameraModelId", "enum.IntEnum");
+      m, "CameraModelId", "enum.Enum");
   PyCameraModelId.value("INVALID", CameraModelId::kInvalid);
 #define CAMERA_MODEL_CASE(CameraModel) \
   PyCameraModelId.value(CameraModel::model_name.c_str(), CameraModel::model_id);
