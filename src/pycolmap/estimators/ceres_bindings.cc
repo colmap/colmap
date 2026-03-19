@@ -55,8 +55,7 @@ void BindCeresTypes(py::module& m) {
              ceres::NonlinearConjugateGradientType::POLAK_RIBIERE)
       .finalize();
 
-  py::native_enum<ceres::LinearSolverType>(
-      m, "LinearSolverType", "enum.Enum")
+  py::native_enum<ceres::LinearSolverType>(m, "LinearSolverType", "enum.Enum")
       .value("DENSE_NORMAL_CHOLESKY",
              ceres::LinearSolverType::DENSE_NORMAL_CHOLESKY)
       .value("DENSE_QR", ceres::LinearSolverType::DENSE_QR)

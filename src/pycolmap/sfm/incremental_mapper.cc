@@ -239,8 +239,7 @@ void BindIncrementalPipeline(py::module& m) {
   MakeDataclass(PyOpts);
 
   using CallbackType = IncrementalPipeline::CallbackType;
-  py::native_enum<CallbackType>(
-      m, "IncrementalPipelineCallback", "enum.Enum")
+  py::native_enum<CallbackType>(m, "IncrementalPipelineCallback", "enum.Enum")
       .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
              CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
       .value("NEXT_IMAGE_REG_CALLBACK", CallbackType::NEXT_IMAGE_REG_CALLBACK)
