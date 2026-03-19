@@ -5,6 +5,7 @@
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -13,13 +14,12 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindSynthetic(py::module& m) {
-  auto PySyntheticMatchConfig =
-      py::enum_<SyntheticDatasetOptions::MatchConfig>(
-          m, "SyntheticDatasetMatchConfig")
-          .value("EXHAUSTIVE", SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE)
-          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED)
-          .value("SPARSE", SyntheticDatasetOptions::MatchConfig::SPARSE);
-  AddStringToEnumConstructor(PySyntheticMatchConfig);
+  py::native_enum<SyntheticDatasetOptions::MatchConfig>(
+      m, "SyntheticDatasetMatchConfig", "enum.IntEnum")
+      .value("EXHAUSTIVE", SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE)
+      .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED)
+      .value("SPARSE", SyntheticDatasetOptions::MatchConfig::SPARSE)
+      .finalize();
 
   auto PySyntheticDatasetOptions =
       py::classh<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")

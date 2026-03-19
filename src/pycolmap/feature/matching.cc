@@ -12,6 +12,7 @@
 
 #include <Eigen/Core>
 #include <pybind11/eigen.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -67,12 +68,13 @@ class PyFeatureMatcher : public FeatureMatcher,
 }  // namespace
 
 void BindFeatureMatching(py::module& m) {
-  py::enum_<FeatureMatcherType>(m, "FeatureMatcherType")
+  py::native_enum<FeatureMatcherType>(m, "FeatureMatcherType", "enum.IntEnum")
       .value("UNDEFINED", FeatureMatcherType::UNDEFINED)
       .value("SIFT_BRUTEFORCE", FeatureMatcherType::SIFT_BRUTEFORCE)
       .value("SIFT_LIGHTGLUE", FeatureMatcherType::SIFT_LIGHTGLUE)
       .value("ALIKED_BRUTEFORCE", FeatureMatcherType::ALIKED_BRUTEFORCE)
-      .value("ALIKED_LIGHTGLUE", FeatureMatcherType::ALIKED_LIGHTGLUE);
+      .value("ALIKED_LIGHTGLUE", FeatureMatcherType::ALIKED_LIGHTGLUE)
+      .finalize();
 
 #ifdef COLMAP_ONNX_ENABLED
   auto PyBruteForceONNXMatchingOptions =

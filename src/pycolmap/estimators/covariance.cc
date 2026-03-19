@@ -4,6 +4,7 @@
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
@@ -28,14 +29,14 @@ std::vector<const double*> ConvertListOfPyArraysToConstPointers(
 }  // namespace
 
 void BindCovarianceEstimator(py::module& m) {
-  auto PyBACovarianceOptionsParams =
-      py::enum_<BACovarianceOptions::Params>(m, "BACovarianceOptionsParams")
+  py::native_enum<BACovarianceOptions::Params>(
+          m, "BACovarianceOptionsParams", "enum.IntEnum")
           .value("POSES", BACovarianceOptions::Params::POSES)
           .value("POINTS", BACovarianceOptions::Params::POINTS)
           .value("POSES_AND_POINTS",
                  BACovarianceOptions::Params::POSES_AND_POINTS)
-          .value("ALL", BACovarianceOptions::Params::ALL);
-  AddStringToEnumConstructor(PyBACovarianceOptionsParams);
+          .value("ALL", BACovarianceOptions::Params::ALL)
+          .finalize();
 
   py::classh<internal::PoseParam> PyExperimentalPoseParam(
       m, "ExperimentalPoseParam");
