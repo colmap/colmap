@@ -7,6 +7,7 @@
 
 #include <ceres/version.h>
 #include <pybind11/iostream.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -43,11 +44,11 @@ PYBIND11_MODULE(_core, m) {
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
 
-  auto PyDevice = py::enum_<Device>(m, "Device")
-                      .value("auto", Device::AUTO)
-                      .value("cpu", Device::CPU)
-                      .value("cuda", Device::CUDA);
-  AddStringToEnumConstructor(PyDevice);
+  py::native_enum<Device>(m, "Device", "enum.IntEnum")
+      .value("auto", Device::AUTO)
+      .value("cpu", Device::CPU)
+      .value("cuda", Device::CUDA)
+      .finalize();
 
   BindUtil(m);
   BindGeometry(m);

@@ -13,6 +13,7 @@
 
 #include <Eigen/Core>
 #include <pybind11/eigen.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
@@ -127,20 +128,20 @@ class Sift {
 };
 
 void BindFeatureExtraction(py::module& m) {
-  auto PyNormalization =
-      py::enum_<SiftExtractionOptions::Normalization>(m, "Normalization")
-          .value("L1_ROOT",
-                 SiftExtractionOptions::Normalization::L1_ROOT,
-                 "L1-normalizes each descriptor followed by element-wise "
-                 "square rooting. This normalization is usually better than "
-                 "standard "
-                 "L2-normalization. See 'Three things everyone should know "
-                 "to improve object retrieval', Relja Arandjelovic and "
-                 "Andrew Zisserman, CVPR 2012.")
-          .value("L2",
-                 SiftExtractionOptions::Normalization::L2,
-                 "Each vector is L2-normalized.");
-  AddStringToEnumConstructor(PyNormalization);
+  py::native_enum<SiftExtractionOptions::Normalization>(
+      m, "Normalization", "enum.IntEnum")
+      .value("L1_ROOT",
+             SiftExtractionOptions::Normalization::L1_ROOT,
+             "L1-normalizes each descriptor followed by element-wise "
+             "square rooting. This normalization is usually better than "
+             "standard "
+             "L2-normalization. See 'Three things everyone should know "
+             "to improve object retrieval', Relja Arandjelovic and "
+             "Andrew Zisserman, CVPR 2012.")
+      .value("L2",
+             SiftExtractionOptions::Normalization::L2,
+             "Each vector is L2-normalized.")
+      .finalize();
 
   auto PySiftExtractionOptions =
       py::classh<SiftExtractionOptions>(m, "SiftExtractionOptions")

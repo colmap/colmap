@@ -17,6 +17,7 @@
 #include <glog/logging.h>
 #include <pybind11/embed.h>
 #include <pybind11/eval.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -28,27 +29,6 @@ const Eigen::IOFormat vec_fmt(Eigen::StreamPrecision,
                               Eigen::DontAlignCols,
                               ", ",
                               ", ");
-
-template <typename T>
-T PyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
-  const auto values = enm.attr("__members__").template cast<py::dict>();
-  const auto str_val = py::str(value);
-  if (!values.contains(str_val)) {
-    LOG(FATAL_THROW) << "Invalid string value " << value << " for enum "
-                     << enm.attr("__name__").template cast<std::string>();
-  }
-  return T(values[str_val].template cast<T>());
-}
-
-template <typename T>
-void AddStringToEnumConstructor(py::enum_<T>& enm) {
-  enm.def(py::init([enm](const std::string& value) {
-            return PyStringToEnum(enm, py::str(value));  // str constructor
-          }),
-          py::arg("name"));
-  enm.attr("__repr__") = enm.attr("__str__");
-  py::implicitly_convertible<std::string, T>();
-}
 
 inline void UpdateFromDict(py::object& self, const py::dict& dict) {
   for (const auto& it : dict) {

@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include <glog/logging.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
@@ -27,12 +28,13 @@ std::pair<std::string, int> GetPythonCallFrame() {
 void BindLogging(py::module& m) {
   py::classh<Logging> PyLogging(m, "logging", py::module_local());
 
-  py::enum_<Logging::LogSeverity>(PyLogging, "Level")
+  py::native_enum<Logging::LogSeverity>(PyLogging, "Level", "enum.IntEnum")
       .value("INFO", Logging::LogSeverity::GLOG_INFO)
       .value("WARNING", Logging::LogSeverity::GLOG_WARNING)
       .value("ERROR", Logging::LogSeverity::GLOG_ERROR)
       .value("FATAL", Logging::LogSeverity::GLOG_FATAL)
-      .export_values();
+      .export_values()
+      .finalize();
 
   PyLogging.def_readwrite_static("minloglevel", &FLAGS_minloglevel)
       .def_readwrite_static("stderrthreshold", &FLAGS_stderrthreshold)

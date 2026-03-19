@@ -6,6 +6,7 @@
 #include <filesystem>
 
 #include <pybind11/eigen.h>
+#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
@@ -70,10 +71,10 @@ Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array,
 
 void BindBitmap(pybind11::module& m) {
   using BitmapRescaleFilter = Bitmap::RescaleFilter;
-  py::enum_<BitmapRescaleFilter> PyRescaleFilter(m, "BitmapRescaleFilter");
-  PyRescaleFilter.value("BILINEAR", BitmapRescaleFilter::kBilinear)
-      .value("BOX", BitmapRescaleFilter::kBox);
-  AddStringToEnumConstructor(PyRescaleFilter);
+  py::native_enum<BitmapRescaleFilter>(m, "BitmapRescaleFilter", "enum.IntEnum")
+      .value("BILINEAR", BitmapRescaleFilter::kBilinear)
+      .value("BOX", BitmapRescaleFilter::kBox)
+      .finalize();
 
   py::classh<Bitmap>(m, "Bitmap")
       .def(py::init<>())
