@@ -38,11 +38,11 @@ else
         | sed "s~^~$root_folder/~")
 fi
 
-num_files=$(echo $all_files | wc -w)
-if [[ "$num_files" -eq 0 ]]; then
+if [[ -z "$all_files" ]]; then
     echo "No C++ files to format"
     exit 0
 fi
+num_files=$(echo "$all_files" | wc -l)
 echo "Formatting ${num_files} files"
 
-echo "$all_files" | xargs clang-format -i
+echo "$all_files" | tr '\n' '\0' | xargs -0 clang-format -i

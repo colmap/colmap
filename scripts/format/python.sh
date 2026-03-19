@@ -37,13 +37,12 @@ else
         | sed "s~^~$root_folder/~")
 fi
 
-num_files=$(echo $all_files | wc -w)
-if [[ "$num_files" -eq 0 ]]; then
+if [[ -z "$all_files" ]]; then
     echo "No Python files to format"
     exit 0
 fi
+num_files=$(echo "$all_files" | wc -l)
 echo "Formatting ${num_files} files"
 
-# shellcheck disable=SC2086
-ruff format --config ${root_folder}/ruff.toml ${all_files}
-ruff check --config ${root_folder}/ruff.toml ${all_files} --fix
+echo "$all_files" | tr '\n' '\0' | xargs -0 ruff format --config "${root_folder}/ruff.toml"
+echo "$all_files" | tr '\n' '\0' | xargs -0 ruff check --config "${root_folder}/ruff.toml" --fix
