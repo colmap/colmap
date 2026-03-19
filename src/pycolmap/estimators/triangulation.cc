@@ -9,7 +9,6 @@
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 #include <pybind11/stl.h>
@@ -41,10 +40,11 @@ void BindTriangulationEstimator(py::module& m) {
   auto PyRANSACOptions = m.attr("RANSACOptions");
 
   using ResType = TriangulationEstimator::ResidualType;
-  py::native_enum<ResType>(m, "TriangulationResidualType", "enum.IntEnum")
-      .value("ANGULAR_ERROR", ResType::ANGULAR_ERROR)
-      .value("REPROJECTION_ERROR", ResType::REPROJECTION_ERROR)
-      .finalize();
+  auto PyResType =
+      py::enum_<ResType>(m, "TriangulationResidualType")
+          .value("ANGULAR_ERROR", ResType::ANGULAR_ERROR)
+          .value("REPROJECTION_ERROR", ResType::REPROJECTION_ERROR);
+  AddStringToEnumConstructor(PyResType);
 
   using Options = EstimateTriangulationOptions;
   py::classh<Options> PyTriangulationOptions(m, "EstimateTriangulationOptions");

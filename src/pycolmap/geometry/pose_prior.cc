@@ -6,7 +6,6 @@
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -16,12 +15,12 @@ namespace py = pybind11;
 
 void BindPosePrior(py::module& m) {
   using PosePriorCoordinateSystem = PosePrior::CoordinateSystem;
-  py::native_enum<PosePriorCoordinateSystem>(
-      m, "PosePriorCoordinateSystem", "enum.IntEnum")
-      .value("UNDEFINED", PosePriorCoordinateSystem::UNDEFINED)
+  py::enum_<PosePriorCoordinateSystem> PyCoordinateSystem(
+      m, "PosePriorCoordinateSystem");
+  PyCoordinateSystem.value("UNDEFINED", PosePriorCoordinateSystem::UNDEFINED)
       .value("WGS84", PosePriorCoordinateSystem::WGS84)
-      .value("CARTESIAN", PosePriorCoordinateSystem::CARTESIAN)
-      .finalize();
+      .value("CARTESIAN", PosePriorCoordinateSystem::CARTESIAN);
+  AddStringToEnumConstructor(PyCoordinateSystem);
 
   py::classh_ext<PosePrior> PyPosePrior(m, "PosePrior");
   PyPosePrior.def(py::init<>())

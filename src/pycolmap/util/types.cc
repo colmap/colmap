@@ -4,7 +4,6 @@
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -13,11 +12,11 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindUtilTypes(py::module& m) {
-  py::native_enum<SensorType>(m, "SensorType", "enum.IntEnum")
-      .value("INVALID", SensorType::INVALID)
-      .value("CAMERA", SensorType::CAMERA)
-      .value("IMU", SensorType::IMU)
-      .finalize();
+  auto PySensorType = py::enum_<SensorType>(m, "SensorType")
+                          .value("INVALID", SensorType::INVALID)
+                          .value("CAMERA", SensorType::CAMERA)
+                          .value("IMU", SensorType::IMU);
+  AddStringToEnumConstructor(PySensorType);
 
   auto PySensorT = py::classh<sensor_t>(m, "sensor_t")
                        .def(py::init<>())

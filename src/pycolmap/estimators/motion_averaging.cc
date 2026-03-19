@@ -5,7 +5,6 @@
 #include "pycolmap/helpers.h"
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -112,10 +111,10 @@ void BindGravityRefiner(py::module& m) {
 
 void BindRotationEstimator(py::module& m) {
   using WeightType = RotationEstimatorOptions::WeightType;
-  py::native_enum<WeightType>(m, "RotationWeightType", "enum.IntEnum")
-      .value("GEMAN_MCCLURE", WeightType::GEMAN_MCCLURE)
-      .value("HALF_NORM", WeightType::HALF_NORM)
-      .finalize();
+  auto PyWeightType = py::enum_<WeightType>(m, "RotationWeightType")
+                          .value("GEMAN_MCCLURE", WeightType::GEMAN_MCCLURE)
+                          .value("HALF_NORM", WeightType::HALF_NORM);
+  AddStringToEnumConstructor(PyWeightType);
 
   auto PyRotationEstimatorOptions =
       py::classh<RotationEstimatorOptions>(m, "RotationEstimatorOptions")

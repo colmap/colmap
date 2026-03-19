@@ -15,7 +15,6 @@
 #include <memory>
 
 #include <glog/logging.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -176,12 +175,12 @@ void UndistortImages(const std::filesystem::path& output_path,
 }
 
 void BindImages(py::module& m) {
-  py::native_enum<CameraMode>(m, "CameraMode", "enum.IntEnum")
-      .value("AUTO", CameraMode::AUTO)
-      .value("SINGLE", CameraMode::SINGLE)
-      .value("PER_FOLDER", CameraMode::PER_FOLDER)
-      .value("PER_IMAGE", CameraMode::PER_IMAGE)
-      .finalize();
+  auto PyCameraMode = py::enum_<CameraMode>(m, "CameraMode")
+                          .value("AUTO", CameraMode::AUTO)
+                          .value("SINGLE", CameraMode::SINGLE)
+                          .value("PER_FOLDER", CameraMode::PER_FOLDER)
+                          .value("PER_IMAGE", CameraMode::PER_IMAGE);
+  AddStringToEnumConstructor(PyCameraMode);
 
   using IROpts = ImageReaderOptions;
   auto PyImageReaderOptions =
@@ -228,11 +227,11 @@ void BindImages(py::module& m) {
           .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
-  py::native_enum<FileCopyType>(m, "FileCopyType", "enum.IntEnum")
-      .value("copy", FileCopyType::COPY)
-      .value("softlink", FileCopyType::SOFT_LINK)
-      .value("hardlink", FileCopyType::HARD_LINK)
-      .finalize();
+  auto PyFileCopyType = py::enum_<FileCopyType>(m, "FileCopyType")
+                            .value("copy", FileCopyType::COPY)
+                            .value("softlink", FileCopyType::SOFT_LINK)
+                            .value("hardlink", FileCopyType::HARD_LINK);
+  AddStringToEnumConstructor(PyFileCopyType);
 
   m.def("import_images",
         &ImportImages,
