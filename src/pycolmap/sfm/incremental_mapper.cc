@@ -240,25 +240,23 @@ void BindIncrementalPipeline(py::module& m) {
 
   using CallbackType = IncrementalPipeline::CallbackType;
   py::native_enum<CallbackType>(
-          m, "IncrementalPipelineCallback", "enum.IntEnum")
-          .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
-                 CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
-          .value("NEXT_IMAGE_REG_CALLBACK",
-                 CallbackType::NEXT_IMAGE_REG_CALLBACK)
-          .value("LAST_IMAGE_REG_CALLBACK",
-                 CallbackType::LAST_IMAGE_REG_CALLBACK)
-          .finalize();
+      m, "IncrementalPipelineCallback", "enum.IntEnum")
+      .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
+             CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
+      .value("NEXT_IMAGE_REG_CALLBACK", CallbackType::NEXT_IMAGE_REG_CALLBACK)
+      .value("LAST_IMAGE_REG_CALLBACK", CallbackType::LAST_IMAGE_REG_CALLBACK)
+      .finalize();
 
   using Status = IncrementalPipeline::Status;
   py::native_enum<Status>(m, "IncrementalPipelineStatus", "enum.IntEnum")
-          .value("SUCCESS", Status::SUCCESS)
-          .value("INTERRUPTED", Status::INTERRUPTED)
-          .value("CONTINUE", Status::CONTINUE)
-          .value("STOP", Status::STOP)
-          .value("UNKNOWN_SENSOR_FROM_RIG", Status::UNKNOWN_SENSOR_FROM_RIG)
-          .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
-          .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
-          .finalize();
+      .value("SUCCESS", Status::SUCCESS)
+      .value("INTERRUPTED", Status::INTERRUPTED)
+      .value("CONTINUE", Status::CONTINUE)
+      .value("STOP", Status::STOP)
+      .value("UNKNOWN_SENSOR_FROM_RIG", Status::UNKNOWN_SENSOR_FROM_RIG)
+      .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
+      .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
+      .finalize();
 
   py::classh<IncrementalPipeline>(
       m,
@@ -328,12 +326,11 @@ void BindIncrementalPipeline(py::module& m) {
 void BindIncrementalMapperOptions(py::module& m) {
   using ImageSelection = IncrementalMapper::Options::ImageSelectionMethod;
   py::native_enum<ImageSelection>(m, "ImageSelectionMethod", "enum.IntEnum")
-          .value("MAX_VISIBLE_POINTS_NUM",
-                 ImageSelection::MAX_VISIBLE_POINTS_NUM)
-          .value("MAX_VISIBLE_POINTS_RATIO",
-                 ImageSelection::MAX_VISIBLE_POINTS_RATIO)
-          .value("MIN_UNCERTAINTY", ImageSelection::MIN_UNCERTAINTY)
-          .finalize();
+      .value("MAX_VISIBLE_POINTS_NUM", ImageSelection::MAX_VISIBLE_POINTS_NUM)
+      .value("MAX_VISIBLE_POINTS_RATIO",
+             ImageSelection::MAX_VISIBLE_POINTS_RATIO)
+      .value("MIN_UNCERTAINTY", ImageSelection::MIN_UNCERTAINTY)
+      .finalize();
 
   using Opts = IncrementalMapper::Options;
   auto PyOpts = py::classh<Opts>(m, "IncrementalMapperOptions");

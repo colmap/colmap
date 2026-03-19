@@ -17,6 +17,14 @@ perl -i -pe's/\b_core\b/pycolmap/g' $FILES
 perl -i -pe's/: ceres::([a-zA-Z]|::)+//g' $FILES
 perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
 
+# native_enum stubs: convert enum member annotations to assignments for mypy.
+# pybind11-stubgen generates `MEMBER: int` but mypy requires `MEMBER = ...`
+perl -i -pe'
+    if (/^class \w+\(enum\.IntEnum\)/) { $in_enum = 1 }
+    elsif (/^\S/) { $in_enum = 0 }
+    if ($in_enum) { s/^(    \w+): int$/$1 = .../ }
+' $FILES
+
 # pybind issue, will not be fixed: https://github.com/pybind/pybind11/pull/2277
 perl -i -pe's/(?<=\b__(eq|ne)__\(self, )arg0: [a-zA-Z0-9_]+\)/other: object)/g' $FILES
 
