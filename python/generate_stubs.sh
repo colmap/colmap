@@ -18,11 +18,12 @@ perl -i -pe's/: ceres::([a-zA-Z]|::)+//g' $FILES
 perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
 
 # native_enum stubs: convert enum member annotations to assignments for mypy.
-# pybind11-stubgen generates `MEMBER: int` but mypy requires `MEMBER = ...`
+# pybind11-stubgen generates `MEMBER: typing.ClassVar[EnumType]  # value = ...`
+# but mypy requires `MEMBER = value` for enum members.
 perl -i -pe'
     if (/^class \w+\(enum\.IntEnum\)/) { $in_enum = 1 }
     elsif (/^\S/) { $in_enum = 0 }
-    if ($in_enum) { s/^(    \w+): int$/$1 = .../ }
+    if ($in_enum) { s/^(    \w+): typing\.ClassVar\[.*?\].*$/$1 = .../ }
 ' $FILES
 
 # pybind issue, will not be fixed: https://github.com/pybind/pybind11/pull/2277
