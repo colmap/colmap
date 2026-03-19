@@ -35,9 +35,9 @@ perl -i -pe's/(__hash__:? .*= None)$/\1  # type: ignore/g' $FILES
 
 # pybind issue: parameter and key types should not be cast to the more generic types.
 perl -i -pe's/Mapping\[typing\.Supports(Int|Float)/Mapping\[\L\1/g' $FILES
-perl -i -pe's/Mapping\[(int|float) \| SupportsIndex/Mapping\[$1/g' $FILES
-perl -i -pe's/SupportsInt \| SupportsIndex/int/g' $FILES
-perl -i -pe's/SupportsFloat \| SupportsIndex/float/g' $FILES
+perl -i -pe's/Mapping\[(int|float) \| typing\.SupportsIndex/Mapping\[$1/g' $FILES
+perl -i -pe's/typing\.SupportsInt \| typing\.SupportsIndex/int/g' $FILES
+perl -i -pe's/typing\.SupportsFloat \| typing\.SupportsIndex/float/g' $FILES
 
 COLMAP_DIR=$(dirname $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd ))
 ruff format --config ${COLMAP_DIR}/ruff.toml ${FILES}
