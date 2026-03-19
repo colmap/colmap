@@ -16,7 +16,7 @@ namespace py = pybind11;
 
 void BindGPS(py::module& m) {
   py::native_enum<GPSTransform::Ellipsoid>(
-      m, "GPSTransfromEllipsoid", "enum.Enum")
+      m, "GPSTransfromEllipsoid", "enum.IntEnum")
       .value("GRS80", GPSTransform::Ellipsoid::GRS80)
       .value("WGS84", GPSTransform::Ellipsoid::WGS84)
       .finalize();

@@ -112,7 +112,7 @@ void BindGravityRefiner(py::module& m) {
 
 void BindRotationEstimator(py::module& m) {
   using WeightType = RotationEstimatorOptions::WeightType;
-  py::native_enum<WeightType>(m, "RotationWeightType", "enum.Enum")
+  py::native_enum<WeightType>(m, "RotationWeightType", "enum.IntEnum")
       .value("GEMAN_MCCLURE", WeightType::GEMAN_MCCLURE)
       .value("HALF_NORM", WeightType::HALF_NORM)
       .finalize();

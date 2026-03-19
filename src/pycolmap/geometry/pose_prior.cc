@@ -17,7 +17,7 @@ namespace py = pybind11;
 void BindPosePrior(py::module& m) {
   using PosePriorCoordinateSystem = PosePrior::CoordinateSystem;
   py::native_enum<PosePriorCoordinateSystem>(
-      m, "PosePriorCoordinateSystem", "enum.Enum")
+      m, "PosePriorCoordinateSystem", "enum.IntEnum")
       .value("UNDEFINED", PosePriorCoordinateSystem::UNDEFINED)
       .value("WGS84", PosePriorCoordinateSystem::WGS84)
       .value("CARTESIAN", PosePriorCoordinateSystem::CARTESIAN)

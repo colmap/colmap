@@ -15,7 +15,7 @@ namespace py = pybind11;
 
 void BindSynthetic(py::module& m) {
   py::native_enum<SyntheticDatasetOptions::MatchConfig>(
-      m, "SyntheticDatasetMatchConfig", "enum.Enum")
+      m, "SyntheticDatasetMatchConfig", "enum.IntEnum")
       .value("EXHAUSTIVE", SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE)
       .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED)
       .value("SPARSE", SyntheticDatasetOptions::MatchConfig::SPARSE)

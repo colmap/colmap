@@ -68,7 +68,7 @@ class PyFeatureMatcher : public FeatureMatcher,
 }  // namespace
 
 void BindFeatureMatching(py::module& m) {
-  py::native_enum<FeatureMatcherType>(m, "FeatureMatcherType", "enum.Enum")
+  py::native_enum<FeatureMatcherType>(m, "FeatureMatcherType", "enum.IntEnum")
       .value("UNDEFINED", FeatureMatcherType::UNDEFINED)
       .value("SIFT_BRUTEFORCE", FeatureMatcherType::SIFT_BRUTEFORCE)
       .value("SIFT_LIGHTGLUE", FeatureMatcherType::SIFT_LIGHTGLUE)

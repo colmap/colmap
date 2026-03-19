@@ -71,7 +71,7 @@ Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array,
 
 void BindBitmap(pybind11::module& m) {
   using BitmapRescaleFilter = Bitmap::RescaleFilter;
-  py::native_enum<BitmapRescaleFilter>(m, "BitmapRescaleFilter", "enum.Enum")
+  py::native_enum<BitmapRescaleFilter>(m, "BitmapRescaleFilter", "enum.IntEnum")
       .value("BILINEAR", BitmapRescaleFilter::kBilinear)
       .value("BOX", BitmapRescaleFilter::kBox)
       .finalize();

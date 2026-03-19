@@ -28,7 +28,7 @@ std::pair<std::string, int> GetPythonCallFrame() {
 void BindLogging(py::module& m) {
   py::classh<Logging> PyLogging(m, "logging", py::module_local());
 
-  py::native_enum<Logging::LogSeverity>(PyLogging, "Level", "enum.Enum")
+  py::native_enum<Logging::LogSeverity>(PyLogging, "Level", "enum.IntEnum")
       .value("INFO", Logging::LogSeverity::GLOG_INFO)
       .value("WARNING", Logging::LogSeverity::GLOG_WARNING)
       .value("ERROR", Logging::LogSeverity::GLOG_ERROR)

@@ -13,7 +13,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindUtilTypes(py::module& m) {
-  py::native_enum<SensorType>(m, "SensorType", "enum.Enum")
+  py::native_enum<SensorType>(m, "SensorType", "enum.IntEnum")
       .value("INVALID", SensorType::INVALID)
       .value("CAMERA", SensorType::CAMERA)
       .value("IMU", SensorType::IMU)

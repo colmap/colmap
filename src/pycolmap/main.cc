@@ -44,7 +44,7 @@ PYBIND11_MODULE(_core, m) {
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
 
-  py::native_enum<Device>(m, "Device", "enum.Enum")
+  py::native_enum<Device>(m, "Device", "enum.IntEnum")
       .value("auto", Device::AUTO)
       .value("cpu", Device::CPU)
       .value("cuda", Device::CUDA)

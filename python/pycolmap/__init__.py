@@ -1,5 +1,6 @@
 import contextlib
 import ctypes
+import enum
 import importlib
 import platform
 import textwrap
@@ -70,3 +71,32 @@ __all__.extend(["__version__", "__ceres_version__"])
 
 __version__ = _core.__version__
 __ceres_version__ = _core.__ceres_version__
+
+
+def _patch_enum_string_construction(module):
+    """Allow constructing IntEnum members from their name string.
+
+    E.g. ``pycolmap.logging.Level("INFO")`` in addition to
+    ``pycolmap.logging.Level(0)`` and ``pycolmap.logging.Level["INFO"]``.
+    """
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            try:
+                return cls[value]
+            except KeyError:
+                pass
+        return None
+
+    for obj in vars(module).values():
+        if isinstance(obj, type) and issubclass(obj, enum.IntEnum):
+            obj._missing_ = _missing_
+        elif isinstance(obj, type) and hasattr(obj, "__mro__"):
+            # Check nested enums inside classes
+            for attr in vars(obj).values():
+                if isinstance(attr, type) and issubclass(attr, enum.IntEnum):
+                    attr._missing_ = _missing_
+
+
+_patch_enum_string_construction(_core)

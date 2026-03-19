@@ -65,7 +65,7 @@ void BindBundleAdjuster(py::module& m) {
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
   py::native_enum<BundleAdjustmentTerminationType>(
-      m, "BundleAdjustmentTerminationType", "enum.Enum")
+      m, "BundleAdjustmentTerminationType", "enum.IntEnum")
       .value("CONVERGENCE", BundleAdjustmentTerminationType::CONVERGENCE)
       .value("NO_CONVERGENCE", BundleAdjustmentTerminationType::NO_CONVERGENCE)
       .value("FAILURE", BundleAdjustmentTerminationType::FAILURE)
@@ -93,14 +93,14 @@ void BindBundleAdjuster(py::module& m) {
   MakeDataclass(PyCeresBundleAdjustmentSummary);
 
   py::native_enum<BundleAdjustmentGauge>(
-      m, "BundleAdjustmentGauge", "enum.Enum")
+      m, "BundleAdjustmentGauge", "enum.IntEnum")
       .value("UNSPECIFIED", BundleAdjustmentGauge::UNSPECIFIED)
       .value("TWO_CAMS_FROM_WORLD", BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD)
       .value("THREE_POINTS", BundleAdjustmentGauge::THREE_POINTS)
       .finalize();
 
   py::native_enum<BundleAdjustmentBackend>(
-      m, "BundleAdjustmentBackend", "enum.Enum")
+      m, "BundleAdjustmentBackend", "enum.IntEnum")
       .value("CERES", BundleAdjustmentBackend::CERES)
       .finalize();
 
@@ -169,7 +169,7 @@ void BindBundleAdjuster(py::module& m) {
   // Ceres-specific bundle adjustment options
   using CeresBAOpts = CeresBundleAdjustmentOptions;
   py::native_enum<CeresBAOpts::LossFunctionType>(
-      m, "LossFunctionType", "enum.Enum")
+      m, "LossFunctionType", "enum.IntEnum")
       .value("TRIVIAL", CeresBAOpts::LossFunctionType::TRIVIAL)
       .value("SOFT_L1", CeresBAOpts::LossFunctionType::SOFT_L1)
       .value("CAUCHY", CeresBAOpts::LossFunctionType::CAUCHY)
