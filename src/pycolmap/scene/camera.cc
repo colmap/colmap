@@ -14,7 +14,6 @@
 #include <sstream>
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
@@ -24,8 +23,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindCamera(py::module& m) {
-  py::native_enum<CameraModelId> PyCameraModelId(
-      m, "CameraModelId", "enum.IntEnum");
+  py::enum_<CameraModelId> PyCameraModelId(m, "CameraModelId");
   PyCameraModelId.value("INVALID", CameraModelId::kInvalid);
 #define CAMERA_MODEL_CASE(CameraModel) \
   PyCameraModelId.value(CameraModel::model_name.c_str(), CameraModel::model_id);
@@ -33,7 +31,8 @@ void BindCamera(py::module& m) {
   CAMERA_MODEL_CASES
 
 #undef CAMERA_MODEL_CASE
-  PyCameraModelId.finalize();
+  AddStringToEnumConstructor(PyCameraModelId);
+  py::implicitly_convertible<int, CameraModelId>();
 
   py::classh<Camera> PyCamera(m, "Camera");
   PyCamera.def(py::init<>())

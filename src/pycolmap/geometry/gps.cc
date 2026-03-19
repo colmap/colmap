@@ -6,7 +6,6 @@
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -15,11 +14,11 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindGPS(py::module& m) {
-  py::native_enum<GPSTransform::Ellipsoid>(
-      m, "GPSTransfromEllipsoid", "enum.IntEnum")
-      .value("GRS80", GPSTransform::Ellipsoid::GRS80)
-      .value("WGS84", GPSTransform::Ellipsoid::WGS84)
-      .finalize();
+  py::enum_<GPSTransform::Ellipsoid> PyGPSTransfromEllipsoid(
+      m, "GPSTransfromEllipsoid");
+  PyGPSTransfromEllipsoid.value("GRS80", GPSTransform::Ellipsoid::GRS80)
+      .value("WGS84", GPSTransform::Ellipsoid::WGS84);
+  AddStringToEnumConstructor(PyGPSTransfromEllipsoid);
 
   py::classh_ext<GPSTransform> PyGPSTransform(m, "GPSTransform");
   PyGPSTransform

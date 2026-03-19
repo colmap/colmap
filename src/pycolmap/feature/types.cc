@@ -5,7 +5,6 @@
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -14,13 +13,11 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindFeatureTypes(py::module& m) {
-  py::native_enum<FeatureExtractorType>(
-      m, "FeatureExtractorType", "enum.IntEnum")
+  py::enum_<FeatureExtractorType>(m, "FeatureExtractorType")
       .value("UNDEFINED", FeatureExtractorType::UNDEFINED)
       .value("SIFT", FeatureExtractorType::SIFT)
       .value("ALIKED_N16ROT", FeatureExtractorType::ALIKED_N16ROT)
-      .value("ALIKED_N32", FeatureExtractorType::ALIKED_N32)
-      .finalize();
+      .value("ALIKED_N32", FeatureExtractorType::ALIKED_N32);
 
   // Define both classes first without cross-referencing methods.
   auto PyFeatureDescriptors =

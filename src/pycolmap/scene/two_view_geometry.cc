@@ -8,7 +8,6 @@
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
-#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
@@ -18,9 +17,9 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindTwoViewGeometryScene(py::module& m) {
-  py::native_enum<TwoViewGeometry::ConfigurationType>(
-      m, "TwoViewGeometryConfiguration", "enum.IntEnum")
-      .value("UNDEFINED", TwoViewGeometry::UNDEFINED)
+  py::enum_<TwoViewGeometry::ConfigurationType> PyTwoViewGeometryConfiguration(
+      m, "TwoViewGeometryConfiguration");
+  PyTwoViewGeometryConfiguration.value("UNDEFINED", TwoViewGeometry::UNDEFINED)
       .value("DEGENERATE", TwoViewGeometry::DEGENERATE)
       .value("CALIBRATED", TwoViewGeometry::CALIBRATED)
       .value("CALIBRATED_RIG", TwoViewGeometry::CALIBRATED_RIG)
@@ -29,8 +28,8 @@ void BindTwoViewGeometryScene(py::module& m) {
       .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
       .value("PLANAR_OR_PANORAMIC", TwoViewGeometry::PLANAR_OR_PANORAMIC)
       .value("WATERMARK", TwoViewGeometry::WATERMARK)
-      .value("MULTIPLE", TwoViewGeometry::MULTIPLE)
-      .finalize();
+      .value("MULTIPLE", TwoViewGeometry::MULTIPLE);
+  AddStringToEnumConstructor(PyTwoViewGeometryConfiguration);
 
   py::classh<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
   PyTwoViewGeometry.def(py::init<>())
