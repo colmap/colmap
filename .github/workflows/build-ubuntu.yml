@@ -97,8 +97,8 @@ jobs:
         run: |
           set +x -euo pipefail
           python -m pip install ruff==0.15.0 clang-format==21.1.8
-          ./scripts/format/c++.sh
-          ./scripts/format/python.sh
+          ./scripts/format/c++.sh --all
+          ./scripts/format/python.sh --all
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
