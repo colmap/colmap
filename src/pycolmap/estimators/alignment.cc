@@ -7,6 +7,7 @@
 #include "colmap/util/logging.h"
 
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -143,8 +144,11 @@ void BindAlignmentEstimator(py::module& m) {
       "max_reproj_error"_a = 8.0,
       "max_proj_center_error"_a = 0.1);
 
-  m.def("align_reconstruction_to_orig_rig_scales",
-        &AlignReconstructionToOrigRigScales,
-        "orig_rigs"_a,
-        "reconstruction"_a);
+  m.def(
+      "align_reconstruction_to_orig_rig_scales",
+      [](const RigMap& orig_rigs, Reconstruction& reconstruction) {
+        return AlignReconstructionToOrigRigScales(orig_rigs, &reconstruction);
+      },
+      "orig_rigs"_a,
+      "reconstruction"_a);
 }
