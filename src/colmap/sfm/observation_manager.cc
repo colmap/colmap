@@ -71,7 +71,7 @@ ObservationManager::ObservationManager(
   // Add image stats.
   image_stats_.reserve(reconstruction_.NumImages());
   for (const auto& [image_id, image] : reconstruction_.Images()) {
-    image_stats_.emplace(image_id, InitImageStat(image_id));
+    image_stats_.emplace(image_id, InitImageStat(image_id, image));
   }
 
   // If an existing model was loaded from disk and there were already images
@@ -105,8 +105,8 @@ void ObservationManager::AddImage(const image_t image_id) {
         << "Image " << image_id
         << " must be added to the CorrespondenceGraph first";
   }
-  image_stats_.emplace(image_id, InitImageStat(image_id));
   const Image& image = reconstruction_.Image(image_id);
+  image_stats_.emplace(image_id, InitImageStat(image_id, image));
 
   if (correspondence_graph_) {
     // Add image pair stats for all pairs involving the new image.
@@ -151,8 +151,7 @@ void ObservationManager::AddImage(const image_t image_id) {
 }
 
 ObservationManager::ImageStat ObservationManager::InitImageStat(
-    const image_t image_id) const {
-  const Image& image = reconstruction_.Image(image_id);
+    const image_t image_id, const Image& image) const {
   const Camera& camera = *image.CameraPtr();
   ImageStat image_stat;
   image_stat.point3D_visibility_pyramid = VisibilityPyramid(
