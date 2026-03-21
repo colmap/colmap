@@ -60,17 +60,18 @@ void CorrespondenceGraph::Finalize() {
   THROW_CHECK(!finalized_);
   finalized_ = true;
 
-  // Flatten all correspondences, remove images without observations.
+  // Flatten all correspondences into a compact representation.
   for (auto& [_, image] : images_) {
-    // Count number of correspondences and observations.
-    image.num_observations = 0;
+    // Verify incremental num_observations tracking is consistent.
     size_t num_total_corrs = 0;
-    for (auto& corr : image.corrs) {
+    point2D_t expected_num_observations = 0;
+    for (const auto& corr : image.corrs) {
       num_total_corrs += corr.size();
       if (!corr.empty()) {
-        image.num_observations += 1;
+        expected_num_observations += 1;
       }
     }
+    THROW_CHECK_EQ(image.num_observations, expected_num_observations);
 
     // Reshuffle correspondences into flattened vector.
     const point2D_t num_points2D = image.corrs.size();
@@ -163,7 +164,14 @@ void CorrespondenceGraph::AddTwoViewGeometry(
             image_id2);
       } else {
         corrs1.emplace_back(image_id2, match.point2D_idx2);
+        // First correspondence makes this point an observation.
+        if (corrs1.size() == 1) {
+          image1.num_observations += 1;
+        }
         corrs2.emplace_back(image_id1, match.point2D_idx1);
+        if (corrs2.size() == 1) {
+          image2.num_observations += 1;
+        }
       }
     } else {
       image1.num_correspondences -= 1;
@@ -197,13 +205,15 @@ void CorrespondenceGraph::AddTwoViewGeometry(
 CorrespondenceGraph::CorrespondenceRange
 CorrespondenceGraph::FindCorrespondences(const image_t image_id,
                                          const point2D_t point2D_idx) const {
-  THROW_CHECK(finalized_);
-  const point2D_t next_point2D_idx = point2D_idx + 1;
   const Image& image = images_.at(image_id);
+  if (!finalized_) {
+    const auto& corrs = image.corrs.at(point2D_idx);
+    return CorrespondenceRange{corrs.data(), corrs.data() + corrs.size()};
+  }
   const Correspondence* beg =
       image.flat_corrs.data() + image.flat_corr_begs.at(point2D_idx);
   const Correspondence* end =
-      image.flat_corrs.data() + image.flat_corr_begs.at(next_point2D_idx);
+      image.flat_corrs.data() + image.flat_corr_begs.at(point2D_idx + 1);
   return CorrespondenceRange{beg, end};
 }
 
@@ -293,8 +303,9 @@ void CorrespondenceGraph::ExtractMatchesBetweenImages(
 
   matches.reserve(num_correspondences);
 
+  const Image& image1 = images_.at(image_id1);
   const point2D_t num_points2D1 =
-      images_.at(image_id1).flat_corr_begs.size() - 1;
+      finalized_ ? image1.flat_corr_begs.size() - 1 : image1.corrs.size();
   for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
        ++point2D_idx1) {
     const CorrespondenceRange range =
