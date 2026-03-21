@@ -37,9 +37,11 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
+#if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#endif
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/logging.h"
@@ -110,9 +112,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.sequential_pairing->num_threads = options_.num_threads;
   option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
+#if defined(COLMAP_MVS_ENABLED)
   option_manager_.patch_match_stereo->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
   option_manager_.delaunay_meshing->num_threads = options_.num_threads;
+#endif
 
   option_manager_.vocab_tree_pairing->vocab_tree_path =
       GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
@@ -140,9 +144,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.mapper->random_seed = options_.random_seed;
 
+#if defined(COLMAP_MVS_ENABLED)
   if (!options_.mask_path.empty()) {
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
+#endif
 
   option_manager_.feature_extraction->use_gpu = options_.use_gpu;
   option_manager_.feature_matching->use_gpu = options_.use_gpu;
@@ -153,7 +159,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.feature_extraction->gpu_index = options_.gpu_index;
   option_manager_.feature_matching->gpu_index = options_.gpu_index;
+#if defined(COLMAP_MVS_ENABLED)
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
+#endif
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   if (option_manager_.bundle_adjustment->ceres) {
     option_manager_.bundle_adjustment->ceres->gpu_index = options_.gpu_index;
@@ -348,6 +356,11 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
+#if !defined(COLMAP_MVS_ENABLED)
+  LOG(WARNING) << "Skipping dense reconstruction because the MVS module is "
+                  "not available";
+  return;
+#else
   LOG_HEADING1("Dense reconstruction");
 
   CreateDirIfNotExists(options_.workspace_path / "dense");
@@ -463,6 +476,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
       }
     }
   }
+#endif  // COLMAP_MVS_ENABLED
 }
 
 }  // namespace colmap

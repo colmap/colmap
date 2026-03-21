@@ -39,11 +39,13 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
+#if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/mvs/texture_mapping.h"
+#endif
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
@@ -71,12 +73,14 @@ OptionManager::OptionManager(bool add_project_options)
   gravity_refiner = std::make_shared<GravityRefinerOptions>();
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
   mesh_texture_mapping = std::make_shared<mvs::MeshTextureMappingOptions>();
   mesh_simplification = std::make_shared<mvs::MeshSimplificationOptions>();
+#endif
   render = std::make_shared<RenderOptions>();
 }
 
@@ -95,11 +99,15 @@ void OptionManager::ModifyForVideoData() {
   mapper->min_focal_length_ratio = 0.1;
   mapper->max_focal_length_ratio = 10;
   mapper->max_extra_param = std::numeric_limits<double>::max();
+#if defined(COLMAP_MVS_ENABLED)
   stereo_fusion->min_num_pixels = 15;
+#endif
 }
 
 void OptionManager::ModifyForInternetData() {
+#if defined(COLMAP_MVS_ENABLED)
   stereo_fusion->min_num_pixels = 10;
+#endif
 }
 
 void OptionManager::ModifyForLowQuality() {
@@ -114,6 +122,7 @@ void OptionManager::ModifyForLowQuality() {
   mapper->ba_global_frames_ratio *= 1.2;
   mapper->ba_global_points_ratio *= 1.2;
   mapper->ba_global_max_refinements = 2;
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 1000;
   patch_match_stereo->window_radius = 4;
   patch_match_stereo->window_step = 2;
@@ -122,6 +131,7 @@ void OptionManager::ModifyForLowQuality() {
   patch_match_stereo->geom_consistency = false;
   stereo_fusion->check_num_images /= 2;
   stereo_fusion->max_image_size = 1000;
+#endif
 }
 
 void OptionManager::ModifyForMediumQuality() {
@@ -136,6 +146,7 @@ void OptionManager::ModifyForMediumQuality() {
   mapper->ba_global_frames_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 1600;
   patch_match_stereo->window_radius = 4;
   patch_match_stereo->window_step = 2;
@@ -144,6 +155,7 @@ void OptionManager::ModifyForMediumQuality() {
   patch_match_stereo->geom_consistency = false;
   stereo_fusion->check_num_images /= 1.5;
   stereo_fusion->max_image_size = 1600;
+#endif
 }
 
 void OptionManager::ModifyForHighQuality() {
@@ -156,8 +168,10 @@ void OptionManager::ModifyForHighQuality() {
   mapper->ba_local_max_num_iterations = 30;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 75;
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 2400;
   stereo_fusion->max_image_size = 2400;
+#endif
 }
 
 void OptionManager::ModifyForExtremeQuality() {
@@ -183,12 +197,14 @@ void OptionManager::AddAllOptions() {
   AddImportedPairingOptions();
   AddBundleAdjustmentOptions();
   AddMapperOptions();
+#if defined(COLMAP_MVS_ENABLED)
   AddPatchMatchStereoOptions();
   AddStereoFusionOptions();
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
   AddMeshTextureMappingOptions();
   AddMeshSimplificationOptions();
+#endif
   AddRenderOptions();
 }
 
@@ -807,6 +823,7 @@ void OptionManager::AddReconstructionClustererOptions() {
                    &reconstruction_clusterer->min_num_reg_frames);
 }
 
+#if defined(COLMAP_MVS_ENABLED)
 void OptionManager::AddPatchMatchStereoOptions() {
   if (added_patch_match_stereo_options_) {
     return;
@@ -973,6 +990,7 @@ void OptionManager::AddMeshSimplificationOptions() {
   AddDefaultOption("MeshSimplification.num_threads",
                    &mesh_simplification->num_threads);
 }
+#endif  // COLMAP_MVS_ENABLED
 
 void OptionManager::AddRenderOptions() {
   if (added_render_options_) {
@@ -1005,11 +1023,14 @@ void OptionManager::Reset(bool reset_logging) {
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
   added_reconstruction_clusterer_options_ = false;
+#if defined(COLMAP_MVS_ENABLED)
   added_patch_match_stereo_options_ = false;
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
   added_delaunay_meshing_options_ = false;
   added_mesh_texture_mapping_options_ = false;
+  added_mesh_simplification_options_ = false;
+#endif
   added_render_options_ = false;
 }
 
@@ -1028,11 +1049,14 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *global_mapper = GlobalPipelineOptions();
   *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
+#if defined(COLMAP_MVS_ENABLED)
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
   *delaunay_meshing = mvs::DelaunayMeshingOptions();
   *mesh_texture_mapping = mvs::MeshTextureMappingOptions();
+  *mesh_simplification = mvs::MeshSimplificationOptions();
+#endif
   *render = RenderOptions();
 
   BaseOptionManager::ResetOptions(reset_paths);
@@ -1060,11 +1084,13 @@ bool OptionManager::Check() {
   if (bundle_adjustment) success = success && bundle_adjustment->Check();
   if (mapper) success = success && mapper->Check();
 
+#if defined(COLMAP_MVS_ENABLED)
   if (patch_match_stereo) success = success && patch_match_stereo->Check();
   if (stereo_fusion) success = success && stereo_fusion->Check();
   if (poisson_meshing) success = success && poisson_meshing->Check();
   if (delaunay_meshing) success = success && delaunay_meshing->Check();
   if (mesh_texture_mapping) success = success && mesh_texture_mapping->Check();
+#endif
 
 #if defined(COLMAP_GUI_ENABLED)
   if (render) success = success && render->Check();

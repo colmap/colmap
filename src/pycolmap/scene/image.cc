@@ -104,9 +104,11 @@ void BindSceneImage(py::module& m) {
           "points2D",
           py::overload_cast<>(&Image::Points2D),
           py::overload_cast<const Point2DVector&>(&Image::SetPoints2D),
+          py::return_value_policy::reference_internal,
           "Array of Points2D (=keypoints).")
       .def("point2D",
            py::overload_cast<camera_t>(&Image::Point2D),
+           py::return_value_policy::reference_internal,
            "point2D_idx"_a,
            "Direct accessor for a point2D.")
       .def(

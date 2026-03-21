@@ -40,6 +40,7 @@ option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
+option(MVS_ENABLED "Whether to enable the Multi-View Stereo module" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(COVERAGE_ENABLED "Whether to enable code coverage" OFF)
@@ -295,7 +296,9 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/geometry GEOMETRY_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/image IMAGE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/math MATH_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
+if(MVS_ENABLED)
+    COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
+endif()
 COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/scene SCENE_SRCS *.h *.cc)
@@ -326,7 +329,6 @@ if(ALL_SOURCE_TARGET)
         ${GEOMETRY_SRCS}
         ${IMAGE_SRCS}
         ${MATH_SRCS}
-        ${MVS_SRCS}
         ${OPTIM_SRCS}
         ${RETRIEVAL_SRCS}
         ${SCENE_SRCS}
@@ -339,6 +341,12 @@ if(ALL_SOURCE_TARGET)
         ${THIRDPARTY_SIFT_GPU_SRCS}
         ${THIRDPARTY_VLFEAT_SRCS}
     )
+
+    if(MVS_ENABLED)
+        list(APPEND ALL_SRCS
+            ${MVS_SRCS}
+        )
+    endif()
 
     if(LSD_ENABLED)
         list(APPEND ALL_SRCS
@@ -396,7 +404,6 @@ set(COLMAP_EXPORT_LIBS
     colmap_geometry
     colmap_image
     colmap_math
-    colmap_mvs
     colmap_optim
     colmap_retrieval
     colmap_scene
@@ -408,6 +415,9 @@ set(COLMAP_EXPORT_LIBS
     colmap_poisson_recon
     colmap_vlfeat
 )
+if(MVS_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS colmap_mvs)
+endif()
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          # Third-party.
@@ -422,8 +432,10 @@ endif()
 if(CUDA_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
-         colmap_mvs_cuda
     )
+    if(MVS_ENABLED)
+        list(APPEND COLMAP_EXPORT_LIBS colmap_mvs_cuda)
+    endif()
 endif()
 if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS

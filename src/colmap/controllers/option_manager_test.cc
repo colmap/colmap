@@ -110,7 +110,9 @@ TEST(OptionManager, AddAllOptions) {
   EXPECT_NE(options.feature_matching, nullptr);
   EXPECT_NE(options.bundle_adjustment, nullptr);
   EXPECT_NE(options.mapper, nullptr);
+#if defined(COLMAP_MVS_ENABLED)
   EXPECT_NE(options.patch_match_stereo, nullptr);
+#endif
 }
 
 TEST(OptionManager, WriteAndRead) {
