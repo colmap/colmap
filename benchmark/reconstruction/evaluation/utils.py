@@ -209,6 +209,40 @@ def parse_args() -> argparse.Namespace:
         "This is useful for evaluating the performance of self-calibration.",
     )
     parser.add_argument(
+        "--filter_covisibility",
+        default=False,
+        action="store_true",
+        help="Filter out non-covisible image pairs based on GT camera poses.",
+    )
+    parser.add_argument(
+        "--covisibility_frustum_near",
+        type=float,
+        default=None,
+        help="Near plane for frustum co-visibility check. "
+        "Auto-detected from GT points if not specified.",
+    )
+    parser.add_argument(
+        "--covisibility_frustum_far",
+        type=float,
+        default=None,
+        help="Far plane for frustum co-visibility check. "
+        "Auto-detected from GT points if not specified.",
+    )
+    parser.add_argument(
+        "--covisibility_max_viewing_angle",
+        type=float,
+        default=120.0,
+        help="Maximum viewing angle in degrees for co-visibility check.",
+    )
+    parser.add_argument(
+        "--covisibility_min_shared_points",
+        type=int,
+        default=5,
+        help="Minimum number of shared GT 3D points for two images to be "
+        "considered covisible. If GT tracks are available and this is > 0, "
+        "track-based covisibility is preferred over frustum-based checking.",
+    )
+    parser.add_argument(
         "--error_type",
         default="relative_auc",
         choices=[
@@ -282,11 +316,266 @@ def set_camera_priors(
             updated_camera_ids.add(image.camera_id)
 
 
+def estimate_depth_ranges(
+    sparse_gt: pycolmap.Reconstruction,
+    percentile_near: float = 2.0,
+    percentile_far: float = 98.0,
+    min_num_points: int = 10,
+) -> dict[int, tuple[float, float]]:
+    """Estimate per-image near/far depth range from GT 3D points.
+
+    For each image, computes depths of the 3D points visible in that image
+    and returns percentile-based near/far bounds. Falls back to (0.1, 100.0)
+    for images with insufficient depth data.
+    """
+    default_range = (0.1, 100.0)
+    depth_ranges: dict[int, tuple[float, float]] = {}
+
+    for image_id, image in sparse_gt.images.items():
+        valid = [
+            p.point3D_id
+            for p in image.points2D
+            if p.point3D_id != pycolmap.INVALID_POINT3D_ID
+        ]
+        if len(valid) < min_num_points:
+            depth_ranges[image_id] = default_range
+            continue
+
+        points_xyz = np.array([sparse_gt.points3D[pid].xyz for pid in valid])
+        cam_from_world = image.cam_from_world()
+        points_in_cam = (
+            cam_from_world.rotation.matrix() @ points_xyz.T
+            + cam_from_world.translation[:, np.newaxis]
+        )
+        depths = points_in_cam[2, :]
+        pos_depths = depths[depths > 0]
+
+        if len(pos_depths) < min_num_points:
+            depth_ranges[image_id] = default_range
+            continue
+
+        near, far = np.percentile(pos_depths, [percentile_near, percentile_far])
+        depth_ranges[image_id] = (float(near), float(far))
+
+    return depth_ranges
+
+
+def compute_frustum_vertices(
+    image: pycolmap.Image,
+    camera: pycolmap.Camera,
+    near: float,
+    far: float,
+    num_steps: int = 5,
+) -> npt.NDArray[np.floating]:
+    """Compute sample points on a camera viewing frustum in world coordinates.
+
+    Samples a grid of points on the image plane (corners, edges, and interior)
+    at multiple depths between near and far, then transforms them to world
+    space for more accurate overlap checks.
+    """
+    w, h = camera.width, camera.height
+    us = np.linspace(0, w, num_steps)
+    vs = np.linspace(0, h, num_steps)
+    grid_x, grid_y = np.meshgrid(us, vs)
+    pixels = np.stack([grid_x.ravel(), grid_y.ravel()], axis=1)
+    cam_points = camera.cam_from_img(pixels)
+    assert cam_points is not None
+    cam_rays = np.column_stack([cam_points, np.ones(len(cam_points))])
+
+    depths = np.linspace(near, far, num_steps)
+    verts_in_cam = np.vstack([cam_rays * d for d in depths])
+
+    world_from_cam = image.cam_from_world().inverse()
+    verts_in_world = (
+        world_from_cam.rotation.matrix() @ verts_in_cam.T
+        + world_from_cam.translation[:, np.newaxis]
+    ).T
+    return verts_in_world
+
+
+def check_covisibility(
+    image_a: pycolmap.Image,
+    camera_a: pycolmap.Camera,
+    vertices_a: npt.NDArray[np.floating],
+    image_b: pycolmap.Image,
+    camera_b: pycolmap.Camera,
+    vertices_b: npt.NDArray[np.floating],
+    max_viewing_angle_deg: float,
+) -> bool:
+    """Check whether two cameras have overlapping viewing frustums.
+
+    Uses a three-stage test that short-circuits on the first definitive result:
+    1. Viewing angle: reject if angle between viewing directions exceeds the
+       threshold.
+    2. Vertex projection: accept if any of A's frustum vertices projects into
+       B's image (or vice versa) with positive depth.
+    3. Camera center projection: accept if either camera's projection center
+       projects into the other's image with positive depth.
+    """
+    dir_a = image_a.viewing_direction()
+    dir_b = image_b.viewing_direction()
+    angle = vec_angular_dist_deg(dir_a, dir_b)
+    if angle > max_viewing_angle_deg:
+        return False
+
+    def project_and_check(points, image, camera):
+        cam_from_world = image.cam_from_world()
+        R = cam_from_world.rotation.matrix()
+        t = cam_from_world.translation
+        K = camera.calibration_matrix()
+        points_in_cam = (R @ points.T + t[:, np.newaxis]).T
+        for p in points_in_cam:
+            if p[2] <= 0:
+                continue
+            proj = K @ p
+            px, py = proj[0] / proj[2], proj[1] / proj[2]
+            if 0 <= px <= camera.width and 0 <= py <= camera.height:
+                return True
+        return False
+
+    if project_and_check(vertices_a, image_b, camera_b) or project_and_check(
+        vertices_b, image_a, camera_a
+    ):
+        return True
+
+    center_a = image_a.projection_center().reshape(1, 3)
+    center_b = image_b.projection_center().reshape(1, 3)
+    return project_and_check(center_a, image_b, camera_b) or project_and_check(
+        center_b, image_a, camera_a
+    )
+
+
+def _build_image_point3D_sets(
+    sparse_gt: pycolmap.Reconstruction,
+) -> dict[int, set[int]]:
+    """Build a mapping from image ID to the set of observed 3D point IDs."""
+    image_points: dict[int, set[int]] = {}
+    for image_id, image in sparse_gt.images.items():
+        image_points[image_id] = {
+            p.point3D_id
+            for p in image.points2D
+            if p.point3D_id != pycolmap.INVALID_POINT3D_ID
+        }
+    return image_points
+
+
+def filter_covisibility(
+    database_path: Path,
+    sparse_gt: pycolmap.Reconstruction,
+    covisibility_frustum_near: float | None,
+    covisibility_frustum_far: float | None,
+    max_viewing_angle_deg: float,
+    min_shared_points: int = 0,
+) -> None:
+    """Filter non-covisible image pairs from the database.
+
+    If the GT reconstruction contains 3D point tracks and min_shared_points > 0,
+    uses track-based covisibility: two images are covisible if they share at
+    least min_shared_points common 3D points. Otherwise, falls back to
+    frustum-based overlap checking using GT camera poses and intrinsics.
+    """
+    pycolmap.logging.info("Filtering non-covisible image pairs")
+
+    use_tracks = min_shared_points > 0 and sparse_gt.num_points3D() > 0
+    image_point3D_sets: dict[int, set[int]] = {}
+    frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
+
+    if use_tracks:
+        pycolmap.logging.info(
+            f"Using track-based covisibility "
+            f"(min_shared_points={min_shared_points})"
+        )
+        image_point3D_sets = _build_image_point3D_sets(sparse_gt)
+    else:
+        if min_shared_points > 0:
+            pycolmap.logging.warning(
+                "No GT 3D points available for track-based covisibility, "
+                "falling back to frustum-based check"
+            )
+
+        depth_ranges: dict[int, tuple[float, float]] = {}
+        if (
+            covisibility_frustum_near is None
+            or covisibility_frustum_far is None
+        ):
+            depth_ranges = estimate_depth_ranges(sparse_gt)
+
+        for image_id, image_gt in sparse_gt.images.items():
+            camera_gt = sparse_gt.cameras[image_gt.camera_id]
+            est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
+            near = (
+                covisibility_frustum_near
+                if covisibility_frustum_near is not None
+                else est_near
+            )
+            far = (
+                covisibility_frustum_far
+                if covisibility_frustum_far is not None
+                else est_far
+            )
+            frustum_vertices[image_id] = compute_frustum_vertices(
+                image_gt, camera_gt, near, far
+            )
+
+    images_gt_by_name: dict[str, pycolmap.Image] = {}
+    for image_gt in sparse_gt.images.values():
+        images_gt_by_name[image_gt.name] = image_gt
+
+    with pycolmap.Database.open(str(database_path)) as database:
+        db_images = database.read_all_images()
+        db_id_to_name: dict[int, str] = {}
+        for db_image in db_images:
+            db_id_to_name[db_image.image_id] = db_image.name
+
+        pair_ids, _ = database.read_two_view_geometry_num_inliers()
+        total_pairs = len(pair_ids)
+        filtered_count = 0
+
+        for pair_id in pair_ids:
+            image_id1, image_id2 = pycolmap.pair_id_to_image_pair(pair_id)
+            name1 = db_id_to_name.get(image_id1)
+            name2 = db_id_to_name.get(image_id2)
+
+            if name1 is None or name2 is None:
+                continue
+
+            gt1 = images_gt_by_name[name1]
+            gt2 = images_gt_by_name[name2]
+
+            if use_tracks:
+                shared = len(
+                    image_point3D_sets[gt1.image_id]
+                    & image_point3D_sets[gt2.image_id]
+                )
+                is_covisible = shared >= min_shared_points
+            else:
+                is_covisible = check_covisibility(
+                    gt1,
+                    sparse_gt.cameras[gt1.camera_id],
+                    frustum_vertices[gt1.image_id],
+                    gt2,
+                    sparse_gt.cameras[gt2.camera_id],
+                    frustum_vertices[gt2.image_id],
+                    max_viewing_angle_deg,
+                )
+
+            if not is_covisible:
+                database.delete_matches(image_id1, image_id2)
+                database.delete_two_view_geometry(image_id1, image_id2)
+                filtered_count += 1
+
+        pycolmap.logging.info(
+            f"Co-visibility filtering: {filtered_count}/{total_pairs} pairs "
+            f"removed, {total_pairs - filtered_count} kept"
+        )
+
+
 def colmap_reconstruction(
     args: argparse.Namespace,
     workspace_path: Path,
     image_path: Path,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
+    covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
     colmap_extra_args: list | None = None,
     num_threads: int = 1,
 ) -> None:
@@ -374,6 +663,16 @@ def colmap_reconstruction(
         cwd=workspace_path,
     )
 
+    if covisibility_sparse_gt is not None:
+        filter_covisibility(
+            database_path,
+            covisibility_sparse_gt,
+            args.covisibility_frustum_near,
+            args.covisibility_frustum_far,
+            args.covisibility_max_viewing_angle,
+            args.covisibility_min_shared_points,
+        )
+
     # Decouple matching from sparse reconstruction, because matching will
     # initialize an OpenGL context and Mac on Apple silicon tends to assign GUI
     # applications to the low efficiency cores but we want to use the
@@ -451,6 +750,9 @@ def process_scene(
             sparse_gt
             if not args.uncalibrated and scene_info.has_camera_priors
             else None
+        ),
+        covisibility_sparse_gt=(
+            sparse_gt if args.filter_covisibility else None
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
