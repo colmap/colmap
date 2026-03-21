@@ -633,5 +633,73 @@ TEST(ObservationManager, Point3DVisibilityScore) {
             2 * scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
 }
 
+TEST(ObservationManager, AddImage) {
+  // Simulate streaming setup: images 1,2 are registered with a triangulated
+  // point. Image 3 arrives, gets added, registered, and added to the track.
+  // Without AddImage(), the triangulation step would segfault because
+  // image_stats_[3] doesn't exist.
+
+  // Step 1: Start with images 1,2.
+  auto graph = std::make_shared<CorrespondenceGraph>();
+  graph->AddImage(1, 10);
+  graph->AddImage(2, 10);
+  TwoViewGeometry tvg12;
+  tvg12.inlier_matches = {{0, 0}, {1, 1}};
+  graph->AddTwoViewGeometry(1, 2, tvg12);
+
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, reconstruction);
+  ObservationManager obs_manager(reconstruction, graph);
+
+  // Step 2: Triangulate a point connecting image1:0 and image2:0.
+  Track track;
+  track.AddElement(1, 0);
+  track.AddElement(2, 0);
+  const point3D_t point3D_id =
+      obs_manager.AddPoint3D(Eigen::Vector3d(0, 0, 1), track);
+
+  // Step 3: Image 3 arrives with correspondences to the triangulated point.
+  graph->AddImage(3, 10);
+  TwoViewGeometry tvg13;
+  tvg13.inlier_matches = {{0, 0}};  // image3:0 <-> image1:0
+  graph->AddTwoViewGeometry(1, 3, tvg13);
+  TwoViewGeometry tvg23;
+  tvg23.inlier_matches = {{0, 0}};  // image3:0 <-> image2:0
+  graph->AddTwoViewGeometry(2, 3, tvg23);
+
+  // Add image 3 to reconstruction (unregistered) and ObservationManager.
+  {
+    const Camera& camera = reconstruction.Camera(1);
+    Frame frame;
+    frame.SetFrameId(3);
+    frame.SetRigId(1);
+    frame.AddDataId(data_t(camera.SensorId(), 3));
+    reconstruction.AddFrame(frame);
+    Image image;
+    image.SetImageId(3);
+    image.SetCameraId(camera.camera_id);
+    image.SetFrameId(3);
+    image.SetName("image3");
+    image.SetPoints2D(
+        std::vector<Eigen::Vector2d>(10, Eigen::Vector2d::Zero()));
+    reconstruction.AddImage(image);
+  }
+  obs_manager.AddImage(3);
+
+  // After AddImage, image 3 should already see the triangulated point
+  // through retroactive visibility propagation.
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(3), 1);
+  EXPECT_EQ(obs_manager.NumObservations(3), 1);
+  EXPECT_EQ(obs_manager.NumCorrespondences(3), 2);
+
+  // Step 4: Register image 3 and add it to the existing track.
+  // This would segfault without AddImage().
+  reconstruction.Frame(3).SetRigFromWorld(Rigid3d());
+  obs_manager.RegisterFrame(3);
+  obs_manager.AddObservation(point3D_id, TrackElement(3, 0));
+
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 3);
+}
+
 }  // namespace
 }  // namespace colmap

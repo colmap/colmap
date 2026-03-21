@@ -68,6 +68,12 @@ class ObservationManager {
   inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
       const;
 
+  // Add image stats for streaming/online SfM, so that the image can be
+  // registered and triangulated without rebuilding the ObservationManager.
+  // The image must already be added to the Reconstruction and
+  // CorrespondenceGraph.
+  void AddImage(image_t image_id);
+
   // Add new 3D object, and return its unique ID.
   point3D_t AddPoint3D(
       const Eigen::Vector3d& xyz,

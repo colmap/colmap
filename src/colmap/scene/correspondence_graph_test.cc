@@ -392,5 +392,76 @@ TEST(CorrespondenceGraph, UpdateTwoViewGeometrySwapped) {
               Rigid3dNear(Inverse(cam1_from_cam0), 1e-6, 1e-6));
 }
 
+TEST(CorrespondenceGraph, WithoutFinalize) {
+  // All queries should work without calling Finalize() and produce
+  // the same results as after Finalize().
+  CorrespondenceGraph graph;
+  graph.AddImage(0, 10);
+  graph.AddImage(1, 10);
+  graph.AddImage(2, 10);
+  TwoViewGeometry tvg01;
+  tvg01.inlier_matches = {{0, 0}, {1, 2}, {3, 7}, {4, 8}};
+  graph.AddTwoViewGeometry(0, 1, tvg01);
+  TwoViewGeometry tvg02;
+  tvg02.inlier_matches = {{0, 0}, {5, 5}};
+  graph.AddTwoViewGeometry(0, 2, tvg02);
+  TwoViewGeometry tvg12;
+  tvg12.inlier_matches = {{0, 0}, {2, 5}};
+  graph.AddTwoViewGeometry(1, 2, tvg12);
+
+  // Query without Finalize.
+  const auto num_obs0 = graph.NumObservationsForImage(0);
+  const auto num_obs1 = graph.NumObservationsForImage(1);
+  const auto num_obs2 = graph.NumObservationsForImage(2);
+
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+  graph.ExtractCorrespondences(0, 0, &corrs);
+
+  EXPECT_TRUE(graph.HasCorrespondences(0, 0));
+  EXPECT_FALSE(graph.HasCorrespondences(0, 2));
+
+  FeatureMatches matches01;
+  graph.ExtractMatchesBetweenImages(0, 1, matches01);
+
+  std::vector<CorrespondenceGraph::Correspondence> transitive_corrs;
+  graph.ExtractTransitiveCorrespondences(0, 0, 2, &transitive_corrs);
+
+  // Finalize and verify results are identical.
+  graph.Finalize();
+
+  EXPECT_EQ(num_obs0, graph.NumObservationsForImage(0));
+  EXPECT_EQ(num_obs1, graph.NumObservationsForImage(1));
+  EXPECT_EQ(num_obs2, graph.NumObservationsForImage(2));
+
+  std::vector<CorrespondenceGraph::Correspondence> corrs_finalized;
+  graph.ExtractCorrespondences(0, 0, &corrs_finalized);
+  ASSERT_EQ(corrs.size(), corrs_finalized.size());
+  for (size_t i = 0; i < corrs.size(); ++i) {
+    EXPECT_EQ(corrs[i].image_id, corrs_finalized[i].image_id);
+    EXPECT_EQ(corrs[i].point2D_idx, corrs_finalized[i].point2D_idx);
+  }
+
+  FeatureMatches matches01_finalized;
+  graph.ExtractMatchesBetweenImages(0, 1, matches01_finalized);
+  EXPECT_EQ(matches01, matches01_finalized);
+
+  std::vector<CorrespondenceGraph::Correspondence> transitive_corrs_finalized;
+  graph.ExtractTransitiveCorrespondences(0, 0, 2, &transitive_corrs_finalized);
+  ASSERT_EQ(transitive_corrs.size(), transitive_corrs_finalized.size());
+  auto cmp = [](const auto& a, const auto& b) {
+    return a.image_id < b.image_id;
+  };
+  std::sort(transitive_corrs.begin(), transitive_corrs.end(), cmp);
+  std::sort(transitive_corrs_finalized.begin(),
+            transitive_corrs_finalized.end(),
+            cmp);
+  for (size_t i = 0; i < transitive_corrs.size(); ++i) {
+    EXPECT_EQ(transitive_corrs[i].image_id,
+              transitive_corrs_finalized[i].image_id);
+    EXPECT_EQ(transitive_corrs[i].point2D_idx,
+              transitive_corrs_finalized[i].point2D_idx);
+  }
+}
+
 }  // namespace
 }  // namespace colmap
