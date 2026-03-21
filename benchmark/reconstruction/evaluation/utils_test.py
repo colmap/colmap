@@ -505,7 +505,7 @@ def _add_image(
     img.frame_id = image_id
     img.image_id = image_id
     if num_points2D > 0:
-        img.points2D = points2d
+        img.points2D = pycolmap.Point2DList(points2d)
 
     frame.add_data_id(img.data_id)
     frame.rig_from_world = pycolmap.Rigid3d(rotation, translation)

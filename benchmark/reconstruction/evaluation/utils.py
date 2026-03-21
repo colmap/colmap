@@ -379,6 +379,7 @@ def compute_frustum_vertices(
     grid_x, grid_y = np.meshgrid(us, vs)
     pixels = np.stack([grid_x.ravel(), grid_y.ravel()], axis=1)
     cam_points = camera.cam_from_img(pixels)
+    assert cam_points is not None
     cam_rays = np.column_stack([cam_points, np.ones(len(cam_points))])
 
     depths = np.linspace(near, far, num_steps)
@@ -475,7 +476,7 @@ def filter_covisibility(
     """
     pycolmap.logging.info("Filtering non-covisible image pairs")
 
-    use_tracks = min_shared_points > 0 and sparse_gt.num_points3D > 0
+    use_tracks = min_shared_points > 0 and sparse_gt.num_points3D() > 0
     image_point3D_sets: dict[int, set[int]] = {}
     frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
 
