@@ -218,6 +218,8 @@ class ObservationManager {
     VisibilityPyramid point3D_visibility_pyramid;
   };
 
+  ImageStat InitImageStat(image_t image_id) const;
+
   class Reconstruction& reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
