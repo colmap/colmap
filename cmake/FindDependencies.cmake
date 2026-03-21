@@ -247,7 +247,7 @@ if(ONNX_ENABLED)
 
         message(STATUS "Configuring onnxruntime...")
 
-        set(ONNX_VERSION "1.24.1")
+        set(ONNX_VERSION "1.24.4")
         # ONNX Runtime >= 1.22 GPU binaries are built with CUDA >= 12
         if(ONNX_VERSION VERSION_GREATER_EQUAL "1.22"
            AND CUDA_ENABLED AND CUDA_FOUND AND CUDAToolkit_VERSION VERSION_LESS "12.0")
@@ -269,7 +269,7 @@ if(ONNX_ENABLED)
             else()
                 FetchContent_Declare(onnxruntime
                     URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
-                    URL_HASH SHA256=c2969315cd9ce0f5fa04f6b53ff72cb92f87f7dcf38e88cacfa40c8f983fbba9
+                    URL_HASH SHA256=93787795f47e1eee369182e43ed51b9e5da0878ab0346aecf4258979b8bba989
                     ${_fetch_content_declare_args}
                 )
             endif()
@@ -277,20 +277,20 @@ if(ONNX_ENABLED)
             if(IS_ARM64)
                 FetchContent_Declare(onnxruntime
                     URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-aarch64-${ONNX_VERSION}.tgz
-                    URL_HASH SHA256=0f56edd68f7602df790b68b874a46b115add037e88385c6c842bb763b39b9f89
+                    URL_HASH SHA256=866109a9248d057671a039b9d725be4bd86888e3754140e6701ec621be9d4d7e
                     ${_fetch_content_declare_args}
                 )
             else()
                 if(CUDA_ENABLED)
                     FetchContent_Declare(onnxruntime
                         URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
-                        URL_HASH SHA256=1c468821456b7863640555e31ee5b71e56bb959874b9db0dbf79503997993673
+                        URL_HASH SHA256=c5f804ff5d239b436fa59e9f2fb288a39f7eb9552f6a636c8b71e792e91a8808
                         ${_fetch_content_declare_args}
                     )
                 else()
                     FetchContent_Declare(onnxruntime
                         URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz
-                        URL_HASH SHA256=9142552248b735920f9390027e4512a2cacf8946a1ffcbe9071a5c210531026f
+                        URL_HASH SHA256=3a211fbea252c1e66290658f1b735b772056149f28321e71c308942cdb54b747
                         ${_fetch_content_declare_args}
                     )
                 endif()
@@ -298,7 +298,7 @@ if(ONNX_ENABLED)
         elseif(IS_WINDOWS)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
-                URL_HASH SHA256=176af2aade9eb9e429cd2a738aa5d71a1f20ec7123e4b99a382ad62b9db970fb
+                URL_HASH SHA256=ef3337a0b8184eb8beec310f7c83bd50376b3eefc43aab84ac8e452f6987df0a
                 ${_fetch_content_declare_args}
             )
         endif()
