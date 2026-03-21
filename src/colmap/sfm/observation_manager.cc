@@ -127,7 +127,7 @@ void ObservationManager::AddImage(const image_t image_id) {
   image_stat.num_visible_correspondences = 0;
   image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
   image_stat.num_visible_points3D = 0;
-  if (correspondence_graph_ && correspondence_graph_->ExistsImage(image_id)) {
+  if (correspondence_graph_) {
     image_stat.num_observations =
         correspondence_graph_->NumObservationsForImage(image_id);
     image_stat.num_correspondences =
