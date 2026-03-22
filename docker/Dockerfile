@@ -46,11 +46,18 @@ RUN apt-get update && \
         libcgal-dev \
         libcurl4-openssl-dev \
         libssl-dev \
-        libmkl-full-dev \
+        libopenblas-dev \
         # Ceres dependencies
         libsuitesparse-dev \
         liblapack-dev \
         curl \
+        git && \
+        # Pycolmap
+        python3 \
+        python3-pip \
+        python3-dev && \
+        # cuDNN (required by ONNX Runtime CUDA provider for ALIKED/LightGlue)
+        libcudnn9-dev-cuda-${CUDA_MAJOR} \
         # cuBLAS (needed at link time by cuDSS; not included in the cuda:devel base image)
         libcublas-dev-${CUDA_MAJOR}-${CUDA_MINOR} \
         libcublas-${CUDA_MAJOR}-${CUDA_MINOR} && \
@@ -71,8 +78,7 @@ RUN cd /tmp && \
 # 2.3.0 (main branch, unreleased) is required for cuDSS sparse solver support;
 # the latest release tag (2.2.0) only satisfies the CUDA dense solver check.
 ARG CERES_GIT_REF=master
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/* && \
-    CUDSS_CMAKE_DIR=$(find /usr/lib /usr/local/lib -name "cudss-config.cmake" -o -name "cudssConfig.cmake" 2>/dev/null | tail -1 | xargs -r dirname) && \
+RUN CUDSS_CMAKE_DIR=$(find /usr/lib /usr/local/lib -name "cudss-config.cmake" -o -name "cudssConfig.cmake" 2>/dev/null | tail -1 | xargs -r dirname) && \
     git clone --recurse-submodules --branch ${CERES_GIT_REF} https://github.com/ceres-solver/ceres-solver.git /tmp/ceres-solver && \
     cmake -S /tmp/ceres-solver -B /tmp/ceres-build \
     -GNinja \
@@ -84,6 +90,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
     -DBUILD_EXAMPLES=OFF \
     -DBUILD_BENCHMARKS=OFF && \
     ninja -C /tmp/ceres-build install && \
+    grep -q "find_dependency(CUDAToolkit" /usr/local/lib/cmake/Ceres/CeresConfig.cmake || \                                                                                                                                                           
+            { echo "FATAL: Ceres was built without CUDA support"; exit 1; } && \                                                                                                                                                                          
+    grep -q "find_dependency(cudss" /usr/local/lib/cmake/Ceres/CeresConfig.cmake || \                                                                                                                                                                 
+            { echo "FATAL: Ceres was built without cuDSS support"; exit 1; } && \
     rm -rf /tmp/ceres-solver /tmp/ceres-build
 
 # Fix issue in Ubuntu's openimageio CMake config.
@@ -92,27 +102,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 RUN mkdir -p /usr/include/opencv4
 
 # Copy source into the image.
-COPY . /colmap
+COPY colmap/ /colmap
 
 # Build and install COLMAP.
 RUN cd /colmap && \
     mkdir -p build/.ccache && \
     cd build && \
+    CUDSS_CMAKE_DIR=$(find /usr/lib /usr/local/lib -name "cudss-config.cmake" -o -name "cudssConfig.cmake" 2>/dev/null | tail -1 | xargs -r dirname) && \
     cmake .. \
         -GNinja \
         -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
         ${CUDSS_CMAKE_DIR:+-Dcudss_DIR="${CUDSS_CMAKE_DIR}"} \
         -DCMAKE_INSTALL_PREFIX=/colmap-install \
-        -DFETCHCONTENT_FULLY_DISCONNECTED=${FETCHCONTENT_FULLY_DISCONNECTED} \
-        -DBLA_VENDOR=Intel10_64lp && \
+        -DFETCHCONTENT_FULLY_DISCONNECTED=${FETCHCONTENT_FULLY_DISCONNECTED} && \
     ninja install
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-dev && \
-    rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir --break-system-packages \
     scikit-build-core pybind11 pybind11-stubgen ruff numpy
@@ -157,10 +160,8 @@ RUN apt-get update && \
         libqt6openglwidgets6 \
         libcurl4 \
         libssl3t64 \
-        libmkl-locale \
-        libmkl-intel-lp64 \
-        libmkl-intel-thread \
-        libmkl-core \
+        libcudnn9-cuda-${CUDA_MAJOR} \
+        libopenblas0 \
         libcublas-${CUDA_MAJOR}-${CUDA_MINOR} && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
