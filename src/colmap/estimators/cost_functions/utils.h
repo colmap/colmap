@@ -33,6 +33,7 @@
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
+#include <ceres/rotation.h>
 
 namespace colmap {
 
@@ -40,6 +41,27 @@ template <typename T>
 using EigenVector3Map = Eigen::Map<const Eigen::Matrix<T, 3, 1>>;
 template <typename T>
 using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
+
+template <typename T>
+inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
+                                       T* angle_axis) {
+  const T quaternion[4] = {eigen_quaternion[3],
+                           eigen_quaternion[0],
+                           eigen_quaternion[1],
+                           eigen_quaternion[2]};
+  ceres::QuaternionToAngleAxis(quaternion, angle_axis);
+}
+
+template <typename T>
+inline void AngleAxisToEigenQuaternion(const T* angle_axis,
+                                       T* eigen_quaternion) {
+  T quaternion[4];
+  ceres::AngleAxisToQuaternion(angle_axis, quaternion);
+  eigen_quaternion[0] = quaternion[1];
+  eigen_quaternion[1] = quaternion[2];
+  eigen_quaternion[2] = quaternion[3];
+  eigen_quaternion[3] = quaternion[0];
+}
 
 template <typename CostFunctor, int kNumResiduals, int... kParameterDims>
 ceres::CostFunction* CreateAutoDiffCostFunction(
