@@ -32,6 +32,7 @@
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/sensor/imu.h"
+#include "colmap/util/timestamp.h"
 
 #include <memory>
 #include <unordered_set>
@@ -58,8 +59,8 @@ class PreintegratedImuMeasurement {
  public:
   PreintegratedImuMeasurement(const ImuPreintegrationOptions& options,
                               const ImuCalibration& calib,
-                              double t_start,
-                              double t_end);
+                              timestamp_t t_start,
+                              timestamp_t t_end);
   ~PreintegratedImuMeasurement() = default;
 
   // Reset the preintegrated measurement.
@@ -102,9 +103,9 @@ class PreintegratedImuMeasurement {
   const ImuMeasurements& Measurements() const { return measurements_; }
 
  private:
-  // Integration time window. [seconds]
-  double t_start_ = 0.0;  // Start time of the integration window.
-  double t_end_ = 0.0;    // End time of the integration window.
+  // Integration time window. [nanoseconds]
+  timestamp_t t_start_ = kInvalidTimestamp;
+  timestamp_t t_end_ = kInvalidTimestamp;
 
   // Whether the first measurement has been added.
   bool has_started_ = false;

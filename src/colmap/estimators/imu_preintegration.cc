@@ -32,6 +32,7 @@
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/timestamp.h"
 
 #include <cmath>
 
@@ -42,8 +43,8 @@ namespace colmap {
 PreintegratedImuMeasurement::PreintegratedImuMeasurement(
     const ImuPreintegrationOptions& options,
     const ImuCalibration& calib,
-    double t_start,
-    double t_end) {
+    timestamp_t t_start,
+    timestamp_t t_end) {
   options_ = options;
   calib_ = calib;
   THROW_CHECK_LT(t_start, t_end);
@@ -203,25 +204,29 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
   Eigen::Vector3d acc_e = m.linear_acceleration;
   Eigen::Vector3d gyro_e = m.angular_velocity;
 
-  // Get dt and update boundaries
-  double interval_t_start = std::max(last_measurement.timestamp, t_start_);
-  double interval_t_end = std::min(m.timestamp, t_end_);
-  double dt = interval_t_end - interval_t_start;
+  // Get dt and update boundaries.
+  const timestamp_t interval_t_start =
+      std::max(last_measurement.timestamp, t_start_);
+  const timestamp_t interval_t_end = std::min(m.timestamp, t_end_);
+  const double dt = TimestampDiffSeconds(interval_t_end, interval_t_start);
   THROW_CHECK_GT(dt, 0.0);
-  const double imu_dt = m.timestamp - last_measurement.timestamp;
+  const double imu_dt =
+      TimestampDiffSeconds(m.timestamp, last_measurement.timestamp);
   Eigen::Vector3d acc_s_tmp = acc_s;
   Eigen::Vector3d gyro_s_tmp = gyro_s;
   Eigen::Vector3d acc_e_tmp = acc_e;
   Eigen::Vector3d gyro_e_tmp = gyro_e;
   if (interval_t_start > last_measurement.timestamp) {
     const double ratio_s =
-        (interval_t_start - last_measurement.timestamp) / imu_dt;
+        TimestampDiffSeconds(interval_t_start, last_measurement.timestamp) /
+        imu_dt;
     acc_s_tmp = (1.0 - ratio_s) * acc_s + ratio_s * acc_e;
     gyro_s_tmp = (1.0 - ratio_s) * gyro_s + ratio_s * gyro_e;
   }
   if (interval_t_end < m.timestamp) {
     const double ratio_e =
-        (interval_t_end - last_measurement.timestamp) / imu_dt;
+        TimestampDiffSeconds(interval_t_end, last_measurement.timestamp) /
+        imu_dt;
     acc_e_tmp = (1.0 - ratio_e) * acc_s + ratio_e * acc_e;
     gyro_e_tmp = (1.0 - ratio_e) * gyro_s + ratio_e * gyro_e;
   }
@@ -234,7 +239,7 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
   Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.tail<3>();
   gyro_true = gyro_rect_mat_inv_ * gyro_true;
 
-  // Check saturation
+  // Check saturation.
   double acc_noise_density = calib_.acc_noise_density;
   if (acc_s.cwiseAbs().maxCoeff() > calib_.acc_saturation_max ||
       acc_e.cwiseAbs().maxCoeff() > calib_.acc_saturation_max) {
@@ -246,7 +251,7 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
     gyro_noise_density *= 100.0;
   }
 
-  // Integration
+  // Integration.
   integrate(acc_true, gyro_true, dt, acc_noise_density, gyro_noise_density);
 }
 
@@ -299,25 +304,29 @@ void PreintegratedImuMeasurement::Reintegrate() {
     Eigen::Vector3d acc_e = m.linear_acceleration;
     Eigen::Vector3d gyro_e = m.angular_velocity;
 
-    // Get dt and update boundaries
-    double interval_t_start = std::max(last_measurement.timestamp, t_start_);
-    double interval_t_end = std::min(m.timestamp, t_end_);
-    double dt = interval_t_end - interval_t_start;
+    // Get dt and update boundaries.
+    const timestamp_t interval_t_start =
+        std::max(last_measurement.timestamp, t_start_);
+    const timestamp_t interval_t_end = std::min(m.timestamp, t_end_);
+    const double dt = TimestampDiffSeconds(interval_t_end, interval_t_start);
     THROW_CHECK_GT(dt, 0.0);
-    const double imu_dt = m.timestamp - last_measurement.timestamp;
+    const double imu_dt =
+        TimestampDiffSeconds(m.timestamp, last_measurement.timestamp);
     Eigen::Vector3d acc_s_tmp = acc_s;
     Eigen::Vector3d gyro_s_tmp = gyro_s;
     Eigen::Vector3d acc_e_tmp = acc_e;
     Eigen::Vector3d gyro_e_tmp = gyro_e;
     if (interval_t_start > last_measurement.timestamp) {
       const double ratio_s =
-          (interval_t_start - last_measurement.timestamp) / imu_dt;
+          TimestampDiffSeconds(interval_t_start, last_measurement.timestamp) /
+          imu_dt;
       acc_s_tmp = (1.0 - ratio_s) * acc_s + ratio_s * acc_e;
       gyro_s_tmp = (1.0 - ratio_s) * gyro_s + ratio_s * gyro_e;
     }
     if (interval_t_end < m.timestamp) {
       const double ratio_e =
-          (interval_t_end - last_measurement.timestamp) / imu_dt;
+          TimestampDiffSeconds(interval_t_end, last_measurement.timestamp) /
+          imu_dt;
       acc_e_tmp = (1.0 - ratio_e) * acc_s + ratio_e * acc_e;
       gyro_e_tmp = (1.0 - ratio_e) * gyro_s + ratio_e * gyro_e;
     }

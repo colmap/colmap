@@ -32,7 +32,7 @@ void BindImu(py::module& m) {
 
   py::classh_ext<ImuMeasurement> PyImuMeasurement(m, "ImuMeasurement");
   PyImuMeasurement.def(py::init<>())
-      .def(py::init<const double,
+      .def(py::init<timestamp_t,
                     const Eigen::Vector3d&,
                     const Eigen::Vector3d&>())
       .def_readwrite("timestamp", &ImuMeasurement::timestamp)

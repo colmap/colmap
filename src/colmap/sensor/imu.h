@@ -69,12 +69,12 @@ struct ImuCalibration {
 };
 
 struct ImuMeasurement {
-  double timestamp = 0.0;
+  timestamp_t timestamp = kInvalidTimestamp;  // [nanoseconds]
   Eigen::Vector3d linear_acceleration = Eigen::Vector3d::Zero();
   Eigen::Vector3d angular_velocity = Eigen::Vector3d::Zero();
 
   ImuMeasurement() {}
-  ImuMeasurement(const double t,
+  ImuMeasurement(timestamp_t t,
                  const Eigen::Vector3d& lin_acc,
                  const Eigen::Vector3d& ang_vel)
       : timestamp(t), linear_acceleration(lin_acc), angular_velocity(ang_vel) {}
@@ -172,7 +172,7 @@ class ImuMeasurements {
   }
   const ImuMeasurement& back() const { return measurements_.back(); }
   const std::vector<ImuMeasurement>& Data() const { return measurements_; }
-  ImuMeasurements GetMeasurementsContainEdge(double t1, double t2);
+  ImuMeasurements GetMeasurementsContainEdge(timestamp_t t1, timestamp_t t2);
 
  private:
   std::vector<ImuMeasurement> measurements_;

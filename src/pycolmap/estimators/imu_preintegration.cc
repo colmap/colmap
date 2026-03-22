@@ -32,8 +32,8 @@ void BindImuPreintegration(py::module& m) {
   PyPreintegratedImuMeasurement
       .def(py::init<const ImuPreintegrationOptions&,
                     const ImuCalibration&,
-                    const double,
-                    const double>(),
+                    timestamp_t,
+                    timestamp_t>(),
            "options"_a,
            "calib"_a,
            "t_start"_a,
