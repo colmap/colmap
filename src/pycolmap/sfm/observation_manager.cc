@@ -26,6 +26,10 @@ void BindObservationManager(py::module& m) {
            "correspondence_graph"_a = py::none(),
            py::keep_alive<1, 2>())
       .def_property_readonly("image_pairs", &ObservationManager::ImagePairs)
+      .def("add_image",
+           &ObservationManager::AddImage,
+           "image_id"_a,
+           "Incrementally add an image for streaming/online SfM.")
       .def("add_point3D",
            &ObservationManager::AddPoint3D,
            "xyz"_a,
@@ -79,6 +83,11 @@ void BindObservationManager(py::module& m) {
            "Filter 3D points with large reprojection error, negative depth, or"
            "insufficient triangulation angle. Return the number of filtered "
            "observations.")
+      .def("filter_points3D_with_short_tracks",
+           &ObservationManager::FilterPoints3DWithShortTracks,
+           "min_track_length"_a,
+           "Filter points with track length below threshold. Return the number "
+           "of filtered observations.")
       .def("filter_observations_with_negative_depth",
            &ObservationManager::FilterObservationsWithNegativeDepth,
            "Filter observations that have negative depth. Return the number of "
@@ -107,6 +116,10 @@ void BindObservationManager(py::module& m) {
            &ObservationManager::NumCorrespondences,
            "image_id"_a,
            "Number of correspondences for all image points.")
+      .def("num_visible_correspondences",
+           &ObservationManager::NumVisibleCorrespondences,
+           "image_id"_a,
+           "Number of visible correspondences for all image points.")
       .def("num_visible_points3D",
            &ObservationManager::NumVisiblePoints3D,
            "image_id"_a,

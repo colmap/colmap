@@ -93,6 +93,10 @@ class MapperRegistrationOptionsWidget : public OptionsWidget {
     AddOptionDouble(&options->mapper->mapper.abs_pose_min_inlier_ratio,
                     "abs_pose_min_inlier_ratio");
     AddOptionInt(&options->mapper->mapper.max_reg_trials, "max_reg_trials", 1);
+    AddOptionBool(&options->mapper->structure_less_registration_fallback,
+                  "structure_less_registration_fallback");
+    AddOptionBool(&options->mapper->structure_less_registration_only,
+                  "structure_less_registration_only");
   }
 };
 
@@ -100,8 +104,14 @@ class MapperInitializationOptionsWidget : public OptionsWidget {
  public:
   MapperInitializationOptionsWidget(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
-    AddOptionInt(&options->mapper->init_image_id1, "init_image_id1", -1);
-    AddOptionInt(&options->mapper->init_image_id2, "init_image_id2", -1);
+    AddOptionInt(&options->mapper->init_image_id1,
+                 "init_image_id1",
+                 -1,
+                 static_cast<int>(2e9));
+    AddOptionInt(&options->mapper->init_image_id2,
+                 "init_image_id2",
+                 -1,
+                 static_cast<int>(2e9));
     AddOptionInt(&options->mapper->init_num_trials, "init_num_trials");
     AddOptionInt(&options->mapper->mapper.init_min_num_inliers,
                  "init_min_num_inliers");
@@ -132,7 +142,7 @@ class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
     AddSpacer();
 
     AddSection("Local Bundle Adjustment");
-    AddOptionInt(&options->mapper->ba_local_num_images, "num_images");
+    AddOptionInt(&options->mapper->mapper.ba_local_num_images, "num_images");
     AddOptionInt(&options->mapper->ba_local_max_num_iterations,
                  "max_num_iterations");
     AddOptionInt(

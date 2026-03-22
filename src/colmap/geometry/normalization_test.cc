@@ -82,5 +82,30 @@ TEST(ComputeBoundingBoxAndCentroid, FiveCoords) {
   EXPECT_THAT(centroid2, EigenMatrixNear(Eigen::Vector3d(2, 2, 2), 1e-6));
 }
 
+TEST(CenterAndNormalizeImagePoints, Nominal) {
+  constexpr size_t kNumPoints = 11;
+  std::vector<Eigen::Vector2d> points;
+  points.reserve(kNumPoints);
+  for (size_t i = 0; i < kNumPoints; ++i) {
+    points.emplace_back(i, i);
+  }
+
+  std::vector<Eigen::Vector2d> normed_points;
+  Eigen::Matrix3d matrix;
+  CenterAndNormalizeImagePoints(points, &normed_points, &matrix);
+
+  EXPECT_EQ(matrix(0, 0), 0.31622776601683794);
+  EXPECT_EQ(matrix(1, 1), 0.31622776601683794);
+  EXPECT_EQ(matrix(0, 2), -1.5811388300841898);
+  EXPECT_EQ(matrix(1, 2), -1.5811388300841898);
+
+  Eigen::Vector2d mean_point(0, 0);
+  for (const auto& point : normed_points) {
+    mean_point += point;
+  }
+  EXPECT_LT(std::abs(mean_point[0]), 1e-6);
+  EXPECT_LT(std::abs(mean_point[1]), 1e-6);
+}
+
 }  // namespace
 }  // namespace colmap

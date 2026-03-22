@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/sensor/imu.h"
 

@@ -30,20 +30,21 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/ui/colormaps.h"
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/ui/line_painter.h"
+#include "colmap/ui/mesh_painter.h"
 #include "colmap/ui/movie_grabber_widget.h"
 #include "colmap/ui/point_painter.h"
 #include "colmap/ui/point_viewer_widget.h"
-#include "colmap/ui/render_options.h"
 #include "colmap/ui/triangle_painter.h"
+#include "colmap/util/ply.h"
 
 #include <QOpenGLFunctions_3_2_Core>
 #include <QtCore>
 #include <QtOpenGL>
+#include <optional>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QOpenGLWidget>
 #endif
@@ -74,15 +75,15 @@ class ModelViewerWidget : public QOpenGLWidget,
   const int kDoubleClickInterval = 250;
 
   ModelViewerWidget(QWidget* parent, OptionManager* options);
+  ~ModelViewerWidget() override;
 
   void ReloadReconstruction();
   void ClearReconstruction();
 
   int GetProjectionType() const;
 
-  // Takes ownwership of the colormap objects.
-  void SetPointColormap(PointColormapBase* colormap);
-  void SetImageColormap(ImageColormapBase* colormap);
+  void SetPointColormap(std::unique_ptr<PointColormapBase> colormap);
+  void SetImageColormap(std::unique_ptr<ImageColormapBase> colormap);
 
   void UpdateMovieGrabber();
 
@@ -127,6 +128,12 @@ class ModelViewerWidget : public QOpenGLWidget,
   std::unordered_map<point3D_t, Point3D> points3D;
   std::vector<image_t> reg_image_ids;
 
+  std::optional<std::vector<PlyPoint>> point_cloud;
+  std::optional<PlyTexturedMesh> surface_mesh;
+  std::vector<uint8_t> surface_texture_data;
+  int surface_texture_width = 0;
+  int surface_texture_height = 0;
+
   QLabel* statusbar_status_label;
 
  protected:
@@ -152,6 +159,8 @@ class ModelViewerWidget : public QOpenGLWidget,
   void UploadImageData(bool selection_mode = false);
   void UploadImageConnectionData();
   void UploadMovieGrabberData();
+  void UploadPointCloudData();
+  void UploadSurfaceMeshData();
 
   void ComposeProjectionMatrix();
 
@@ -183,6 +192,9 @@ class ModelViewerWidget : public QOpenGLWidget,
   LinePainter movie_grabber_line_painter_;
   TrianglePainter movie_grabber_triangle_painter_;
 
+  PointPainter point_cloud_painter_;
+  MeshPainter mesh_painter_;
+
   PointViewerWidget* point_viewer_widget_;
   DatabaseImageViewerWidget* image_viewer_widget_;
   MovieGrabberWidget* movie_grabber_widget_;
@@ -196,7 +208,13 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   float focus_distance_;
 
-  std::vector<std::pair<size_t, char>> selection_buffer_;
+  // Type of selection buffer entries.
+  enum class SelectionType : char {
+    kImage = 0,
+    kPoint = 1,
+  };
+
+  std::vector<std::pair<size_t, SelectionType>> selection_buffer_;
   image_t selected_image_id_;
   point3D_t selected_point3D_id_;
   size_t selected_movie_grabber_view_;

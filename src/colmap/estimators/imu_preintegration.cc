@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/imu_preintegration.h"
 
-#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
 

@@ -31,7 +31,6 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/types.h"
 
 #include <vector>
 
@@ -100,5 +99,16 @@ Eigen::Matrix3d HomographyMatrixFromPose(const Eigen::Matrix3d& K1,
                                          const Eigen::Vector3d& t,
                                          const Eigen::Vector3d& n,
                                          double d);
+
+// Calculate the squared reprojection error for a single point pair under
+// a homography transformation.
+//
+// @param point1      First point.
+// @param point2      Second point.
+// @param H           3x3 homography matrix.
+// @return            Squared reprojection error.
+double ComputeSquaredHomographyError(const Eigen::Vector2d& point1,
+                                     const Eigen::Vector2d& point2,
+                                     const Eigen::Matrix3d& H);
 
 }  // namespace colmap

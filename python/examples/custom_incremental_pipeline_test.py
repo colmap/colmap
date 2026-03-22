@@ -1,5 +1,7 @@
 # Equivalent tests to src/colmap/controllers/incremental_pipeline_test.cc
 
+from pathlib import Path
+
 import custom_incremental_pipeline
 
 import pycolmap
@@ -11,7 +13,7 @@ def expect_equal_reconstructions(
     max_rotation_error_deg: float,
     max_proj_center_error: float,
     num_obs_tolerance: float,
-):
+) -> None:
     assert computed.num_cameras() == gt.num_cameras()
     assert computed.num_images() == gt.num_images()
     assert computed.num_reg_images() == gt.num_reg_images()
@@ -26,19 +28,20 @@ def expect_equal_reconstructions(
         alignment_error="proj_center",
         max_proj_center_error=max_proj_center_error,
     )
+    assert result is not None
     for error in result["errors"]:
         assert error.rotation_error_deg < max_rotation_error_deg
         assert error.proj_center_error < max_proj_center_error
 
 
-def create_test_options():
+def create_test_options() -> pycolmap.IncrementalPipelineOptions:
     options = pycolmap.IncrementalPipelineOptions()
     # Use single thread for deterministic behavior.
     options.num_threads = 1
     return options
 
 
-def test_without_noise(tmp_path):
+def test_without_noise(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -52,7 +55,6 @@ def test_without_noise(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 50
-        synthetic_dataset_options.point2D_stddev = 0
         gt_reconstruction = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
@@ -73,7 +75,7 @@ def test_without_noise(tmp_path):
     )
 
 
-def test_with_noise(tmp_path):
+def test_with_noise(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -87,10 +89,12 @@ def test_with_noise(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 100
-        synthetic_dataset_options.point2D_stddev = 0.5
         gt_reconstruction = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
+        synthetic_noise_options = pycolmap.SyntheticNoiseOptions()
+        synthetic_noise_options.point2D_stddev = 0.5
+        pycolmap.synthesize_noise(synthetic_noise_options, gt_reconstruction)
 
     custom_incremental_pipeline.main(
         database_path=database_path,
@@ -108,7 +112,7 @@ def test_with_noise(tmp_path):
     )
 
 
-def test_multi_reconstruction(tmp_path):
+def test_multi_reconstruction(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -122,7 +126,6 @@ def test_multi_reconstruction(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 5
         synthetic_dataset_options.num_points3D = 50
-        synthetic_dataset_options.point2D_stddev = 0
         gt_reconstruction1 = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
@@ -162,7 +165,7 @@ def test_multi_reconstruction(tmp_path):
     )
 
 
-def test_chained_matches(tmp_path):
+def test_chained_matches(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -176,7 +179,6 @@ def test_chained_matches(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 4
         synthetic_dataset_options.num_points3D = 100
-        synthetic_dataset_options.point2D_stddev = 0
         synthetic_dataset_options.match_config = (
             pycolmap.SyntheticDatasetMatchConfig.CHAINED
         )

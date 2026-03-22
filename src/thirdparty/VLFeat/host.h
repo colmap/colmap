@@ -314,8 +314,8 @@ defined(__DOXYGEN__)
 #  define VL_INLINE static __inline
 #if defined _MSC_VER && _MSC_VER < 1900
 #  define snprintf _snprintf
-#endif
 #  define isnan _isnan
+#endif
 #  ifdef VL_BUILD_DLL
 #    ifdef __cplusplus
 #      define VL_EXPORT extern "C" __declspec(dllexport)

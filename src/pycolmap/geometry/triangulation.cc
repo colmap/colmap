@@ -43,9 +43,6 @@ void BindTriangulation(py::module& m) {
         "proj_center2"_a,
         "point3D"_a,
         "Calculate triangulation angle in radians.");
-  DefDeprecation(m, "TriangulatePoint", "triangulate_point");
-  DefDeprecation(
-      m, "CalculateTriangulationAngle", "calculate_triangulation_angle");
 
   m.def(
       "triangulate_mid_point",

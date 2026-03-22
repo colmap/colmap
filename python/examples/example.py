@@ -13,7 +13,9 @@ import pycolmap
 from pycolmap import logging
 
 
-def incremental_mapping_with_pbar(database_path, image_path, sfm_path):
+def incremental_mapping_with_pbar(
+    database_path: Path, image_path: Path, sfm_path: Path
+) -> dict[int, pycolmap.Reconstruction]:
     with pycolmap.Database.open(database_path) as database:
         num_images = database.num_images()
     with enlighten.Manager() as manager:
@@ -31,7 +33,7 @@ def incremental_mapping_with_pbar(database_path, image_path, sfm_path):
     return reconstructions
 
 
-def run():
+def run() -> None:
     output_path = Path("example/")
     image_path = output_path / "Fountain/images"
     database_path = output_path / "database.db"

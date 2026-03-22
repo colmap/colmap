@@ -40,13 +40,12 @@ COLMAP_ADD_LIBRARY(
         rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
+        colmap_geometry
+        colmap_util
         Ceres::ceres
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
-        colmap_geometry
-        colmap_util
-        colmap_vlfeat
-        freeimage::FreeImage
+        OpenImageIO::OpenImageIO
 )
 
 COLMAP_ADD_TEST(
@@ -54,8 +53,10 @@ COLMAP_ADD_TEST(
     SRCS bitmap_test.cc
     LINK_LIBS
         colmap_sensor
-        freeimage::FreeImage
 )
+if(TESTS_ENABLED AND MSVC)
+    target_compile_options(colmap_sensor_bitmap_test PRIVATE /utf-8)
+endif()
 COLMAP_ADD_TEST(
     NAME database_test
     SRCS database_test.cc

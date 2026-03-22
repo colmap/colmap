@@ -1,4 +1,4 @@
-/*
+/* -*- C++ -*-
 Copyright (c) 2006, Michael Kazhdan and Matthew Bolitho
 All rights reserved.
 
@@ -26,468 +26,633 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF S
 DAMAGE.
 */
 
-#include <float.h>
-#include <string.h>
-
-
-///////////////////
-//  SparseMatrix //
-///////////////////
-///////////////////////////////////////
-// SparseMatrix Methods and Memebers //
-///////////////////////////////////////
-
-template< class T >
-void SparseMatrix< T >::_init( void )
+///////////////////////////////////////////////////////////////
+//  SparseMatrix (unconstrained max row size specialization) //
+///////////////////////////////////////////////////////////////
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >::SparseMatrix( void )
 {
-	_contiguous = false;
-	_maxEntriesPerRow = 0;
-	rows = 0;
-	rowSizes = NullPointer( int );
-	m_ppElements = NullPointer( Pointer( MatrixEntry< T > ) );
+	rowSizes = NullPointer( size_t );
+	rowNum = 0;
+	_entries = NullPointer( Pointer( MatrixEntry< T , IndexType > ) );
 }
 
-template< class T > SparseMatrix< T >::SparseMatrix( void ){  _init(); }
-
-template< class T > SparseMatrix< T >::SparseMatrix( int rows                        ){ _init() , Resize( rows ); }
-template< class T > SparseMatrix< T >::SparseMatrix( int rows , int maxEntriesPerRow ){ _init() , Resize( rows , maxEntriesPerRow ); }
-
-template< class T >
-SparseMatrix< T >::SparseMatrix( const SparseMatrix& M )
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >::SparseMatrix( size_t rowNum )
 {
-	_init();
-	if( M._contiguous ) Resize( M.rows , M._maxEntriesPerRow );
-	else                Resize( M.rows );
-	for( int i=0 ; i<rows ; i++ )
+	this->rowNum = 0;
+	rowSizes = NullPointer( size_t );
+	_entries= NullPointer( Pointer( MatrixEntry< T , IndexType > ) );
+	resize( rowNum );
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >::SparseMatrix( const SparseMatrix& M )
+{
+	rowSizes = NullPointer( size_t );
+	rowNum = 0;
+	_entries = NullPointer( Pointer( MatrixEntry< T , IndexType > ) );
+	resize( M.rowNum );
+	for( size_t i=0 ; i<rowNum ; i++ )
 	{
-		SetRowSize( i , M.rowSizes[i] );
-		memcpy( (*this)[i] , M[i] , sizeof( MatrixEntry< T > ) * rowSizes[i] );
+		setRowSize( i , M.rowSizes[i] );
+		for( size_t j=0 ; j<rowSizes[i] ; j++ ) _entries[i][j] = M._entries[i][j];
 	}
 }
-template<class T>
-int SparseMatrix<T>::Entries( void ) const
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >::SparseMatrix( SparseMatrix&& M )
 {
-	int e = 0;
-	for( int i=0 ; i<rows ; i++ ) e += int( rowSizes[i] );
-	return e;
+	rowSizes = NullPointer( size_t );
+	rowNum = 0;
+	_entries = NullPointer( Pointer( MatrixEntry< T , IndexType > ) );
+
+	Swap( *this , M );
 }
-template<class T>
-SparseMatrix<T>& SparseMatrix<T>::operator = (const SparseMatrix<T>& M)
+template< class T , class IndexType >
+template< class T2 , class IndexType2 >
+SparseMatrix< T , IndexType , 0 >::SparseMatrix( const SparseMatrix< T2 , IndexType2 , 0 >& M )
 {
-	if( M._contiguous ) Resize( M.rows , M._maxEntriesPerRow );
-	else                Resize( M.rows );
-	for( int i=0 ; i<rows ; i++ )
+	rowSizes = NullPointer( size_t );
+	rowNum = 0;
+	_entries = NULL;
+	resize( M.rowNum );
+	for( size_t i=0 ; i<rowNum ; i++ )
 	{
-		SetRowSize( i , M.rowSizes[i] );
-		memcpy( (*this)[i] , M[i] , sizeof( MatrixEntry< T > ) * rowSizes[i] );
+		setRowSize( i , M.rowSizes[i] );
+		for( size_t j=0 ; j<rowSizes[i] ; j++ ) _entries[i][j] = MatrixEntry< T , IndexType >( M._entries[i][j].N , T( M._entries[i][j].Value ) );
 	}
-	return *this;
 }
 
-template<class T>
-SparseMatrix<T>::~SparseMatrix( void ){ Resize( 0 ); }
-
-template< class T >
-bool SparseMatrix< T >::write( const char* fileName ) const
+template< class T , class IndexType >
+template< class T2 , class IndexType2 >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::copy( const SparseMatrix< T2 , IndexType2 , 0 >& M  )
 {
-	FILE* fp = fopen( fileName , "wb" );
-	if( !fp ) return false;
-	bool ret = write( fp );
-	fclose( fp );
-	return ret;
-}
-template< class T >
-bool SparseMatrix< T >::read( const char* fileName )
-{
-	FILE* fp = fopen( fileName , "rb" );
-	if( !fp ) return false;
-	bool ret = read( fp );
-	fclose( fp );
-	return ret;
-}
-template< class T >
-bool SparseMatrix< T >::write( FILE* fp ) const
-{
-	if( fwrite( &rows , sizeof( int ) , 1 , fp )!=1 ) return false;
-	if( fwrite( rowSizes , sizeof( int ) , rows , fp )!=rows ) return false;
-	for( int i=0 ; i<rows ; i++ ) if( fwrite( (*this)[i] , sizeof( MatrixEntry< T > ) , rowSizes[i] , fp )!=rowSizes[i] ) return false;
-	return true;
-}
-template< class T >
-bool SparseMatrix< T >::read( FILE* fp )
-{
-	int r;
-	if( fread( &r , sizeof( int ) , 1 , fp )!=1 ) return false;
-	Resize( r );
-	if( fread( rowSizes , sizeof( int ) , rows , fp )!=rows ) return false;
-	for( int i=0 ; i<rows ; i++ )
+	resize( M.rowNum );
+	for ( size_t i=0 ; i<rowNum ; i++)
 	{
-		r = rowSizes[i];
-		rowSizes[i] = 0;
-		SetRowSize( i , r );
-		if( fread( (*this)[i] , sizeof( MatrixEntry< T > ) , rowSizes[i] , fp )!=rowSizes[i] ) return false;
-	}
-	return true;
-}
-
-
-template< class T >
-void SparseMatrix< T >::Resize( int r )
-{
-	if( rows>0 )
-	{
-		if( _contiguous ){ if( _maxEntriesPerRow ) FreePointer( m_ppElements[0] ); }
-		else for( int i=0 ; i<rows ; i++ ){ if( rowSizes[i] ) FreePointer( m_ppElements[i] ); }
-		FreePointer( m_ppElements );
-		FreePointer( rowSizes );
-	}
-	rows = r;
-	if( r )
-	{
-		rowSizes = AllocPointer< int >( r );
-		m_ppElements = AllocPointer< Pointer( MatrixEntry< T > ) >( r );
-		memset( rowSizes , 0 , sizeof( int ) * r );
-	}
-	_contiguous = false;
-	_maxEntriesPerRow = 0;
-}
-template< class T >
-void SparseMatrix< T >::Resize( int r , int e )
-{
-	if( rows>0 )
-	{
-		if( _contiguous ){ if( _maxEntriesPerRow ) FreePointer( m_ppElements[0] ); }
-		else for( int i=0 ; i<rows ; i++ ){ if( rowSizes[i] ) FreePointer( m_ppElements[i] ); }
-		FreePointer( m_ppElements );
-		FreePointer( rowSizes );
-	}
-	rows = r;
-	if( r )
-	{
-		rowSizes = AllocPointer< int >( r );
-		m_ppElements = AllocPointer< Pointer( MatrixEntry< T > ) >( r );
-		m_ppElements[0] = AllocPointer< MatrixEntry< T > >( r * e );
-		memset( rowSizes , 0 , sizeof( int ) * r );
-		for( int i=1 ; i<r ; i++ ) m_ppElements[i] = m_ppElements[i-1] + e;
-	}
-	_contiguous = true;
-	_maxEntriesPerRow = e;
-}
-
-template<class T>
-void SparseMatrix< T >::SetRowSize( int row , int count )
-{
-	if( _contiguous )
-	{
-		if( count>_maxEntriesPerRow ) fprintf( stderr , "[ERROR] Cannot set row size on contiguous matrix: %d<=%d\n" , count , _maxEntriesPerRow ) , exit( 0 );
-		rowSizes[row] = count;
-	}
-	else if( row>=0 && row<rows )
-	{
-		if( rowSizes[row] ) FreePointer( m_ppElements[row] );
-		if( count>0 ) m_ppElements[row] = AllocPointer< MatrixEntry< T > >( count );
-		// [WARNING] Why wasn't this line here before???
-		rowSizes[row] = count;
-	}
-}
-
-
-template<class T>
-void SparseMatrix<T>::SetZero()
-{
-	Resize(this->rows, this->_maxEntriesPerRow);
-}
-
-template<class T>
-SparseMatrix<T> SparseMatrix<T>::operator * (const T& V) const
-{
-	SparseMatrix<T> M(*this);
-	M *= V;
-	return M;
-}
-
-template<class T>
-SparseMatrix<T>& SparseMatrix<T>::operator *= (const T& V)
-{
-	for( int i=0 ; i<rows ; i++ ) for( int ii=0 ; ii<rowSizes[i] ; i++ ) m_ppElements[i][ii].Value *= V;
-	return *this;
-}
-
-template< class T >
-template< class T2 >
-void SparseMatrix< T >::Multiply( ConstPointer( T2 ) in , Pointer( T2 ) out , int threads ) const
-{
-#pragma omp parallel for num_threads( threads )
-	for( int i=0 ; i<rows ; i++ )
-	{
-		T2 _out(0);
-		ConstPointer( MatrixEntry< T > ) start = m_ppElements[i];
-		ConstPointer( MatrixEntry< T > ) end = start + rowSizes[i];
-		ConstPointer( MatrixEntry< T > ) e;
-		for( e=start ; e!=end ; e++ ) _out += in[ e->N ] * e->Value;
-		out[i] = _out;
-	}
-}
-template< class T >
-template< class T2 >
-void SparseMatrix< T >::MultiplyAndAddAverage( ConstPointer( T2 ) in , Pointer( T2 ) out , int threads ) const
-{
-	T2 average = 0;
-	for( int i=0 ; i<rows ; i++ ) average += in[i];
-	average /= rows;
-	Multiply( in , out , threads );
-#pragma omp parallel for num_threads( threads )
-	for( int i=0 ; i<rows ; i++ ) out[i] += average;
-}
-
-
-template< class T >
-template< class T2 >
-int SparseMatrix<T>::SolveJacobi( const SparseMatrix<T>& M , ConstPointer( T2 ) diagonal , ConstPointer( T2 ) b , Pointer( T2 ) x , Pointer( T2 ) Mx , T2 sor , int threads )
-{
-	M.Multiply( x , Mx , threads );
-#if ZERO_TESTING_JACOBI
-	for( int j=0 ; j<int(M.rows) ; j++ ) if( diagonal[j] ) x[j] += ( b[j]-Mx[j] ) * sor / diagonal[j];
-#else // !ZERO_TESTING_JACOBI
-	for( int j=0 ; j<int(M.rows) ; j++ ) x[j] += ( b[j]-Mx[j] ) * sor / diagonal[j];
-#endif // ZERO_TESTING_JACOBI
-	return M.rows;
-}
-template< class T >
-template< class T2 >
-int SparseMatrix<T>::SolveJacobi( const SparseMatrix<T>& M , ConstPointer( T2 ) b , Pointer( T2 ) x , Pointer( T2 ) Mx , T2 sor , int threads )
-{
-	M.Multiply( x , Mx , threads );
-#if ZERO_TESTING_JACOBI
-	for( int j=0 ; j<int(M.rows) ; j++ )
-	{
-		T diagonal = M[j][0].Value;
-		if( diagonal ) x[j] += ( b[j]-Mx[j] ) * sor / diagonal;
-	}
-#else // !ZERO_TESTING_JACOBI
-	for( int j=0 ; j<int(M.rows) ; j++ ) x[j] += ( b[j]-Mx[j] ) * sor / M[j][0].Value;
-#endif // ZERO_TESTING_JACOBI
-	return M.rows;
-}
-template<class T>
-template<class T2>
-int SparseMatrix<T>::SolveGS( const SparseMatrix<T>& M , ConstPointer( T2 ) diagonal , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward )
-{
-#define ITERATE                                                         \
-	{                                                                   \
-		ConstPointer( MatrixEntry< T > ) start = M[j];                  \
-		ConstPointer( MatrixEntry< T > ) end = start + M.rowSizes[j];   \
-		ConstPointer( MatrixEntry< T > ) e;                             \
-		T2 _b = b[j];                                                   \
-		for( e=start ; e!=end ; e++ ) _b -= x[ e->N ] * e->Value;       \
-		x[j] += _b / diagonal[j];                                       \
-	}
-
-#if ZERO_TESTING_JACOBI
-	if( forward ) for( int j=0 ; j<int(M.rows)    ; j++ ){ if( diagonal[j] ){ ITERATE; } }
-	else          for( int j=int(M.rows)-1 ; j>=0 ; j-- ){ if( diagonal[j] ){ ITERATE; } }
-#else // !ZERO_TESTING_JACOBI
-	if( forward ) for( int j=0 ; j<int(M.rows) ; j++ ){ ITERATE; }
-	else          for( int j=int(M.rows)-1 ; j>=0 ; j-- ){ ITERATE; }
-#endif // ZERO_TESTING_JACOBI
-#undef ITERATE
-	return M.rows;
-}
-template<class T>
-template<class T2>
-int SparseMatrix<T>::SolveGS( const std::vector< std::vector< int > >& mcIndices , const SparseMatrix<T>& M , ConstPointer( T2 ) diagonal , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward , int threads )
-{
-	int sum=0;
-#ifdef _WIN32
-#define SetOMPParallel __pragma( omp parallel for num_threads( threads ) )
-#else // !_WIN32
-#define SetOMPParallel _Pragma( "omp parallel for num_threads( threads )" )
-#endif // _WIN32
-#if ZERO_TESTING_JACOBI
-#define ITERATE( indices )                                                        \
-	{                                                                             \
-SetOMPParallel                                                                    \
-		for( int k=0 ; k<int( indices.size() ) ; k++ ) if( diagonal[indices[k]] ) \
-		{                                                                         \
-			int jj = indices[k];                                                  \
-			ConstPointer( MatrixEntry< T > ) start = M[jj];                       \
-			ConstPointer( MatrixEntry< T > ) end = start + M.rowSizes[jj];        \
-			ConstPointer( MatrixEntry< T > ) e;                                   \
-			T2 _b = b[jj];                                                        \
-			for( e=start ; e!=end ; e++ ) _b -= x[ e->N ] * e->Value;             \
-			x[jj] += _b / diagonal[jj];                                           \
-		}                                                                         \
-	}
-#else // !ZERO_TESTING_JACOBI
-#define ITERATE( indices )                                                  \
-	{                                                                       \
-SetOMPParallel                                                              \
-		for( int k=0 ; k<int( indices.size() ) ; k++ )                      \
-		{                                                                   \
-			int jj = indices[k];                                            \
-			ConstPointer( MatrixEntry< T > ) start = M[jj];                 \
-			ConstPointer( MatrixEntry< T > ) end = start + M.rowSizes[jj];  \
-			ConstPointer( MatrixEntry< T > ) e;                             \
-			T2 _b = b[jj];                                                  \
-			for( e=start ; e!=end ; e++ ) _b -= x[ e->N ] * e->Value;       \
-			x[jj] += _b / diagonal[jj];                                     \
-		}                                                                   \
-	}
-#endif // ZERO_TESTING_JACOBI
-	if( forward ) for( int j=0 ; j<mcIndices.size()  ; j++ ){ sum += int( mcIndices[j].size() ) ; ITERATE( mcIndices[j] ); }
-	else for( int j=int( mcIndices.size() )-1 ; j>=0 ; j-- ){ sum += int( mcIndices[j].size() ) ; ITERATE( mcIndices[j] ); }
-#undef ITERATE
-#undef SetOMPParallel
-	return sum;
-}
-template<class T>
-template<class T2>
-int SparseMatrix<T>::SolveGS( const SparseMatrix<T>& M , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward )
-{
-	int start = forward ? 0 : M.rows-1 , end = forward ? M.rows : -1 , dir = forward ? 1 : -1;
-	for( int j=start ; j!=end ; j+=dir )
-	{
-		T diagonal = M[j][0].Value;
-#if ZERO_TESTING_JACOBI
-		if( diagonal )
-#endif // ZERO_TESTING_JACOBI
+		setRowSize( i , M.rowSizes[i] );
+		for( size_t j=0 ; j<rowSizes[i] ; j++ )
 		{
-			ConstPointer( MatrixEntry< T > ) start = M[j];
-			ConstPointer( MatrixEntry< T > ) end = start + M.rowSizes[j];
-			ConstPointer( MatrixEntry< T > ) e;
-			start++;
-			T2 _b = b[j];
-			for( e=start ; e!=end ; e++ ) _b -= x[ e->N ] * e->Value;
-			x[j] = _b / diagonal;
+			IndexType2 idx = M._entries[i][j].N;
+			_entries[i][j] = MatrixEntry< T , IndexType >( (IndexType)idx , T( M[i][j].Value ) );
 		}
 	}
-	return M.rows;
+	return *this;
 }
-template<class T>
-template<class T2>
-int SparseMatrix<T>::SolveGS( const std::vector< std::vector< int > >& mcIndices , const SparseMatrix<T>& M , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward , int threads )
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator = ( SparseMatrix< T , IndexType , 0 >&& M )
 {
-	int sum=0 , start = forward ? 0 : int( mcIndices.size() )-1 , end = forward ? int( mcIndices.size() ) : -1 , dir = forward ? 1 : -1;
-	for( int j=start ; j!=end ; j+=dir )
+	Swap( *this , M );
+	return *this;
+}
+
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator = ( const SparseMatrix< T , IndexType , 0 >& M )
+{
+	resize( M.rowNum );
+	for( size_t i=0 ; i<rowNum ; i++ )
 	{
-		const std::vector< int >& _mcIndices = mcIndices[j];
-		sum += int( _mcIndices.size() );
+		setRowSize( i , M.rowSizes[i] );
+		for( size_t j=0 ; j<rowSizes[i] ; j++ ) _entries[i][j]=M._entries[i][j];
+	}
+	return *this;
+}
+template< class T , class IndexType >
+template< class T2 , class IndexType2 >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator = (const SparseMatrix< T2 , IndexType2 , 0 >& M)
+{
+	resize( M.rowNum );
+	for( size_t i=0 ; i<rowNum ; i++ )
+	{
+		setRowSize( i , M.rowSizes[i] );
+		for( size_t j=0 ; j<rowSizes[i] ; j++ ) _entries[i][j] = MatrixEntry< T , IndexType >( M._entries[i][j].N , T( M._entries[i][j].Value ) );
+	}
+	return *this;
+}
+
+template< class T , class IndexType >
+template< class T2 >
+void SparseMatrix< T , IndexType , 0 >::operator() ( const T2* in , T2* out ) const { Interface::multiply( in , out ); }
+
+template< class T , class IndexType > SparseMatrix< T , IndexType , 0 >::~SparseMatrix( void ) { resize( 0 ); }
+
+template< class T , class IndexType >
+void SparseMatrix< T , IndexType , 0 >::resize( size_t r )
+{
+	if( rowNum>0 )
+	{
+		for( size_t i=0 ; i<rowNum ; i++ ) FreePointer( _entries[i] );
+		FreePointer( _entries );
+		FreePointer( rowSizes );
+	}
+	rowNum = r;
+	if( r )
+	{
+		rowSizes = AllocPointer< size_t >( r ) , memset( rowSizes , 0 , sizeof(size_t)*r );
+		_entries = AllocPointer< Pointer( MatrixEntry< T , IndexType > ) >( r );
+		for( size_t i=0 ; i<r ; i++ ) _entries[i] = NullPointer( MatrixEntry< T , IndexType > );
+	}
+}
+
+template< class T , class IndexType >
+void SparseMatrix< T , IndexType , 0 >::setRowSize( size_t row , size_t count )
+{
+	if( row>=0 && row<rowNum )
+	{
+		FreePointer( _entries[row] );
+		if( count>0 )
 		{
-#pragma omp parallel for num_threads( threads )
-			for( int k=0 ; k<int( _mcIndices.size() ) ; k++ )
+			_entries[ row ] = AllocPointer< MatrixEntry< T , IndexType > >( count );
+			memset( _entries[ row ] , 0 , sizeof( MatrixEntry< T , IndexType > )*count );
+		}
+		rowSizes[row] = count;
+	}
+	else MK_THROW( "Row is out of bounds: 0 <= " , row , " < " , rowNum );
+}
+template< class T , class IndexType >
+void SparseMatrix< T , IndexType , 0 >::resetRowSize( size_t row , size_t count )
+{
+	if( row>=0 && row<rowNum )
+	{
+		size_t oldCount = rowSizes[row];
+		_entries[row] = ReAllocPointer< MatrixEntry< T, IndexType > >( _entries[row] , count );
+		if( count>oldCount ) memset( _entries[row]+oldCount , 0 , sizeof( MatrixEntry< T , IndexType > ) * ( count - oldCount ) );
+		rowSizes[row] = count;
+	}
+	else MK_THROW( "Row is out of bounds: 0 <= " , row , " < " , rowNum );
+}
+
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::Identity( size_t dim )
+{
+	SparseMatrix I;
+	I.resize( dim );
+	for( size_t i=0 ; i<dim ; i++ ) I.setRowSize( i , 1 ) , I[i][0] = MatrixEntry< T , IndexType >( (IndexType)i , (T)1 );
+	return I;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator *= ( T s )
+{
+	ThreadPool::ParallelFor( 0 , rowNum , [&]( unsigned int , size_t i ){ for( size_t j=0 ; j<rowSizes[i] ; j++ ) _entries[i][j].Value *= s; } );
+	return *this;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator /= ( T s ){ return (*this) * ( (T)1./s ); }
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator *= ( const SparseMatrix< T , IndexType , 0 >& B )
+{
+	SparseMatrix foo = (*this) * B;
+	(*this) = foo;
+	return *this;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator += ( const SparseMatrix< T , IndexType , 0 >& B )
+{
+	SparseMatrix foo = (*this) + B;
+	(*this) = foo;
+	return *this;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 >& SparseMatrix< T , IndexType , 0 >::operator -= ( const SparseMatrix< T , IndexType , 0 >& B )
+{
+	SparseMatrix foo = (*this) - B;
+	(*this) = foo;
+	return *this;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::operator * ( T s ) const
+{
+	SparseMatrix out = (*this);
+	return out *= s;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::operator / ( T s ) const { return (*this) * ( (T)1. / s ); }
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::operator * ( const SparseMatrix< T , IndexType , 0 >& B ) const
+{
+	SparseMatrix out;
+	const SparseMatrix& A = *this;
+	size_t aCols = 0 , aRows = A.rowNum;
+	size_t bCols = 0 , bRows = B.rowNum;
+	for( size_t i=0 ; i<A.rowNum ; i++ ) for( size_t j=0 ; j<A.rowSizes[i] ; j++ ) if( aCols<=A[i][j].N ) aCols = A[i][j].N+1;
+	for( size_t i=0 ; i<B.rowNum ; i++ ) for( size_t j=0 ; j<B.rowSizes[i] ; j++ ) if( bCols<=B[i][j].N ) bCols = B[i][j].N+1;
+	if( bRows<aCols ) MK_THROW( "Matrix sizes do not support multiplication " , aRows , " x " , aCols , " * " , bRows , " x " , bCols );
+
+	out.resize( aRows );
+	ThreadPool::ParallelFor( 0 , aRows , [&]( unsigned int , size_t i )
+	{
+		std::unordered_map< IndexType , T > row;
+		for( size_t j=0 ; j<A.rowSizes[i] ; j++ )
+		{
+			IndexType idx1 = A[i][j].N;
+			T AValue = A[i][j].Value;
+			for( size_t k=0 ; k<B.rowSizes[idx1] ; k++ )
 			{
-				int jj = _mcIndices[k];
-				T diagonal = M[jj][0].Value;
-#if ZERO_TESTING_JACOBI
-				if( diagonal )
-#endif // ZERO_TESTING_JACOBI
-				{
-					ConstPointer( MatrixEntry< T > ) start = M[jj];
-					ConstPointer( MatrixEntry< T > ) end = start + M.rowSizes[jj];
-					ConstPointer( MatrixEntry< T > ) e;
-					start++;
-					T2 _b = b[jj];
-					for( e=start ; e!=end ; e++ ) _b -= x[ e->N ] * e->Value;
-					x[jj] = _b / diagonal;
-				}                                   
+				IndexType idx2 = B[idx1][k].N;
+				T BValue = B[idx1][k].Value;
+				typename std::unordered_map< IndexType , T >::iterator iter = row.find(idx2);
+				if( iter==row.end() ) row[idx2] = AValue * BValue;
+				else iter->second += AValue * BValue;
 			}
 		}
+		out.setRowSize( i , row.size() );
+		out.rowSizes[i] = 0;
+		for( typename std::unordered_map< IndexType , T >::iterator iter=row.begin() ; iter!=row.end() ; iter++ ) out[i][ out.rowSizes[i]++ ] = MatrixEntry< T , IndexType >( iter->first , iter->second );
 	}
-	return sum;
+	);
+	return out;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::operator + ( const SparseMatrix< T , IndexType , 0 >& B ) const
+{
+	const SparseMatrix& A = *this;
+	size_t rowNum = std::max< size_t >( A.rowNum , B.rowNum );
+	SparseMatrix out;
+
+	out.resize( rowNum );
+	ThreadPool::ParallelFor( 0 , rowNum , [&]( unsigned int , size_t i )
+	{
+		std::unordered_map< IndexType , T > row;
+		if( i<A.rowNum )
+			for( size_t j=0 ; j<A.rowSizes[i] ; j++ )
+			{
+				IndexType idx = A[i][j].N;
+				typename std::unordered_map< IndexType , T >::iterator iter = row.find(idx);
+				if( iter==row.end() ) row[idx] = A[i][j].Value;
+				else iter->second += A[i][j].Value;
+			}
+		if( i<B.rowNum )
+			for( size_t j=0 ; j<B.rowSizes[i] ; j++ )
+			{
+				IndexType idx = B[i][j].N;
+				typename std::unordered_map< IndexType , T >::iterator iter = row.find(idx);
+				if( iter==row.end() ) row[idx] = B[i][j].Value;
+				else iter->second += B[i][j].Value;
+			}
+		out.setRowSize( i , row.size() );
+		out.rowSizes[i] = 0;
+		for( typename std::unordered_map< IndexType , T >::iterator iter=row.begin() ; iter!=row.end() ; iter++ ) out[i][ out.rowSizes[i]++ ] = MatrixEntry< T , IndexType >( iter->first , iter->second );
+	}
+	);
+	return out;
+}
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::operator - ( const SparseMatrix< T , IndexType , 0 >& B ) const
+{
+	const SparseMatrix& A = *this;
+	size_t rowNum = std::max< size_t >( A.rowNum , B.rowNum );
+	SparseMatrix out;
+
+	out.resize( rowNum );
+	ThreadPool::ParallelFor( 0 , rowNum , [&]( unsigned int , size_t i )
+	{
+		std::unordered_map< IndexType , T > row;
+		if( i<A.rowNum )
+			for( size_t j=0 ; j<A.rowSizes[i] ; j++ )
+			{
+				IndexType idx = A[i][j].N;
+				typename std::unordered_map< IndexType , T >::iterator iter = row.find(idx);
+				if( iter==row.end() ) row[idx] = A[i][j].Value;
+				else iter->second += A[i][j].Value;
+			}
+		if( i<B.rowNum )
+			for( size_t j=0 ; j<B.rowSizes[i] ; j++ )
+			{
+				IndexType idx = B[i][j].N;
+				typename std::unordered_map< IndexType , T >::iterator iter = row.find(idx);
+				if( iter==row.end() ) row[idx] = -B[i][j].Value;
+				else iter->second -= B[i][j].Value;
+			}
+		out.setRowSize( i , row.size() );
+		out.rowSizes[i] = 0;
+		for( typename std::unordered_map< IndexType , T >::iterator iter=row.begin() ; iter!=row.end() ; iter++ ) out[i][ out.rowSizes[i]++ ] = MatrixEntry< T , IndexType >( iter->first , iter->second );
+	}
+	);
+	return out;
 }
 
-template< class T >
-template< class T2 >
-void SparseMatrix< T >::getDiagonal( Pointer( T2 ) diagonal , int threads ) const
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::transpose( T (*TransposeFunction)( const T& ) ) const
 {
-#pragma omp parallel for num_threads( threads )
-	for( int i=0 ; i<rows ; i++ )
-	{
-		T2 d = 0.;
-		ConstPointer( MatrixEntry< T > ) start = m_ppElements[i];
-		ConstPointer( MatrixEntry< T > ) end = start + rowSizes[i];
-		ConstPointer( MatrixEntry< T > ) e;
-		for( e=start ; e!=end ; e++ ) if( e->N==i ) d += e->Value;
-		diagonal[i] = d;
-	}
-}
-template< class T >
-template< class T2 >
-int SparseMatrix< T >::SolveCG( const SparseMatrix<T>& A , ConstPointer( T2 ) b , int iters , Pointer( T2 ) x , T2 eps , int reset , bool addDCTerm , bool solveNormal , int threads )
-{
-	eps *= eps;
-	int dim = A.rows;
-	Pointer( T2 ) r = AllocPointer< T2 >( dim );
-	Pointer( T2 ) d = AllocPointer< T2 >( dim );
-	Pointer( T2 ) q = AllocPointer< T2 >( dim );
-	Pointer( T2 ) temp = NullPointer( T2 );
-	if( reset ) memset( x , 0 , sizeof(T2)* dim );
-	if( solveNormal ) temp = AllocPointer< T2 >( dim );
+	SparseMatrix A;
+	const SparseMatrix& At = *this;
+	size_t aRows = 0 , aCols = At.rowNum;
+	for( size_t i=0 ; i<At.rowNum ; i++ ) for( size_t j=0 ; j<At.rowSizes[i] ; j++ ) if( aRows<=At[i][j].N ) aRows = At[i][j].N+1;
 
-	double delta_new = 0 , delta_0;
-	if( solveNormal )
+	A.resize( aRows );
+	const size_t One = 1;
+	for( size_t i=0 ; i<aRows ; i++ ) A.rowSizes[i] = 0;
+	ThreadPool::ParallelFor( 0 , At.rowNum , [&]( unsigned int , size_t i )
 	{
-		if( addDCTerm ) A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )x , temp , threads ) , A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )temp , r , threads ) , A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )b , temp , threads );
-		else            A.Multiply( ( ConstPointer( T2 ) )x , temp , threads ) , A.Multiply( ( ConstPointer( T2 ) )temp , r , threads ) , A.Multiply( ( ConstPointer( T2 ) )b , temp , threads );
-#pragma omp parallel for num_threads( threads ) reduction( + : delta_new )
-		for( int i=0 ; i<dim ; i++ ) d[i] = r[i] = temp[i] - r[i] , delta_new += r[i] * r[i];
-	}
-	else
-	{
-		if( addDCTerm ) A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )x , r , threads );
-		else            A.Multiply( ( ConstPointer( T2 ) )x , r , threads );
-#pragma omp parallel for num_threads( threads )  reduction ( + : delta_new )
-		for( int i=0 ; i<dim ; i++ ) d[i] = r[i] = b[i] - r[i] , delta_new += r[i] * r[i];
-	}
-	delta_0 = delta_new;
-	if( delta_new<eps )
-	{
-//		fprintf( stderr , "[WARNING] Initial residual too low: %g < %f\n" , delta_new , eps );
-		FreePointer( r );
-		FreePointer( d );
-		FreePointer( q );
-		FreePointer( temp );
-		return 0;
-	}
-	int ii;
-	for( ii=0 ; ii<iters && delta_new>eps*delta_0 ; ii++ )
-	{
-		if( solveNormal )
-			if( addDCTerm ) A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )d , temp , threads ) , A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )temp , q , threads );
-			else            A.Multiply( ( ConstPointer( T2 ) )d , temp , threads ) , A.Multiply( ( ConstPointer( T2 ) )temp , q , threads );
-		else
-			if( addDCTerm ) A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )d , q , threads );
-			else            A.Multiply( ( ConstPointer( T2 ) )d , q , threads );
-        double dDotQ = 0;
-#pragma omp parallel for num_threads( threads ) reduction( + : dDotQ )
-		for( int i=0 ; i<dim ; i++ ) dDotQ += d[i] * q[i];
-		T2 alpha = T2( delta_new / dDotQ );
-		double delta_old = delta_new;
-		delta_new = 0;
-		if( (ii%50)==(50-1) )
+		for( size_t j=0 ; j<At.rowSizes[i] ; j++ )
 		{
-#pragma omp parallel for num_threads( threads )
-			for( int i=0 ; i<dim ; i++ ) x[i] += d[i] * alpha;
-			if( solveNormal )
-				if( addDCTerm ) A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )x , temp , threads ) , A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )temp , r , threads );
-				else            A.Multiply( ( ConstPointer( T2 ) )x , temp , threads ) , A.Multiply( ( ConstPointer( T2 ) )temp , r , threads );
-			else
-				if( addDCTerm ) A.MultiplyAndAddAverage( ( ConstPointer( T2 ) )x , r , threads );
-				else            A.Multiply( ( ConstPointer( T2 ) )x , r , threads );
-#pragma omp parallel for num_threads( threads ) reduction( + : delta_new )
-			for( int i=0 ; i<dim ; i++ ) r[i] = b[i] - r[i] , delta_new += r[i] * r[i] , x[i] += d[i] * alpha;
+			AddAtomic( A.rowSizes[ At[i][j].N ] , One );
 		}
-		else
-#pragma omp parallel for num_threads( threads ) reduction( + : delta_new )
-			for( int i=0 ; i<dim ; i++ ) r[i] -= q[i] * alpha , delta_new += r[i] * r[i] ,  x[i] += d[i] * alpha;
-
-		T2 beta = T2( delta_new / delta_old );
-#pragma omp parallel for num_threads( threads )
-		for( int i=0 ; i<dim ; i++ ) d[i] = r[i] + d[i] * beta;
 	}
-	FreePointer( r );
-	FreePointer( d );
-	FreePointer( q );
-	FreePointer( temp );
-	return ii;
+	);
+
+	ThreadPool::ParallelFor( 0 , A.rowNum , [&]( unsigned int , size_t i )
+	{
+		size_t t = A.rowSizes[i];
+		A.rowSizes[i] = 0;
+		A.setRowSize( i , t );
+		A.rowSizes[i] = 0;
+	}
+	);
+	if( TransposeFunction ) for( size_t i=0 ; i<At.rowNum ; i++ ) for( size_t j=0 ; j<At.rowSizes[i] ; j++ )
+	{
+		size_t ii = At[i][j].N;
+		A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , TransposeFunction( At[i][j].Value ) );
+	}
+	else for( size_t i=0 ; i<At.rowNum ; i++ ) for( size_t j=0 ; j<At.rowSizes[i] ; j++ )
+	{
+		size_t ii = At[i][j].N;
+		A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , At[i][j].Value );
+	}
+	return A;
 }
+template< class T , class IndexType >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::transpose( size_t aRows , T (*TransposeFunction)( const T& ) ) const
+{
+	SparseMatrix A;
+	const SparseMatrix& At = *this;
+	size_t _aRows = 0 , aCols = At.rowNum;
+	for( size_t i=0 ; i<At.rowNum ; i++ ) for( size_t j=0 ; j<At.rowSizes[i] ; j++ ) if( aCols<=At[i][j].N ) _aRows = At[i][j].N+1;
+	if( _aRows>aRows ) MK_THROW( "Prescribed output dimension too low: " , aRows , " < " , _aRows );
+
+	A.resize( aRows );
+	for( size_t i=0 ; i<aRows ; i++ ) A.rowSizes[i] = 0;
+	const size_t One = 1;
+	ThreadPool::ParallelFor( 0 , At.rowNum , [&]( unsigned int , size_t i )
+	{
+		for( size_t j=0 ; j<At.rowSizes[i] ; j++ ) AddAtomic( A.rowSizes[ At[i][j].N ] , One );
+	}
+	);
+
+	ThreadPool::ParallelFor( 0 , A.rowNum , [&]( unsigned int , size_t i )
+	{
+		size_t t = A.rowSizes[i];
+		A.rowSizes[i] = 0;
+		A.setRowSize( i , t );
+		A.rowSizes[i] = 0;
+	}
+	);
+	if( TransposeFunction )
+		for( size_t i=0 ; i<At.rowNum ; i++ ) for( size_t j=0 ; j<At.rowSizes[i] ; j++ )
+		{
+			size_t ii = At[i][j].N;
+			A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , TransposeFunction( At[i][j].Value ) );
+		}
+	else
+		for( size_t i=0 ; i<At.rowNum ; i++ ) for( size_t j=0 ; j<At.rowSizes[i] ; j++ )
+		{
+			size_t ii = At[i][j].N;
+			A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , At[i][j].Value );
+		}
+	return A;
+}
+
+template< class T , class IndexType >
+template< class A_const_iterator , class B_const_iterator >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::Multiply( const SparseMatrixInterface< T , A_const_iterator >& A , const SparseMatrixInterface< T , B_const_iterator >& B )
+{
+	SparseMatrix M;
+	size_t aCols = 0 , aRows = A.rows();
+	size_t bCols = 0 , bRows = B.rows();
+	for( size_t i=0 ; i<A.rows() ; i++ ) for( A_const_iterator iter=A.begin(i) ; iter!=A.end(i) ; iter++ ) if( aCols<=iter->N ) aCols = iter->N+1;
+	for( size_t i=0 ; i<B.rows() ; i++ ) for( B_const_iterator iter=B.begin(i) ; iter!=B.end(i) ; iter++ ) if( bCols<=iter->N ) bCols = iter->N+1;
+	if( bRows<aCols ) MK_THROW( "Matrix sizes do not support multiplication " , aRows , " x " , aCols , " * " , bRows , " x " , bCols );
+
+	M.resize( aRows );
+
+	ThreadPool::ParallelFor( 0 , aRows , [&]( unsigned int , size_t i )
+	{
+		std::unordered_map< IndexType , T > row;
+		for( A_const_iterator iterA=A.begin(i) ; iterA!=A.end(i) ; iterA++ )
+		{
+			IndexType idx1 = iterA->N;
+			T AValue = iterA->Value;
+			for( B_const_iterator iterB=B.begin(idx1) ; iterB!=B.end(idx1) ; iterB++ )
+			{
+				IndexType idx2 = iterB->N;
+				T BValue = iterB->Value;
+				T temp = BValue * AValue; // temp = A( i , idx1 ) * B( idx1 , idx2 )
+				typename std::unordered_map< IndexType , T >::iterator iter = row.find(idx2);
+				if( iter==row.end() ) row[idx2] = temp;
+				else iter->second += temp;
+			}
+		}
+		M.setRowSize( i , row.size() );
+		M.rowSizes[i] = 0;
+		for( typename std::unordered_map< IndexType , T >::iterator iter=row.begin() ; iter!=row.end() ; iter++ )
+			M[i][ M.rowSizes[i]++ ] = MatrixEntry< T , IndexType >( iter->first , iter->second );
+	}
+	);
+	return M;
+}
+template< class T , class IndexType >
+template< class const_iterator >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::Transpose( const SparseMatrixInterface< T , const_iterator >& At , T (*TransposeFunction)( const T& ) )
+{
+	SparseMatrix< T , IndexType , 0 > A;
+	size_t aRows = 0 , aCols = At.rows();
+	for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ ) if( aRows<=iter->N ) aRows = iter->N+1;
+
+	A.resize( aRows );
+	for( size_t i=0 ; i<aRows ; i++ ) A.rowSizes[i] = 0;
+	for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ ) A.rowSizes[ iter->N ]++;
+	for( size_t i=0 ; i<A.rows() ; i++ )
+	{
+		size_t t = A.rowSizes[i];
+		A.rowSizes[i] = 0;
+		A.setRowSize( i , t );
+		A.rowSizes[i] = 0;
+	}
+	if( TransposeFunction )
+		for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ )
+		{
+			size_t ii = (size_t)iter->N;
+			A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , TransposeFunction( iter->Value ) );
+		}
+	else
+		for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ )
+		{
+			size_t ii = (size_t)iter->N;
+			A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , iter->Value );
+		}
+	return A;
+}
+template< class T , class IndexType >
+template< class const_iterator >
+SparseMatrix< T , IndexType , 0 > SparseMatrix< T , IndexType , 0 >::Transpose( const SparseMatrixInterface< T , const_iterator >& At , size_t outRows , T (*TransposeFunction)( const T& ) )
+{
+	SparseMatrix< T , IndexType , 0 > A;
+	size_t _aRows = 0 , aCols = At.rows() , aRows = outRows;
+	for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ ) if( aCols<=iter->N ) _aRows = iter->N+1;
+	if( _aRows>aRows ) MK_THROW( "Prescribed output dimension too low: " , aRows , " < " , _aRows );
+
+	A.resize( aRows );
+	for( size_t i=0 ; i<aRows ; i++ ) A.rowSizes[i] = 0;
+	for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ ) A.rowSizes[ iter->N ]++;
+	for( size_t i=0 ; i<A.rows() ; i++ )
+	{
+		size_t t = A.rowSizes[i];
+		A.rowSizes[i] = 0;
+		A.setRowSize( i , t );
+		A.rowSizes[i] = 0;
+	}
+	if( TransposeFunction )
+		for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ )
+		{
+			size_t ii = (size_t)iter->N;
+			A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , TransposeFunction( iter->Value ) );
+		}
+	else
+		for( size_t i=0 ; i<At.rows() ; i++ ) for( const_iterator iter=At.begin(i) ; iter!=At.end(i) ; iter++ )
+		{
+			size_t ii = (size_t)iter->N;
+			A[ii][ A.rowSizes[ii]++ ] = MatrixEntry< T , IndexType >( (IndexType)i , iter->Value );
+		}
+	return true;
+}
+
+///////////////////////////////////////////
+//  SparseMatrix (bounded max row size ) //
+///////////////////////////////////////////
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >::SparseMatrix( void )
+{
+	_rowSizes = NullPointer( size_t );
+	_rowNum = 0;
+	_entries = NullPointer( MatrixEntry< T , IndexType > );
+	_maxRows = 0;
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >::SparseMatrix( size_t rowNum ) : SparseMatrix()
+{
+	resize( rowNum );
+}
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >::SparseMatrix( const SparseMatrix& M ) : SparseMatrix()
+{
+	resize( M._rowNum );
+	for( size_t i=0 ; i<_rowNum ; i++ )
+	{
+		_rowSizes[i] = M._rowSizes[i];
+		for( size_t j=0 ; j<_rowSizes[i] ; j++ ) _entries[ i + MaxRowSize*j ] = M._rowEntries[ i + MaxRowSize*j ];
+	}
+}
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >::SparseMatrix( SparseMatrix&& M ) : SparseMatrix()
+{
+	Swap( *this , M );
+}
+template< class T , class IndexType , size_t MaxRowSize >
+template< class T2 , class IndexType2 >
+SparseMatrix< T , IndexType , MaxRowSize >::SparseMatrix( const SparseMatrix< T2 , IndexType2 , MaxRowSize >& M ) : SparseMatrix()
+{
+	resize( M._rowNum );
+	for( size_t i=0 ; i<_rowNum ; i++ )
+	{
+		_rowSizes[i] = M._rowSizes[i];
+		for( size_t j=0 ; j<_rowSizes[i] ; j++ ) _entries[ i + MaxRowSize*j ] = MatrixEntry< T , IndexType >( M._rowEntries[i][j].N , T( M._entries[ i + MaxRowSize*j ].Value ) );
+	}
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >& SparseMatrix< T , IndexType , MaxRowSize >::operator = ( SparseMatrix< T , IndexType , MaxRowSize >&& M )
+{
+	Swap( *this , M );
+	return *this;
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >& SparseMatrix< T , IndexType , MaxRowSize >::operator = ( const SparseMatrix< T , IndexType , MaxRowSize >& M )
+{
+	resize( M._rowNum );
+	for( size_t i=0 ; i<_rowNum ; i++ )
+	{
+		_rowSizes[i] = M._rowSizes[i];
+		for( size_t j=0 ; j<_rowSizes[i] ; j++ ) _entries[ i + MaxRowSize*j ] = M._entries[ i + MaxRowSize*j ];
+	}
+	return *this;
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+template< class T2 , class IndexType2 >
+SparseMatrix< T , IndexType , MaxRowSize >& SparseMatrix< T , IndexType , MaxRowSize >::operator = ( const SparseMatrix< T2 , IndexType2 , MaxRowSize >& M )
+{
+	resize( M._rowNum );
+	for( size_t i=0 ; i<_rowNum ; i++ )
+	{
+		_rowSizes[i] = M._rowSizes[i];
+		for( size_t j=0 ; j<_rowSizes[i] ; j++ ) _entries[ i + MaxRowSize*j ] = MatrixEntry< T , IndexType >( M._entries[ i + MaxRowSize*j ].N , T( M._entries[ i + MaxRowSize*j ].Value ) );
+	}
+	return *this;
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+template< class T2 >
+void SparseMatrix< T , IndexType , MaxRowSize >::operator() ( const T2* in , T2* out ) const { Interface::multiply( in , out ); }
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >::~SparseMatrix( void )
+{
+	FreePointer( _rowSizes );
+	FreePointer( _entries );
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+void SparseMatrix< T , IndexType , MaxRowSize >::resize( size_t rowNum )
+{
+	_rowNum = rowNum;
+	if( rowNum>_maxRows )
+	{
+		FreePointer( _rowSizes );
+		FreePointer( _entries );
+
+		if( rowNum )
+		{
+			_rowSizes = AllocPointer< size_t >( rowNum );
+			_entries = AllocPointer< MatrixEntry< T , IndexType > >( rowNum * MaxRowSize );
+			_maxRows = rowNum;
+		}
+	}
+	if( rowNum ) memset( _rowSizes , 0 , sizeof(size_t)*rowNum );
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+void SparseMatrix< T , IndexType , MaxRowSize >::setRowSize( size_t row , size_t rowSize )
+{
+	if( row>=_rowNum ) MK_THROW( "Row is out of bounds: 0 <= " , row , " < " , _rowNum );
+	else if( rowSize>MaxRowSize ) MK_THROW( "Row size larger than max row size: " , rowSize , " < " , MaxRowSize );
+	else _rowSizes[row] = rowSize;
+}
+template< class T , class IndexType , size_t MaxRowSize >
+void SparseMatrix< T , IndexType , MaxRowSize >::resetRowSize( size_t row , size_t rowSize )
+{
+	if( row>=_rowNum ) MK_THROW( "Row is out of bounds: 0 <= " , row , " < " , _rowNum );
+	else if( rowSize>MaxRowSize ) MK_THROW( "Row size larger than max row size: " , rowSize , " < " , MaxRowSize );
+	else _rowSizes[row] = rowSize;
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >& SparseMatrix< T , IndexType , MaxRowSize >::operator *= ( T s )
+{
+	ThreadPool::ParallelFor( 0 , _rowNum*MaxRowSize , [&]( unsigned int , size_t i ){ _entries[i].Value *= s; } );
+	return *this;
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize >& SparseMatrix< T , IndexType , MaxRowSize >::operator /= ( T s ){ return (*this) * ( (T)1./s ); }
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize > SparseMatrix< T , IndexType , MaxRowSize >::operator * ( T s ) const
+{
+	SparseMatrix out = (*this);
+	return out *= s;
+}
+
+template< class T , class IndexType , size_t MaxRowSize >
+SparseMatrix< T , IndexType , MaxRowSize > SparseMatrix< T , IndexType , MaxRowSize >::operator / ( T s ) const { return (*this) * ( (T)1. / s ); }

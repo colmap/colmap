@@ -57,6 +57,21 @@ void BindTrack(py::module& m) {
       .def("delete_element",
            py::overload_cast<size_t>(&Track::DeleteElement),
            "index"_a,
-           "Remove TrackElement at index.");
+           "Remove TrackElement at index.")
+      .def("element",
+           py::overload_cast<size_t>(&Track::Element),
+           "index"_a,
+           "Access specific element by index.",
+           py::return_value_policy::reference_internal)
+      .def("set_element",
+           &Track::SetElement,
+           "index"_a,
+           "element"_a,
+           "Set element at specific index.")
+      .def("reserve",
+           &Track::Reserve,
+           "num_elements"_a,
+           "Reserve capacity for elements.")
+      .def("compress", &Track::Compress, "Shrink capacity to fit size.");
   MakeDataclass(PyTrack);
 }

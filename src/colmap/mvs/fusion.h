@@ -29,20 +29,14 @@
 
 #pragma once
 
-#include "colmap/math/math.h"
-#include "colmap/mvs/depth_map.h"
-#include "colmap/mvs/image.h"
 #include "colmap/mvs/mat.h"
-#include "colmap/mvs/model.h"
-#include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/base_controller.h"
-#include "colmap/util/cache.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/ply.h"
 
 #include <cfloat>
-#include <unordered_set>
+#include <filesystem>
 #include <vector>
 
 #include <Eigen/Core>
@@ -52,7 +46,7 @@ namespace mvs {
 
 struct StereoFusionOptions {
   // Path for PNG masks. Same format expected as ImageReaderOptions.
-  std::string mask_path = "";
+  std::filesystem::path mask_path = "";
 
   // The number of threads to use during fusion.
   int num_threads = -1;
@@ -102,17 +96,21 @@ struct StereoFusionOptions {
   void Print() const;
 };
 
+// Fuses per-view depth and normal maps into a consistent 3D point cloud.
 class StereoFusion : public BaseController {
  public:
   StereoFusion(const StereoFusionOptions& options,
-               const std::string& workspace_path,
+               const std::filesystem::path& workspace_path,
                const std::string& workspace_format,
                const std::string& pmvs_option_name,
                const std::string& input_type);
 
+  // Get the fused 3D points as PLY points.
   const std::vector<PlyPoint>& GetFusedPoints() const;
+  // Get per-point visibility lists (indices of images that observe each point).
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
 
+  // Execute the depth map fusion pipeline.
   void Run();
 
  private:
@@ -120,7 +118,7 @@ class StereoFusion : public BaseController {
   void Fuse(int thread_id, int image_idx, int row, int col);
 
   const StereoFusionOptions options_;
-  const std::string workspace_path_;
+  const std::filesystem::path workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;
   const std::string input_type_;
@@ -163,7 +161,7 @@ class StereoFusion : public BaseController {
   std::vector<std::vector<std::vector<int>>> task_fused_points_visibility_;
 };
 
-// Write the visiblity information into a binary file of the following format:
+// Write the visibility information into a binary file of the following format:
 //
 //    <num_points : uint64_t>
 //    <num_visible_images_for_point1 : uint32_t>
@@ -172,11 +170,11 @@ class StereoFusion : public BaseController {
 //    <point2_image_idx2 : uint32_t><point2_image_idx2 : uint32_t> ...
 //    ...
 //
-// Note that an image_idx in the case of the mvs::StereoFuser does not
+// Note that an image_idx in the case of the mvs::StereoFusion does not
 // correspond to the image_id of a Reconstruction, but the index of the image in
 // the mvs::Model, which is the location of the image in the images.bin/.txt.
 void WritePointsVisibility(
-    const std::string& path,
+    const std::filesystem::path& path,
     const std::vector<std::vector<int>>& points_visibility);
 
 }  // namespace mvs

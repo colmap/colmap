@@ -104,9 +104,11 @@ void BindSceneImage(py::module& m) {
           "points2D",
           py::overload_cast<>(&Image::Points2D),
           py::overload_cast<const Point2DVector&>(&Image::SetPoints2D),
+          py::return_value_policy::reference_internal,
           "Array of Points2D (=keypoints).")
       .def("point2D",
            py::overload_cast<camera_t>(&Image::Point2D),
+           py::return_value_policy::reference_internal,
            "point2D_idx"_a,
            "Direct accessor for a point2D.")
       .def(
@@ -152,6 +154,10 @@ void BindSceneImage(py::module& m) {
       .def("reset_frame_ptr",
            &Image::ResetFramePtr,
            "Make the frame pointer a nullptr.")
+      .def(
+          "is_ref_in_frame",
+          &Image::IsRefInFrame,
+          "Check if the image was captured by the reference sensor in the rig.")
       .def("num_points2D",
            &Image::NumPoints2D,
            "Get the number of image points (keypoints).")

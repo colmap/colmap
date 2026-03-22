@@ -27,27 +27,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from pathlib import Path
 
 from .utils import Dataset, SceneInfo
 
 
 class DatasetETH3D(Dataset):
-    def __init__(
-        self,
-        data_path: Path,
-        categories: list[str],
-        scenes: list[Path],
-        run_path: Path,
-        run_name: str,
-    ):
-        super().__init__()
-        self.data_path = data_path
-        self.categories = categories
-        self.scenes = scenes
-        self.run_path = run_path
-        self.run_name = run_name
-
     @property
     def position_accuracy_gt(self):
         return 0.001
@@ -91,7 +75,7 @@ class DatasetETH3D(Dataset):
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
-                    camera_priors_from_sparse_gt=True,
+                    has_camera_priors=True,
                     colmap_extra_args=colmap_extra_args,
                 )
 

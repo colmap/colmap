@@ -40,7 +40,9 @@
 #define CPP_VERSION __cplusplus
 #endif
 
-#if !EIGEN_VERSION_AT_LEAST(3, 4, 0) || CPP_VERSION < 201703L
+// Note that Eigen 3.3.90 is a pre-release of version 3.4.0, which is the first
+// version to support C++17 and not require custom Eigen vector specializations.
+#if !EIGEN_VERSION_AT_LEAST(3, 3, 90) || CPP_VERSION < 201703L
 
 #include <initializer_list>
 #include <memory>

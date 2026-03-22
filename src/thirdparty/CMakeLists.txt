@@ -2,29 +2,13 @@ set(FOLDER_NAME "thirdparty")
 
 # Only show moderate warnings for external library code.
 if(IS_MSVC)
-    if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    elseif(CMAKE_CXX_FLAGS MATCHES "/Wall")
-        string(REGEX REPLACE "/Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
-    if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    elseif(CMAKE_C_FLAGS MATCHES "/Wall")
-        string(REGEX REPLACE "/Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
+    string(REGEX REPLACE "/W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 elseif(IS_GNU OR IS_CLANG)
-    if(CMAKE_CXX_FLAGS MATCHES "-Wall")
-        string(REGEX REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
-    if(CMAKE_C_FLAGS MATCHES "-Wall")
-        string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
+    string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 if(IS_MSVC)
@@ -46,11 +30,6 @@ if(GPU_ENABLED)
 endif()
 add_subdirectory(VLFeat)
 
-# Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-    cmake_policy(SET CMP0135 NEW)
-endif()
-
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
     set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
 endif()
@@ -58,13 +37,18 @@ endif()
 if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(poselib
-        URL https://github.com/PoseLib/PoseLib/archive/f119951fca625133112acde48daffa5f20eba451.zip
-        URL_HASH SHA256=3faa27d9d1f6ae7cc47602a66c10ac6f64457bc65a959d1880947d3b3bfe1ed1
+        URL https://github.com/PoseLib/PoseLib/archive/v2.0.5.zip
+        URL_HASH SHA256=3d8d71d94813da8e0c3a6df11ec3591614ad2e731e73f3de4982b9297321a38d
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
     set(MARCH_NATIVE OFF CACHE BOOL "")
     FetchContent_MakeAvailable(poselib)
+    # Rename PoseLib's benchmark folder to avoid conflict with Google Benchmark's
+    # benchmark/benchmark.h header (PoseLib exposes its entire source dir as include path)
+    if(EXISTS "${poselib_SOURCE_DIR}/benchmark")
+        file(RENAME "${poselib_SOURCE_DIR}/benchmark" "${poselib_SOURCE_DIR}/poselib_benchmark")
+    endif()
     message(STATUS "Configuring PoseLib... done")
 endif()
 
@@ -81,6 +65,12 @@ if(FETCH_FAISS)
     set(FAISS_ENABLE_MKL OFF)
     set(BUILD_TESTING OFF)
     FetchContent_MakeAvailable(faiss)
+    # Fix MSVC linker warning LNK4286: faiss headers use FAISS_API which
+    # defaults to dllimport on Windows, but we build faiss as a static library.
+    # Adding FAISS_MAIN_LIB as PUBLIC ensures consumers also get this defined.
+    if(WIN32 AND TARGET faiss)
+        target_compile_definitions(faiss PUBLIC FAISS_MAIN_LIB)
+    endif()
     message(STATUS "Configuring faiss... done")
 endif()
 

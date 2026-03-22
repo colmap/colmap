@@ -4,6 +4,8 @@ Legacy Documentations
 .. toctree::
    :maxdepth: 1
 
+   v4.0 (2026-03-15) <https://colmap.github.io/legacy/4.0/index.html>
+   v3.13 (2025-11-07) <https://colmap.github.io/legacy/3.13/index.html>
    v3.12 (2025-06-30) <https://colmap.github.io/legacy/3.12/index.html>
    v3.11 (2024-11-28) <https://colmap.github.io/legacy/3.11/index.html>
    v3.10 (2024-07-23) <https://colmap.github.io/legacy/3.10/index.html>

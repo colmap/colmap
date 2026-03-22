@@ -187,7 +187,13 @@ void BindAbsolutePoseEstimator(py::module& m) {
       .def_readwrite("refine_extra_params",
                      &AbsolutePoseRefinementOptions::refine_extra_params)
       .def_readwrite("print_summary",
-                     &AbsolutePoseRefinementOptions::print_summary);
+                     &AbsolutePoseRefinementOptions::print_summary)
+      .def_readwrite("use_position_prior",
+                     &AbsolutePoseRefinementOptions::use_position_prior)
+      .def_readwrite("position_prior_in_world",
+                     &AbsolutePoseRefinementOptions::position_prior_in_world)
+      .def_readwrite("position_prior_covariance",
+                     &AbsolutePoseRefinementOptions::position_prior_covariance);
   MakeDataclass(PyRefinementOptions);
 
   m.def("estimate_absolute_pose",
@@ -228,8 +234,6 @@ void BindAbsolutePoseEstimator(py::module& m) {
         "return_covariance"_a = false,
         "Robust absolute pose estimation with LO-RANSAC "
         "followed by non-linear refinement.");
-  DefDeprecation(
-      m, "absolute_pose_estimation", "estimate_and_refine_absolute_pose");
 
   m.def("estimate_relative_pose",
         &PyEstimateRelativePose,

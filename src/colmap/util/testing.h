@@ -29,10 +29,11 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 namespace colmap {
 
-std::string CreateTestDir();
+std::filesystem::path CreateTestDir();
 
 }  // namespace colmap

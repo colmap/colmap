@@ -48,18 +48,19 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
+        aliked.h aliked.cc
         extractor.h extractor.cc
         index.h index.cc
         matcher.h matcher.cc
-        pairing.h pairing.cc
+        onnx_matchers.h onnx_matchers.cc
+        onnx_utils.h onnx_utils.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
     PUBLIC_LINK_LIBS
         colmap_feature_types
+        colmap_scene_types
         colmap_geometry
-        colmap_retrieval
-        colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
         colmap_math
@@ -76,22 +77,49 @@ if(GPU_ENABLED)
     endif()
 endif()
 
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_feature PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+if(ONNX_ENABLED)
+    target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
+endif()
+
+if(ONNX_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME aliked_test
+        SRCS aliked_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
+        NAME onnx_matchers_test
+        SRCS onnx_matchers_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
+endif()
+COLMAP_ADD_TEST(
+    NAME extractor_test
+    SRCS extractor_test.cc
+    LINK_LIBS colmap_feature
+)
 COLMAP_ADD_TEST(
     NAME index_test
     SRCS index_test.cc
     LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(
-    NAME utils_test
-    SRCS utils_test.cc
+    NAME matcher_test
+    SRCS matcher_test.cc
     LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(
-    NAME pairing_test
-    SRCS pairing_test.cc
-    LINK_LIBS
-        colmap_feature
-        colmap_scene
+    NAME utils_test
+    SRCS utils_test.cc
+    LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(
     NAME sift_test

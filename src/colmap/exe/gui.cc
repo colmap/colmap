@@ -39,18 +39,21 @@ namespace colmap {
 
 int RunGraphicalUserInterface(int argc, char** argv) {
 #if !defined(COLMAP_GUI_ENABLED)
-  LOG(ERROR) << "Cannot start colmap GUI; colmap was built without GUI "
-                "support or QT dependency is missing.";
+  LOG(ERROR)
+      << "Cannot start graphical user interface. COLMAP was built without GUI "
+         "support or Qt dependency was not found.";
   return EXIT_FAILURE;
 #else
-  colmap::OptionManager options;
+  OptionManager options;
 
-  std::string import_path;
+  std::filesystem::path import_path;
 
   if (argc > 1) {
     options.AddDefaultOption("import_path", &import_path);
     options.AddAllOptions();
-    options.Parse(argc, argv);
+    if (!options.Parse(argc, argv)) {
+      return EXIT_FAILURE;
+    }
   }
 
   QApplication app(argc, argv);
@@ -62,7 +65,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 #endif
   app.setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
-  colmap::MainWindow main_window(options);
+  MainWindow main_window(std::move(options));
   main_window.show();
 
   if (!import_path.empty()) {
@@ -74,13 +77,15 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 }
 
 int RunProjectGenerator(int argc, char** argv) {
-  std::string output_path;
+  std::filesystem::path output_path;
   std::string quality = "high";
 
   OptionManager options;
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("quality", &quality, "{low, medium, high, extreme}");
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   OptionManager output_options;
   output_options.AddAllOptions();

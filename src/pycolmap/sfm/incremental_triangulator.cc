@@ -77,46 +77,78 @@ void BindIncrementalTriangulator(py::module& m) {
       .def("check", &Opts::Check);
   MakeDataclass(PyOpts);
 
-  // TODO: Add bindings for GetModifiedPoints3D.
-  // TODO: Add bindings for Find, Create, Continue, Merge, Complete,
-  // HasCameraBogusParams once they become public.
-  py::classh<IncrementalTriangulator>(m, "IncrementalTriangulator")
+  py::classh<IncrementalTriangulator>(
+      m,
+      "IncrementalTriangulator",
+      "Class that triangulates points during the incremental reconstruction. "
+      "It holds the state and provides all functionality for triangulation.")
       .def(py::init<std::shared_ptr<const CorrespondenceGraph>,
                     Reconstruction&,
                     std::shared_ptr<ObservationManager>>(),
            "correspondence_graph"_a,
            "reconstruction"_a,
            "observation_manager"_a = py::none(),
-           py::keep_alive<1, 3>())
+           py::keep_alive<1, 3>(),
+           "Create new incremental triangulator. Note that both the "
+           "correspondence graph and the reconstruction objects must live "
+           "as long as the triangulator.")
       .def("triangulate_image",
            &IncrementalTriangulator::TriangulateImage,
            "options"_a,
-           "image_id"_a)
+           "image_id"_a,
+           "Triangulate observations of image. Triangulation includes "
+           "creation of new points, continuation of existing points, and "
+           "merging of separate points if given image bridges tracks. Note "
+           "that the given image must be registered and its pose must be set "
+           "in the associated reconstruction.")
       .def("complete_image",
            &IncrementalTriangulator::CompleteImage,
            "options"_a,
-           "image_id"_a)
+           "image_id"_a,
+           "Complete triangulations for image. Tries to create new tracks "
+           "for not yet triangulated observations and tries to complete "
+           "existing tracks. Returns the number of completed observations.")
       .def("complete_all_tracks",
            &IncrementalTriangulator::CompleteAllTracks,
-           "options"_a)
+           "options"_a,
+           "Complete tracks of all 3D points. Returns the number of "
+           "completed observations.")
       .def("merge_all_tracks",
            &IncrementalTriangulator::MergeAllTracks,
-           "options"_a)
-      .def(
-          "retriangulate", &IncrementalTriangulator::Retriangulate, "options"_a)
+           "options"_a,
+           "Merge tracks of all 3D points. Returns the number of merged "
+           "observations.")
+      .def("retriangulate",
+           &IncrementalTriangulator::Retriangulate,
+           "options"_a,
+           "Perform retriangulation for under-reconstructed image pairs. "
+           "Under-reconstruction usually occurs in the case of a drifting "
+           "reconstruction.")
       .def("add_modified_point3D",
            &IncrementalTriangulator::AddModifiedPoint3D,
-           "point3D_id"_a)
+           "point3D_id"_a,
+           "Indicate that a 3D point has been modified.")
       .def("clear_modified_points3D",
-           &IncrementalTriangulator::ClearModifiedPoints3D)
+           &IncrementalTriangulator::ClearModifiedPoints3D,
+           "Clear the collection of changed 3D points.")
+      .def("get_modified_points3D",
+           &IncrementalTriangulator::GetModifiedPoints3D,
+           "Get changed 3D points, since the last call to "
+           "clear_modified_points3D.")
       .def("merge_tracks",
            &IncrementalTriangulator::MergeTracks,
            "options"_a,
-           "point3D_ids"_a)
+           "point3D_ids"_a,
+           "Merge tracks for specific 3D points. Returns the number of "
+           "merged observations.")
       .def("complete_tracks",
            &IncrementalTriangulator::CompleteTracks,
            "options"_a,
-           "point3D_ids"_a)
+           "point3D_ids"_a,
+           "Complete tracks for specific 3D points. Completion tries to "
+           "recursively add observations to a track that might have failed "
+           "to triangulate before due to inaccurate poses, etc. Returns "
+           "the number of completed observations.")
       .def("__copy__",
            [](const IncrementalTriangulator& self) {
              return IncrementalTriangulator(self);

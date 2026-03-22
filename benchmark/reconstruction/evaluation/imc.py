@@ -35,23 +35,6 @@ from .utils import Dataset, SceneInfo
 
 
 class _DatasetIMC(Dataset):
-    def __init__(
-        self,
-        data_path: Path,
-        categories: list[str],
-        scenes: list[Path],
-        run_path: Path,
-        run_name: str,
-        year: int,
-    ):
-        super().__init__()
-        self.data_path = data_path
-        self.categories = categories
-        self.scenes = scenes
-        self.run_path = run_path
-        self.run_name = run_name
-        self.year = year
-
     @property
     def position_accuracy_gt(self):
         return 0.02
@@ -104,7 +87,7 @@ class _DatasetIMC(Dataset):
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
-                    camera_priors_from_sparse_gt=False,
+                    has_camera_priors=False,
                     colmap_extra_args=None,
                 )
 
@@ -118,18 +101,39 @@ class _DatasetIMC(Dataset):
 
         scene_path = scene_info.image_path.parent
         sfm_path = scene_path / "sfm"
+
+        sparse_sfm = pycolmap.Reconstruction(sfm_path)
+        sparse_gt = pycolmap.Reconstruction()
+
+        train_image_ids = set()
         train_image_names = set(
             image.name for image in scene_info.image_path.iterdir()
         )
-        sparse_sfm = pycolmap.Reconstruction(sfm_path)
-        sparse_gt = pycolmap.Reconstruction()
         for image in sparse_sfm.images.values():
-            if image.name not in train_image_names:
+            if image.name in train_image_names:
+                train_image_ids.add(image.image_id)
+        for camera in sparse_sfm.cameras.values():
+            sparse_gt.add_camera(camera)
+        for rig in sparse_sfm.rigs.values():
+            sparse_gt.add_rig(rig)
+        for frame in sparse_sfm.frames.values():
+            has_train_image = False
+            for data_id in frame.image_ids:
+                if data_id.id in train_image_ids:
+                    has_train_image = True
+                    break
+            if has_train_image:
+                frame.reset_rig_ptr()
+                sparse_gt.add_frame(frame)
+        for image in sparse_sfm.images.values():
+            if image.image_id not in train_image_ids:
                 continue
             if image.camera_id not in sparse_gt.cameras:
                 sparse_gt.add_camera(image.camera)
             image.reset_camera_ptr()
+            image.reset_frame_ptr()
             sparse_gt.add_image(image)
+
         scene_info.sparse_gt_path.mkdir(exist_ok=True)
         sparse_gt.write(scene_info.sparse_gt_path)
 
@@ -149,8 +153,8 @@ class DatasetIMC2023(_DatasetIMC):
             scenes=scenes,
             run_path=run_path,
             run_name=run_name,
-            year=2023,
         )
+        self.year = 2023
 
 
 class DatasetIMC2024(_DatasetIMC):
@@ -168,5 +172,5 @@ class DatasetIMC2024(_DatasetIMC):
             scenes=scenes,
             run_path=run_path,
             run_name=run_name,
-            year=2024,
         )
+        self.year = 2024

@@ -1,5 +1,7 @@
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
+
 #include <glog/logging.h>
 #include <pybind11/pybind11.h>
 
@@ -37,12 +39,20 @@ void BindLogging(py::module& m) {
       .def_readwrite_static("log_dir", &FLAGS_log_dir)
       .def_readwrite_static("logtostderr", &FLAGS_logtostderr)
       .def_readwrite_static("alsologtostderr", &FLAGS_alsologtostderr)
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+      .def_readwrite_static("logtostdout", &FLAGS_logtostdout)
+      .def_readwrite_static("colorlogtostdout", &FLAGS_colorlogtostdout)
+#endif
+      .def_readwrite_static("colorlogtostderr", &FLAGS_colorlogtostderr)
       .def_readwrite_static("verbose_level", &FLAGS_v)
       .def_static(
           "set_log_destination",
-          [](const Logging::LogSeverity severity, const std::string& path) {
+          [](const Logging::LogSeverity severity,
+             const std::filesystem::path& path) {
             google::SetLogDestination(
-                static_cast<google::LogSeverity>(severity), path.c_str());
+                static_cast<google::LogSeverity>(severity),
+                path.string().c_str());
           },
           py::arg("level"),
           py::arg("path"))

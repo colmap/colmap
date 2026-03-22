@@ -104,8 +104,8 @@ class Image {
   inline void SetFramePtr(class Frame* frame);
   inline void ResetFramePtr();
   inline bool HasFramePtr() const;
-  // Check if cam_from_world needs to be composed with sensor_from_rig pose.
-  inline bool HasTrivialFrame() const;
+  // Check if the image was captured by the reference sensor in the rig.
+  inline bool IsRefInFrame() const;
 
   // Composition of sensor_from_rig and rig_from_world transformations.
   // If the corresponding frame is trivial, this is equal to rig_from_world.
@@ -144,28 +144,32 @@ class Image {
   inline bool operator!=(const Image& other) const;
 
  private:
-  // Identifier of the image, if not specified `kInvalidImageId`.
-  image_t image_id_;
-
   // The name of the image, i.e. the relative path.
   std::string name_;
+
+  // Pointer to the associated camera object.
+  struct Camera* camera_ptr_;
+
+  // Pointer to the corresponding frame object.
+  class Frame* frame_ptr_;
+
+  // All image points, including points that are not part of a 3D point track.
+  std::vector<struct Point2D> points2D_;
+
+  // Identifier of the image, if not specified `kInvalidImageId`.
+  image_t image_id_;
 
   // The identifier of the associated camera. Note that multiple images might
   // share the same camera. If not specified `kInvalidCameraId`.
   camera_t camera_id_;
-  struct Camera* camera_ptr_;
 
   // The corresponding frame of the image. Note that multiple images might
   // share the same frame. If not specified `kInvalidFrameId`.
   frame_t frame_id_;
-  class Frame* frame_ptr_;
 
   // The number of 3D points the image observes, i.e. the sum of its `points2D`
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
-
-  // All image points, including points that are not part of a 3D point track.
-  std::vector<struct Point2D> points2D_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Image& image);
@@ -221,7 +225,6 @@ bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 frame_t Image::FrameId() const { return frame_id_; }
 
 void Image::SetFrameId(const frame_t frame_id) {
-  THROW_CHECK_NE(frame_id, kInvalidFrameId);
   THROW_CHECK(!HasFramePtr());
   frame_id_ = frame_id;
 }
@@ -249,7 +252,7 @@ void Image::ResetFramePtr() { frame_ptr_ = nullptr; }
 
 bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
 
-bool Image::HasTrivialFrame() const {
+bool Image::IsRefInFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr_)
       ->RigPtr()
       ->IsRefSensor(sensor_t(SensorType::CAMERA, camera_id_));

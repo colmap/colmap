@@ -1,1 +1,1 @@
-int PoissonRecon(int argc, char* argv[]);
+int RunPoissonRecon( int argc , char* argv[] );

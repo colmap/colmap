@@ -68,7 +68,7 @@ Windows, compute clusters, or if you do not have root access under Linux or Mac.
 Debian/Ubuntu
 -------------
 
-*Recommended dependencies:* CUDA (at least version 7.X)
+*Recommended dependencies:* CUDA (at least version 11.X)
 
 Dependencies from the default Ubuntu repositories::
 
@@ -81,7 +81,8 @@ Dependencies from the default Ubuntu repositories::
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libfreeimage-dev \
+        libopenimageio-dev \
+        openimageio-tools \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -93,9 +94,14 @@ Dependencies from the default Ubuntu repositories::
         libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
+        libsuitesparse-dev \
         libcurl4-openssl-dev \
         libssl-dev \
         libmkl-full-dev
+    # Fix issue in Ubuntu's openimageio CMake config.
+    # We don't depend on any of openimageio's OpenCV functionality,
+    # but it still requires the OpenCV include directory to exist.
+    sudo mkdir -p /usr/include/opencv4
 
 Alternatively, you can also build against Qt 5 instead of Qt 6 using::
 
@@ -144,20 +150,21 @@ of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#s
 Mac
 ---
 
-Dependencies from `Homebrew <http://brew.sh/>`__::
+Dependencies from `Homebrew <https://brew.sh/>`__::
 
     brew install \
         cmake \
         ninja \
         boost \
         eigen \
-        freeimage \
+        openimageio \
         curl \
         libomp \
         metis \
         glog \
         googletest \
         ceres-solver \
+        suitesparse \
         qt \
         glew \
         cgal \
@@ -170,7 +177,7 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake -GNinja
+    cmake .. -GNinja
     ninja
     sudo ninja install
 
@@ -189,7 +196,7 @@ Run COLMAP::
 Windows
 -------
 
-*Recommended dependencies:* CUDA (at least version 7.X), Visual Studio 2019
+*Recommended dependencies:* CUDA (at least version 11.X), Visual Studio 2019 or newer
 
 On Windows, the recommended way is to build COLMAP using VCPKG::
 
@@ -239,10 +246,10 @@ vcpkg, first run ``./vcpkg integrate install`` (under Windows use pwsh and
     cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
     cmake --build . --config release --target colmap --parallel 24
 
-Anaconda
---------
+Anaconda/Mamba
+--------------
 
-Install miniconda and run the following commands::
+Install miniconda and run the following commands. You can replace ``conda`` with ``mamba`` for faster package installation::
 
     conda create -n colmap python=3.12
     conda config --add channels conda-forge
@@ -253,16 +260,16 @@ Install miniconda and run the following commands::
         boost \
         ccache \
         eigen \
-        freeimage \
+        openimageio \
         curl \
         metis \
         glog \
         gtest \
         ceres-solver \
+        suitesparse \
         qt \
         glew \
         sqlite \
-        glew \
         cgal-cpp \
         mesa-libgl-devel-cos7-x86_64 \
         cuda-compiler==12.6.2 \
@@ -319,7 +326,9 @@ with the source code ``hello_world.cc``::
         std::string message;
         colmap::OptionManager options;
         options.AddRequiredOption("message", &message);
-        options.Parse(argc, argv);
+        if (!options.Parse(argc, argv)) {
+            return EXIT_FAILURE;
+        }
 
         std::cout << colmap::StringPrintf("Hello %s!\n", message.c_str());
 
@@ -336,6 +345,31 @@ Then compile and run your code as::
     ./hello_world --message "world"
 
 The sources of this example are stored under ``doc/sample-project``.
+
+----------------
+Shared Libraries
+----------------
+
+By default, COLMAP builds static libraries. To build shared/dynamic libraries
+instead, enable the ``BUILD_SHARED_LIBS`` option::
+
+    cmake .. -GNinja -DBUILD_SHARED_LIBS=ON
+
+Trade-offs compared to static libraries:
+
+- **Faster incremental linking**: Only the changed shared library needs to be
+  re-linked during development, rather than all executables.
+- **Reduced disk usage**: Multiple executables share the same library files on
+  disk and in memory.
+- **No cross-library optimization**: The compiler cannot inline or apply
+  link-time optimization (LTO/IPO) across shared library boundaries, which
+  reduces runtime performance.
+- **Symbol resolution overhead**: The dynamic linker resolves symbols at load
+  time, adding minor startup cost and indirect call overhead.
+
+For development workflows, shared libraries can significantly speed up
+edit-compile-test cycles. For production or benchmarking, static libraries are
+recommended.
 
 ----------------
 AddressSanitizer
@@ -357,15 +391,22 @@ meaningful traces for reported issues.
 Documentation
 -------------
 
-You need Python and Sphinx to build the HTML documentation::
+1. Install latest pycolmap for up-to-date pycolmap API documentation.
+2. Build the documentation::
 
-    cd path/to/colmap/doc
-    sudo apt-get install python
-    pip install sphinx
-    make html
-    open _build/html/index.html
+        cd path/to/colmap/doc
+        pip install -r requirements.txt
+        make html
+        open _build/html/index.html # preview results
 
-Alternatively, you can build the documentation as PDF, EPUB, etc.::
+   Alternatively, you can build the documentation as PDF, EPUB, etc.::
 
-    make latexpdf
-    open _build/pdf/COLMAP.pdf
+        make latexpdf
+        open _build/pdf/COLMAP.pdf
+
+3. Clone the website repository `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__.
+4. Copy the contents of the generated files at ``_build/html`` to the cloned repository root.
+5. Create a pull request to the `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
+   repository with the updated files.
+6. (Optional, if main release) Copy the previous release as legacy to the "legacy" folder,
+   under a folder with the release number `see here <https://github.com/colmap/colmap.github.io/tree/master/legacy>`__.

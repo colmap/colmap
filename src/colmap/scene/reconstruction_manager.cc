@@ -57,13 +57,13 @@ void ReconstructionManager::Delete(const size_t idx) {
 
 void ReconstructionManager::Clear() { reconstructions_.clear(); }
 
-size_t ReconstructionManager::Read(const std::string& path) {
+size_t ReconstructionManager::Read(const std::filesystem::path& path) {
   const size_t idx = Add();
   reconstructions_[idx]->Read(path);
   return idx;
 }
 
-void ReconstructionManager::Write(const std::string& path) const {
+void ReconstructionManager::Write(const std::filesystem::path& path) const {
   std::vector<std::pair<size_t, size_t>> recon_sizes(reconstructions_.size());
   for (size_t i = 0; i < reconstructions_.size(); ++i) {
     recon_sizes[i] = std::make_pair(i, reconstructions_[i]->NumPoints3D());
@@ -76,7 +76,7 @@ void ReconstructionManager::Write(const std::string& path) const {
             });
 
   for (size_t i = 0; i < reconstructions_.size(); ++i) {
-    const std::string reconstruction_path = JoinPaths(path, std::to_string(i));
+    const auto reconstruction_path = path / std::to_string(i);
     CreateDirIfNotExists(reconstruction_path);
     reconstructions_[recon_sizes[i].first]->Write(reconstruction_path);
   }

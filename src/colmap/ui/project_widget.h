@@ -44,10 +44,10 @@ class ProjectWidget : public QWidget {
   bool IsValid() const;
   void Reset();
 
-  std::string GetDatabasePath() const;
-  std::string GetImagePath() const;
-  void SetDatabasePath(const std::string& path);
-  void SetImagePath(const std::string& path);
+  std::filesystem::path GetDatabasePath() const;
+  std::filesystem::path GetImagePath() const;
+  void SetDatabasePath(const std::filesystem::path& path);
+  void SetImagePath(const std::filesystem::path& path);
 
  private:
   void Save();

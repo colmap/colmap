@@ -47,10 +47,10 @@ Sim3d TestSim3d() {
 }
 
 void ExpectEqualSim3d(const Sim3d& gt_tgt_from_src, const Sim3d& tgt_from_src) {
-  EXPECT_NEAR(gt_tgt_from_src.scale, tgt_from_src.scale, 1e-6);
-  EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
+  EXPECT_NEAR(gt_tgt_from_src.scale(), tgt_from_src.scale(), 1e-6);
+  EXPECT_LT(gt_tgt_from_src.rotation().angularDistance(tgt_from_src.rotation()),
             1e-6);
-  EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
+  EXPECT_LT((gt_tgt_from_src.translation() - tgt_from_src.translation()).norm(),
             1e-6);
 }
 
@@ -61,7 +61,6 @@ Reconstruction GenerateReconstructionForAlignment() {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   return reconstruction;
 }
@@ -107,9 +106,11 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   Sim3d gt_tgt_from_src = TestSim3d();
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
-  std::unordered_map<image_t, PosePrior> tgt_pose_priors;
+  std::vector<PosePrior> tgt_pose_priors;
   for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
-    PosePrior& pose_prior = tgt_pose_priors[image_id];
+    PosePrior& pose_prior = tgt_pose_priors.emplace_back();
+    pose_prior.pose_prior_id = tgt_pose_priors.size();
+    pose_prior.corr_data_id = image.DataId();
     pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     pose_prior.position = image.ProjectionCenter();
     pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
@@ -181,7 +182,6 @@ TEST(Alignment, MergeReconstructions) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
   Reconstruction orig_reconstruction = src_reconstruction;
   Reconstruction tgt_reconstruction = src_reconstruction;
@@ -232,7 +232,6 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
   synthetic_dataset_options.num_cameras_per_rig = 4;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   std::unordered_map<rig_t, Rig> orig_rigs = reconstruction.Rigs();
 
@@ -250,6 +249,33 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
               sensor_from_orig_rig.value(), /*rtol=*/1e-6, /*ttol=*/1e-6));
     }
   }
+}
+
+TEST(AlignmentErrorSummary, Empty) {
+  std::vector<ImageAlignmentError> errors;
+  AlignmentErrorSummary summary = AlignmentErrorSummary::Compute(errors);
+  EXPECT_EQ(summary.rotation_errors_deg.min, 0);
+  EXPECT_EQ(summary.proj_center_errors.min, 0);
+}
+
+TEST(AlignmentErrorSummary, MultipleErrors) {
+  std::vector<ImageAlignmentError> errors(5);
+  for (size_t i = 0; i < errors.size(); ++i) {
+    errors[i].rotation_error_deg = static_cast<double>(i + 1);
+    errors[i].proj_center_error = static_cast<double>(i + 1) * 0.1;
+  }
+  const AlignmentErrorSummary summary = AlignmentErrorSummary::Compute(errors);
+  EXPECT_NEAR(summary.rotation_errors_deg.min, 1.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.max, 5.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.mean, 3.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.median, 3.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.p90, 4.6, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.p99, 4.96, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.min, 0.1, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.max, 0.5, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.mean, 0.3, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.p90, 0.46, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.p99, 0.496, 1e-10);
 }
 
 }  // namespace

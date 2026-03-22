@@ -45,7 +45,7 @@ TEST(FeatureKeypointsToPointsVector, Nominal) {
 }
 
 TEST(L2NormalizeFeatureDescriptors, Nominal) {
-  FeatureDescriptorsFloat descriptors = Eigen::MatrixXf::Random(100, 128);
+  FeatureDescriptorsFloatData descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
   L2NormalizeFeatureDescriptors(&descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
@@ -54,7 +54,7 @@ TEST(L2NormalizeFeatureDescriptors, Nominal) {
 }
 
 TEST(L1RootNormalizeFeatureDescriptors, Nominal) {
-  FeatureDescriptorsFloat descriptors = Eigen::MatrixXf::Random(100, 128);
+  FeatureDescriptorsFloatData descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
   L1RootNormalizeFeatureDescriptors(&descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
@@ -65,7 +65,7 @@ TEST(L1RootNormalizeFeatureDescriptors, Nominal) {
 TEST(FeatureDescriptorsToUnsignedByte, Nominal) {
   Eigen::MatrixXf descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
-  const FeatureDescriptors descriptors_uint8 =
+  const FeatureDescriptorsData descriptors_uint8 =
       FeatureDescriptorsToUnsignedByte(descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
     for (Eigen::MatrixXf::Index c = 0; c < descriptors.cols(); ++c) {
@@ -83,7 +83,8 @@ TEST(ExtractTopScaleFeatures, Nominal) {
   keypoints[2].Rescale(1);
   keypoints[3].Rescale(5);
   keypoints[4].Rescale(2);
-  const FeatureDescriptors descriptors = FeatureDescriptors::Random(5, 128);
+  FeatureDescriptors descriptors;
+  descriptors.data = FeatureDescriptorsData::Random(5, 128);
 
   auto top_keypoints2 = keypoints;
   auto top_descriptors2 = descriptors;
@@ -91,23 +92,23 @@ TEST(ExtractTopScaleFeatures, Nominal) {
   EXPECT_EQ(top_keypoints2.size(), 2);
   EXPECT_EQ(top_keypoints2[0].ComputeScale(), keypoints[3].ComputeScale());
   EXPECT_EQ(top_keypoints2[1].ComputeScale(), keypoints[1].ComputeScale());
-  EXPECT_EQ(top_descriptors2.rows(), 2);
-  EXPECT_EQ(top_descriptors2.row(0), descriptors.row(3));
-  EXPECT_EQ(top_descriptors2.row(1), descriptors.row(1));
+  EXPECT_EQ(top_descriptors2.data.rows(), 2);
+  EXPECT_EQ(top_descriptors2.data.row(0), descriptors.data.row(3));
+  EXPECT_EQ(top_descriptors2.data.row(1), descriptors.data.row(1));
 
   auto top_keypoints5 = keypoints;
   auto top_descriptors5 = descriptors;
   ExtractTopScaleFeatures(&top_keypoints5, &top_descriptors5, 5);
   EXPECT_EQ(top_keypoints5.size(), 5);
-  EXPECT_EQ(top_descriptors5.rows(), 5);
-  EXPECT_EQ(top_descriptors5, descriptors);
+  EXPECT_EQ(top_descriptors5.data.rows(), 5);
+  EXPECT_EQ(top_descriptors5.data, descriptors.data);
 
   auto top_keypoints6 = keypoints;
   auto top_descriptors6 = descriptors;
   ExtractTopScaleFeatures(&top_keypoints6, &top_descriptors6, 6);
   EXPECT_EQ(top_keypoints5.size(), 5);
-  EXPECT_EQ(top_descriptors6.rows(), 5);
-  EXPECT_EQ(top_descriptors6, descriptors);
+  EXPECT_EQ(top_descriptors6.data.rows(), 5);
+  EXPECT_EQ(top_descriptors6.data, descriptors.data);
 }
 
 }  // namespace

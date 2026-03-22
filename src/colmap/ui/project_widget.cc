@@ -53,7 +53,7 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
           &ProjectWidget::SelectExistingDatabasePath);
   database_path_text_ = new QLineEdit(this);
   database_path_text_->setText(
-      QString::fromStdString(*options_->database_path));
+      QString::fromStdString(options_->database_path->string()));
 
   // Image path.
   QPushButton* image_path_select = new QPushButton(tr("Select"), this);
@@ -62,7 +62,8 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
           this,
           &ProjectWidget::SelectImagePath);
   image_path_text_ = new QLineEdit(this);
-  image_path_text_->setText(QString::fromStdString(*options_->image_path));
+  image_path_text_->setText(
+      QString::fromStdString(options_->image_path->string()));
 
   // Save button.
   QPushButton* create_button = new QPushButton(tr("Save"), this);
@@ -92,20 +93,20 @@ void ProjectWidget::Reset() {
   image_path_text_->clear();
 }
 
-std::string ProjectWidget::GetDatabasePath() const {
+std::filesystem::path ProjectWidget::GetDatabasePath() const {
   return database_path_text_->text().toUtf8().constData();
 }
 
-std::string ProjectWidget::GetImagePath() const {
+std::filesystem::path ProjectWidget::GetImagePath() const {
   return image_path_text_->text().toUtf8().constData();
 }
 
-void ProjectWidget::SetDatabasePath(const std::string& path) {
-  database_path_text_->setText(QString::fromStdString(path));
+void ProjectWidget::SetDatabasePath(const std::filesystem::path& path) {
+  database_path_text_->setText(QString::fromStdString(path.string()));
 }
 
-void ProjectWidget::SetImagePath(const std::string& path) {
-  image_path_text_->setText(QString::fromStdString(path));
+void ProjectWidget::SetImagePath(const std::filesystem::path& path) {
+  image_path_text_->setText(QString::fromStdString(path.string()));
 }
 
 void ProjectWidget::Save() {
@@ -168,7 +169,7 @@ QString ProjectWidget::DefaultDirectory() {
   if (!options_->project_path->empty()) {
     const auto parent_path = GetParentDir(*options_->project_path);
     if (ExistsDir(parent_path)) {
-      return QString::fromStdString(parent_path);
+      return QString::fromStdString(parent_path.string());
     }
   }
 
@@ -176,7 +177,7 @@ QString ProjectWidget::DefaultDirectory() {
     const auto parent_path =
         GetParentDir(database_path_text_->text().toUtf8().constData());
     if (ExistsDir(parent_path)) {
-      return QString::fromStdString(parent_path);
+      return QString::fromStdString(parent_path.string());
     }
   }
 

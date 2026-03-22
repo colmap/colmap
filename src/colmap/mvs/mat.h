@@ -30,7 +30,7 @@
 #pragma once
 
 #include <algorithm>
-#include <string>
+#include <filesystem>
 #include <vector>
 
 namespace colmap {
@@ -60,8 +60,8 @@ class Mat {
 
   void Fill(T value);
 
-  void Read(const std::string& path);
-  void Write(const std::string& path) const;
+  void Read(const std::filesystem::path& path);
+  void Write(const std::filesystem::path& path) const;
 
  protected:
   size_t width_ = 0;

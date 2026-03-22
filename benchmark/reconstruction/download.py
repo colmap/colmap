@@ -39,7 +39,7 @@ import requests
 import pycolmap
 
 
-def download_file(url: str, target_folder: Path) -> None:
+def download_file(url: str, target_folder: Path) -> str:
     filename = url.split("/")[-1]
     with requests.get(url, stream=True) as req:
         req.raise_for_status()

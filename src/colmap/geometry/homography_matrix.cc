@@ -29,14 +29,13 @@
 
 #include "colmap/geometry/homography_matrix.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <array>
-#include <iomanip>
+#include <limits>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -262,6 +261,16 @@ Eigen::Matrix3d HomographyMatrixFromPose(const Eigen::Matrix3d& K1,
                                          const double d) {
   THROW_CHECK_GT(d, 0);
   return K2 * (R - t * n.normalized().transpose() / d) * K1.inverse();
+}
+
+double ComputeSquaredHomographyError(const Eigen::Vector2d& point1,
+                                     const Eigen::Vector2d& point2,
+                                     const Eigen::Matrix3d& H) {
+  const Eigen::Vector3d Hp1 = H * point1.homogeneous();
+  if (Hp1[2] == 0) {
+    return std::numeric_limits<double>::max();
+  }
+  return (point2 - Hp1.hnormalized()).squaredNorm();
 }
 
 }  // namespace colmap

@@ -63,18 +63,8 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
 
-  const span<const size_t> idxs = FocalLengthIdxs();
-  if (idxs.size() == 1) {
-    K(0, 0) = params[idxs[0]];
-    K(1, 1) = params[idxs[0]];
-  } else if (idxs.size() == 2) {
-    K(0, 0) = params[idxs[0]];
-    K(1, 1) = params[idxs[1]];
-  } else {
-    LOG(FATAL_THROW)
-        << "Camera model must either have 1 or 2 focal length parameters.";
-  }
-
+  K(0, 0) = FocalLengthX();
+  K(1, 1) = FocalLengthY();
   K(0, 2) = PrincipalPointX();
   K(1, 2) = PrincipalPointY();
 
@@ -119,15 +109,7 @@ void Camera::Rescale(const double scale) {
   height = static_cast<size_t>(std::round(scale * height));
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
-  if (FocalLengthIdxs().size() == 1) {
-    SetFocalLength((scale_x + scale_y) / 2.0 * FocalLength());
-  } else if (FocalLengthIdxs().size() == 2) {
-    SetFocalLengthX(scale_x * FocalLengthX());
-    SetFocalLengthY(scale_y * FocalLengthY());
-  } else {
-    LOG(FATAL_THROW)
-        << "Camera model must either have 1 or 2 focal length parameters.";
-  }
+  ScaleFocalLengths(scale_x, scale_y);
 }
 
 void Camera::Rescale(const size_t new_width, const size_t new_height) {
@@ -139,15 +121,7 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
   height = new_height;
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
-  if (FocalLengthIdxs().size() == 1) {
-    SetFocalLength((scale_x + scale_y) / 2.0 * FocalLength());
-  } else if (FocalLengthIdxs().size() == 2) {
-    SetFocalLengthX(scale_x * FocalLengthX());
-    SetFocalLengthY(scale_y * FocalLengthY());
-  } else {
-    LOG(FATAL_THROW)
-        << "Camera model must either have 1 or 2 focal length parameters.";
-  }
+  ScaleFocalLengths(scale_x, scale_y);
 }
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
@@ -162,6 +136,20 @@ std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
          << ", params=[" << camera.ParamsToString() << "] (" << params_info
          << "))";
   return stream;
+}
+
+void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
+  const size_t num_focal_params = FocalLengthIdxs().size();
+  if (num_focal_params == 1) {
+    const double avg_scale = (scale_x + scale_y) / 2.0;
+    SetFocalLength(avg_scale * FocalLength());
+  } else if (num_focal_params == 2) {
+    SetFocalLengthX(scale_x * FocalLengthX());
+    SetFocalLengthY(scale_y * FocalLengthY());
+  } else {
+    LOG(FATAL_THROW)
+        << "Camera model must either have 1 or 2 focal length parameters.";
+  }
 }
 
 }  // namespace colmap

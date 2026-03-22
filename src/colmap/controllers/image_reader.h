@@ -32,6 +32,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
 
+#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -40,7 +41,7 @@ namespace colmap {
 
 struct ImageReaderOptions {
   // Root path to folder which contains the images.
-  std::string image_path;
+  std::filesystem::path image_path;
 
   // Optional root path to folder which contains image masks. For a given image,
   // the corresponding mask must have the same sub-path below this root as the
@@ -49,12 +50,12 @@ struct ImageReaderOptions {
   // mask would be mask_path/abc/012.jpg.png. No features will be extracted in
   // regions where the mask image is black (pixel intensity value 0 in
   // grayscale).
-  std::string mask_path;
+  std::filesystem::path mask_path;
 
   // Optional path to an image file specifying a mask for all images. No
   // features will be extracted in regions where the mask is black (pixel
   // intensity value 0 in grayscale).
-  std::string camera_mask_path;
+  std::filesystem::path camera_mask_path;
 
   // Optional list of images to read. The list must contain the relative path
   // of the images with respect to the image_path.
