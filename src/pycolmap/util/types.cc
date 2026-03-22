@@ -1,4 +1,5 @@
 #include "colmap/feature/types.h"
+
 #include "colmap/util/timestamp.h"
 
 #include "pycolmap/helpers.h"
@@ -36,10 +37,7 @@ void BindUtilTypes(py::module& m) {
   m.attr("kInvalidTimestamp") = kInvalidTimestamp;
   m.def("timestamp_to_seconds", &TimestampToSeconds, "timestamp_ns"_a);
   m.def("seconds_to_timestamp", &SecondsToTimestamp, "seconds"_a);
-  m.def("timestamp_diff_seconds",
-        &TimestampDiffSeconds,
-        "t1"_a,
-        "t0"_a);
+  m.def("timestamp_diff_seconds", &TimestampDiffSeconds, "t1"_a, "t0"_a);
 
   m.def("image_pair_to_pair_id",
         &ImagePairToPairId,
