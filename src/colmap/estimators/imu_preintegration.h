@@ -83,21 +83,23 @@ class PreintegratedImuMeasurement {
   void Reintegrate(
       const Eigen::Vector6d& biases);  // SetBiases(biases) + Reintegrate().
 
-  // data interfaces
-  const double DeltaT() const;
-  const Eigen::Quaterniond& DeltaR() const;
-  const Eigen::Vector3d& DeltaP() const;
-  const Eigen::Vector3d& DeltaV() const;
-  const Eigen::Matrix3d dR_dbg() const;
-  const Eigen::Matrix3d dp_dba() const;
-  const Eigen::Matrix3d dp_dbg() const;
-  const Eigen::Matrix3d dv_dba() const;
-  const Eigen::Matrix3d dv_dbg() const;
-  const Eigen::Vector6d& Biases() const;
-  const Eigen::Matrix<double, 15, 15> Covariance() const;
-  const Eigen::Matrix<double, 15, 15> SqrtInformation() const;
-  const double GravityMagnitude() const;
-  const ImuMeasurements Measurements() const;
+  // Data accessors.
+  double DeltaT() const { return delta_t_; }
+  const Eigen::Quaterniond& DeltaR() const { return delta_R_ij_; }
+  const Eigen::Vector3d& DeltaP() const { return delta_p_ij_; }
+  const Eigen::Vector3d& DeltaV() const { return delta_v_ij_; }
+  Eigen::Matrix3d dR_dbg() const { return jacobian_biases_.block<3, 3>(0, 3); }
+  Eigen::Matrix3d dp_dba() const { return jacobian_biases_.block<3, 3>(3, 0); }
+  Eigen::Matrix3d dp_dbg() const { return jacobian_biases_.block<3, 3>(3, 3); }
+  Eigen::Matrix3d dv_dba() const { return jacobian_biases_.block<3, 3>(6, 0); }
+  Eigen::Matrix3d dv_dbg() const { return jacobian_biases_.block<3, 3>(6, 3); }
+  const Eigen::Vector6d& Biases() const { return biases_; }
+  const Eigen::Matrix<double, 15, 15>& Covariance() const { return covs_; }
+  const Eigen::Matrix<double, 15, 15>& SqrtInformation() const {
+    return sqrt_information_;
+  }
+  double GravityMagnitude() const { return calib_.gravity_magnitude; }
+  const ImuMeasurements& Measurements() const { return measurements_; }
 
  private:
   // Integration time window. [seconds]
@@ -246,7 +248,7 @@ class PreintegratedImuMeasurementCostFunction {
     Eigen::Matrix<T, 3, 1> omega_bias =
         measurement_.dR_dbg().cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
-    EigenAngleAxisToQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
+    AngleAxisToEigenQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
     const Eigen::Quaternion<T> Dq = measurement_.DeltaR().cast<T>() * Dq_bias;
     const Eigen::Quaternion<T> param_from_measured_q =
         (Dq.inverse() * j_from_i_q).normalized();

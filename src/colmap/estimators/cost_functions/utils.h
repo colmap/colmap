@@ -53,7 +53,7 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 }
 
 template <typename T>
-inline void EigenAngleAxisToQuaternion(const T* angle_axis,
+inline void AngleAxisToEigenQuaternion(const T* angle_axis,
                                        T* eigen_quaternion) {
   T quaternion[4];
   ceres::AngleAxisToQuaternion(angle_axis, quaternion);

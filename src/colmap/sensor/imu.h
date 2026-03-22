@@ -120,9 +120,29 @@ class ImuMeasurements {
     if (empty()) {
       measurements_ = ms.Data();
     } else {
-      for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
-      // TODO: merge two sorted list could be made faster
+      InsertSorted(ms.Data());
     }
+  }
+
+  // Insert measurements that are already sorted by timestamp.
+  // Uses std::merge for O(n+m) efficiency.
+  void InsertSorted(const std::vector<ImuMeasurement>& sorted_ms) {
+    if (sorted_ms.empty()) return;
+    if (empty()) {
+      measurements_ = sorted_ms;
+      return;
+    }
+    std::vector<ImuMeasurement> merged;
+    merged.reserve(measurements_.size() + sorted_ms.size());
+    std::merge(measurements_.begin(),
+               measurements_.end(),
+               sorted_ms.begin(),
+               sorted_ms.end(),
+               std::back_inserter(merged),
+               [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+                 return m1.timestamp < m2.timestamp;
+               });
+    measurements_ = std::move(merged);
   }
   void remove(const ImuMeasurement& m) {
     auto it = std::lower_bound(

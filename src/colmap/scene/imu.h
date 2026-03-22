@@ -44,7 +44,8 @@
 namespace colmap {
 
 // An Imu class storing the sensor information and a linked visual camera.
-// TODO: support rigs + unify sensors.
+// TODO: Integrate with the Rig abstraction (sensor/rig.h) by making IMU a
+// proper sensor in the rig and using sensor_from_rig transforms.
 class Imu {
  public:
   Imu() = default;
@@ -52,7 +53,7 @@ class Imu {
   ImuCalibration calib;
   camera_t imu_id = kInvalidCameraId;
 
-  // Information for the associated visual camera. TODO: change to rigs.
+  // Information for the associated visual camera. TODO: Use Rig instead.
   camera_t camera_id = kInvalidCameraId;  // The camera linked to IMU.
   Rigid3d imu_from_cam;
 };

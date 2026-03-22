@@ -57,6 +57,9 @@ void BindImu(py::module& m) {
                &ImuMeasurements::insert))
       .def("insert",
            py::overload_cast<const ImuMeasurements&>(&ImuMeasurements::insert))
+      .def("insert_sorted",
+           &ImuMeasurements::InsertSorted,
+           "sorted_measurements"_a)
       .def("remove", &ImuMeasurements::remove)
       .def("front", &ImuMeasurements::front)
       .def("back", &ImuMeasurements::back)
