@@ -47,7 +47,7 @@ void BindImuPreintegration(py::module& m) {
       .def("add_measurements", &PIM::AddMeasurements, "measurements"_a)
       .def("finish", &PIM::Finish)
       .def("has_finished", &PIM::HasFinished)
-      .def("check_reintegrate", &PIM::CheckReintegrate, "biases"_a)
+      .def("should_reintegrate", &PIM::ShouldReintegrate, "biases"_a)
       .def("reintegrate", py::overload_cast<>(&PIM::Reintegrate))
       .def("reintegrate",
            py::overload_cast<const Eigen::Vector6d&>(&PIM::Reintegrate),

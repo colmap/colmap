@@ -115,11 +115,11 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights);
 
-// Compute a quaternion from lie algebra
+// Compute a quaternion from Lie algebra.
 //
-// @param omega         The angles in so(3)
+// @param omega         The angles in so(3).
 //
-// @return              The quaternion corresponds to omega in so(3)
+// @return              The quaternion corresponding to omega in so(3).
 Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega);
 
 // Compute the right Jacobian J_r from lie algebra

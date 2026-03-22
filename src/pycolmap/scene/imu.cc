@@ -40,11 +40,8 @@ void BindImu(py::module& m) {
                      &ImuMeasurement::linear_acceleration)
       .def_readwrite("angular_velocity", &ImuMeasurement::angular_velocity)
       .def("__repr__", [](const ImuMeasurement& m) {
-        std::stringstream ss;
-        ss << "ImuMeasurement("
-           << "t=" << m.timestamp << ", "
-           << "acc=[" << m.linear_acceleration.format(vec_fmt) << "], "
-           << "gyro=[" << m.angular_velocity.format(vec_fmt) << "])";
+        std::ostringstream ss;
+        ss << m;
         return ss.str();
       });
   MakeDataclass(PyImuMeasurement);
@@ -72,11 +69,13 @@ void BindImu(py::module& m) {
            &ImuMeasurements::GetMeasurementsContainEdge)
       .def_property_readonly("data", &ImuMeasurements::Data)
       .def("__repr__", [](const ImuMeasurements& ms) {
-        std::stringstream ss;
-        ss << "ImuMeasurements("
-           << "n=" << ms.size() << ", "
-           << "tmin=" << ms.front().timestamp << ", "
-           << "tmax=" << ms.back().timestamp << ")";
+        std::ostringstream ss;
+        ss << "ImuMeasurements(n=" << ms.size();
+        if (!ms.empty()) {
+          ss << ", tmin=" << ms.front().timestamp
+             << ", tmax=" << ms.back().timestamp;
+        }
+        ss << ")";
         return ss.str();
       });
 
@@ -86,10 +85,8 @@ void BindImu(py::module& m) {
       .def_readwrite("camera_id", &Imu::camera_id)
       .def_readwrite("imu_from_cam", &Imu::imu_from_cam)
       .def("__repr__", [](const Imu& s) {
-        std::stringstream ss;
-        ss << "Imu("
-           << "imu_id=" << s.imu_id << ", "
-           << "camera_id=" << s.camera_id << ")";
+        std::ostringstream ss;
+        ss << s;
         return ss.str();
       });
 
@@ -111,11 +108,8 @@ void BindImu(py::module& m) {
       .def_property_readonly("gyro_bias", &ImuState::GyroBias)
       .def_property_readonly("gyro_bias_ptr", &ImuState::GyroBiasPtr)
       .def("__repr__", [](const ImuState& s) {
-        std::stringstream ss;
-        ss << "ImuState("
-           << "vel=[" << s.Velocity().format(vec_fmt) << "], "
-           << "acc_bias=[" << s.AccBias().format(vec_fmt) << "], "
-           << "gyro_bias=[" << s.GyroBias().format(vec_fmt) << "])";
+        std::ostringstream ss;
+        ss << s;
         return ss.str();
       });
 }

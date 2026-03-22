@@ -33,6 +33,7 @@
 #include "colmap/util/types.h"
 
 #include <algorithm>
+#include <ostream>
 
 namespace colmap {
 
@@ -79,7 +80,13 @@ struct ImuMeasurement {
       : timestamp(t), linear_acceleration(lin_acc), angular_velocity(ang_vel) {}
 };
 
-// priority list for Imu measurements based on timestamps
+std::ostream& operator<<(std::ostream& stream,
+                         const ImuCalibration& calibration);
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ImuMeasurement& measurement);
+
+// Sorted list of IMU measurements ordered by timestamp.
 class ImuMeasurements {
  public:
   ImuMeasurements() = default;

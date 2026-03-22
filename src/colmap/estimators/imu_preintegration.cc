@@ -268,7 +268,7 @@ void PreintegratedImuMeasurement::Finish() {
   has_finished_ = true;
 }
 
-bool PreintegratedImuMeasurement::CheckReintegrate(
+bool PreintegratedImuMeasurement::ShouldReintegrate(
     const Eigen::Vector6d& biases) const {
   THROW_CHECK_EQ(HasStarted(), true);
   Eigen::Vector6d diff_biases = biases - biases_;

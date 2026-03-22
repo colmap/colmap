@@ -29,12 +29,18 @@
 
 #include "colmap/sensor/imu.h"
 
+#include "colmap/util/logging.h"
+
 namespace colmap {
 
 ImuMeasurements ImuMeasurements::GetMeasurementsContainEdge(double t1,
                                                             double t2) {
+  THROW_CHECK(!empty()) << "Cannot query measurements from empty container.";
+  THROW_CHECK_LT(t1, t2) << "t1 must be less than t2.";
+  THROW_CHECK_GE(t1, front().timestamp)
+      << "t1 is before the first measurement.";
+  THROW_CHECK_LE(t2, back().timestamp) << "t2 is after the last measurement.";
   ImuMeasurements res;
-  if (t1 >= t2 || t1 < front().timestamp || t2 > back().timestamp) return res;
   auto it1 = std::upper_bound(
       measurements_.begin(),
       measurements_.end(),
@@ -54,6 +60,24 @@ ImuMeasurements ImuMeasurements::GetMeasurementsContainEdge(double t1,
   }
   res.insert(*it2);
   return res;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ImuCalibration& calibration) {
+  stream << "ImuCalibration("
+         << "acc_noise_density=" << calibration.acc_noise_density << ", "
+         << "gyro_noise_density=" << calibration.gyro_noise_density << ", "
+         << "gravity_magnitude=" << calibration.gravity_magnitude << ")";
+  return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ImuMeasurement& measurement) {
+  stream << "ImuMeasurement("
+         << "t=" << measurement.timestamp << ", "
+         << "acc=[" << measurement.linear_acceleration.transpose() << "], "
+         << "gyro=[" << measurement.angular_velocity.transpose() << "])";
+  return stream;
 }
 
 }  // namespace colmap

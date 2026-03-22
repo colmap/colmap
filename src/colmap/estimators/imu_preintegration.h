@@ -43,12 +43,14 @@
 namespace colmap {
 
 struct ImuPreintegrationOptions {
-  // integration noise density
+  // Whether to add integration noise to the covariance propagation.
   bool use_integration_noise = false;
-  double integration_noise_density = 0.2;  // [m/s*1/sqrt(Hz)]
+  // Integration noise density. [m/s*1/sqrt(Hz)]
+  double integration_noise_density = 0.2;
 
-  // check whether to reintegrate
+  // Threshold on velocity bias change norm to trigger reintegration. [m/s]
   double reintegrate_vel_norm_thres = 0.0001;
+  // Threshold on gyro bias change norm to trigger reintegration. [rad/s]
   double reintegrate_angle_norm_thres = 0.0001;
 };
 
@@ -60,23 +62,23 @@ class PreintegratedImuMeasurement {
                               double t_end);
   ~PreintegratedImuMeasurement() = default;
 
-  // Reset
+  // Reset the preintegrated measurement.
   void Reset();
   bool HasStarted() const;
 
-  // Set rectification matrices and biases
+  // Set rectification matrices and biases.
   void SetAccRectMat(const Eigen::Matrix3d& mat);
   void SetGyroRectMat(const Eigen::Matrix3d& mat);
   void SetBiases(const Eigen::Vector6d& biases);
 
-  // Add measurements: measurements need to be added in chronological order
+  // Add measurements. Measurements must be added in chronological order.
   void AddMeasurement(const ImuMeasurement& m);
   void AddMeasurements(const ImuMeasurements& ms);
   void Finish();
   bool HasFinished() const;
 
-  // Reintegrate
-  bool CheckReintegrate(const Eigen::Vector6d& biases) const;
+  // Reintegrate.
+  bool ShouldReintegrate(const Eigen::Vector6d& biases) const;
   void Reintegrate();
   void Reintegrate(
       const Eigen::Vector6d& biases);  // SetBiases(biases) + Reintegrate().
@@ -98,33 +100,33 @@ class PreintegratedImuMeasurement {
   const ImuMeasurements Measurements() const;
 
  private:
-  // Clock
-  double t_start_ = 0.0;  // from what time to start the integration.
-  double t_end_ = 0.0;    // until what time to do the integration.
+  // Integration time window. [seconds]
+  double t_start_ = 0.0;  // Start time of the integration window.
+  double t_end_ = 0.0;    // End time of the integration window.
 
-  // Flag to check if the first measurement has already been added.
+  // Whether the first measurement has been added.
   bool has_started_ = false;
 
-  // Flag to check if LLT is performed
+  // Flag to check if LLT decomposition has been performed.
   bool has_finished_ = false;
 
-  // Preintegrated measurements (imu to gravity-aligned metric world)
-  double delta_t_ = 0;  // accumulated time
+  // Preintegrated measurements (IMU to gravity-aligned metric world).
+  double delta_t_ = 0;  // Accumulated time. [seconds]
   Eigen::Quaterniond delta_R_ij_ =
-      Eigen::Quaterniond::Identity();                     // relative rotation
-  Eigen::Vector3d delta_p_ij_ = Eigen::Vector3d::Zero();  // position changes
-  Eigen::Vector3d delta_v_ij_ = Eigen::Vector3d::Zero();  // velocity changes
+      Eigen::Quaterniond::Identity();                     // Relative rotation.
+  Eigen::Vector3d delta_p_ij_ = Eigen::Vector3d::Zero();  // Position change.
+  Eigen::Vector3d delta_v_ij_ = Eigen::Vector3d::Zero();  // Velocity change.
 
-  // Accounting for bias changes
+  // Jacobian of preintegrated [rotation, position, velocity] (9)
+  // w.r.t. [acc_bias, gyro_bias] (6).
   Eigen::Matrix<double, 9, 6> jacobian_biases_ =
-      Eigen::Matrix<double, 9, 6>::Zero();  // jacobian of rotation,
-                                            // translation, velocity over biases
+      Eigen::Matrix<double, 9, 6>::Zero();
 
-  // Covariance propagation
-  Eigen::Matrix<double, 15, 15> covs_ =
-      Eigen::Matrix<double, 15, 15>::Zero();  // covariances (rotation +
-                                              // translation + velocity + acc
-                                              // bias + gyro bias)
+  // Covariance of the 15-dimensional state:
+  // [rotation(3), position(3), velocity(3), acc_bias(3), gyro_bias(3)].
+  Eigen::Matrix<double, 15, 15> covs_ = Eigen::Matrix<double, 15, 15>::Zero();
+  // Square root of the information matrix (inverse covariance), computed
+  // via LLT decomposition in Finish().
   Eigen::Matrix<double, 15, 15> sqrt_information_ =
       Eigen::Matrix<double, 15, 15>::Zero();
 
@@ -193,7 +195,7 @@ class PreintegratedImuMeasurementCostFunction {
     for (size_t i = 0; i < 6; ++i) {
       biases_double(i) = ConvertToDouble<T>::convert(i_imu_state[i + 3]);
     }
-    if (measurement_.CheckReintegrate(biases_double))
+    if (measurement_.ShouldReintegrate(biases_double))
       measurement_.Reintegrate(biases_double);
     // Compute residuals
     // imu state

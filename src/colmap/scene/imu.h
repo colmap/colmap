@@ -35,6 +35,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include <ostream>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -42,8 +43,8 @@
 
 namespace colmap {
 
-// An Imu class storing the sensor information and a linked visual camera
-// TODO: support rigs + unify sensors
+// An Imu class storing the sensor information and a linked visual camera.
+// TODO: support rigs + unify sensors.
 class Imu {
  public:
   Imu() = default;
@@ -51,12 +52,12 @@ class Imu {
   ImuCalibration calib;
   camera_t imu_id = kInvalidCameraId;
 
-  // information for the associated visual camera. TODO: change to rigs
-  camera_t camera_id = kInvalidCameraId;  // the camera linked to IMU.
+  // Information for the associated visual camera. TODO: change to rigs.
+  camera_t camera_id = kInvalidCameraId;  // The camera linked to IMU.
   Rigid3d imu_from_cam;
 };
 
-// A state class storing speed and biases for discrete-time optimization
+// A state class storing speed and biases for discrete-time optimization.
 class ImuState {
  public:
   ImuState() = default;
@@ -82,11 +83,10 @@ class ImuState {
   inline image_t ImageId();
 
  private:
-  Eigen::Matrix<double, 9, 1> data_ =
-      Eigen::Matrix<double, 9, 1>::Zero();  // 3-DoF speed + 6-DoF biases (acc +
-                                            // gyro)
-  camera_t imu_id_;   // the identifier of the associated IMU
-  image_t image_id_;  // the corresponding image from visual input
+  // State vector: [velocity(3), acc_bias(3), gyro_bias(3)].
+  Eigen::Matrix<double, 9, 1> data_ = Eigen::Matrix<double, 9, 1>::Zero();
+  camera_t imu_id_;   // The identifier of the associated IMU.
+  image_t image_id_;  // The corresponding image from visual input.
 };
 
 const Eigen::Matrix<double, 9, 1>& ImuState::Data() const { return data_; }
@@ -130,5 +130,20 @@ camera_t ImuState::ImuId() { return imu_id_; }
 const image_t& ImuState::ImageId() const { return image_id_; }
 
 image_t ImuState::ImageId() { return image_id_; }
+
+inline std::ostream& operator<<(std::ostream& stream, const Imu& imu) {
+  stream << "Imu("
+         << "imu_id=" << imu.imu_id << ", "
+         << "camera_id=" << imu.camera_id << ")";
+  return stream;
+}
+
+inline std::ostream& operator<<(std::ostream& stream, const ImuState& state) {
+  stream << "ImuState("
+         << "vel=[" << state.Velocity().transpose() << "], "
+         << "acc_bias=[" << state.AccBias().transpose() << "], "
+         << "gyro_bias=[" << state.GyroBias().transpose() << "])";
+  return stream;
+}
 
 }  // namespace colmap
