@@ -16,3 +16,11 @@ pip install \
     -Cbuild-dir="$script_dir/build" \
     -ve \
     "$script_dir/.."
+
+# Symlink the compiled _core extension into the source tree so that the
+# editable install (which adds python/ to sys.path) can find it.
+site_pkg=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))")
+core_so=$(find "$site_pkg/pycolmap" -maxdepth 1 -name '_core*.so' | head -1)
+if [ -n "$core_so" ]; then
+    ln -sf "$core_so" "$script_dir/pycolmap/"
+fi
