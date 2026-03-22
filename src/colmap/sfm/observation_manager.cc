@@ -109,8 +109,11 @@ void ObservationManager::AddImage(const image_t image_id) {
   image_stats_.emplace(image_id, InitImageStat(image_id, image));
 
   if (correspondence_graph_) {
-    // Add image pair stats for all pairs involving the new image.
-    for (const auto& [other_image_id, _] : image_stats_) {
+    // Add image pair stats for all pairs involving the new image and refresh
+    // the cached stats for existing images, whose observation/correspondence
+    // counts may have increased when AddTwoViewGeometry added new
+    // correspondences.
+    for (auto& [other_image_id, other_stats] : image_stats_) {
       if (other_image_id == image_id) {
         continue;
       }
@@ -123,6 +126,11 @@ void ObservationManager::AddImage(const image_t image_id) {
         ImagePairStat image_pair_stat;
         image_pair_stat.num_total_corrs = num_matches;
         image_pair_stats_.emplace(pair_id, image_pair_stat);
+
+        other_stats.num_observations =
+            correspondence_graph_->NumObservationsForImage(other_image_id);
+        other_stats.num_correspondences =
+            correspondence_graph_->NumCorrespondencesForImage(other_image_id);
       }
     }
 
