@@ -59,7 +59,7 @@ ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
   t_start_ = t_start;
   t_end_ = t_end;
   data_.gravity_magnitude = calib.gravity_magnitude;
-  acc_rect_mat_inv_ = calib.acc_rectification.inverse();
+  accel_rect_mat_inv_ = calib.accel_rectification.inverse();
   gyro_rect_mat_inv_ = calib.gyro_rectification.inverse();
   Reset();
 }
@@ -86,19 +86,19 @@ void ImuPreintegrator::SetBiases(const Eigen::Vector6d& biases) {
   data_.biases = biases;
 }
 
-void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
+void ImuPreintegrator::Integrate(const Eigen::Vector3d& accel_true,
                                  const Eigen::Vector3d& gyro_true,
                                  double dt,
-                                 double acc_noise_density,
+                                 double accel_noise_density,
                                  double gyro_noise_density) {
   // [Reference]
   // [A] Forster et al. "On-Manifold Preintegration for Real-Time
   // Visual-Inertial Odometry", TRO 16. Integration step translation: Eq. (37)
   // from [A]
   data_.delta_p +=
-      data_.delta_v * dt + data_.delta_R * acc_true * 0.5 * dt * dt;
+      data_.delta_v * dt + data_.delta_R * accel_true * 0.5 * dt * dt;
   // velocity: Eq. (36) from [A]
-  data_.delta_v += data_.delta_R * acc_true * dt;
+  data_.delta_v += data_.delta_R * accel_true * dt;
   // rotation: Eq. (35) from [A]. Right convention:
   // delta_R_{k+1} = delta_R_k * Exp(omega * dt).
   Eigen::Quaterniond dq = QuaternionFromAngleAxis(gyro_true * dt);
@@ -111,7 +111,7 @@ void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
   // [Reference] end of Appendix B from [A]. Since it is not tagged with
   // equation number, we refer it as Eq. (69 1/2) in the following.
   Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(gyro_true * dt);
-  Eigen::Matrix3d skew_acc = CrossProductMatrix(acc_true);
+  Eigen::Matrix3d skew_accel = CrossProductMatrix(accel_true);
 
   // Covariance propagation
   // Eq. (63) from [A]
@@ -121,28 +121,28 @@ void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
   A.block<3, 3>(0, 0) = dq.inverse().toRotationMatrix();
 
   // translation: Eq. (61) from [A]
-  A.block<3, 3>(3, 0) = -0.5 * Rs * skew_acc * dt * dt;
+  A.block<3, 3>(3, 0) = -0.5 * Rs * skew_accel * dt * dt;
   A.block<3, 3>(3, 6) = Eigen::Matrix3d::Identity() * dt;
 
   // velocity: Eq. (60) from [A]
-  A.block<3, 3>(6, 0) = -Rs * skew_acc * dt;
+  A.block<3, 3>(6, 0) = -Rs * skew_accel * dt;
 
   // fill in the bias-related jacobians
   // inversely update t, v, R due to the dependencies.
   // Covariance state: [rotation(3), position(3), velocity(3),
-  //                    gyro_bias(3), acc_bias(3)]
+  //                    bias_gyro(3), bias_accel(3)]
   // NOTE: rotation must be updated last — translation and velocity
   // read the old dR_dbg.
 
   // translation: Eq. (69 1/2) from [A]
   A.block<3, 3>(3, 9) =
-      (data_.dv_dbg * dt - 0.5 * Rs * skew_acc * data_.dR_dbg * dt * dt);
+      (data_.dv_dbg * dt - 0.5 * Rs * skew_accel * data_.dR_dbg * dt * dt);
   A.block<3, 3>(3, 12) = data_.dv_dba * dt - 0.5 * Rs * dt * dt;
   data_.dp_dbg += A.block<3, 3>(3, 9);
   data_.dp_dba += A.block<3, 3>(3, 12);
 
   // velocity: Eq. (69 1/2) from [A]
-  A.block<3, 3>(6, 9) = -Rs * skew_acc * data_.dR_dbg * dt;
+  A.block<3, 3>(6, 9) = -Rs * skew_accel * data_.dR_dbg * dt;
   A.block<3, 3>(6, 12) = -Rs * dt;
   data_.dv_dbg += A.block<3, 3>(6, 9);
   data_.dv_dba += A.block<3, 3>(6, 12);
@@ -157,7 +157,7 @@ void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
   data_.covariance = A * data_.covariance * A.transpose();
 
   // Step 2: add noise
-  double vars_v = pow(acc_noise_density, 2) * dt;
+  double vars_v = pow(accel_noise_density, 2) * dt;
   double vars_omega = pow(gyro_noise_density, 2) * dt;
   double vars_p = 0.5 * vars_v * dt * dt;
   if (options_.use_integration_noise) {
@@ -175,9 +175,9 @@ void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
 
 void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
                                                const ImuMeasurement& curr) {
-  Eigen::Vector3d acc_s = prev.accel;
+  Eigen::Vector3d accel_s = prev.accel;
   Eigen::Vector3d gyro_s = prev.gyro;
-  Eigen::Vector3d acc_e = curr.accel;
+  Eigen::Vector3d accel_e = curr.accel;
   Eigen::Vector3d gyro_e = curr.gyro;
 
   // Get dt and update boundaries.
@@ -188,37 +188,37 @@ void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
   const double imu_dt = TimestampDiffSeconds(curr.timestamp, prev.timestamp);
 
   // Interpolate at boundaries if needed.
-  Eigen::Vector3d acc_s_tmp = acc_s;
+  Eigen::Vector3d accel_s_tmp = accel_s;
   Eigen::Vector3d gyro_s_tmp = gyro_s;
-  Eigen::Vector3d acc_e_tmp = acc_e;
+  Eigen::Vector3d accel_e_tmp = accel_e;
   Eigen::Vector3d gyro_e_tmp = gyro_e;
   if (interval_t_start > prev.timestamp) {
     const double ratio_s =
         TimestampDiffSeconds(interval_t_start, prev.timestamp) / imu_dt;
-    acc_s_tmp = (1.0 - ratio_s) * acc_s + ratio_s * acc_e;
+    accel_s_tmp = (1.0 - ratio_s) * accel_s + ratio_s * accel_e;
     gyro_s_tmp = (1.0 - ratio_s) * gyro_s + ratio_s * gyro_e;
   }
   if (interval_t_end < curr.timestamp) {
     const double ratio_e =
         TimestampDiffSeconds(interval_t_end, prev.timestamp) / imu_dt;
-    acc_e_tmp = (1.0 - ratio_e) * acc_s + ratio_e * acc_e;
+    accel_e_tmp = (1.0 - ratio_e) * accel_s + ratio_e * accel_e;
     gyro_e_tmp = (1.0 - ratio_e) * gyro_s + ratio_e * gyro_e;
   }
-  acc_s = acc_s_tmp;
+  accel_s = accel_s_tmp;
   gyro_s = gyro_s_tmp;
-  acc_e = acc_e_tmp;
+  accel_e = accel_e_tmp;
   gyro_e = gyro_e_tmp;
 
-  Eigen::Vector3d acc_true = 0.5 * (acc_s + acc_e) - biases_.tail<3>();
-  acc_true = acc_rect_mat_inv_ * acc_true;
+  Eigen::Vector3d accel_true = 0.5 * (accel_s + accel_e) - biases_.tail<3>();
+  accel_true = accel_rect_mat_inv_ * accel_true;
   Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.head<3>();
   gyro_true = gyro_rect_mat_inv_ * gyro_true;
 
   // Check saturation.
-  double acc_noise_density = calib_.acc_noise_density;
-  if (acc_s.cwiseAbs().maxCoeff() > calib_.acc_saturation_max ||
-      acc_e.cwiseAbs().maxCoeff() > calib_.acc_saturation_max) {
-    acc_noise_density *= 100.0;
+  double accel_noise_density = calib_.accel_noise_density;
+  if (accel_s.cwiseAbs().maxCoeff() > calib_.accel_saturation_max ||
+      accel_e.cwiseAbs().maxCoeff() > calib_.accel_saturation_max) {
+    accel_noise_density *= 100.0;
   }
   double gyro_noise_density = calib_.gyro_noise_density;
   if (gyro_s.cwiseAbs().maxCoeff() > calib_.gyro_saturation_max ||
@@ -226,7 +226,7 @@ void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
     gyro_noise_density *= 100.0;
   }
 
-  Integrate(acc_true, gyro_true, dt, acc_noise_density, gyro_noise_density);
+  Integrate(accel_true, gyro_true, dt, accel_noise_density, gyro_noise_density);
 }
 
 void ImuPreintegrator::FeedImu(const ImuMeasurement& m) {
@@ -282,7 +282,7 @@ bool ImuPreintegrator::ShouldReintegrate(const Eigen::Vector6d& biases) const {
   double angle_norm = diff_biases.head<3>().norm() * data_.delta_t;
   if (angle_norm > options_.reintegrate_angle_norm_thres) return true;
 
-  // check acc
+  // check accel
   double v_norm = diff_biases.tail<3>().norm() * data_.delta_t;
   if (v_norm > options_.reintegrate_vel_norm_thres) return true;
 

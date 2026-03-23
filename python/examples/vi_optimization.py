@@ -326,13 +326,13 @@ def run() -> None:
     imu_calib.gravity_magnitude = 9.81
     # [Reference]
     # https://facebookresearch.github.io/projectaria_tools/docs/tech_insights/imu_noise_model
-    imu_calib.acc_noise_density = 0.8e-4 * 9.81
+    imu_calib.accel_noise_density = 0.8e-4 * 9.81
     imu_calib.gyro_noise_density = 1e-2 * (np.pi / 180.0)
     imu_calib.bias_accel_random_walk_sigma = 3.5e-5 * 9.81 * np.sqrt(353)
     imu_calib.bias_gyro_random_walk_sigma = (
         1.3e-3 * (np.pi / 180.0) * np.sqrt(116)
     )
-    imu_calib.acc_saturation_max = 8.0 * imu_calib.gravity_magnitude
+    imu_calib.accel_saturation_max = 8.0 * imu_calib.gravity_magnitude
     imu_calib.gyro_saturation_max = 1000.0
     imu_calib.imu_rate = 1000.0
 

@@ -19,17 +19,20 @@ namespace py = pybind11;
 void BindImu(py::module& m) {
   py::classh_ext<ImuCalibration> PyImuCalibration(m, "ImuCalibration");
   PyImuCalibration.def(py::init<>())
-      .def_readwrite("acc_noise_density", &ImuCalibration::acc_noise_density)
+      .def_readwrite("accel_noise_density",
+                     &ImuCalibration::accel_noise_density)
       .def_readwrite("gyro_noise_density", &ImuCalibration::gyro_noise_density)
       .def_readwrite("bias_accel_random_walk_sigma",
                      &ImuCalibration::bias_accel_random_walk_sigma)
       .def_readwrite("bias_gyro_random_walk_sigma",
                      &ImuCalibration::bias_gyro_random_walk_sigma)
-      .def_readwrite("acc_saturation_max", &ImuCalibration::acc_saturation_max)
+      .def_readwrite("accel_saturation_max",
+                     &ImuCalibration::accel_saturation_max)
       .def_readwrite("gyro_saturation_max",
                      &ImuCalibration::gyro_saturation_max)
       .def_readwrite("gravity_magnitude", &ImuCalibration::gravity_magnitude)
-      .def_readwrite("acc_rectification", &ImuCalibration::acc_rectification)
+      .def_readwrite("accel_rectification",
+                     &ImuCalibration::accel_rectification)
       .def_readwrite("gyro_rectification", &ImuCalibration::gyro_rectification)
       .def_readwrite("imu_rate", &ImuCalibration::imu_rate);
   MakeDataclass(PyImuCalibration);

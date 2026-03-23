@@ -44,23 +44,23 @@ namespace colmap {
 // https://github.com/uzh-rpg/rpg_svo_pro_open/blob/master/svo_common/include/svo/common/imu_calibration.h
 // Default parameters are for ADIS16448 IMU.
 struct ImuCalibration {
-  /// Accelerometer noise density (sigma). [m/s^2*1/sqrt(Hz)]
-  double acc_noise_density = 0.01883649;
-
   /// Gyro noise density (sigma). [rad/s*1/sqrt(Hz)]
   double gyro_noise_density = 0.00073088444;
 
-  /// Accelerometer bias random walk (sigma). [m/s^3*1/sqrt(Hz)]
-  double bias_accel_random_walk_sigma = 0.012589254;
+  /// Accelerometer noise density (sigma). [m/s^2*1/sqrt(Hz)]
+  double accel_noise_density = 0.01883649;
 
   /// Gyro bias random walk (sigma). [rad/s^2*1/sqrt(Hz)]
   double bias_gyro_random_walk_sigma = 0.00038765;
 
-  /// Accelerometer saturation. [m/s^2]
-  double acc_saturation_max = 150;
+  /// Accelerometer bias random walk (sigma). [m/s^3*1/sqrt(Hz)]
+  double bias_accel_random_walk_sigma = 0.012589254;
 
   /// Gyroscope saturation. [rad/s]
   double gyro_saturation_max = 7.8;
+
+  /// Accelerometer saturation. [m/s^2]
+  double accel_saturation_max = 150;
 
   /// Norm of the Gravitational acceleration. [m/s^2]
   double gravity_magnitude = 9.81007;
@@ -72,8 +72,8 @@ struct ImuCalibration {
   /// m_true = M^{-1}(m - b). Identity if data is already rectified.
   /// TODO: Support online calibration by making these optimizable
   /// as parameter blocks in the IMU cost function.
-  Eigen::Matrix3d acc_rectification = Eigen::Matrix3d::Identity();
   Eigen::Matrix3d gyro_rectification = Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d accel_rectification = Eigen::Matrix3d::Identity();
 };
 
 struct ImuMeasurement {

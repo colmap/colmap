@@ -60,8 +60,8 @@ ImuMeasurements GetMeasurementsContainEdge(const ImuMeasurements& measurements,
 std::ostream& operator<<(std::ostream& stream,
                          const ImuCalibration& calibration) {
   stream << "ImuCalibration("
-         << "acc_noise_density=" << calibration.acc_noise_density << ", "
          << "gyro_noise_density=" << calibration.gyro_noise_density << ", "
+         << "accel_noise_density=" << calibration.accel_noise_density << ", "
          << "gravity_magnitude=" << calibration.gravity_magnitude << ")";
   return stream;
 }

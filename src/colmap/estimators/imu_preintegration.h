@@ -76,18 +76,18 @@ struct PreintegratedImuData {
   Eigen::Vector3d delta_v = Eigen::Vector3d::Zero();  // Velocity change.
 
   // Bias Jacobians: derivatives of preintegrated [rotation, position, velocity]
-  // w.r.t. [gyro_bias, acc_bias].
+  // w.r.t. [bias_gyro, bias_accel].
   Eigen::Matrix3d dR_dbg = Eigen::Matrix3d::Zero();
   Eigen::Matrix3d dp_dbg = Eigen::Matrix3d::Zero();
   Eigen::Matrix3d dv_dbg = Eigen::Matrix3d::Zero();
   Eigen::Matrix3d dp_dba = Eigen::Matrix3d::Zero();
   Eigen::Matrix3d dv_dba = Eigen::Matrix3d::Zero();
 
-  // Linearization biases: [gyro_bias(3), acc_bias(3)].
+  // Linearization biases: [bias_gyro(3), bias_accel(3)].
   Eigen::Vector6d biases = Eigen::Vector6d::Zero();
 
   // Covariance of the 15-dimensional state:
-  // [rotation(3), position(3), velocity(3), gyro_bias(3), acc_bias(3)].
+  // [rotation(3), position(3), velocity(3), bias_gyro(3), bias_accel(3)].
   Eigen::Matrix<double, 15, 15> covariance =
       Eigen::Matrix<double, 15, 15>::Zero();
 
@@ -145,10 +145,10 @@ class ImuPreintegrator {
   void IntegrateOneMeasurement(const ImuMeasurement& prev,
                                const ImuMeasurement& curr);
 
-  void Integrate(const Eigen::Vector3d& acc_true,
+  void Integrate(const Eigen::Vector3d& accel_true,
                  const Eigen::Vector3d& gyro_true,
                  double dt,
-                 double acc_noise_density,
+                 double accel_noise_density,
                  double gyro_noise_density);
 
   // Integration time window. [nanoseconds]
@@ -169,10 +169,10 @@ class ImuPreintegrator {
 
   // IMU Calibration.
   ImuCalibration calib_;
-  Eigen::Matrix3d acc_rect_mat_inv_ = Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d accel_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Matrix3d gyro_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Vector6d biases_ =
-      Eigen::Vector6d::Zero();  // bias on gyro (3-DoF) + acc (3-DoF)
+      Eigen::Vector6d::Zero();  // [bias_gyro(3), bias_accel(3)]
 };
 
 // Ceres iteration callback that checks whether any IMU preintegration
@@ -193,7 +193,7 @@ class ImuReintegrationCallback : public ceres::IterationCallback {
   // @param data         The preintegrated data consumed by the cost function.
   //                     Updated in place when reintegration is triggered.
   // @param imu_state    Pointer to the 9-element IMU state being optimized
-  //                     [velocity(3), gyro_bias(3), acc_bias(3)].
+  //                     [velocity(3), bias_gyro(3), bias_accel(3)].
   //                     Biases at offset 3 are read to decide reintegration.
   void AddEdge(ImuPreintegrator* integrator,
                PreintegratedImuData* data,

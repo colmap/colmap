@@ -91,7 +91,7 @@ class ImuPreintegrationCostFunctor {
                   const T* const body_from_world_j,
                   const T* const imu_state_j,
                   T* residuals) const {
-    // IMU state: [velocity(3), gyro_bias(3), acc_bias(3)].
+    // IMU state: [velocity(3), bias_gyro(3), bias_accel(3)].
     EigenVector3Map<T> v_i(imu_state_i);
     EigenVector3Map<T> v_j(imu_state_j);
     Eigen::Matrix<T, 6, 1> delta_b =
@@ -226,7 +226,7 @@ class VisualCentricImuPreintegrationCostFunctor {
                   const T* const j_from_world,
                   const T* const j_imu_state,
                   T* residuals) const {
-    // IMU state: [velocity(3), gyro_bias(3), acc_bias(3)].
+    // IMU state: [velocity(3), bias_gyro(3), bias_accel(3)].
     EigenVector3Map<T> v_i_data(i_imu_state);
     EigenVector3Map<T> v_j_data(j_imu_state);
     Eigen::Matrix<T, 6, 1> delta_b =
