@@ -261,19 +261,8 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   data_.dp_dba += dt * data_.dv_dba - H_p;
   data_.dv_dba -= H_v;
 
-  // Rotation bias Jacobian: two representations.
-  // 1) data_.dR_dbg: correct bias convention (additive Jl transport) for the
-  //    cost function bias correction: delta_R(bg+dbg) ≈ delta_R *
-  //    Exp(dR_dbg*dbg).
-  // 2) J_q_: Eckenhoff multiplicative transport (dR * J_q + Jr * dt), used
-  //    internally by the d_R_bw and dp_dbg/dv_dbg formulas. Matches the
-  //    convention assumed by the Eckenhoff IJRR 2018 derivation.
-  const Eigen::Vector3d w_hatdt = gyro_true * dt;
-  const Eigen::Matrix3d w_tx = CrossProductMatrix(w_hatdt);
-  const Eigen::Matrix3d Jr =
-      small_w ? I3 - 0.5 * w_tx + (1.0 / 6.0) * w_tx * w_tx
-              : I3 - ((1 - cos_wt) / (w_dt * w_dt)) * w_tx +
-                    ((w_dt - sin_wt) / (w_dt * w_dt * w_dt)) * w_tx * w_tx;
+  // Rotation bias Jacobian (additive transport, bias convention).
+  // dR_dbg_{k+1} = dR_dbg_k + delta_R_k^T * Jl(w*dt) * dt
   Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(gyro_true * dt);
 
   data_.dR_dbg += Rs_T * Jl * dt;
