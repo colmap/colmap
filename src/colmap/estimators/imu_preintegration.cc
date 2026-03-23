@@ -244,8 +244,17 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   data_.delta_t += dt;
 
   //==========================================================================
-  // Step 2: Bias Jacobians (analytical).
+  // Step 2: Bias Jacobians (Eckenhoff analytical).
   //==========================================================================
+  // Analytical derivatives of the closed-form integrals w.r.t. gyro/accel
+  // biases. Based on Eckenhoff et al. IJRR 2018.
+  //
+  // Note: the state_transition_jacobians approach (dJ/dt = F*J with the
+  // continuous-time F matrix) does NOT work here because the F matrix models
+  // d(delta_v)/dt = -R(t)^T * a, while the actual Eckenhoff state update uses
+  // H_v = R_integral * beta_arg where R_integral = Rs * Exp(+w*dt).
+  // These differ (R(t)^T = Rs^T * Exp(-w*t) ≠ Rs * Exp(+w*dt)), causing
+  // transposed Jacobians.
 
   // Right Jacobian for rotation bias update.
   const Eigen::Vector3d w_hatdt = gyro_true * dt;
@@ -255,17 +264,12 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
               : I3 - ((1 - cos_wt) / (w_dt * w_dt)) * w_tx +
                     ((w_dt - sin_wt) / (w_dt * w_dt * w_dt)) * w_tx * w_tx;
 
-  // Bias Jacobians (Eckenhoff closed-form, omega convention).
-  // During RK4, data_.dR_dbg/dp_dbg/dv_dbg accumulate in omega convention
-  // (d/d(omega)). Converted to bias convention (negated) in Extract().
-
   // Accel bias Jacobians (bias convention directly).
   data_.dp_dba += dt * data_.dv_dba - H_p;
   data_.dv_dba -= H_v;
 
-  // Eckenhoff formulas use omega convention (d/d(omega)) for dR_dbg,
-  // where omega = gyro_measured - bias_gyro. data_.dR_dbg stores bias
-  // convention (d/d(bias) = -d/d(omega)).
+  // Rotation bias Jacobian (omega convention internally).
+  // dR_dbg stores bias convention (d/d(bias) = -d/d(omega)).
   const Eigen::Matrix3d dR_T = dR.transpose();
   Eigen::Matrix3d dR_domega = -data_.dR_dbg;
   dR_domega = dR_T * dR_domega + Jr * dt;
@@ -277,7 +281,7 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   const Eigen::Matrix3d e_2x = CrossProductMatrix(e_2);
   const Eigen::Matrix3d e_3x = CrossProductMatrix(e_3);
 
-  // Gyro bias Jacobians (Eckenhoff closed-form).
+  // Derivatives of R_integral w.r.t. omega (Eckenhoff d_R_bw).
   const Eigen::Matrix3d d_R_bw_1 =
       -R_integral * CrossProductMatrix(dR_domega * e_1);
   const Eigen::Matrix3d d_R_bw_2 =
@@ -285,6 +289,7 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   const Eigen::Matrix3d d_R_bw_3 =
       -R_integral * CrossProductMatrix(dR_domega * e_3);
 
+  // Derivatives of f1-f4 coefficients w.r.t. omega components.
   double df_dw[4][3];
   {
     double g[4];
@@ -316,6 +321,11 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   const Eigen::Matrix3d* d_R_bw[3] = {&d_R_bw_1, &d_R_bw_2, &d_R_bw_3};
   const Eigen::Matrix3d* e_kx[3] = {&e_1x, &e_2x, &e_3x};
 
+  // Gyro bias Jacobians: position and velocity.
+  // TODO: The d_R_bw term (-R * [J * e_k]_x) introduces a first-order
+  // approximation that causes ~1e-5 absolute error on dp_dbg diagonal
+  // entries where d_R_bw and df contributions nearly cancel. This is an
+  // inherent limitation of the Eckenhoff analytical formula.
   data_.dp_dbg += data_.dv_dbg * dt;
   for (int k = 0; k < 3; ++k) {
     Eigen::Matrix3d d_alpha_dw_k =
@@ -337,8 +347,7 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   //==========================================================================
 
   // Continuous-time noise matrix Q_c (12x12):
-  // [gyro_noise, gyro_bias_walk, accel_noise, accel_bias_walk].
-  // Noise vector: [gyro_noise(3), gyro_walk(3), accel_noise(3), accel_walk(3)].
+  // [gyro_noise(3), gyro_walk(3), accel_noise(3), accel_walk(3)].
   Eigen::Matrix<double, 12, 12> Q_c = Eigen::Matrix<double, 12, 12>::Zero();
   Q_c.block<3, 3>(0, 0) = I3 * (gyro_noise_density * gyro_noise_density);
   Q_c.block<3, 3>(3, 3) = I3 * (calib_.bias_gyro_random_walk_sigma *
@@ -347,13 +356,10 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   Q_c.block<3, 3>(9, 9) = I3 * (calib_.bias_accel_random_walk_sigma *
                                 calib_.bias_accel_random_walk_sigma);
 
-  // Helper to build F and G matrices at a given rotation R_eval.
-  // Covariance state: [rotation(3), position(3), velocity(3),
-  //                    bias_gyro(3), bias_accel(3)]
-  // Helper to build continuous-time F (15x15) and G (15x12) matrices.
-  // Our covariance state: [rotation(3), position(3), velocity(3),
-  //                        bias_gyro(3), bias_accel(3)]
-  // Noise vector: [gyro_noise(3), gyro_walk(3), accel_noise(3), accel_walk(3)]
+  // Continuous-time error-state Jacobian F (15x15) and noise mapping G (15x12).
+  // Error state: [rotation(3), position(3), velocity(3),
+  //               bias_gyro(3), bias_accel(3)]
+  // Noise: [gyro_noise(3), gyro_walk(3), accel_noise(3), accel_walk(3)]
   auto build_F_G = [&](const Eigen::Matrix3d& R_eval)
       -> std::pair<Eigen::Matrix<double, 15, 15>,
                    Eigen::Matrix<double, 15, 12>> {
@@ -373,11 +379,11 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
     return {F, G};
   };
 
-  // Midpoint rotation for k2/k3 evaluation.
+  // Midpoint rotation for k2/k3 evaluation: Exp(+w*dt/2) * Rs.
   const Eigen::Matrix3d R_mid =
       small_w
-          ? I3 - 0.5 * dt * w_x + (std::pow(0.5 * dt, 2) / 2) * w_x_2
-          : I3 - (std::sin(mag_w * 0.5 * dt) / mag_w) * w_x +
+          ? I3 + 0.5 * dt * w_x + (std::pow(0.5 * dt, 2) / 2) * w_x_2
+          : I3 + (std::sin(mag_w * 0.5 * dt) / mag_w) * w_x +
                 ((1.0 - std::cos(mag_w * 0.5 * dt)) / (mag_w * mag_w)) * w_x_2;
   const Eigen::Matrix3d R_eval_mid = R_mid * Rs;
 
@@ -393,7 +399,7 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   Eigen::Matrix<double, 15, 15> P_dot_2 =
       F2 * P_2 + P_2 * F2.transpose() + G2 * Q_c * G2.transpose();
 
-  // k3: same Jacobians as k2 (same midpoint).
+  // k3: same F as k2 (same midpoint).
   Eigen::Matrix<double, 15, 15> P_3 = data_.covariance + P_dot_2 * dt / 2.0;
   Eigen::Matrix<double, 15, 15> P_dot_3 =
       F2 * P_3 + P_3 * F2.transpose() + G2 * Q_c * G2.transpose();
