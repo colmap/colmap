@@ -91,72 +91,70 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
                                          double dt,
                                          double accel_noise_density,
                                          double gyro_noise_density) {
-  // [Reference]
-  // [A] Forster et al. "On-Manifold Preintegration for Real-Time
-  // Visual-Inertial Odometry", TRO 16. Integration step translation: Eq. (37)
-  // from [A]
-  data_.delta_p +=
-      data_.delta_v * dt + data_.delta_R * accel_true * 0.5 * dt * dt;
-  // velocity: Eq. (36) from [A]
-  data_.delta_v += data_.delta_R * accel_true * dt;
-  // rotation: Eq. (35) from [A]. Right convention:
-  // delta_R_{k+1} = delta_R_k * Exp(omega * dt).
+  // Left convention: delta_R = R_BW_j * R_WB_i (left-multiply).
+  // delta_R^T rotates accel from body_k to body_i reference frame.
+
+  // Integration step.
   Eigen::Quaterniond dq = QuaternionFromAngleAxis(gyro_true * dt);
   Eigen::Matrix3d Rs = data_.delta_R.toRotationMatrix();
-  data_.delta_R = data_.delta_R * dq;
+  Eigen::Matrix3d Rs_T = Rs.transpose();
+  // translation
+  data_.delta_p += data_.delta_v * dt + Rs_T * accel_true * 0.5 * dt * dt;
+  // velocity
+  data_.delta_v += Rs_T * accel_true * dt;
+  // rotation: delta_R_{k+1} = Exp(omega * dt) * delta_R_k.
+  Eigen::Matrix3d dR = dq.toRotationMatrix();
+  data_.delta_R = dq * data_.delta_R;
   // time
   data_.delta_t += dt;
 
-  // Update jacobians over bias
-  // [Reference] end of Appendix B from [A]. Since it is not tagged with
-  // equation number, we refer it as Eq. (69 1/2) in the following.
+  // Update jacobians over bias.
   Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(gyro_true * dt);
   Eigen::Matrix3d skew_accel = CrossProductMatrix(accel_true);
 
-  // Covariance propagation
-  // Eq. (63) from [A]
-  // Step 1: jacobian-based propagation
+  // Covariance propagation.
+  // Step 1: jacobian-based propagation.
+  // Note: we use right-perturbation model (delta_R * Exp(delta)) for
+  // Jacobians, which propagates trivially under left-multiply integration:
+  // A(0,0) = I.
   Eigen::Matrix<double, 15, 15> A = Eigen::Matrix<double, 15, 15>::Identity();
-  // rotation: Eq. (59) from [A]
-  A.block<3, 3>(0, 0) = dq.inverse().toRotationMatrix();
 
-  // translation: Eq. (61) from [A]
-  A.block<3, 3>(3, 0) = -0.5 * Rs * skew_accel * dt * dt;
+  // translation
+  A.block<3, 3>(3, 0) = -0.5 * Rs_T * skew_accel * dt * dt;
   A.block<3, 3>(3, 6) = Eigen::Matrix3d::Identity() * dt;
 
-  // velocity: Eq. (60) from [A]
-  A.block<3, 3>(6, 0) = -Rs * skew_accel * dt;
+  // velocity
+  A.block<3, 3>(6, 0) = -Rs_T * skew_accel * dt;
 
-  // fill in the bias-related jacobians
-  // inversely update t, v, R due to the dependencies.
+  // Fill in the bias-related jacobians.
   // Covariance state: [rotation(3), position(3), velocity(3),
   //                    bias_gyro(3), bias_accel(3)]
   // NOTE: rotation must be updated last — translation and velocity
   // read the old dR_dbg.
 
-  // translation: Eq. (69 1/2) from [A]
-  A.block<3, 3>(3, 9) =
-      (data_.dv_dbg * dt - 0.5 * Rs * skew_accel * data_.dR_dbg * dt * dt);
-  A.block<3, 3>(3, 12) = data_.dv_dba * dt - 0.5 * Rs * dt * dt;
+  // translation
+  A.block<3, 3>(3, 9) = (data_.dv_dbg * dt +
+                         0.5 * Rs_T * skew_accel * Rs * data_.dR_dbg * dt * dt);
+  A.block<3, 3>(3, 12) = data_.dv_dba * dt - 0.5 * Rs_T * dt * dt;
   data_.dp_dbg += A.block<3, 3>(3, 9);
   data_.dp_dba += A.block<3, 3>(3, 12);
 
-  // velocity: Eq. (69 1/2) from [A]
-  A.block<3, 3>(6, 9) = -Rs * skew_accel * data_.dR_dbg * dt;
-  A.block<3, 3>(6, 12) = -Rs * dt;
+  // velocity
+  A.block<3, 3>(6, 9) = Rs_T * skew_accel * Rs * data_.dR_dbg * dt;
+  A.block<3, 3>(6, 12) = -Rs_T * dt;
   data_.dv_dbg += A.block<3, 3>(6, 9);
   data_.dv_dba += A.block<3, 3>(6, 12);
 
-  // rotation: combining Eq. (69 1/2) and the tricks of Eq. (59) from [A]
-  Eigen::Matrix3d dR_dbg_updated =
-      dq.inverse().toRotationMatrix() * data_.dR_dbg - Jr * dt;
+  // rotation: right-perturbation + left-integration transport.
+  // dR_dbg_{k+1} = dR_dbg_k - delta_R_k^T * Jr * dt
+  Eigen::Matrix3d dR_dbg_updated = data_.dR_dbg - Rs_T * Jr * dt;
   A.block<3, 3>(0, 9) = dR_dbg_updated - data_.dR_dbg;
   data_.dR_dbg = dR_dbg_updated;
 
   // propagate
   data_.covariance = A * data_.covariance * A.transpose();
 
-  // Step 2: add noise
+  // Step 2: add noise.
   double vars_v = pow(accel_noise_density, 2) * dt;
   double vars_omega = pow(gyro_noise_density, 2) * dt;
   double vars_p = 0.5 * vars_v * dt * dt;
@@ -166,7 +164,7 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
   double vars_ba = pow(calib_.bias_accel_random_walk_sigma, 2) * dt;
   double vars_bg = pow(calib_.bias_gyro_random_walk_sigma, 2) * dt;
   data_.covariance.block<3, 3>(0, 0) +=
-      Eigen::Matrix3d::Identity() * vars_omega;  // omit Jr
+      Eigen::Matrix3d::Identity() * vars_omega;
   data_.covariance.block<3, 3>(3, 3) += Eigen::Matrix3d::Identity() * vars_p;
   data_.covariance.block<3, 3>(6, 6) += Eigen::Matrix3d::Identity() * vars_v;
   data_.covariance.block<3, 3>(9, 9) += Eigen::Matrix3d::Identity() * vars_bg;

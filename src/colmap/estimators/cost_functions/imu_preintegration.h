@@ -112,9 +112,9 @@ class ImuPreintegrationCostFunctor {
     Eigen::Matrix<T, 3, 1> p_W_j =
         q_WB_j * EigenVector3Map<T>(body_from_world_j + 4) * T(-1.);
 
-    // Rotation residual (Eq. 44).
-    // Right convention: delta_R = world_from_body_i * body_from_world_j.
-    const Eigen::Quaternion<T> delta_R_measured = q_WB_i * q_BW_j;
+    // Rotation residual.
+    // Left convention: delta_R = body_from_world_j * world_from_body_i.
+    const Eigen::Quaternion<T> delta_R_measured = q_BW_j * q_WB_i;
     // First-order bias correction.
     Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
@@ -270,11 +270,11 @@ class VisualCentricImuPreintegrationCostFunctor {
     Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
     Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
 
-    // Rotation residual (Eq. 44).
-    // Right convention: delta_R = world_from_body_i * body_from_world_j.
-    // In world_from_imu quaternions: world_from_i * world_from_j^{-1}.
+    // Rotation residual.
+    // Left convention: delta_R = body_from_world_j * world_from_body_i.
+    // In world_from_imu quaternions: world_from_j^{-1} * world_from_i.
     const Eigen::Quaternion<T> delta_R_measured =
-        world_from_i_imu_q * world_from_j_imu_q.inverse();
+        world_from_j_imu_q.inverse() * world_from_i_imu_q;
     // First-order bias correction.
     Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
@@ -285,7 +285,7 @@ class VisualCentricImuPreintegrationCostFunctor {
         (delta_R_corrected.inverse() * delta_R_measured).normalized();
     EigenQuaternionToAngleAxis(rotation_error.coeffs().data(), residuals);
 
-    // Position residual: Eq. (45) from Forster et al. TRO 16.
+    // Position residual.
     const Eigen::Matrix<T, 3, 1> j_from_i_p =
         world_from_j_imu_t - world_from_i_imu_t;
     Eigen::Matrix<T, 3, 1> est_dp =
