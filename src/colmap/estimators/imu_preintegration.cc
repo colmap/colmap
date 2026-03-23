@@ -57,8 +57,8 @@ void PreintegratedImuData::Finalize(double max_condition_number) {
       (max_condition_number > 0.0) ? max_eval / max_condition_number : 0.0;
   Eigen::Matrix<double, 15, 1> D_inv_sqrt;
   for (int i = 0; i < 15; ++i) {
-    double eval = saes.eigenvalues()(i);
-    D_inv_sqrt(i) = (eval > tol) ? 1.0 / std::sqrt(eval) : 0.0;
+    double eval = std::max(saes.eigenvalues()(i), tol);
+    D_inv_sqrt(i) = (eval > 0.0) ? 1.0 / std::sqrt(eval) : 0.0;
   }
 
   // sqrt_information = D^{-1/2} * V^T
