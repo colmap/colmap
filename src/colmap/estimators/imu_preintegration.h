@@ -64,11 +64,11 @@ struct ImuPreintegrationOptions {
 // Serializable, trivially copyable across threads, and consumable by
 // different cost functions without knowledge of the integration algorithm.
 //
-// Left-multiply integration convention:
+// Left-multiply integration convention (Exp(-w*dt)):
 //   delta_R = body_from_world_j * world_from_body_i
-//             (accumulated via left-multiply: delta_R_{k+1} = dR * delta_R_k)
-//   delta_p = delta_R^T * (p_W_j - p_W_i - v_W_i * dt - 0.5 * g * dt^2)
-//   delta_v = delta_R^T * (v_W_j - v_W_i - g * dt)
+//             (accumulated via left-multiply: delta_R_{k+1} = Exp(-w*dt) * delta_R_k)
+//   delta_p = body_from_world_i * (p_W_j - p_W_i - v_W_i * dt - 0.5 * g * dt^2)
+//   delta_v = body_from_world_i * (v_W_j - v_W_i - g * dt)
 //
 // Right-perturbation model for bias Jacobians:
 //   delta_R(bg + dbg) ≈ delta_R * Exp(dR_dbg * dbg)
