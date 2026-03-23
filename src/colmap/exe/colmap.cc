@@ -45,14 +45,13 @@ namespace {
 using command_func_t = std::function<int(int, char**)>;
 
 void ShowVersion() {
-  std::cout << colmap::GetVersionInfo() << " (" << colmap::GetBuildInfo() << ")"
-            << std::endl;
+  std::cout << colmap::GetVersionInfo() << " (" << colmap::GetBuildInfo()
+            << ")\n";
 }
 
 void ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
   ShowVersion();
-  std::cout << "Structure-from-Motion and Multi-View Stereo\n\n";
 
   std::cout << "Usage:\n";
   std::cout << "  colmap [command] [options]\n";
