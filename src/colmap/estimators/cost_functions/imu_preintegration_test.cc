@@ -66,8 +66,7 @@ PreintegratedImuData MakeConstantData(const Eigen::Vector3d& accel,
   timestamp_t t_end = SecondsToTimestamp(N * dt);
   ImuPreintegrator integrator(options, calib, t_start, t_end);
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(
-        ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
   }
   PreintegratedImuData data = integrator.Extract();
 
@@ -96,10 +95,8 @@ PreintegratedImuData MakeConstantData(const Eigen::Vector3d& accel,
 
   // Convert world positions to body_from_world (Rigid3d convention):
   //   body_from_world = (q_BW, -q_BW * p_W)
-  gt->body_from_world_i =
-      Rigid3d(q_i, -q_i.toRotationMatrix() * p_i);
-  gt->body_from_world_j =
-      Rigid3d(q_j, -q_j.toRotationMatrix() * p_j);
+  gt->body_from_world_i = Rigid3d(q_i, -q_i.toRotationMatrix() * p_i);
+  gt->body_from_world_j = Rigid3d(q_j, -q_j.toRotationMatrix() * p_j);
   gt->v_i = v_i;
   gt->v_j = v_j;
 
@@ -133,30 +130,29 @@ void PackImuState(const Eigen::Vector3d& velocity,
   data[8] = acc_bias.z();
 }
 
-TEST(ImuPreintegrationCostFunction, ZeroResidualAtGroundTruth) {
+TEST(ImuPreintegrationCostFunctor, ZeroResidualAtGroundTruth) {
   const int N = 10;
   const double dt = 0.01;
   Eigen::Vector3d accel(0, 0, 9.81);  // stationary (accel = -gravity)
   Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
 
   TrajectoryGT gt;
-  PreintegratedImuData data =
-      MakeConstantData(accel, gyro, N, dt, &gt);
+  PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
 
   // Set sqrt_information to identity for cleaner residual checking.
   data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
 
   std::unique_ptr<ceres::CostFunction> cost_function(
-      ImuPreintegrationCostFunction::Create(&data, kGravity));
+      ImuPreintegrationCostFunctor::Create(&data, kGravity));
 
   double body_from_world_i[7], body_from_world_j[7];
   double imu_state_i[9], imu_state_j[9];
   PackRigid3d(gt.body_from_world_i, body_from_world_i);
   PackRigid3d(gt.body_from_world_j, body_from_world_j);
-  PackImuState(gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               imu_state_i);
-  PackImuState(gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               imu_state_j);
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   double residuals[15];
   const double* parameters[4] = {
@@ -168,7 +164,7 @@ TEST(ImuPreintegrationCostFunction, ZeroResidualAtGroundTruth) {
   }
 }
 
-TEST(ImuPreintegrationCostFunction, ZeroResidualWithMotion) {
+TEST(ImuPreintegrationCostFunctor, ZeroResidualWithMotion) {
   const int N = 20;
   const double dt = 0.005;
   // Non-trivial IMU readings: accel + gyro.
@@ -176,21 +172,20 @@ TEST(ImuPreintegrationCostFunction, ZeroResidualWithMotion) {
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);
 
   TrajectoryGT gt;
-  PreintegratedImuData data =
-      MakeConstantData(accel, gyro, N, dt, &gt);
+  PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
   data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
 
   std::unique_ptr<ceres::CostFunction> cost_function(
-      ImuPreintegrationCostFunction::Create(&data, kGravity));
+      ImuPreintegrationCostFunctor::Create(&data, kGravity));
 
   double body_from_world_i[7], body_from_world_j[7];
   double imu_state_i[9], imu_state_j[9];
   PackRigid3d(gt.body_from_world_i, body_from_world_i);
   PackRigid3d(gt.body_from_world_j, body_from_world_j);
-  PackImuState(gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               imu_state_i);
-  PackImuState(gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               imu_state_j);
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   double residuals[15];
   const double* parameters[4] = {
@@ -202,7 +197,8 @@ TEST(ImuPreintegrationCostFunction, ZeroResidualWithMotion) {
   }
 }
 
-TEST(VisualCentricImuPreintegrationCostFunction, ZeroResidualIdentityExtrinsics) {
+TEST(VisualCentricImuPreintegrationCostFunctor,
+     ZeroResidualIdentityExtrinsics) {
   // When imu_from_cam = identity and scale = 1, the visual-centric cost
   // function should produce the same residual as the body-centric one.
   const int N = 10;
@@ -211,12 +207,11 @@ TEST(VisualCentricImuPreintegrationCostFunction, ZeroResidualIdentityExtrinsics)
   Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
 
   TrajectoryGT gt;
-  PreintegratedImuData data =
-      MakeConstantData(accel, gyro, N, dt, &gt);
+  PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
   data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
 
   std::unique_ptr<ceres::CostFunction> cost_function(
-      VisualCentricImuPreintegrationCostFunction::Create(&data));
+      VisualCentricImuPreintegrationCostFunctor::Create(&data));
 
   // With identity imu_from_cam, cam_from_world == body_from_world.
   double log_scale[1] = {0.0};  // scale = exp(0) = 1
@@ -228,15 +223,19 @@ TEST(VisualCentricImuPreintegrationCostFunction, ZeroResidualIdentityExtrinsics)
   double imu_state_i[9], imu_state_j[9];
   PackRigid3d(gt.body_from_world_i, i_from_world);
   PackRigid3d(gt.body_from_world_j, j_from_world);
-  PackImuState(gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               imu_state_i);
-  PackImuState(gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               imu_state_j);
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   double residuals[15];
-  const double* parameters[7] = {log_scale, gravity_direction, imu_from_cam,
-                                  i_from_world, imu_state_i,
-                                  j_from_world, imu_state_j};
+  const double* parameters[7] = {log_scale,
+                                 gravity_direction,
+                                 imu_from_cam,
+                                 i_from_world,
+                                 imu_state_i,
+                                 j_from_world,
+                                 imu_state_j};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 
   for (int i = 0; i < 15; ++i) {
@@ -256,8 +255,7 @@ TEST(ImuPreintegrationCostConsistency, MatchesVisualCentric) {
   Eigen::Vector3d gyro(0.05, 0.1, -0.03);
 
   TrajectoryGT gt;
-  PreintegratedImuData data =
-      MakeConstantData(accel, gyro, N, dt, &gt);
+  PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
   data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
 
   // Perturb ground truth slightly so residuals are non-zero.
@@ -265,27 +263,32 @@ TEST(ImuPreintegrationCostConsistency, MatchesVisualCentric) {
 
   // Body-centric (4-param).
   std::unique_ptr<ceres::CostFunction> body_cost(
-      ImuPreintegrationCostFunction::Create(&data, kGravity));
+      ImuPreintegrationCostFunctor::Create(&data, kGravity));
   double body_i[7], body_j[7], state_i[9], state_j[9];
   PackRigid3d(gt.body_from_world_i, body_i);
   PackRigid3d(gt.body_from_world_j, body_j);
-  PackImuState(gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               state_i);
-  PackImuState(gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
-               state_j);
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
   double body_residuals[15];
   const double* body_params[4] = {body_i, state_i, body_j, state_j};
   EXPECT_TRUE(body_cost->Evaluate(body_params, body_residuals, nullptr));
 
   // Visual-centric (7-param) with identity extrinsics and unit scale.
   std::unique_ptr<ceres::CostFunction> visual_cost(
-      VisualCentricImuPreintegrationCostFunction::Create(&data));
+      VisualCentricImuPreintegrationCostFunctor::Create(&data));
   double log_scale[1] = {0.0};
   double gravity_direction[3] = {0, 0, -1};
   double imu_from_cam[7] = {0, 0, 0, 1, 0, 0, 0};
   double visual_residuals[15];
-  const double* visual_params[7] = {log_scale, gravity_direction, imu_from_cam,
-                                     body_i, state_i, body_j, state_j};
+  const double* visual_params[7] = {log_scale,
+                                    gravity_direction,
+                                    imu_from_cam,
+                                    body_i,
+                                    state_i,
+                                    body_j,
+                                    state_j};
   EXPECT_TRUE(visual_cost->Evaluate(visual_params, visual_residuals, nullptr));
 
   for (int i = 0; i < 15; ++i) {

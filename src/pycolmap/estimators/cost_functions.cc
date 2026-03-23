@@ -194,7 +194,7 @@ void BindCostFunctions(py::module& m_parent) {
   m.def(
       "ImuPreintegrationCost",
       [](PreintegratedImuData& data, const Eigen::Vector3d& gravity) {
-        return ImuPreintegrationCostFunction::Create(&data, gravity);
+        return ImuPreintegrationCostFunctor::Create(&data, gravity);
       },
       "preintegrated_imu_data"_a,
       "gravity"_a,
@@ -205,7 +205,7 @@ void BindCostFunctions(py::module& m_parent) {
   m.def(
       "VisualCentricImuPreintegrationCost",
       [](PreintegratedImuData& data) {
-        return VisualCentricImuPreintegrationCostFunction::Create(&data);
+        return VisualCentricImuPreintegrationCostFunctor::Create(&data);
       },
       "preintegrated_imu_data"_a,
       py::keep_alive<0, 1>(),

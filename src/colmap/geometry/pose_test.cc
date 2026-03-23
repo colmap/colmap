@@ -326,8 +326,7 @@ TEST(RotationFromYAxisAngle, Nominal) {
 }
 
 TEST(QuaternionFromAngleAxis, Zero) {
-  const Eigen::Quaterniond q =
-      QuaternionFromAngleAxis(Eigen::Vector3d::Zero());
+  const Eigen::Quaterniond q = QuaternionFromAngleAxis(Eigen::Vector3d::Zero());
   EXPECT_NEAR(q.w(), 1.0, 1e-12);
   EXPECT_NEAR(q.vec().norm(), 0.0, 1e-12);
 }
@@ -362,8 +361,7 @@ TEST(QuaternionFromAngleAxis, Roundtrip) {
 }
 
 TEST(LeftJacobianFromAngleAxis, IdentityAtZero) {
-  const Eigen::Matrix3d Jl =
-      LeftJacobianFromAngleAxis(Eigen::Vector3d::Zero());
+  const Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(Eigen::Vector3d::Zero());
   const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
   EXPECT_THAT(Jl, EigenMatrixNear(I, 1e-10));
 }
@@ -384,8 +382,7 @@ TEST(RightJacobianFromAngleAxis, SmallAngle) {
   // Near zero, Jr ≈ I - 0.5 * [w]_x.
   const Eigen::Vector3d omega(1e-12, 2e-12, 3e-12);
   const Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(omega);
-  Eigen::Matrix3d expected =
-      Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d expected = Eigen::Matrix3d::Identity();
   expected -= 0.5 * CrossProductMatrix(omega);
   EXPECT_THAT(Jr, EigenMatrixNear(expected, 1e-10));
 }

@@ -66,10 +66,10 @@ namespace colmap {
 //       Body (IMU) pose at frame j.
 //   [3] imu_state_j:        9
 //       Velocity and biases at frame j.
-class ImuPreintegrationCostFunction {
+class ImuPreintegrationCostFunctor {
  public:
-  ImuPreintegrationCostFunction(const PreintegratedImuData* data,
-                                const Eigen::Vector3d& gravity)
+  ImuPreintegrationCostFunctor(const PreintegratedImuData* data,
+                               const Eigen::Vector3d& gravity)
       : data_(data), gravity_(gravity) {
     THROW_CHECK(!data_->sqrt_information.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
@@ -81,8 +81,8 @@ class ImuPreintegrationCostFunction {
                                      const Eigen::Vector3d& gravity) {
     return (
         new ceres::
-            AutoDiffCostFunction<ImuPreintegrationCostFunction, 15, 7, 9, 7, 9>(
-                new ImuPreintegrationCostFunction(data, gravity)));
+            AutoDiffCostFunction<ImuPreintegrationCostFunctor, 15, 7, 9, 7, 9>(
+                new ImuPreintegrationCostFunctor(data, gravity)));
   }
 
   template <typename T>
@@ -164,7 +164,7 @@ class ImuPreintegrationCostFunction {
 };
 
 // IMU preintegration cost function for COLMAP's post-hoc visual-inertial
-// refinement. Extends ImuPreintegrationCostFunction with additional parameter
+// refinement. Extends ImuPreintegrationCostFunctor with additional parameter
 // blocks for metric scale, gravity direction (in the arbitrary SfM frame),
 // and IMU-camera extrinsics.
 //
@@ -176,7 +176,7 @@ class ImuPreintegrationCostFunction {
 // ReintegrationCallback can update the data between Ceres iterations
 // without rebuilding cost functions.
 //
-// Residual: 15-dimensional (same as ImuPreintegrationCostFunction)
+// Residual: 15-dimensional (same as ImuPreintegrationCostFunctor)
 //
 // Parameter blocks:
 //   [0] log_scale:          1
@@ -196,9 +196,9 @@ class ImuPreintegrationCostFunction {
 //       Camera pose at frame j.
 //   [6] j_imu_state:        9
 //       Velocity and biases at frame j.
-class VisualCentricImuPreintegrationCostFunction {
+class VisualCentricImuPreintegrationCostFunctor {
  public:
-  explicit VisualCentricImuPreintegrationCostFunction(
+  explicit VisualCentricImuPreintegrationCostFunctor(
       const PreintegratedImuData* data)
       : data_(data) {
     THROW_CHECK(!data_->sqrt_information.isZero())
@@ -209,7 +209,7 @@ class VisualCentricImuPreintegrationCostFunction {
 
   static ceres::CostFunction* Create(const PreintegratedImuData* data) {
     return (new ceres::AutoDiffCostFunction<
-            VisualCentricImuPreintegrationCostFunction,
+            VisualCentricImuPreintegrationCostFunctor,
             15,
             1,
             3,
@@ -217,7 +217,7 @@ class VisualCentricImuPreintegrationCostFunction {
             7,
             9,
             7,
-            9>(new VisualCentricImuPreintegrationCostFunction(data)));
+            9>(new VisualCentricImuPreintegrationCostFunctor(data)));
   }
 
   template <typename T>

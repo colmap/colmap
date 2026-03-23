@@ -55,8 +55,7 @@ void FeedConstant(ImuPreintegrator& integrator,
                   int N,
                   double dt) {
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(
-        ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
   }
 }
 
