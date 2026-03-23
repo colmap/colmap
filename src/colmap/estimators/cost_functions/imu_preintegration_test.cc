@@ -34,6 +34,8 @@
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/timestamp.h"
 
+#include <cmath>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
@@ -461,7 +463,7 @@ TEST_P(PhysicsConsistencyTest, CostFunctionMatchesPhysics) {
 
   // Use very fine steps (1000x finer than IMU) for ground truth.
   const double dt_fine = dt / 1000.0;
-  const int N_fine = static_cast<int>(T / dt_fine + 0.5);
+  const int N_fine = std::lround(T / dt_fine);
   for (int i = 0; i < N_fine; ++i) {
     // World-frame acceleration: R_WB * specific_force + gravity.
     Eigen::Vector3d a_W = R_WB * accel + gravity;
