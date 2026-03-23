@@ -191,8 +191,13 @@ void BindCostFunctions(py::module& m_parent) {
         "Error between 3D points transformed by a 3D similarity transform. "
         "with prior covariance");
 
-  m.def("PreintegratedImuMeasurementCost",
-        &PreintegratedImuMeasurementCostFunction::Create,
-        "preintegrated_imu_measurement"_a,
-        "IMU preintegration cost function.");
+  m.def(
+      "PreintegratedImuMeasurementCost",
+      [](PreintegratedImuData& data) {
+        return PreintegratedImuMeasurementCostFunction::Create(&data);
+      },
+      "preintegrated_imu_data"_a,
+      py::keep_alive<0, 1>(),
+      "IMU preintegration cost function. The data object must outlive the "
+      "cost function.");
 }

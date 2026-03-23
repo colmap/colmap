@@ -16,10 +16,37 @@ import pycolmap
 from pycolmap import logging
 
 
+class ReintegrationCallback(pyceres.IterationCallback):
+    """Ceres iteration callback that reintegrates IMU preintegration data
+    when the optimized biases have drifted beyond the linearization point."""
+
+    def __init__(self):
+        pyceres.IterationCallback.__init__(self)
+        self.edges: list[tuple] = []
+
+    def add_edge(
+        self,
+        integrator: pycolmap.ImuPreintegrator,
+        data: pycolmap.PreintegratedImuData,
+        imu_state: pycolmap.ImuState,
+    ) -> None:
+        self.edges.append((integrator, data, imu_state))
+
+    def __call__(self, summary: pyceres.IterationSummary):
+        if not summary.step_is_successful:
+            return pyceres.CallbackReturnType.SOLVER_CONTINUE
+        for integrator, data, imu_state in self.edges:
+            biases = imu_state.data[3:9]
+            if integrator.should_reintegrate(biases):
+                integrator.reintegrate(biases)
+                integrator.update(data)
+        return pyceres.CallbackReturnType.SOLVER_CONTINUE
+
+
 def add_imu_residuals(
     prob: pyceres.Problem,
     reconstruction: pycolmap.Reconstruction,
-    preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
+    imu_data: dict[int, pycolmap.PreintegratedImuData],
     variables: dict[str, object],
     optimize_scale: bool = True,
     optimize_gravity: bool = True,
@@ -27,7 +54,7 @@ def add_imu_residuals(
     optimize_bias: bool = True,
 ) -> pyceres.Problem:
     loss = pyceres.TrivialLoss()
-    for image_id, integrated_m in preintegrated_measurements.items():
+    for image_id, integrated_m in imu_data.items():
         image_i = reconstruction.images[image_id]
         image_j = reconstruction.images[image_id + 1]
         assert len(image_i.frame.rig.non_ref_sensors) == 0, (
@@ -82,18 +109,28 @@ def solve_bundle_adjustment(
     reconstruction: pycolmap.Reconstruction,
     ba_options: pycolmap.BundleAdjustmentOptions,
     ba_config: pycolmap.BundleAdjustmentConfig,
-    preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
+    integrators: dict[int, pycolmap.ImuPreintegrator],
+    imu_data: dict[int, pycolmap.PreintegratedImuData],
     variables: dict[str, object],
 ) -> pyceres.SolverSummary:
     bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     problem = bundle_adjuster.problem
-    add_imu_residuals(
-        problem, reconstruction, preintegrated_measurements, variables
-    )
+    add_imu_residuals(problem, reconstruction, imu_data, variables)
     solver_options = ba_options.ceres.create_solver_options(ba_config, problem)
     solver_options.minimizer_progress_to_stdout = True
+    # Set up reintegration callback to update preintegrated data when
+    # biases drift beyond the linearization point.
+    callback = ReintegrationCallback()
+    for image_id in integrators:
+        callback.add_edge(
+            integrators[image_id],
+            imu_data[image_id],
+            variables["imu_states"][image_id],
+        )
+    solver_options.callbacks.append(callback)
+    solver_options.update_state_every_iteration = True
     summary = pyceres.SolverSummary()
     pyceres.solve(solver_options, problem, summary)
     print(summary.BriefReport())
@@ -104,7 +141,8 @@ def adjust_global_bundle(
     mapper: pycolmap.IncrementalMapper,
     mapper_options: pycolmap.IncrementalMapperOptions,
     ba_options: pycolmap.BundleAdjustmentOptions,
-    preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
+    integrators: dict[int, pycolmap.ImuPreintegrator],
+    imu_data: dict[int, pycolmap.PreintegratedImuData],
     variables: dict[str, object],
 ) -> None:
     reconstruction = mapper.reconstruction
@@ -122,7 +160,8 @@ def adjust_global_bundle(
         reconstruction,
         ba_options,
         ba_config,
-        preintegrated_measurements,
+        integrators,
+        imu_data,
         variables,
     )
     logging.info("Global Bundle Adjustment")
@@ -136,7 +175,8 @@ def run_iterative(
     mapper_options: pycolmap.IncrementalMapperOptions,
     ba_options: pycolmap.BundleAdjustmentOptions,
     tri_options: pycolmap.IncrementalTriangulatorOptions,
-    preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
+    integrators: dict[int, pycolmap.ImuPreintegrator],
+    imu_data: dict[int, pycolmap.PreintegratedImuData],
     variables: dict[str, object],
     normalize_reconstruction: bool = True,
 ) -> None:
@@ -153,7 +193,8 @@ def run_iterative(
             mapper,
             mapper_options,
             ba_options,
-            preintegrated_measurements,
+            integrators,
+            imu_data,
             variables,
         )
         if normalize_reconstruction:
@@ -174,7 +215,8 @@ def iterative_global_refinement(
     options: pycolmap.IncrementalPipelineOptions,
     mapper_options: pycolmap.IncrementalMapperOptions,
     mapper: pycolmap.IncrementalMapper,
-    preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
+    integrators: dict[int, pycolmap.ImuPreintegrator],
+    imu_data: dict[int, pycolmap.PreintegratedImuData],
     variables: dict[str, object],
 ) -> None:
     ba_options = options.get_global_bundle_adjustment()
@@ -188,7 +230,8 @@ def iterative_global_refinement(
         mapper_options,
         ba_options,
         options.get_triangulation(),
-        preintegrated_measurements,
+        integrators,
+        imu_data,
         variables,
         normalize_reconstruction=False,
     )
@@ -198,7 +241,8 @@ def iterative_global_refinement(
 def iterative_refine(
     database_path: str,
     recon: pycolmap.Reconstruction,
-    preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
+    integrators: dict[int, pycolmap.ImuPreintegrator],
+    imu_data: dict[int, pycolmap.PreintegratedImuData],
     variables: dict[str, object],
 ) -> pycolmap.Reconstruction:
     database = pycolmap.Database(database_path)
@@ -216,7 +260,8 @@ def iterative_refine(
         options,
         options.get_mapper(),
         mapper,
-        preintegrated_measurements,
+        integrators,
+        imu_data,
         variables,
     )
     return mapper.reconstruction
@@ -226,13 +271,14 @@ def run_vi_optimization(
     sfm_path: str,
     database_path: str,
     output_folder: str,
-    preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
+    integrators: dict[int, pycolmap.ImuPreintegrator],
+    imu_data: dict[int, pycolmap.PreintegratedImuData],
     variables: dict[str, object],
 ) -> None:
     rec = pycolmap.Reconstruction(sfm_path)
     os.makedirs(output_folder, exist_ok=True)
     rec_optimized = iterative_refine(
-        database_path, rec, preintegrated_measurements, variables
+        database_path, rec, integrators, imu_data, variables
     )
     rec_optimized.write(output_folder)
 
@@ -290,20 +336,21 @@ def run() -> None:
     imu_calib.gyro_saturation_max = 1000.0
     imu_calib.imu_rate = 1000.0
 
-    preintegrated_measurements: dict[
-        int, pycolmap.PreintegratedImuMeasurement
-    ] = {}
+    # Preintegrate IMU measurements between consecutive images.
+    # Keep both integrators (for reintegration) and extracted data (for cost
+    # functions). The cost function holds a pointer to the data, and
+    # reintegration updates the data in place.
+    integrators: dict[int, pycolmap.ImuPreintegrator] = {}
+    imu_data: dict[int, pycolmap.PreintegratedImuData] = {}
     for i in np.arange(1, num_images - 1):
         t1, t2 = image_timestamps[i], image_timestamps[i + 1]
         # Timestamps are in nanoseconds (int64).
         ms = pycolmap.get_measurements_contain_edge(imu_measurements, t1, t2)
         if len(ms) == 0:
             continue
-        integrated_m = pycolmap.PreintegratedImuMeasurement(
-            options, imu_calib, t1, t2
-        )
-        integrated_m.add_measurements(ms)
-        preintegrated_measurements[i] = integrated_m
+        integrators[i] = pycolmap.ImuPreintegrator(options, imu_calib, t1, t2)
+        integrators[i].feed_imu(ms)
+        imu_data[i] = integrators[i].extract()
 
     # Set up variables.
     variables: dict[str, object] = {}
@@ -326,7 +373,8 @@ def run() -> None:
         sfm_path,
         database_path,
         output_path,
-        preintegrated_measurements,
+        integrators,
+        imu_data,
         variables,
     )
 
