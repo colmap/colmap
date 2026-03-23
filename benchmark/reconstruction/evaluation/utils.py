@@ -838,7 +838,7 @@ def compute_auc(
         last_index = np.searchsorted(errors, t, side="right")
         r = np.r_[recalls[:last_index], recalls[last_index - 1]]
         e = np.r_[errors[:last_index], t]
-        auc = np.trapezoid(r, x=e) / t
+        auc = np.trapz(r, x=e) / t
         aucs[i] = auc * 100
 
     return aucs
