@@ -58,6 +58,12 @@ struct ImuPreintegrationOptions {
   double reintegrate_vel_norm_thres = 0.0001;
   // Threshold on gyro bias change norm to trigger reintegration. [rad/s]
   double reintegrate_angle_norm_thres = 0.0001;
+
+  // Maximum condition number for the information matrix. Small eigenvalues
+  // of the covariance are clamped to limit the condition number, preventing
+  // ill-conditioned blocks from dominating the optimizer.
+  // Set to -1 to disable clamping.
+  double max_condition_number = 1e4;
 };
 
 // Pure data struct holding preintegrated IMU quantities.
@@ -98,15 +104,17 @@ struct PreintegratedImuData {
       Eigen::Matrix<double, 15, 15>::Zero();
 
   // Square root of the information matrix (inverse covariance), computed
-  // via LLT decomposition in Finalize().
+  // via eigendecomposition in Finalize().
   Eigen::Matrix<double, 15, 15> sqrt_information =
       Eigen::Matrix<double, 15, 15>::Zero();
 
   // Gravity magnitude used during preintegration.
   double gravity_magnitude = 9.81;
 
-  // Compute sqrt_information from covariance.
-  void Finalize();
+  // Compute sqrt_information from covariance. max_condition_number limits
+  // the condition number of the information matrix by clamping small
+  // eigenvalues. Set to -1 to disable clamping.
+  void Finalize(double max_condition_number = 1e4);
 };
 
 // Algorithm class that performs IMU preintegration.

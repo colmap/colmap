@@ -40,13 +40,30 @@
 
 namespace colmap {
 
-void PreintegratedImuData::Finalize() {
-  // Enforce symmetry and stability
-  covariance = (covariance + covariance.transpose()) / 2.0;
-  covariance += Eigen::Matrix<double, 15, 15>::Identity() * 1e-18;
+void PreintegratedImuData::Finalize(double max_condition_number) {
+  THROW_CHECK(max_condition_number > 0.0 || max_condition_number == -1.0)
+      << "max_condition_number must be positive or -1 (disabled)";
 
-  // Factorize
-  sqrt_information = covariance.inverse().llt().matrixL().transpose();
+  // Enforce symmetry.
+  covariance = (covariance + covariance.transpose()) / 2.0;
+
+  // Eigendecomposition for robust sqrt-information.
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>> saes(covariance);
+
+  // Clamp small eigenvalues to limit the condition number of the
+  // information matrix.
+  const double max_eval = saes.eigenvalues().maxCoeff();
+  const double tol =
+      (max_condition_number > 0.0) ? max_eval / max_condition_number : 0.0;
+  Eigen::Matrix<double, 15, 1> D_inv_sqrt;
+  for (int i = 0; i < 15; ++i) {
+    double eval = saes.eigenvalues()(i);
+    D_inv_sqrt(i) = (eval > tol) ? 1.0 / std::sqrt(eval) : 0.0;
+  }
+
+  // sqrt_information = D^{-1/2} * V^T
+  // so that sqrt_info^T * sqrt_info = V * D^{-1} * V^T = information.
+  sqrt_information = D_inv_sqrt.asDiagonal() * saes.eigenvectors().transpose();
 }
 
 ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
@@ -513,7 +530,7 @@ void ImuPreintegrator::FeedImu(const std::vector<ImuMeasurement>& ms) {
 }
 
 PreintegratedImuData ImuPreintegrator::Extract() {
-  data_.Finalize();
+  data_.Finalize(options_.max_condition_number);
   return data_;
 }
 
@@ -540,7 +557,7 @@ void ImuPreintegrator::Reintegrate() {
   for (size_t i = 1; i < measurements_.size(); ++i) {
     IntegrateOneMeasurement(measurements_[i - 1], measurements_[i]);
   }
-  data_.Finalize();
+  data_.Finalize(options_.max_condition_number);
 }
 
 void ImuPreintegrator::Reintegrate(const Eigen::Vector6d& biases) {
