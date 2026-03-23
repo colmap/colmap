@@ -6,6 +6,7 @@
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/pose_graph.h"
+#include "colmap/sensor/imu.h"
 #include "colmap/util/types.h"
 
 #include <pybind11/eigen.h>
@@ -34,3 +35,5 @@ PYBIND11_MAKE_OPAQUE(Point3DMap);
 using PoseGraphEdgeMap =
     std::unordered_map<colmap::image_pair_t, colmap::PoseGraph::Edge>;
 PYBIND11_MAKE_OPAQUE(PoseGraphEdgeMap);
+
+PYBIND11_MAKE_OPAQUE(colmap::ImuMeasurements);

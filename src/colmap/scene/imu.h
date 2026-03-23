@@ -84,7 +84,7 @@ class ImuState {
   inline image_t ImageId();
 
  private:
-  // State vector: [velocity(3), acc_bias(3), gyro_bias(3)].
+  // State vector: [velocity(3), gyro_bias(3), acc_bias(3)].
   Eigen::Matrix<double, 9, 1> data_ = Eigen::Matrix<double, 9, 1>::Zero();
   camera_t imu_id_;   // The identifier of the associated IMU.
   image_t image_id_;  // The corresponding image from visual input.
@@ -104,25 +104,23 @@ const Eigen::Vector3d ImuState::Velocity() const {
 
 const double* ImuState::VelocityPtr() { return data_.data(); }
 
-void ImuState::SetAccBias(const Eigen::Vector3d& vec) {
+void ImuState::SetGyroBias(const Eigen::Vector3d& vec) {
   data_.segment<3>(3) = vec;
 }
 
-const Eigen::Vector3d ImuState::AccBias() const {
+const Eigen::Vector3d ImuState::GyroBias() const {
   return Eigen::Vector3d(data_.data() + 3);
 }
 
-const double* ImuState::AccBiasPtr() { return data_.data() + 3; }
+const double* ImuState::GyroBiasPtr() { return data_.data() + 3; }
 
-void ImuState::SetGyroBias(const Eigen::Vector3d& vec) {
-  data_.tail<3>() = vec;
-}
+void ImuState::SetAccBias(const Eigen::Vector3d& vec) { data_.tail<3>() = vec; }
 
-const Eigen::Vector3d ImuState::GyroBias() const {
+const Eigen::Vector3d ImuState::AccBias() const {
   return Eigen::Vector3d(data_.data() + 6);
 }
 
-const double* ImuState::GyroBiasPtr() { return data_.data() + 6; }
+const double* ImuState::AccBiasPtr() { return data_.data() + 6; }
 
 const camera_t& ImuState::ImuId() const { return imu_id_; }
 
@@ -142,8 +140,8 @@ inline std::ostream& operator<<(std::ostream& stream, const Imu& imu) {
 inline std::ostream& operator<<(std::ostream& stream, const ImuState& state) {
   stream << "ImuState("
          << "vel=[" << state.Velocity().transpose() << "], "
-         << "acc_bias=[" << state.AccBias().transpose() << "], "
-         << "gyro_bias=[" << state.GyroBias().transpose() << "])";
+         << "gyro_bias=[" << state.GyroBias().transpose() << "], "
+         << "acc_bias=[" << state.AccBias().transpose() << "])";
   return stream;
 }
 

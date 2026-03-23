@@ -74,7 +74,7 @@ class PreintegratedImuMeasurement {
 
   // Add measurements. Measurements must be added in chronological order.
   void AddMeasurement(const ImuMeasurement& m);
-  void AddMeasurements(const ImuMeasurements& ms);
+  void AddMeasurements(const std::vector<ImuMeasurement>& ms);
   void Finish();
   bool HasFinished() const;
 
@@ -89,11 +89,11 @@ class PreintegratedImuMeasurement {
   const Eigen::Quaterniond& DeltaR() const { return delta_R_ij_; }
   const Eigen::Vector3d& DeltaP() const { return delta_p_ij_; }
   const Eigen::Vector3d& DeltaV() const { return delta_v_ij_; }
-  Eigen::Matrix3d dR_dbg() const { return jacobian_biases_.block<3, 3>(0, 3); }
-  Eigen::Matrix3d dp_dba() const { return jacobian_biases_.block<3, 3>(3, 0); }
-  Eigen::Matrix3d dp_dbg() const { return jacobian_biases_.block<3, 3>(3, 3); }
-  Eigen::Matrix3d dv_dba() const { return jacobian_biases_.block<3, 3>(6, 0); }
-  Eigen::Matrix3d dv_dbg() const { return jacobian_biases_.block<3, 3>(6, 3); }
+  Eigen::Matrix3d dR_dbg() const { return jacobian_biases_.block<3, 3>(0, 0); }
+  Eigen::Matrix3d dp_dbg() const { return jacobian_biases_.block<3, 3>(3, 0); }
+  Eigen::Matrix3d dv_dbg() const { return jacobian_biases_.block<3, 3>(6, 0); }
+  Eigen::Matrix3d dp_dba() const { return jacobian_biases_.block<3, 3>(3, 3); }
+  Eigen::Matrix3d dv_dba() const { return jacobian_biases_.block<3, 3>(6, 3); }
   const Eigen::Vector6d& Biases() const { return biases_; }
   const Eigen::Matrix<double, 15, 15>& Covariance() const { return covs_; }
   const Eigen::Matrix<double, 15, 15>& SqrtInformation() const {
@@ -121,19 +121,20 @@ class PreintegratedImuMeasurement {
   Eigen::Vector3d delta_v_ij_ = Eigen::Vector3d::Zero();  // Velocity change.
 
   // Jacobian of preintegrated [rotation, position, velocity] (9)
-  // w.r.t. [acc_bias, gyro_bias] (6).
+  // w.r.t. [gyro_bias, acc_bias] (6).
   Eigen::Matrix<double, 9, 6> jacobian_biases_ =
       Eigen::Matrix<double, 9, 6>::Zero();
 
   // Covariance of the 15-dimensional state:
-  // [rotation(3), position(3), velocity(3), acc_bias(3), gyro_bias(3)].
+  // [rotation(3), position(3), velocity(3), gyro_bias(3), acc_bias(3)].
   Eigen::Matrix<double, 15, 15> covs_ = Eigen::Matrix<double, 15, 15>::Zero();
   // Square root of the information matrix (inverse covariance), computed
   // via LLT decomposition in Finish().
   Eigen::Matrix<double, 15, 15> sqrt_information_ =
       Eigen::Matrix<double, 15, 15>::Zero();
 
-  // Measurements
+  // Raw measurements, sorted by timestamp. Chronological order is enforced
+  // by AddMeasurement() via THROW_CHECK_GT on consecutive timestamps.
   ImuMeasurements measurements_;
 
   // Options
@@ -146,7 +147,7 @@ class PreintegratedImuMeasurement {
   Eigen::Matrix3d acc_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Matrix3d gyro_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Vector6d biases_ =
-      Eigen::Vector6d::Zero();  // bias on acc (3-DoF) + gyro (3-DoF)
+      Eigen::Vector6d::Zero();  // bias on gyro (3-DoF) + acc (3-DoF)
 
   // Methods
   void integrate(const Eigen::Vector3d& acc_true,
@@ -207,8 +208,8 @@ class PreintegratedImuMeasurementCostFunction {
     Eigen::Matrix<T, 6, 1> delta_b =
         Eigen::Map<const Eigen::Matrix<T, 6, 1>>(i_imu_state + 3) -
         measurement_.Biases().cast<T>();
-    EigenVector3Map<T> delta_b_a(delta_b.data());
-    EigenVector3Map<T> delta_b_g(delta_b.data() + 3);
+    EigenVector3Map<T> delta_b_g(delta_b.data());
+    EigenVector3Map<T> delta_b_a(delta_b.data() + 3);
     const T dt = T(measurement_.DeltaT());
     Eigen::Matrix<T, 3, 1> gravity = EigenVector3Map<T>(gravity_direction) *
                                      T(measurement_.GravityMagnitude());

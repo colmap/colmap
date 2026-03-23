@@ -34,6 +34,7 @@
 
 #include <algorithm>
 #include <ostream>
+#include <vector>
 
 namespace colmap {
 
@@ -70,14 +71,14 @@ struct ImuCalibration {
 
 struct ImuMeasurement {
   timestamp_t timestamp = kInvalidTimestamp;  // [nanoseconds]
-  Eigen::Vector3d linear_acceleration = Eigen::Vector3d::Zero();
-  Eigen::Vector3d angular_velocity = Eigen::Vector3d::Zero();
+  Eigen::Vector3d accel = Eigen::Vector3d::Zero();
+  Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
 
   ImuMeasurement() {}
   ImuMeasurement(timestamp_t t,
-                 const Eigen::Vector3d& lin_acc,
-                 const Eigen::Vector3d& ang_vel)
-      : timestamp(t), linear_acceleration(lin_acc), angular_velocity(ang_vel) {}
+                 const Eigen::Vector3d& accel,
+                 const Eigen::Vector3d& gyro)
+      : timestamp(t), accel(accel), gyro(gyro) {}
 };
 
 std::ostream& operator<<(std::ostream& stream,
@@ -86,96 +87,15 @@ std::ostream& operator<<(std::ostream& stream,
 std::ostream& operator<<(std::ostream& stream,
                          const ImuMeasurement& measurement);
 
-// Sorted list of IMU measurements ordered by timestamp.
-class ImuMeasurements {
- public:
-  ImuMeasurements() = default;
-  explicit ImuMeasurements(const std::vector<ImuMeasurement>& ms) {
-    insert(ms);
-  }
-  ImuMeasurements(const ImuMeasurements& ms) { insert(ms); }
-  void insert(const ImuMeasurement& m) {
-    auto it = std::lower_bound(
-        measurements_.begin(),
-        measurements_.end(),
-        m,
-        [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-          return m1.timestamp < m2.timestamp;
-        });
-    measurements_.insert(it, m);
-  }
-  void insert(const std::vector<ImuMeasurement>& ms) {
-    if (empty()) {
-      measurements_ = ms;
-      std::sort(measurements_.begin(),
-                measurements_.end(),
-                [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-                  return m1.timestamp < m2.timestamp;
-                });
-    } else {
-      for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
-    }
-  }
-  void insert(const ImuMeasurements& ms) {
-    if (empty()) {
-      measurements_ = ms.Data();
-    } else {
-      InsertSorted(ms.Data());
-    }
-  }
+// IMU measurements stored as a plain vector. Callers must ensure
+// measurements are sorted by timestamp (chronological order).
+using ImuMeasurements = std::vector<ImuMeasurement>;
 
-  // Insert measurements that are already sorted by timestamp.
-  // Uses std::merge for O(n+m) efficiency.
-  void InsertSorted(const std::vector<ImuMeasurement>& sorted_ms) {
-    if (sorted_ms.empty()) return;
-    if (empty()) {
-      measurements_ = sorted_ms;
-      return;
-    }
-    std::vector<ImuMeasurement> merged;
-    merged.reserve(measurements_.size() + sorted_ms.size());
-    std::merge(measurements_.begin(),
-               measurements_.end(),
-               sorted_ms.begin(),
-               sorted_ms.end(),
-               std::back_inserter(merged),
-               [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-                 return m1.timestamp < m2.timestamp;
-               });
-    measurements_ = std::move(merged);
-  }
-  void remove(const ImuMeasurement& m) {
-    auto it = std::lower_bound(
-        measurements_.begin(),
-        measurements_.end(),
-        m,
-        [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-          return m1.timestamp < m2.timestamp;
-        });
-    if (it != measurements_.end() && it->timestamp == m.timestamp)
-      measurements_.erase(it);
-    else
-      throw std::invalid_argument("Element not found in the list");
-  }
-  void clear() { measurements_.clear(); }
-  bool empty() const { return measurements_.empty(); }
-  size_t size() const { return measurements_.size(); }
-  const ImuMeasurement& operator[](size_t index) const {
-    return measurements_[index];
-  }
-  typename std::vector<ImuMeasurement>::const_iterator begin() const {
-    return measurements_.begin();
-  }
-  const ImuMeasurement& front() const { return measurements_.front(); }
-  typename std::vector<ImuMeasurement>::const_iterator end() const {
-    return measurements_.end();
-  }
-  const ImuMeasurement& back() const { return measurements_.back(); }
-  const std::vector<ImuMeasurement>& Data() const { return measurements_; }
-  ImuMeasurements GetMeasurementsContainEdge(timestamp_t t1, timestamp_t t2);
-
- private:
-  std::vector<ImuMeasurement> measurements_;
-};
+// Extract measurements spanning the edge [t1, t2] from a sorted vector.
+// Returns measurements from the sample just before t1 through the sample at
+// or just after t2.
+ImuMeasurements GetMeasurementsContainEdge(const ImuMeasurements& measurements,
+                                           timestamp_t t1,
+                                           timestamp_t t2);
 
 }  // namespace colmap

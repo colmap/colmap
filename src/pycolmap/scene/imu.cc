@@ -4,11 +4,13 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -36,9 +38,8 @@ void BindImu(py::module& m) {
                     const Eigen::Vector3d&,
                     const Eigen::Vector3d&>())
       .def_readwrite("timestamp", &ImuMeasurement::timestamp)
-      .def_readwrite("linear_acceleration",
-                     &ImuMeasurement::linear_acceleration)
-      .def_readwrite("angular_velocity", &ImuMeasurement::angular_velocity)
+      .def_readwrite("accel", &ImuMeasurement::accel)
+      .def_readwrite("gyro", &ImuMeasurement::gyro)
       .def("__repr__", [](const ImuMeasurement& m) {
         std::ostringstream ss;
         ss << m;
@@ -46,41 +47,13 @@ void BindImu(py::module& m) {
       });
   MakeDataclass(PyImuMeasurement);
 
-  py::classh<ImuMeasurements>(m, "ImuMeasurements")
-      .def(py::init<>())
-      .def(py::init<const std::vector<ImuMeasurement>&>())
-      .def(py::init<const ImuMeasurements&>())
-      .def("insert",
-           py::overload_cast<const ImuMeasurement&>(&ImuMeasurements::insert))
-      .def("insert",
-           py::overload_cast<const std::vector<ImuMeasurement>&>(
-               &ImuMeasurements::insert))
-      .def("insert",
-           py::overload_cast<const ImuMeasurements&>(&ImuMeasurements::insert))
-      .def("insert_sorted",
-           &ImuMeasurements::InsertSorted,
-           "sorted_measurements"_a)
-      .def("remove", &ImuMeasurements::remove)
-      .def("front", &ImuMeasurements::front)
-      .def("back", &ImuMeasurements::back)
-      .def("empty", &ImuMeasurements::empty)
-      .def("clear", &ImuMeasurements::clear)
-      .def("__len__", &ImuMeasurements::size)
-      .def("__getitem__",
-           [](const ImuMeasurements& ms, size_t idx) { return ms[idx]; })
-      .def("get_measurements_contain_edge",
-           &ImuMeasurements::GetMeasurementsContainEdge)
-      .def_property_readonly("data", &ImuMeasurements::Data)
-      .def("__repr__", [](const ImuMeasurements& ms) {
-        std::ostringstream ss;
-        ss << "ImuMeasurements(n=" << ms.size();
-        if (!ms.empty()) {
-          ss << ", tmin=" << ms.front().timestamp
-             << ", tmax=" << ms.back().timestamp;
-        }
-        ss << ")";
-        return ss.str();
-      });
+  py::bind_vector<ImuMeasurements>(m, "ImuMeasurements");
+
+  m.def("get_measurements_contain_edge",
+        &GetMeasurementsContainEdge,
+        "measurements"_a,
+        "t1"_a,
+        "t2"_a);
 
   py::classh<Imu>(m, "Imu")
       .def(py::init<>())

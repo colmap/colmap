@@ -122,7 +122,16 @@ Eigen::Quaterniond AverageQuaternions(
 // @return              The quaternion corresponding to omega in so(3).
 Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega);
 
-// Compute the right Jacobian J_r from lie algebra
+// Compute the left Jacobian J_l from lie algebra.
+// Used for bias Jacobian propagation in IMU preintegration.
+//
+// @param omega         The angles in so(3)
+//
+// @return              The left jacobian of the angle J_l(omega)
+Eigen::Matrix3d LeftJacobianFromAngleAxis(const Eigen::Vector3d& omega);
+
+// Compute the right Jacobian J_r from lie algebra.
+// Defined as J_r(omega) = J_l(-omega).
 //
 // @param omega         The angles in so(3)
 //

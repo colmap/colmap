@@ -2,6 +2,7 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>

@@ -125,28 +125,34 @@ void PreintegratedImuMeasurement::integrate(const Eigen::Vector3d& acc_true,
 
   // fill in the bias-related jacobians
   // inversely update t, v, R due to the dependencies.
+  // Covariance state: [rotation(3), position(3), velocity(3),
+  //                    gyro_bias(3), acc_bias(3)]
+  // jacobian_biases_ columns: [gyro_bias(0:3), acc_bias(3:6)]
+  // NOTE: rotation must be updated last — translation and velocity
+  // read the old dR_dbg.
+
   // translation: Eq. (69 1/2) from [A]
   A.block<3, 3>(3, 9) =
-      jacobian_biases_.block<3, 3>(6, 0) * dt - 0.5 * Rs * dt * dt;
+      (jacobian_biases_.block<3, 3>(6, 0) * dt -
+       0.5 * Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 0) * dt * dt);
   A.block<3, 3>(3, 12) =
-      (jacobian_biases_.block<3, 3>(6, 3) * dt -
-       0.5 * Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt * dt);
+      jacobian_biases_.block<3, 3>(6, 3) * dt - 0.5 * Rs * dt * dt;
   jacobian_biases_.block<3, 3>(3, 0) += A.block<3, 3>(3, 9);
   jacobian_biases_.block<3, 3>(3, 3) += A.block<3, 3>(3, 12);
 
   // velocity: Eq. (69 1/2) from [A]
-  A.block<3, 3>(6, 9) = -Rs * dt;
-  A.block<3, 3>(6, 12) =
-      -Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt;
+  A.block<3, 3>(6, 9) =
+      -Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 0) * dt;
+  A.block<3, 3>(6, 12) = -Rs * dt;
   jacobian_biases_.block<3, 3>(6, 0) += A.block<3, 3>(6, 9);
   jacobian_biases_.block<3, 3>(6, 3) += A.block<3, 3>(6, 12);
 
   // rotation: combining Eq. (69 1/2) and the tricks of Eq. (59) from [A]
   Eigen::Matrix3d dR_dbg_updated =
-      dq.inverse().toRotationMatrix() * jacobian_biases_.block<3, 3>(0, 3) -
+      dq.inverse().toRotationMatrix() * jacobian_biases_.block<3, 3>(0, 0) -
       Jr * dt;
-  A.block<3, 3>(0, 12) = dR_dbg_updated - jacobian_biases_.block<3, 3>(0, 3);
-  jacobian_biases_.block<3, 3>(0, 3) = dR_dbg_updated;
+  A.block<3, 3>(0, 9) = dR_dbg_updated - jacobian_biases_.block<3, 3>(0, 0);
+  jacobian_biases_.block<3, 3>(0, 0) = dR_dbg_updated;
 
   // propagate
   covs_ = A * covs_ * A.transpose();
@@ -164,8 +170,8 @@ void PreintegratedImuMeasurement::integrate(const Eigen::Vector3d& acc_true,
       Eigen::Matrix3d::Identity() * vars_omega;  // omit Jr
   covs_.block<3, 3>(3, 3) += Eigen::Matrix3d::Identity() * vars_p;
   covs_.block<3, 3>(6, 6) += Eigen::Matrix3d::Identity() * vars_v;
-  covs_.block<3, 3>(9, 9) += Eigen::Matrix3d::Identity() * vars_ba;
-  covs_.block<3, 3>(12, 12) += Eigen::Matrix3d::Identity() * vars_bg;
+  covs_.block<3, 3>(9, 9) += Eigen::Matrix3d::Identity() * vars_bg;
+  covs_.block<3, 3>(12, 12) += Eigen::Matrix3d::Identity() * vars_ba;
 }
 
 void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
@@ -174,7 +180,7 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
     THROW_CHECK_LE(m.timestamp, t_start_)
         << "The timestamp of the first IMU measurement should not be later "
            "than the start of integration";
-    measurements_.insert(m);
+    measurements_.push_back(m);
     has_started_ = true;
     return;
   }
@@ -186,7 +192,7 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
     LOG(WARNING) << "The timestamp of this measurement is earlier than "
                     "t_start. Ignore the previous measurements.";
     measurements_.clear();
-    measurements_.insert(m);
+    measurements_.push_back(m);
     return;
   }
   if (last_measurement.timestamp >= t_end_) {
@@ -196,13 +202,13 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
   }
 
   // Append measurements
-  measurements_.insert(m);
+  measurements_.push_back(m);
 
   // Get measurements at the boundaries
-  Eigen::Vector3d acc_s = last_measurement.linear_acceleration;
-  Eigen::Vector3d gyro_s = last_measurement.angular_velocity;
-  Eigen::Vector3d acc_e = m.linear_acceleration;
-  Eigen::Vector3d gyro_e = m.angular_velocity;
+  Eigen::Vector3d acc_s = last_measurement.accel;
+  Eigen::Vector3d gyro_s = last_measurement.gyro;
+  Eigen::Vector3d acc_e = m.accel;
+  Eigen::Vector3d gyro_e = m.gyro;
 
   // Get dt and update boundaries.
   const timestamp_t interval_t_start =
@@ -234,9 +240,9 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
   gyro_s = gyro_s_tmp;
   acc_e = acc_e_tmp;
   gyro_e = gyro_e_tmp;
-  Eigen::Vector3d acc_true = 0.5 * (acc_s + acc_e) - biases_.head<3>();
+  Eigen::Vector3d acc_true = 0.5 * (acc_s + acc_e) - biases_.tail<3>();
   acc_true = acc_rect_mat_inv_ * acc_true;
-  Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.tail<3>();
+  Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.head<3>();
   gyro_true = gyro_rect_mat_inv_ * gyro_true;
 
   // Check saturation.
@@ -255,9 +261,10 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
   integrate(acc_true, gyro_true, dt, acc_noise_density, gyro_noise_density);
 }
 
-void PreintegratedImuMeasurement::AddMeasurements(const ImuMeasurements& ms) {
-  for (auto it = ms.begin(); it != ms.end(); ++it) {
-    AddMeasurement(*it);
+void PreintegratedImuMeasurement::AddMeasurements(
+    const std::vector<ImuMeasurement>& ms) {
+  for (const auto& m : ms) {
+    AddMeasurement(m);
   }
 }
 
@@ -278,13 +285,13 @@ bool PreintegratedImuMeasurement::ShouldReintegrate(
   THROW_CHECK_EQ(HasStarted(), true);
   Eigen::Vector6d diff_biases = biases - biases_;
 
-  // check acc
-  double v_norm = diff_biases.head<3>().norm() * delta_t_;
-  if (v_norm > options_.reintegrate_vel_norm_thres) return true;
-
   // check gyro
-  double angle_norm = diff_biases.tail<3>().norm() * delta_t_;
+  double angle_norm = diff_biases.head<3>().norm() * delta_t_;
   if (angle_norm > options_.reintegrate_angle_norm_thres) return true;
+
+  // check acc
+  double v_norm = diff_biases.tail<3>().norm() * delta_t_;
+  if (v_norm > options_.reintegrate_vel_norm_thres) return true;
 
   // else return false
   return false;
@@ -299,10 +306,10 @@ void PreintegratedImuMeasurement::Reintegrate() {
     auto m = measurements_[i];
 
     // Get measurements at the boundaries
-    Eigen::Vector3d acc_s = last_measurement.linear_acceleration;
-    Eigen::Vector3d gyro_s = last_measurement.angular_velocity;
-    Eigen::Vector3d acc_e = m.linear_acceleration;
-    Eigen::Vector3d gyro_e = m.angular_velocity;
+    Eigen::Vector3d acc_s = last_measurement.accel;
+    Eigen::Vector3d gyro_s = last_measurement.gyro;
+    Eigen::Vector3d acc_e = m.accel;
+    Eigen::Vector3d gyro_e = m.gyro;
 
     // Get dt and update boundaries.
     const timestamp_t interval_t_start =
@@ -334,8 +341,8 @@ void PreintegratedImuMeasurement::Reintegrate() {
     gyro_s = gyro_s_tmp;
     acc_e = acc_e_tmp;
     gyro_e = gyro_e_tmp;
-    Eigen::Vector3d acc_true = 0.5 * (acc_s + acc_e) - biases_.head<3>();
-    Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.tail<3>();
+    Eigen::Vector3d acc_true = 0.5 * (acc_s + acc_e) - biases_.tail<3>();
+    Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.head<3>();
 
     // Check saturation
     double acc_noise_density = calib_.acc_noise_density;

@@ -33,33 +33,28 @@
 
 namespace colmap {
 
-ImuMeasurements ImuMeasurements::GetMeasurementsContainEdge(timestamp_t t1,
-                                                            timestamp_t t2) {
-  THROW_CHECK(!empty()) << "Cannot query measurements from empty container.";
+ImuMeasurements GetMeasurementsContainEdge(const ImuMeasurements& measurements,
+                                           timestamp_t t1,
+                                           timestamp_t t2) {
+  THROW_CHECK(!measurements.empty())
+      << "Cannot query measurements from empty container.";
   THROW_CHECK_LT(t1, t2) << "t1 must be less than t2.";
-  THROW_CHECK_GE(t1, front().timestamp)
+  THROW_CHECK_GE(t1, measurements.front().timestamp)
       << "t1 is before the first measurement.";
-  THROW_CHECK_LE(t2, back().timestamp) << "t2 is after the last measurement.";
-  ImuMeasurements res;
-  auto it1 = std::upper_bound(
-      measurements_.begin(),
-      measurements_.end(),
-      ImuMeasurement(t1, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()),
-      [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-        return m1.timestamp < m2.timestamp;
-      });
-  auto it2 = std::lower_bound(
-      measurements_.begin(),
-      measurements_.end(),
-      ImuMeasurement(t2, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()),
-      [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-        return m1.timestamp < m2.timestamp;
-      });
-  for (auto it = it1 - 1; it != it2; ++it) {
-    res.insert(*it);
-  }
-  res.insert(*it2);
-  return res;
+  THROW_CHECK_LE(t2, measurements.back().timestamp)
+      << "t2 is after the last measurement.";
+  auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+    return m1.timestamp < m2.timestamp;
+  };
+  ImuMeasurement dummy;
+  dummy.timestamp = t1;
+  auto it1 =
+      std::upper_bound(measurements.begin(), measurements.end(), dummy, cmp);
+  dummy.timestamp = t2;
+  auto it2 =
+      std::lower_bound(measurements.begin(), measurements.end(), dummy, cmp);
+  // Include the sample just before t1 through the sample at/after t2.
+  return ImuMeasurements(it1 - 1, it2 + 1);
 }
 
 std::ostream& operator<<(std::ostream& stream,
@@ -75,8 +70,8 @@ std::ostream& operator<<(std::ostream& stream,
                          const ImuMeasurement& measurement) {
   stream << "ImuMeasurement("
          << "t=" << measurement.timestamp << ", "
-         << "acc=[" << measurement.linear_acceleration.transpose() << "], "
-         << "gyro=[" << measurement.angular_velocity.transpose() << "])";
+         << "accel=[" << measurement.accel.transpose() << "], "
+         << "gyro=[" << measurement.gyro.transpose() << "])";
   return stream;
 }
 
