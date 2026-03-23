@@ -63,10 +63,9 @@ TEST(QuaternionLeftMultMatrix, Nominal) {
       Eigen::Quaterniond pp(p_plus(3), p_plus(0), p_plus(1), p_plus(2));
       Eigen::Quaterniond pm(p_minus(3), p_minus(0), p_minus(1), p_minus(2));
       Eigen::Quaterniond rp = q * pp, rm = q * pm;
-      J_numeric.col(k) =
-          (Eigen::Vector4d(rp.x(), rp.y(), rp.z(), rp.w()) -
-           Eigen::Vector4d(rm.x(), rm.y(), rm.z(), rm.w())) /
-          (2.0 * eps);
+      J_numeric.col(k) = (Eigen::Vector4d(rp.x(), rp.y(), rp.z(), rp.w()) -
+                          Eigen::Vector4d(rm.x(), rm.y(), rm.z(), rm.w())) /
+                         (2.0 * eps);
     }
     EXPECT_THAT(QuaternionLeftMultMatrix(q), EigenMatrixNear(J_numeric, 1e-5));
   }
@@ -96,10 +95,9 @@ TEST(QuaternionRightMultMatrix, Nominal) {
       Eigen::Quaterniond qp_p(q_plus(3), q_plus(0), q_plus(1), q_plus(2));
       Eigen::Quaterniond qm_p(q_minus(3), q_minus(0), q_minus(1), q_minus(2));
       Eigen::Quaterniond rp = qp_p * p, rm = qm_p * p;
-      J_numeric.col(k) =
-          (Eigen::Vector4d(rp.x(), rp.y(), rp.z(), rp.w()) -
-           Eigen::Vector4d(rm.x(), rm.y(), rm.z(), rm.w())) /
-          (2.0 * eps);
+      J_numeric.col(k) = (Eigen::Vector4d(rp.x(), rp.y(), rp.z(), rp.w()) -
+                          Eigen::Vector4d(rm.x(), rm.y(), rm.z(), rm.w())) /
+                         (2.0 * eps);
     }
     EXPECT_THAT(QuaternionRightMultMatrix(p), EigenMatrixNear(J_numeric, 1e-5));
   }
