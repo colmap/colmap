@@ -59,6 +59,8 @@ ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
   t_start_ = t_start;
   t_end_ = t_end;
   data_.gravity_magnitude = calib.gravity_magnitude;
+  acc_rect_mat_inv_ = calib.acc_rectification.inverse();
+  gyro_rect_mat_inv_ = calib.gyro_rectification.inverse();
   Reset();
 }
 
@@ -77,14 +79,6 @@ void ImuPreintegrator::Reset() {
   data_.biases = biases_;
 
   has_started_ = false;
-}
-
-void ImuPreintegrator::SetAccRectMat(const Eigen::Matrix3d& mat) {
-  acc_rect_mat_inv_ = mat.inverse();
-}
-
-void ImuPreintegrator::SetGyroRectMat(const Eigen::Matrix3d& mat) {
-  gyro_rect_mat_inv_ = mat.inverse();
 }
 
 void ImuPreintegrator::SetBiases(const Eigen::Vector6d& biases) {

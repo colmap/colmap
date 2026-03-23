@@ -29,6 +29,8 @@ void BindImu(py::module& m) {
       .def_readwrite("gyro_saturation_max",
                      &ImuCalibration::gyro_saturation_max)
       .def_readwrite("gravity_magnitude", &ImuCalibration::gravity_magnitude)
+      .def_readwrite("acc_rectification", &ImuCalibration::acc_rectification)
+      .def_readwrite("gyro_rectification", &ImuCalibration::gyro_rectification)
       .def_readwrite("imu_rate", &ImuCalibration::imu_rate);
   MakeDataclass(PyImuCalibration);
 

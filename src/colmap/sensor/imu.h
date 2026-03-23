@@ -67,6 +67,13 @@ struct ImuCalibration {
 
   /// Expected IMU Rate [1/s]
   double imu_rate = 20.0;
+
+  /// Rectification matrices correcting axis misalignment and scale.
+  /// m_true = M^{-1}(m - b). Identity if data is already rectified.
+  /// TODO: Support online calibration by making these optimizable
+  /// as parameter blocks in the IMU cost function.
+  Eigen::Matrix3d acc_rectification = Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d gyro_rectification = Eigen::Matrix3d::Identity();
 };
 
 struct ImuMeasurement {

@@ -59,8 +59,6 @@ void BindImuPreintegration(py::module& m) {
            "t_end"_a)
       .def("reset", &ImuPreintegrator::Reset)
       .def("has_started", &ImuPreintegrator::HasStarted)
-      .def("set_acc_rect_mat", &ImuPreintegrator::SetAccRectMat, "mat"_a)
-      .def("set_gyro_rect_mat", &ImuPreintegrator::SetGyroRectMat, "mat"_a)
       .def("set_biases", &ImuPreintegrator::SetBiases, "biases"_a)
       .def("feed_imu",
            py::overload_cast<const ImuMeasurement&>(&ImuPreintegrator::FeedImu),

@@ -108,9 +108,7 @@ class ImuPreintegrator {
   // Reset the integrator state.
   void Reset();
 
-  // Set rectification matrices and biases.
-  void SetAccRectMat(const Eigen::Matrix3d& mat);
-  void SetGyroRectMat(const Eigen::Matrix3d& mat);
+  // Set linearization biases.
   void SetBiases(const Eigen::Vector6d& biases);
 
   // Feed measurements. Must be added in chronological order.
