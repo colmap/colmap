@@ -3,6 +3,7 @@
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/estimators/imu_preintegration.h"
 #include "colmap/geometry/rigid3.h"
 
 #include "pycolmap/helpers.h"
@@ -189,4 +190,9 @@ void BindCostFunctions(py::module& m_parent) {
         "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform. "
         "with prior covariance");
+
+  m.def("PreintegratedImuMeasurementCost",
+        &PreintegratedImuMeasurementCostFunction::Create,
+        "preintegrated_imu_measurement"_a,
+        "IMU preintegration cost function.");
 }

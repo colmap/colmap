@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pyceres
+import pycolmap.cost_functions
 import wget
 
 import pycolmap
@@ -27,11 +28,21 @@ def add_imu_residuals(
 ) -> pyceres.Problem:
     loss = pyceres.TrivialLoss()
     for image_id, integrated_m in preintegrated_measurements.items():
-        i_from_world = reconstruction.images[image_id].cam_from_world
-        j_from_world = reconstruction.images[image_id + 1].cam_from_world
+        image_i = reconstruction.images[image_id]
+        image_j = reconstruction.images[image_id + 1]
+        assert len(image_i.frame.rig.non_ref_sensors) == 0, (
+            "IMU cost function requires trivial frame (no rig)"
+        )
+        assert len(image_j.frame.rig.non_ref_sensors) == 0, (
+            "IMU cost function requires trivial frame (no rig)"
+        )
+        i_from_world = image_i.frame.rig_from_world
+        j_from_world = image_j.frame.rig_from_world
 
         prob.add_residual_block(
-            pycolmap.PreintegratedImuMeasurementCost(integrated_m),
+            pycolmap.cost_functions.PreintegratedImuMeasurementCost(
+                integrated_m
+            ),
             loss,
             [
                 variables["imu_from_cam"].rotation.quat,
@@ -185,7 +196,7 @@ def iterative_global_refinement(
         variables,
         normalize_reconstruction=False,
     )
-    mapper.filter_images(mapper_options)
+    mapper.filter_frames(mapper_options)
 
 
 def iterative_refine(
@@ -204,7 +215,7 @@ def iterative_refine(
     mapper = pycolmap.IncrementalMapper(database_cache)
     mapper.begin_reconstruction(recon)
     options = pycolmap.IncrementalPipelineOptions()
-    options.fix_existing_images = False
+    options.fix_existing_frames = False
     iterative_global_refinement(
         options,
         options.get_mapper(),
@@ -257,7 +268,15 @@ def run() -> None:
     reconstruction = pycolmap.Reconstruction(sfm_path)
     num_images = len(reconstruction.images)
     imu_data = np.load(imu_data_path, allow_pickle=True)
-    imu_measurements = pycolmap.ImuMeasurements(imu_data.tolist())
+    imu_measurements = pycolmap.ImuMeasurements()
+    for row in imu_data:
+        imu_measurements.append(
+            pycolmap.ImuMeasurement(
+                int(row[0]),
+                np.array(row[1:4]),
+                np.array(row[4:7]),
+            )
+        )
 
     # IMU preintegration.
     options = pycolmap.ImuPreintegrationOptions()
@@ -281,7 +300,7 @@ def run() -> None:
     for i in np.arange(1, num_images - 1):
         t1, t2 = image_timestamps[i], image_timestamps[i + 1]
         # Timestamps are in nanoseconds (int64).
-        ms = imu_measurements.get_measurements_contain_edge(t1, t2)
+        ms = pycolmap.get_measurements_contain_edge(imu_measurements, t1, t2)
         if len(ms) == 0:
             continue
         integrated_m = pycolmap.PreintegratedImuMeasurement(
@@ -301,8 +320,8 @@ def run() -> None:
         dt = pycolmap.timestamp_diff_seconds(
             image_timestamps[i + 1], image_timestamps[i]
         )
-        pi = reconstruction.images[i].cam_from_world.inverse().translation
-        pj = reconstruction.images[i + 1].cam_from_world.inverse().translation
+        pi = reconstruction.images[i].cam_from_world().inverse().translation
+        pj = reconstruction.images[i + 1].cam_from_world().inverse().translation
         vel = (pj - pi) / dt
         variables["imu_states"][i].set_velocity(vel)
 

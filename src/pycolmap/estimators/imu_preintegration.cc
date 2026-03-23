@@ -67,8 +67,4 @@ void BindImuPreintegration(py::module& m) {
       .def_property_readonly("sqrt_information", &PIM::SqrtInformation)
       .def_property_readonly("gravity_magnitude", &PIM::GravityMagnitude)
       .def_property_readonly("measurements", &PIM::Measurements);
-
-  m.def("PreintegratedImuMeasurementCost",
-        &PreintegratedImuMeasurementCostFunction::Create,
-        "preintegrated_imu_measurement"_a);
 }
