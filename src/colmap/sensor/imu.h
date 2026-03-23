@@ -51,10 +51,10 @@ struct ImuCalibration {
   double gyro_noise_density = 0.00073088444;
 
   /// Accelerometer bias random walk (sigma). [m/s^3*1/sqrt(Hz)]
-  double acc_bias_random_walk_sigma = 0.012589254;
+  double bias_accel_random_walk_sigma = 0.012589254;
 
   /// Gyro bias random walk (sigma). [rad/s^2*1/sqrt(Hz)]
-  double gyro_bias_random_walk_sigma = 0.00038765;
+  double bias_gyro_random_walk_sigma = 0.00038765;
 
   /// Accelerometer saturation. [m/s^2]
   double acc_saturation_max = 150;

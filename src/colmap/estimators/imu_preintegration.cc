@@ -163,8 +163,8 @@ void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
   if (options_.use_integration_noise) {
     vars_p += pow(options_.integration_noise_density, 2) * dt;
   }
-  double vars_ba = pow(calib_.acc_bias_random_walk_sigma, 2) * dt;
-  double vars_bg = pow(calib_.gyro_bias_random_walk_sigma, 2) * dt;
+  double vars_ba = pow(calib_.bias_accel_random_walk_sigma, 2) * dt;
+  double vars_bg = pow(calib_.bias_gyro_random_walk_sigma, 2) * dt;
   data_.covariance.block<3, 3>(0, 0) +=
       Eigen::Matrix3d::Identity() * vars_omega;  // omit Jr
   data_.covariance.block<3, 3>(3, 3) += Eigen::Matrix3d::Identity() * vars_p;
