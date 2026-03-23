@@ -45,22 +45,21 @@ def add_imu_residuals(
             ),
             loss,
             [
-                variables["imu_from_cam"].rotation.quat,
-                variables["imu_from_cam"].translation,
+                variables["imu_from_cam"].params,
                 variables["log_scale"],
                 variables["gravity"],
-                i_from_world.rotation.quat,
-                i_from_world.translation,
+                i_from_world.params,
                 variables["imu_states"][image_id].data,
-                j_from_world.rotation.quat,
-                j_from_world.translation,
+                j_from_world.params,
                 variables["imu_states"][image_id + 1].data,
             ],
         )
     prob.set_manifold(variables["gravity"], pyceres.SphereManifold(3))
     prob.set_manifold(
-        variables["imu_from_cam"].rotation.quat,
-        pyceres.EigenQuaternionManifold(),
+        variables["imu_from_cam"].params,
+        pyceres.ProductManifold(
+            pyceres.EigenQuaternionManifold(), pyceres.EuclideanManifold(3)
+        ),
     )
     # [Optional] fix variables.
     if not optimize_scale:
@@ -68,10 +67,7 @@ def add_imu_residuals(
     if not optimize_gravity:
         prob.set_parameter_block_constant(variables["gravity"])
     if not optimize_imu_from_cam:
-        prob.set_parameter_block_constant(
-            variables["imu_from_cam"].rotation.quat
-        )
-        prob.set_parameter_block_constant(variables["imu_from_cam"].translation)
+        prob.set_parameter_block_constant(variables["imu_from_cam"].params)
     if not optimize_bias:
         constant_idxs = np.arange(3, 9)
         for image_id, _ in variables["imu_states"].items():
@@ -89,14 +85,14 @@ def solve_bundle_adjustment(
     preintegrated_measurements: dict[int, pycolmap.PreintegratedImuMeasurement],
     variables: dict[str, object],
 ) -> pyceres.SolverSummary:
-    bundle_adjuster = pycolmap.create_default_bundle_adjuster(
+    bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     problem = bundle_adjuster.problem
-    problem = add_imu_residuals(
+    add_imu_residuals(
         problem, reconstruction, preintegrated_measurements, variables
     )
-    solver_options = ba_options.create_solver_options(ba_config, problem)
+    solver_options = ba_options.ceres.create_solver_options(ba_config, problem)
     solver_options.minimizer_progress_to_stdout = True
     summary = pyceres.SolverSummary()
     pyceres.solve(solver_options, problem, summary)

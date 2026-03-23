@@ -169,29 +169,23 @@ class PreintegratedImuMeasurementCostFunction {
     return (
         new ceres::AutoDiffCostFunction<PreintegratedImuMeasurementCostFunction,
                                         15,
-                                        4,
-                                        3,
+                                        7,
                                         1,
                                         3,
-                                        4,
-                                        3,
+                                        7,
                                         9,
-                                        4,
-                                        3,
+                                        7,
                                         9>(
             new PreintegratedImuMeasurementCostFunction(m)));
   }
 
   template <typename T>
-  bool operator()(const T* const imu_from_cam_q,
-                  const T* const imu_from_cam_t,
+  bool operator()(const T* const imu_from_cam,
                   const T* const log_scale,
                   const T* const gravity_direction,
-                  const T* const i_from_world_q,
-                  const T* const i_from_world_t,
+                  const T* const i_from_world,
                   const T* const i_imu_state,
-                  const T* const j_from_world_q,
-                  const T* const j_from_world_t,
+                  const T* const j_from_world,
                   const T* const j_imu_state,
                   T* residuals) const {
     // Check and perform reintegration when needed
@@ -217,17 +211,17 @@ class PreintegratedImuMeasurementCostFunction {
     // change frame (measure the extrinsics from imu to world)
     // T_world_from_imu = T_world_from_cam * T_cam_from_imu
     Eigen::Quaternion<T> cam_from_imu_q =
-        EigenQuaternionMap<T>(imu_from_cam_q).inverse();
+        EigenQuaternionMap<T>(imu_from_cam).inverse();
     Eigen::Matrix<T, 3, 1> cam_from_imu_t =
-        cam_from_imu_q * EigenVector3Map<T>(imu_from_cam_t) * T(-1.);
+        cam_from_imu_q * EigenVector3Map<T>(imu_from_cam + 4) * T(-1.);
     Eigen::Quaternion<T> world_from_i_q =
-        EigenQuaternionMap<T>(i_from_world_q).inverse();
+        EigenQuaternionMap<T>(i_from_world).inverse();
     Eigen::Matrix<T, 3, 1> world_from_i_t =
-        world_from_i_q * EigenVector3Map<T>(i_from_world_t) * T(-1.);
+        world_from_i_q * EigenVector3Map<T>(i_from_world + 4) * T(-1.);
     Eigen::Quaternion<T> world_from_j_q =
-        EigenQuaternionMap<T>(j_from_world_q).inverse();
+        EigenQuaternionMap<T>(j_from_world).inverse();
     Eigen::Matrix<T, 3, 1> world_from_j_t =
-        world_from_j_q * EigenVector3Map<T>(j_from_world_t) * T(-1.);
+        world_from_j_q * EigenVector3Map<T>(j_from_world + 4) * T(-1.);
     // compose
     Eigen::Quaternion<T> world_from_i_imu_q = world_from_i_q * cam_from_imu_q;
     Eigen::Matrix<T, 3, 1> world_from_i_imu_t =
