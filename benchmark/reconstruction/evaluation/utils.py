@@ -547,7 +547,8 @@ def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
         if num_devices <= 0:
             return [-1]
         return list(range(num_devices))
-    return [int(idx) for idx in args.gpu_index.split(",")]
+    indices = [int(idx) for idx in args.gpu_index.split(",") if idx.strip()]
+    return indices if indices else [-1]
 
 
 def _process_scene_with_gpu(
