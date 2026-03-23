@@ -226,5 +226,88 @@ TEST(ImuPreintegrator, CovariancePositiveDefinite) {
   EXPECT_GT(solver.eigenvalues().minCoeff(), 0.0);
 }
 
+// Helper: integrate with given biases and return extracted data.
+PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
+                                         const Eigen::Vector3d& gyro,
+                                         int N,
+                                         double dt,
+                                         const Eigen::Vector6d& biases) {
+  ImuPreintegrationOptions options;
+  ImuCalibration calib;
+  timestamp_t t_start = SecondsToTimestamp(0.0);
+  timestamp_t t_end = SecondsToTimestamp(N * dt);
+  ImuPreintegrator integrator(options, calib, t_start, t_end);
+  integrator.SetBiases(biases);
+  for (int i = 0; i <= N; ++i) {
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+  }
+  return integrator.Extract();
+}
+
+TEST(ImuPreintegrator, BiasJacobiansNumeric) {
+  const int N = 20;
+  const double dt = 0.005;
+  const double eps = 1e-7;
+
+  Eigen::Vector3d accel(0.5, -0.3, 9.81);
+  Eigen::Vector3d gyro(0.1, -0.05, 0.02);
+  Eigen::Vector6d biases = Eigen::Vector6d::Zero();
+
+  // Reference integration at zero biases.
+  PreintegratedImuData data0 = IntegrateWithBiases(accel, gyro, N, dt, biases);
+
+  // Numeric Jacobians via central differences.
+  Eigen::Matrix3d dR_dbg_numeric, dp_dbg_numeric, dv_dbg_numeric;
+  Eigen::Matrix3d dp_dba_numeric, dv_dba_numeric;
+
+  for (int k = 0; k < 3; ++k) {
+    // Perturb gyro bias (indices 0-2 in biases vector).
+    Eigen::Vector6d biases_plus = biases;
+    Eigen::Vector6d biases_minus = biases;
+    biases_plus(k) += eps;
+    biases_minus(k) -= eps;
+
+    PreintegratedImuData data_plus =
+        IntegrateWithBiases(accel, gyro, N, dt, biases_plus);
+    PreintegratedImuData data_minus =
+        IntegrateWithBiases(accel, gyro, N, dt, biases_minus);
+
+    // dR/dbg: use angle-axis difference.
+    Eigen::AngleAxisd dR_aa(data_minus.delta_R.inverse() * data_plus.delta_R);
+    dR_dbg_numeric.col(k) = (dR_aa.angle() * dR_aa.axis()) / (2 * eps);
+
+    dp_dbg_numeric.col(k) =
+        (data_plus.delta_p - data_minus.delta_p) / (2 * eps);
+    dv_dbg_numeric.col(k) =
+        (data_plus.delta_v - data_minus.delta_v) / (2 * eps);
+  }
+
+  for (int k = 0; k < 3; ++k) {
+    // Perturb accel bias (indices 3-5 in biases vector).
+    Eigen::Vector6d biases_plus = biases;
+    Eigen::Vector6d biases_minus = biases;
+    biases_plus(3 + k) += eps;
+    biases_minus(3 + k) -= eps;
+
+    PreintegratedImuData data_plus =
+        IntegrateWithBiases(accel, gyro, N, dt, biases_plus);
+    PreintegratedImuData data_minus =
+        IntegrateWithBiases(accel, gyro, N, dt, biases_minus);
+
+    dp_dba_numeric.col(k) =
+        (data_plus.delta_p - data_minus.delta_p) / (2 * eps);
+    dv_dba_numeric.col(k) =
+        (data_plus.delta_v - data_minus.delta_v) / (2 * eps);
+  }
+
+  // Compare analytical vs numeric.
+  const double tol = 1e-4;
+  EXPECT_THAT(data0.dR_dbg, EigenMatrixNear(dR_dbg_numeric, tol));
+  EXPECT_THAT(data0.dp_dbg, EigenMatrixNear(dp_dbg_numeric, tol));
+  EXPECT_THAT(data0.dv_dbg, EigenMatrixNear(dv_dbg_numeric, tol));
+  EXPECT_THAT(data0.dp_dba, EigenMatrixNear(dp_dba_numeric, tol));
+  EXPECT_THAT(data0.dv_dba, EigenMatrixNear(dv_dba_numeric, tol));
+}
+
 }  // namespace
 }  // namespace colmap

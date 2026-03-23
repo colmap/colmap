@@ -40,7 +40,16 @@
 
 namespace colmap {
 
+enum class ImuIntegrationMethod {
+  MIDPOINT,
+  // TODO: Add RK4. More accurate for lower IMU rates. Requires closed-form
+  // rotation integrals and RK4 covariance propagation.
+  // RK4,
+};
+
 struct ImuPreintegrationOptions {
+  ImuIntegrationMethod method = ImuIntegrationMethod::MIDPOINT;
+
   // Whether to add integration noise to the covariance propagation.
   bool use_integration_noise = false;
   // Integration noise density. [m/s*1/sqrt(Hz)]
@@ -145,11 +154,11 @@ class ImuPreintegrator {
   void IntegrateOneMeasurement(const ImuMeasurement& prev,
                                const ImuMeasurement& curr);
 
-  void Integrate(const Eigen::Vector3d& accel_true,
-                 const Eigen::Vector3d& gyro_true,
-                 double dt,
-                 double accel_noise_density,
-                 double gyro_noise_density);
+  void IntegrateMidpoint(const Eigen::Vector3d& accel_true,
+                         const Eigen::Vector3d& gyro_true,
+                         double dt,
+                         double accel_noise_density,
+                         double gyro_noise_density);
 
   // Integration time window. [nanoseconds]
   timestamp_t t_start_ = kInvalidTimestamp;

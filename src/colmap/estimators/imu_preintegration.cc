@@ -86,11 +86,11 @@ void ImuPreintegrator::SetBiases(const Eigen::Vector6d& biases) {
   data_.biases = biases;
 }
 
-void ImuPreintegrator::Integrate(const Eigen::Vector3d& accel_true,
-                                 const Eigen::Vector3d& gyro_true,
-                                 double dt,
-                                 double accel_noise_density,
-                                 double gyro_noise_density) {
+void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
+                                         const Eigen::Vector3d& gyro_true,
+                                         double dt,
+                                         double accel_noise_density,
+                                         double gyro_noise_density) {
   // [Reference]
   // [A] Forster et al. "On-Manifold Preintegration for Real-Time
   // Visual-Inertial Odometry", TRO 16. Integration step translation: Eq. (37)
@@ -226,7 +226,14 @@ void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
     gyro_noise_density *= 100.0;
   }
 
-  Integrate(accel_true, gyro_true, dt, accel_noise_density, gyro_noise_density);
+  switch (options_.method) {
+    case ImuIntegrationMethod::MIDPOINT:
+      IntegrateMidpoint(
+          accel_true, gyro_true, dt, accel_noise_density, gyro_noise_density);
+      break;
+    default:
+      LOG(FATAL) << "Integration method not implemented.";
+  }
 }
 
 void ImuPreintegrator::FeedImu(const ImuMeasurement& m) {
