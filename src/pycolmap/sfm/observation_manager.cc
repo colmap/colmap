@@ -26,6 +26,10 @@ void BindObservationManager(py::module& m) {
            "correspondence_graph"_a = py::none(),
            py::keep_alive<1, 2>())
       .def_property_readonly("image_pairs", &ObservationManager::ImagePairs)
+      .def("add_image",
+           &ObservationManager::AddImage,
+           "image_id"_a,
+           "Incrementally add an image for streaming/online SfM.")
       .def("add_point3D",
            &ObservationManager::AddPoint3D,
            "xyz"_a,

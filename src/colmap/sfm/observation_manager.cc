@@ -71,20 +71,7 @@ ObservationManager::ObservationManager(
   // Add image stats.
   image_stats_.reserve(reconstruction_.NumImages());
   for (const auto& [image_id, image] : reconstruction_.Images()) {
-    const Camera& camera = *image.CameraPtr();
-    ImageStat image_stat;
-    image_stat.point3D_visibility_pyramid = VisibilityPyramid(
-        kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
-    image_stat.num_visible_correspondences = 0;
-    image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
-    image_stat.num_visible_points3D = 0;
-    if (correspondence_graph_ && correspondence_graph_->ExistsImage(image_id)) {
-      image_stat.num_observations =
-          correspondence_graph_->NumObservationsForImage(image_id);
-      image_stat.num_correspondences =
-          correspondence_graph_->NumCorrespondencesForImage(image_id);
-    }
-    image_stats_.emplace(image_id, image_stat);
+    image_stats_.emplace(image_id, InitImageStat(image_id, image));
   }
 
   // If an existing model was loaded from disk and there were already images
@@ -106,6 +93,87 @@ ObservationManager::ObservationManager(
       }
     }
   }
+}
+
+void ObservationManager::AddImage(const image_t image_id) {
+  THROW_CHECK(image_stats_.find(image_id) == image_stats_.end())
+      << "Image " << image_id << " already exists in the ObservationManager";
+  THROW_CHECK(reconstruction_.ExistsImage(image_id))
+      << "Image " << image_id << " must be added to the Reconstruction first";
+  if (correspondence_graph_) {
+    THROW_CHECK(correspondence_graph_->ExistsImage(image_id))
+        << "Image " << image_id
+        << " must be added to the CorrespondenceGraph first";
+  }
+  const Image& image = reconstruction_.Image(image_id);
+  image_stats_.emplace(image_id, InitImageStat(image_id, image));
+
+  if (correspondence_graph_) {
+    // Add image pair stats for all pairs involving the new image and refresh
+    // the cached stats for existing images, whose observation/correspondence
+    // counts may have increased when AddTwoViewGeometry added new
+    // correspondences.
+    for (auto& [other_image_id, other_stats] : image_stats_) {
+      if (other_image_id == image_id) {
+        continue;
+      }
+      const point2D_t num_matches =
+          correspondence_graph_->NumMatchesBetweenImages(image_id,
+                                                         other_image_id);
+      if (num_matches > 0) {
+        const image_pair_t pair_id =
+            ImagePairToPairId(image_id, other_image_id);
+        ImagePairStat image_pair_stat;
+        image_pair_stat.num_total_corrs = num_matches;
+        image_pair_stats_.emplace(pair_id, image_pair_stat);
+
+        other_stats.num_observations =
+            correspondence_graph_->NumObservationsForImage(other_image_id);
+        other_stats.num_correspondences =
+            correspondence_graph_->NumCorrespondencesForImage(other_image_id);
+      }
+    }
+
+    // Propagate visibility from already-triangulated points.
+    // In the batch pipeline, the constructor handles this by iterating
+    // all registered images and propagating triangulation visibility to
+    // their correspondences. Since this image was not present during
+    // construction, it missed that propagation. We catch up here by
+    // scanning the new image for correspondences to points that are
+    // already triangulated in other images.
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      const auto corr_range =
+          correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+      for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+        const Image& corr_image = reconstruction_.Image(corr->image_id);
+        if (corr_image.HasPose()) {
+          const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+          if (corr_point2D.HasPoint3D()) {
+            IncrementCorrespondenceHasPoint3D(image_id, point2D_idx);
+          }
+        }
+      }
+    }
+  }
+}
+
+ObservationManager::ImageStat ObservationManager::InitImageStat(
+    const image_t image_id, const Image& image) const {
+  const Camera& camera = *image.CameraPtr();
+  ImageStat image_stat;
+  image_stat.point3D_visibility_pyramid = VisibilityPyramid(
+      kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
+  image_stat.num_visible_correspondences = 0;
+  image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
+  image_stat.num_visible_points3D = 0;
+  if (correspondence_graph_ && correspondence_graph_->ExistsImage(image_id)) {
+    image_stat.num_observations =
+        correspondence_graph_->NumObservationsForImage(image_id);
+    image_stat.num_correspondences =
+        correspondence_graph_->NumCorrespondencesForImage(image_id);
+  }
+  return image_stat;
 }
 
 void ObservationManager::IncrementCorrespondenceHasPoint3D(
