@@ -63,7 +63,7 @@ struct ImuPreintegrationOptions {
   // of the covariance are clamped to limit the condition number, preventing
   // ill-conditioned blocks from dominating the optimizer.
   // Set to -1 to disable clamping.
-  double max_condition_number = 1e4;
+  double max_condition_number = -1;
 };
 
 // Pure data struct holding preintegrated IMU quantities.
