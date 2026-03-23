@@ -297,5 +297,71 @@ TEST(ImuPreintegrationCostConsistency, MatchesVisualCentric) {
   }
 }
 
+TEST(ImuPreintegrationCostFunctor, MidpointNonZeroResidualGolden) {
+  // Golden reference test: evaluate residuals at perturbed poses and
+  // verify against recorded values. Originally recorded with right
+  // convention (Forster TRO 16) midpoint integration. These values
+  // must remain identical after switching to left convention (CPI),
+  // since the residuals are convention-independent.
+  const int N = 10;
+  const double dt = 0.01;
+  Eigen::Vector3d accel(0.5, -0.3, 9.81);
+  Eigen::Vector3d gyro(0.1, -0.05, 0.02);
+
+  TrajectoryGT gt;
+  PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
+  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+
+  // Perturb poses and velocities to get non-zero residuals in all components.
+  // Rotation perturbation on pose j (all axes).
+  Eigen::Quaterniond q_perturb(
+      Eigen::AngleAxisd(0.03, Eigen::Vector3d(1, 2, 3).normalized()));
+  gt.body_from_world_j = Rigid3d(gt.body_from_world_j.rotation() * q_perturb,
+                                 gt.body_from_world_j.translation() +
+                                     Eigen::Vector3d(0.01, -0.005, 0.008));
+  // Velocity perturbation.
+  gt.v_i += Eigen::Vector3d(0.05, -0.03, 0.01);
+  gt.v_j += Eigen::Vector3d(-0.02, 0.04, -0.01);
+  // Bias perturbation on state i.
+  Eigen::Vector3d bg_perturb(0.001, -0.002, 0.0005);
+  Eigen::Vector3d ba_perturb(-0.01, 0.005, 0.003);
+
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ImuPreintegrationCostFunctor::Create(&data, kGravity));
+
+  double body_from_world_i[7], body_from_world_j[7];
+  double imu_state_i[9], imu_state_j[9];
+  PackRigid3d(gt.body_from_world_i, body_from_world_i);
+  PackRigid3d(gt.body_from_world_j, body_from_world_j);
+  PackImuState(gt.v_i, bg_perturb, ba_perturb, imu_state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+
+  double residuals[15];
+  const double* parameters[4] = {
+      body_from_world_i, imu_state_i, body_from_world_j, imu_state_j};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+
+  // Golden reference values recorded with right convention (Forster TRO 16)
+  // midpoint integration. Convention-independent: must match after switching
+  // to left convention (CPI).
+  const double tol = 1e-10;
+  EXPECT_NEAR(residuals[0], 0.00811494485995029, tol);
+  EXPECT_NEAR(residuals[1], 0.015834842082203, tol);
+  EXPECT_NEAR(residuals[2], 0.0241058574668856, tol);
+  EXPECT_NEAR(residuals[3], -0.0304579622798318, tol);
+  EXPECT_NEAR(residuals[4], 0.00199923841754459, tol);
+  EXPECT_NEAR(residuals[5], 0.00810774830122747, tol);
+  EXPECT_NEAR(residuals[6], -0.0738726025355129, tol);
+  EXPECT_NEAR(residuals[7], 0.0704546318300674, tol);
+  EXPECT_NEAR(residuals[8], 0.00188227435688915, tol);
+  EXPECT_NEAR(residuals[9], -0.001, tol);
+  EXPECT_NEAR(residuals[10], 0.002, tol);
+  EXPECT_NEAR(residuals[11], -0.0005, tol);
+  EXPECT_NEAR(residuals[12], 0.01, tol);
+  EXPECT_NEAR(residuals[13], -0.005, tol);
+  EXPECT_NEAR(residuals[14], -0.003, tol);
+}
+
 }  // namespace
 }  // namespace colmap
