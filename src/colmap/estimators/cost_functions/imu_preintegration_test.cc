@@ -283,6 +283,67 @@ TEST(ImuPreintegrationCostConsistency, ImuAndVisualCentricMatch) {
   }
 }
 
+TEST(AnalyticalImuPreintegrationCostFunction, AnalyticalVersusNumeric) {
+  // Compare analytical Jacobians against numeric differentiation using
+  // ceres::GradientChecker (same pattern as reprojection_error_test).
+  const int N = 10;
+  const double dt = 0.01;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(0.5, -0.3, 9.81),
+                       Eigen::Vector3d(0.1, -0.05, 0.02),
+                       N,
+                       dt,
+                       &gt);
+
+  auto analytical_cost_function =
+      std::make_unique<AnalyticalImuPreintegrationCostFunction>(&data,
+                                                                kGravity);
+
+  double body_i[7], body_j[7], state_i[9], state_j[9];
+  PackRigid3d(gt.body_from_world_i, body_i);
+  PackRigid3d(gt.body_from_world_j, body_j);
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
+
+  std::vector<double*> parameter_blocks{body_i, state_i, body_j, state_j};
+
+  // Verify residuals match AutoDiff.
+  std::unique_ptr<ceres::CostFunction> auto_diff_cost_function(
+      ImuPreintegrationCostFunctor::Create(&data, kGravity));
+
+  Eigen::Matrix<double, 15, 1> analytical_residuals;
+  Eigen::Matrix<double, 15, 1> auto_diff_residuals;
+  EXPECT_TRUE(analytical_cost_function->Evaluate(
+      parameter_blocks.data(), analytical_residuals.data(), nullptr));
+  EXPECT_TRUE(auto_diff_cost_function->Evaluate(
+      parameter_blocks.data(), auto_diff_residuals.data(), nullptr));
+  for (int i = 0; i < 15; ++i) {
+    EXPECT_NEAR(analytical_residuals[i], auto_diff_residuals[i], 1e-10)
+        << "residual[" << i << "]";
+  }
+
+  // Gradient checker: compare analytical Jacobians against numeric.
+  // Quaternion manifold for pose blocks (0 and 2) ensures perturbations
+  // stay on the unit sphere — our Jacobians assume unit quaternions.
+  ceres::EigenQuaternionManifold quat_manifold;
+  ceres::ProductManifold<ceres::EigenQuaternionManifold,
+                         ceres::EuclideanManifold<3>>
+      pose_manifold;
+  std::vector<const ceres::Manifold*> manifolds = {
+      &pose_manifold, nullptr, &pose_manifold, nullptr};
+
+  ceres::NumericDiffOptions numeric_diff_options;
+  ceres::GradientChecker gradient_checker(
+      analytical_cost_function.get(), &manifolds, numeric_diff_options);
+  ceres::GradientChecker::ProbeResults results;
+  constexpr double kEps = 1e-6;
+  EXPECT_TRUE(gradient_checker.Probe(parameter_blocks.data(), kEps, &results))
+      << results.error_log;
+}
+
 class PhysicsConsistencyTest
     : public ::testing::TestWithParam<ImuIntegrationMethod> {};
 

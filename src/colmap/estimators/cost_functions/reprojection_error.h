@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
@@ -38,76 +39,6 @@
 #include <ceres/rotation.h>
 
 namespace colmap {
-
-// Rotates the point and computes the Jacobian of R(q) * p with respect to Eigen
-// quaternions. J_out is a 3x4 matrix in row-major order.
-inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
-                                                    const double* pt,
-                                                    double* J_out) {
-  const double qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-  const double px = pt[0], py = pt[1], pz = pt[2];
-
-  // Common sub-expressions.
-  const double qx_py = qx * py;
-  const double qx_pz = qx * pz;
-  const double qy_px = qy * px;
-  const double qy_pz = qy * pz;
-  const double qz_px = qz * px;
-  const double qz_py = qz * py;
-
-  // R(q) * p using the formula: p' = p + 2*w*(v x p) + 2*(v x (v x p)),
-  // where v = (qx, qy, qz) is the imaginary part and w = qw is the scalar.
-
-  // First compute v  x  p.
-  const double v_x_p0 = qy_pz - qz_py;
-  const double v_x_p1 = qz_px - qx_pz;
-  const double v_x_p2 = qx_py - qy_px;
-
-  // Then compute v  x  (v  x  p).
-  const double v_x_v_x_p0 = qy * v_x_p2 - qz * v_x_p1;
-  const double v_x_v_x_p1 = qz * v_x_p0 - qx * v_x_p2;
-  const double v_x_v_x_p2 = qx * v_x_p1 - qy * v_x_p0;
-
-  // p' = p + 2*w*(v x p) + 2*(v x (v x p)).
-  Eigen::Vector3d pt_out(px + 2.0 * (qw * v_x_p0 + v_x_v_x_p0),
-                         py + 2.0 * (qw * v_x_p1 + v_x_v_x_p1),
-                         pz + 2.0 * (qw * v_x_p2 + v_x_v_x_p2));
-
-  if (J_out) {
-    // Jacobian d(R*p) / dq for Eigen quaternions (x, y, z, w).
-    // Must use the ORIGINAL point (px, py, pz), not the rotated point.
-
-    // Common sub-expressions.
-    const double qx_px = qx * px;
-    const double qx_pz = qx * pz;
-    const double qy_px = qy * px;
-    const double qy_py = qy * py;
-    const double qz_pz = qz * pz;
-    const double qw_px = qw * px;
-    const double qw_py = qw * py;
-    const double qw_pz = qw * pz;
-
-    // d(R*p)_x / d(x,y,z,w)
-    J_out[0] = 2.0 * (qy_py + qz_pz);
-    J_out[1] = 2.0 * (-2.0 * qy_px + qx_py + qw_pz);
-    J_out[2] = 2.0 * (-2.0 * qz_px - qw_py + qx_pz);
-    J_out[3] = 2.0 * (-qz_py + qy_pz);
-
-    // d(R*p)_y / d(x,y,z,w)
-    J_out[4] = 2.0 * (qy_px - 2.0 * qx_py - qw_pz);
-    J_out[5] = 2.0 * (qx_px + qz_pz);
-    J_out[6] = 2.0 * (qw_px - 2.0 * qz_py + qy_pz);
-    J_out[7] = 2.0 * (qz_px - qx_pz);
-
-    // d(R*p)_z / d(x,y,z,w)
-    J_out[8] = 2.0 * (qz_px + qw_py - 2.0 * qx_pz);
-    J_out[9] = 2.0 * (-qw_px + qz_py - 2.0 * qy_pz);
-    J_out[10] = 2.0 * (qx_px + qy_py);
-    J_out[11] = 2.0 * (-qy_px + qx_py);
-  }
-
-  return pt_out;
-}
 
 // Full reprojection error cost function with analytical Jacobians.
 // Requires camera model to implement ImgFromCamWithJac().
