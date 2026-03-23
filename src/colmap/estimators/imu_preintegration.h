@@ -29,17 +29,14 @@
 
 #pragma once
 
-#include "colmap/estimators/cost_functions/utils.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/sensor/imu.h"
-#include "colmap/util/timestamp.h"
+#include "colmap/util/types.h"
 
-#include <memory>
-#include <unordered_set>
+#include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <ceres/ceres.h>
-#include <ceres/rotation.h>
 
 namespace colmap {
 
@@ -164,136 +161,6 @@ class ImuPreintegrator {
   Eigen::Matrix3d gyro_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Vector6d biases_ =
       Eigen::Vector6d::Zero();  // bias on gyro (3-DoF) + acc (3-DoF)
-};
-
-// Cost function for IMU preintegration residuals.
-// Takes a pointer to externally-owned PreintegratedImuData so that a
-// ReintegrationCallback can update the data between Ceres iterations
-// without rebuilding cost functions.
-class PreintegratedImuMeasurementCostFunction {
- public:
-  // Construct from a pointer to externally-owned data.
-  // The pointed-to data must outlive this cost function.
-  explicit PreintegratedImuMeasurementCostFunction(
-      const PreintegratedImuData* data)
-      : data_(data) {
-    THROW_CHECK(!data_->sqrt_information.isZero())
-        << "PreintegratedImuData must be finalized before use in cost "
-           "function. Call Extract() or Update() on the integrator, or "
-           "Finalize() on the data directly.";
-  }
-
-  static ceres::CostFunction* Create(const PreintegratedImuData* data) {
-    return (
-        new ceres::AutoDiffCostFunction<PreintegratedImuMeasurementCostFunction,
-                                        15,
-                                        7,
-                                        1,
-                                        3,
-                                        7,
-                                        9,
-                                        7,
-                                        9>(
-            new PreintegratedImuMeasurementCostFunction(data)));
-  }
-
-  template <typename T>
-  bool operator()(const T* const imu_from_cam,
-                  const T* const log_scale,
-                  const T* const gravity_direction,
-                  const T* const i_from_world,
-                  const T* const i_imu_state,
-                  const T* const j_from_world,
-                  const T* const j_imu_state,
-                  T* residuals) const {
-    // imu state
-    EigenVector3Map<T> v_i_data(i_imu_state);
-    EigenVector3Map<T> v_j_data(j_imu_state);
-    Eigen::Matrix<T, 6, 1> delta_b =
-        Eigen::Map<const Eigen::Matrix<T, 6, 1>>(i_imu_state + 3) -
-        data_->biases.cast<T>();
-    EigenVector3Map<T> delta_b_g(delta_b.data());
-    EigenVector3Map<T> delta_b_a(delta_b.data() + 3);
-    const T dt = T(data_->delta_t);
-    Eigen::Matrix<T, 3, 1> gravity =
-        EigenVector3Map<T>(gravity_direction) * T(data_->gravity_magnitude);
-
-    // change frame (measure the extrinsics from imu to world)
-    // T_world_from_imu = T_world_from_cam * T_cam_from_imu
-    Eigen::Quaternion<T> cam_from_imu_q =
-        EigenQuaternionMap<T>(imu_from_cam).inverse();
-    Eigen::Matrix<T, 3, 1> cam_from_imu_t =
-        cam_from_imu_q * EigenVector3Map<T>(imu_from_cam + 4) * T(-1.);
-    Eigen::Quaternion<T> world_from_i_q =
-        EigenQuaternionMap<T>(i_from_world).inverse();
-    Eigen::Matrix<T, 3, 1> world_from_i_t =
-        world_from_i_q * EigenVector3Map<T>(i_from_world + 4) * T(-1.);
-    Eigen::Quaternion<T> world_from_j_q =
-        EigenQuaternionMap<T>(j_from_world).inverse();
-    Eigen::Matrix<T, 3, 1> world_from_j_t =
-        world_from_j_q * EigenVector3Map<T>(j_from_world + 4) * T(-1.);
-    // compose
-    Eigen::Quaternion<T> world_from_i_imu_q = world_from_i_q * cam_from_imu_q;
-    Eigen::Matrix<T, 3, 1> world_from_i_imu_t =
-        world_from_i_q * cam_from_imu_t + world_from_i_t;
-    Eigen::Quaternion<T> world_from_j_imu_q = world_from_j_q * cam_from_imu_q;
-    Eigen::Matrix<T, 3, 1> world_from_j_imu_t =
-        world_from_j_q * cam_from_imu_t + world_from_j_t;
-    // scale
-    T scale = ceres::exp(log_scale[0]);
-    world_from_i_imu_t = world_from_i_imu_t * scale;
-    world_from_j_imu_t = world_from_j_imu_t * scale;
-    // velocities should be multiplied with scale as well
-    Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
-    Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
-
-    // Eq. (44) and (45) from Forster et al. "On-Manifold Preintegration for
-    // Real-time Visual-Inertial Odometry" TRO 16. rotation: residuals[0:3]
-    const Eigen::Quaternion<T> j_from_i_q =
-        world_from_i_imu_q.inverse() * world_from_j_imu_q;
-    Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
-    Eigen::Quaternion<T> Dq_bias;
-    AngleAxisToEigenQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
-    const Eigen::Quaternion<T> Dq = data_->delta_R.cast<T>() * Dq_bias;
-    const Eigen::Quaternion<T> param_from_measured_q =
-        (Dq.inverse() * j_from_i_q).normalized();
-    EigenQuaternionToAngleAxis(param_from_measured_q.coeffs().data(),
-                               residuals);
-    // translation: residuals[3:6]
-    const Eigen::Matrix<T, 3, 1> j_from_i_p =
-        world_from_j_imu_t - world_from_i_imu_t;
-    Eigen::Matrix<T, 3, 1> est_dp =
-        world_from_i_imu_q.inverse() *
-        (j_from_i_p - v_i * dt - 0.5 * gravity * dt * dt);
-    Eigen::Matrix<T, 3, 1> Dp = data_->delta_p.cast<T>() +
-                                data_->dp_dba.cast<T>() * delta_b_a +
-                                data_->dp_dbg.cast<T>() * delta_b_g;
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_p(residuals + 3);
-    param_from_measured_p = est_dp - Dp;
-
-    // velocity: residuals[6:9]
-    const Eigen::Matrix<T, 3, 1> j_from_i_v = v_j - v_i;
-    Eigen::Matrix<T, 3, 1> est_dv =
-        world_from_i_imu_q.inverse() * (j_from_i_v - gravity * dt);
-    Eigen::Matrix<T, 3, 1> Dv = data_->delta_v.cast<T>() +
-                                data_->dv_dba.cast<T>() * delta_b_a +
-                                data_->dv_dbg.cast<T>() * delta_b_g;
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_v(residuals + 6);
-    param_from_measured_v = est_dv - Dv;
-
-    // bias: residuals[9:15]
-    for (size_t i = 0; i < 6; ++i) {
-      residuals[i + 9] = j_imu_state[i + 3] - i_imu_state[i + 3];
-    }
-
-    // Weight by the covariance inverse
-    Eigen::Map<Eigen::Matrix<T, 15, 1>> residuals_data(residuals);
-    residuals_data.applyOnTheLeft(data_->sqrt_information.cast<T>());
-    return true;
-  }
-
- private:
-  const PreintegratedImuData* data_;
 };
 
 // Ceres iteration callback that checks whether any IMU preintegration

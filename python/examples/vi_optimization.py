@@ -67,14 +67,14 @@ def add_imu_residuals(
         j_from_world = image_j.frame.rig_from_world
 
         prob.add_residual_block(
-            pycolmap.cost_functions.PreintegratedImuMeasurementCost(
+            pycolmap.cost_functions.VisualCentricImuPreintegrationCost(
                 integrated_m
             ),
             loss,
             [
-                variables["imu_from_cam"].params,
                 variables["log_scale"],
                 variables["gravity"],
+                variables["imu_from_cam"].params,
                 i_from_world.params,
                 variables["imu_states"][image_id].data,
                 j_from_world.params,

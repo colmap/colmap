@@ -1,9 +1,9 @@
 #include "colmap/estimators/cost_functions/alignment.h"
+#include "colmap/estimators/cost_functions/imu_preintegration.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
-#include "colmap/estimators/imu_preintegration.h"
 #include "colmap/geometry/rigid3.h"
 
 #include "pycolmap/helpers.h"
@@ -192,12 +192,24 @@ void BindCostFunctions(py::module& m_parent) {
         "with prior covariance");
 
   m.def(
-      "PreintegratedImuMeasurementCost",
+      "ImuPreintegrationCost",
+      [](PreintegratedImuData& data, const Eigen::Vector3d& gravity) {
+        return ImuPreintegrationCostFunction::Create(&data, gravity);
+      },
+      "preintegrated_imu_data"_a,
+      "gravity"_a,
+      py::keep_alive<0, 1>(),
+      "IMU preintegration cost function (body-centric, 4 parameter blocks). "
+      "The data object must outlive the cost function.");
+
+  m.def(
+      "VisualCentricImuPreintegrationCost",
       [](PreintegratedImuData& data) {
-        return PreintegratedImuMeasurementCostFunction::Create(&data);
+        return VisualCentricImuPreintegrationCostFunction::Create(&data);
       },
       "preintegrated_imu_data"_a,
       py::keep_alive<0, 1>(),
-      "IMU preintegration cost function. The data object must outlive the "
-      "cost function.");
+      "IMU preintegration cost function for post-hoc SfM refinement "
+      "(7 parameter blocks: scale, gravity, extrinsics, poses, states). "
+      "The data object must outlive the cost function.");
 }
