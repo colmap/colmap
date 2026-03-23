@@ -325,23 +325,105 @@ TEST(AnalyticalImuPreintegrationCostFunction, AnalyticalVersusNumeric) {
         << "residual[" << i << "]";
   }
 
-  // Gradient checker: compare analytical Jacobians against numeric.
-  // Quaternion manifold for pose blocks (0 and 2) ensures perturbations
-  // stay on the unit sphere — our Jacobians assume unit quaternions.
-  ceres::EigenQuaternionManifold quat_manifold;
-  ceres::ProductManifold<ceres::EigenQuaternionManifold,
-                         ceres::EuclideanManifold<3>>
-      pose_manifold;
-  std::vector<const ceres::Manifold*> manifolds = {
-      &pose_manifold, nullptr, &pose_manifold, nullptr};
+  // Compare analytical Jacobians against AutoDiff Jacobians at ground truth.
+  // We compare against AutoDiff rather than numeric diff to avoid issues with
+  // quaternion unit-norm constraint (our Jacobians assume unit quaternions).
+  double analytical_jac_0[15 * 7], analytical_jac_1[15 * 9];
+  double analytical_jac_2[15 * 7], analytical_jac_3[15 * 9];
+  double* analytical_jacs[4] = {
+      analytical_jac_0, analytical_jac_1, analytical_jac_2, analytical_jac_3};
 
-  ceres::NumericDiffOptions numeric_diff_options;
-  ceres::GradientChecker gradient_checker(
-      analytical_cost_function.get(), &manifolds, numeric_diff_options);
-  ceres::GradientChecker::ProbeResults results;
-  constexpr double kEps = 1e-6;
-  EXPECT_TRUE(gradient_checker.Probe(parameter_blocks.data(), kEps, &results))
-      << results.error_log;
+  double autodiff_jac_0[15 * 7], autodiff_jac_1[15 * 9];
+  double autodiff_jac_2[15 * 7], autodiff_jac_3[15 * 9];
+  double* autodiff_jacs[4] = {
+      autodiff_jac_0, autodiff_jac_1, autodiff_jac_2, autodiff_jac_3};
+
+  double r1[15], r2[15];
+  EXPECT_TRUE(analytical_cost_function->Evaluate(
+      parameter_blocks.data(), r1, analytical_jacs));
+  EXPECT_TRUE(auto_diff_cost_function->Evaluate(
+      parameter_blocks.data(), r2, autodiff_jacs));
+
+  constexpr double kJacTol = 1e-8;
+  for (int b = 0; b < 4; ++b) {
+    const int cols = (b == 0 || b == 2) ? 7 : 9;
+    for (int i = 0; i < 15 * cols; ++i) {
+      EXPECT_NEAR(analytical_jacs[b][i], autodiff_jacs[b][i], kJacTol)
+          << "block=" << b << " element=" << i;
+    }
+  }
+}
+
+TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
+     AnalyticalVersusAutoDiff) {
+  const int N = 15;
+  const double dt = 0.005;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(1.0, -0.5, 9.81),
+                       Eigen::Vector3d(0.05, 0.1, -0.03),
+                       N,
+                       dt,
+                       &gt);
+
+  auto analytical_cost =
+      std::make_unique<AnalyticalVisualCentricImuPreintegrationCostFunction>(
+          &data);
+  std::unique_ptr<ceres::CostFunction> autodiff_cost(
+      VisualCentricImuPreintegrationCostFunctor::Create(&data));
+
+  // Perturb v_i slightly so residuals are nonzero (tests more Jacobian paths).
+  gt.v_i += Eigen::Vector3d(0.01, -0.02, 0.005);
+
+  double log_scale[1] = {0.0};
+  double gravity_direction[3] = {0, 0, -1};
+  double imu_from_cam[7] = {0, 0, 0, 1, 0, 0, 0};
+  double i_from_world[7], j_from_world[7];
+  double imu_state_i[9], imu_state_j[9];
+  PackRigid3d(gt.body_from_world_i, i_from_world);
+  PackRigid3d(gt.body_from_world_j, j_from_world);
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+
+  std::vector<double*> params = {log_scale,
+                                 gravity_direction,
+                                 imu_from_cam,
+                                 i_from_world,
+                                 imu_state_i,
+                                 j_from_world,
+                                 imu_state_j};
+
+  // Residuals should match.
+  double r1[15], r2[15];
+  EXPECT_TRUE(analytical_cost->Evaluate(params.data(), r1, nullptr));
+  EXPECT_TRUE(autodiff_cost->Evaluate(params.data(), r2, nullptr));
+  for (int i = 0; i < 15; ++i) {
+    EXPECT_NEAR(r1[i], r2[i], 1e-10) << "residual[" << i << "]";
+  }
+
+  // Compare Jacobians: analytical vs AutoDiff.
+  const int block_sizes[7] = {1, 3, 7, 7, 9, 7, 9};
+  std::vector<std::vector<double>> aj(7), adj(7);
+  std::vector<double*> aj_ptrs(7), adj_ptrs(7);
+  for (int b = 0; b < 7; ++b) {
+    aj[b].resize(15 * block_sizes[b], 0.0);
+    adj[b].resize(15 * block_sizes[b], 0.0);
+    aj_ptrs[b] = aj[b].data();
+    adj_ptrs[b] = adj[b].data();
+  }
+
+  EXPECT_TRUE(analytical_cost->Evaluate(params.data(), r1, aj_ptrs.data()));
+  EXPECT_TRUE(autodiff_cost->Evaluate(params.data(), r2, adj_ptrs.data()));
+
+  constexpr double kJacTol = 1e-8;
+  for (int b = 0; b < 7; ++b) {
+    for (int i = 0; i < 15 * block_sizes[b]; ++i) {
+      EXPECT_NEAR(aj[b][i], adj[b][i], kJacTol)
+          << "block=" << b << " element=" << i;
+    }
+  }
 }
 
 class PhysicsConsistencyTest

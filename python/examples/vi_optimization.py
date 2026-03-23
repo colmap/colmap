@@ -82,7 +82,7 @@ def add_imu_residuals(
         assert j_from_world is not None
 
         prob.add_residual_block(
-            pycolmap.cost_functions.VisualCentricImuPreintegrationCost(
+            pycolmap.cost_functions.AnalyticalVisualCentricImuPreintegrationCost(
                 integrated_m
             ),
             loss,

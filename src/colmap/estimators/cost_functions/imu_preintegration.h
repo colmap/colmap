@@ -105,11 +105,11 @@ class ImuPreintegrationCostFunctor {
 
     // World-frame positions: p_W = -R_WB * t_BW.
     Eigen::Quaternion<T> q_BW_i = EigenQuaternionMap<T>(body_from_world_i);
-    Eigen::Quaternion<T> q_WB_i = q_BW_i.inverse();
+    Eigen::Quaternion<T> q_WB_i = q_BW_i.conjugate();
     Eigen::Matrix<T, 3, 1> p_W_i =
         q_WB_i * EigenVector3Map<T>(body_from_world_i + 4) * T(-1.);
     Eigen::Quaternion<T> q_BW_j = EigenQuaternionMap<T>(body_from_world_j);
-    Eigen::Quaternion<T> q_WB_j = q_BW_j.inverse();
+    Eigen::Quaternion<T> q_WB_j = q_BW_j.conjugate();
     Eigen::Matrix<T, 3, 1> p_W_j =
         q_WB_j * EigenVector3Map<T>(body_from_world_j + 4) * T(-1.);
 
@@ -125,7 +125,7 @@ class ImuPreintegrationCostFunctor {
     // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
     // VINS-Mono, ORB-SLAM3). Equivalent to angle-axis for small errors.
     const Eigen::Quaternion<T> rotation_error =
-        (delta_R_corrected.inverse() * delta_R_measured).normalized();
+        (delta_R_corrected.conjugate() * delta_R_measured).normalized();
     residuals[0] = T(2.0) * rotation_error.x();
     residuals[1] = T(2.0) * rotation_error.y();
     residuals[2] = T(2.0) * rotation_error.z();
@@ -268,11 +268,6 @@ class AnalyticalImuPreintegrationCostFunction
 
     if (jacobians == nullptr) return true;
 
-    // Precompute for position Jacobian w.r.t. q_BW_i.
-    // r_pos = R(q_i) * (p_W_j - v_i*dt - 0.5*g*dt^2) + t_BW_i - delta_p
-    // d(r_pos)/d(q_i) = d(R(q_i) * u)/d(q_i) where u = dp_W + p_W_i
-    const Eigen::Vector3d u_pos = p_W_j - v_i * dt - 0.5 * gravity_ * dt * dt;
-
     // dvec: extracts xyz from xyzw quaternion (3x4 matrix).
     Eigen::Matrix<double, 3, 4> dvec = Eigen::Matrix<double, 3, 4>::Zero();
     dvec(0, 0) = 1.0;
@@ -293,13 +288,22 @@ class AnalyticalImuPreintegrationCostFunction
       J.block<3, 4>(0, 0) =
           2.0 * dvec * QuaternionLeftMultMatrix(q_left_i) * dconj;
 
-      // r_pos = R(q_i) * u_pos + t_i - delta_p
-      // dr_pos/dq_i = d(R(q_i)*u_pos)/dq_i
-      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_pos_qi;
-      QuaternionRotatePointWithJac(
-          parameters[0], u_pos.data(), J_pos_qi.data());
-      J.block<3, 4>(3, 0) = J_pos_qi;
-      // dr_pos/dt_i = I
+      // r_pos = R(q_i) * dp_W - delta_p where dp_W depends on q_i through
+      // p_W_i = -R(conj(q_i)) * t_i. Full derivative:
+      //   d(R(q_i)*dp_W)/dq_i = d(R(q_i)*v)/dq_i|_{v=dp_W}
+      //                       + R(q_i) * d(dp_W)/dq_i
+      // where d(dp_W)/dq_i = d(R(conj(q_i))*t_i)/dq_i (cross term from p_W_i).
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rq_dpW;
+      QuaternionRotatePointWithJac(parameters[0], dp_W.data(), J_Rq_dpW.data());
+      // Cross term: d(R(conj(q_i))*t_i)/dq_i = dRt_dqconj * dconj
+      Eigen::Quaterniond q_BW_i_conj = q_BW_i.conjugate();
+      double q_conj_i[4] = {
+          q_BW_i_conj.x(), q_BW_i_conj.y(), q_BW_i_conj.z(), q_BW_i_conj.w()};
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRt_dqconj;
+      QuaternionRotatePointWithJac(q_conj_i, t_BW_i.data(), dRt_dqconj.data());
+      J.block<3, 4>(3, 0) = J_Rq_dpW + R_BW_i * dRt_dqconj * dconj;
+      // dr_pos/dt_i: dp_W has -p_W_i, d(-p_W_i)/dt_i = R(conj(q_i)),
+      // so d(R(q_i)*dp_W)/dt_i = R(q_i)*R(conj(q_i)) = I for unit q.
       J.block<3, 3>(3, 4) = Eigen::Matrix3d::Identity();
 
       // r_vel = R(q_i) * dv_W - delta_v
@@ -469,15 +473,15 @@ class VisualCentricImuPreintegrationCostFunctor {
     // world_from_imu = world_from_cam * cam_from_imu
     //                = inverse(cam_from_world) * inverse(imu_from_cam)
     Eigen::Quaternion<T> cam_from_imu_q =
-        EigenQuaternionMap<T>(imu_from_cam).inverse();
+        EigenQuaternionMap<T>(imu_from_cam).conjugate();
     Eigen::Matrix<T, 3, 1> cam_from_imu_t =
         cam_from_imu_q * EigenVector3Map<T>(imu_from_cam + 4) * T(-1.);
     Eigen::Quaternion<T> world_from_i_q =
-        EigenQuaternionMap<T>(i_from_world).inverse();
+        EigenQuaternionMap<T>(i_from_world).conjugate();
     Eigen::Matrix<T, 3, 1> world_from_i_t =
         world_from_i_q * EigenVector3Map<T>(i_from_world + 4) * T(-1.);
     Eigen::Quaternion<T> world_from_j_q =
-        EigenQuaternionMap<T>(j_from_world).inverse();
+        EigenQuaternionMap<T>(j_from_world).conjugate();
     Eigen::Matrix<T, 3, 1> world_from_j_t =
         world_from_j_q * EigenVector3Map<T>(j_from_world + 4) * T(-1.);
     // Compose: world_from_imu = world_from_cam * cam_from_imu.
@@ -499,7 +503,7 @@ class VisualCentricImuPreintegrationCostFunctor {
     // Left convention: delta_R = body_from_world_j * world_from_body_i.
     // In world_from_imu quaternions: world_from_j^{-1} * world_from_i.
     const Eigen::Quaternion<T> delta_R_measured =
-        world_from_j_imu_q.inverse() * world_from_i_imu_q;
+        world_from_j_imu_q.conjugate() * world_from_i_imu_q;
     // First-order bias correction.
     Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
@@ -509,7 +513,7 @@ class VisualCentricImuPreintegrationCostFunctor {
     // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
     // VINS-Mono, ORB-SLAM3). Equivalent to angle-axis for small errors.
     const Eigen::Quaternion<T> rotation_error =
-        (delta_R_corrected.inverse() * delta_R_measured).normalized();
+        (delta_R_corrected.conjugate() * delta_R_measured).normalized();
     residuals[0] = T(2.0) * rotation_error.x();
     residuals[1] = T(2.0) * rotation_error.y();
     residuals[2] = T(2.0) * rotation_error.z();
@@ -518,7 +522,7 @@ class VisualCentricImuPreintegrationCostFunctor {
     const Eigen::Matrix<T, 3, 1> j_from_i_p =
         world_from_j_imu_t - world_from_i_imu_t;
     Eigen::Matrix<T, 3, 1> est_dp =
-        world_from_i_imu_q.inverse() *
+        world_from_i_imu_q.conjugate() *
         (j_from_i_p - v_i * dt - 0.5 * gravity * dt * dt);
     Eigen::Matrix<T, 3, 1> Dp = data_->delta_p.cast<T>() +
                                 data_->dp_dba.cast<T>() * delta_b_a +
@@ -529,7 +533,7 @@ class VisualCentricImuPreintegrationCostFunctor {
     // Velocity residual.
     const Eigen::Matrix<T, 3, 1> j_from_i_v = v_j - v_i;
     Eigen::Matrix<T, 3, 1> est_dv =
-        world_from_i_imu_q.inverse() * (j_from_i_v - gravity * dt);
+        world_from_i_imu_q.conjugate() * (j_from_i_v - gravity * dt);
     Eigen::Matrix<T, 3, 1> Dv = data_->delta_v.cast<T>() +
                                 data_->dv_dba.cast<T>() * delta_b_a +
                                 data_->dv_dbg.cast<T>() * delta_b_g;
@@ -544,6 +548,304 @@ class VisualCentricImuPreintegrationCostFunctor {
     // Weight by sqrt information.
     Eigen::Map<Eigen::Matrix<T, 15, 1>> residuals_data(residuals);
     residuals_data.applyOnTheLeft(data_->sqrt_information.cast<T>());
+    return true;
+  }
+
+ private:
+  const PreintegratedImuData* data_;
+};
+
+// Analytical-Jacobian version of VisualCentricImuPreintegrationCostFunctor.
+// Same residual and parameter layout, but implements Evaluate() with
+// hand-derived Jacobians instead of Ceres AutoDiff.
+//
+// Approximations (same as AnalyticalImuPreintegrationCostFunction):
+//   1. Rotation Jacobian w.r.t. gyro bias uses first-order linearization
+//      (Forster et al. TRO 2016, Eq. 53).
+//   2. Quaternion Jacobians assume unit-norm quaternions.
+//
+// Residual: 15-dimensional (same as VisualCentricImuPreintegrationCostFunctor)
+//
+// Parameter blocks:
+//   [0] log_scale:          1
+//   [1] gravity_direction:  3
+//   [2] imu_from_cam:       7
+//   [3] i_from_world:       7
+//   [4] i_imu_state:        9
+//   [5] j_from_world:       7
+//   [6] j_imu_state:        9
+class AnalyticalVisualCentricImuPreintegrationCostFunction
+    : public ceres::SizedCostFunction<15, 1, 3, 7, 7, 9, 7, 9> {
+ public:
+  explicit AnalyticalVisualCentricImuPreintegrationCostFunction(
+      const PreintegratedImuData* data)
+      : data_(data) {
+    THROW_CHECK(!data_->sqrt_information.isZero())
+        << "PreintegratedImuData must be finalized before use in cost "
+           "function.";
+  }
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    // Extract parameters.
+    const double log_scale = parameters[0][0];
+    Eigen::Map<const Eigen::Vector3d> gravity_dir(parameters[1]);
+    Eigen::Map<const Eigen::Quaterniond> q_IC(parameters[2]);
+    Eigen::Map<const Eigen::Vector3d> t_IC(parameters[2] + 4);
+    Eigen::Map<const Eigen::Quaterniond> q_CW_i(parameters[3]);
+    Eigen::Map<const Eigen::Vector3d> t_CW_i(parameters[3] + 4);
+    Eigen::Map<const Eigen::Vector3d> v_i_data(parameters[4]);
+    Eigen::Map<const Eigen::Vector3d> bg_i(parameters[4] + 3);
+    Eigen::Map<const Eigen::Vector3d> ba_i(parameters[4] + 6);
+    Eigen::Map<const Eigen::Quaterniond> q_CW_j(parameters[5]);
+    Eigen::Map<const Eigen::Vector3d> t_CW_j(parameters[5] + 4);
+    Eigen::Map<const Eigen::Vector3d> v_j_data(parameters[6]);
+    Eigen::Map<const Eigen::Vector3d> bg_j(parameters[6] + 3);
+    Eigen::Map<const Eigen::Vector3d> ba_j(parameters[6] + 6);
+
+    const double dt = data_->delta_t;
+    const double scale = std::exp(log_scale);
+    const double grav_mag = data_->gravity_magnitude;
+    const Eigen::Vector3d gravity = gravity_dir * grav_mag;
+
+    // Intermediate transforms.
+    const Eigen::Quaterniond q_CI = q_IC.conjugate();
+    const Eigen::Matrix3d R_CI = q_CI.toRotationMatrix();
+    const Eigen::Vector3d t_CI = -(R_CI * t_IC);
+
+    const Eigen::Quaterniond q_WC_i = q_CW_i.conjugate();
+    const Eigen::Matrix3d R_WC_i = q_WC_i.toRotationMatrix();
+    const Eigen::Vector3d t_WC_i = -(R_WC_i * t_CW_i);
+
+    const Eigen::Quaterniond q_WC_j = q_CW_j.conjugate();
+    const Eigen::Matrix3d R_WC_j = q_WC_j.toRotationMatrix();
+    const Eigen::Vector3d t_WC_j = -(R_WC_j * t_CW_j);
+
+    const Eigen::Quaterniond q_WI_i = q_WC_i * q_CI;
+    const Eigen::Vector3d t_WI_i_unscaled = R_WC_i * t_CI + t_WC_i;
+    const Eigen::Quaterniond q_WI_j = q_WC_j * q_CI;
+    const Eigen::Vector3d t_WI_j_unscaled = R_WC_j * t_CI + t_WC_j;
+
+    const Eigen::Vector3d p_i = t_WI_i_unscaled * scale;
+    const Eigen::Vector3d p_j = t_WI_j_unscaled * scale;
+    const Eigen::Vector3d v_i = v_i_data * scale;
+    const Eigen::Vector3d v_j = v_j_data * scale;
+
+    const Eigen::Quaterniond q_IW_i = q_WI_i.conjugate();
+    const Eigen::Matrix3d R_IW_i = q_IW_i.toRotationMatrix();
+
+    // Bias correction.
+    const Eigen::Vector3d dbg = bg_i - data_->biases.head<3>();
+    const Eigen::Vector3d dba = ba_i - data_->biases.tail<3>();
+    const Eigen::Vector3d delta_p =
+        data_->delta_p + data_->dp_dbg * dbg + data_->dp_dba * dba;
+    const Eigen::Vector3d delta_v =
+        data_->delta_v + data_->dv_dbg * dbg + data_->dv_dba * dba;
+    const Eigen::Quaterniond dq_correction =
+        QuaternionFromAngleAxis(data_->dR_dbg * dbg);
+    const Eigen::Quaterniond delta_q =
+        (data_->delta_R * dq_correction).normalized();
+
+    // Residuals.
+    Eigen::Map<Eigen::Matrix<double, 15, 1>> r(residuals);
+    const Eigen::Quaterniond q_error =
+        delta_q.conjugate() * q_WI_j.conjugate() * q_WI_i;
+    r.segment<3>(0) = 2.0 * q_error.vec();
+
+    const Eigen::Vector3d dp_W = p_j - p_i - v_i * dt - 0.5 * gravity * dt * dt;
+    r.segment<3>(3) = R_IW_i * dp_W - delta_p;
+
+    const Eigen::Vector3d dv_W = v_j - v_i - gravity * dt;
+    r.segment<3>(6) = R_IW_i * dv_W - delta_v;
+
+    r.segment<3>(9) = bg_j - bg_i;
+    r.segment<3>(12) = ba_j - ba_i;
+
+    r = data_->sqrt_information * r;
+
+    if (jacobians == nullptr) return true;
+
+    // Common Jacobian helpers.
+    Eigen::Matrix<double, 3, 4> dvec = Eigen::Matrix<double, 3, 4>::Zero();
+    dvec(0, 0) = 1.0;
+    dvec(1, 1) = 1.0;
+    dvec(2, 2) = 1.0;
+    Eigen::Matrix4d dconj = Eigen::Vector4d(-1, -1, -1, 1).asDiagonal();
+
+    // [0] log_scale (1).
+    if (jacobians[0] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 15, 1>> J(jacobians[0]);
+      J.setZero();
+      // d(r_pos)/d(log_s) = R_IW_i * (t_WI_j - t_WI_i - v_i_data*dt) * scale
+      J.segment<3>(3) =
+          R_IW_i * (t_WI_j_unscaled - t_WI_i_unscaled - v_i_data * dt) * scale;
+      // d(r_vel)/d(log_s) = R_IW_i * (v_j_data - v_i_data) * scale
+      J.segment<3>(6) = R_IW_i * (v_j_data - v_i_data) * scale;
+      J = data_->sqrt_information * J;
+    }
+
+    // [1] gravity_direction (3).
+    if (jacobians[1] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 15, 3, Eigen::RowMajor>> J(jacobians[1]);
+      J.setZero();
+      J.block<3, 3>(3, 0) = -0.5 * dt * dt * grav_mag * R_IW_i;
+      J.block<3, 3>(6, 0) = -dt * grav_mag * R_IW_i;
+      J = data_->sqrt_information * J;
+    }
+
+    // [2] imu_from_cam (7).
+    if (jacobians[2] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 15, 7, Eigen::RowMajor>> J(jacobians[2]);
+      J.setZero();
+
+      // Rotation residual: q_error = A * conj(q_WI_j) * q_WI_i
+      // where q_WI_k = q_WC_k * q_CI, q_CI = conj(q_IC).
+      // Using: q_error = A * conj(q_CI) * P * q_CI where P =
+      // conj(q_WC_j)*q_WC_i. d(q_error)/d(q_IC) via quaternion product rule:
+      //   d(conj(q_CI)*P*q_CI)/d(q_CI) = L(conj(q_CI))*L(P) + R(P*q_CI)*dconj
+      //   Then chain through d(q_CI)/d(q_IC) = dconj.
+      const Eigen::Quaterniond A = delta_q.conjugate();
+      const Eigen::Quaterniond P = q_WC_j.conjugate() * q_WC_i;
+      J.block<3, 4>(0, 0) = 2.0 * dvec * QuaternionLeftMultMatrix(A) *
+                            (QuaternionLeftMultMatrix(q_CI.conjugate()) *
+                                 QuaternionLeftMultMatrix(P) +
+                             QuaternionRightMultMatrix(P * q_CI) * dconj) *
+                            dconj;
+
+      // Position residual: through R_IW_i and through p_i, p_j.
+      // q_IW_i = conj(q_CI)*conj(q_WC_i) = q_IC*conj(q_WC_i)
+      // d(q_IW_i)/d(q_IC) = R(conj(q_WC_i))
+      Eigen::Matrix4d dqIWi_dqIC =
+          QuaternionRightMultMatrix(q_WC_i.conjugate());
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRdpW_dqIWi;
+      {
+        double q_arr[4] = {q_IW_i.x(), q_IW_i.y(), q_IW_i.z(), q_IW_i.w()};
+        QuaternionRotatePointWithJac(q_arr, dp_W.data(), dRdpW_dqIWi.data());
+      }
+
+      // t_CI = -R(q_CI)*t_IC, d(t_CI)/d(q_IC) = -dRtIC_dqCI * dconj
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRtIC_dqCI;
+      {
+        double q_arr[4] = {q_CI.x(), q_CI.y(), q_CI.z(), q_CI.w()};
+        QuaternionRotatePointWithJac(q_arr, t_IC.data(), dRtIC_dqCI.data());
+      }
+      Eigen::Matrix<double, 3, 4> dtCI_dqIC = -dRtIC_dqCI * dconj;
+
+      J.block<3, 4>(3, 0) = dRdpW_dqIWi * dqIWi_dqIC +
+                            R_IW_i * scale * (R_WC_j - R_WC_i) * dtCI_dqIC;
+      J.block<3, 3>(3, 4) = scale * R_IW_i * (R_WC_i - R_WC_j) * R_CI;
+
+      // Velocity residual: only through R_IW_i.
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRdvW_dqIWi;
+      {
+        double q_arr[4] = {q_IW_i.x(), q_IW_i.y(), q_IW_i.z(), q_IW_i.w()};
+        QuaternionRotatePointWithJac(q_arr, dv_W.data(), dRdvW_dqIWi.data());
+      }
+      J.block<3, 4>(6, 0) = dRdvW_dqIWi * dqIWi_dqIC;
+
+      J = data_->sqrt_information * J;
+    }
+
+    // [3] i_from_world (7).
+    if (jacobians[3] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 15, 7, Eigen::RowMajor>> J(jacobians[3]);
+      J.setZero();
+
+      // q_WI_i = conj(q_CW_i) * q_CI.
+      // d(q_WI_i)/d(q_CW_i) = R(q_CI) * dconj
+      Eigen::Matrix4d dqWIi_dqCWi = QuaternionRightMultMatrix(q_CI) * dconj;
+
+      // Rotation: d(q_error)/d(q_WI_i) = L(A * conj(q_WI_j))
+      const Eigen::Quaterniond A_qIWj =
+          delta_q.conjugate() * q_WI_j.conjugate();
+      J.block<3, 4>(0, 0) =
+          2.0 * dvec * QuaternionLeftMultMatrix(A_qIWj) * dqWIi_dqCWi;
+
+      // Position: through R_IW_i and p_i.
+      // q_IW_i = q_IC * q_CW_i, d(q_IW_i)/d(q_CW_i) = L(q_IC)
+      Eigen::Matrix4d dqIWi_dqCWi = QuaternionLeftMultMatrix(q_IC);
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRdpW_dqIWi;
+      {
+        double q_arr[4] = {q_IW_i.x(), q_IW_i.y(), q_IW_i.z(), q_IW_i.w()};
+        QuaternionRotatePointWithJac(q_arr, dp_W.data(), dRdpW_dqIWi.data());
+      }
+      // t_WI_i = R(conj(q_CW_i)) * (t_CI - t_CW_i)
+      const Eigen::Vector3d v_tWIi = t_CI - t_CW_i;
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRv_dqWCi;
+      {
+        double q_arr[4] = {q_WC_i.x(), q_WC_i.y(), q_WC_i.z(), q_WC_i.w()};
+        QuaternionRotatePointWithJac(q_arr, v_tWIi.data(), dRv_dqWCi.data());
+      }
+      J.block<3, 4>(3, 0) =
+          dRdpW_dqIWi * dqIWi_dqCWi - scale * R_IW_i * dRv_dqWCi * dconj;
+      J.block<3, 3>(3, 4) = scale * R_IW_i * R_WC_i;
+
+      // Velocity: through R_IW_i only.
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRdvW_dqIWi;
+      {
+        double q_arr[4] = {q_IW_i.x(), q_IW_i.y(), q_IW_i.z(), q_IW_i.w()};
+        QuaternionRotatePointWithJac(q_arr, dv_W.data(), dRdvW_dqIWi.data());
+      }
+      J.block<3, 4>(6, 0) = dRdvW_dqIWi * dqIWi_dqCWi;
+
+      J = data_->sqrt_information * J;
+    }
+
+    // [4] i_imu_state (9).
+    if (jacobians[4] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 15, 9, Eigen::RowMajor>> J(jacobians[4]);
+      J.setZero();
+      J.block<3, 3>(0, 3) = -data_->dR_dbg;
+      J.block<3, 3>(3, 0) = -dt * scale * R_IW_i;
+      J.block<3, 3>(3, 3) = -data_->dp_dbg;
+      J.block<3, 3>(3, 6) = -data_->dp_dba;
+      J.block<3, 3>(6, 0) = -scale * R_IW_i;
+      J.block<3, 3>(6, 3) = -data_->dv_dbg;
+      J.block<3, 3>(6, 6) = -data_->dv_dba;
+      J.block<3, 3>(9, 3) = -Eigen::Matrix3d::Identity();
+      J.block<3, 3>(12, 6) = -Eigen::Matrix3d::Identity();
+      J = data_->sqrt_information * J;
+    }
+
+    // [5] j_from_world (7).
+    if (jacobians[5] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 15, 7, Eigen::RowMajor>> J(jacobians[5]);
+      J.setZero();
+
+      // q_WI_j = conj(q_CW_j) * q_CI.
+      // d(q_WI_j)/d(q_CW_j) = R(q_CI) * dconj
+      Eigen::Matrix4d dqWIj_dqCWj = QuaternionRightMultMatrix(q_CI) * dconj;
+
+      // Rotation: d(q_error)/d(q_WI_j) = L(A) * R(q_WI_i) * dconj
+      J.block<3, 4>(0, 0) =
+          2.0 * dvec * QuaternionLeftMultMatrix(delta_q.conjugate()) *
+          QuaternionRightMultMatrix(q_WI_i) * dconj * dqWIj_dqCWj;
+
+      // Position: through p_j only.
+      // t_WI_j = R(conj(q_CW_j)) * (t_CI - t_CW_j)
+      const Eigen::Vector3d v_tWIj = t_CI - t_CW_j;
+      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRv_dqWCj;
+      {
+        double q_arr[4] = {q_WC_j.x(), q_WC_j.y(), q_WC_j.z(), q_WC_j.w()};
+        QuaternionRotatePointWithJac(q_arr, v_tWIj.data(), dRv_dqWCj.data());
+      }
+      J.block<3, 4>(3, 0) = scale * R_IW_i * dRv_dqWCj * dconj;
+      J.block<3, 3>(3, 4) = -scale * R_IW_i * R_WC_j;
+
+      J = data_->sqrt_information * J;
+    }
+
+    // [6] j_imu_state (9).
+    if (jacobians[6] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 15, 9, Eigen::RowMajor>> J(jacobians[6]);
+      J.setZero();
+      J.block<3, 3>(6, 0) = scale * R_IW_i;
+      J.block<3, 3>(9, 3) = Eigen::Matrix3d::Identity();
+      J.block<3, 3>(12, 6) = Eigen::Matrix3d::Identity();
+      J = data_->sqrt_information * J;
+    }
+
     return true;
   }
 
