@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/sensor/imu.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -40,15 +41,13 @@
 
 namespace colmap {
 
-enum class ImuIntegrationMethod {
-  MIDPOINT,
-  // TODO: Add RK4. More accurate for lower IMU rates. Requires closed-form
-  // rotation integrals and RK4 covariance propagation.
-  // RK4,
-};
+// Midpoint: trapezoidal integration, sufficient for typical 200-1000 Hz IMUs.
+// RK4: closed-form rotation integrals with analytical bias Jacobians and
+//      RK4 covariance propagation, more accurate for lower IMU rates.
+MAKE_ENUM_CLASS(ImuIntegrationMethod, 0, MIDPOINT, RK4);
 
 struct ImuPreintegrationOptions {
-  ImuIntegrationMethod method = ImuIntegrationMethod::MIDPOINT;
+  ImuIntegrationMethod method = ImuIntegrationMethod::RK4;
 
   // Whether to add integration noise to the covariance propagation.
   bool use_integration_noise = false;
@@ -65,13 +64,15 @@ struct ImuPreintegrationOptions {
 // Serializable, trivially copyable across threads, and consumable by
 // different cost functions without knowledge of the integration algorithm.
 //
-// Left convention:
+// Left-multiply integration convention:
 //   delta_R = body_from_world_j * world_from_body_i
-//             (left-multiply: delta_R_{k+1} = dR * delta_R_k)
-//   delta_p = body_from_world_i^T * (p_W_j - p_W_i - v_W_i * dt - 0.5 * g *
-//   dt^2) delta_v = body_from_world_i^T * (v_W_j - v_W_i - g * dt)
+//             (accumulated via left-multiply: delta_R_{k+1} = dR * delta_R_k)
+//   delta_p = delta_R^T * (p_W_j - p_W_i - v_W_i * dt - 0.5 * g * dt^2)
+//   delta_v = delta_R^T * (v_W_j - v_W_i - g * dt)
 //
-// Note: delta_R^T rotates vectors from body_k to body_i reference frame.
+// Right-perturbation model for bias Jacobians:
+//   delta_R(bg + dbg) ≈ delta_R * Exp(dR_dbg * dbg)
+//   The bias correction is always right-multiplied in the cost function.
 struct PreintegratedImuData {
   // Preintegrated deltas.
   double delta_t = 0;  // Accumulated time. [seconds]
@@ -155,6 +156,12 @@ class ImuPreintegrator {
                          double dt,
                          double accel_noise_density,
                          double gyro_noise_density);
+
+  void IntegrateRK4(const Eigen::Vector3d& accel_true,
+                    const Eigen::Vector3d& gyro_true,
+                    double dt,
+                    double accel_noise_density,
+                    double gyro_noise_density);
 
   // Integration time window. [nanoseconds]
   timestamp_t t_start_ = kInvalidTimestamp;

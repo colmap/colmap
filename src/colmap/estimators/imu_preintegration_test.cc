@@ -226,13 +226,71 @@ TEST(ImuPreintegrator, CovariancePositiveDefinite) {
   EXPECT_GT(solver.eigenvalues().minCoeff(), 0.0);
 }
 
-// Helper: integrate with given biases and return extracted data.
+TEST(ImuPreintegrator, MidpointAndRK4CovarianceSimilar) {
+  const int N = 20;
+  const double dt = 0.005;
+
+  Eigen::Vector3d accel(0.5, -0.3, 9.81);
+  Eigen::Vector3d gyro(0.1, -0.05, 0.02);
+
+  // Integrate with midpoint.
+  ImuPreintegrationOptions opts_mid;
+  opts_mid.method = ImuIntegrationMethod::MIDPOINT;
+  ImuCalibration calib;
+  ImuPreintegrator integrator_mid(
+      opts_mid, calib, SecondsToTimestamp(0.0), SecondsToTimestamp(N * dt));
+  for (int i = 0; i <= N; ++i) {
+    integrator_mid.FeedImu(
+        ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+  }
+  PreintegratedImuData data_mid = integrator_mid.Extract();
+
+  // Integrate with RK4.
+  ImuPreintegrationOptions opts_rk4;
+  opts_rk4.method = ImuIntegrationMethod::RK4;
+  ImuPreintegrator integrator_rk4(
+      opts_rk4, calib, SecondsToTimestamp(0.0), SecondsToTimestamp(N * dt));
+  for (int i = 0; i <= N; ++i) {
+    integrator_rk4.FeedImu(
+        ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+  }
+  PreintegratedImuData data_rk4 = integrator_rk4.Extract();
+
+  // Both covariances should be SPD.
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>> solver_mid(
+      data_mid.covariance);
+  EXPECT_TRUE(solver_mid.info() == Eigen::Success);
+  EXPECT_GT(solver_mid.eigenvalues().minCoeff(), 0.0);
+
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>> solver_rk4(
+      data_rk4.covariance);
+  EXPECT_TRUE(solver_rk4.info() == Eigen::Success);
+  EXPECT_GT(solver_rk4.eigenvalues().minCoeff(), 0.0);
+
+  // Covariances should be similar (not identical — different integration
+  // methods give different discretization). Compare eigenvalue spectra.
+  Eigen::Matrix<double, 15, 1> eig_mid = solver_mid.eigenvalues();
+  Eigen::Matrix<double, 15, 1> eig_rk4 = solver_rk4.eigenvalues();
+
+  for (int i = 0; i < 15; ++i) {
+    // Eigenvalues should agree within 10% relative.
+    double rel_diff =
+        std::abs(eig_mid(i) - eig_rk4(i)) / std::max(eig_mid(i), eig_rk4(i));
+    EXPECT_LT(rel_diff, 0.1)
+        << "eigenvalue[" << i << "]: midpoint=" << eig_mid(i)
+        << " rk4=" << eig_rk4(i);
+  }
+}
+
+// Helper: integrate with given biases and method, return extracted data.
 PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
                                          const Eigen::Vector3d& gyro,
                                          int N,
                                          double dt,
-                                         const Eigen::Vector6d& biases) {
+                                         const Eigen::Vector6d& biases,
+                                         ImuIntegrationMethod method) {
   ImuPreintegrationOptions options;
+  options.method = method;
   ImuCalibration calib;
   timestamp_t t_start = SecondsToTimestamp(0.0);
   timestamp_t t_end = SecondsToTimestamp(N * dt);
@@ -244,7 +302,11 @@ PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
   return integrator.Extract();
 }
 
-TEST(ImuPreintegrator, BiasJacobiansNumeric) {
+class BiasJacobianTest : public ::testing::TestWithParam<ImuIntegrationMethod> {
+};
+
+TEST_P(BiasJacobianTest, NumericDerivative) {
+  const ImuIntegrationMethod method = GetParam();
   const int N = 20;
   const double dt = 0.005;
   const double eps = 1e-7;
@@ -254,25 +316,24 @@ TEST(ImuPreintegrator, BiasJacobiansNumeric) {
   Eigen::Vector6d biases = Eigen::Vector6d::Zero();
 
   // Reference integration at zero biases.
-  PreintegratedImuData data0 = IntegrateWithBiases(accel, gyro, N, dt, biases);
+  PreintegratedImuData data0 =
+      IntegrateWithBiases(accel, gyro, N, dt, biases, method);
 
   // Numeric Jacobians via central differences.
   Eigen::Matrix3d dR_dbg_numeric, dp_dbg_numeric, dv_dbg_numeric;
   Eigen::Matrix3d dp_dba_numeric, dv_dba_numeric;
 
   for (int k = 0; k < 3; ++k) {
-    // Perturb gyro bias (indices 0-2 in biases vector).
     Eigen::Vector6d biases_plus = biases;
     Eigen::Vector6d biases_minus = biases;
     biases_plus(k) += eps;
     biases_minus(k) -= eps;
 
     PreintegratedImuData data_plus =
-        IntegrateWithBiases(accel, gyro, N, dt, biases_plus);
+        IntegrateWithBiases(accel, gyro, N, dt, biases_plus, method);
     PreintegratedImuData data_minus =
-        IntegrateWithBiases(accel, gyro, N, dt, biases_minus);
+        IntegrateWithBiases(accel, gyro, N, dt, biases_minus, method);
 
-    // dR/dbg: use angle-axis difference.
     Eigen::AngleAxisd dR_aa(data_minus.delta_R.inverse() * data_plus.delta_R);
     dR_dbg_numeric.col(k) = (dR_aa.angle() * dR_aa.axis()) / (2 * eps);
 
@@ -283,16 +344,15 @@ TEST(ImuPreintegrator, BiasJacobiansNumeric) {
   }
 
   for (int k = 0; k < 3; ++k) {
-    // Perturb accel bias (indices 3-5 in biases vector).
     Eigen::Vector6d biases_plus = biases;
     Eigen::Vector6d biases_minus = biases;
     biases_plus(3 + k) += eps;
     biases_minus(3 + k) -= eps;
 
     PreintegratedImuData data_plus =
-        IntegrateWithBiases(accel, gyro, N, dt, biases_plus);
+        IntegrateWithBiases(accel, gyro, N, dt, biases_plus, method);
     PreintegratedImuData data_minus =
-        IntegrateWithBiases(accel, gyro, N, dt, biases_minus);
+        IntegrateWithBiases(accel, gyro, N, dt, biases_minus, method);
 
     dp_dba_numeric.col(k) =
         (data_plus.delta_p - data_minus.delta_p) / (2 * eps);
@@ -300,7 +360,6 @@ TEST(ImuPreintegrator, BiasJacobiansNumeric) {
         (data_plus.delta_v - data_minus.delta_v) / (2 * eps);
   }
 
-  // Compare analytical vs numeric.
   const double tol = 1e-4;
   EXPECT_THAT(data0.dR_dbg, EigenMatrixNear(dR_dbg_numeric, tol));
   EXPECT_THAT(data0.dp_dbg, EigenMatrixNear(dp_dbg_numeric, tol));
@@ -308,6 +367,11 @@ TEST(ImuPreintegrator, BiasJacobiansNumeric) {
   EXPECT_THAT(data0.dp_dba, EigenMatrixNear(dp_dba_numeric, tol));
   EXPECT_THAT(data0.dv_dba, EigenMatrixNear(dv_dba_numeric, tol));
 }
+
+INSTANTIATE_TEST_SUITE_P(ImuPreintegrator,
+                         BiasJacobianTest,
+                         ::testing::Values(ImuIntegrationMethod::MIDPOINT,
+                                           ImuIntegrationMethod::RK4));
 
 }  // namespace
 }  // namespace colmap

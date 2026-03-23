@@ -91,8 +91,11 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
                                          double dt,
                                          double accel_noise_density,
                                          double gyro_noise_density) {
-  // Left convention: delta_R = R_BW_j * R_WB_i (left-multiply).
-  // delta_R^T rotates accel from body_k to body_i reference frame.
+  // Left convention midpoint (trapezoidal) integration.
+  // Based on Forster et al. "On-Manifold Preintegration for Real-Time
+  // Visual-Inertial Odometry", TRO 2016. The original paper uses right-multiply
+  // integration; here we use left-multiply integration with right-perturbation
+  // bias Jacobians. delta_R^T rotates accel from body_k to body_i frame.
 
   // Integration step.
   Eigen::Quaterniond dq = QuaternionFromAngleAxis(gyro_true * dt);
@@ -103,7 +106,6 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
   // velocity
   data_.delta_v += Rs_T * accel_true * dt;
   // rotation: delta_R_{k+1} = Exp(omega * dt) * delta_R_k.
-  Eigen::Matrix3d dR = dq.toRotationMatrix();
   data_.delta_R = dq * data_.delta_R;
   // time
   data_.delta_t += dt;
@@ -171,6 +173,246 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
   data_.covariance.block<3, 3>(12, 12) += Eigen::Matrix3d::Identity() * vars_ba;
 }
 
+void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
+                                    const Eigen::Vector3d& gyro_true,
+                                    double dt,
+                                    double accel_noise_density,
+                                    double gyro_noise_density) {
+  // Left convention with closed-form rotation integrals, analytical bias
+  // Jacobians, and RK4 covariance propagation.
+  //
+  // Based on Eckenhoff et al. "Closed-form Preintegration Methods for
+  // Graph-based Visual-Inertial Navigation", IJRR 2018 (left convention).
+
+  const Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
+  const double dt2 = dt * dt;
+
+  // Angular velocity quantities.
+  const double mag_w = gyro_true.norm();
+  const double w_dt = mag_w * dt;
+  const bool small_w = (mag_w < 1e-6);
+  const double cos_wt = std::cos(w_dt);
+  const double sin_wt = std::sin(w_dt);
+
+  const Eigen::Matrix3d w_x = CrossProductMatrix(gyro_true);
+  const Eigen::Matrix3d a_x = CrossProductMatrix(accel_true);
+  const Eigen::Matrix3d w_x_2 = w_x * w_x;
+
+  //==========================================================================
+  // Step 1: State update (closed-form rotation + analytical integrals).
+  //==========================================================================
+
+  // Incremental rotation Exp(w*dt) via Rodrigues formula.
+  const Eigen::Matrix3d dR =
+      small_w ? I3 + dt * w_x + (dt2 / 2) * w_x_2
+              : I3 + (sin_wt / mag_w) * w_x +
+                    ((1.0 - cos_wt) / (mag_w * mag_w)) * w_x_2;
+
+  // Accumulated rotation before and after update.
+  const Eigen::Matrix3d Rs = data_.delta_R.toRotationMatrix();
+  const Eigen::Matrix3d Rs_new = dR * Rs;
+
+  // Closed-form integral coefficients for position and velocity.
+  double f_1, f_2, f_3, f_4;
+  if (small_w) {
+    f_1 = -(dt2 * dt / 3);
+    f_2 = (dt2 * dt2 / 8);
+    f_3 = -(dt2 / 2);
+    f_4 = (dt2 * dt / 6);
+  } else {
+    const double mag_w2 = mag_w * mag_w;
+    f_1 = (w_dt * cos_wt - sin_wt) / (mag_w2 * mag_w);
+    f_2 = (w_dt * w_dt - 2 * cos_wt - 2 * w_dt * sin_wt + 2) /
+          (2 * mag_w2 * mag_w2);
+    f_3 = -(1 - cos_wt) / mag_w2;
+    f_4 = (w_dt - sin_wt) / (mag_w2 * mag_w);
+  }
+
+  // Integration matrices for position (H_p) and velocity (H_v).
+  // Closed-form integral coefficients (same signs as Eckenhoff IJRR 2018).
+  const Eigen::Matrix3d alpha_arg = (dt2 / 2.0) * I3 + f_1 * w_x + f_2 * w_x_2;
+  const Eigen::Matrix3d beta_arg = dt * I3 + f_3 * w_x + f_4 * w_x_2;
+  // Rotation for closed-form integrals: delta_R_old * Exp(+w*dt).
+  const Eigen::Matrix3d R_integral = Rs * dR;
+  const Eigen::Matrix3d H_p = R_integral * alpha_arg;
+  const Eigen::Matrix3d H_v = R_integral * beta_arg;
+
+  // Update state.
+  data_.delta_p += data_.delta_v * dt + H_p * accel_true;
+  data_.delta_v += H_v * accel_true;
+  data_.delta_R = Eigen::Quaterniond(Rs_new);
+  data_.delta_t += dt;
+
+  //==========================================================================
+  // Step 2: Bias Jacobians (analytical).
+  //==========================================================================
+
+  // Right Jacobian for rotation bias update.
+  const Eigen::Vector3d w_hatdt = gyro_true * dt;
+  const Eigen::Matrix3d w_tx = CrossProductMatrix(w_hatdt);
+  const Eigen::Matrix3d Jr =
+      small_w ? I3 - 0.5 * w_tx + (1.0 / 6.0) * w_tx * w_tx
+              : I3 - ((1 - cos_wt) / (w_dt * w_dt)) * w_tx +
+                    ((w_dt - sin_wt) / (w_dt * w_dt * w_dt)) * w_tx * w_tx;
+
+  // Bias Jacobians (Eckenhoff closed-form, omega convention).
+  // During RK4, data_.dR_dbg/dp_dbg/dv_dbg accumulate in omega convention
+  // (d/d(omega)). Converted to bias convention (negated) in Extract().
+
+  // Accel bias Jacobians (bias convention directly).
+  data_.dp_dba += dt * data_.dv_dba - H_p;
+  data_.dv_dba -= H_v;
+
+  // Eckenhoff formulas use omega convention (d/d(omega)) for dR_dbg,
+  // where omega = gyro_measured - bias_gyro. data_.dR_dbg stores bias
+  // convention (d/d(bias) = -d/d(omega)).
+  const Eigen::Matrix3d dR_T = dR.transpose();
+  Eigen::Matrix3d dR_domega = -data_.dR_dbg;
+  dR_domega = dR_T * dR_domega + Jr * dt;
+
+  const Eigen::Vector3d e_1(1, 0, 0);
+  const Eigen::Vector3d e_2(0, 1, 0);
+  const Eigen::Vector3d e_3(0, 0, 1);
+  const Eigen::Matrix3d e_1x = CrossProductMatrix(e_1);
+  const Eigen::Matrix3d e_2x = CrossProductMatrix(e_2);
+  const Eigen::Matrix3d e_3x = CrossProductMatrix(e_3);
+
+  // Gyro bias Jacobians (Eckenhoff closed-form).
+  const Eigen::Matrix3d d_R_bw_1 =
+      -R_integral * CrossProductMatrix(dR_domega * e_1);
+  const Eigen::Matrix3d d_R_bw_2 =
+      -R_integral * CrossProductMatrix(dR_domega * e_2);
+  const Eigen::Matrix3d d_R_bw_3 =
+      -R_integral * CrossProductMatrix(dR_domega * e_3);
+
+  double df_dw[4][3];
+  {
+    double g[4];
+    if (small_w) {
+      g[0] = -(dt2 * dt2 * dt / 15);
+      g[1] = (dt2 * dt2 * dt2 / 72);
+      g[2] = -(dt2 * dt2 / 12);
+      g[3] = (dt2 * dt2 * dt / 60);
+    } else {
+      const double mw2 = mag_w * mag_w;
+      const double mw3 = mw2 * mag_w;
+      const double mw4 = mw2 * mw2;
+      const double mw5 = mw3 * mw2;
+      const double mw6 = mw3 * mw3;
+      g[0] = (w_dt * w_dt * sin_wt - 3 * sin_wt + 3 * w_dt * cos_wt) / mw5;
+      g[1] = (w_dt * w_dt - 4 * cos_wt - 4 * w_dt * sin_wt +
+              w_dt * w_dt * cos_wt + 4) /
+             mw6;
+      g[2] = (2 * (cos_wt - 1) + w_dt * sin_wt) / mw4;
+      g[3] = (2 * w_dt + w_dt * cos_wt - 3 * sin_wt) / mw5;
+    }
+    for (int k = 0; k < 3; ++k) {
+      for (int j = 0; j < 4; ++j) {
+        df_dw[j][k] = gyro_true(k) * g[j];
+      }
+    }
+  }
+
+  const Eigen::Matrix3d* d_R_bw[3] = {&d_R_bw_1, &d_R_bw_2, &d_R_bw_3};
+  const Eigen::Matrix3d* e_kx[3] = {&e_1x, &e_2x, &e_3x};
+
+  data_.dp_dbg += data_.dv_dbg * dt;
+  for (int k = 0; k < 3; ++k) {
+    Eigen::Matrix3d d_alpha_dw_k =
+        *d_R_bw[k] * alpha_arg +
+        R_integral *
+            (df_dw[0][k] * w_x - f_1 * (*e_kx[k]) + df_dw[1][k] * w_x_2 -
+             f_2 * ((*e_kx[k]) * w_x + w_x * (*e_kx[k])));
+    Eigen::Matrix3d d_beta_dw_k =
+        *d_R_bw[k] * beta_arg +
+        R_integral *
+            (df_dw[2][k] * w_x - f_3 * (*e_kx[k]) + df_dw[3][k] * w_x_2 -
+             f_4 * ((*e_kx[k]) * w_x + w_x * (*e_kx[k])));
+    data_.dp_dbg.col(k) += d_alpha_dw_k * accel_true;
+    data_.dv_dbg.col(k) += d_beta_dw_k * accel_true;
+  }
+
+  //==========================================================================
+  // Step 3: Covariance propagation (RK4).
+  //==========================================================================
+
+  // Continuous-time noise matrix Q_c (12x12):
+  // [gyro_noise, gyro_bias_walk, accel_noise, accel_bias_walk].
+  // Noise vector: [gyro_noise(3), gyro_walk(3), accel_noise(3), accel_walk(3)].
+  Eigen::Matrix<double, 12, 12> Q_c = Eigen::Matrix<double, 12, 12>::Zero();
+  Q_c.block<3, 3>(0, 0) = I3 * (gyro_noise_density * gyro_noise_density);
+  Q_c.block<3, 3>(3, 3) = I3 * (calib_.bias_gyro_random_walk_sigma *
+                                calib_.bias_gyro_random_walk_sigma);
+  Q_c.block<3, 3>(6, 6) = I3 * (accel_noise_density * accel_noise_density);
+  Q_c.block<3, 3>(9, 9) = I3 * (calib_.bias_accel_random_walk_sigma *
+                                calib_.bias_accel_random_walk_sigma);
+
+  // Helper to build F and G matrices at a given rotation R_eval.
+  // Covariance state: [rotation(3), position(3), velocity(3),
+  //                    bias_gyro(3), bias_accel(3)]
+  // Helper to build continuous-time F (15x15) and G (15x12) matrices.
+  // Our covariance state: [rotation(3), position(3), velocity(3),
+  //                        bias_gyro(3), bias_accel(3)]
+  // Noise vector: [gyro_noise(3), gyro_walk(3), accel_noise(3), accel_walk(3)]
+  auto build_F_G = [&](const Eigen::Matrix3d& R_eval)
+      -> std::pair<Eigen::Matrix<double, 15, 15>,
+                   Eigen::Matrix<double, 15, 12>> {
+    Eigen::Matrix<double, 15, 15> F = Eigen::Matrix<double, 15, 15>::Zero();
+    F.block<3, 3>(0, 0) = -w_x;                       // d(rot)/d(rot)
+    F.block<3, 3>(0, 9) = -I3;                        // d(rot)/d(bias_gyro)
+    F.block<3, 3>(3, 6) = I3;                         // d(pos)/d(vel)
+    F.block<3, 3>(6, 0) = -R_eval.transpose() * a_x;  // d(vel)/d(rot)
+    F.block<3, 3>(6, 12) = -R_eval.transpose();       // d(vel)/d(bias_accel)
+
+    Eigen::Matrix<double, 15, 12> G = Eigen::Matrix<double, 15, 12>::Zero();
+    G.block<3, 3>(0, 0) = -I3;                  // rot ← gyro_noise
+    G.block<3, 3>(9, 3) = I3;                   // bias_gyro ← gyro_walk
+    G.block<3, 3>(6, 6) = -R_eval.transpose();  // vel ← accel_noise
+    G.block<3, 3>(12, 9) = I3;                  // bias_accel ← accel_walk
+
+    return {F, G};
+  };
+
+  // Midpoint rotation for k2/k3 evaluation.
+  const Eigen::Matrix3d R_mid =
+      small_w
+          ? I3 - 0.5 * dt * w_x + (std::pow(0.5 * dt, 2) / 2) * w_x_2
+          : I3 - (std::sin(mag_w * 0.5 * dt) / mag_w) * w_x +
+                ((1.0 - std::cos(mag_w * 0.5 * dt)) / (mag_w * mag_w)) * w_x_2;
+  const Eigen::Matrix3d R_eval_mid = R_mid * Rs;
+
+  // k1: evaluate at start rotation.
+  auto [F1, G1] = build_F_G(Rs);
+  Eigen::Matrix<double, 15, 15> P_dot_1 = F1 * data_.covariance +
+                                          data_.covariance * F1.transpose() +
+                                          G1 * Q_c * G1.transpose();
+
+  // k2: evaluate at midpoint rotation.
+  auto [F2, G2] = build_F_G(R_eval_mid);
+  Eigen::Matrix<double, 15, 15> P_2 = data_.covariance + P_dot_1 * dt / 2.0;
+  Eigen::Matrix<double, 15, 15> P_dot_2 =
+      F2 * P_2 + P_2 * F2.transpose() + G2 * Q_c * G2.transpose();
+
+  // k3: same Jacobians as k2 (same midpoint).
+  Eigen::Matrix<double, 15, 15> P_3 = data_.covariance + P_dot_2 * dt / 2.0;
+  Eigen::Matrix<double, 15, 15> P_dot_3 =
+      F2 * P_3 + P_3 * F2.transpose() + G2 * Q_c * G2.transpose();
+
+  // k4: evaluate at end rotation.
+  auto [F4, G4] = build_F_G(Rs_new);
+  Eigen::Matrix<double, 15, 15> P_4 = data_.covariance + P_dot_3 * dt;
+  Eigen::Matrix<double, 15, 15> P_dot_4 =
+      F4 * P_4 + P_4 * F4.transpose() + G4 * Q_c * G4.transpose();
+
+  // Combine RK4 increments.
+  data_.covariance +=
+      (dt / 6.0) * (P_dot_1 + 2.0 * P_dot_2 + 2.0 * P_dot_3 + P_dot_4);
+  data_.covariance = 0.5 * (data_.covariance + data_.covariance.transpose());
+
+  // Store dR_dbg in bias convention.
+  data_.dR_dbg = -dR_domega;
+}
+
 void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
                                                const ImuMeasurement& curr) {
   Eigen::Vector3d accel_s = prev.accel;
@@ -229,8 +471,10 @@ void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
       IntegrateMidpoint(
           accel_true, gyro_true, dt, accel_noise_density, gyro_noise_density);
       break;
-    default:
-      LOG(FATAL) << "Integration method not implemented.";
+    case ImuIntegrationMethod::RK4:
+      IntegrateRK4(
+          accel_true, gyro_true, dt, accel_noise_density, gyro_noise_density);
+      break;
   }
 }
 

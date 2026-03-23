@@ -14,18 +14,25 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindImuPreintegration(py::module& m) {
-  using ImuPreITGOpt = ImuPreintegrationOptions;
-  py::classh<ImuPreITGOpt> PyImuPreintegrationOptions(
+  auto PyImuIntegrationMethod =
+      py::enum_<ImuIntegrationMethod>(m, "ImuIntegrationMethod")
+          .value("MIDPOINT", ImuIntegrationMethod::MIDPOINT)
+          .value("RK4", ImuIntegrationMethod::RK4);
+  AddStringToEnumConstructor(PyImuIntegrationMethod);
+
+  using ImuPreintegrationOptions = ImuPreintegrationOptions;
+  py::classh<ImuPreintegrationOptions> PyImuPreintegrationOptions(
       m, "ImuPreintegrationOptions");
   PyImuPreintegrationOptions.def(py::init<>())
+      .def_readwrite("method", &ImuPreintegrationOptions::method)
       .def_readwrite("use_integration_noise",
-                     &ImuPreITGOpt::use_integration_noise)
+                     &ImuPreintegrationOptions::use_integration_noise)
       .def_readwrite("integration_noise_density",
-                     &ImuPreITGOpt::integration_noise_density)
+                     &ImuPreintegrationOptions::integration_noise_density)
       .def_readwrite("reintegrate_vel_norm_thres",
-                     &ImuPreITGOpt::reintegrate_vel_norm_thres)
+                     &ImuPreintegrationOptions::reintegrate_vel_norm_thres)
       .def_readwrite("reintegrate_angle_norm_thres",
-                     &ImuPreITGOpt::reintegrate_angle_norm_thres);
+                     &ImuPreintegrationOptions::reintegrate_angle_norm_thres);
 
   py::classh<PreintegratedImuData> PyPreintegratedImuData(
       m, "PreintegratedImuData");

@@ -134,13 +134,11 @@ void PackImuState(const Eigen::Vector3d& velocity,
 TEST(ImuPreintegrationCostFunctor, ZeroResidualAtGroundTruth) {
   const int N = 10;
   const double dt = 0.01;
-  Eigen::Vector3d accel(0, 0, 9.81);  // stationary (accel = -gravity)
+  Eigen::Vector3d accel(0, 0, 9.81);
   Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
 
   TrajectoryGT gt;
   PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
-
-  // Set sqrt_information to identity for cleaner residual checking.
   data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
 
   std::unique_ptr<ceres::CostFunction> cost_function(
@@ -168,7 +166,6 @@ TEST(ImuPreintegrationCostFunctor, ZeroResidualAtGroundTruth) {
 TEST(ImuPreintegrationCostFunctor, ZeroResidualWithMotion) {
   const int N = 20;
   const double dt = 0.005;
-  // Non-trivial IMU readings: accel + gyro.
   Eigen::Vector3d accel(0.5, -0.3, 9.81);
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);
 
@@ -200,8 +197,6 @@ TEST(ImuPreintegrationCostFunctor, ZeroResidualWithMotion) {
 
 TEST(VisualCentricImuPreintegrationCostFunctor,
      ZeroResidualIdentityExtrinsics) {
-  // When imu_from_cam = identity and scale = 1, the visual-centric cost
-  // function should produce the same residual as the body-centric one.
   const int N = 10;
   const double dt = 0.01;
   Eigen::Vector3d accel(0, 0, 9.81);
@@ -214,11 +209,8 @@ TEST(VisualCentricImuPreintegrationCostFunctor,
   std::unique_ptr<ceres::CostFunction> cost_function(
       VisualCentricImuPreintegrationCostFunctor::Create(&data));
 
-  // With identity imu_from_cam, cam_from_world == body_from_world.
-  double log_scale[1] = {0.0};  // scale = exp(0) = 1
-  // Gravity direction = [0, 0, -1] (unit vector pointing down).
+  double log_scale[1] = {0.0};
   double gravity_direction[3] = {0, 0, -1};
-  // Identity extrinsics.
   double imu_from_cam[7] = {0, 0, 0, 1, 0, 0, 0};
   double i_from_world[7], j_from_world[7];
   double imu_state_i[9], imu_state_j[9];
@@ -244,12 +236,7 @@ TEST(VisualCentricImuPreintegrationCostFunctor,
   }
 }
 
-TEST(ImuPreintegrationCostConsistency, MatchesVisualCentric) {
-  // Both cost functions should produce the same residual when:
-  // - imu_from_cam = identity
-  // - scale = 1
-  // - gravity_direction matches the gravity vector used in the body cost fn
-  // - poses are identical
+TEST(ImuPreintegrationCostConsistency, ImuAndVisualCentricMatch) {
   const int N = 15;
   const double dt = 0.005;
   Eigen::Vector3d accel(1.0, -0.5, 9.81);
@@ -259,10 +246,9 @@ TEST(ImuPreintegrationCostConsistency, MatchesVisualCentric) {
   PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
   data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
 
-  // Perturb ground truth slightly so residuals are non-zero.
   gt.v_i += Eigen::Vector3d(0.01, -0.02, 0.005);
 
-  // Body-centric (4-param).
+  // Body-centric.
   std::unique_ptr<ceres::CostFunction> body_cost(
       ImuPreintegrationCostFunctor::Create(&data, kGravity));
   double body_i[7], body_j[7], state_i[9], state_j[9];
@@ -276,7 +262,7 @@ TEST(ImuPreintegrationCostConsistency, MatchesVisualCentric) {
   const double* body_params[4] = {body_i, state_i, body_j, state_j};
   EXPECT_TRUE(body_cost->Evaluate(body_params, body_residuals, nullptr));
 
-  // Visual-centric (7-param) with identity extrinsics and unit scale.
+  // Visual-centric with identity extrinsics and unit scale.
   std::unique_ptr<ceres::CostFunction> visual_cost(
       VisualCentricImuPreintegrationCostFunctor::Create(&data));
   double log_scale[1] = {0.0};
