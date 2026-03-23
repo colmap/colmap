@@ -6,6 +6,7 @@ Data was initialized and rectified with online MPS service from Project Aria.
 import os
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pyceres
@@ -20,9 +21,15 @@ class ImuReintegrationCallback(pyceres.IterationCallback):
     """Ceres iteration callback that reintegrates IMU preintegration data
     when the optimized biases have drifted beyond the linearization point."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pyceres.IterationCallback.__init__(self)
-        self.edges: list[tuple] = []
+        self.edges: list[
+            tuple[
+                pycolmap.ImuPreintegrator,
+                pycolmap.PreintegratedImuData,
+                pycolmap.ImuState,
+            ]
+        ] = []
 
     def add_edge(
         self,
@@ -32,7 +39,9 @@ class ImuReintegrationCallback(pyceres.IterationCallback):
     ) -> None:
         self.edges.append((integrator, data, imu_state))
 
-    def __call__(self, summary: pyceres.IterationSummary):
+    def __call__(
+        self, summary: pyceres.IterationSummary
+    ) -> pyceres.CallbackReturnType:
         if not summary.step_is_successful:
             return pyceres.CallbackReturnType.SOLVER_CONTINUE
         for integrator, data, imu_state in self.edges:
@@ -47,7 +56,7 @@ def add_imu_residuals(
     prob: pyceres.Problem,
     reconstruction: pycolmap.Reconstruction,
     imu_data: dict[int, pycolmap.PreintegratedImuData],
-    variables: dict[str, object],
+    variables: dict[str, Any],
     optimize_scale: bool = True,
     optimize_gravity: bool = True,
     optimize_imu_from_cam: bool = True,
@@ -57,14 +66,20 @@ def add_imu_residuals(
     for image_id, integrated_m in imu_data.items():
         image_i = reconstruction.images[image_id]
         image_j = reconstruction.images[image_id + 1]
+        assert image_i.frame is not None
+        assert image_i.frame.rig is not None
         assert len(image_i.frame.rig.non_ref_sensors) == 0, (
             "IMU cost function requires trivial frame (no rig)"
         )
+        assert image_j.frame is not None
+        assert image_j.frame.rig is not None
         assert len(image_j.frame.rig.non_ref_sensors) == 0, (
             "IMU cost function requires trivial frame (no rig)"
         )
         i_from_world = image_i.frame.rig_from_world
         j_from_world = image_j.frame.rig_from_world
+        assert i_from_world is not None
+        assert j_from_world is not None
 
         prob.add_residual_block(
             pycolmap.cost_functions.VisualCentricImuPreintegrationCost(
@@ -97,7 +112,7 @@ def add_imu_residuals(
         prob.set_parameter_block_constant(variables["imu_from_cam"].params)
     if not optimize_bias:
         constant_idxs = np.arange(3, 9)
-        for image_id, _ in variables["imu_states"].items():
+        for image_id in variables["imu_states"]:
             prob.set_manifold(
                 variables["imu_states"][image_id].params,
                 pyceres.SubsetManifold(9, constant_idxs),
@@ -111,12 +126,12 @@ def solve_bundle_adjustment(
     ba_config: pycolmap.BundleAdjustmentConfig,
     integrators: dict[int, pycolmap.ImuPreintegrator],
     imu_data: dict[int, pycolmap.PreintegratedImuData],
-    variables: dict[str, object],
+    variables: dict[str, Any],
 ) -> pyceres.SolverSummary:
     bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
-    problem = bundle_adjuster.problem
+    problem = bundle_adjuster.problem  # type: ignore[attr-defined]
     add_imu_residuals(problem, reconstruction, imu_data, variables)
     solver_options = ba_options.ceres.create_solver_options(ba_config, problem)
     solver_options.minimizer_progress_to_stdout = True
@@ -129,7 +144,7 @@ def solve_bundle_adjustment(
             imu_data[image_id],
             variables["imu_states"][image_id],
         )
-    solver_options.callbacks.append(callback)
+    solver_options.callbacks.append(callback)  # type: ignore[attr-defined]
     solver_options.update_state_every_iteration = True
     summary = pyceres.SolverSummary()
     pyceres.solve(solver_options, problem, summary)
@@ -143,7 +158,7 @@ def adjust_global_bundle(
     ba_options: pycolmap.BundleAdjustmentOptions,
     integrators: dict[int, pycolmap.ImuPreintegrator],
     imu_data: dict[int, pycolmap.PreintegratedImuData],
-    variables: dict[str, object],
+    variables: dict[str, Any],
 ) -> None:
     reconstruction = mapper.reconstruction
 
@@ -177,7 +192,7 @@ def run_iterative(
     tri_options: pycolmap.IncrementalTriangulatorOptions,
     integrators: dict[int, pycolmap.ImuPreintegrator],
     imu_data: dict[int, pycolmap.PreintegratedImuData],
-    variables: dict[str, object],
+    variables: dict[str, Any],
     normalize_reconstruction: bool = True,
 ) -> None:
     """Equivalent to mapper.iterative_global_refinement(...)."""
@@ -217,7 +232,7 @@ def iterative_global_refinement(
     mapper: pycolmap.IncrementalMapper,
     integrators: dict[int, pycolmap.ImuPreintegrator],
     imu_data: dict[int, pycolmap.PreintegratedImuData],
-    variables: dict[str, object],
+    variables: dict[str, Any],
 ) -> None:
     ba_options = options.get_global_bundle_adjustment()
     ba_options.print_summary = True
@@ -243,15 +258,14 @@ def iterative_refine(
     recon: pycolmap.Reconstruction,
     integrators: dict[int, pycolmap.ImuPreintegrator],
     imu_data: dict[int, pycolmap.PreintegratedImuData],
-    variables: dict[str, object],
+    variables: dict[str, Any],
 ) -> pycolmap.Reconstruction:
-    database = pycolmap.Database(database_path)
-    image_names = []
-    for image_id in recon.reg_image_ids():
-        image_names.append(recon.images[image_id].name)
-    database_cache = pycolmap.DatabaseCache.create(
-        database, 15, False, set(image_names)
-    )
+    with pycolmap.Database.open(database_path) as database:
+        image_names = []
+        for image_id in recon.reg_image_ids():
+            image_names.append(recon.images[image_id].name)
+        cache_options = pycolmap.DatabaseCacheOptions()
+        database_cache = pycolmap.DatabaseCache.create(database, cache_options)
     mapper = pycolmap.IncrementalMapper(database_cache)
     mapper.begin_reconstruction(recon)
     options = pycolmap.IncrementalPipelineOptions()
@@ -273,7 +287,7 @@ def run_vi_optimization(
     output_folder: str,
     integrators: dict[int, pycolmap.ImuPreintegrator],
     imu_data: dict[int, pycolmap.PreintegratedImuData],
-    variables: dict[str, object],
+    variables: dict[str, Any],
 ) -> None:
     rec = pycolmap.Reconstruction(sfm_path)
     os.makedirs(output_folder, exist_ok=True)
@@ -309,9 +323,9 @@ def run() -> None:
     ).item()
     reconstruction = pycolmap.Reconstruction(sfm_path)
     num_images = len(reconstruction.images)
-    imu_data = np.load(imu_data_path, allow_pickle=True)
+    raw_imu_data = np.load(imu_data_path, allow_pickle=True)
     imu_measurements = pycolmap.ImuMeasurements()
-    for row in imu_data:
+    for row in raw_imu_data:
         imu_measurements.append(
             pycolmap.ImuMeasurement(
                 int(row[0]),
@@ -341,8 +355,8 @@ def run() -> None:
     # functions). The cost function holds a pointer to the data, and
     # reintegration updates the data in place.
     integrators: dict[int, pycolmap.ImuPreintegrator] = {}
-    imu_data: dict[int, pycolmap.PreintegratedImuData] = {}
-    for i in np.arange(1, num_images - 1):
+    preintegrated: dict[int, pycolmap.PreintegratedImuData] = {}
+    for i in range(1, num_images - 1):
         t1, t2 = image_timestamps[i], image_timestamps[i + 1]
         # Timestamps are in nanoseconds (int64).
         ms = pycolmap.get_measurements_contain_edge(imu_measurements, t1, t2)
@@ -350,15 +364,15 @@ def run() -> None:
             continue
         integrators[i] = pycolmap.ImuPreintegrator(options, imu_calib, t1, t2)
         integrators[i].feed_imu(ms)
-        imu_data[i] = integrators[i].extract()
+        preintegrated[i] = integrators[i].extract()
 
     # Set up variables.
-    variables: dict[str, object] = {}
+    variables: dict[str, Any] = {}
     variables["imu_from_cam"] = pycolmap.Rigid3d()
     variables["gravity"] = np.array([0.0, 0.0, -1.0])
     variables["log_scale"] = np.array([0.0])
     variables["imu_states"] = {}
-    for i in np.arange(1, num_images):
+    for i in range(1, num_images):
         dt = pycolmap.timestamp_diff_seconds(
             image_timestamps[i + 1], image_timestamps[i]
         )
@@ -374,7 +388,7 @@ def run() -> None:
         database_path,
         output_path,
         integrators,
-        imu_data,
+        preintegrated,
         variables,
     )
 
@@ -387,7 +401,7 @@ def run() -> None:
     logging.info(f"imu_from_cam = {imu_from_cam}")
     logging.info(f"gravity = {gravity}")
     logging.info(f"scale = exp({log_scale}) = {np.exp(log_scale)}")
-    for image_id in np.arange(1, 402, 50).tolist():
+    for image_id in range(1, 402, 50):
         logging.info(f"imu_states[{image_id}] = {imu_states[image_id]}")
 
 
