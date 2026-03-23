@@ -98,20 +98,21 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
   // bias Jacobians. delta_R^T rotates accel from body_k to body_i frame.
 
   // Integration step.
-  Eigen::Quaterniond dq = QuaternionFromAngleAxis(gyro_true * dt);
+  // dR = Exp(-omega * dt): body_from_world evolves as R_BW_{k+1} = Exp(-w*dt) *
+  // R_BW_k.
+  Eigen::Quaterniond dq = QuaternionFromAngleAxis(-gyro_true * dt);
   Eigen::Matrix3d Rs = data_.delta_R.toRotationMatrix();
   Eigen::Matrix3d Rs_T = Rs.transpose();
   // translation
   data_.delta_p += data_.delta_v * dt + Rs_T * accel_true * 0.5 * dt * dt;
   // velocity
   data_.delta_v += Rs_T * accel_true * dt;
-  // rotation: delta_R_{k+1} = Exp(omega * dt) * delta_R_k.
+  // rotation: delta_R_{k+1} = Exp(-omega * dt) * delta_R_k.
   data_.delta_R = dq * data_.delta_R;
   // time
   data_.delta_t += dt;
 
   // Update jacobians over bias.
-  Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(gyro_true * dt);
   Eigen::Matrix3d skew_accel = CrossProductMatrix(accel_true);
 
   // Covariance propagation.
@@ -147,9 +148,12 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
   data_.dv_dbg += A.block<3, 3>(6, 9);
   data_.dv_dba += A.block<3, 3>(6, 12);
 
-  // rotation: right-perturbation + left-integration transport.
-  // dR_dbg_{k+1} = dR_dbg_k - delta_R_k^T * Jr * dt
-  Eigen::Matrix3d dR_dbg_updated = data_.dR_dbg - Rs_T * Jr * dt;
+  // rotation: bias Jacobian transport (right-perturbation, additive).
+  // From BCH: Exp(-w*dt + dbg*dt) ≈ Exp(-w*dt) * Exp(Jl(w*dt) * dbg * dt).
+  // Right-perturbation transport gives the additive update:
+  //   dR_dbg_{k+1} = dR_dbg_k + delta_R_k^T * Jl(w*dt) * dt
+  Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(gyro_true * dt);
+  Eigen::Matrix3d dR_dbg_updated = data_.dR_dbg + Rs_T * Jl * dt;
   A.block<3, 3>(0, 9) = dR_dbg_updated - data_.dR_dbg;
   data_.dR_dbg = dR_dbg_updated;
 
@@ -202,10 +206,11 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   // Step 1: State update (closed-form rotation + analytical integrals).
   //==========================================================================
 
-  // Incremental rotation Exp(w*dt) via Rodrigues formula.
+  // Incremental rotation Exp(-w*dt) via Rodrigues formula.
+  // Body-from-world evolves as R_BW_{k+1} = Exp(-w*dt) * R_BW_k.
   const Eigen::Matrix3d dR =
-      small_w ? I3 + dt * w_x + (dt2 / 2) * w_x_2
-              : I3 + (sin_wt / mag_w) * w_x +
+      small_w ? I3 - dt * w_x + (dt2 / 2) * w_x_2
+              : I3 - (sin_wt / mag_w) * w_x +
                     ((1.0 - cos_wt) / (mag_w * mag_w)) * w_x_2;
 
   // Accumulated rotation before and after update.
@@ -232,8 +237,9 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   // Closed-form integral coefficients (same signs as Eckenhoff IJRR 2018).
   const Eigen::Matrix3d alpha_arg = (dt2 / 2.0) * I3 + f_1 * w_x + f_2 * w_x_2;
   const Eigen::Matrix3d beta_arg = dt * I3 + f_3 * w_x + f_4 * w_x_2;
-  // Rotation for closed-form integrals: delta_R_old * Exp(+w*dt).
-  const Eigen::Matrix3d R_integral = Rs * dR;
+  // Rotation for closed-form integrals: Rs_new^T = (Exp(-w*dt) * Rs)^T.
+  // This rotates the integral result into the body_i reference frame.
+  const Eigen::Matrix3d R_integral = Rs_new.transpose();
   const Eigen::Matrix3d H_p = R_integral * alpha_arg;
   const Eigen::Matrix3d H_v = R_integral * beta_arg;
 
@@ -248,31 +254,33 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   //==========================================================================
   // Analytical derivatives of the closed-form integrals w.r.t. gyro/accel
   // biases. Based on Eckenhoff et al. IJRR 2018.
-  //
-  // Note: the state_transition_jacobians approach (dJ/dt = F*J with the
-  // continuous-time F matrix) does NOT work here because the F matrix models
-  // d(delta_v)/dt = -R(t)^T * a, while the actual Eckenhoff state update uses
-  // H_v = R_integral * beta_arg where R_integral = Rs * Exp(+w*dt).
-  // These differ (R(t)^T = Rs^T * Exp(-w*t) ≠ Rs * Exp(+w*dt)), causing
-  // transposed Jacobians.
 
-  // Right Jacobian for rotation bias update.
+  const Eigen::Matrix3d Rs_T = Rs.transpose();
+
+  // Accel bias Jacobians (bias convention directly).
+  data_.dp_dba += dt * data_.dv_dba - H_p;
+  data_.dv_dba -= H_v;
+
+  // Rotation bias Jacobian: two representations.
+  // 1) data_.dR_dbg: correct bias convention (additive Jl transport) for the
+  //    cost function bias correction: delta_R(bg+dbg) ≈ delta_R *
+  //    Exp(dR_dbg*dbg).
+  // 2) J_q_: Eckenhoff multiplicative transport (dR * J_q + Jr * dt), used
+  //    internally by the d_R_bw and dp_dbg/dv_dbg formulas. Matches the
+  //    convention assumed by the Eckenhoff IJRR 2018 derivation.
   const Eigen::Vector3d w_hatdt = gyro_true * dt;
   const Eigen::Matrix3d w_tx = CrossProductMatrix(w_hatdt);
   const Eigen::Matrix3d Jr =
       small_w ? I3 - 0.5 * w_tx + (1.0 / 6.0) * w_tx * w_tx
               : I3 - ((1 - cos_wt) / (w_dt * w_dt)) * w_tx +
                     ((w_dt - sin_wt) / (w_dt * w_dt * w_dt)) * w_tx * w_tx;
+  Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(gyro_true * dt);
 
-  // Accel bias Jacobians (bias convention directly).
-  data_.dp_dba += dt * data_.dv_dba - H_p;
-  data_.dv_dba -= H_v;
+  data_.dR_dbg += Rs_T * Jl * dt;
 
-  // Rotation bias Jacobian (omega convention internally).
-  // dR_dbg stores bias convention (d/d(bias) = -d/d(omega)).
-  const Eigen::Matrix3d dR_T = dR.transpose();
-  Eigen::Matrix3d dR_domega = -data_.dR_dbg;
-  dR_domega = dR_T * dR_domega + Jr * dt;
+  // The Eckenhoff d_R_bw formula expects the multiplicative-transport J_q
+  // (≈ Jr(w*T)*T), which is the transpose of our data_.dR_dbg (≈ Jl(w*T)*T).
+  const Eigen::Matrix3d J_q = data_.dR_dbg.transpose();
 
   const Eigen::Vector3d e_1(1, 0, 0);
   const Eigen::Vector3d e_2(0, 1, 0);
@@ -281,13 +289,10 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   const Eigen::Matrix3d e_2x = CrossProductMatrix(e_2);
   const Eigen::Matrix3d e_3x = CrossProductMatrix(e_3);
 
-  // Derivatives of R_integral w.r.t. omega (Eckenhoff d_R_bw).
-  const Eigen::Matrix3d d_R_bw_1 =
-      -R_integral * CrossProductMatrix(dR_domega * e_1);
-  const Eigen::Matrix3d d_R_bw_2 =
-      -R_integral * CrossProductMatrix(dR_domega * e_2);
-  const Eigen::Matrix3d d_R_bw_3 =
-      -R_integral * CrossProductMatrix(dR_domega * e_3);
+  // Derivatives of R_integral (Eckenhoff d_R_bw).
+  const Eigen::Matrix3d d_R_bw_1 = -R_integral * CrossProductMatrix(J_q * e_1);
+  const Eigen::Matrix3d d_R_bw_2 = -R_integral * CrossProductMatrix(J_q * e_2);
+  const Eigen::Matrix3d d_R_bw_3 = -R_integral * CrossProductMatrix(J_q * e_3);
 
   // Derivatives of f1-f4 coefficients w.r.t. omega components.
   double df_dw[4][3];
@@ -321,11 +326,10 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   const Eigen::Matrix3d* d_R_bw[3] = {&d_R_bw_1, &d_R_bw_2, &d_R_bw_3};
   const Eigen::Matrix3d* e_kx[3] = {&e_1x, &e_2x, &e_3x};
 
-  // Gyro bias Jacobians: position and velocity.
-  // TODO: The d_R_bw term (-R * [J * e_k]_x) introduces a first-order
+  // Gyro bias Jacobians: position and velocity (Eckenhoff IJRR 2018).
+  // TODO: The d_R_bw term (-R * [J_q * e_k]_x) introduces a first-order
   // approximation that causes ~1e-5 absolute error on dp_dbg diagonal
-  // entries where d_R_bw and df contributions nearly cancel. This is an
-  // inherent limitation of the Eckenhoff analytical formula.
+  // entries where d_R_bw and df contributions nearly cancel.
   data_.dp_dbg += data_.dv_dbg * dt;
   for (int k = 0; k < 3; ++k) {
     Eigen::Matrix3d d_alpha_dw_k =
@@ -379,11 +383,11 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
     return {F, G};
   };
 
-  // Midpoint rotation for k2/k3 evaluation: Exp(+w*dt/2) * Rs.
+  // Midpoint rotation for k2/k3 evaluation: Exp(-w*dt/2) * Rs.
   const Eigen::Matrix3d R_mid =
       small_w
-          ? I3 + 0.5 * dt * w_x + (std::pow(0.5 * dt, 2) / 2) * w_x_2
-          : I3 + (std::sin(mag_w * 0.5 * dt) / mag_w) * w_x +
+          ? I3 - 0.5 * dt * w_x + (std::pow(0.5 * dt, 2) / 2) * w_x_2
+          : I3 - (std::sin(mag_w * 0.5 * dt) / mag_w) * w_x +
                 ((1.0 - std::cos(mag_w * 0.5 * dt)) / (mag_w * mag_w)) * w_x_2;
   const Eigen::Matrix3d R_eval_mid = R_mid * Rs;
 
@@ -414,9 +418,6 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   data_.covariance +=
       (dt / 6.0) * (P_dot_1 + 2.0 * P_dot_2 + 2.0 * P_dot_3 + P_dot_4);
   data_.covariance = 0.5 * (data_.covariance + data_.covariance.transpose());
-
-  // Store dR_dbg in bias convention.
-  data_.dR_dbg = -dR_domega;
 }
 
 void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,

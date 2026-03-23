@@ -116,8 +116,8 @@ TEST(ImuPreintegrator, ConstantRotation) {
   PreintegratedImuData data = integrator.Extract();
   const double T = N * dt;
 
-  // Expected rotation: Exp(gyro * T).
-  Eigen::AngleAxisd expected_aa(gyro.norm() * T, gyro.normalized());
+  // Expected rotation: Exp(-gyro * T) (body_from_world convention).
+  Eigen::AngleAxisd expected_aa(gyro.norm() * T, -gyro.normalized());
   EXPECT_NEAR(
       data.delta_R.angularDistance(Eigen::Quaterniond(expected_aa)), 0.0, 1e-6);
 }
@@ -329,11 +329,8 @@ TEST_P(BiasJacobianTest, NumericDerivative) {
 
   const double tol = 1e-4;
   EXPECT_THAT(data0.dR_dbg, EigenMatrixNear(dR_dbg_numeric, tol));
-  // TODO: RK4 dp_dbg has ~1e-5 absolute error on diagonal entries due to the
-  // Eckenhoff d_R_bw approximation (-R * [J * e_k]_x). The continuous-time
-  // state transition approach (dJ/dt = F*J) is not applicable here because the
-  // F matrix models R(t)^T while the Eckenhoff state update uses R_integral =
-  // Rs * Exp(+w*dt), causing a fundamental mismatch.
+  // TODO: RK4 dp_dbg has ~1e-5 absolute error on diagonal entries due to
+  // the Eckenhoff d_R_bw first-order approximation.
   if (method != ImuIntegrationMethod::RK4) {
     EXPECT_THAT(data0.dp_dbg, EigenMatrixNear(dp_dbg_numeric, tol));
   }
