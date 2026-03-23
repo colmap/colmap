@@ -262,7 +262,7 @@ PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
   timestamp_t t_start = SecondsToTimestamp(0.0);
   timestamp_t t_end = SecondsToTimestamp(N * dt);
   ImuPreintegrator integrator(options, calib, t_start, t_end);
-  integrator.SetBiases(biases);
+  integrator.SetLinearizationBiases(biases);
   for (int i = 0; i <= N; ++i) {
     integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
   }

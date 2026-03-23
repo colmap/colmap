@@ -98,7 +98,7 @@ void ImuPreintegrator::Reset() {
   has_started_ = false;
 }
 
-void ImuPreintegrator::SetBiases(const Eigen::Vector6d& biases) {
+void ImuPreintegrator::SetLinearizationBiases(const Eigen::Vector6d& biases) {
   biases_ = biases;
   data_.biases = biases;
 }
@@ -561,7 +561,7 @@ void ImuPreintegrator::Reintegrate() {
 }
 
 void ImuPreintegrator::Reintegrate(const Eigen::Vector6d& biases) {
-  SetBiases(biases);
+  SetLinearizationBiases(biases);
   Reintegrate();
 }
 

@@ -131,8 +131,10 @@ class ImuPreintegrator {
   // Reset the integrator state.
   void Reset();
 
-  // Set linearization biases.
-  void SetBiases(const Eigen::Vector6d& biases);
+  // Set the bias linearization point [bias_gyro(3), bias_accel(3)].
+  // These biases are subtracted from raw IMU measurements during integration.
+  // Must be called before FeedImu() if nonzero biases are expected.
+  void SetLinearizationBiases(const Eigen::Vector6d& biases);
 
   // Feed measurements. Must be added in chronological order.
   void FeedImu(const ImuMeasurement& m);
@@ -146,9 +148,16 @@ class ImuPreintegrator {
   // references by pointer, so the cost function sees the new values.
   void Update(PreintegratedImuData* data);
 
-  // Check if reintegration is needed and perform it.
+  // Check whether the bias has drifted enough from the linearization point
+  // to warrant reintegration, based on accumulated angle and velocity norms.
   bool ShouldReintegrate(const Eigen::Vector6d& biases) const;
+
+  // Re-integrate all stored measurements from scratch using the current
+  // linearization biases. Calls Finalize() internally.
   void Reintegrate();
+
+  // Set new linearization biases and re-integrate. Convenience wrapper
+  // for SetLinearizationBiases() + Reintegrate().
   void Reintegrate(const Eigen::Vector6d& biases);
 
   // State queries.
