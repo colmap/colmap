@@ -21,10 +21,10 @@ void BindImu(py::module& m) {
   PyImuCalibration.def(py::init<>())
       .def_readwrite("acc_noise_density", &ImuCalibration::acc_noise_density)
       .def_readwrite("gyro_noise_density", &ImuCalibration::gyro_noise_density)
-      .def_readwrite("acc_bias_random_walk_sigma",
-                     &ImuCalibration::acc_bias_random_walk_sigma)
-      .def_readwrite("gyro_bias_random_walk_sigma",
-                     &ImuCalibration::gyro_bias_random_walk_sigma)
+      .def_readwrite("bias_accel_random_walk_sigma",
+                     &ImuCalibration::bias_accel_random_walk_sigma)
+      .def_readwrite("bias_gyro_random_walk_sigma",
+                     &ImuCalibration::bias_gyro_random_walk_sigma)
       .def_readwrite("acc_saturation_max", &ImuCalibration::acc_saturation_max)
       .def_readwrite("gyro_saturation_max",
                      &ImuCalibration::gyro_saturation_max)
@@ -70,21 +70,50 @@ void BindImu(py::module& m) {
 
   py::classh<ImuState>(m, "ImuState")
       .def(py::init<>())
-      .def("set_velocity", &ImuState::SetVelocity)
-      .def("set_acc_bias", &ImuState::SetAccBias)
-      .def("set_gyro_bias", &ImuState::SetGyroBias)
+      .def(py::init<const Eigen::Vector3d&,
+                    const Eigen::Vector3d&,
+                    const Eigen::Vector3d&>(),
+           "velocity"_a,
+           "bias_gyro"_a,
+           "bias_accel"_a)
       .def_property(
-          "data",
-          py::overload_cast<>(&ImuState::Data),
-          [](ImuState& self, const Eigen::Matrix<double, 9, 1>& data) {
-            self.Data() = data;
+          "params",
+          [](ImuState& self) -> Eigen::Matrix<double, 9, 1>& {
+            return self.params;
+          },
+          [](ImuState& self, const Eigen::Matrix<double, 9, 1>& params) {
+            self.params = params;
           })
-      .def_property_readonly("velocity", &ImuState::Velocity)
-      .def_property_readonly("velocity_ptr", &ImuState::VelocityPtr)
-      .def_property_readonly("acc_bias", &ImuState::AccBias)
-      .def_property_readonly("acc_bias_ptr", &ImuState::AccBiasPtr)
-      .def_property_readonly("gyro_bias", &ImuState::GyroBias)
-      .def_property_readonly("gyro_bias_ptr", &ImuState::GyroBiasPtr)
+      .def_property(
+          "velocity",
+          [](py::object self) {
+            ImuState& state = self.cast<ImuState&>();
+            return py::array_t<double>(
+                {3}, {sizeof(double)}, state.params.data(), self);
+          },
+          [](ImuState& self, const Eigen::Vector3d& v) { self.velocity() = v; })
+      .def_property(
+          "bias_gyro",
+          [](py::object self) {
+            ImuState& state = self.cast<ImuState&>();
+            return py::array_t<double>(
+                {3}, {sizeof(double)}, state.params.data() + 3, self);
+          },
+          [](ImuState& self, const Eigen::Vector3d& bg) {
+            self.bias_gyro() = bg;
+          })
+      .def_property(
+          "bias_accel",
+          [](py::object self) {
+            ImuState& state = self.cast<ImuState&>();
+            return py::array_t<double>(
+                {3}, {sizeof(double)}, state.params.data() + 6, self);
+          },
+          [](ImuState& self, const Eigen::Vector3d& ba) {
+            self.bias_accel() = ba;
+          })
+      .def_readwrite("imu_id", &ImuState::imu_id)
+      .def_readwrite("image_id", &ImuState::image_id)
       .def("__repr__", [](const ImuState& s) {
         std::ostringstream ss;
         ss << s;

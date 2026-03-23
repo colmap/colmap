@@ -36,7 +36,7 @@ class ImuReintegrationCallback(pyceres.IterationCallback):
         if not summary.step_is_successful:
             return pyceres.CallbackReturnType.SOLVER_CONTINUE
         for integrator, data, imu_state in self.edges:
-            biases = imu_state.data[3:9]
+            biases = imu_state.params[3:9]
             if integrator.should_reintegrate(biases):
                 integrator.reintegrate(biases)
                 integrator.update(data)
@@ -76,9 +76,9 @@ def add_imu_residuals(
                 variables["gravity"],
                 variables["imu_from_cam"].params,
                 i_from_world.params,
-                variables["imu_states"][image_id].data,
+                variables["imu_states"][image_id].params,
                 j_from_world.params,
-                variables["imu_states"][image_id + 1].data,
+                variables["imu_states"][image_id + 1].params,
             ],
         )
     prob.set_manifold(variables["gravity"], pyceres.SphereManifold(3))
@@ -99,7 +99,7 @@ def add_imu_residuals(
         constant_idxs = np.arange(3, 9)
         for image_id, _ in variables["imu_states"].items():
             prob.set_manifold(
-                variables["imu_states"][image_id].data,
+                variables["imu_states"][image_id].params,
                 pyceres.SubsetManifold(9, constant_idxs),
             )
     return prob
@@ -359,14 +359,14 @@ def run() -> None:
     variables["log_scale"] = np.array([0.0])
     variables["imu_states"] = {}
     for i in np.arange(1, num_images):
-        variables["imu_states"][i] = pycolmap.ImuState()
         dt = pycolmap.timestamp_diff_seconds(
             image_timestamps[i + 1], image_timestamps[i]
         )
         pi = reconstruction.images[i].cam_from_world().inverse().translation
         pj = reconstruction.images[i + 1].cam_from_world().inverse().translation
         vel = (pj - pi) / dt
-        variables["imu_states"][i].set_velocity(vel)
+        variables["imu_states"][i] = pycolmap.ImuState()
+        variables["imu_states"][i].velocity = vel
 
     # Iterative optimization.
     run_vi_optimization(

@@ -58,77 +58,46 @@ class Imu {
   Rigid3d imu_from_cam;
 };
 
-// A state class storing speed and biases for discrete-time optimization.
-class ImuState {
- public:
+// IMU state for discrete-time optimization: velocity and biases.
+// Parameters stored as [velocity(3), bias_gyro(3), bias_accel(3)].
+// Design mirrors Rigid3d: public contiguous params, Eigen::Map accessors.
+struct ImuState {
+  Eigen::Matrix<double, 9, 1> params = Eigen::Matrix<double, 9, 1>::Zero();
+
   ImuState() = default;
-  ~ImuState() = default;
-  inline const Eigen::Matrix<double, 9, 1>& Data() const;
-  inline Eigen::Matrix<double, 9, 1>& Data();
 
-  inline void SetVelocity(const Eigen::Vector3d& vec);
-  inline const Eigen::Vector3d Velocity() const;
-  inline const double* VelocityPtr();
+  ImuState(const Eigen::Vector3d& velocity,
+           const Eigen::Vector3d& bias_gyro,
+           const Eigen::Vector3d& bias_accel) {
+    params.head<3>() = velocity;
+    params.segment<3>(3) = bias_gyro;
+    params.tail<3>() = bias_accel;
+  }
 
-  inline void SetAccBias(const Eigen::Vector3d& vec);
-  inline const Eigen::Vector3d AccBias() const;
-  inline const double* AccBiasPtr();
+  inline Eigen::Map<Eigen::Vector3d> velocity() {
+    return Eigen::Map<Eigen::Vector3d>(params.data());
+  }
+  inline Eigen::Map<const Eigen::Vector3d> velocity() const {
+    return Eigen::Map<const Eigen::Vector3d>(params.data());
+  }
 
-  inline void SetGyroBias(const Eigen::Vector3d& vec);
-  inline const Eigen::Vector3d GyroBias() const;
-  inline const double* GyroBiasPtr();
+  inline Eigen::Map<Eigen::Vector3d> bias_gyro() {
+    return Eigen::Map<Eigen::Vector3d>(params.data() + 3);
+  }
+  inline Eigen::Map<const Eigen::Vector3d> bias_gyro() const {
+    return Eigen::Map<const Eigen::Vector3d>(params.data() + 3);
+  }
 
-  inline const camera_t& ImuId() const;
-  inline camera_t ImuId();
-  inline const image_t& ImageId() const;
-  inline image_t ImageId();
+  inline Eigen::Map<Eigen::Vector3d> bias_accel() {
+    return Eigen::Map<Eigen::Vector3d>(params.data() + 6);
+  }
+  inline Eigen::Map<const Eigen::Vector3d> bias_accel() const {
+    return Eigen::Map<const Eigen::Vector3d>(params.data() + 6);
+  }
 
- private:
-  // State vector: [velocity(3), gyro_bias(3), acc_bias(3)].
-  Eigen::Matrix<double, 9, 1> data_ = Eigen::Matrix<double, 9, 1>::Zero();
-  camera_t imu_id_;   // The identifier of the associated IMU.
-  image_t image_id_;  // The corresponding image from visual input.
+  camera_t imu_id = kInvalidCameraId;
+  image_t image_id = kInvalidImageId;
 };
-
-const Eigen::Matrix<double, 9, 1>& ImuState::Data() const { return data_; }
-
-Eigen::Matrix<double, 9, 1>& ImuState::Data() { return data_; }
-
-void ImuState::SetVelocity(const Eigen::Vector3d& vec) {
-  data_.head<3>() = vec;
-}
-
-const Eigen::Vector3d ImuState::Velocity() const {
-  return Eigen::Vector3d(data_.data());
-}
-
-const double* ImuState::VelocityPtr() { return data_.data(); }
-
-void ImuState::SetGyroBias(const Eigen::Vector3d& vec) {
-  data_.segment<3>(3) = vec;
-}
-
-const Eigen::Vector3d ImuState::GyroBias() const {
-  return Eigen::Vector3d(data_.data() + 3);
-}
-
-const double* ImuState::GyroBiasPtr() { return data_.data() + 3; }
-
-void ImuState::SetAccBias(const Eigen::Vector3d& vec) { data_.tail<3>() = vec; }
-
-const Eigen::Vector3d ImuState::AccBias() const {
-  return Eigen::Vector3d(data_.data() + 6);
-}
-
-const double* ImuState::AccBiasPtr() { return data_.data() + 6; }
-
-const camera_t& ImuState::ImuId() const { return imu_id_; }
-
-camera_t ImuState::ImuId() { return imu_id_; }
-
-const image_t& ImuState::ImageId() const { return image_id_; }
-
-image_t ImuState::ImageId() { return image_id_; }
 
 inline std::ostream& operator<<(std::ostream& stream, const Imu& imu) {
   stream << "Imu("
@@ -139,9 +108,9 @@ inline std::ostream& operator<<(std::ostream& stream, const Imu& imu) {
 
 inline std::ostream& operator<<(std::ostream& stream, const ImuState& state) {
   stream << "ImuState("
-         << "vel=[" << state.Velocity().transpose() << "], "
-         << "gyro_bias=[" << state.GyroBias().transpose() << "], "
-         << "acc_bias=[" << state.AccBias().transpose() << "])";
+         << "vel=[" << state.velocity().transpose() << "], "
+         << "bias_gyro=[" << state.bias_gyro().transpose() << "], "
+         << "bias_accel=[" << state.bias_accel().transpose() << "])";
   return stream;
 }
 
