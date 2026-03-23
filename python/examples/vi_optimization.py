@@ -16,7 +16,7 @@ import pycolmap
 from pycolmap import logging
 
 
-class ReintegrationCallback(pyceres.IterationCallback):
+class ImuReintegrationCallback(pyceres.IterationCallback):
     """Ceres iteration callback that reintegrates IMU preintegration data
     when the optimized biases have drifted beyond the linearization point."""
 
@@ -122,7 +122,7 @@ def solve_bundle_adjustment(
     solver_options.minimizer_progress_to_stdout = True
     # Set up reintegration callback to update preintegrated data when
     # biases drift beyond the linearization point.
-    callback = ReintegrationCallback()
+    callback = ImuReintegrationCallback()
     for image_id in integrators:
         callback.add_edge(
             integrators[image_id],

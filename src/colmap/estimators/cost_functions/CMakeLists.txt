@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         motion_averaging.h
         pose_prior.h
         reprojection_error.h
+        imu_preintegration.h
         sampson_error.h
         utils.h
     INTERFACE_LINK_LIBS
@@ -82,4 +83,9 @@ COLMAP_ADD_TEST(
     NAME motion_averaging_test
     SRCS motion_averaging_test.cc
     LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
+    NAME imu_preintegration_test
+    SRCS imu_preintegration_test.cc
+    LINK_LIBS colmap_estimators
 )

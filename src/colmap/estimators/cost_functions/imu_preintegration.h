@@ -80,13 +80,9 @@ class ImuPreintegrationCostFunction {
   static ceres::CostFunction* Create(const PreintegratedImuData* data,
                                      const Eigen::Vector3d& gravity) {
     return (
-        new ceres::AutoDiffCostFunction<ImuPreintegrationCostFunction,
-                                        15,
-                                        7,
-                                        9,
-                                        7,
-                                        9>(
-            new ImuPreintegrationCostFunction(data, gravity)));
+        new ceres::
+            AutoDiffCostFunction<ImuPreintegrationCostFunction, 15, 7, 9, 7, 9>(
+                new ImuPreintegrationCostFunction(data, gravity)));
   }
 
   template <typename T>
@@ -116,16 +112,21 @@ class ImuPreintegrationCostFunction {
     Eigen::Matrix<T, 3, 1> p_W_j =
         q_WB_j * EigenVector3Map<T>(body_from_world_j + 4) * T(-1.);
 
-    // Rotation residual.
-    const Eigen::Quaternion<T> j_from_i_q = q_BW_j * q_WB_i;
+    // Rotation residual (Forster et al. TRO 16, Eq. 44).
+    // Our preintegrator uses right-multiply (Forster convention), producing:
+    //   delta_R = R_BW_i^{-1} * R_BW_j = q_WB_i * q_BW_j
+    // The measured relative rotation from the poses must match this convention.
+    const Eigen::Quaternion<T> delta_R_measured = q_WB_i * q_BW_j;
+    // First-order bias correction: delta_R_corrected = delta_R * Exp(dR_dbg *
+    // dbg).
     Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
     AngleAxisToEigenQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
-    const Eigen::Quaternion<T> Dq = data_->delta_R.cast<T>() * Dq_bias;
-    const Eigen::Quaternion<T> param_from_measured_q =
-        (Dq.inverse() * j_from_i_q).normalized();
-    EigenQuaternionToAngleAxis(param_from_measured_q.coeffs().data(),
-                               residuals);
+    const Eigen::Quaternion<T> delta_R_corrected =
+        data_->delta_R.cast<T>() * Dq_bias;
+    const Eigen::Quaternion<T> rotation_error =
+        (delta_R_corrected.inverse() * delta_R_measured).normalized();
+    EigenQuaternionToAngleAxis(rotation_error.coeffs().data(), residuals);
 
     // Position residual.
     const Eigen::Matrix<T, 3, 1> dp_W =
@@ -197,7 +198,8 @@ class ImuPreintegrationCostFunction {
 //       Velocity and biases at frame j.
 class VisualCentricImuPreintegrationCostFunction {
  public:
-  explicit VisualCentricImuPreintegrationCostFunction(const PreintegratedImuData* data)
+  explicit VisualCentricImuPreintegrationCostFunction(
+      const PreintegratedImuData* data)
       : data_(data) {
     THROW_CHECK(!data_->sqrt_information.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
@@ -206,17 +208,16 @@ class VisualCentricImuPreintegrationCostFunction {
   }
 
   static ceres::CostFunction* Create(const PreintegratedImuData* data) {
-    return (
-        new ceres::AutoDiffCostFunction<VisualCentricImuPreintegrationCostFunction,
-                                        15,
-                                        1,
-                                        3,
-                                        7,
-                                        7,
-                                        9,
-                                        7,
-                                        9>(
-            new VisualCentricImuPreintegrationCostFunction(data)));
+    return (new ceres::AutoDiffCostFunction<
+            VisualCentricImuPreintegrationCostFunction,
+            15,
+            1,
+            3,
+            7,
+            7,
+            9,
+            7,
+            9>(new VisualCentricImuPreintegrationCostFunction(data)));
   }
 
   template <typename T>
@@ -272,17 +273,24 @@ class VisualCentricImuPreintegrationCostFunction {
     Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
     Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
 
-    // Rotation residual: Eq. (44) from Forster et al. TRO 16.
-    const Eigen::Quaternion<T> j_from_i_q =
-        world_from_i_imu_q.inverse() * world_from_j_imu_q;
+    // Rotation residual (Forster et al. TRO 16, Eq. 44).
+    // Our preintegrator uses right-multiply (Forster convention), producing:
+    //   delta_R = R_BW_i^{-1} * R_BW_j
+    // In terms of world_from_imu quaternions (q_WB = q_BW^{-1}):
+    //   delta_R = q_WB_i^{-1}^{-1} * q_WB_j^{-1} -- but more simply:
+    //   delta_R_measured = world_from_i * world_from_j^{-1}
+    //                    = q_WB_i * q_WB_j^{-1} = q_BW_i^{-1} * q_BW_j
+    const Eigen::Quaternion<T> delta_R_measured =
+        world_from_i_imu_q * world_from_j_imu_q.inverse();
+    // First-order bias correction.
     Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
     AngleAxisToEigenQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
-    const Eigen::Quaternion<T> Dq = data_->delta_R.cast<T>() * Dq_bias;
-    const Eigen::Quaternion<T> param_from_measured_q =
-        (Dq.inverse() * j_from_i_q).normalized();
-    EigenQuaternionToAngleAxis(param_from_measured_q.coeffs().data(),
-                               residuals);
+    const Eigen::Quaternion<T> delta_R_corrected =
+        data_->delta_R.cast<T>() * Dq_bias;
+    const Eigen::Quaternion<T> rotation_error =
+        (delta_R_corrected.inverse() * delta_R_measured).normalized();
+    EigenQuaternionToAngleAxis(rotation_error.coeffs().data(), residuals);
 
     // Position residual: Eq. (45) from Forster et al. TRO 16.
     const Eigen::Matrix<T, 3, 1> j_from_i_p =

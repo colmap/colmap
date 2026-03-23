@@ -133,3 +133,9 @@ COLMAP_ADD_TEST(
     SRCS global_positioning_test.cc
     LINK_LIBS colmap_estimators
 )
+
+COLMAP_ADD_TEST(
+    NAME imu_preintegration_test
+    SRCS imu_preintegration_test.cc
+    LINK_LIBS colmap_estimators
+)

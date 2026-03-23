@@ -55,8 +55,13 @@ struct ImuPreintegrationOptions {
 // Pure data struct holding preintegrated IMU quantities.
 // Serializable, trivially copyable across threads, and consumable by
 // different cost functions without knowledge of the integration algorithm.
+//
+// Convention (Forster et al. TRO 16, right-multiply):
+//   delta_R = R_BW_i^{-1} * R_BW_j  (quaternion: q_BW_i^{-1} * q_BW_j)
+//   delta_p = R_BW_i * (p_W_j - p_W_i - v_W_i * dt - 0.5 * g_W * dt^2)
+//   delta_v = R_BW_i * (v_W_j - v_W_i - g_W * dt)
 struct PreintegratedImuData {
-  // Preintegrated deltas (IMU to gravity-aligned metric world).
+  // Preintegrated deltas.
   double delta_t = 0;  // Accumulated time. [seconds]
   Eigen::Quaterniond delta_R =
       Eigen::Quaterniond::Identity();                 // Relative rotation.
@@ -168,13 +173,13 @@ class ImuPreintegrator {
 // from raw measurements and updates the PreintegratedImuData in place.
 //
 // Usage:
-//   ReintegrationCallback callback;
+//   ImuReintegrationCallback callback;
 //   // For each IMU edge:
 //   callback.AddEdge(&integrator, &data, imu_state_ptr);
 //   // Then add to solver options:
 //   solver_options.callbacks.push_back(&callback);
 //   solver_options.update_state_every_iteration = true;
-class ReintegrationCallback : public ceres::IterationCallback {
+class ImuReintegrationCallback : public ceres::IterationCallback {
  public:
   // Register an IMU edge for reintegration checking.
   // @param integrator   The integrator holding raw measurements and options.

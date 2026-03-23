@@ -99,7 +99,8 @@ void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
       data_.delta_v * dt + data_.delta_R * acc_true * 0.5 * dt * dt;
   // velocity: Eq. (36) from [A]
   data_.delta_v += data_.delta_R * acc_true * dt;
-  // rotation: Eq. (35) from [A].
+  // rotation: Eq. (35) from [A]. Right-multiply (Forster convention):
+  // delta_R_{k+1} = delta_R_k * Exp(omega * dt).
   Eigen::Quaterniond dq = QuaternionFromAngleAxis(gyro_true * dt);
   Eigen::Matrix3d Rs = data_.delta_R.toRotationMatrix();
   data_.delta_R = data_.delta_R * dq;
@@ -302,13 +303,13 @@ void ImuPreintegrator::Reintegrate(const Eigen::Vector6d& biases) {
   Reintegrate();
 }
 
-void ReintegrationCallback::AddEdge(ImuPreintegrator* integrator,
-                                    PreintegratedImuData* data,
-                                    const double* imu_state) {
+void ImuReintegrationCallback::AddEdge(ImuPreintegrator* integrator,
+                                       PreintegratedImuData* data,
+                                       const double* imu_state) {
   edges_.push_back({integrator, data, imu_state});
 }
 
-ceres::CallbackReturnType ReintegrationCallback::operator()(
+ceres::CallbackReturnType ImuReintegrationCallback::operator()(
     const ceres::IterationSummary& /*summary*/) {
   for (auto& edge : edges_) {
     // Read current biases from the optimized IMU state: [v(3), bg(3), ba(3)].
