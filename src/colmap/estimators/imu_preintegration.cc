@@ -99,7 +99,7 @@ void ImuPreintegrator::Integrate(const Eigen::Vector3d& acc_true,
       data_.delta_v * dt + data_.delta_R * acc_true * 0.5 * dt * dt;
   // velocity: Eq. (36) from [A]
   data_.delta_v += data_.delta_R * acc_true * dt;
-  // rotation: Eq. (35) from [A]. Right-multiply (Forster convention):
+  // rotation: Eq. (35) from [A]. Right convention:
   // delta_R_{k+1} = delta_R_k * Exp(omega * dt).
   Eigen::Quaterniond dq = QuaternionFromAngleAxis(gyro_true * dt);
   Eigen::Matrix3d Rs = data_.delta_R.toRotationMatrix();

@@ -56,10 +56,17 @@ struct ImuPreintegrationOptions {
 // Serializable, trivially copyable across threads, and consumable by
 // different cost functions without knowledge of the integration algorithm.
 //
-// Convention (Forster et al. TRO 16, right-multiply):
-//   delta_R = R_BW_i^{-1} * R_BW_j  (quaternion: q_BW_i^{-1} * q_BW_j)
-//   delta_p = R_BW_i * (p_W_j - p_W_i - v_W_i * dt - 0.5 * g_W * dt^2)
-//   delta_v = R_BW_i * (v_W_j - v_W_i - g_W * dt)
+// Right convention (Forster et al. TRO 16):
+//   Chains naturally with "_to_" naming: a_to_b = a_to_c * c_to_b.
+//   Note: COLMAP uses "_from_" naming (target_from_source), which reads
+//   in reverse order for right convention chains. For example:
+//     delta_R = body_i_to_body_j            ("_to_" form, matches chain order)
+//             = body_j_from_body_i          ("_from_" form, COLMAP convention)
+//             = world_from_body_i * body_from_world_j  (right-chained "_from_")
+//
+//   delta_R = world_from_body_i * body_from_world_j
+//   delta_p = body_from_world_i * (p_W_j - p_W_i - v_W_i * dt - 0.5 * g * dt^2)
+//   delta_v = body_from_world_i * (v_W_j - v_W_i - g * dt)
 struct PreintegratedImuData {
   // Preintegrated deltas.
   double delta_t = 0;  // Accumulated time. [seconds]

@@ -79,14 +79,14 @@ PreintegratedImuData MakeConstantData(const Eigen::Vector3d& accel,
   Eigen::Matrix3d R_WB_i = q_i.inverse().toRotationMatrix();
 
   // World-frame velocity at frame i (chosen so residual is zero).
-  // From preintegration equations (Forster et al. TRO 16):
-  //   delta_R = R_BW_i^{-1} * R_BW_j
-  //   delta_p = R_BW_i * (p_j - p_i - v_i*dt - 0.5*g*dt^2)
-  //   delta_v = R_BW_i * (v_j - v_i - g*dt)
+  // From preintegration equations (right convention):
+  //   delta_R = world_from_body_i * body_from_world_j
+  //   delta_p = body_from_world_i * (p_j - p_i - v_i*dt - 0.5*g*dt^2)
+  //   delta_v = body_from_world_i * (v_j - v_i - g*dt)
   // Solve for j quantities:
-  //   R_BW_j = R_BW_i * delta_R
-  //   v_j = v_i + g*dt + R_WB_i * delta_v
-  //   p_j = p_i + v_i*dt + 0.5*g*dt^2 + R_WB_i * delta_p
+  //   body_from_world_j = body_from_world_i * delta_R
+  //   v_j = v_i + g*dt + world_from_body_i * delta_v
+  //   p_j = p_i + v_i*dt + 0.5*g*dt^2 + world_from_body_i * delta_p
   Eigen::Vector3d v_i(1.0, 0.5, -0.2);
   Eigen::Vector3d v_j = v_i + kGravity * T + R_WB_i * data.delta_v;
   Eigen::Vector3d p_j =
