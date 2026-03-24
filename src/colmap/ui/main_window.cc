@@ -42,6 +42,9 @@
 #include <QStandardPaths>
 #include <clocale>
 
+static void InitUiResources() { Q_INIT_RESOURCE(resources); }
+
+namespace colmap {
 namespace {
 
 // Keys used with QSettings to persist last-used directories for different
@@ -101,8 +104,7 @@ std::string GetLogTarget() {
     return "stderr";
   }
 
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
   if (FLAGS_logtostdout) {
     return "stdout";
   }
@@ -121,11 +123,13 @@ void ApplyLogOptions(const std::string& log_target,
                      bool color) {
   FLAGS_v = verbosity;
   FLAGS_minloglevel = min_severity;
+
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
   FLAGS_colorlogtostderr = color;
+#endif
 
   FLAGS_logtostderr = false;
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
   FLAGS_logtostdout = false;
 #endif
   FLAGS_alsologtostderr = false;
@@ -133,8 +137,7 @@ void ApplyLogOptions(const std::string& log_target,
   if (log_target == "stderr") {
     FLAGS_logtostderr = true;
   } else if (log_target == "stdout") {
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
     FLAGS_logtostdout = true;
 #else
     LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
@@ -151,16 +154,12 @@ void ApplyLogOptions(const std::string& log_target,
     FLAGS_alsologtostderr = true;
   }
 
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
   FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
 #endif
 }
+
 }  // anonymous namespace
-
-static void InitUiResources() { Q_INIT_RESOURCE(resources); }
-
-namespace colmap {
 
 MainWindow::MainWindow(OptionManager options)
     : options_(std::move(options)),
@@ -1646,11 +1645,12 @@ void MainWindow::SetLogOptions() {
   form_layout->addRow("Minimum severity", min_severity_box);
 
   // Color
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
   QComboBox* color_box = new QComboBox(&dialog);
   color_box->addItems({"Disabled", "Enabled"});
   color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
-
   form_layout->addRow("Colored logging", color_box);
+#endif
 
   QDialogButtonBox* buttons = new QDialogButtonBox(
       QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
@@ -1664,7 +1664,12 @@ void MainWindow::SetLogOptions() {
     ApplyLogOptions(log_target_box->currentText().toStdString(),
                     verbosity_box->value(),
                     min_severity_box->currentIndex(),
-                    color_box->currentIndex());
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+                    color_box->currentIndex()
+#else
+                    0
+#endif
+    );
   }
 }
 
