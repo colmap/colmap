@@ -21,7 +21,6 @@ py::array_t<uint8_t> ArrayFromBitmap(const Bitmap& self) {
   std::vector<ssize_t> shape = {static_cast<ssize_t>(self.Height()),
                                 static_cast<ssize_t>(self.Width())};
   const auto channels = static_cast<ssize_t>(self.Channels());
-  const bool is_rgb = self.IsRGB();
   if (channels != 1) {
     if (channels != 3) {
       throw std::runtime_error(
