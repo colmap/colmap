@@ -85,13 +85,10 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
 }
 
 void ExtractColors(const std::filesystem::path& image_path,
-                   const image_t image_id,
                    Reconstruction& reconstruction) {
-  if (!reconstruction.ExtractColorsForImage(image_id, image_path)) {
-    LOG(WARNING) << "Could not read image "
-                 << reconstruction.Image(image_id).Name() << " at path "
-                 << image_path << ".";
-  }
+  LOG(INFO) << "Extracting colors for " << reconstruction.NumRegImages()
+            << " images";
+  reconstruction.ExtractColorsForAllImages(image_path);
 }
 
 void WriteSnapshot(const Reconstruction& reconstruction,
@@ -434,13 +431,9 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   }
 
   if (options_->extract_colors) {
-    for (const image_t image_id : {image_id1, image_id2}) {
-      const Image& image = reconstruction.Image(image_id);
-      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-        ExtractColors(options_->image_path, data_id.id, reconstruction);
-      }
-    }
+    ExtractColors(options_->image_path, reconstruction);
   }
+
   return Status::SUCCESS;
 }
 
@@ -584,12 +577,6 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
         ba_prev_num_reg_frames = reconstruction->NumRegFrames();
       }
 
-      if (options_->extract_colors) {
-        for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-          ExtractColors(options_->image_path, data_id.id, *reconstruction);
-        }
-      }
-
       if (options_->snapshot_frames_freq > 0 &&
           reconstruction->NumRegFrames() >=
               options_->snapshot_frames_freq + snapshot_prev_num_reg_frames) {
@@ -613,6 +600,10 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       IterativeGlobalRefinement(*options_, mapper_options, mapper);
     }
   } while (reg_next_success || prev_reg_next_success);
+
+  if (options_->extract_colors) {
+    ExtractColors(options_->image_path, *reconstruction);
+  }
 
   if (CheckIfStopped() || CheckReachedMaxRuntime()) {
     return Status::INTERRUPTED;
