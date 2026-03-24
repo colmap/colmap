@@ -81,7 +81,9 @@ void BaseOptionManager::AddLogOptions() {
   AddDefaultOption("log_severity",
                    &FLAGS_minloglevel,
                    "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
-  AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
+  if constexpr (kGlogHasStdoutAndColorSupport) {
+    AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
+  }
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
@@ -127,7 +129,9 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
     FLAGS_log_dir = "";
     FLAGS_v = 0;
     FLAGS_minloglevel = 0;
-    FLAGS_colorlogtostderr = true;
+    if constexpr (kGlogHasStdoutAndColorSupport) {
+      FLAGS_colorlogtostderr = true;
+    }
     ApplyLogFlags();
   }
 
@@ -185,23 +189,21 @@ void BaseOptionManager::ApplyEnumConversions() {
 
 void BaseOptionManager::ApplyLogFlags() {
   FLAGS_logtostderr = false;
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
-  FLAGS_logtostdout = false;
-#endif
+  if constexpr (kGlogHasStdoutAndColorSupport) {
+    FLAGS_logtostdout = false;
+  }
   FLAGS_alsologtostderr = false;
 
   if (log_target_ == "stderr") {
     FLAGS_logtostderr = true;
   } else if (log_target_ == "stdout") {
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
-    FLAGS_logtostdout = true;
-#else
-    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
-                    "Falling back to stderr.";
-    FLAGS_logtostderr = true;
-#endif
+    if constexpr (kGlogHasStdoutAndColorSupport) {
+      FLAGS_logtostdout = true;
+    } else {
+      LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                      "Falling back to stderr.";
+      FLAGS_logtostderr = true;
+    }
   } else if (log_target_ == "file") {
   } else if (log_target_ == "stderr_and_file") {
     FLAGS_alsologtostderr = true;
@@ -211,10 +213,9 @@ void BaseOptionManager::ApplyLogFlags() {
     FLAGS_alsologtostderr = true;
   }
 
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
-  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
-#endif
+  if constexpr (kGlogHasStdoutAndColorSupport) {
+    FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+  }
 
   if (!FLAGS_log_dir.empty() &&
       (log_target_ == "file" || log_target_ == "stderr_and_file")) {
