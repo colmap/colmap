@@ -29,16 +29,16 @@
 
 
 if(IS_MSVC)
-    add_compile_options(/W3)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/W3>)
     if(WERROR_ENABLED)
-        add_compile_options(/WX)
+        add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/WX>)
     endif()
     # Avoid pulling in too many header files through <windows.h>
     add_compile_definitions(WIN32_LEAN_AND_MEAN)
 elseif(IS_GNU OR IS_CLANG)
-    add_compile_options(-Wall)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Wall>)
     if(WERROR_ENABLED)
-        add_compile_options(-Werror)
+        add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Werror>)
     endif()
 endif()
 
