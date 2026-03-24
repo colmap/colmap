@@ -35,6 +35,10 @@ if(DEFINED glog_VERSION_MAJOR)
 endif()
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
+# Older CMake versions define SQLite::SQLite3 instead of SQLite3::SQLite3.
+if(NOT TARGET SQLite3::SQLite3 AND TARGET SQLite::SQLite3)
+    add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+endif()
 
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL ${COLMAP_FIND_TYPE})
