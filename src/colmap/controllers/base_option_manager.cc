@@ -81,7 +81,7 @@ void BaseOptionManager::AddLogOptions() {
   AddDefaultOption("log_severity",
                    &FLAGS_minloglevel,
                    "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasColorSupport) {
     AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
   }
 }
@@ -129,7 +129,7 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
     FLAGS_log_dir = "";
     FLAGS_v = 0;
     FLAGS_minloglevel = 0;
-    if constexpr (kGlogHasStdoutAndColorSupport) {
+    if constexpr (kGlogHasColorSupport) {
       FLAGS_colorlogtostderr = true;
     }
     ApplyLogFlags();
@@ -189,7 +189,7 @@ void BaseOptionManager::ApplyEnumConversions() {
 
 void BaseOptionManager::ApplyLogFlags() {
   FLAGS_logtostderr = false;
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasStdoutSupport) {
     FLAGS_logtostdout = false;
   }
   FLAGS_alsologtostderr = false;
@@ -197,7 +197,7 @@ void BaseOptionManager::ApplyLogFlags() {
   if (log_target_ == "stderr") {
     FLAGS_logtostderr = true;
   } else if (log_target_ == "stdout") {
-    if constexpr (kGlogHasStdoutAndColorSupport) {
+    if constexpr (kGlogHasStdoutSupport) {
       FLAGS_logtostdout = true;
     } else {
       LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
@@ -213,7 +213,7 @@ void BaseOptionManager::ApplyLogFlags() {
     FLAGS_alsologtostderr = true;
   }
 
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasStdoutSupport) {
     FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
   }
 

@@ -97,7 +97,15 @@
 
 namespace colmap {
 
-constexpr bool kGlogHasStdoutAndColorSupport =
+constexpr bool kGlogHasColorSupport =
+#if !defined(GLOG_VERSION_MAJOR) || GLOG_VERSION_MAJOR > 0 || \
+    GLOG_VERSION_MINOR >= 4
+    true;
+#else
+    false;
+#endif
+
+constexpr bool kGlogHasStdoutSupport =
 #if defined(GLOG_VERSION_MAJOR) && \
     (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
     true;

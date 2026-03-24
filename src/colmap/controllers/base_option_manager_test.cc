@@ -498,7 +498,7 @@ TEST(BaseOptionManager, LogOptions) {
 
     EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
     EXPECT_EQ(FLAGS_logtostderr, expect_stderr);
-    if constexpr (kGlogHasStdoutAndColorSupport) {
+    if constexpr (kGlogHasStdoutSupport) {
       EXPECT_EQ(FLAGS_logtostdout, expect_stdout);
     }
     EXPECT_EQ(FLAGS_alsologtostderr, expect_stderr_and_file);
@@ -508,7 +508,7 @@ TEST(BaseOptionManager, LogOptions) {
                  /*expect_stderr=*/true,
                  /*expect_stdout=*/false,
                  /*expect_and_file=*/false);
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasStdoutSupport) {
     VerifyLogState("stdout",
                    /*expect_stderr=*/false,
                    /*expect_stdout=*/true,

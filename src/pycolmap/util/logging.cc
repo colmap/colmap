@@ -100,10 +100,12 @@ void BindLogging(py::module& m) {
           },
           py::arg("message"));
 
-  if constexpr (colmap::kGlogHasStdoutAndColorSupport) {
+  if constexpr (colmap::kGlogHasStdoutSupport) {
     PyLogging.def_readwrite_static("logtostdout", &FLAGS_logtostdout)
-        .def_readwrite_static("colorlogtostdout", &FLAGS_colorlogtostdout)
-        .def_readwrite_static("colorlogtostderr", &FLAGS_colorlogtostderr);
+        .def_readwrite_static("colorlogtostdout", &FLAGS_colorlogtostdout);
+  }
+  if constexpr (colmap::kGlogHasColorSupport) {
+    PyLogging.def_readwrite_static("colorlogtostderr", &FLAGS_colorlogtostderr);
   }
 
 #if defined(GLOG_VERSION_MAJOR) && \

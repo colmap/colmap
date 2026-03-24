@@ -104,7 +104,7 @@ std::string GetLogTarget() {
     return "stderr";
   }
 
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasStdoutSupport) {
     if (FLAGS_logtostdout) {
       return "stdout";
     }
@@ -124,12 +124,12 @@ void ApplyLogOptions(const std::string& log_target,
   FLAGS_v = verbosity;
   FLAGS_minloglevel = min_severity;
 
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasColorSupport) {
     FLAGS_colorlogtostderr = color;
   }
 
   FLAGS_logtostderr = false;
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasStdoutSupport) {
     FLAGS_logtostdout = false;
   }
   FLAGS_alsologtostderr = false;
@@ -137,7 +137,7 @@ void ApplyLogOptions(const std::string& log_target,
   if (log_target == "stderr") {
     FLAGS_logtostderr = true;
   } else if (log_target == "stdout") {
-    if constexpr (kGlogHasStdoutAndColorSupport) {
+    if constexpr (kGlogHasStdoutSupport) {
       FLAGS_logtostdout = true;
     } else {
       LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
@@ -154,7 +154,7 @@ void ApplyLogOptions(const std::string& log_target,
     FLAGS_alsologtostderr = true;
   }
 
-  if constexpr (kGlogHasStdoutAndColorSupport) {
+  if constexpr (kGlogHasStdoutSupport) {
     FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
   }
 }
@@ -1644,9 +1644,9 @@ void MainWindow::SetLogOptions() {
   min_severity_box->setCurrentIndex(FLAGS_minloglevel);
   form_layout->addRow("Minimum severity", min_severity_box);
 
+  // Color
   QComboBox* color_box = nullptr;
-  if constexpr (kGlogHasStdoutAndColorSupport) {
-    // Color
+  if constexpr (kGlogHasColorSupport) {
     color_box = new QComboBox(&dialog);
     color_box->addItems({"Disabled", "Enabled"});
     color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
@@ -1661,16 +1661,15 @@ void MainWindow::SetLogOptions() {
 
   form_layout->addRow(buttons);
 
-  int color_box_index = 0;
-  if constexpr (kGlogHasStdoutAndColorSupport) {
-    color_box_index = color_box->currentIndex();
-  }
-
   if (dialog.exec() == QDialog::Accepted) {
+    int color_index = 0;
+    if constexpr (kGlogHasColorSupport) {
+      color_index = color_box->currentIndex();
+    }
     ApplyLogOptions(log_target_box->currentText().toStdString(),
                     verbosity_box->value(),
                     min_severity_box->currentIndex(),
-                    color_box_index);
+                    color_index);
   }
 }
 

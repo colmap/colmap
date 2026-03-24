@@ -135,12 +135,7 @@ void LogWidget::Flush() {
 
   text_box_->moveCursor(QTextCursor::End);
 
-  bool colorlogtostdout = false;
-  if constexpr (kGlogHasStdoutAndColorSupport) {
-    colorlogtostdout = FLAGS_colorlogtostderr;
-  }
-
-  if (colorlogtostdout) {
+  if (kGlogHasColorSupport && FLAGS_colorlogtostderr) {
     for (const auto& entry : text_queue_) {
       QTextCharFormat format;
       switch (entry.severity) {
