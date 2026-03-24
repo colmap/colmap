@@ -81,9 +81,9 @@ void BaseOptionManager::AddLogOptions() {
   AddDefaultOption("log_severity",
                    &FLAGS_minloglevel,
                    "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
-  if constexpr (kGlogHasColorSupport) {
-    AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
-  }
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
+#endif
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
@@ -129,9 +129,9 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
     FLAGS_log_dir = "";
     FLAGS_v = 0;
     FLAGS_minloglevel = 0;
-    if constexpr (kGlogHasColorSupport) {
-      FLAGS_colorlogtostderr = true;
-    }
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+    FLAGS_colorlogtostderr = true;
+#endif
     ApplyLogFlags();
   }
 
@@ -189,21 +189,21 @@ void BaseOptionManager::ApplyEnumConversions() {
 
 void BaseOptionManager::ApplyLogFlags() {
   FLAGS_logtostderr = false;
-  if constexpr (kGlogHasStdoutSupport) {
-    FLAGS_logtostdout = false;
-  }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_logtostdout = false;
+#endif
   FLAGS_alsologtostderr = false;
 
   if (log_target_ == "stderr") {
     FLAGS_logtostderr = true;
   } else if (log_target_ == "stdout") {
-    if constexpr (kGlogHasStdoutSupport) {
-      FLAGS_logtostdout = true;
-    } else {
-      LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
-                      "Falling back to stderr.";
-      FLAGS_logtostderr = true;
-    }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+    FLAGS_logtostdout = true;
+#else
+    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                    "Falling back to stderr.";
+    FLAGS_logtostderr = true;
+#endif
   } else if (log_target_ == "file") {
   } else if (log_target_ == "stderr_and_file") {
     FLAGS_alsologtostderr = true;
@@ -213,9 +213,9 @@ void BaseOptionManager::ApplyLogFlags() {
     FLAGS_alsologtostderr = true;
   }
 
-  if constexpr (kGlogHasStdoutSupport) {
-    FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
-  }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+#endif
 
   if (!FLAGS_log_dir.empty() &&
       (log_target_ == "file" || log_target_ == "stderr_and_file")) {

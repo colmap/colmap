@@ -104,11 +104,11 @@ std::string GetLogTarget() {
     return "stderr";
   }
 
-  if constexpr (kGlogHasStdoutSupport) {
-    if (FLAGS_logtostdout) {
-      return "stdout";
-    }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  if (FLAGS_logtostdout) {
+    return "stdout";
   }
+#endif
 
   if (FLAGS_alsologtostderr) {
     return "stderr_and_file";
@@ -124,26 +124,26 @@ void ApplyLogOptions(const std::string& log_target,
   FLAGS_v = verbosity;
   FLAGS_minloglevel = min_severity;
 
-  if constexpr (kGlogHasColorSupport) {
-    FLAGS_colorlogtostderr = color;
-  }
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  FLAGS_colorlogtostderr = color;
+#endif
 
   FLAGS_logtostderr = false;
-  if constexpr (kGlogHasStdoutSupport) {
-    FLAGS_logtostdout = false;
-  }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_logtostdout = false;
+#endif
   FLAGS_alsologtostderr = false;
 
   if (log_target == "stderr") {
     FLAGS_logtostderr = true;
   } else if (log_target == "stdout") {
-    if constexpr (kGlogHasStdoutSupport) {
-      FLAGS_logtostdout = true;
-    } else {
-      LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
-                      "Falling back to stderr.";
-      FLAGS_logtostderr = true;
-    }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+    FLAGS_logtostdout = true;
+#else
+    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                    "Falling back to stderr.";
+    FLAGS_logtostderr = true;
+#endif
   } else if (log_target == "file") {
     // default file logging
   } else if (log_target == "stderr_and_file") {
@@ -154,9 +154,9 @@ void ApplyLogOptions(const std::string& log_target,
     FLAGS_alsologtostderr = true;
   }
 
-  if constexpr (kGlogHasStdoutSupport) {
-    FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
-  }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+#endif
 }
 
 }  // anonymous namespace
@@ -1645,13 +1645,12 @@ void MainWindow::SetLogOptions() {
   form_layout->addRow("Minimum severity", min_severity_box);
 
   // Color
-  QComboBox* color_box = nullptr;
-  if constexpr (kGlogHasColorSupport) {
-    color_box = new QComboBox(&dialog);
-    color_box->addItems({"Disabled", "Enabled"});
-    color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
-    form_layout->addRow("Colored logging", color_box);
-  }
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  QComboBox* color_box = new QComboBox(&dialog);
+  color_box->addItems({"Disabled", "Enabled"});
+  color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
+  form_layout->addRow("Colored logging", color_box);
+#endif
 
   QDialogButtonBox* buttons = new QDialogButtonBox(
       QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
@@ -1662,14 +1661,15 @@ void MainWindow::SetLogOptions() {
   form_layout->addRow(buttons);
 
   if (dialog.exec() == QDialog::Accepted) {
-    int color_index = 0;
-    if constexpr (kGlogHasColorSupport) {
-      color_index = color_box->currentIndex();
-    }
     ApplyLogOptions(log_target_box->currentText().toStdString(),
                     verbosity_box->value(),
                     min_severity_box->currentIndex(),
-                    color_index);
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+                    color_box->currentIndex()
+#else
+                    0
+#endif
+    );
   }
 }
 

@@ -97,20 +97,18 @@
 
 namespace colmap {
 
-constexpr bool kGlogHasColorSupport =
 #if !defined(GLOG_VERSION_MAJOR) || GLOG_VERSION_MAJOR > 0 || \
     GLOG_VERSION_MINOR >= 4
-    true;
+#define COLMAP_GLOG_HAS_COLOR_SUPPORT 1
 #else
-    false;
+#define COLMAP_GLOG_HAS_COLOR_SUPPORT 0
 #endif
 
-constexpr bool kGlogHasStdoutSupport =
 #if defined(GLOG_VERSION_MAJOR) && \
     (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
-    true;
+#define COLMAP_GLOG_HAS_STDOUT_SUPPORT 1
 #else
-    false;
+#define COLMAP_GLOG_HAS_STDOUT_SUPPORT 0
 #endif
 
 // Initialize glog at the beginning of the program.

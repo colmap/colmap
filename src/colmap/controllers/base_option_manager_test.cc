@@ -498,9 +498,9 @@ TEST(BaseOptionManager, LogOptions) {
 
     EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
     EXPECT_EQ(FLAGS_logtostderr, expect_stderr);
-    if constexpr (kGlogHasStdoutSupport) {
-      EXPECT_EQ(FLAGS_logtostdout, expect_stdout);
-    }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+    EXPECT_EQ(FLAGS_logtostdout, expect_stdout);
+#endif
     EXPECT_EQ(FLAGS_alsologtostderr, expect_stderr_and_file);
   };
 
@@ -508,17 +508,18 @@ TEST(BaseOptionManager, LogOptions) {
                  /*expect_stderr=*/true,
                  /*expect_stdout=*/false,
                  /*expect_and_file=*/false);
-  if constexpr (kGlogHasStdoutSupport) {
-    VerifyLogState("stdout",
-                   /*expect_stderr=*/false,
-                   /*expect_stdout=*/true,
-                   /*expect_and_file=*/false);
-  } else {
-    VerifyLogState("stdout",
-                   /*expect_stderr=*/true,
-                   /*expect_stdout=*/false,
-                   /*expect_and_file=*/false);
-  }
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  VerifyLogState("stdout",
+                 /*expect_stderr=*/false,
+                 /*expect_stdout=*/true,
+                 /*expect_and_file=*/false);
+#else
+  // glog < 0.6 does not support FLAGS_logtostdout, falls back to stderr.
+  VerifyLogState("stdout",
+                 /*expect_stderr=*/true,
+                 /*expect_stdout=*/false,
+                 /*expect_and_file=*/false);
+#endif
   VerifyLogState("file",
                  /*expect_stderr=*/false,
                  /*expect_stdout=*/false,

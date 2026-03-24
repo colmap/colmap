@@ -135,7 +135,8 @@ void LogWidget::Flush() {
 
   text_box_->moveCursor(QTextCursor::End);
 
-  if (kGlogHasColorSupport && FLAGS_colorlogtostderr) {
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  if (FLAGS_colorlogtostderr) {
     for (const auto& entry : text_queue_) {
       QTextCharFormat format;
       switch (entry.severity) {
@@ -153,7 +154,9 @@ void LogWidget::Flush() {
       text_box_->setCurrentCharFormat(format);
       text_box_->insertPlainText(QString::fromStdString(entry.text));
     }
-  } else {
+  } else
+#endif
+  {
     for (const auto& entry : text_queue_) {
       text_box_->insertPlainText(QString::fromStdString(entry.text));
     }
