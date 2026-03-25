@@ -126,7 +126,6 @@ class ImuPreintegrator {
                    const ImuCalibration& calib,
                    timestamp_t t_start,
                    timestamp_t t_end);
-  ~ImuPreintegrator() = default;
 
   // Reset the integrator state.
   void Reset();
@@ -194,10 +193,10 @@ class ImuPreintegrator {
   ImuMeasurements measurements_;
 
   // Options
-  ImuPreintegrationOptions options_;
+  const ImuPreintegrationOptions options_;
 
   // IMU Calibration.
-  ImuCalibration calib_;
+  const ImuCalibration calib_;
   Eigen::Matrix3d accel_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Matrix3d gyro_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Vector6d biases_ =

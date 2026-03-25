@@ -41,7 +41,7 @@ namespace {
 
 TEST(QuaternionLeftMultMatrix, Nominal) {
   SetPRNGSeed(42);
-  const double eps = 1e-7;
+  constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
     Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
@@ -58,14 +58,14 @@ TEST(QuaternionLeftMultMatrix, Nominal) {
     Eigen::Matrix4d J_numeric;
     for (int k = 0; k < 4; ++k) {
       Eigen::Vector4d p_plus = p_vec, p_minus = p_vec;
-      p_plus(k) += eps;
-      p_minus(k) -= eps;
+      p_plus(k) += kEps;
+      p_minus(k) -= kEps;
       Eigen::Quaterniond pp(p_plus(3), p_plus(0), p_plus(1), p_plus(2));
       Eigen::Quaterniond pm(p_minus(3), p_minus(0), p_minus(1), p_minus(2));
       Eigen::Quaterniond rp = q * pp, rm = q * pm;
       J_numeric.col(k) = (Eigen::Vector4d(rp.x(), rp.y(), rp.z(), rp.w()) -
                           Eigen::Vector4d(rm.x(), rm.y(), rm.z(), rm.w())) /
-                         (2.0 * eps);
+                         (2.0 * kEps);
     }
     EXPECT_THAT(QuaternionLeftMultMatrix(q), EigenMatrixNear(J_numeric, 1e-5));
   }
@@ -73,7 +73,7 @@ TEST(QuaternionLeftMultMatrix, Nominal) {
 
 TEST(QuaternionRightMultMatrix, Nominal) {
   SetPRNGSeed(42);
-  const double eps = 1e-7;
+  constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
     Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
@@ -90,14 +90,14 @@ TEST(QuaternionRightMultMatrix, Nominal) {
     Eigen::Matrix4d J_numeric;
     for (int k = 0; k < 4; ++k) {
       Eigen::Vector4d q_plus = q_vec, q_minus = q_vec;
-      q_plus(k) += eps;
-      q_minus(k) -= eps;
+      q_plus(k) += kEps;
+      q_minus(k) -= kEps;
       Eigen::Quaterniond qp_p(q_plus(3), q_plus(0), q_plus(1), q_plus(2));
       Eigen::Quaterniond qm_p(q_minus(3), q_minus(0), q_minus(1), q_minus(2));
       Eigen::Quaterniond rp = qp_p * p, rm = qm_p * p;
       J_numeric.col(k) = (Eigen::Vector4d(rp.x(), rp.y(), rp.z(), rp.w()) -
                           Eigen::Vector4d(rm.x(), rm.y(), rm.z(), rm.w())) /
-                         (2.0 * eps);
+                         (2.0 * kEps);
     }
     EXPECT_THAT(QuaternionRightMultMatrix(p), EigenMatrixNear(J_numeric, 1e-5));
   }
@@ -105,7 +105,7 @@ TEST(QuaternionRightMultMatrix, Nominal) {
 
 TEST(QuaternionRotatePointWithJac, Nominal) {
   SetPRNGSeed(42);
-  const double eps = 1e-7;
+  constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
     Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
@@ -123,12 +123,12 @@ TEST(QuaternionRotatePointWithJac, Nominal) {
     for (int k = 0; k < 4; ++k) {
       double q_plus[4] = {q_arr[0], q_arr[1], q_arr[2], q_arr[3]};
       double q_minus[4] = {q_arr[0], q_arr[1], q_arr[2], q_arr[3]};
-      q_plus[k] += eps;
-      q_minus[k] -= eps;
+      q_plus[k] += kEps;
+      q_minus[k] -= kEps;
       J_numeric.col(k) =
           (QuaternionRotatePointWithJac(q_plus, pt.data(), nullptr) -
            QuaternionRotatePointWithJac(q_minus, pt.data(), nullptr)) /
-          (2.0 * eps);
+          (2.0 * kEps);
     }
     EXPECT_THAT(J_analytical, EigenMatrixNear(J_numeric, 1e-5));
   }

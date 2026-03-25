@@ -517,13 +517,13 @@ TEST_P(PhysicsConsistencyTest, CostFunctionMatchesPhysics) {
 
   // RK4 with closed-form integrals is very accurate; midpoint has O(dt^2)
   // discretization error per step.
-  const double tol = (method == ImuIntegrationMethod::MIDPOINT) ? 1e-3 : 1e-4;
+  const double kTol = (method == ImuIntegrationMethod::MIDPOINT) ? 1e-3 : 1e-4;
   for (int i = 0; i < 15; ++i) {
-    EXPECT_NEAR(residuals[i], 0.0, tol) << "residual[" << i << "]"
-                                        << (i < 3   ? " (rotation)"
-                                            : i < 6 ? " (position)"
-                                            : i < 9 ? " (velocity)"
-                                                    : " (bias)");
+    EXPECT_NEAR(residuals[i], 0.0, kTol) << "residual[" << i << "]"
+                                         << (i < 3   ? " (rotation)"
+                                             : i < 6 ? " (position)"
+                                             : i < 9 ? " (velocity)"
+                                                     : " (bias)");
   }
 }
 

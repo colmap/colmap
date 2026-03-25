@@ -276,7 +276,7 @@ TEST_P(BiasJacobianTest, NumericDerivative) {
   const ImuIntegrationMethod method = GetParam();
   const int N = 20;
   const double dt = 0.005;
-  const double eps = 1e-7;
+  constexpr double kEps = 1e-7;
 
   Eigen::Vector3d accel(0.5, -0.3, 9.81);
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);
@@ -293,8 +293,8 @@ TEST_P(BiasJacobianTest, NumericDerivative) {
   for (int k = 0; k < 3; ++k) {
     Eigen::Vector6d biases_plus = biases;
     Eigen::Vector6d biases_minus = biases;
-    biases_plus(k) += eps;
-    biases_minus(k) -= eps;
+    biases_plus(k) += kEps;
+    biases_minus(k) -= kEps;
 
     PreintegratedImuData data_plus =
         IntegrateWithBiases(accel, gyro, N, dt, biases_plus, method);
@@ -302,19 +302,19 @@ TEST_P(BiasJacobianTest, NumericDerivative) {
         IntegrateWithBiases(accel, gyro, N, dt, biases_minus, method);
 
     Eigen::AngleAxisd dR_aa(data_minus.delta_R.inverse() * data_plus.delta_R);
-    dR_dbg_numeric.col(k) = (dR_aa.angle() * dR_aa.axis()) / (2 * eps);
+    dR_dbg_numeric.col(k) = (dR_aa.angle() * dR_aa.axis()) / (2 * kEps);
 
     dp_dbg_numeric.col(k) =
-        (data_plus.delta_p - data_minus.delta_p) / (2 * eps);
+        (data_plus.delta_p - data_minus.delta_p) / (2 * kEps);
     dv_dbg_numeric.col(k) =
-        (data_plus.delta_v - data_minus.delta_v) / (2 * eps);
+        (data_plus.delta_v - data_minus.delta_v) / (2 * kEps);
   }
 
   for (int k = 0; k < 3; ++k) {
     Eigen::Vector6d biases_plus = biases;
     Eigen::Vector6d biases_minus = biases;
-    biases_plus(3 + k) += eps;
-    biases_minus(3 + k) -= eps;
+    biases_plus(3 + k) += kEps;
+    biases_minus(3 + k) -= kEps;
 
     PreintegratedImuData data_plus =
         IntegrateWithBiases(accel, gyro, N, dt, biases_plus, method);
@@ -322,21 +322,21 @@ TEST_P(BiasJacobianTest, NumericDerivative) {
         IntegrateWithBiases(accel, gyro, N, dt, biases_minus, method);
 
     dp_dba_numeric.col(k) =
-        (data_plus.delta_p - data_minus.delta_p) / (2 * eps);
+        (data_plus.delta_p - data_minus.delta_p) / (2 * kEps);
     dv_dba_numeric.col(k) =
-        (data_plus.delta_v - data_minus.delta_v) / (2 * eps);
+        (data_plus.delta_v - data_minus.delta_v) / (2 * kEps);
   }
 
-  const double tol = 1e-4;
-  EXPECT_THAT(data0.dR_dbg, EigenMatrixNear(dR_dbg_numeric, tol));
+  constexpr double kTol = 1e-4;
+  EXPECT_THAT(data0.dR_dbg, EigenMatrixNear(dR_dbg_numeric, kTol));
   // TODO: RK4 dp_dbg has ~1e-5 absolute error on diagonal entries due to
   // the Eckenhoff d_R_bw first-order approximation.
   if (method != ImuIntegrationMethod::RK4) {
-    EXPECT_THAT(data0.dp_dbg, EigenMatrixNear(dp_dbg_numeric, tol));
+    EXPECT_THAT(data0.dp_dbg, EigenMatrixNear(dp_dbg_numeric, kTol));
   }
-  EXPECT_THAT(data0.dv_dbg, EigenMatrixNear(dv_dbg_numeric, tol));
-  EXPECT_THAT(data0.dp_dba, EigenMatrixNear(dp_dba_numeric, tol));
-  EXPECT_THAT(data0.dv_dba, EigenMatrixNear(dv_dba_numeric, tol));
+  EXPECT_THAT(data0.dv_dbg, EigenMatrixNear(dv_dbg_numeric, kTol));
+  EXPECT_THAT(data0.dp_dba, EigenMatrixNear(dp_dba_numeric, kTol));
+  EXPECT_THAT(data0.dv_dba, EigenMatrixNear(dv_dba_numeric, kTol));
 }
 
 INSTANTIATE_TEST_SUITE_P(ImuPreintegrator,

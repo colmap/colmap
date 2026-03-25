@@ -69,15 +69,15 @@ void PreintegratedImuData::Finalize(double max_condition_number) {
 ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
                                    const ImuCalibration& calib,
                                    timestamp_t t_start,
-                                   timestamp_t t_end) {
-  options_ = options;
-  calib_ = calib;
+                                   timestamp_t t_end)
+    : t_start_(t_start),
+      t_end_(t_end),
+      options_(options),
+      calib_(calib),
+      accel_rect_mat_inv_(calib.accel_rectification.inverse()),
+      gyro_rect_mat_inv_(calib.gyro_rectification.inverse()) {
   THROW_CHECK_LT(t_start, t_end);
-  t_start_ = t_start;
-  t_end_ = t_end;
   data_.gravity_magnitude = calib.gravity_magnitude;
-  accel_rect_mat_inv_ = calib.accel_rectification.inverse();
-  gyro_rect_mat_inv_ = calib.gyro_rectification.inverse();
   Reset();
 }
 
