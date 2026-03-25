@@ -782,6 +782,10 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.retriangulation.min_angle);
 
   // Rotation averaging options.
+  AddDefaultOption("GlobalMapper.ra_use_gravity",
+                   &global_mapper->mapper.rotation_averaging.use_gravity);
+  AddDefaultOption("GlobalMapper.ra_use_stratified",
+                   &global_mapper->mapper.rotation_averaging.use_stratified);
   AddDefaultOption(
       "GlobalMapper.ra_max_rotation_error_deg",
       &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);

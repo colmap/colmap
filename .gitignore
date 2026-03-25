@@ -5,6 +5,7 @@ src/colmap/util/version.cc
 CMakeUserPresets.json
 .clangd
 compile_commands.json
+.claude/settings.local.json
 
 # Custom directories
 .idea/

@@ -44,11 +44,14 @@ namespace {
 
 using command_func_t = std::function<int(int, char**)>;
 
-int ShowHelp(
+void ShowVersion() {
+  std::cout << colmap::GetVersionInfo() << " (" << colmap::GetBuildInfo()
+            << ")\n";
+}
+
+void ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
-  std::cout << colmap::GetVersionInfo()
-            << " -- Structure-from-Motion and Multi-View Stereo\n("
-            << colmap::GetBuildInfo() << ")\n\n";
+  ShowVersion();
 
   std::cout << "Usage:\n";
   std::cout << "  colmap [command] [options]\n";
@@ -72,12 +75,11 @@ int ShowHelp(
 
   std::cout << "Available commands:\n";
   std::cout << "  help\n";
+  std::cout << "  version\n";
   for (const auto& command : commands) {
     std::cout << "  " << command.first << '\n';
   }
   std::cout << '\n';
-
-  return EXIT_SUCCESS;
 }
 
 }  // namespace
@@ -155,12 +157,18 @@ int main(int argc, char** argv) {
   commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);
 
   if (argc == 1) {
-    return ShowHelp(commands);
+    ShowHelp(commands);
+    return EXIT_SUCCESS;
   }
 
   const std::string command = argv[1];
-  if (command == "help" || command == "-h" || command == "--help") {
-    return ShowHelp(commands);
+  if (command == "help" || command == "--help" || command == "-h") {
+    ShowHelp(commands);
+    return EXIT_SUCCESS;
+  } else if (command == "version" || command == "--version" ||
+             command == "-v") {
+    ShowVersion();
+    return EXIT_SUCCESS;
   } else {
     command_func_t matched_command_func = nullptr;
     for (const auto& command_func : commands) {
@@ -183,5 +191,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  return ShowHelp(commands);
+  ShowHelp(commands);
+  return EXIT_SUCCESS;
 }
