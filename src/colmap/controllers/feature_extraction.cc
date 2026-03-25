@@ -125,9 +125,9 @@ class ImageResizerThread : public Thread {
           if (static_cast<int>(image_data.bitmap->Width()) > max_image_size_ ||
               static_cast<int>(image_data.bitmap->Height()) > max_image_size_) {
             // Fit the down-sampled version exactly into the max dimensions.
-            const double scale =
-                static_cast<double>(max_image_size_) /
-                std::max(image_data.bitmap->Width(), image_data.bitmap->Height());
+            const double scale = static_cast<double>(max_image_size_) /
+                                 std::max(image_data.bitmap->Width(),
+                                          image_data.bitmap->Height());
             const int new_width =
                 static_cast<int>(image_data.bitmap->Width() * scale);
             const int new_height =
@@ -548,7 +548,9 @@ class FeatureExtractorController : public Thread {
       if (image_data.status != ImageReader::Status::SUCCESS) {
         // Release the memory, since it is not used afterwards.
         *image_data.bitmap = Bitmap();
-        *image_data.mask = Bitmap();
+        if (image_data.mask) {
+          *image_data.mask = Bitmap();
+        }
       }
 
       THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
