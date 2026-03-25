@@ -41,9 +41,12 @@
 
 namespace colmap {
 
-// Midpoint: trapezoidal integration, sufficient for typical 200-1000 Hz IMUs.
+// Midpoint: trapezoidal integration with numerical bias Jacobians.
+//   Faster, sufficient for high-rate IMUs (200-1000 Hz). Use when speed
+//   matters and the IMU rate is well above the dynamics bandwidth.
 // RK4: closed-form rotation integrals with analytical bias Jacobians and
-//      RK4 covariance propagation, more accurate for lower IMU rates.
+//   RK4 covariance propagation. More accurate for low-rate IMUs (<200 Hz)
+//   or when precise covariance/Jacobians are needed. Default choice.
 MAKE_ENUM_CLASS(ImuIntegrationMethod, 0, MIDPOINT, RK4);
 
 struct ImuPreintegrationOptions {
