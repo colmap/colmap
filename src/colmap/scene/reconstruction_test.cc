@@ -643,6 +643,50 @@ TEST(Reconstruction, SetRigsAndFrames) {
   ExpectEqualSerialization(reconstruction, orig_reconstruction);
 }
 
+TEST(Reconstruction, SetRigsAndFramesResetsNumRegImages) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const size_t num_reg_images_before = reconstruction.NumRegImages();
+  EXPECT_GT(num_reg_images_before, 0);
+  // Copy rigs and frames (with poses) from the reconstruction to re-apply.
+  std::vector<class Rig> rigs;
+  for (const auto& [_, rig] : reconstruction.Rigs()) {
+    rigs.push_back(rig);
+  }
+  std::vector<class Frame> frames;
+  for (auto [_, frame] : reconstruction.Frames()) {
+    frame.ResetRigPtr();
+    frames.push_back(std::move(frame));
+  }
+  const size_t num_rigs_before = reconstruction.NumRigs();
+  const size_t num_frames_before = reconstruction.NumFrames();
+  const size_t num_reg_frames_before = reconstruction.NumRegFrames();
+  // Call SetRigsAndFrames while frames are still registered. Previously this
+  // would double-count num_reg_images_ because it was not reset to zero.
+  reconstruction.SetRigsAndFrames(std::move(rigs), std::move(frames));
+  // Verify num_reg_images_ is not double-counted.
+  EXPECT_EQ(reconstruction.NumRegImages(), num_reg_images_before);
+  // Verify rigs, frames, and registered frames are preserved.
+  EXPECT_EQ(reconstruction.NumRigs(), num_rigs_before);
+  EXPECT_EQ(reconstruction.NumFrames(), num_frames_before);
+  EXPECT_EQ(reconstruction.NumRegFrames(), num_reg_frames_before);
+  // Verify every registered frame still has a pose.
+  for (const auto& frame_id : reconstruction.RegFrameIds()) {
+    EXPECT_TRUE(reconstruction.Frame(frame_id).HasPose());
+  }
+  // Verify image-to-frame pointers are correctly re-wired.
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    EXPECT_TRUE(image.HasFrameId());
+    EXPECT_TRUE(image.HasFramePtr());
+    EXPECT_EQ(image.FramePtr(), &reconstruction.Frame(image.FrameId()));
+  }
+}
+
 TEST(Reconstruction, RegisterFrame) {
   Reconstruction reconstruction;
   GenerateReconstruction(1, &reconstruction);
