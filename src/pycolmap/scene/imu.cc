@@ -41,10 +41,13 @@ void BindImu(py::module& m) {
   PyImuMeasurement.def(py::init<>())
       .def(py::init<timestamp_t,
                     const Eigen::Vector3d&,
-                    const Eigen::Vector3d&>())
+                    const Eigen::Vector3d&>(),
+           "timestamp"_a,
+           "gyro"_a,
+           "accel"_a)
       .def_readwrite("timestamp", &ImuMeasurement::timestamp)
-      .def_readwrite("accel", &ImuMeasurement::accel)
       .def_readwrite("gyro", &ImuMeasurement::gyro)
+      .def_readwrite("accel", &ImuMeasurement::accel)
       .def("__repr__", [](const ImuMeasurement& m) {
         std::ostringstream ss;
         ss << m;

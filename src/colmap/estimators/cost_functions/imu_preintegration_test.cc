@@ -68,7 +68,7 @@ PreintegratedImuData MakeConstantData(const Eigen::Vector3d& accel,
   timestamp_t t_end = SecondsToTimestamp(N * dt);
   ImuPreintegrator integrator(options, calib, t_start, t_end);
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
   }
   PreintegratedImuData data = integrator.Extract();
 
@@ -490,7 +490,7 @@ TEST_P(PhysicsConsistencyTest, CostFunctionMatchesPhysics) {
   ImuPreintegrator integrator(
       options, calib, SecondsToTimestamp(0.0), SecondsToTimestamp(T));
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
   }
   PreintegratedImuData data = integrator.Extract();
   data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();

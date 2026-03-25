@@ -55,7 +55,7 @@ void FeedConstant(ImuPreintegrator& integrator,
                   int N,
                   double dt) {
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
   }
 }
 
@@ -239,7 +239,7 @@ TEST(ImuPreintegrator, CovariancePositiveDefiniteRK4) {
   Eigen::Vector3d accel(0.5, -0.3, 9.81);
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
   }
   PreintegratedImuData data = integrator.Extract();
 
@@ -264,7 +264,7 @@ PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
   ImuPreintegrator integrator(options, calib, t_start, t_end);
   integrator.SetLinearizationBiases(biases);
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), accel, gyro));
+    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
   }
   return integrator.Extract();
 }

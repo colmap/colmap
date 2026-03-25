@@ -328,9 +328,9 @@ def run() -> None:
     for row in raw_imu_data:
         imu_measurements.append(
             pycolmap.ImuMeasurement(
-                int(row[0]),
-                np.array(row[1:4]),
-                np.array(row[4:7]),
+                timestamp=int(row[0]),
+                accel=np.array(row[1:4]),
+                gyro=np.array(row[4:7]),
             )
         )
 

@@ -70,8 +70,8 @@ std::ostream& operator<<(std::ostream& stream,
                          const ImuMeasurement& measurement) {
   stream << "ImuMeasurement("
          << "t=" << measurement.timestamp << ", "
-         << "accel=[" << measurement.accel.transpose() << "], "
-         << "gyro=[" << measurement.gyro.transpose() << "])";
+         << "gyro=[" << measurement.gyro.transpose() << "], "
+         << "accel=[" << measurement.accel.transpose() << "])";
   return stream;
 }
 

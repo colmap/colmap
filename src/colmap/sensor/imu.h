@@ -78,14 +78,14 @@ struct ImuCalibration {
 
 struct ImuMeasurement {
   timestamp_t timestamp = kInvalidTimestamp;  // [nanoseconds]
-  Eigen::Vector3d accel = Eigen::Vector3d::Zero();
   Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
+  Eigen::Vector3d accel = Eigen::Vector3d::Zero();
 
   ImuMeasurement() {}
   ImuMeasurement(timestamp_t t,
-                 const Eigen::Vector3d& accel,
-                 const Eigen::Vector3d& gyro)
-      : timestamp(t), accel(accel), gyro(gyro) {}
+                 const Eigen::Vector3d& gyro,
+                 const Eigen::Vector3d& accel)
+      : timestamp(t), gyro(gyro), accel(accel) {}
 };
 
 std::ostream& operator<<(std::ostream& stream,
