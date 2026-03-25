@@ -279,7 +279,9 @@ class Reconstruction {
   // @param path          Absolute or relative path to root folder of image.
   //                      The image path is determined by concatenating the
   //                      root path and the name of the image.
-  void ExtractColorsForAllImages(const std::filesystem::path& path);
+  // @param num_threads   Number of threads used for the color extraction.
+  void ExtractColorsForAllImages(const std::filesystem::path& path,
+                                 int num_threads = -1);
 
   // Create all image sub-directories in the given path.
   void CreateImageDirs(const std::filesystem::path& path) const;

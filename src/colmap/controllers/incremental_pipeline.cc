@@ -34,6 +34,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
+#include "colmap/util/threading.h"
 
 namespace colmap {
 namespace {
@@ -85,10 +86,10 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
 }
 
 void ExtractColors(const std::filesystem::path& image_path,
+                   int num_threads,
                    Reconstruction& reconstruction) {
-  LOG(INFO) << "Extracting colors for " << reconstruction.NumRegImages()
-            << " images";
-  reconstruction.ExtractColorsForAllImages(image_path);
+  LOG(INFO) << "Extracting colors";
+  reconstruction.ExtractColorsForAllImages(image_path, num_threads);
 }
 
 void WriteSnapshot(const Reconstruction& reconstruction,
@@ -431,7 +432,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   }
 
   if (options_->extract_colors) {
-    ExtractColors(options_->image_path, reconstruction);
+    ExtractColors(options_->image_path, options_->num_threads, reconstruction);
   }
 
   return Status::SUCCESS;
@@ -602,7 +603,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   } while (reg_next_success || prev_reg_next_success);
 
   if (options_->extract_colors) {
-    ExtractColors(options_->image_path, *reconstruction);
+    ExtractColors(options_->image_path, options_->num_threads, *reconstruction);
   }
 
   if (CheckIfStopped() || CheckReachedMaxRuntime()) {

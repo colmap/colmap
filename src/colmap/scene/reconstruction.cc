@@ -38,6 +38,11 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
+#include "colmap/util/threading.h"
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #include <set>
 
@@ -1110,17 +1115,27 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 }
 
 void Reconstruction::ExtractColorsForAllImages(
-    const std::filesystem::path& path) {
-  std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
-  std::unordered_map<point3D_t, size_t> color_counts;
+    const std::filesystem::path& path, int num_threads) {
+  point3D_t max_point3D_id = 0;
+  for (const auto& point3D : points3D_) {
+    max_point3D_id = std::max(max_point3D_id, point3D.first);
+  }
 
-  for (const auto& image_id : RegImageIds()) {
-    const class Image& image = Image(image_id);
+  std::vector<double> color_sums_r(max_point3D_id + 1, 0.0);
+  std::vector<double> color_sums_g(max_point3D_id + 1, 0.0);
+  std::vector<double> color_sums_b(max_point3D_id + 1, 0.0);
+  std::vector<size_t> color_counts(max_point3D_id + 1, 0);
+
+  const std::vector<image_t> image_ids = RegImageIds();
+
+  const int eff_num_threads = GetEffectiveNumThreads(num_threads);
+#pragma omp parallel for schedule(dynamic) num_threads(eff_num_threads)
+  for (int i = 0; i < image_ids.size(); ++i) {
+    const class Image& image = Image(image_ids[i]);
     const auto image_path = path / image.Name();
 
     Bitmap bitmap;
-    if (!bitmap.Read(image_path,
-                     /*as_rgb=*/true)) {
+    if (!bitmap.Read(image_path, /*as_rgb=*/true)) {
       LOG(WARNING) << "Could not read image " << image.Name() << " at path "
                    << image_path;
       continue;
@@ -1132,17 +1147,15 @@ void Reconstruction::ExtractColorsForAllImages(
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
         if (bitmap.InterpolateBilinear(
                 point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
-          if (color_sums.count(point2D.point3D_id)) {
-            Eigen::Vector3d& color_sum = color_sums[point2D.point3D_id];
-            color_sum(0) += color.r;
-            color_sum(1) += color.g;
-            color_sum(2) += color.b;
-            color_counts[point2D.point3D_id] += 1;
-          } else {
-            color_sums.emplace(point2D.point3D_id,
-                               Eigen::Vector3d(color.r, color.g, color.b));
-            color_counts.emplace(point2D.point3D_id, 1);
-          }
+          const point3D_t point3D_id = point2D.point3D_id;
+#pragma omp atomic
+          color_sums_r[point3D_id] += color.r;
+#pragma omp atomic
+          color_sums_g[point3D_id] += color.g;
+#pragma omp atomic
+          color_sums_b[point3D_id] += color.b;
+#pragma omp atomic
+          color_counts[point3D_id] += 1;
         }
       }
     }
@@ -1150,12 +1163,14 @@ void Reconstruction::ExtractColorsForAllImages(
 
   const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
   for (auto& [point3D_id, point3D] : points3D_) {
-    if (color_sums.count(point3D_id)) {
-      Eigen::Vector3d color = color_sums[point3D_id] / color_counts[point3D_id];
-      for (Eigen::Index i = 0; i < color.size(); ++i) {
-        color[i] = std::round(color[i]);
-      }
-      point3D.color = color.cast<uint8_t>();
+    if (color_counts[point3D_id] > 0) {
+      const double count = static_cast<double>(color_counts[point3D_id]);
+      point3D.color(0) =
+          static_cast<uint8_t>(std::round(color_sums_r[point3D_id] / count));
+      point3D.color(1) =
+          static_cast<uint8_t>(std::round(color_sums_g[point3D_id] / count));
+      point3D.color(2) =
+          static_cast<uint8_t>(std::round(color_sums_b[point3D_id] / count));
     } else {
       point3D.color = kBlackColor;
     }
