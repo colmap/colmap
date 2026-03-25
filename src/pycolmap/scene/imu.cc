@@ -115,8 +115,6 @@ void BindImu(py::module& m) {
           [](ImuState& self, const Eigen::Vector3d& ba) {
             self.bias_accel() = ba;
           })
-      .def_readwrite("imu_id", &ImuState::imu_id)
-      .def_readwrite("image_id", &ImuState::image_id)
       .def("__repr__", [](const ImuState& s) {
         std::ostringstream ss;
         ss << s;

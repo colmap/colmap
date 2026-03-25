@@ -94,9 +94,6 @@ struct ImuState {
   inline Eigen::Map<const Eigen::Vector3d> bias_accel() const {
     return Eigen::Map<const Eigen::Vector3d>(params.data() + 6);
   }
-
-  camera_t imu_id = kInvalidCameraId;
-  image_t image_id = kInvalidImageId;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Imu& imu) {
