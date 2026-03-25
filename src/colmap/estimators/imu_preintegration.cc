@@ -180,10 +180,8 @@ void ImuPreintegrator::IntegrateMidpoint(const Eigen::Vector3d& accel_true,
   // Step 2: add noise.
   double vars_v = pow(accel_noise_density, 2) * dt;
   double vars_omega = pow(gyro_noise_density, 2) * dt;
-  double vars_p = 0.5 * vars_v * dt * dt;
-  if (options_.use_integration_noise) {
-    vars_p += pow(options_.integration_noise_density, 2) * dt;
-  }
+  double vars_p =
+      0.5 * vars_v * dt * dt + pow(options_.integration_noise_density, 2) * dt;
   double vars_ba = pow(calib_.bias_accel_random_walk_sigma, 2) * dt;
   double vars_bg = pow(calib_.bias_gyro_random_walk_sigma, 2) * dt;
   data_.covariance.block<3, 3>(0, 0) +=
@@ -423,6 +421,10 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   // Combine RK4 increments.
   data_.covariance +=
       (dt / 6.0) * (P_dot_1 + 2.0 * P_dot_2 + 2.0 * P_dot_3 + P_dot_4);
+  // Add integration noise to position covariance (same as midpoint path).
+  data_.covariance.block<3, 3>(3, 3) +=
+      Eigen::Matrix3d::Identity() *
+      (pow(options_.integration_noise_density, 2) * dt);
   data_.covariance = 0.5 * (data_.covariance + data_.covariance.transpose());
 }
 

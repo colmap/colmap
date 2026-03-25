@@ -49,10 +49,14 @@ MAKE_ENUM_CLASS(ImuIntegrationMethod, 0, MIDPOINT, RK4);
 struct ImuPreintegrationOptions {
   ImuIntegrationMethod method = ImuIntegrationMethod::RK4;
 
-  // Whether to add integration noise to the covariance propagation.
-  bool use_integration_noise = false;
-  // Integration noise density. [m/s*1/sqrt(Hz)]
-  double integration_noise_density = 0.2;
+  // Additional position noise density to account for discretization error
+  // in the numerical integration (midpoint/RK4). Adds sigma^2 * dt to the
+  // position covariance at each step, loosening the preintegration constraint.
+  // Increase this if the IMU factor over-constrains the optimization and
+  // prevents visual observations from correcting drift. Set to 0 to disable.
+  // Analogous to GTSAM's PreintegrationParams::integrationCovariance.
+  // [m/s * 1/sqrt(Hz)]
+  double integration_noise_density = 0.0;
 
   // Threshold on velocity bias change norm to trigger reintegration. [m/s]
   double reintegrate_vel_norm_thres = 0.0001;
