@@ -1116,14 +1116,13 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 
 void Reconstruction::ExtractColorsForAllImages(
     const std::filesystem::path& path, int num_threads) {
-  std::vector<double> color_sums_r(max_point3D_id_ + 1, 0.0);
-  std::vector<double> color_sums_g(max_point3D_id_ + 1, 0.0);
-  std::vector<double> color_sums_b(max_point3D_id_ + 1, 0.0);
+  std::vector<Eigen::Vector3d> color_sums(max_point3D_id_ + 1,
+                                          Eigen::Vector3d::Zero());
   std::vector<size_t> color_counts(max_point3D_id_ + 1, 0);
 
   const std::vector<image_t> image_ids = RegImageIds();
-
   const int eff_num_threads = GetEffectiveNumThreads(num_threads);
+
 #pragma omp parallel for schedule(dynamic) num_threads(eff_num_threads)
   for (int i = 0; i < image_ids.size(); ++i) {
     const class Image& image = Image(image_ids[i]);
@@ -1144,11 +1143,11 @@ void Reconstruction::ExtractColorsForAllImages(
                 point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
           const point3D_t point3D_id = point2D.point3D_id;
 #pragma omp atomic
-          color_sums_r[point3D_id] += color.r;
+          color_sums[point3D_id](0) += color.r;
 #pragma omp atomic
-          color_sums_g[point3D_id] += color.g;
+          color_sums[point3D_id](1) += color.g;
 #pragma omp atomic
-          color_sums_b[point3D_id] += color.b;
+          color_sums[point3D_id](2) += color.b;
 #pragma omp atomic
           color_counts[point3D_id] += 1;
         }
@@ -1161,11 +1160,11 @@ void Reconstruction::ExtractColorsForAllImages(
     if (color_counts[point3D_id] > 0) {
       const double count = static_cast<double>(color_counts[point3D_id]);
       point3D.color(0) =
-          static_cast<uint8_t>(std::round(color_sums_r[point3D_id] / count));
+          static_cast<uint8_t>(std::round(color_sums[point3D_id](0) / count));
       point3D.color(1) =
-          static_cast<uint8_t>(std::round(color_sums_g[point3D_id] / count));
+          static_cast<uint8_t>(std::round(color_sums[point3D_id](1) / count));
       point3D.color(2) =
-          static_cast<uint8_t>(std::round(color_sums_b[point3D_id] / count));
+          static_cast<uint8_t>(std::round(color_sums[point3D_id](2) / count));
     } else {
       point3D.color = kBlackColor;
     }
