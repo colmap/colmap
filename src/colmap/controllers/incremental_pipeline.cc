@@ -33,8 +33,8 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
-#include "colmap/util/timer.h"
 #include "colmap/util/threading.h"
+#include "colmap/util/timer.h"
 
 namespace colmap {
 namespace {
@@ -431,10 +431,6 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     return Status::BAD_INITIAL_PAIR;
   }
 
-  if (options_->extract_colors) {
-    ExtractColors(options_->image_path, options_->num_threads, reconstruction);
-  }
-
   return Status::SUCCESS;
 }
 
@@ -763,8 +759,7 @@ void IncrementalPipeline::TriangulateReconstruction(
 
   reconstruction->UpdatePoint3DErrors();
 
-  LOG(INFO) << "Extracting colors";
-  reconstruction->ExtractColorsForAllImages(options_->image_path);
+  ExtractColors(options_->image_path, options_->num_threads, *reconstruction);
 }
 
 void IncrementalPipeline::RegisterCallbacks() {
