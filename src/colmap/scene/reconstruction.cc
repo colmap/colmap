@@ -1116,15 +1116,10 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 
 void Reconstruction::ExtractColorsForAllImages(
     const std::filesystem::path& path, int num_threads) {
-  point3D_t max_point3D_id = 0;
-  for (const auto& point3D : points3D_) {
-    max_point3D_id = std::max(max_point3D_id, point3D.first);
-  }
-
-  std::vector<double> color_sums_r(max_point3D_id + 1, 0.0);
-  std::vector<double> color_sums_g(max_point3D_id + 1, 0.0);
-  std::vector<double> color_sums_b(max_point3D_id + 1, 0.0);
-  std::vector<size_t> color_counts(max_point3D_id + 1, 0);
+  std::vector<double> color_sums_r(max_point3D_id_ + 1, 0.0);
+  std::vector<double> color_sums_g(max_point3D_id_ + 1, 0.0);
+  std::vector<double> color_sums_b(max_point3D_id_ + 1, 0.0);
+  std::vector<size_t> color_counts(max_point3D_id_ + 1, 0);
 
   const std::vector<image_t> image_ids = RegImageIds();
 
