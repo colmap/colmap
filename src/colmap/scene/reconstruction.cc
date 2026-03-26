@@ -1159,12 +1159,7 @@ void Reconstruction::ExtractColorsForAllImages(
   for (auto& [point3D_id, point3D] : points3D_) {
     if (color_counts[point3D_id] > 0) {
       const double count = static_cast<double>(color_counts[point3D_id]);
-      point3D.color(0) =
-          static_cast<uint8_t>(std::round(color_sums[point3D_id](0) / count));
-      point3D.color(1) =
-          static_cast<uint8_t>(std::round(color_sums[point3D_id](1) / count));
-      point3D.color(2) =
-          static_cast<uint8_t>(std::round(color_sums[point3D_id](2) / count));
+      point3D.color = (color_sums[point3D_id] / count).array().round().cast<uint8_t>();
     } else {
       point3D.color = kBlackColor;
     }
