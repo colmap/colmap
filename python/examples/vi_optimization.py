@@ -50,7 +50,7 @@ class ImuReintegrationCallback(pyceres.IterationCallback):
             > self.options.reintegrate_angle_norm_thres
         ):
             return True
-        return (
+        return bool(
             np.linalg.norm(diff[3:]) * delta_t
             > self.options.reintegrate_vel_norm_thres
         )
