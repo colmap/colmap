@@ -21,8 +21,9 @@ class ImuReintegrationCallback(pyceres.IterationCallback):
     """Ceres iteration callback that reintegrates IMU preintegration data
     when the optimized biases have drifted beyond the linearization point."""
 
-    def __init__(self) -> None:
+    def __init__(self, options: pycolmap.ImuReintegrationOptions) -> None:
         pyceres.IterationCallback.__init__(self)
+        self.options = options
         self.edges: list[
             tuple[
                 pycolmap.ImuPreintegrator,
@@ -39,14 +40,27 @@ class ImuReintegrationCallback(pyceres.IterationCallback):
     ) -> None:
         self.edges.append((integrator, data, imu_state))
 
+    def _should_reintegrate(
+        self, data: pycolmap.PreintegratedImuData, biases: np.ndarray
+    ) -> bool:
+        diff = biases - data.biases
+        delta_t = data.delta_t
+        if (
+            np.linalg.norm(diff[:3]) * delta_t
+            > self.options.reintegrate_angle_norm_thres
+        ):
+            return True
+        return (
+            np.linalg.norm(diff[3:]) * delta_t
+            > self.options.reintegrate_vel_norm_thres
+        )
+
     def __call__(
         self, summary: pyceres.IterationSummary
     ) -> pyceres.CallbackReturnType:
-        if not summary.step_is_successful:
-            return pyceres.CallbackReturnType.SOLVER_CONTINUE
         for integrator, data, imu_state in self.edges:
             biases = imu_state.params[3:9]
-            if integrator.should_reintegrate(biases):
+            if self._should_reintegrate(data, biases):
                 integrator.reintegrate(biases)
                 integrator.update(data)
         return pyceres.CallbackReturnType.SOLVER_CONTINUE
@@ -137,7 +151,7 @@ def solve_bundle_adjustment(
     solver_options.minimizer_progress_to_stdout = True
     # Set up reintegration callback to update preintegrated data when
     # biases drift beyond the linearization point.
-    callback = ImuReintegrationCallback()
+    callback = ImuReintegrationCallback(pycolmap.ImuReintegrationOptions())
     for image_id in integrators:
         callback.add_edge(
             integrators[image_id],

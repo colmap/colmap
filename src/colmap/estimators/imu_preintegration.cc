@@ -538,21 +538,6 @@ PreintegratedImuData ImuPreintegrator::Extract() {
 
 void ImuPreintegrator::Update(PreintegratedImuData* data) { *data = data_; }
 
-bool ImuPreintegrator::ShouldReintegrate(const Eigen::Vector6d& biases) const {
-  THROW_CHECK_EQ(HasStarted(), true);
-  Eigen::Vector6d diff_biases = biases - biases_;
-
-  // check gyro
-  double angle_norm = diff_biases.head<3>().norm() * data_.delta_t;
-  if (angle_norm > options_.reintegrate_angle_norm_thres) return true;
-
-  // check accel
-  double v_norm = diff_biases.tail<3>().norm() * data_.delta_t;
-  if (v_norm > options_.reintegrate_vel_norm_thres) return true;
-
-  return false;
-}
-
 void ImuPreintegrator::Reintegrate() {
   Reset();
   has_started_ = true;
@@ -573,12 +558,25 @@ void ImuReintegrationCallback::AddEdge(ImuPreintegrator* integrator,
   edges_.push_back({integrator, data, imu_state});
 }
 
+bool ImuReintegrationCallback::ShouldReintegrate(
+    const PreintegratedImuData& data, const Eigen::Vector6d& biases) const {
+  const Eigen::Vector6d diff = biases - data.biases;
+  const double delta_t = data.delta_t;
+  if (diff.head<3>().norm() * delta_t > options_.reintegrate_angle_norm_thres) {
+    return true;
+  }
+  if (diff.tail<3>().norm() * delta_t > options_.reintegrate_vel_norm_thres) {
+    return true;
+  }
+  return false;
+}
+
 ceres::CallbackReturnType ImuReintegrationCallback::operator()(
     const ceres::IterationSummary& /*summary*/) {
   for (auto& edge : edges_) {
     // Read current biases from the optimized IMU state: [v(3), bg(3), ba(3)].
-    Eigen::Vector6d biases(edge.imu_state + 3);
-    if (edge.integrator->ShouldReintegrate(biases)) {
+    const Eigen::Vector6d biases(edge.imu_state + 3);
+    if (ShouldReintegrate(*edge.data, biases)) {
       edge.integrator->Reintegrate(biases);
       edge.integrator->Update(edge.data);
     }

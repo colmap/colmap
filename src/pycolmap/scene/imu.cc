@@ -17,7 +17,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindImu(py::module& m) {
-  py::classh_ext<ImuCalibration> PyImuCalibration(m, "ImuCalibration");
+  py::classh<ImuCalibration> PyImuCalibration(m, "ImuCalibration");
   PyImuCalibration.def(py::init<>())
       .def_readwrite("accel_noise_density",
                      &ImuCalibration::accel_noise_density)

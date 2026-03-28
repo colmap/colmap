@@ -26,11 +26,16 @@ void BindImuPreintegration(py::module& m) {
   PyImuPreintegrationOptions.def(py::init<>())
       .def_readwrite("method", &ImuPreintegrationOptions::method)
       .def_readwrite("integration_noise_density",
-                     &ImuPreintegrationOptions::integration_noise_density)
-      .def_readwrite("reintegrate_vel_norm_thres",
-                     &ImuPreintegrationOptions::reintegrate_vel_norm_thres)
+                     &ImuPreintegrationOptions::integration_noise_density);
+
+  py::classh<ImuReintegrationOptions> PyImuReintegrationOptions(
+      m, "ImuReintegrationOptions");
+  PyImuReintegrationOptions.def(py::init<>())
       .def_readwrite("reintegrate_angle_norm_thres",
-                     &ImuPreintegrationOptions::reintegrate_angle_norm_thres);
+                     &ImuReintegrationOptions::reintegrate_angle_norm_thres)
+      .def_readwrite("reintegrate_vel_norm_thres",
+                     &ImuReintegrationOptions::reintegrate_vel_norm_thres);
+  MakeDataclass(PyImuReintegrationOptions);
 
   py::classh<PreintegratedImuData> PyPreintegratedImuData(
       m, "PreintegratedImuData");
@@ -82,9 +87,6 @@ void BindImuPreintegration(py::module& m) {
           },
           "data"_a,
           "Extract into an existing data object (in-place update).")
-      .def("should_reintegrate",
-           &ImuPreintegrator::ShouldReintegrate,
-           "biases"_a)
       .def("reintegrate", py::overload_cast<>(&ImuPreintegrator::Reintegrate))
       .def("reintegrate",
            py::overload_cast<const Eigen::Vector6d&>(

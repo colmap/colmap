@@ -61,11 +61,6 @@ struct ImuPreintegrationOptions {
   // [m/s * 1/sqrt(Hz)]
   double integration_noise_density = 0.0;
 
-  // Threshold on velocity bias change norm to trigger reintegration. [m/s]
-  double reintegrate_vel_norm_thres = 0.0001;
-  // Threshold on gyro bias change norm to trigger reintegration. [rad/s]
-  double reintegrate_angle_norm_thres = 0.0001;
-
   // Maximum condition number for the information matrix. Small eigenvalues
   // of the covariance are clamped to limit the condition number, preventing
   // ill-conditioned blocks from dominating the optimizer.
@@ -154,10 +149,6 @@ class ImuPreintegrator {
   // references by pointer, so the cost function sees the new values.
   void Update(PreintegratedImuData* data);
 
-  // Check whether the bias has drifted enough from the linearization point
-  // to warrant reintegration, based on accumulated angle and velocity norms.
-  bool ShouldReintegrate(const Eigen::Vector6d& biases) const;
-
   // Re-integrate all stored measurements from scratch using the current
   // linearization biases. Calls Finalize() internally.
   void Reintegrate();
@@ -215,14 +206,26 @@ class ImuPreintegrator {
 // from raw measurements and updates the PreintegratedImuData in place.
 //
 // Usage:
-//   ImuReintegrationCallback callback;
+//   ImuReintegrationCallback callback(reintegration_options);
 //   // For each IMU edge:
 //   callback.AddEdge(&integrator, &data, imu_state_ptr);
 //   // Then add to solver options:
 //   solver_options.callbacks.push_back(&callback);
 //   solver_options.update_state_every_iteration = true;
+struct ImuReintegrationOptions {
+  // Threshold on gyro bias change (angle norm = ||delta_bg|| * delta_t).
+  // [rad/s]
+  double reintegrate_angle_norm_thres = 1e-4;
+  // Threshold on accel bias change (velocity norm = ||delta_ba|| * delta_t).
+  // [m/s]
+  double reintegrate_vel_norm_thres = 1e-4;
+};
+
 class ImuReintegrationCallback : public ceres::IterationCallback {
  public:
+  explicit ImuReintegrationCallback(const ImuReintegrationOptions& options)
+      : options_(options) {}
+
   // Register an IMU edge for reintegration checking.
   // @param integrator   The integrator holding raw measurements and options.
   // @param data         The preintegrated data consumed by the cost function.
@@ -243,6 +246,11 @@ class ImuReintegrationCallback : public ceres::IterationCallback {
     PreintegratedImuData* data;
     const double* imu_state;
   };
+
+  bool ShouldReintegrate(const PreintegratedImuData& data,
+                         const Eigen::Vector6d& biases) const;
+
+  const ImuReintegrationOptions options_;
   std::vector<Edge> edges_;
 };
 

@@ -189,25 +189,6 @@ TEST(ImuPreintegrator, ExtractAndUpdateConsistent) {
               EigenMatrixNear(data_update.sqrt_information, 1e-10));
 }
 
-TEST(ImuPreintegrator, ShouldReintegrate) {
-  const int N = 10;
-  const double dt = 0.01;
-  auto integrator = MakeIntegrator(N * dt);
-
-  Eigen::Vector3d accel(0, 0, 9.81);
-  Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
-  FeedConstant(integrator, accel, gyro, N, dt);
-
-  // Same biases — should not reintegrate.
-  Eigen::Vector6d same_biases = Eigen::Vector6d::Zero();
-  EXPECT_FALSE(integrator.ShouldReintegrate(same_biases));
-
-  // Large bias change — should reintegrate.
-  Eigen::Vector6d changed_biases = Eigen::Vector6d::Zero();
-  changed_biases(0) = 1.0;  // large gyro bias change
-  EXPECT_TRUE(integrator.ShouldReintegrate(changed_biases));
-}
-
 TEST(ImuPreintegrator, CovariancePositiveDefinite) {
   const int N = 20;
   const double dt = 0.01;
@@ -343,6 +324,85 @@ INSTANTIATE_TEST_SUITE_P(ImuPreintegrator,
                          BiasJacobianTest,
                          ::testing::Values(ImuIntegrationMethod::MIDPOINT,
                                            ImuIntegrationMethod::RK4));
+
+// ---------------------------------------------------------------------------
+// ImuReintegrationCallback tests
+// ---------------------------------------------------------------------------
+
+TEST(ImuReintegrationCallback, ReintegratesWhenBiasExceedsThreshold) {
+  const int N = 10;
+  const double dt = 0.01;
+
+  ImuCalibration calib;
+  ImuPreintegrator integrator(ImuPreintegrationOptions{},
+                              calib,
+                              SecondsToTimestamp(0.0),
+                              SecondsToTimestamp(N * dt));
+
+  Eigen::Vector3d accel(0.5, -0.3, 9.81);
+  Eigen::Vector3d gyro(0.1, -0.05, 0.02);
+  FeedConstant(integrator, accel, gyro, N, dt);
+  PreintegratedImuData data = integrator.Extract();
+
+  // Save original values.
+  const Eigen::Vector3d original_delta_v = data.delta_v;
+  const Eigen::Vector3d original_delta_p = data.delta_p;
+
+  // IMU state: [velocity(3), bias_gyro(3), bias_accel(3)].
+  // Set biases large enough to trigger reintegration.
+  double imu_state[9] = {0, 0, 0, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0};
+
+  ImuReintegrationOptions reint_options;
+  reint_options.reintegrate_angle_norm_thres = 1e-4;
+  reint_options.reintegrate_vel_norm_thres = 1e-4;
+  ImuReintegrationCallback callback(reint_options);
+  callback.AddEdge(&integrator, &data, imu_state);
+
+  ceres::IterationSummary summary;
+  EXPECT_EQ(callback(summary), ceres::SOLVER_CONTINUE);
+
+  // Data should have changed due to reintegration with new biases.
+  EXPECT_GT((data.delta_v - original_delta_v).norm(), 1e-6);
+  EXPECT_GT((data.delta_p - original_delta_p).norm(), 1e-6);
+}
+
+TEST(ImuReintegrationCallback, NoReintegrationWhenBiasBelowThreshold) {
+  const int N = 10;
+  const double dt = 0.01;
+
+  ImuCalibration calib;
+  ImuPreintegrator integrator(ImuPreintegrationOptions{},
+                              calib,
+                              SecondsToTimestamp(0.0),
+                              SecondsToTimestamp(N * dt));
+
+  Eigen::Vector3d accel(0.5, -0.3, 9.81);
+  Eigen::Vector3d gyro(0.1, -0.05, 0.02);
+  FeedConstant(integrator, accel, gyro, N, dt);
+  PreintegratedImuData data = integrator.Extract();
+
+  // Save original values.
+  const Eigen::Quaterniond original_delta_R = data.delta_R;
+  const Eigen::Vector3d original_delta_v = data.delta_v;
+  const Eigen::Vector3d original_delta_p = data.delta_p;
+
+  // IMU state with near-zero biases (below threshold).
+  double imu_state[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+  ImuReintegrationOptions reint_options;
+  reint_options.reintegrate_angle_norm_thres = 1e-4;
+  reint_options.reintegrate_vel_norm_thres = 1e-4;
+  ImuReintegrationCallback callback(reint_options);
+  callback.AddEdge(&integrator, &data, imu_state);
+
+  ceres::IterationSummary summary;
+  EXPECT_EQ(callback(summary), ceres::SOLVER_CONTINUE);
+
+  // Data should be unchanged (bit-exact, no reintegration occurred).
+  EXPECT_EQ(data.delta_R.coeffs(), original_delta_R.coeffs());
+  EXPECT_EQ(data.delta_v, original_delta_v);
+  EXPECT_EQ(data.delta_p, original_delta_p);
+}
 
 }  // namespace
 }  // namespace colmap
