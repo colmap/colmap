@@ -54,6 +54,62 @@ if(CUDA_ENABLED)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
 endif()
 
+if(CASPAR_ENABLED)
+    cmake_policy(SET CMP0094 NEW)
+    message(STATUS "Enabling CASPAR support")
+    add_compile_definitions(CASPAR_ENABLED)
+
+    find_package(CUDAToolkit REQUIRED)
+    include(ExternalProject)
+
+    set(CASPAR_USE_DOUBLE OFF CACHE BOOL "Use double precision in Caspar solver")
+    if(CASPAR_USE_DOUBLE)
+        set(_caspar_precision "f64")
+        add_compile_definitions(CASPAR_USE_DOUBLE)
+    else()
+        set(_caspar_precision "f32")
+    endif()
+
+    set(CASPAR_GEN_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/estimators/caspar/generated/${_caspar_precision}")
+
+    if(NOT EXISTS "${CASPAR_GEN_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "Caspar: pre-generated code not found for precision '${_caspar_precision}'.\n"
+            "Expected: ${CASPAR_GEN_DIR}/CMakeLists.txt\n"
+            "Re-run generate_caspar.py to regenerate.")
+    endif()
+
+    set(CMAKE_POLICY_DEFAULT_CMP0146 OLD)
+
+    set(_caspar_build_dir "${CMAKE_CURRENT_BINARY_DIR}/caspar_generated")
+    set(_caspar_lib       "${_caspar_build_dir}/libcaspar_lib_core.a")
+
+    ExternalProject_Add(caspar_external
+        SOURCE_DIR  ${CASPAR_GEN_DIR}
+        BINARY_DIR  ${_caspar_build_dir}
+        CMAKE_ARGS
+            -G ${CMAKE_GENERATOR}
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            -DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}
+        BUILD_BYPRODUCTS ${_caspar_lib}
+        # No install step needed — we import the .a directly
+        INSTALL_COMMAND ""
+    )
+
+    add_library(caspar_lib_core STATIC IMPORTED GLOBAL)
+    set_target_properties(caspar_lib_core PROPERTIES
+        IMPORTED_LOCATION             ${_caspar_lib}
+        INTERFACE_INCLUDE_DIRECTORIES ${CASPAR_GEN_DIR}
+    )
+    target_link_libraries(caspar_lib_core INTERFACE CUDA::cudart)
+
+    add_dependencies(caspar_lib_core caspar_external)
+
+    message(STATUS "Caspar precision:  ${_caspar_precision}")
+    message(STATUS "Caspar source dir: ${CASPAR_GEN_DIR}")
+endif()
+
 if(COVERAGE_ENABLED)
     add_compile_options(-coverage -fprofile-update=atomic)
     add_link_options(-coverage)
