@@ -31,10 +31,15 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/meshing.h"
+#include "colmap/mvs/model.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/mvs/patch_match_options.h"
+#include "colmap/mvs/texture_mapping.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
+#include "colmap/util/ply.h"
 
 namespace colmap {
 
@@ -44,9 +49,9 @@ int RunDelaunayMesher(int argc, char** argv) {
                 "available on your system.";
   return EXIT_FAILURE;
 #else   // COLMAP_CGAL_ENABLED
-  std::string input_path;
+  std::filesystem::path input_path;
   std::string input_type = "dense";
-  std::string output_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption(
@@ -56,7 +61,9 @@ int RunDelaunayMesher(int argc, char** argv) {
   options.AddDefaultOption("input_type", &input_type, "{dense, sparse}");
   options.AddRequiredOption("output_path", &output_path);
   options.AddDelaunayMeshingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&input_type);
   if (input_type == "sparse") {
@@ -75,16 +82,125 @@ int RunDelaunayMesher(int argc, char** argv) {
 #endif  // COLMAP_CGAL_ENABLED
 }
 
+int RunMeshSimplifier(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to input PLY mesh");
+  options.AddRequiredOption(
+      "output_path", &output_path, "Path to output PLY mesh");
+  options.AddMeshSimplificationOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+  THROW_CHECK_FILE_EXISTS(input_path);
+  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+
+  LOG(INFO) << "Reading mesh from " << input_path;
+  const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
+  LOG(INFO) << "Input mesh: " << mesh.vertices.size() << " vertices, "
+            << mesh.faces.size() << " faces";
+
+  const PlyMesh simplified =
+      mvs::SimplifyMesh(mesh, *options.mesh_simplification);
+
+  LOG(INFO) << "Writing simplified mesh to " << output_path;
+  WriteBinaryPlyMesh(output_path, PlyTexturedMesh{simplified});
+
+  return EXIT_SUCCESS;
+}
+
+int RunMeshTexturer(int argc, char** argv) {
+  std::filesystem::path workspace_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+  std::string output_type = "BIN";
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "workspace_path",
+      &workspace_path,
+      "Path to the workspace folder containing undistorted images and "
+      "sparse reconstruction");
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to the input PLY mesh file");
+  options.AddRequiredOption(
+      "output_path",
+      &output_path,
+      "Path to the output directory. The textured mesh PLY and texture "
+      "atlas image will be written here");
+  options.AddDefaultOption("output_type", &output_type, "{BIN, TXT}");
+  options.AddMeshTextureMappingOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  StringToLower(&output_type);
+  THROW_CHECK(output_type == "bin" || output_type == "txt")
+      << "Invalid `output_type` " << output_type
+      << " - supported values are 'BIN' and 'TXT'.";
+
+  LOG(INFO) << "Reading model...";
+  mvs::Model model;
+  model.ReadFromCOLMAP(workspace_path);
+
+  LOG(INFO) << "Loading " << model.images.size() << " images...";
+  for (auto& image : model.images) {
+    Bitmap bitmap;
+    THROW_CHECK(bitmap.Read(image.GetPath(), /*as_rgb=*/true))
+        << "Failed to read image: " << image.GetPath();
+    if (bitmap.Width() != static_cast<int>(image.GetWidth()) ||
+        bitmap.Height() != static_cast<int>(image.GetHeight())) {
+      bitmap.Rescale(static_cast<int>(image.GetWidth()),
+                     static_cast<int>(image.GetHeight()));
+    }
+    image.SetBitmap(bitmap);
+  }
+
+  LOG(INFO) << "Reading input mesh from " << input_path << "...";
+  const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
+  LOG(INFO) << "Mesh has " << mesh.vertices.size() << " vertices and "
+            << mesh.faces.size() << " faces";
+
+  options.mesh_texture_mapping->Print();
+
+  LOG(INFO) << "Running surface texture mapping...";
+  const mvs::MeshTextureMappingResult result = mvs::MeshTextureMapping(
+      mesh, model.images, *options.mesh_texture_mapping);
+
+  CreateDirIfNotExists(output_path);
+
+  const std::filesystem::path texture_filename = "texture.png";
+  const std::filesystem::path texture_path = output_path / texture_filename;
+  LOG(INFO) << "Writing texture atlas to " << texture_path << "...";
+  result.texture_atlas.Write(texture_path);
+
+  PlyTexturedMesh textured_mesh;
+  textured_mesh.mesh = mesh;
+  textured_mesh.face_uvs = result.face_uvs;
+  textured_mesh.texture_file = texture_filename.string();
+
+  const std::filesystem::path mesh_path = output_path / "mesh.ply";
+  LOG(INFO) << "Writing textured mesh to " << mesh_path << "...";
+  if (output_type == "bin") {
+    WriteBinaryPlyMesh(mesh_path, textured_mesh);
+  } else {
+    WriteTextPlyMesh(mesh_path, textured_mesh);
+  }
+
+  LOG(INFO) << "Mesh texture mapping complete";
+  return EXIT_SUCCESS;
+}
+
 int RunPatchMatchStereo(int argc, char** argv) {
-#if !defined(COLMAP_CUDA_ENABLED)
-  LOG(ERROR) << "Dense stereo reconstruction requires CUDA, which is not "
-                "available on your system.";
-  return EXIT_FAILURE;
-#else   // COLMAP_CUDA_ENABLED
-  std::string workspace_path;
+  std::filesystem::path workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
-  std::string config_path;
+  std::filesystem::path config_path;
 
   OptionManager options;
   options.AddRequiredOption(
@@ -96,36 +212,54 @@ int RunPatchMatchStereo(int argc, char** argv) {
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption("config_path", &config_path);
   options.AddPatchMatchStereoOptions();
-  options.Parse(argc, argv);
-
-  StringToLower(&workspace_format);
-  if (workspace_format != "colmap" && workspace_format != "pmvs") {
-    LOG(ERROR) << "Invalid `workspace_format` - supported values are "
-                  "'COLMAP' or 'PMVS'.";
+  if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
+  RunPatchMatchStereoImpl(workspace_path,
+                          workspace_format,
+                          pmvs_option_name,
+                          *options.patch_match_stereo,
+                          config_path);
+  return EXIT_SUCCESS;
+}
 
-  mvs::PatchMatchController controller(*options.patch_match_stereo,
+void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
+                             const std::string& workspace_format,
+                             const std::string& pmvs_option_name,
+                             const mvs::PatchMatchOptions& options,
+                             const std::filesystem::path& config_path) {
+#if !defined(COLMAP_CUDA_ENABLED)
+  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA, which is not "
+                      "available on your system.";
+#else   // COLMAP_CUDA_ENABLED
+  std::string workspace_format_lower = workspace_format;
+  StringToLower(&workspace_format_lower);
+  THROW_CHECK(workspace_format_lower == "colmap" ||
+              workspace_format_lower == "pmvs")
+      << "Invalid `workspace_format` " << workspace_format_lower
+      << " - supported values are 'COLMAP' or 'PMVS'.";
+
+  mvs::PatchMatchController controller(options,
                                        workspace_path,
-                                       workspace_format,
+                                       workspace_format_lower,
                                        pmvs_option_name,
                                        config_path);
 
   controller.Run();
-
-  return EXIT_SUCCESS;
 #endif  // COLMAP_CUDA_ENABLED
 }
 
 int RunPoissonMesher(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddPoissonMeshingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   THROW_CHECK(
       mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
@@ -134,13 +268,12 @@ int RunPoissonMesher(int argc, char** argv) {
 }
 
 int RunStereoFuser(int argc, char** argv) {
-  std::string workspace_path;
+  std::filesystem::path workspace_path;
   std::string input_type = "geometric";
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
   std::string output_type = "PLY";
-  std::string output_path;
-  std::string bbox_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
@@ -151,42 +284,47 @@ int RunStereoFuser(int argc, char** argv) {
       "input_type", &input_type, "{photometric, geometric}");
   options.AddDefaultOption("output_type", &output_type, "{BIN, TXT, PLY}");
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("bbox_path", &bbox_path);
   options.AddStereoFusionOptions();
-  options.Parse(argc, argv);
-
-  StringToLower(&workspace_format);
-  if (workspace_format != "colmap" && workspace_format != "pmvs") {
-    LOG(ERROR) << "Invalid `workspace_format` - supported values are "
-                  "'COLMAP' or 'PMVS'.";
+  if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
+
+  RunStereoFuserImpl(output_path,
+                     workspace_path,
+                     workspace_format,
+                     pmvs_option_name,
+                     input_type,
+                     *options.stereo_fusion,
+                     output_type);
+
+  return EXIT_SUCCESS;
+}
+
+Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
+                                  const std::filesystem::path& workspace_path,
+                                  std::string workspace_format,
+                                  const std::string& pmvs_option_name,
+                                  std::string input_type,
+                                  const mvs::StereoFusionOptions& options,
+                                  std::string output_type) {
+  StringToLower(&workspace_format);
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` " << workspace_format
+      << " - supported values are 'COLMAP' or 'PMVS'.";
 
   StringToLower(&input_type);
-  if (input_type != "photometric" && input_type != "geometric") {
-    LOG(ERROR) << "Invalid input type - supported values are "
-                  "'photometric' and 'geometric'.";
-    return EXIT_FAILURE;
-  }
+  THROW_CHECK(input_type == "photometric" || input_type == "geometric")
+      << "Invalid `input_type` " << input_type
+      << " - supported values are 'photometric' and 'geometric'.";
 
-  if (!bbox_path.empty()) {
-    std::ifstream file(bbox_path);
-    if (file.is_open()) {
-      auto& min_bound = options.stereo_fusion->bounding_box.first;
-      auto& max_bound = options.stereo_fusion->bounding_box.second;
-      file >> min_bound(0) >> min_bound(1) >> min_bound(2);
-      file >> max_bound(0) >> max_bound(1) >> max_bound(2);
-    } else {
-      LOG(WARNING) << "Invalid bounds path: \"" << bbox_path
-                   << "\" - continuing without bounds check";
-    }
-  }
+  StringToLower(&output_type);
+  THROW_CHECK(output_type == "bin" || output_type == "ply" ||
+              output_type == "txt")
+      << "Invalid `output_type` " << output_type
+      << " - supported values are 'bin', 'ply' and 'txt'.";
 
-  mvs::StereoFusion fuser(*options.stereo_fusion,
-                          workspace_path,
-                          workspace_format,
-                          pmvs_option_name,
-                          input_type);
+  mvs::StereoFusion fuser(
+      options, workspace_path, workspace_format, pmvs_option_name, input_type);
 
   fuser.Run();
 
@@ -194,7 +332,7 @@ int RunStereoFuser(int argc, char** argv) {
 
   // read data from sparse reconstruction
   if (workspace_format == "colmap") {
-    reconstruction.Read(JoinPaths(workspace_path, "sparse"));
+    reconstruction.Read(workspace_path / "sparse");
   }
 
   // overwrite sparse point cloud with dense point cloud from fuser
@@ -203,21 +341,19 @@ int RunStereoFuser(int argc, char** argv) {
   LOG(INFO) << "Writing output: " << output_path;
 
   // write output
-  StringToLower(&output_type);
   if (output_type == "bin") {
     reconstruction.WriteBinary(output_path);
   } else if (output_type == "txt") {
     reconstruction.WriteText(output_path);
   } else if (output_type == "ply") {
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-    mvs::WritePointsVisibility(output_path + ".vis",
+    mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
                                fuser.GetFusedPointsVisibility());
   } else {
-    LOG(ERROR) << "Invalid `output_type`";
-    return EXIT_FAILURE;
+    LOG(FATAL_THROW) << "Invalid output_type: " << output_type;
   }
 
-  return EXIT_SUCCESS;
+  return reconstruction;
 }
 
 }  // namespace colmap

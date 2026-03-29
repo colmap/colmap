@@ -5,7 +5,7 @@
 namespace py = pybind11;
 
 void BindTimer(py::module& m) {
-  py::class_<colmap::Timer>(m, "Timer")
+  py::classh<colmap::Timer>(m, "Timer")
       .def(py::init<>())
       .def("start", &colmap::Timer::Start)
       .def("restart", &colmap::Timer::Restart)

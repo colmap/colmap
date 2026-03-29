@@ -25,101 +25,35 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING 
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
-#define FULL_ARRAY_DEBUG    0	// Note that this is not thread-safe
 
-#include <stdio.h>
-#include <emmintrin.h>
-#include <vector>
-#ifdef _WIN32
-#include <windows.h>
-#endif // _WIN32
-#include <stddef.h>
-
-inline bool isfinitef( float fp ){ float f=fp; return ((*(unsigned *)&f)&0x7f800000)!=0x7f800000; }
-
-
-template< class C >        bool IsValid( const C& c );
-#if _DEBUG
-template< >         inline bool IsValid< float >( const float& f ) { return isfinitef( f ) &&  ( f==0.f || abs(f)>1e-31f ); }
-#else // !_DEBUG
-template< >         inline bool IsValid< float >( const float& f ) { return isfinitef( f ); }
-#endif // _DEBUG
-template< >         inline bool IsValid< __m128 >( const __m128& m )
-{
-	const __m128* addr = &m;
-	if( size_t(addr) & 15 ) return false;
-	else                    return true;
-}
-template< class C > inline bool IsValid( const C& c ){ return true; }
-
-
-#if FULL_ARRAY_DEBUG
-class DebugMemoryInfo
-{
-public:
-	const void* address;
-	char name[512];
-};
-static std::vector< DebugMemoryInfo > memoryInfo;
-#endif // FULL_ARRAY_DEBUG
+template< class C > class ConstArray;
 
 template< class C >
 class Array
 {
-	void _assertBounds( long long idx ) const
+	template< class D > friend class Array;
+	friend class ConstArray< C >;
+	void _assertBounds( std::ptrdiff_t idx ) const
 	{
-		if( idx<min || idx>=max )
-		{
-			fprintf( stderr , "Array index out-of-bounds: %lld <= %lld < %lld\n" , min , idx , max );
-			ASSERT( 0 );
-			exit( 0 );
-		}
+		if( idx<min || idx>=max ) PoissonRecon::MK_THROW( "Array index out-of-bounds: " , min , " <= " , idx , " < " , max );
 	}
 protected:
 	C *data , *_data;
-	long long min , max;
-#if FULL_ARRAY_DEBUG
-	static void _AddMemoryInfo( const void* ptr , const char* name )
-	{
-		size_t sz = memoryInfo.size();
-		memoryInfo.resize( sz + 1 );
-		memoryInfo[sz].address = ptr;
-		if( name ) strcpy( memoryInfo[sz].name , name );
-		else memoryInfo[sz].name[0] = 0;
-	}
-	static void _RemoveMemoryInfo( const void* ptr )
-	{
-		{
-			size_t idx;
-			for( idx=0 ; idx<memoryInfo.size( ) ; idx++ ) if( memoryInfo[idx].address==ptr ) break;
-			if( idx==memoryInfo.size() )
-			{
-				fprintf( stderr , "Could not find memory in address table\n" );
-				ASSERT( 0 );
-			}
-			else
-			{
-				memoryInfo[idx] = memoryInfo[memoryInfo.size()-1];
-				memoryInfo.pop_back( );
-			}
-		}
-	}
-#endif // FULL_ARRAY_DEBUG
+	std::ptrdiff_t min , max;
 
 public:
-	long long minimum( void ) const { return min; }
-	long long maximum( void ) const { return max; }
+	std::ptrdiff_t minimum( void ) const { return min; }
+	std::ptrdiff_t maximum( void ) const { return max; }
 
 	static inline Array New( size_t size , const char* name=NULL )
 	{
 		Array a;
 		a._data = a.data = new C[size];
 		a.min = 0;
+#ifdef SHOW_WARNINGS
 #pragma message( "[WARNING] Casting unsigned to signed" )
-		a.max = ( long long ) size;
-#if FULL_ARRAY_DEBUG
-		_AddMemoryInfo( a._data , name );
-#endif // FULL_ARRAY_DEBUG
+#endif // SHOW_WARNINGS
+		a.max = (std::ptrdiff_t)size;
 		return a;
 	}
 	static inline Array Alloc( size_t size , bool clear , const char* name=NULL )
@@ -127,45 +61,39 @@ public:
 		Array a;
 		a._data = a.data = ( C* ) malloc( size * sizeof( C ) );
 		if( clear ) memset( a.data ,  0 , size * sizeof( C ) );
-//		else        memset( a.data , -1 , size * sizeof( C ) );
 		a.min = 0;
+#ifdef SHOW_WARNINGS
 #pragma message( "[WARNING] Casting unsigned to signed" )
-		a.max = ( long long ) size;
-#if FULL_ARRAY_DEBUG
-		_AddMemoryInfo( a._data , name );
-#endif // FULL_ARRAY_DEBUG
+#endif // SHOW_WARNINGS
+		a.max = (std::ptrdiff_t)size;
 		return a;
 	}
+
 	static inline Array AlignedAlloc( size_t size , size_t alignment , bool clear , const char* name=NULL )
 	{
 		Array a;
 		a.data = ( C* ) aligned_malloc( sizeof(C) * size , alignment );
 		a._data = ( C* )( ( ( void** )a.data )[-1] );
 		if( clear ) memset( a.data ,  0 , size * sizeof( C ) );
-//		else        memset( a.data , -1 , size * sizeof( C ) );
 		a.min = 0;
+#ifdef SHOW_WARNINGS
 #pragma message( "[WARNING] Casting unsigned to signed" )
-		a.max = ( long long ) size;
-#if FULL_ARRAY_DEBUG
-		_AddMemoryInfo( a._data , name );
-#endif // FULL_ARRAY_DEBUG
+#endif // SHOW_WARNINGS
+		a.max = (std::ptrdiff_t)size;
 		return a;
 	}
+
 	static inline Array ReAlloc( Array& a , size_t size , bool clear , const char* name=NULL )
 	{
 		Array _a;
 		_a._data = _a.data = ( C* ) realloc( a.data , size * sizeof( C ) );
 		if( clear ) memset( _a.data ,  0 , size * sizeof( C ) );
-#if FULL_ARRAY_DEBUG
-		_RemoveMemoryInfo( a._data );
-#endif // FULL_ARRAY_DEBUG
 		a._data = NULL;
 		_a.min = 0;
+#ifdef SHOW_WARNINGS
 #pragma message( "[WARNING] Casting unsigned to signed" )
-		_a.max = ( long long ) size;
-#if FULL_ARRAY_DEBUG
-		_AddMemoryInfo( _a._data , name );
-#endif // FULL_ARRAY_DEBUG
+#endif // SHOW_WARNINGS
+		_a.max = (std::ptrdiff_t)size;
 		return _a;
 	}
 
@@ -175,7 +103,7 @@ public:
 		min = max = 0;
 	}
 	template< class D >
-	Array( Array< D >& a )
+	Array( Array< D > a )
 	{
 		_data = NULL;
 		if( !a )
@@ -185,21 +113,16 @@ public:
 		}
 		else
 		{
-			// [WARNING] Chaning szC and szD to size_t causes some really strange behavior.
-			long long szC = sizeof( C );
-			long long szD = sizeof( D );
+			// [WARNING] Changing szC and szD to size_t causes some really strange behavior.
+			std::ptrdiff_t szC = (std::ptrdiff_t)sizeof( C );
+			std::ptrdiff_t szD = (std::ptrdiff_t)sizeof( D );
 			data = (C*)a.data;
 			min = ( a.minimum() * szD ) / szC;
 			max = ( a.maximum() * szD ) / szC;
-			if( min*szC!=a.minimum()*szD || max*szC!=a.maximum()*szD )
-			{
-				fprintf( stderr , "Could not convert array [ %lld , %lld ] * %lld => [ %lld , %lld ] * %lld\n" , a.minimum() , a.maximum() , szD , min , max , szC );
-				ASSERT( 0 );
-				exit( 0 );
-			}
+			if( min*szC!=a.minimum()*szD || max*szC!=a.maximum()*szD ) PoissonRecon::MK_THROW( "Could not convert array [ " , a.minimum() , " , " , a.maximum() , " ] * " , szD , " => [ " , min , " , " , max , " ] * " , szC );
 		}
 	}
-	static Array FromPointer( C* data , long long max )
+	static Array FromPointer( C* data , std::ptrdiff_t max )
 	{
 		Array a;
 		a._data = NULL;
@@ -208,7 +131,7 @@ public:
 		a.max = max;
 		return a;
 	}
-	static Array FromPointer( C* data , long long min , long long max )
+	static Array FromPointer( C* data , std::ptrdiff_t min , std::ptrdiff_t max )
 	{
 		Array a;
 		a._data = NULL;
@@ -226,23 +149,41 @@ public:
 		_assertBounds( 0 );
 		return data;
 	}
-	inline const C* operator -> ( ) const
+	inline const C* operator -> ( void ) const
 	{
 		_assertBounds( 0 );
 		return data;
 	}
-	inline C& operator[]( long long idx )
+	inline C &operator * ( void )
 	{
+		_assertBounds( 0 );
+		return data[0];
+	}
+	inline const C &operator * ( void ) const
+	{
+		_assertBounds( 0 );
+		return data[0];
+	}
+	template< typename Int >
+	inline C& operator[]( Int idx )
+	{
+		static_assert( std::is_integral< Int >::value , "Integral type expected" );
 		_assertBounds( idx );
 		return data[idx];
 	}
-	inline const C& operator[]( long long idx ) const
+
+	template< typename Int >
+	inline const C& operator[]( Int idx ) const
 	{
+		static_assert( std::is_integral< Int >::value , "Integral type expected" );
 		_assertBounds( idx );
 		return data[idx];
 	}
-	inline Array operator + ( int idx ) const
+
+	template< typename Int >
+	inline Array operator + ( Int idx ) const
 	{
+		static_assert( std::is_integral< Int >::value , "Integral type expected" );
 		Array a;
 		a._data = _data;
 		a.data = data+idx;
@@ -250,83 +191,28 @@ public:
 		a.max = max-idx;
 		return a;
 	}
-	inline Array operator + ( long long idx ) const
+	template< typename Int >
+	inline Array& operator += ( Int idx  )
 	{
-		Array a;
-		a._data = _data;
-		a.data = data+idx;
-		a.min = min-idx;
-		a.max = max-idx;
-		return a;
-	}
-	inline Array operator + ( unsigned int idx ) const
-	{
-		Array a;
-		a._data = _data;
-		a.data = data+idx;
-		a.min = min-idx;
-		a.max = max-idx;
-		return a;
-	}
-	inline Array operator + ( unsigned long long idx ) const
-	{
-		Array a;
-		a._data = _data;
-		a.data = data+idx;
-		a.min = min-idx;
-		a.max = max-idx;
-		return a;
-	}
-	inline Array& operator += ( int idx  )
-	{
+		static_assert( std::is_integral< Int >::value , "Integral type expected" );
 		min -= idx;
 		max -= idx;
 		data += idx;
 		return (*this);
 	}
-	inline Array& operator += ( long long idx  )
-	{
-		min -= idx;
-		max -= idx;
-		data += idx;
-		return (*this);
-	}
-	inline Array& operator += ( unsigned int idx  )
-	{
-		min -= idx;
-		max -= idx;
-		data += idx;
-		return (*this);
-	}
-	inline Array& operator += ( unsigned long long idx  )
-	{
-		min -= idx;
-		max -= idx;
-		data += idx;
-		return (*this);
-	}
+	template< typename Int > Array  operator -  ( Int idx ) const { return (*this) +  (-idx); }
+	template< typename Int > Array& operator -= ( Int idx )       { return (*this) += (-idx); }
+
 	inline Array& operator ++ ( void  ) { return (*this) += 1; }
 	inline Array operator++( int ){ Array< C > temp = (*this) ; (*this) +=1 ; return temp; }
-	Array  operator -  ( int idx ) const { return (*this) +  (-idx); }
-	Array  operator -  ( long long idx ) const { return (*this) +  (-idx); }
-	Array  operator -  ( unsigned int idx ) const { return (*this) +  (-idx); }
-	Array  operator -  ( unsigned long long idx ) const { return (*this) +  (-idx); }
-	Array& operator -= ( int idx )    { return (*this) += (-idx); }
-	Array& operator -= ( long long idx )    { return (*this) += (-idx); }
-	Array& operator -= ( unsigned int idx )    { return (*this) += (-idx); }
-	Array& operator -= ( unsigned long long idx )    { return (*this) += (-idx); }
-	Array& operator -- ( void ) { return (*this) -= 1; }
 	inline Array operator--( int ){ Array< C > temp = (*this) ; (*this) -=1 ; return temp; }
-	long long operator - ( const Array& a ) const { return ( long long )( data - a.data ); }
+	std::ptrdiff_t operator - ( const Array& a ) const { return data - a.data; }
 
 	void Free( void )
 	{
 		if( _data )
 		{
 			free( _data );
-#if FULL_ARRAY_DEBUG
-			_RemoveMemoryInfo( _data );
-#endif // FULL_ARRAY_DEBUG
 		}
 		(*this) = Array( );
 	}
@@ -335,9 +221,6 @@ public:
 		if( _data )
 		{
 			delete[] _data;
-#if FULL_ARRAY_DEBUG
-			_RemoveMemoryInfo( _data );
-#endif // FULL_ARRAY_DEBUG
 		}
 		(*this) = Array( );
 	}
@@ -350,21 +233,17 @@ public:
 template< class C >
 class ConstArray
 {
-	void _assertBounds( long long idx ) const
+	template< class D > friend class ConstArray;
+	void _assertBounds( std::ptrdiff_t idx ) const
 	{
-		if( idx<min || idx>=max )
-		{
-			fprintf( stderr , "ConstArray index out-of-bounds: %lld <= %lld < %lld\n" , min , idx , max );
-			ASSERT( 0 );
-			exit( 0 );
-		}
+		if( idx<min || idx>=max ) PoissonRecon::MK_THROW( "ConstArray index out-of-bounds: " , min , " <= " , idx , " < " , max );
 	}
 protected:
 	const C *data;
-	long long min , max;
+	std::ptrdiff_t min , max;
 public:
-	long long minimum( void ) const { return min; }
-	long long maximum( void ) const { return max; }
+	std::ptrdiff_t minimum( void ) const { return min; }
+	std::ptrdiff_t maximum( void ) const { return max; }
 
 	inline ConstArray( void )
 	{
@@ -379,39 +258,36 @@ public:
 		max = a.maximum();
 	}
 	template< class D >
-	inline ConstArray( const Array< D >& a )
+	inline ConstArray( Array< D > a )
 	{
 		// [WARNING] Changing szC and szD to size_t causes some really strange behavior.
-		long long szC = ( long long ) sizeof( C );
-		long long szD = ( long long ) sizeof( D );
+		std::ptrdiff_t szC = (std::ptrdiff_t)sizeof( C );
+		std::ptrdiff_t szD = (std::ptrdiff_t)sizeof( D );
 		data = ( const C* )a.pointer( );
 		min = ( a.minimum() * szD ) / szC;
 		max = ( a.maximum() * szD ) / szC;
-		if( min*szC!=a.minimum()*szD || max*szC!=a.maximum()*szD )
-		{
-//			fprintf( stderr , "Could not convert const array [ %lld , %lld ] * %lld => [ %lld , %lld ] * %lld\n" , a.minimum() , a.maximum() , szD , min , max , szC );
-			fprintf( stderr , "Could not convert const array [ %lld , %lld ] * %lld => [ %lld , %lld ] * %lld\n %lld %lld %lld\n" , a.minimum() , a.maximum() , szD , min , max , szC , a.minimum() , a.minimum()*szD , (a.minimum()*szD)/szC );
-			ASSERT( 0 );
-			exit( 0 );
-		}
+		if( min*szC!=a.minimum()*szD || max*szC!=a.maximum()*szD ) PoissonRecon::MK_THROW( "Could not convert const array [ " , a.minimum() , " , " , a.maximum() , " ] * " , szD , " => [ " , min , " , " , max , " ] * " , szC );
 	}
 	template< class D >
-	inline ConstArray( const ConstArray< D >& a )
+	inline ConstArray( ConstArray< D > a )
 	{
 		// [WARNING] Chaning szC and szD to size_t causes some really strange behavior.
-		long long szC = sizeof( C );
-		long long szD = sizeof( D );
+		std::ptrdiff_t szC = (std::ptrdiff_t)sizeof( C );
+		std::ptrdiff_t szD = (std::ptrdiff_t)sizeof( D );
 		data = ( const C*)a.pointer( );
 		min = ( a.minimum() * szD ) / szC;
 		max = ( a.maximum() * szD ) / szC;
-		if( min*szC!=a.minimum()*szD || max*szC!=a.maximum()*szD )
-		{
-			fprintf( stderr , "Could not convert array [ %lld , %lld ] * %lld => [ %lld , %lld ] * %lld\n" , a.minimum() , a.maximum() , szD , min , max , szC );
-			ASSERT( 0 );
-			exit( 0 );
-		}
+		if( min*szC!=a.minimum()*szD || max*szC!=a.maximum()*szD ) PoissonRecon::MK_THROW( "Could not convert array [ " , a.minimum() , " , " , a.maximum() , " ] * " , szD , " => [ " , min , " , " , max , " ] * " , szC );
 	}
-	static ConstArray FromPointer( const C* data , long long max )
+	explicit operator Array< C >() const
+	{
+		Array< C > a;
+		a.data = const_cast< C * >( data );
+		a.min = minimum();
+		a.max = maximum();
+		return a;
+	}
+	static ConstArray FromPointer( const C* data , std::ptrdiff_t max )
 	{
 		ConstArray a;
 		a.data = data;
@@ -419,7 +295,8 @@ public:
 		a.max = max;
 		return a;
 	}
-	static ConstArray FromPointer( const C* data , long long min , long long max )
+
+	static ConstArray FromPointer( const C* data , std::ptrdiff_t min , std::ptrdiff_t max )
 	{
 		ConstArray a;
 		a.data = data;
@@ -437,175 +314,91 @@ public:
 		_assertBounds( 0 );
 		return data;
 	}
-	inline const C& operator[]( long long idx ) const
+	inline const C &operator * ( void )
 	{
+		_assertBounds( 0 );
+		return data[0];
+	}
+	template< typename Int >
+	inline const C& operator[]( Int idx ) const
+	{
+		static_assert( std::is_integral< Int >::value , "Integral type expected" );
 		_assertBounds( idx );
 		return data[idx];
 	}
-	inline ConstArray operator + ( int idx ) const
+	template< typename Int >
+	inline ConstArray operator + ( Int idx ) const
 	{
+		static_assert( std::is_integral< Int >::value , "Integral type expected" );
 		ConstArray a;
 		a.data = data+idx;
 		a.min = min-idx;
 		a.max = max-idx;
 		return a;
 	}
-	inline ConstArray operator + ( long long idx ) const
+	template< typename  Int >
+	inline ConstArray& operator += ( Int idx  )
 	{
-		ConstArray a;
-		a.data = data+idx;
-		a.min = min-idx;
-		a.max = max-idx;
-		return a;
-	}
-	inline ConstArray operator + ( unsigned int idx ) const
-	{
-		ConstArray a;
-		a.data = data+idx;
-		a.min = min-idx;
-		a.max = max-idx;
-		return a;
-	}
-	inline ConstArray operator + ( unsigned long long idx ) const
-	{
-		ConstArray a;
-		a.data = data+idx;
-		a.min = min-idx;
-		a.max = max-idx;
-		return a;
-	}
-	inline ConstArray& operator += ( int idx  )
-	{
+		static_assert( std::is_integral< Int >::value , "Integral type expected" );
 		min -= idx;
 		max -= idx;
 		data += idx;
 		return (*this);
 	}
-	inline ConstArray& operator += ( long long idx  )
-	{
-		min -= idx;
-		max -= idx;
-		data += idx;
-		return (*this);
-	}
-	inline ConstArray& operator += ( unsigned int idx  )
-	{
-		min -= idx;
-		max -= idx;
-		data += idx;
-		return (*this);
-	}
-	inline ConstArray& operator += ( unsigned long long idx  )
-	{
-		min -= idx;
-		max -= idx;
-		data += idx;
-		return (*this);
-	}
+	template< typename Int > ConstArray  operator -  ( Int idx ) const { return (*this) +  (-idx); }
+	template< typename Int > ConstArray& operator -= ( Int idx )       { return (*this) += (-idx); }
 	inline ConstArray& operator ++ ( void ) { return (*this) += 1; }
 	inline ConstArray operator++( int ){ ConstArray< C > temp = (*this) ; (*this) +=1 ; return temp; }
-	ConstArray  operator -  ( int idx ) const { return (*this) +  (-idx); }
-	ConstArray  operator -  ( long long idx ) const { return (*this) +  (-idx); }
-	ConstArray  operator -  ( unsigned int idx ) const { return (*this) +  (-idx); }
-	ConstArray  operator -  ( unsigned long long idx ) const { return (*this) +  (-idx); }
-	ConstArray& operator -= ( int idx )    { return (*this) += (-idx); }
-	ConstArray& operator -= ( long long idx )    { return (*this) += (-idx); }
-	ConstArray& operator -= ( unsigned int idx )    { return (*this) += (-idx); }
-	ConstArray& operator -= ( unsigned long long idx )    { return (*this) += (-idx); }
-	ConstArray& operator -- ( void ) { return (*this) -= 1; }
 	inline ConstArray operator--( int ){ ConstArray< C > temp = (*this) ; (*this) -=1 ; return temp; }
-	long long operator - ( const ConstArray& a ) const { return ( long long )( data - a.data ); }
-	long long operator - ( const Array< C >& a ) const { return ( long long )( data - a.pointer() ); }
+	std::ptrdiff_t operator - ( const ConstArray& a ) const { return data - a.data; }
+	std::ptrdiff_t operator - ( const Array< C >& a ) const { return data - a.pointer(); }
 
 	const C* pointer( void ) const { return data; }
-	bool operator !( void ) { return data==NULL; }
-	operator bool( ) { return data!=NULL; }
+	bool operator !( void ) const { return data==NULL; }
+	operator bool( ) const { return data!=NULL; }
 };
 
-#if FULL_ARRAY_DEBUG
-inline void PrintMemoryInfo( void ){ for( size_t i=0 ; i<memoryInfo.size() ; i++ ) printf( "%d] %s\n" , i , memoryInfo[i].name ); }
-#endif // FULL_ARRAY_DEBUG
 template< class C >
 Array< C > memcpy( Array< C > destination , const void* source , size_t size )
 {
-	if( size>destination.maximum()*sizeof(C) )
-	{
-		fprintf( stderr , "Size of copy exceeds destination maximum: %lld > %lld\n" , ( long long )( size ) , ( long long )( destination.maximum()*sizeof( C ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
+	if( size>destination.maximum()*sizeof(C) ) PoissonRecon::MK_THROW( "Size of copy exceeds destination maximum: " , size , " > " , destination.maximum()*sizeof( C ) );
 	if( size ) memcpy( &destination[0] , source , size );
 	return destination;
 }
 template< class C , class D >
 Array< C > memcpy( Array< C > destination , Array< D > source , size_t size )
 {
-	if( size>destination.maximum()*sizeof( C ) )
-	{
-		fprintf( stderr , "Size of copy exceeds destination maximum: %lld > %lld\n" , ( long long )( size ) , ( long long )( destination.maximum()*sizeof( C ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
-	if( size>source.maximum()*sizeof( D ) )
-	{
-		fprintf( stderr , "Size of copy exceeds source maximum: %lld > %lld\n" , ( long long )( size ) , ( long long )( source.maximum()*sizeof( D ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
+	if( size>destination.maximum()*sizeof( C ) ) PoissonRecon::MK_THROW( "Size of copy exceeds destination maximum: " , size , " > " , destination.maximum()*sizeof( C ) );
+	if( size>source.maximum()*sizeof( D ) ) PoissonRecon::MK_THROW( "Size of copy exceeds source maximum: " , size , " > " , source.maximum()*sizeof( D ) );
 	if( size ) memcpy( &destination[0] , &source[0] , size );
 	return destination;
 }
 template< class C , class D >
 Array< C > memcpy( Array< C > destination , ConstArray< D > source , size_t size )
 {
-	if( size>destination.maximum()*sizeof( C ) )
-	{
-		fprintf( stderr , "Size of copy exceeds destination maximum: %lld > %lld\n" , ( long long )( size ) , ( long  long )( destination.maximum()*sizeof( C ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
-	if( size>source.maximum()*sizeof( D ) )
-	{
-		fprintf( stderr , "Size of copy exceeds source maximum: %lld > %lld\n" , ( long long )( size ) , ( long long )( source.maximum()*sizeof( D ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
+	if( size>destination.maximum()*sizeof( C ) ) PoissonRecon::MK_THROW( "Size of copy exceeds destination maximum: " , size , " > " , destination.maximum()*sizeof( C ) );
+	if( size>source.maximum()*sizeof( D ) ) PoissonRecon::MK_THROW( "Size of copy exceeds source maximum: " , size , " > " , source.maximum()*sizeof( D ) );
 	if( size ) memcpy( &destination[0] , &source[0] , size );
 	return destination;
 }
 template< class D >
 void* memcpy( void* destination , Array< D > source , size_t size )
 {
-	if( size>source.maximum()*sizeof( D ) )
-	{
-		fprintf( stderr , "Size of copy exceeds source maximum: %lld > %lld\n" , ( long long )( size ) , ( long long )( source.maximum()*sizeof( D ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
+	if( size>source.maximum()*sizeof( D ) ) PoissonRecon::MK_THROW( "Size of copy exceeds source maximum: " , size , " > " , source.maximum()*sizeof( D ) );
 	if( size ) memcpy( destination , &source[0] , size );
 	return destination;
 }
 template< class D >
 void* memcpy( void* destination , ConstArray< D > source , size_t size )
 {
-	if( size>source.maximum()*sizeof( D ) )
-	{
-		fprintf( stderr , "Size of copy exceeds source maximum: %lld > %lld\n" , ( long long )( size ) , ( long long )( source.maximum()*sizeof( D ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
+	if( size>source.maximum()*sizeof( D ) ) PoissonRecon::MK_THROW( "Size of copy exceeds source maximum: " , size , " > " , source.maximum()*sizeof( D ) );
 	if( size ) memcpy( destination , &source[0] , size );
 	return destination;
 }
 template< class C >
 Array< C > memset( Array< C > destination , int value , size_t size )
 {
-	if( size>destination.maximum()*sizeof( C ) )
-	{
-		fprintf( stderr , "Size of set exceeds destination maximum: %lld > %lld\n" , ( long long )( size ) , ( long long )( destination.maximum()*sizeof( C ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
+	if( size>destination.maximum()*sizeof( C ) ) PoissonRecon::MK_THROW( "Size of set exceeds destination maximum: " , size , " > " , destination.maximum()*sizeof( C ) );
 	if( size ) memset( &destination[0] , value , size );
 	return destination;
 }
@@ -613,50 +406,28 @@ Array< C > memset( Array< C > destination , int value , size_t size )
 template< class C >
 size_t fread( Array< C > destination , size_t eSize , size_t count , FILE* fp )
 {
-	if( count*eSize>destination.maximum()*sizeof( C ) )
-	{
-		fprintf( stderr , "Size of read exceeds source maximum: %lld > %lld\n" , ( long long )( count*eSize ) , ( long long )( destination.maximum()*sizeof( C ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
-	return fread( &destination[0] , eSize , count , fp );
+	if( count*eSize>destination.maximum()*sizeof( C ) ) PoissonRecon::MK_THROW( "Size of read exceeds source maximum: " , count*eSize , " > " , destination.maximum()*sizeof( C ) );
+	if( count ) return fread( &destination[0] , eSize , count , fp );
+	else return 0;
 }
 template< class C >
 size_t fwrite( Array< C > source , size_t eSize , size_t count , FILE* fp )
 {
-	if( count*eSize>source.maximum()*sizeof( C ) )
-	{
-		fprintf( stderr , "Size of write exceeds source maximum: %lld > %lld\n" , ( long long )( count*eSize ) , ( long long )( source.maximum()*sizeof( C ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
-	return fwrite( &source[0] , eSize , count , fp );
+	if( count*eSize>source.maximum()*sizeof( C ) ) PoissonRecon::MK_THROW( "Size of write exceeds source maximum: " , count*eSize , " > " , source.maximum()*sizeof( C ) );
+	if( count ) return fwrite( &source[0] , eSize , count , fp );
+	else return 0;
 }
 template< class C >
 size_t fwrite( ConstArray< C > source , size_t eSize , size_t count , FILE* fp )
 {
-	if( count*eSize>source.maximum()*sizeof( C ) )
-	{
-		fprintf( stderr , "Size of write exceeds source maximum: %lld > %lld\n" , ( long long )( count*eSize ) , ( long long )( source.maximum()*sizeof( C ) ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
-	return fwrite( &source[0] , eSize , count , fp );
+	if( count*eSize>source.maximum()*sizeof( C ) ) PoissonRecon::MK_THROW( "Size of write exceeds source maximum: " , count*eSize , " > " , source.maximum()*sizeof( C ) );
+	if( count ) return fwrite( &source[0] , eSize , count , fp );
+	else return 0;
 }
 template< class C >
 void qsort( Array< C > base , size_t numElements , size_t elementSize , int (*compareFunction)( const void* , const void* ) )
 {
-	if( sizeof(C)!=elementSize )
-	{
-		fprintf( stderr , "Element sizes differ: %lld != %lld\n" , ( long long )( sizeof(C) ) , ( long long )( elementSize ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
-	if( base.minimum()>0 || base.maximum()<numElements )
-	{
-		fprintf( stderr , "Array access out of bounds: %lld <= 0 <= %lld <= %lld\n" , base.minimum() , base.maximum() , ( long long )( numElements ) );
-		ASSERT( 0 );
-		exit( 0 );
-	}
+	if( sizeof(C)!=elementSize ) PoissonRecon::MK_THROW( "Element sizes differ: " , sizeof(C) , " != " , elementSize );
+	if( base.minimum()>0 || base.maximum()<numElements ) MK_THROW( "Array access out of bounds: " , base.minimum() , " <= 0 <= " , base.maximum() , " <= " , numElements );
 	qsort( base.pointer() , numElements , elementSize , compareFunction );
 }

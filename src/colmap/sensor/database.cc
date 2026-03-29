@@ -37,7 +37,7 @@ const camera_specs_t CameraDatabase::specs_ = InitializeCameraSpecs();
 
 bool CameraDatabase::QuerySensorWidth(const std::string& make,
                                       const std::string& model,
-                                      double* sensor_width) {
+                                      double* sensor_width_mm) {
   // Clean the strings from all separators.
   std::string cleaned_make = make;
   std::string cleaned_model = model;
@@ -54,14 +54,14 @@ bool CameraDatabase::QuerySensorWidth(const std::string& make,
   // Check if cleaned_make exists in database: Test whether EXIF string is
   // substring of database entry and vice versa.
   size_t spec_matches = 0;
-  for (const auto& make_elem : specs_) {
-    if (StringContains(cleaned_make, make_elem.first) ||
-        StringContains(make_elem.first, cleaned_make)) {
-      for (const auto& model_elem : make_elem.second) {
-        if (StringContains(cleaned_model, model_elem.first) ||
-            StringContains(model_elem.first, cleaned_model)) {
-          *sensor_width = model_elem.second;
-          if (cleaned_model == model_elem.first) {
+  for (const auto& [make_name, models] : specs_) {
+    if (StringContains(cleaned_make, make_name) ||
+        StringContains(make_name, cleaned_make)) {
+      for (const auto& [model_name, sensor_width] : models) {
+        if (StringContains(cleaned_model, model_name) ||
+            StringContains(model_name, cleaned_model)) {
+          *sensor_width_mm = sensor_width;
+          if (cleaned_model == model_name) {
             // Model exactly matches, return immediately.
             return true;
           }

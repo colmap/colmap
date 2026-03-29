@@ -30,11 +30,11 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/threading.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -44,24 +44,26 @@ class AutomaticReconstructionController : public Thread {
  public:
   MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED);
+  MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
   MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
-    std::string workspace_path;
+    std::filesystem::path workspace_path;
 
     // The path to the image folder which are used as input.
-    std::string image_path;
+    std::filesystem::path image_path;
 
     // Optional list of image names to reconstruct. The list must contain the
     // relative path of the images with respect to the image_path.
     std::vector<std::string> image_names;
 
     // The path to the mask folder which are used as input.
-    std::string mask_path;
+    std::filesystem::path mask_path;
 
     // The path to the vocabulary tree for feature matching.
-    std::string vocab_tree_path = kDefaultVocabTreeUri;
+    std::filesystem::path vocab_tree_path;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;
@@ -92,11 +94,17 @@ class AutomaticReconstructionController : public Thread {
     bool sparse = true;
 
 // Whether to perform dense mapping.
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) && defined(COLMAP_MVS_ENABLED)
     bool dense = true;
 #else
     bool dense = false;
 #endif
+
+    // The feature extraction/matching algorithm to be used.
+    Feature feature = Feature::SIFT;
+
+    // The mapping algorithm to be used.
+    Mapper mapper = Mapper::INCREMENTAL;
 
     // The meshing algorithm to be used.
     Mesher mesher = Mesher::POISSON;
@@ -122,6 +130,10 @@ class AutomaticReconstructionController : public Thread {
       const Options& options,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
+  // Whether any of the selected reconstruction stages requires OpenGL.
+  bool RequiresOpenGL() const;
+
+  void Setup();
   void Stop() override;
 
  private:

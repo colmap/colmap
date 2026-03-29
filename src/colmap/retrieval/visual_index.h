@@ -33,6 +33,7 @@
 #include "colmap/retrieval/utils.h"
 #include "colmap/util/eigen_alignment.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <Eigen/Core>
@@ -50,9 +51,6 @@ namespace retrieval {
 //    distinctiveness for location recognition. ACCV 2014.
 class VisualIndex {
  public:
-  using Descriptors = Eigen::RowMajorMatrixXf;
-  using Geometries = FeatureKeypoints;
-
   struct IndexOptions {
     // The number of nearest neighbor visual words that each feature descriptor
     // is assigned to.
@@ -73,7 +71,8 @@ class VisualIndex {
     // is assigned to.
     int num_neighbors = 5;
 
-    // Whether to perform spatial verification after image retrieval.
+    // Perform spatial verification after image retrieval, if > 0.
+    // Defines the number of neighbors to re-rank using spatial verification.
     int num_images_after_verification = 0;
 
     // The number of checks in the nearest neighbor search.
@@ -115,24 +114,28 @@ class VisualIndex {
   virtual int DescDim() const = 0;
   virtual int EmbeddingDim() const = 0;
 
+  // Feature extractor type used to build the index. Returns UNDEFINED if the
+  // index has not been built yet.
+  virtual FeatureExtractorType FeatureType() const = 0;
+
   // Add image to the visual index.
   virtual void Add(const IndexOptions& options,
                    int image_id,
-                   const Geometries& geometries,
-                   const Descriptors& descriptors) = 0;
+                   const FeatureKeypoints& keypoints,
+                   const FeatureDescriptorsFloat& descriptors) = 0;
 
   // Check if an image has been indexed.
   virtual bool IsImageIndexed(int image_id) const = 0;
 
   // Query for most similar images in the visual index.
   virtual void Query(const QueryOptions& options,
-                     const Descriptors& descriptors,
+                     const FeatureDescriptorsFloat& descriptors,
                      std::vector<ImageScore>* image_scores) const = 0;
 
   // Query for most similar images in the visual index.
   virtual void Query(const QueryOptions& options,
-                     const Geometries& geometries,
-                     const Descriptors& descriptors,
+                     const FeatureKeypoints& keypoints,
+                     const FeatureDescriptorsFloat& descriptors,
                      std::vector<ImageScore>* image_scores) const = 0;
 
   // Prepare the index after adding images and before querying.
@@ -141,16 +144,21 @@ class VisualIndex {
   // Build a visual index from a set of training descriptors by quantizing the
   // descriptor space into visual words and compute their Hamming embedding.
   virtual void Build(const BuildOptions& options,
-                     const Descriptors& descriptors) = 0;
+                     const FeatureDescriptorsFloat& descriptors) = 0;
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  static std::unique_ptr<VisualIndex> Read(const std::string& vocab_tree_path);
-  virtual void Write(const std::string& path) const = 0;
+  static std::unique_ptr<VisualIndex> Read(
+      const std::filesystem::path& vocab_tree_path);
+  virtual void Write(const std::filesystem::path& path) const = 0;
 
  protected:
-  virtual void ReadFromFaiss(const std::string& path, long offset) = 0;
+  virtual void ReadFromFaiss(const std::filesystem::path& path,
+                             long offset,
+                             FeatureExtractorType feature_type) = 0;
 };
+
+std::ostream& operator<<(std::ostream& stream, const VisualIndex& visual_index);
 
 }  // namespace retrieval
 }  // namespace colmap

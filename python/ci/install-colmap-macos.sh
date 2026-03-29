@@ -5,7 +5,7 @@ CURRDIR=$(pwd)
 # Fix `brew link` error.
 find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
-brew update
+brew uninstall cmake  # Workaround for CI failures.
 brew install git cmake ninja gfortran ccache libomp
 brew link --force libomp
 
@@ -17,7 +17,6 @@ ln -sf $(which gfortran-14) "$(dirname $(which gfortran-14))/gfortran"
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
-git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
 
@@ -27,6 +26,7 @@ cd ${CURRDIR}
     -S . -B build/ \
     -GNinja \
     -DCUDA_ENABLED=OFF \
+    -DONNX_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
@@ -36,6 +36,8 @@ cd ${CURRDIR}
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" \
+    -DFETCHCONTENT_BASE_DIR="${FETCHCONTENT_BASE_DIR}" \
+    -DFETCHCONTENT_FULLY_DISCONNECTED="${FETCHCONTENT_FULLY_DISCONNECTED}" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
 sudo cmake --build build/ --target install
 

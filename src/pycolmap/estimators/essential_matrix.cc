@@ -1,4 +1,4 @@
-#include "colmap/estimators/essential_matrix.h"
+#include "colmap/estimators/solvers/essential_matrix.h"
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
@@ -105,5 +105,4 @@ void BindEssentialMatrixEstimator(py::module& m) {
         py::arg_v("estimation_options", ransac_options, "RANSACOptions()"),
         "Robustly estimate essential matrix with LO-RANSAC and decompose it "
         "using the cheirality check.");
-  DefDeprecation(m, "essential_matrix_estimation", "estimate_essential_matrix");
 }

@@ -30,12 +30,14 @@
 #include "colmap/ui/feature_extraction_widget.h"
 
 #include "colmap/controllers/feature_extraction.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
-#include "colmap/ui/qt_utils.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/file.h"
+
+#include <filesystem>
 
 namespace colmap {
 
@@ -64,8 +66,20 @@ class ImportFeaturesWidget : public ExtractionWidget {
   void Run() override;
 
  private:
-  std::string import_path_;
+  std::filesystem::path import_path_;
 };
+
+#ifdef COLMAP_ONNX_ENABLED
+class AlikedExtractionWidget : public ExtractionWidget {
+ public:
+  AlikedExtractionWidget(QWidget* parent, OptionManager* options);
+
+  void Run() override;
+
+ private:
+  QComboBox* model_variant_cb_;
+};
+#endif
 
 ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
     : OptionsWidget(parent),
@@ -79,12 +93,12 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionFilePath(&options->image_reader->camera_mask_path,
                     "camera_mask_path");
 
+  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
   AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
   AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
   AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
 
   SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
-  AddOptionInt(&sift_options.max_image_size, "sift.max_image_size");
   AddOptionInt(&sift_options.max_num_features, "sift.max_num_features");
   AddOptionInt(&sift_options.first_octave, "sift.first_octave", -5);
   AddOptionInt(&sift_options.num_octaves, "sift.num_octaves");
@@ -115,6 +129,7 @@ void SIFTExtractionWidget::Run() {
 
   ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.image_path = *options_->image_path;
+  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
 
   auto extractor = CreateFeatureExtractorController(
       *options_->database_path, reader_options, *options_->feature_extraction);
@@ -145,6 +160,51 @@ void ImportFeaturesWidget::Run() {
       "Importing...", true, std::move(importer));
 }
 
+#ifdef COLMAP_ONNX_ENABLED
+AlikedExtractionWidget::AlikedExtractionWidget(QWidget* parent,
+                                               OptionManager* options)
+    : ExtractionWidget(parent, options) {
+  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
+  AddOptionFilePath(&options->image_reader->camera_mask_path,
+                    "camera_mask_path");
+
+  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
+  AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
+  AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
+  AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
+
+  model_variant_cb_ = new QComboBox(this);
+  model_variant_cb_->addItem(
+      "n16rot", static_cast<int>(FeatureExtractorType::ALIKED_N16ROT));
+  model_variant_cb_->addItem(
+      "n32", static_cast<int>(FeatureExtractorType::ALIKED_N32));
+  AddWidgetRow("aliked.model_variant", model_variant_cb_);
+
+  AlikedExtractionOptions& aliked_options =
+      *options->feature_extraction->aliked;
+  AddOptionInt(&aliked_options.max_num_features, "aliked.max_num_features");
+  AddOptionDouble(&aliked_options.min_score, "aliked.min_score", 0.0, 1.0);
+  AddOptionText(&aliked_options.n16rot_model_path, "aliked.n16rot_model_path");
+  AddOptionText(&aliked_options.n32_model_path, "aliked.n32_model_path");
+}
+
+void AlikedExtractionWidget::Run() {
+  WriteOptions();
+
+  options_->feature_extraction->type = static_cast<FeatureExtractorType>(
+      model_variant_cb_->currentData().toInt());
+
+  ImageReaderOptions reader_options = *options_->image_reader;
+  reader_options.image_path = *options_->image_path;
+  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
+
+  auto extractor = CreateFeatureExtractorController(
+      *options_->database_path, reader_options, *options_->feature_extraction);
+  thread_control_widget_->StartThread(
+      "Extracting...", true, std::move(extractor));
+}
+#endif
+
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
                                                  OptionManager* options)
     : parent_(parent), options_(options) {
@@ -166,7 +226,14 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
   QScrollArea* import_widget = new QScrollArea(this);
   import_widget->setAlignment(Qt::AlignHCenter);
   import_widget->setWidget(new ImportFeaturesWidget(this, options));
-  tab_widget_->addTab(import_widget, tr("Import (SIFT)"));
+  tab_widget_->addTab(import_widget, tr("SIFT (Import)"));
+
+#ifdef COLMAP_ONNX_ENABLED
+  QScrollArea* aliked_widget = new QScrollArea(this);
+  aliked_widget->setAlignment(Qt::AlignHCenter);
+  aliked_widget->setWidget(new AlikedExtractionWidget(this, options));
+  tab_widget_->addTab(aliked_widget, tr("ALIKED"));
+#endif
 
   grid->addWidget(tab_widget_);
 
@@ -228,7 +295,7 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   SelectCameraModel(camera_model_cb_->currentIndex());
 
   connect(camera_model_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
+          (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
           this,
           &FeatureExtractionWidget::SelectCameraModel);
   connect(camera_params_exif_rb_,

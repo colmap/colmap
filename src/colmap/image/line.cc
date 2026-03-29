@@ -49,20 +49,20 @@ struct RawDeleter {
 }  // namespace
 
 #ifdef COLMAP_LSD_ENABLED
+
 std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
                                             const double min_length) {
   const double min_length_squared = min_length * min_length;
 
-  std::vector<uint8_t> bitmap_data;
+  std::vector<double> bitmap_data_double;
   if (bitmap.IsGrey()) {
-    bitmap_data = bitmap.ConvertToRowMajorArray();
+    bitmap_data_double = {bitmap.RowMajorData().begin(),
+                          bitmap.RowMajorData().end()};
   } else {
     const Bitmap bitmap_gray = bitmap.CloneAsGrey();
-    bitmap_data = bitmap_gray.ConvertToRowMajorArray();
+    bitmap_data_double = {bitmap_gray.RowMajorData().begin(),
+                          bitmap_gray.RowMajorData().end()};
   }
-
-  std::vector<double> bitmap_data_double(bitmap_data.begin(),
-                                         bitmap_data.end());
 
   int num_segments;
   std::unique_ptr<double, RawDeleter> segments_data(

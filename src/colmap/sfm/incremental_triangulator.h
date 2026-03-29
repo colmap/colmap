@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/scene/database_cache.h"
+#include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
 

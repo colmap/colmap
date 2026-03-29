@@ -1,9 +1,11 @@
 # Custom files
+.python-version
 LocalConfig.cmake
 src/colmap/util/version.cc
 CMakeUserPresets.json
 .clangd
 compile_commands.json
+.claude/settings.local.json
 
 # Custom directories
 .idea/
@@ -12,8 +14,7 @@ compile_commands.json
 .DS_Store
 .cache
 build*/
-install-debug/
-install-release/
+install*/
 data/
 benchmark/reconstruction/data/
 benchmark/reconstruction/runs/

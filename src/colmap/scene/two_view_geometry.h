@@ -32,6 +32,8 @@
 #include "colmap/feature/types.h"
 #include "colmap/geometry/rigid3.h"
 
+#include <optional>
+
 namespace colmap {
 
 // Two-view geometry.
@@ -43,6 +45,8 @@ struct TwoViewGeometry {
     DEGENERATE = 1,
     // Essential matrix.
     CALIBRATED = 2,
+    // Relative pose (metric) from calibrated (non-panoramic) rig.
+    CALIBRATED_RIG = 9,
     // Fundamental matrix.
     UNCALIBRATED = 3,
     // Homography, planar scene with baseline.
@@ -62,14 +66,14 @@ struct TwoViewGeometry {
   int config = ConfigurationType::UNDEFINED;
 
   // Essential matrix.
-  Eigen::Matrix3d E = Eigen::Matrix3d::Zero();
+  std::optional<Eigen::Matrix3d> E;
   // Fundamental matrix.
-  Eigen::Matrix3d F = Eigen::Matrix3d::Zero();
+  std::optional<Eigen::Matrix3d> F;
   // Homography matrix.
-  Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
+  std::optional<Eigen::Matrix3d> H;
 
   // Relative pose.
-  Rigid3d cam2_from_cam1;
+  std::optional<Rigid3d> cam2_from_cam1;
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;

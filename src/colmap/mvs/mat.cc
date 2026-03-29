@@ -33,14 +33,13 @@
 #include "colmap/util/file.h"
 
 #include <fstream>
-#include <string>
 #include <vector>
 
 namespace colmap {
 namespace mvs {
 
 template <>
-void Mat<float>::Read(const std::string& path) {
+void Mat<float>::Read(const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
 
@@ -57,7 +56,7 @@ void Mat<float>::Read(const std::string& path) {
 }
 
 template <>
-void Mat<float>::Write(const std::string& path) const {
+void Mat<float>::Write(const std::filesystem::path& path) const {
   std::ofstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   file << width_ << "&" << height_ << "&" << depth_ << "&";

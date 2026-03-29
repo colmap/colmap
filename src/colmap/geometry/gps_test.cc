@@ -182,10 +182,11 @@ TEST(GPS, EllipsoidToENUWGS84) {
   const auto ori_ell = gps_tform.ECEFToEllipsoid({ref_xyz[0]})[0];
 
   // Get ENU ref from ECEF ref
-  const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ori_ell(0), ori_ell(1));
+  const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ref_xyz[0]);
 
   // Get ENU from Ell
-  const auto enu = gps_tform.EllipsoidToENU(ell, ori_ell(0), ori_ell(1));
+  const auto enu =
+      gps_tform.EllipsoidToENU(ell, ori_ell(0), ori_ell(1), ori_ell(2));
 
   for (size_t i = 0; i < ell.size(); ++i) {
     EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
@@ -210,14 +211,11 @@ TEST(GPS, ECEFToENU) {
 
   const auto xyz = gps_tform.EllipsoidToECEF(ell);
 
-  // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.ECEFToEllipsoid({ref_xyz[0]})[0];
-
   // Get ENU from ECEF ref
-  const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ori_ell(0), ori_ell(1));
+  const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ref_xyz[0]);
 
   // Get ENU from ECEF
-  const auto enu = gps_tform.ECEFToENU(xyz, ori_ell(0), ori_ell(1));
+  const auto enu = gps_tform.ECEFToENU(xyz, xyz[0]);
 
   for (size_t i = 0; i < ell.size(); ++i) {
     EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
@@ -248,7 +246,7 @@ TEST(GPS, ENUToEllipsoidWGS84) {
   const double alt0 = ori_ell[0](2);
 
   // Get ENU from ECEF
-  const auto enu = gps_tform.ECEFToENU(xyz, lat0, lon0);
+  const auto enu = gps_tform.ECEFToENU(xyz, xyz[0]);
 
   const auto xyz_enu = gps_tform.ENUToECEF(enu, lat0, lon0, alt0);
 
@@ -282,7 +280,7 @@ TEST(GPS, ENUToECEF) {
   const double alt0 = ell[0](2);
 
   // Get ENU from Ell
-  const auto enu = gps_tform.EllipsoidToENU(ell, lat0, lon0);
+  const auto enu = gps_tform.EllipsoidToENU(ell, lat0, lon0, alt0);
 
   // Get XYZ from ENU
   const auto xyz = gps_tform.ENUToECEF(enu, lat0, lon0, alt0);

@@ -6,7 +6,7 @@ Adjusting the options for different reconstruction scenarios and output quality
 
 COLMAP provides many options that can be tuned for different reconstruction
 scenarios and to trade off accuracy and completeness versus efficiency. The
-default options are set to for medium to high quality reconstruction of
+default options are set for medium to high quality reconstruction of
 unstructured input data. There are several presets for different scenarios and
 quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
 To use these presets from the command-line, you can save the current set of
@@ -20,15 +20,133 @@ Extending COLMAP
 ----------------
 
 If you need to simply analyze the produced sparse or dense reconstructions from
-COLMAP, you can load the sparse models in Python and Matlab using the provided
-scripts in ``scripts/python`` and ``scripts/matlab``.
+COLMAP, you can load the sparse models using pycolmap in Python or the
+scripts in ``scripts/matlab`` for Matlab.
 
 If you want to write a C/C++ executable that builds on top of COLMAP, there are
 two possible approaches. First, the COLMAP headers and library are installed
 to the ``CMAKE_INSTALL_PREFIX`` by default. Compiling against COLMAP as a
 library is described :ref:`here <installation-library>`. Alternatively, you can
-start from the ``src/tools/example.cc`` code template and implement the desired
+start from the ``src/colmap/tools/example.cc`` code template and implement the desired
 functionality directly as a new binary within COLMAP.
+
+
+Choosing between SIFT and ALIKED features
+-----------------------------------------
+
+COLMAP supports two feature extraction algorithms: SIFT (default) and ALIKED
+(requires ONNX support). Here are some guidelines for choosing between them:
+
+- **SIFT** is the most widely tested and robust choice. It works well for
+  scenarios with moderate to high view overlap, sufficient scene texture,
+  and captured under similar illumination conditiions. It supports both GPU
+  and CPU extraction.
+
+- **ALIKED** is a learned feature extractor that can produce more repeatable
+  features in some cases, particularly for scenes with limited view overlap,
+  little scene texture, and drastic illumination changes. It requires ONNX
+  Runtime at build time (``-DONNX_ENABLED=ON``).
+
+Both feature types support brute-force matching as well as LightGlue neural
+network-based matching. LightGlue typically produces higher inlier ratios,
+especially for image pairs with large viewpoint or illumination changes, but
+requires ONNX support. See :ref:`Feature Extraction and Matching <features>`
+for details on available options.
+
+Do not mix different feature types (e.g., SIFT and ALIKED) in the same
+database, as the descriptors are incompatible.
+
+
+.. _faq-choosing-camera-model:
+
+Choosing the right camera model
+-------------------------------
+
+COLMAP supports many camera models with varying numbers of parameters (see
+:doc:`cameras` for the full list). Choosing the right model depends on your
+lens type and reconstruction requirements:
+
+- **SIMPLE_RADIAL** (default): A good starting point for most standard cameras.
+  Models a single focal length, principal point, and one radial distortion
+  parameter.
+
+- **PINHOLE**: Use if your images have negligible lens distortion (e.g.,
+  already undistorted images or high-quality industrial lenses).
+
+- **OPENCV**: A good choice for wider-angle lenses with moderate distortion.
+  Models 2 focal lengths, principal point, and 4 distortion parameters (2 radial
+  + 2 tangential).
+
+- **SIMPLE_RADIAL_FISHEYE** or **OPENCV_FISHEYE**: Use for fisheye lenses with
+  a field of view significantly larger than 120 degrees.
+
+- **FULL_OPENCV**: Use only when you have many images sharing intrinsics
+  and need to model complex distortion patterns. With 12 parameters, this model
+  requires a large number of observations to converge reliably.
+
+As a rule of thumb, use the simplest model that adequately describes your lens.
+Overly complex models with many parameters can lead to degenerate or overfitted
+calibration, especially when few images share intrinsics. If in doubt, start
+with ``SIMPLE_RADIAL`` and inspect the reprojection errors in the model
+statistics.
+
+
+Choosing between incremental, global, and hierarchical SfM
+----------------------------------------------------------
+
+COLMAP offers three SfM pipelines:
+
+- **Incremental mapper** (``mapper``, default): Reconstructs the scene by
+  incrementally adding one image at a time. This is the most robust and
+  well-tested pipeline, but can become slow for large image collections.
+
+- **Global mapper** (``global_mapper``): Solves for all camera poses
+  simultaneously using rotation averaging and global positioning. This can be
+  faster for large datasets with good matching graphs, but may be less robust
+  to outliers in the matching. The global mapper depends on good focal length
+  priors. If reliable intrinsics are not available, run
+  ``view_graph_calibrator`` before ``global_mapper`` to estimate them from the
+  view graph (optional but recommended to improve the quality of
+  global SfM). Note that ``view_graph_calibrator`` modifies the database
+  in-place, so it is recommended to work on a copy.
+
+- **Hierarchical mapper** (``hierarchical_mapper``): Partitions the scene into
+  overlapping sub-models and reconstructs each independently, then merges them.
+  This is useful for very large-scale datasets where the incremental approach
+  becomes too slow but is usually less robust than the other two pipelines.
+
+All three can also be selected via the ``automatic_reconstructor`` using
+``--mapper INCREMENTAL``, ``--mapper GLOBAL``, or ``--mapper HIERARCHICAL``.
+
+
+Reconstruction with pose priors (GPS)
+-------------------------------------
+
+If your images have GPS information in their EXIF metadata, COLMAP
+automatically extracts and stores it as pose priors in the database during
+feature extraction. These priors can then be used during reconstruction with
+the ``pose_prior_mapper``::
+
+    colmap feature_extractor \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images
+
+    colmap exhaustive_matcher \
+        --database_path $PROJECT_PATH/database.db
+
+    colmap pose_prior_mapper \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
+        --output_path $PROJECT_PATH/sparse
+
+The ``pose_prior_mapper`` is essentially the incremental mapper with prior
+position constraints enabled. You can control the prior covariance (uncertainty)
+using ``--prior_position_std_x``, ``--prior_position_std_y``, and
+``--prior_position_std_z`` (default: 1.0 meter each), or override all priors'
+covariance with ``--overwrite_priors_covariance``.
+
+For geo-registration of an already reconstructed model (without using priors
+during mapping), see the `Geo-registration`_ section.
 
 
 .. _faq-share-intrinsics:
@@ -121,7 +239,7 @@ Example of images.txt::
 
     4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
 
-Each image above must have the same ``image_id`` (first column) as in the database (next step). 
+Each image above must have the same ``image_id`` (first column) as in the database (next step).
 This database can be inspected either in the GUI (under ``Database management > Processing``),
 or, one can create a reconstruction with colmap and later export  it as text in order to see
 the images.txt file it creates.
@@ -136,8 +254,8 @@ images of the known camera poses as follows::
 If your known camera intrinsics have large distortion coefficients, you should
 now manually copy the parameters from your ``cameras.txt`` to the database, such
 that the matcher can leverage the intrinsics. Modifying the database is possible
-in many ways, but an easy option is to use the provided
-``scripts/python/database.py`` script. Otherwise, you can skip this step and
+in many ways, but an easy option is to use pycolmap's database API.
+Otherwise, you can skip this step and
 simply continue as follows::
 
     colmap exhaustive_matcher \ # or alternatively any other matcher
@@ -175,7 +293,10 @@ Alternatively, you can also produce a dense model without a sparse model as::
 Since the sparse point cloud is used to automatically select neighboring images
 during the dense stereo stage, you have to manually specify the source images,
 as described :ref:`here <faq-dense-manual-source>`. The dense stereo stage
-now also requires a manual specification of the depth range::
+now also requires a manual specification of the depth range.
+
+Finally, in this case, fusion will fail to successfully match points if min_num_pixels is
+left at the default (greater than 1). So also set that parameter, as below::
 
     colmap patch_match_stereo \
         --workspace_path path/to/dense/workspace \
@@ -184,6 +305,7 @@ now also requires a manual specification of the depth range::
 
     colmap stereo_fusion \
         --workspace_path path/to/dense/workspace \
+        --StereoFusion.min_num_pixels 1 \
         --output_path path/to/dense/workspace/fused.ply
 
 
@@ -217,9 +339,9 @@ camera centers of a subset or all registered images. The 3D similarity
 transformation between the reconstructed model and the target coordinate frame
 of the geo-registration is determined from these correspondences.
 
-The geo-registered 3D coordinates can either be extracted from the database 
-(tvec_prior field) or from a user specified text file. 
-For text-files, the geo-registered 3D coordinates of the camera centers for 
+The geo-registered 3D coordinates can either be extracted from the database
+(tvec_prior field) or from a user specified text file.
+For text-files, the geo-registered 3D coordinates of the camera centers for
 images must be specified with the following format::
 
     image_name1.jpg X1 Y1 Z1
@@ -232,7 +354,7 @@ In case of GPS coordinates, a conversion will be performed to turn those into
 cartesian coordinates.  The conversion can be done from GPS to ECEF
 (Earth-Centered-Earth-Fixed) or to ENU (East-North-Up) coordinates. If ENU coordinates
 are used, the first image GPS coordinates will define the origin of the ENU frame.
-It is also possible to use ECEF coordinates for alignment and then rotate the aligned 
+It is also possible to use ECEF coordinates for alignment and then rotate the aligned
 reconstruction into the ENU plane.
 
 Note that at least 3 images must be specified to estimate a 3D similarity
@@ -274,6 +396,17 @@ be ``mask_path/abc/012.jpg.png``.
 
 In both cases no features will be extracted in regions,
 where the mask image is black (pixel intensity value 0 in grayscale).
+
+
+Image orientation and EXIF
+--------------------------
+
+COLMAP automatically reads the EXIF orientation tag from images during feature
+extraction. The orientation is converted to a gravity direction vector in sensor
+coordinates, which is stored as part of the pose prior in the database. This
+gravity information is used during feature extraction and matching to improve
+robustness against image rotation. This is crucial for feature extractors/matchers
+with limited orientation invariance, such as ALIKED and LightGlue.
 
 
 
@@ -344,7 +477,7 @@ extraction step). But note that this might result in a significant slow-down of
 the reconstruction pipeline. Please, also note that feature extraction on the
 CPU can consume excessive RAM for large images in the default settings, which
 might require manually reducing the maximum image size using
-``--SiftExtraction.max_image_size`` and/or setting
+``--FeatureExtraction.max_image_size`` and/or setting
 ``--SiftExtraction.first_octave 0`` or by manually limiting the number of
 threads using ``--FeatureExtraction.num_threads``.
 
@@ -371,7 +504,7 @@ If you encounter the following error message::
 or the following:
 
     ERROR: Feature matching failed. This probably caused by insufficient GPU
-           memory. Consider reducing the maximum number of features.
+    memory. Consider reducing the maximum number of features.
 
 during feature matching, your GPU runs out of memory. Try decreasing the option
 ``--FeatureMatching.max_num_matches`` until the error disappears. Note that this
@@ -387,6 +520,63 @@ required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
 
 
+Speedup bundle adjustment
+-------------------------
+
+The following describes practical ways to reduce bundle adjustment runtime.
+
+- **Reduce the problem size**
+
+  Limit the number of correspondences so that BA solves a smaller problem:
+
+  - Reduce features by decreasing ``--SiftExtraction.max_image_size`` and/or
+    ``--SiftExtraction.max_num_features``.
+  - Reduce matching pairs (and avoid ``exhaustive_matcher`` when possible) by
+    decreasing ``--SequentialMatching.overlap``,
+    ``--SpatialMatching.max_num_neighbors``, or ``--VocabTreeMatching.num_images``.
+  - Reduce matches by decreasing ``--FeatureMatching.max_num_matches``.
+  - Enable experimental landmark pruning to drop redundant 3D points using
+    ``--Mapper.ba_global_ignore_redundant_points3D 1``.
+
+- **Utilize GPU acceleration**
+
+  Enable GPU-based Ceres solvers for bundle adjustment by setting
+  ``--Mapper.ba_use_gpu 1`` for the ``mapper`` and ``--BundleAdjustmentCeres.use_gpu 1``
+  for the standalone ``bundle_adjuster``. Several parameters control when and which
+  GPU solver is used:
+
+  - The GPU solver is activated only when the number of images exceeds
+    ``--BundleAdjustmentCeres.min_num_images_gpu_solver``.
+  - Select between the direct dense, direct sparse, and iterative sparse GPU solvers
+    using ``--BundleAdjustmentCeres.max_num_images_direct_dense_gpu_solver`` and
+    ``--BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver``
+
+  .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with
+     ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you
+     must compile Ceres with the CUDA/cuDSS support and link that build to COLMAP.
+
+  **Note:** Low GPU utilization for the Schur-based sparse solver (cuDSS) can occur
+  when the Schur-complement matrix becomes less sparse (i.e., exhibits more fill-in).
+  Typical causes include:
+
+  - High image covisibility
+  - Shared camera intrinsics.
+
+- **Additional practical tips**
+
+  - Improve initial conditions by tuning observation-filtering parameters so BA
+    receives more inliers and fewer outliers, or by supplying accurate priors
+    (e.g., intrinsics, poses).
+  - Fix or restrict refinement of parameters when possible (e.g., hold intrinsics
+    fixed if they are known) to reduce the number of optimized variables.
+  - Reduce LM iterations or relax convergence tolerances to trade a small amount of
+    accuracy for runtime: ``--Mapper.ba_global_max_num_iterations``,
+    ``--Mapper.ba_global_function_tolerance``.
+  - Reduce the frequency of expensive global BA passes with mapper options:
+    ``--Mapper.ba_global_frames_freq``, ``--Mapper.ba_global_points_freq``,
+    ``--Mapper.ba_global_frames_ratio`` and ``--Mapper.ba_global_points_ratio``.
+
+
 Trading off completeness and accuracy in dense reconstruction
 -------------------------------------------------------------
 
@@ -395,13 +585,13 @@ increase the value of option ``--StereoFusion.min_num_pixels``.
 
 If the reconstructed dense surface mesh model using Poisson reconstruction
 contains no surface or there are too many outlier surfaces, you should reduce
-the value of option ``--PoissonMeshing.trim`` to decrease the surface are and
+the value of option ``--PoissonMeshing.trim`` to decrease the surface area and
 vice versa to increase it. Also consider to try the reduce the outliers or
 increase the completeness in the fusion stage, as described above.
 
 If the reconstructed dense surface mesh model using Delaunay reconstruction
 contains too noisy or incomplete surfaces, you should increase the
-``--DenaunayMeshing.quality_regularization`` parameter to obtain a smoother
+``--DelaunayMeshing.quality_regularization`` parameter to obtain a smoother
 surface. If the resolution of the mesh is too coarse, you should reduce the
 ``--DelaunayMeshing.max_proj_dist`` option to a lower value.
 
@@ -435,6 +625,12 @@ Note that the two algorithms can also be combined by first running the Delaunay
 meshing to robustly filter outliers from the sparse or dense point cloud and
 then, in the second step, performing Poisson surface reconstruction to obtain a
 smooth surface.
+
+After meshing, the ``mesh_texturer`` command can be used to produce a textured
+mesh with a texture atlas [waechter2014]_. This assigns each mesh face to the
+best-view camera image based on projected area and viewing angle, and bakes the
+texture into an atlas with per-face UV coordinates. The command requires the
+undistorted workspace produced by ``image_undistorter`` as input.
 
 
 Speedup dense reconstruction

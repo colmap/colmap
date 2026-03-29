@@ -89,36 +89,6 @@ void RunThreadWithOpenGLContext(Thread* thread) {
   QCoreApplication::processEvents();
 }
 
-void GLError(const char* file, const int line) {
-  GLenum error_code(glGetError());
-  while (error_code != GL_NO_ERROR) {
-    std::string error_name;
-    switch (error_code) {
-      case GL_INVALID_OPERATION:
-        error_name = "INVALID_OPERATION";
-        break;
-      case GL_INVALID_ENUM:
-        error_name = "INVALID_ENUM";
-        break;
-      case GL_INVALID_VALUE:
-        error_name = "INVALID_VALUE";
-        break;
-      case GL_OUT_OF_MEMORY:
-        error_name = "OUT_OF_MEMORY";
-        break;
-      case GL_INVALID_FRAMEBUFFER_OPERATION:
-        error_name = "INVALID_FRAMEBUFFER_OPERATION";
-        break;
-      default:
-        error_name = "UNKNOWN_ERROR";
-        break;
-    }
-    LOG(ERROR) << "OpenGL error [" << file << ", line " << line << "]: GL_"
-               << error_name;
-    error_code = glGetError();
-  }
-}
-
 #endif
 
 }  // namespace colmap

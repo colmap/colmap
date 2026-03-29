@@ -32,7 +32,12 @@ import pickle
 from evaluation.blended_mvs import DatasetBlendedMVS
 from evaluation.eth3d import DatasetETH3D
 from evaluation.imc import DatasetIMC2023, DatasetIMC2024
-from evaluation.utils import create_result_table, parse_args, process_scenes
+from evaluation.utils import (
+    Dataset,
+    create_result_table,
+    parse_args,
+    process_scenes,
+)
 
 import pycolmap
 
@@ -40,7 +45,7 @@ import pycolmap
 def main() -> None:
     args = parse_args()
 
-    datasets = {
+    datasets: dict[str, type[Dataset]] = {
         "eth3d": DatasetETH3D,
         "blended-mvs": DatasetBlendedMVS,
         "imc2023": DatasetIMC2023,

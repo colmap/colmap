@@ -32,20 +32,26 @@
 #include "colmap/exe/gui.h"
 #include "colmap/exe/image.h"
 #include "colmap/exe/model.h"
+#if defined(COLMAP_MVS_ENABLED)
 #include "colmap/exe/mvs.h"
+#endif
 #include "colmap/exe/sfm.h"
 #include "colmap/exe/vocab_tree.h"
+#include "colmap/util/oiio_utils.h"
 #include "colmap/util/version.h"
 
 namespace {
 
-typedef std::function<int(int, char**)> command_func_t;
+using command_func_t = std::function<int(int, char**)>;
 
-int ShowHelp(
+void ShowVersion() {
+  std::cout << colmap::GetVersionInfo() << " (" << colmap::GetBuildInfo()
+            << ")\n";
+}
+
+void ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
-  std::cout << colmap::GetVersionInfo()
-            << " -- Structure-from-Motion and Multi-View Stereo\n("
-            << colmap::GetBuildInfo() << ")\n\n";
+  ShowVersion();
 
   std::cout << "Usage:\n";
   std::cout << "  colmap [command] [options]\n";
@@ -69,18 +75,18 @@ int ShowHelp(
 
   std::cout << "Available commands:\n";
   std::cout << "  help\n";
+  std::cout << "  version\n";
   for (const auto& command : commands) {
     std::cout << "  " << command.first << '\n';
   }
   std::cout << '\n';
-
-  return EXIT_SUCCESS;
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
+  colmap::EnsureOpenImageIOInitialized();
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
@@ -91,11 +97,16 @@ int main(int argc, char** argv) {
   commands.emplace_back("database_cleaner", &colmap::RunDatabaseCleaner);
   commands.emplace_back("database_creator", &colmap::RunDatabaseCreator);
   commands.emplace_back("database_merger", &colmap::RunDatabaseMerger);
+#if defined(COLMAP_MVS_ENABLED)
   commands.emplace_back("delaunay_mesher", &colmap::RunDelaunayMesher);
+#endif
   commands.emplace_back("exhaustive_matcher", &colmap::RunExhaustiveMatcher);
   commands.emplace_back("feature_extractor", &colmap::RunFeatureExtractor);
   commands.emplace_back("feature_importer", &colmap::RunFeatureImporter);
   commands.emplace_back("geometric_verifier", &colmap::RunGeometricVerifier);
+  commands.emplace_back("global_mapper", &colmap::RunGlobalMapper);
+  commands.emplace_back("guided_geometric_verifier",
+                        &colmap::RunGuidedGeometricVerifier);
   commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
   commands.emplace_back("image_deleter", &colmap::RunImageDeleter);
   commands.emplace_back("image_filterer", &colmap::RunImageFilterer);
@@ -106,8 +117,13 @@ int main(int argc, char** argv) {
                         &colmap::RunImageUndistorterStandalone);
   commands.emplace_back("mapper", &colmap::RunMapper);
   commands.emplace_back("matches_importer", &colmap::RunMatchesImporter);
+#if defined(COLMAP_MVS_ENABLED)
+  commands.emplace_back("mesh_simplifier", &colmap::RunMeshSimplifier);
+  commands.emplace_back("mesh_texturer", &colmap::RunMeshTexturer);
+#endif
   commands.emplace_back("model_aligner", &colmap::RunModelAligner);
   commands.emplace_back("model_analyzer", &colmap::RunModelAnalyzer);
+  commands.emplace_back("model_clusterer", &colmap::RunModelClusterer);
   commands.emplace_back("model_comparer", &colmap::RunModelComparer);
   commands.emplace_back("model_converter", &colmap::RunModelConverter);
   commands.emplace_back("model_cropper", &colmap::RunModelCropper);
@@ -116,29 +132,43 @@ int main(int argc, char** argv) {
                         &colmap::RunModelOrientationAligner);
   commands.emplace_back("model_splitter", &colmap::RunModelSplitter);
   commands.emplace_back("model_transformer", &colmap::RunModelTransformer);
+#if defined(COLMAP_MVS_ENABLED)
   commands.emplace_back("patch_match_stereo", &colmap::RunPatchMatchStereo);
+#endif
   commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
   commands.emplace_back("point_triangulator", &colmap::RunPointTriangulator);
   commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
+#if defined(COLMAP_MVS_ENABLED)
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
+#endif
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
   commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
-  commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
+  commands.emplace_back("rotation_averager", &colmap::RunRotationAverager);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);
+#if defined(COLMAP_MVS_ENABLED)
   commands.emplace_back("stereo_fusion", &colmap::RunStereoFuser);
+#endif
   commands.emplace_back("transitive_matcher", &colmap::RunTransitiveMatcher);
+  commands.emplace_back("view_graph_calibrator",
+                        &colmap::RunViewGraphCalibrator);
   commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
   commands.emplace_back("vocab_tree_matcher", &colmap::RunVocabTreeMatcher);
   commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);
 
   if (argc == 1) {
-    return ShowHelp(commands);
+    ShowHelp(commands);
+    return EXIT_SUCCESS;
   }
 
   const std::string command = argv[1];
-  if (command == "help" || command == "-h" || command == "--help") {
-    return ShowHelp(commands);
+  if (command == "help" || command == "--help" || command == "-h") {
+    ShowHelp(commands);
+    return EXIT_SUCCESS;
+  } else if (command == "version" || command == "--version" ||
+             command == "-v") {
+    ShowVersion();
+    return EXIT_SUCCESS;
   } else {
     command_func_t matched_command_func = nullptr;
     for (const auto& command_func : commands) {
@@ -161,5 +191,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  return ShowHelp(commands);
+  ShowHelp(commands);
+  return EXIT_SUCCESS;
 }

@@ -12,21 +12,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-namespace {
-
-std::vector<const double*> ConvertListOfPyArraysToConstPointers(
-    const std::vector<py::array_t<double>>& pyarrays) {
-  std::vector<const double*> blocks;
-  blocks.reserve(pyarrays.size());
-  for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
-    py::buffer_info info = it->request();
-    blocks.push_back((const double*)info.ptr);
-  }
-  return blocks;
-}
-
-}  // namespace
-
 void BindCovarianceEstimator(py::module& m) {
   auto PyBACovarianceOptionsParams =
       py::enum_<BACovarianceOptions::Params>(m, "BACovarianceOptionsParams")
@@ -37,43 +22,28 @@ void BindCovarianceEstimator(py::module& m) {
           .value("ALL", BACovarianceOptions::Params::ALL);
   AddStringToEnumConstructor(PyBACovarianceOptionsParams);
 
-  py::class_<internal::PoseParam> PyExperimentalPoseParam(
+  py::classh<internal::PoseParam> PyExperimentalPoseParam(
       m, "ExperimentalPoseParam");
   PyExperimentalPoseParam.def(py::init<>())
       .def_readwrite("image_id", &internal::PoseParam::image_id)
       .def_property(
-          "qvec",
+          "cam_from_world",
           [](internal::PoseParam& self)
               -> py::typing::Optional<py::array_t<double>> {
-            if (!self.qvec)
+            if (!self.cam_from_world)
               return py::none();
             else
-              return py::array_t<double>(4, self.qvec);
+              return py::array_t<double>(4, self.cam_from_world);
           },
           [](internal::PoseParam& self, py::array_t<double> pyarray) {
             THROW_CHECK_EQ(pyarray.ndim(), 1);
             THROW_CHECK_EQ(pyarray.size(), 4);
             py::buffer_info info = pyarray.request();
-            self.qvec = (double*)info.ptr;
-          })
-      .def_property(
-          "tvec",
-          [](internal::PoseParam& self)
-              -> py::typing::Optional<py::array_t<double>> {
-            if (!self.tvec)
-              return py::none();
-            else
-              return py::array_t<double>(3, self.tvec);
-          },
-          [](internal::PoseParam& self, py::array_t<double> pyarray) {
-            THROW_CHECK_EQ(pyarray.ndim(), 1);
-            THROW_CHECK_EQ(pyarray.size(), 3);
-            py::buffer_info info = pyarray.request();
-            self.tvec = (double*)info.ptr;
+            self.cam_from_world = (double*)info.ptr;
           });
   MakeDataclass(PyExperimentalPoseParam);
 
-  py::class_<BACovarianceOptions> PyBACovarianceOptions(m,
+  py::classh<BACovarianceOptions> PyBACovarianceOptions(m,
                                                         "BACovarianceOptions");
   PyBACovarianceOptions.def(py::init<>())
       .def_readwrite("params",
@@ -95,7 +65,7 @@ void BindCovarianceEstimator(py::module& m) {
           "applying the Schur complement trick.");
   MakeDataclass(PyBACovarianceOptions);
 
-  py::class_<BACovariance>(m, "BACovariance")
+  py::classh<BACovariance>(m, "BACovariance")
       .def("get_point_cov",
            &BACovariance::GetPointCov,
            "point3D_id"_a,
@@ -141,11 +111,11 @@ void BindCovarianceEstimator(py::module& m) {
           "variable in the problem.");
 
   m.def(
-      "estimate_ba_covariance_from_problem",
-      &EstimateBACovarianceFromProblem,
+      "estimate_ba_covariance",
+      &EstimateBACovariance,
       "options"_a,
       "reconstruction"_a,
-      "problem"_a,
+      "bundle_adjuster"_a,
       "Computes covariances for the parameters in a bundle adjustment "
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "
@@ -154,11 +124,11 @@ void BindCovarianceEstimator(py::module& m) {
       "null if the estimation was not successful.");
 
   m.def(
-      "estimate_ba_covariance",
-      &EstimateBACovariance,
+      "estimate_ba_covariance_from_problem",
+      &EstimateBACovarianceFromProblem,
       "options"_a,
       "reconstruction"_a,
-      "bundle_adjuster"_a,
+      "problem"_a,
       "Computes covariances for the parameters in a bundle adjustment "
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "

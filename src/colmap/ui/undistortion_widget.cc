@@ -50,14 +50,16 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   output_format_->setFont(font());
   AddWidgetRow("format", output_format_);
 
-  AddOptionDouble(&undistortion_options_.min_scale, "min_scale", 0);
-  AddOptionDouble(&undistortion_options_.max_scale, "max_scale", 0);
-  AddOptionInt(&undistortion_options_.max_image_size, "max_image_size", -1);
-  AddOptionDouble(&undistortion_options_.blank_pixels, "blank_pixels", 0);
-  AddOptionDouble(&undistortion_options_.roi_min_x, "roi_min_x", 0.0, 1.0);
-  AddOptionDouble(&undistortion_options_.roi_min_y, "roi_min_y", 0.0, 1.0);
-  AddOptionDouble(&undistortion_options_.roi_max_x, "roi_max_x", 0.0, 1.0);
-  AddOptionDouble(&undistortion_options_.roi_max_y, "roi_max_y", 0.0, 1.0);
+  AddOptionDouble(&camera_options_.min_scale, "min_scale", 0);
+  AddOptionDouble(&camera_options_.max_scale, "max_scale", 0);
+  AddOptionInt(&camera_options_.max_image_size, "max_image_size", -1);
+  AddOptionDouble(&camera_options_.blank_pixels, "blank_pixels", 0);
+  AddOptionDouble(&camera_options_.roi_min_x, "roi_min_x", 0.0, 1.0);
+  AddOptionDouble(&camera_options_.roi_min_y, "roi_min_y", 0.0, 1.0);
+  AddOptionDouble(&camera_options_.roi_max_x, "roi_max_x", 0.0, 1.0);
+  AddOptionDouble(&camera_options_.roi_max_y, "roi_max_y", 0.0, 1.0);
+  AddOptionInt(&colmap_options_.jpeg_quality, "jpeg_quality", -1);
+  AddOptionInt(&num_threads_, "num_threads", -1);
   AddOptionDirPath(&output_path_, "output_path");
 
   AddSpacer();
@@ -88,20 +90,30 @@ void UndistortionWidget::Undistort() {
     std::unique_ptr<Thread> undistorter;
 
     if (output_format_->currentIndex() == 0) {
+      colmap_options_.num_threads = num_threads_;
       undistorter = std::make_unique<ControllerThread<COLMAPUndistorter>>(
-          std::make_shared<COLMAPUndistorter>(undistortion_options_,
+          std::make_shared<COLMAPUndistorter>(colmap_options_,
+                                              camera_options_,
                                               *reconstruction_,
                                               *options_->image_path,
                                               output_path_));
     } else if (output_format_->currentIndex() == 1) {
+      PMVSUndistorter::Options pmvs_options;
+      pmvs_options.jpeg_quality = colmap_options_.jpeg_quality;
+      pmvs_options.num_threads = num_threads_;
       undistorter = std::make_unique<ControllerThread<PMVSUndistorter>>(
-          std::make_shared<PMVSUndistorter>(undistortion_options_,
+          std::make_shared<PMVSUndistorter>(pmvs_options,
+                                            camera_options_,
                                             *reconstruction_,
                                             *options_->image_path,
                                             output_path_));
     } else if (output_format_->currentIndex() == 2) {
+      CMPMVSUndistorter::Options cmpmvs_options;
+      cmpmvs_options.jpeg_quality = colmap_options_.jpeg_quality;
+      cmpmvs_options.num_threads = num_threads_;
       undistorter = std::make_unique<ControllerThread<CMPMVSUndistorter>>(
-          std::make_shared<CMPMVSUndistorter>(undistortion_options_,
+          std::make_shared<CMPMVSUndistorter>(cmpmvs_options,
+                                              camera_options_,
                                               *reconstruction_,
                                               *options_->image_path,
                                               output_path_));

@@ -45,7 +45,7 @@ struct CameraDatabase {
 
   bool QuerySensorWidth(const std::string& make,
                         const std::string& model,
-                        double* sensor_width);
+                        double* sensor_width_mm);
 
  private:
   static const camera_specs_t specs_;

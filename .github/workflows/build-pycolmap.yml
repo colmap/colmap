@@ -5,6 +5,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -16,32 +17,56 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
-          {os: ubuntu-latest},
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0},
-          {os: windows-latest},
+          {os: ubuntu-24.04, cudaEnabled: false},
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0, cudaEnabled: false},
+          {os: windows-2025, cudaEnabled: false},
+          {os: ubuntu-24.04, cudaEnabled: true},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      FETCHCONTENT_CACHE_VERSION: 1
+      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/fetchcontent-cache
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
       # For faster builds in PRs, skip all but the oldest Python versions.
-      PULL_REQUEST_CIBW_BUILD: cp39-{macosx,manylinux,win}*
+      PULL_REQUEST_CIBW_BUILD: cp311-{macosx,manylinux,win}*
     steps:
+      - name: Free disk space
+        if: runner.os == 'Linux' && matrix.config.cudaEnabled
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
-        id: cache-builds
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        id: cache-compiler
         with:
           key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        id: cache-fetchcontent
+        with:
+          key: pycolmap-fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: pycolmap-fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
 
       - name: Select Python
         if: github.event_name == 'pull_request' && runner.os != 'Windows'
@@ -72,7 +97,15 @@ jobs:
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${{ github.workspace }}/build/vcpkg_installed"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.WERROR_ENABLED=ON"
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
+
+          echo "FETCHCONTENT_BASE_DIR=${FETCHCONTENT_CACHE_DIR}" >> "$GITHUB_ENV"
+          if [ "${{ steps.cache-fetchcontent.outputs.cache-hit }}" = "true" ]; then
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=ON" >> "$GITHUB_ENV"
+          else
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=OFF" >> "$GITHUB_ENV"
+          fi
 
           # vcpkg binary caching
           # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
@@ -87,6 +120,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          echo "${{ env.COMPILER_CACHE_DIR }}/bin" >> "${env:GITHUB_PATH}"
+
           $VCPKG_INSTALLATION_ROOT = "${{ github.workspace }}/vcpkg"
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -104,6 +139,14 @@ jobs:
           echo "CIBW_CONFIG_SETTINGS_WINDOWS=${CONFIG_SETTINGS}" >> "${env:GITHUB_ENV}"
           $CIBW_REPAIR_WHEEL_COMMAND = "delvewheel repair -v --add-path ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin -w {dest_dir} {wheel}"
           echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
+
+          $FETCHCONTENT_BASE_DIR = "${env:FETCHCONTENT_CACHE_DIR}".replace('\', '/')
+          echo "FETCHCONTENT_BASE_DIR=${FETCHCONTENT_BASE_DIR}" >> "${env:GITHUB_ENV}"
+          if ("${{ steps.cache-fetchcontent.outputs.cache-hit }}" -eq "true") {
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=ON" >> "${env:GITHUB_ENV}"
+          } else {
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=OFF" >> "${env:GITHUB_ENV}"
+          }
 
           # vcpkg binary caching
           # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
@@ -129,15 +172,23 @@ jobs:
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/project/build/vcpkg_installed"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.WERROR_ENABLED=ON"
           echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # Remap caching paths to the container
           CONTAINER_COMPILER_CACHE_DIR="/compiler-cache"
-          CIBW_CONTAINER_ENGINE="docker; create_args: -v ${COMPILER_CACHE_DIR}:${CONTAINER_COMPILER_CACHE_DIR}"
+          CONTAINER_FETCHCONTENT_CACHE_DIR="/fetchcontent-cache"
+          CIBW_CONTAINER_ENGINE="docker; create_args: -v ${COMPILER_CACHE_DIR}:${CONTAINER_COMPILER_CACHE_DIR} -v ${FETCHCONTENT_CACHE_DIR}:${CONTAINER_FETCHCONTENT_CACHE_DIR}"
           echo "CIBW_CONTAINER_ENGINE=${CIBW_CONTAINER_ENGINE}" >> "$GITHUB_ENV"
           echo "CONTAINER_COMPILER_CACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}" >> "$GITHUB_ENV"
           echo "CCACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}/ccache" >> "$GITHUB_ENV"
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
+          echo "FETCHCONTENT_BASE_DIR=${CONTAINER_FETCHCONTENT_CACHE_DIR}" >> "$GITHUB_ENV"
+          if [ "${{ steps.cache-fetchcontent.outputs.cache-hit }}" = "true" ]; then
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=ON" >> "$GITHUB_ENV"
+          else
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=OFF" >> "$GITHUB_ENV"
+          fi
 
           # vcpkg binary caching
           # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
@@ -148,31 +199,50 @@ jobs:
           fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
-          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
+          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR FETCHCONTENT_BASE_DIR FETCHCONTENT_FULLY_DISCONNECTED"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
-          CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+          if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
+            CIBW_MANYLINUX_X86_64_IMAGE="pytorch/manylinux2_28-builder:cuda12.9"
+            CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
+            echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
+            # Edit pyproject.toml to change package name to pycolmap-cuda12 and add CUDA Runtime native Libraries and CURAND native runtime libraries to dependencies
+            pip install tomlkit
+            python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "cuda-toolkit[cudart,curand]>=12,<13"
+          else
+            CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+          fi
+
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
 
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.2
+        uses: pypa/cibuildwheel@v3.3.1
         with:
           package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+          CIBW_ENVIRONMENT:  >
+            BUILD_CUDA_ENABLED=${{ matrix.config.cudaEnabled }}
 
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}
-          path: wheelhouse/pycolmap-*.whl
+          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}${{ matrix.config.cudaEnabled && '-CUDA' || '' }}
+          path: wheelhouse/pycolmap*.whl
 
   pypi-publish:
     name: Publish wheels to PyPI
     needs: build
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      # This URL is only for display in the GitHub UI
+      url: https://pypi.org/p/pycolmap
+    permissions:
+      id-token: write
     # We publish the wheel to pypi when a new tag is pushed,
-    # either by creating a new GitHub release or explictly with `git tag`
+    # either by creating a new GitHub release or explicitly with `git tag`
     if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
     steps:
       - name: Download wheels
@@ -182,9 +252,7 @@ jobs:
       - name: Move wheels
         run: mkdir ./wheelhouse && mv ./artifacts/**/*.whl ./wheelhouse/
       - name: Publish package
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           skip-existing: true
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: ./wheelhouse/

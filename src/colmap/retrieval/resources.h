@@ -29,18 +29,35 @@
 
 #pragma once
 
-#include <string>
+#include "colmap/feature/types.h"
+
+#include <filesystem>
 
 namespace colmap {
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
-const static std::string kDefaultVocabTreeUri =
+inline const std::filesystem::path kDefaultSiftVocabTreeUri =
     "https://github.com/colmap/colmap/releases/download/3.11.1/"
     "vocab_tree_faiss_flickr100K_words256K.bin;"
     "vocab_tree_faiss_flickr100K_words256K.bin;"
     "96ca8ec8ea60b1f73465aaf2c401fd3b3ca75cdba2d3c50d6a2f6f760f275ddc";
+inline const std::filesystem::path kDefaultAlikedN16RotVocabTreeUri =
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "vocab_tree_faiss_flickr100K_words64K_aliked_n16rot.bin;"
+    "vocab_tree_faiss_flickr100K_words64K_aliked_n16rot.bin;"
+    "8b2f9bdc44ca7204d8543bb3adab4c03ba9336c84ef41220b5007991036f075e";
+inline const std::filesystem::path kDefaultAlikedN32VocabTreeUri =
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "vocab_tree_faiss_flickr100K_words64K_aliked_n32.bin;"
+    "vocab_tree_faiss_flickr100K_words64K_aliked_n32.bin;"
+    "65619481045b8f933268f10c31ad180eb1ee7881182873efe0f5753972ef6a20";
 #else
-const static std::string kDefaultVocabTreeUri = "";
+inline const std::filesystem::path kDefaultSiftVocabTreeUri = "";
+inline const std::filesystem::path kDefaultAlikedN16RotVocabTreeUri = "";
+inline const std::filesystem::path kDefaultAlikedN32VocabTreeUri = "";
 #endif
+
+const std::filesystem::path& GetVocabTreeUriForFeatureType(
+    FeatureExtractorType feature_type);
 
 }  // namespace colmap

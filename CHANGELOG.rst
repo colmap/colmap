@@ -1,6 +1,765 @@
 Changelog
 =========
 
+-------------------------
+COLMAP 4.0.2 (03/18/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Fix ALIKED keypoint score filtering
+* Fix ALIKED extraction with pycolmap
+* Fix missing reset of mesh simplification options
+
+-------------------------
+COLMAP 4.0.1 (03/15/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Add missing LightGlue matcher type to GUI
+* Fix checks in GpuMat constructor
+* Add destructor to ModelViewerWidget to call makeCurrent()
+
+-------------------------
+COLMAP 4.0.0 (03/14/2026)
+-------------------------
+
+New Features
+------------
+* Integrated GLOMAP global SfM pipeline into COLMAP as a first-class alternative
+  to the incremental/hierarchical mappers, available via the ``global_mapper`` and
+  ``automatic_reconstructor --mapper GLOBAL`` commands. Many fixes and improvements
+  have been applied to the GLOMAP codebase as part of this migration.
+  GLOMAP is maintained through the COLMAP repository going forward.
+  The global pipeline uses view graph calibration to estimate
+  intrinsics from two-view geometries, which may produce different camera
+  parameters compared to the incremental pipeline's self-calibration.
+* Added ALIKED (N16Rot/N32) feature extraction through ONNX support. Support for brute-force
+  and LightGlue matching as well as scalable matching with pre-trained vocabulary trees.
+* Added LightGlue ONNX feature matching for SIFT and ALIKED.
+* Added Python bindings for feature extractor and matcher.
+* Added support for reading image orientation from EXIF and auto-rotating images
+  during feature extraction/matching for better robustness against rotational viewpoint changes.
+* Added structure-less image registration fallback using generalized
+  relative pose estimator for registering images without 3-view overlap.
+* Added division camera models (SIMPLE_DIVISION, DIVISION).
+* Added fisheye camera model without distortion parameters (FISHEYE).
+* Improved Ceres bundle adjustment performance by ~10% through single pose parameter block.
+* Improved Ceres bundle adjustment performance by ~15% for SIMPLE_RADIAL camera model
+  and trivial frames through analytical Jacobians.
+* Added abstract general bundle adjuster and solver summary in preparation for
+  supporting different optimization backends.
+* Replaced FreeImage with OpenImageIO for ~2.5x faster image I/O, support for more
+  image formats, and using an actively maintained dependency with security fixes, etc.
+* Added guided geometric verification using a known reconstruction.
+* Added view graph calibration as a new module.
+* Added model clustering to partition large reconstructions into
+  smaller, manageable sub-models based on scene connectivity.
+* Added mesh simplification using Quadric Error Metric (QEM) decimation.
+* Added mesh texture mapping for producing textured meshes from calibrated images.
+* Added option to specify JPEG quality during image undistortion.
+* Added support for loading bitmaps with alpha channel.
+* Added option to control refinement of 3D points in bundle adjuster.
+* Added optional support for position prior in absolute pose refinement.
+* Added supernodal CHOLMOD L1 solver support.
+* Added multi-threading support for (LO)RANSAC loop.
+* Added support for custom SSL certificate locations through
+  SSL_CERT_FILE and SSL_CERT_DIR environment variables.
+* Added support for static Windows builds with CUDA.
+* Exposed ``pycolmap.match_from_pairs`` for custom pair matching on GPU.
+* Added Python bindings for depth and normal maps.
+* Added Python type checking (mypy) for all code.
+* Improved incremental mapper and triangulator Python bindings.
+* Added support for visualizing (textured) meshes in the GUI.
+* Added drag-and-drop folder support for model import in the GUI.
+* Added drag-and-drop support for PLY import in the GUI.
+* Switched to native menu bar in GUI on macOS.
+* Added support for building shared libraries.
+* Improved patch match stereo performance by reading inputs in parallel.
+* Reduced model viewer memory usage in the GUI.
+* Added automatic fallback to BA CPU solver if GPU solver fails.
+* For other minor improvements, see full list of changes below.
+
+Bug Fixes
+---------
+* Fixed guided matching for calibrated non-linear cameras.
+* Fixed database race conditions in mapping pipelines.
+* Fixed MSVC compatibility with ``isnan``.
+* Fixed undefined behavior in feature match swapping.
+* Fixed SVD computation in affine transform.
+* Fixed 2D association issue at ``AddPoint3D`` with ``point3D_id``.
+* Fixed several issues in database merging.
+* Fixed MVS workspace image downsizing.
+* Fixed pycolmap to respect ``fix_existing_frames`` option in the incremental pipeline.
+* Fixed transcription of image IDs in reconstruction from database.
+* Fixed ``BundleAdjustmentConfig::NumResiduals`` ignoring point statistics.
+* Fixed incorrect propagation of incremental options in automatic reconstructor.
+* Fixed triangulation angle computation in patch match sampling.
+* Fixed inverted units in ``ExifFocalLength`` metadata extraction.
+* Fixed slow performance of generalized absolute pose estimator verification.
+* Propagate exceptions from ``ThreadPool::Wait``.
+* Fixed empty patch match results on CUDA compute >= 100 (Blackwell GPUs).
+* Fixed ``filter_frames_`` usage in ``FindNextImages``.
+* Fixed ``model_aligner`` crash by using new pose prior API.
+* For other bug fixes, see full list of changes below.
+
+Breaking Changes
+----------------
+* Replaced FreeImage with OpenImageIO for image I/O. There may be slight differences
+  in terms of supported image formats and loaded pixel values.
+* Dropped support for Python 3.9 due to EOL.
+* ``TwoViewGeometry`` fields ``cam2_from_cam1``, ``E``, ``F``, ``H`` are now ``std::optional``.
+* ``Rigid3d`` and ``Sim3d`` parameters stored as single vector.
+  Use ``rotation()`` and ``translation()`` accessor methods instead of direct member access.
+* Bundle adjustment cost functors use single pose parameter blocks.
+* ``BundleAdjuster`` now returns ``std::shared_ptr<BundleAdjusterSummary>`` instead of ``ceres::SolverSummary``.
+* Ceres-related CLI options are prefixed with ``BundleAdjustmentCeres.*``.
+* GPS/ENU coordinate conversion functionality cleaned up, breaking the Python interface.
+* Feature descriptors are now associated with a type that is propagated through
+  the pipeline and storage. Fails matching if descriptor types are inconsistent.
+* Pose priors associated with generic sensor measurement data.
+* ``DatabaseCache`` initialization consolidated into a single options struct
+  instead of scattered arguments.
+* Switched paths from ``std::string`` to ``std::filesystem::path`` throughout
+  the C++ codebase. Python ``pathlib.Path`` objects are now automatically
+  converted. No breaking impact on the Python interface.
+
+Full Change List (sorted temporally)
+------------------------------------
+* Fix MSVC compatibility with ``isnan`` by @nharbiso in https://github.com/colmap/colmap/pull/3720
+* Include v3.13 to legacy dropdown. by @B1ueber2y in https://github.com/colmap/colmap/pull/3724
+* (bugfix) initializing added_two_view_geometry_options to false by @AlePuglisi in https://github.com/colmap/colmap/pull/3727
+* Update the tag of the doc submodule to the latest commit. by @B1ueber2y in https://github.com/colmap/colmap/pull/3729
+* Fix duplicated parameters for pycolmap.extract_features and fix pycolmap README. by @B1ueber2y in https://github.com/colmap/colmap/pull/3728
+* Document how to speed up bundle adjustment by @StonerLing in https://github.com/colmap/colmap/pull/3730
+* Fix reconstruction benchmark by @ahojnnes in https://github.com/colmap/colmap/pull/3731
+* Remove doc submodule for easier maintenance. by @B1ueber2y in https://github.com/colmap/colmap/pull/3732
+* Fix undefined behavior in feature match swapping by @ahojnnes in https://github.com/colmap/colmap/pull/3733
+* Fix SVD computation in affine transform by @ahojnnes in https://github.com/colmap/colmap/pull/3734
+* Fix random seed stability tests for incremental mapper by @ahojnnes in https://github.com/colmap/colmap/pull/3735
+* Structure-less image registration using generalized relative pose estimator by @ahojnnes in https://github.com/colmap/colmap/pull/2829
+* Add supernodal cholmod L1 solver support and more tests by @ahojnnes in https://github.com/colmap/colmap/pull/3737
+* Add union-find implementation by @ahojnnes in https://github.com/colmap/colmap/pull/3738
+* Add unit tests for base controller by @ahojnnes in https://github.com/colmap/colmap/pull/3739
+* Add unit tests for PLY utils by @ahojnnes in https://github.com/colmap/colmap/pull/3742
+* Inline SQLite3 utils in database implementation by @ahojnnes in https://github.com/colmap/colmap/pull/3741
+* Allow reuse of cholesky decomposition in L1 solver by @ahojnnes in https://github.com/colmap/colmap/pull/3743
+* Add unit tests for controller thread by @ahojnnes in https://github.com/colmap/colmap/pull/3740
+* Add drag-and-drop folder support for model import in the GUI by @StonerLing in https://github.com/colmap/colmap/pull/3744
+* Update to latest vcpkg by @ahojnnes in https://github.com/colmap/colmap/pull/3745
+* Include instructions to update documentation after new releases by @chipironcin in https://github.com/colmap/colmap/pull/3716
+* Remove unused CMake warning level variable by @ahojnnes in https://github.com/colmap/colmap/pull/3747
+* Import of GLOMAP source code by @ahojnnes in https://github.com/colmap/colmap/pull/3748
+* Correct the spelling of GeometricVerifier. by @B1ueber2y in https://github.com/colmap/colmap/pull/3749
+* Update Windows ccache to 4.12.1 by @ahojnnes in https://github.com/colmap/colmap/pull/3750
+* Remove custom glomap constants by @ahojnnes in https://github.com/colmap/colmap/pull/3751
+* Remove unnecessary glomap Camera by @ahojnnes in https://github.com/colmap/colmap/pull/3753
+* Misc code quality improvements for max spanning tree by @ahojnnes in https://github.com/colmap/colmap/pull/3755
+* Configure clang-format for glomap code by @ahojnnes in https://github.com/colmap/colmap/pull/3756
+* Support two view geometry with empty inlier matches in the database. by @B1ueber2y in https://github.com/colmap/colmap/pull/3754
+* Modularize glomap libraries by @ahojnnes in https://github.com/colmap/colmap/pull/3757
+* Use colmap reconstruction matchers in global mapper tests by @ahojnnes in https://github.com/colmap/colmap/pull/3758
+* Fix WriteTwoViewGeometry when inlier matches are empty. by @B1ueber2y in https://github.com/colmap/colmap/pull/3761
+* Add support for geometric verification given known reconstruction. by @B1ueber2y in https://github.com/colmap/colmap/pull/3752
+* Enable glomap tests in CI by @ahojnnes in https://github.com/colmap/colmap/pull/3759
+* Replace custom glomap Track with colmap Point3D by @ahojnnes in https://github.com/colmap/colmap/pull/3762
+* Add missing option: FeatureMatching.skip_image_pairs_in_same_frame by @B1ueber2y in https://github.com/colmap/colmap/pull/3765
+* Use fundamental/essential matrix utils from colmap by @ahojnnes in https://github.com/colmap/colmap/pull/3768
+* Clean up redundant/unnecessary glomap rigid3d helper functions by @ahojnnes in https://github.com/colmap/colmap/pull/3764
+* Add option to skip geometric verification at feature matching. by @B1ueber2y in https://github.com/colmap/colmap/pull/3766
+* Fix missing colmap namespace in util/file.h macro. by @B1ueber2y in https://github.com/colmap/colmap/pull/3770
+* Add missing header for the enum macros and remove colmap namespace. by @B1ueber2y in https://github.com/colmap/colmap/pull/3771
+* Upgrade to latest vcpkg. by @B1ueber2y in https://github.com/colmap/colmap/pull/3774
+* Add convenience method for filtering data by sensor type by @ahojnnes in https://github.com/colmap/colmap/pull/3776
+* Cleanup redundant sqlite database merge implementation, consistent variable naming by @ahojnnes in https://github.com/colmap/colmap/pull/3778
+* Add missing bindings for Bitmap and cleanup by @sarlinpe in https://github.com/colmap/colmap/pull/3780
+* Set frame_id when reading database images by @ahojnnes in https://github.com/colmap/colmap/pull/3779
+* Handle near zero matrices or identity transformations in gmock matchers by @ahojnnes in https://github.com/colmap/colmap/pull/3782
+* Fix pycolmap to respect fix_existing_frames option by @S-o-T in https://github.com/colmap/colmap/pull/3781
+* Add non-inserting FindIfExists to UnionFind by @B1ueber2y in https://github.com/colmap/colmap/pull/3783
+* Use existing ceres function to stringify termination type by @ahojnnes in https://github.com/colmap/colmap/pull/3784
+* Add convenience Python constructors for data_t/sensor_t by @ahojnnes in https://github.com/colmap/colmap/pull/3785
+* Add utility function to compute Rigid3d origin by @ahojnnes in https://github.com/colmap/colmap/pull/3773
+* Allow running glomap from colmap main executable by @ahojnnes in https://github.com/colmap/colmap/pull/3769
+* Associate pose priors to generic sensor measurement data by @ahojnnes in https://github.com/colmap/colmap/pull/3777
+* Enable compiler warnings as errors in GCC/CLang CI builds by @ahojnnes in https://github.com/colmap/colmap/pull/3788
+* Remove debug log statement in db management widget by @ahojnnes in https://github.com/colmap/colmap/pull/3789
+* Rename PosePrior::IsValid to HasPosition by @ahojnnes in https://github.com/colmap/colmap/pull/3786
+* Add gravity to pose prior by @ahojnnes in https://github.com/colmap/colmap/pull/3787
+* Disable editing of images in database management widget by @ahojnnes in https://github.com/colmap/colmap/pull/3792
+* Fix and simplify database pose prior migration by @ahojnnes in https://github.com/colmap/colmap/pull/3791
+* Synthesize gravities and move pose prior noise synthesis by @ahojnnes in https://github.com/colmap/colmap/pull/3795
+* Replace FreeImage with OpenImageIO by @ahojnnes in https://github.com/colmap/colmap/pull/3459
+* Add support on adding camera/image with trivial rig/frame to reconstruction. by @B1ueber2y in https://github.com/colmap/colmap/pull/3800
+* Rename HasTrivialFrame to IsRefInFrame. by @B1ueber2y in https://github.com/colmap/colmap/pull/3801
+* Ensure that the rig has only one sensor at AddImageWithTrivialFrame. by @B1ueber2y in https://github.com/colmap/colmap/pull/3802
+* Fix meta data cloning when cloning bitmap by @ahojnnes in https://github.com/colmap/colmap/pull/3812
+* Remove unused includes in MVS image by @ahojnnes in https://github.com/colmap/colmap/pull/3813
+* Create global mapper pipeline by @ahojnnes in https://github.com/colmap/colmap/pull/3808
+* Fix stand-alone python visualizer. by @B1ueber2y in https://github.com/colmap/colmap/pull/3816
+* Remove the deprecated read_write_model.py from colmap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3817
+* refactor: Replace OpenSqliteDatabase with Database::Open by @whuaegeanse in https://github.com/colmap/colmap/pull/3818
+* Replace glomap gravity info with pose prior by @ahojnnes in https://github.com/colmap/colmap/pull/3794
+* Relax CUDA requirements in Python wheels by @sarlinpe in https://github.com/colmap/colmap/pull/3799
+* Fix copying behaviors of empty bitmap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3823
+* Don't build CUDA wheels for all Python versions in PRs by @sarlinpe in https://github.com/colmap/colmap/pull/3824
+* Fix NumResiduals ignore point statistics and update test assertion by @whuaegeanse in https://github.com/colmap/colmap/pull/3820
+* Add unit tests for MVS workspace by @ahojnnes in https://github.com/colmap/colmap/pull/3825
+* Fix transcription of image IDs in reconstruction from database by @ahojnnes in https://github.com/colmap/colmap/pull/3826
+* Towards removing custom glomap image class by @ahojnnes in https://github.com/colmap/colmap/pull/3805
+* Add unit tests for MVS image by @ahojnnes in https://github.com/colmap/colmap/pull/3828
+* Remove unused includes in MVS fusion by @ahojnnes in https://github.com/colmap/colmap/pull/3829
+* Add simple integration test for MVS fusion by @ahojnnes in https://github.com/colmap/colmap/pull/3830
+* Remove custom glomap image class by @ahojnnes in https://github.com/colmap/colmap/pull/3835
+* Add integration tests for meshing, update poisson recon library to 18.75 by @ahojnnes in https://github.com/colmap/colmap/pull/3834
+* Consolidate calculation of angle between vectors by @ahojnnes in https://github.com/colmap/colmap/pull/3836
+* Clean up unused includes from geometry folder by @ahojnnes in https://github.com/colmap/colmap/pull/3837
+* Clean up redundant glomap executable by @ahojnnes in https://github.com/colmap/colmap/pull/3838
+* Update FAQ on dense stereo stage requirements by @The-Cyber-Captain in https://github.com/colmap/colmap/pull/3840
+* Improve glomap cost function, add tests by @ahojnnes in https://github.com/colmap/colmap/pull/3839
+* Refactor general cost function utils and add NormalPriorCost and NormalErrorCost. by @B1ueber2y in https://github.com/colmap/colmap/pull/3843
+* Various improvements and fixes on glomap gravity impl. by @B1ueber2y in https://github.com/colmap/colmap/pull/3844
+* Fix misleading logging for structure-less registration. by @B1ueber2y in https://github.com/colmap/colmap/pull/3848
+* Remove glomap types_sfm.h and only include necessary headers. by @B1ueber2y in https://github.com/colmap/colmap/pull/3849
+* Improvements and fixes on glomap two view geometry. by @B1ueber2y in https://github.com/colmap/colmap/pull/3847
+* Move cluster id logic to top level and remove custom glomap Frame class. by @B1ueber2y in https://github.com/colmap/colmap/pull/3850
+* Migrate glomap gravity utilities into colmap and add tests. by @B1ueber2y in https://github.com/colmap/colmap/pull/3845
+* Move InlierThresholdOptions and remove unnecessary includes. by @B1ueber2y in https://github.com/colmap/colmap/pull/3851
+* Minor: throw instead of LOG(ERROR) when SQLITE3_EXEC fails. by @B1ueber2y in https://github.com/colmap/colmap/pull/3855
+* Add integration tests for image undistorters by @ahojnnes in https://github.com/colmap/colmap/pull/3856
+* Pass database as pointer instead of reference in global mapper. Drop GlobalMapperResume. by @B1ueber2y in https://github.com/colmap/colmap/pull/3846
+* Use colmap::Reconstruction instead of scattered variables in glomap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3853
+* Use temporary storage for camera centers in global positioning. by @B1ueber2y in https://github.com/colmap/colmap/pull/3854
+* Fix workspace image downsizing and improve tests by @ahojnnes in https://github.com/colmap/colmap/pull/3857
+* Fix bitmap copy assignment test by @ahojnnes in https://github.com/colmap/colmap/pull/3859
+* Add test for BitmapColor printing by @ahojnnes in https://github.com/colmap/colmap/pull/3860
+* [Improve RA] Add PairConstraint, remove image_id_to_idx and improve naming/comments. by @B1ueber2y in https://github.com/colmap/colmap/pull/3858
+* Add test for spatial verification in image retrieval, fix crash for invalid transformations by @ahojnnes in https://github.com/colmap/colmap/pull/3862
+* Attempt to make visual index spatial verification tests deterministic by @ahojnnes in https://github.com/colmap/colmap/pull/3870
+* Minor: rename glomap cost_function.h to cost_functions.h. by @B1ueber2y in https://github.com/colmap/colmap/pull/3872
+* Fix 2D association issue at AddPoint3D with point3D_id. by @B1ueber2y in https://github.com/colmap/colmap/pull/3867
+* [Improve RA] Abstract RotationAveragingProblem and RotationAveragingSolver. by @B1ueber2y in https://github.com/colmap/colmap/pull/3861
+* Move relative pose filtering utilities into ViewGraph. by @B1ueber2y in https://github.com/colmap/colmap/pull/3864
+* Fix database race conditions in mapping pipelines by @ahojnnes in https://github.com/colmap/colmap/pull/3865
+* Improve stability of visual index spatial verification test by @ahojnnes in https://github.com/colmap/colmap/pull/3874
+* Fix glomap track retriangulation refinement termination status by @ahojnnes in https://github.com/colmap/colmap/pull/3873
+* Propagate exceptions from ThreadPool::Wait by @ahojnnes in https://github.com/colmap/colmap/pull/3869
+* Catch AggregateException for ThreadPool. by @B1ueber2y in https://github.com/colmap/colmap/pull/3875
+* Use DeRegisterFrame over ResetPose in view graph and track retriangulation. by @B1ueber2y in https://github.com/colmap/colmap/pull/3877
+* Add Reconstruction::IsValid to check if a reconstruction object is not broken. by @B1ueber2y in https://github.com/colmap/colmap/pull/3878
+* Improve the horrendous logic and naming in rotation initializer. by @B1ueber2y in https://github.com/colmap/colmap/pull/3876
+* Use colmap ObservationManager for track filtering in glomap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3871
+* Centralize random logic to use colmap SetPRNGSeed. Add deterministic test. by @B1ueber2y in https://github.com/colmap/colmap/pull/3879
+* Abstract general minimum spanning tree algorithm in colmap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3883
+* Use logging over std::cout in glomap to avoid flooding logs in gtest. by @B1ueber2y in https://github.com/colmap/colmap/pull/3880
+* Abstract base option manager and consolidate usage. by @B1ueber2y in https://github.com/colmap/colmap/pull/3881
+* [Improve RA] Move stratified logic into estimators and only keep one option class. by @B1ueber2y in https://github.com/colmap/colmap/pull/3863
+* ImagePair inherits colmap::TwoViewGeometry. Remove image id fields. by @B1ueber2y in https://github.com/colmap/colmap/pull/3882
+* Further cleanup of std::cout in the codebase. by @B1ueber2y in https://github.com/colmap/colmap/pull/3884
+* Rename SwapImagePair to ShouldSwapImagePair. by @B1ueber2y in https://github.com/colmap/colmap/pull/3887
+* Move validity logic into ViewGraph and use filter_view in ValidImagePairs. by @B1ueber2y in https://github.com/colmap/colmap/pull/3885
+* Directly use COLMAP bundle adjustment interface for glomap BA. by @B1ueber2y in https://github.com/colmap/colmap/pull/3868
+* Add rotation averaging controller in colmap and consolidate glomap exe functions. by @B1ueber2y in https://github.com/colmap/colmap/pull/3888
+* Remove legacy logging in global positioning. by @B1ueber2y in https://github.com/colmap/colmap/pull/3892
+* Minor: improve the namings in global mapper options. by @B1ueber2y in https://github.com/colmap/colmap/pull/3891
+* Add type annotations to python example scripts by @ahojnnes in https://github.com/colmap/colmap/pull/3889
+* Remove OptimizationBase and use colmap::GetEffectiveNumThreads(). by @B1ueber2y in https://github.com/colmap/colmap/pull/3890
+* Simplify the logic and naming of reconstruction pruning. by @B1ueber2y in https://github.com/colmap/colmap/pull/3886
+* Fix wrongly migrated cuda option in glomap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3895
+* Centralize poselib type conversion. by @B1ueber2y in https://github.com/colmap/colmap/pull/3896
+* Drop weight support for different relative poses in rotation averaging. by @B1ueber2y in https://github.com/colmap/colmap/pull/3897
+* Simplify colmap_io in glomap thanks to the unification. by @B1ueber2y in https://github.com/colmap/colmap/pull/3900
+* Reduce code duplication in pycolmap MVS bindings by @sarlinpe in https://github.com/colmap/colmap/pull/3899
+* Use colmap IterativeGlobalRefinement for retriangulation and refinement in glomap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3902
+* Drop support for Python 3.9 due to EOL by @ahojnnes in https://github.com/colmap/colmap/pull/3910
+* Add single-thread deterministic test for global mapper and rotation averaging controller. by @B1ueber2y in https://github.com/colmap/colmap/pull/3906
+* Replace the usage of inliers in ImagePair with inlier_matches. by @B1ueber2y in https://github.com/colmap/colmap/pull/3909
+* Update global mapper signature to align with colmap::IncrementalMapper. by @B1ueber2y in https://github.com/colmap/colmap/pull/3904
+* Implement AddAndRegisterDefaultEnumOption and propagate to codebase. by @B1ueber2y in https://github.com/colmap/colmap/pull/3903
+* Cleanup unused method declaration in GlobalMapper. by @B1ueber2y in https://github.com/colmap/colmap/pull/3912
+* Refactor view graph calibration. by @B1ueber2y in https://github.com/colmap/colmap/pull/3911
+* Delete legacy Python scripts by @ahojnnes in https://github.com/colmap/colmap/pull/3914
+* Add support for computing recall scores by @ahojnnes in https://github.com/colmap/colmap/pull/3913
+* Add Python bindings for depth and normal maps, retire legacy scripts by @ahojnnes in https://github.com/colmap/colmap/pull/3916
+* Update and improve formatting of pycolmap readme by @ahojnnes in https://github.com/colmap/colmap/pull/3917
+* Add Python type checking for all code by @ahojnnes in https://github.com/colmap/colmap/pull/3893
+* Recompute F from E in the top level of CalibrateViewGraph. by @B1ueber2y in https://github.com/colmap/colmap/pull/3915
+* Make DatabaseCache::Load/Create args optional except database. by @B1ueber2y in https://github.com/colmap/colmap/pull/3919
+* Use DatabaseCache to load reconstruction in glomap and remove the custom loader. by @B1ueber2y in https://github.com/colmap/colmap/pull/3918
+* Bugfix for the rotation averaging CLI. by @B1ueber2y in https://github.com/colmap/colmap/pull/3927
+* Drop database member in SfM controllers for better modularity and safety. by @B1ueber2y in https://github.com/colmap/colmap/pull/3926
+* Add tests for reconstruction benchmark utils by @ahojnnes in https://github.com/colmap/colmap/pull/3930
+* Use new optional typing by @ahojnnes in https://github.com/colmap/colmap/pull/3931
+* Switch to colmap backend for two view re-estimation after view graph calibration. by @B1ueber2y in https://github.com/colmap/colmap/pull/3923
+* Fix sign of GPS longitude from EXIF by @ahojnnes in https://github.com/colmap/colmap/pull/3935
+* Fix camera prior loading in benchmark code. by @B1ueber2y in https://github.com/colmap/colmap/pull/3933
+* Remove Database::Clone method by @ahojnnes in https://github.com/colmap/colmap/pull/3929
+* Cleanup unused glomap includes by @ahojnnes in https://github.com/colmap/colmap/pull/3937
+* Improved code for view graph calibration cost functions by @ahojnnes in https://github.com/colmap/colmap/pull/3936
+* Move and type annotate model visualization example by @ahojnnes in https://github.com/colmap/colmap/pull/3939
+* Move end to end regression test script and annotate types by @ahojnnes in https://github.com/colmap/colmap/pull/3938
+* Delete more legacy Python scripts by @ahojnnes in https://github.com/colmap/colmap/pull/3940
+* Move and type annotate flickr downloader by @ahojnnes in https://github.com/colmap/colmap/pull/3941
+* Add option to evaluate self-calibration in reconstruction benchmark by @ahojnnes in https://github.com/colmap/colmap/pull/3942
+* Use std::optional for cam2_from_cam1 in TwoViewGeometry. by @B1ueber2y in https://github.com/colmap/colmap/pull/3932
+* Use custom two view options for global pipeline in automatic reconstructor. by @B1ueber2y in https://github.com/colmap/colmap/pull/3943
+* Add tests for estimating multiple two view geometries and minor perf optimization by @ahojnnes in https://github.com/colmap/colmap/pull/3947
+* Add tests for uncovered edge cases in polynomial solvers by @ahojnnes in https://github.com/colmap/colmap/pull/3946
+* Add unit tests for export to various external reconstruction formats by @ahojnnes in https://github.com/colmap/colmap/pull/3945
+* Only create QApplication or OpenGL context if needed by @ahojnnes in https://github.com/colmap/colmap/pull/3944
+* Simplify CSVToVector and add tests by @ahojnnes in https://github.com/colmap/colmap/pull/3953
+* Migrate glomap exe into colmap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3952
+* Add unit tests for colmap version helpers by @ahojnnes in https://github.com/colmap/colmap/pull/3955
+* Use make_unique instead of new by @ahojnnes in https://github.com/colmap/colmap/pull/3957
+* Early exit pycolmap windows build on errors by @ahojnnes in https://github.com/colmap/colmap/pull/3958
+* Make view graph calibration a stand-alone estimator module on colmap::Database and add CLI. by @B1ueber2y in https://github.com/colmap/colmap/pull/3951
+* Replace ImagePair with RelativePoseData and rename ViewGraph to PoseGraph. by @B1ueber2y in https://github.com/colmap/colmap/pull/3954
+* Make rotation averaging work with reconstruction with frames unregistered. by @B1ueber2y in https://github.com/colmap/colmap/pull/3949
+* Replace 3-level option names with 2-level names for INI compatibility. by @B1ueber2y in https://github.com/colmap/colmap/pull/3962
+* Add test for reading/writing options from ini by @ahojnnes in https://github.com/colmap/colmap/pull/3963
+* Add relative poses to DatabaseCache and update the signature of global mapper. by @B1ueber2y in https://github.com/colmap/colmap/pull/3960
+* Move module-specific functional methods outside PoseGraph. by @B1ueber2y in https://github.com/colmap/colmap/pull/3964
+* Add tests for file utils, use enum utils by @ahojnnes in https://github.com/colmap/colmap/pull/3956
+* Always try to decompose relative poses at the start of global pipeline. by @B1ueber2y in https://github.com/colmap/colmap/pull/3966
+* Add unit tests for incremental triangulator by @ahojnnes in https://github.com/colmap/colmap/pull/3967
+* Bugfix in pose decomposition interface. Update pipeline tests. by @B1ueber2y in https://github.com/colmap/colmap/pull/3969
+* Switch paths from std::string to std::filesystem::path by @sarlinpe in https://github.com/colmap/colmap/pull/3901
+* Add option to synthesize sparse view graph by @ahojnnes in https://github.com/colmap/colmap/pull/3968
+* Optionally include runtime benchmarks in main project by @ahojnnes in https://github.com/colmap/colmap/pull/3970
+* Refactor and improve track establishment. by @B1ueber2y in https://github.com/colmap/colmap/pull/3965
+* Inline track establishment logic into GlobalMapper. by @B1ueber2y in https://github.com/colmap/colmap/pull/3972
+* Minor: inline gravity cost functor into gravity refinement. by @B1ueber2y in https://github.com/colmap/colmap/pull/3973
+* Store two view geometries in correspondence graph by @ahojnnes in https://github.com/colmap/colmap/pull/3975
+* Support custom SSL certificate locations by @ahojnnes in https://github.com/colmap/colmap/pull/3976
+* Fix database merging and improve tests by @ahojnnes in https://github.com/colmap/colmap/pull/3977
+* Support loading bitmaps with alpha channel by @ahojnnes in https://github.com/colmap/colmap/pull/3978
+* Reorder fields of core data structs for better packing by @ahojnnes in https://github.com/colmap/colmap/pull/3979
+* Add tests for reading/writing bitmaps in popular image formats. by @ahojnnes in https://github.com/colmap/colmap/pull/3980
+* Fix includes in feature index/matcher by @ahojnnes in https://github.com/colmap/colmap/pull/3982
+* Do not store inlier matches in pose graph by @ahojnnes in https://github.com/colmap/colmap/pull/3981
+* Setup priors when loading database, filter watermarks when creating database cache from another cache by @ahojnnes in https://github.com/colmap/colmap/pull/3983
+* Fix guided matching for calibrated non-linear cameras by @ahojnnes in https://github.com/colmap/colmap/pull/3986
+* Clear and log OpenImageIO errors by @ahojnnes in https://github.com/colmap/colmap/pull/3987
+* Misc view graph calibration and global mapper improvements by @ahojnnes in https://github.com/colmap/colmap/pull/3985
+* Do not crash but return error on unknown sensor_from_rig poses in incremental mapper by @ahojnnes in https://github.com/colmap/colmap/pull/3988
+* Consistent and improved logging of headings by @ahojnnes in https://github.com/colmap/colmap/pull/3991
+* Fix faiss linker warning under MSVC by @ahojnnes in https://github.com/colmap/colmap/pull/3994
+* Make E F H optional in TwoViewGeometry struct. by @B1ueber2y in https://github.com/colmap/colmap/pull/3989
+* Update Python incremental pipeline to match C++ by @ahojnnes in https://github.com/colmap/colmap/pull/3993
+* Improve Reconstruction::NumRegImages from O(N) to O(1) by @ahojnnes in https://github.com/colmap/colmap/pull/3996
+* Reduce incremental mapper's minimum size for small models by @ahojnnes in https://github.com/colmap/colmap/pull/3992
+* Switch to Python 3.11 in the PR build. Disable mypy for Python 3.10. by @B1ueber2y in https://github.com/colmap/colmap/pull/3998
+* Add missing Python bindings by @ahojnnes in https://github.com/colmap/colmap/pull/3997
+* Do not override test commands for Python 3.10 on windows. by @B1ueber2y in https://github.com/colmap/colmap/pull/4000
+* Rename num_iterations_ba to ba_num_iterations for consistency by @ahojnnes in https://github.com/colmap/colmap/pull/4001
+* Return std::optional from Bitmap::Exif* methods by @ahojnnes in https://github.com/colmap/colmap/pull/4002
+* Use database in rotation averaging CLI. Add a python example for legacy format. by @B1ueber2y in https://github.com/colmap/colmap/pull/3990
+* Cleanup some includes in sfm folder by @ahojnnes in https://github.com/colmap/colmap/pull/4005
+* Switch paths from std::string to std::filesystem::path (continued) by @sarlinpe in https://github.com/colmap/colmap/pull/4004
+* Remove dangling declaration of JoinPaths. by @B1ueber2y in https://github.com/colmap/colmap/pull/4009
+* Make reconstruction clustering logic a stand-alone module by @lpanaf in https://github.com/colmap/colmap/pull/4008
+* Switch to perform clustering on all registered frames by @lpanaf in https://github.com/colmap/colmap/pull/4007
+* Add option to control refinement of points 3D in bundle adjuster by @ahojnnes in https://github.com/colmap/colmap/pull/4012
+* Minor code improvement in triangulation estimator by @ahojnnes in https://github.com/colmap/colmap/pull/4015
+* Add support for division camera models by @ahojnnes in https://github.com/colmap/colmap/pull/4013
+* Add nominal tests on reconstruction accuracy for bundle adjustment. by @B1ueber2y in https://github.com/colmap/colmap/pull/4019
+* Use colmap::BundleAdjustmentOptions in global pipeline and drop custom option class. by @B1ueber2y in https://github.com/colmap/colmap/pull/4016
+* Add test for and fix bitmap jpeg quality setting by @ahojnnes in https://github.com/colmap/colmap/pull/4025
+* Remove unimplemented GetFileSize function by @ahojnnes in https://github.com/colmap/colmap/pull/4026
+* Drop experimental modes in global positioning. Add module signature and improve naming. by @B1ueber2y in https://github.com/colmap/colmap/pull/3920
+* Add option to specify jpeg quality during undistortion by @ahojnnes in https://github.com/colmap/colmap/pull/4027
+* Analytical Jacobians for reprojection error cost function with SimpleRadial cameras by @ahojnnes in https://github.com/colmap/colmap/pull/4017
+* Fix backwards compatibility of reading database created before Jul 2023. by @B1ueber2y in https://github.com/colmap/colmap/pull/4030
+* Bug fix for generalized absolute pose estimator. by @B1ueber2y in https://github.com/colmap/colmap/pull/4031
+* Clear model outputs in all estimators and RANSACs by @ahojnnes in https://github.com/colmap/colmap/pull/4032
+* Move undistortion controllers to controllers folder by @ahojnnes in https://github.com/colmap/colmap/pull/4033
+* Remove the iterative logic for reconstruction clustering and use directly the strongly connected component by @lpanaf in https://github.com/colmap/colmap/pull/4035
+* Add rig scale alignment support for the global pipeline. by @B1ueber2y in https://github.com/colmap/colmap/pull/4038
+* Performance improvement on generalized absolute pose. by @B1ueber2y in https://github.com/colmap/colmap/pull/4037
+* Bundle adjustment benchmark by @ahojnnes in https://github.com/colmap/colmap/pull/4022
+* Add fisheye (equidistant) camera model by @lpanaf in https://github.com/colmap/colmap/pull/4039
+* Store Rigid3/Sim3 params as single vector by @ahojnnes in https://github.com/colmap/colmap/pull/4041
+* Move minimal solvers in estimators to sub-folder by @ahojnnes in https://github.com/colmap/colmap/pull/4047
+* Move generalized absolute pose solver to sub-folder by @ahojnnes in https://github.com/colmap/colmap/pull/4048
+* Use static Eigen array segment sizes in rotation averaging by @ahojnnes in https://github.com/colmap/colmap/pull/4049
+* Single pose parameter block and angle axis for BA cost functions by @ahojnnes in https://github.com/colmap/colmap/pull/4029
+* Automatically deep copy feature extraction/matching options by @ahojnnes in https://github.com/colmap/colmap/pull/4051
+* Add test for rig verification and fixes by @ahojnnes in https://github.com/colmap/colmap/pull/4052
+* Improve test coverage for image reader by @ahojnnes in https://github.com/colmap/colmap/pull/4053
+* Abstract general bundle adjuster and solver summary. by @B1ueber2y in https://github.com/colmap/colmap/pull/4042
+* Change test target names and file names by @ahojnnes in https://github.com/colmap/colmap/pull/4034
+* Add nominal test and runtime benchmarking for global positioning. by @B1ueber2y in https://github.com/colmap/colmap/pull/4050
+* Modularize cost functions by @ahojnnes in https://github.com/colmap/colmap/pull/4054
+* Fix incorrect macOS install instruction by @sarlinpe in https://github.com/colmap/colmap/pull/4055
+* Move glomap sources to colmap and replace glomap with colmap namespace by @ahojnnes in https://github.com/colmap/colmap/pull/4057
+* Move motion averaging cost functions to sub-folder by @ahojnnes in https://github.com/colmap/colmap/pull/4058
+* Move glomap Python bindings to colmap folder by @ahojnnes in https://github.com/colmap/colmap/pull/4059
+* Add GLOMAP paper to list of citations by @ahojnnes in https://github.com/colmap/colmap/pull/4060
+* Add test for reconstruction_clustering and sort cluster id by cluster size by @lpanaf in https://github.com/colmap/colmap/pull/4003
+* Improve Fetzer cost implementation and tests by @ahojnnes in https://github.com/colmap/colmap/pull/4061
+* Remove unused GetFileSize function by @ahojnnes in https://github.com/colmap/colmap/pull/4064
+* Add function to read PLY mesh and add roundtrip tests by @ahojnnes in https://github.com/colmap/colmap/pull/4065
+* Remove unused GLError function by @ahojnnes in https://github.com/colmap/colmap/pull/4066
+* Modernize code using structured bindings by @ahojnnes in https://github.com/colmap/colmap/pull/4067
+* Reuse sorting of initial images by @ahojnnes in https://github.com/colmap/colmap/pull/4069
+* Clean up messy GPS conversion functionality by @ahojnnes in https://github.com/colmap/colmap/pull/4063
+* Reuse code in camera by @ahojnnes in https://github.com/colmap/colmap/pull/4068
+* Support static windows build with CUDA by @ahojnnes in https://github.com/colmap/colmap/pull/4072
+* Use enum instead of #define in model viewer widget by @ahojnnes in https://github.com/colmap/colmap/pull/4073
+* Extract some algorithmic logic from exe and add tests by @ahojnnes in https://github.com/colmap/colmap/pull/4074
+* Cleanup outdated pycolmap deprecations by @ahojnnes in https://github.com/colmap/colmap/pull/4081
+* Associate feature descriptors with type and propagate through pipeline and storage by @ahojnnes in https://github.com/colmap/colmap/pull/4080
+* Fix pycolmap compiler warnings by @ahojnnes in https://github.com/colmap/colmap/pull/4082
+* Update clang-format to 21.1.8 by @ahojnnes in https://github.com/colmap/colmap/pull/4085
+* Update project dependencies by @ahojnnes in https://github.com/colmap/colmap/pull/4086
+* Move instructions to build documentation to install.rst instead of root README by @ahojnnes in https://github.com/colmap/colmap/pull/4091
+* Fix doc ordering for sphinx==0.9.1 by @sarlinpe in https://github.com/colmap/colmap/pull/4092
+* Update to latest vcpkg by @ahojnnes in https://github.com/colmap/colmap/pull/4075
+* Extract loading of random descriptors and sample randomly across images by @ahojnnes in https://github.com/colmap/colmap/pull/4096
+* Fix duplicate word typos in observation manager and rig docstring. by @B1ueber2y in https://github.com/colmap/colmap/pull/4097
+* Add LightGlue ONNX feature matching by @ahojnnes in https://github.com/colmap/colmap/pull/4098
+* Improve incremental mapper/triangulator bindings by @ahojnnes in https://github.com/colmap/colmap/pull/4101
+* Use native menu bar on Mac by @ahojnnes in https://github.com/colmap/colmap/pull/4102
+* Avoid unnecessary copies by @ahojnnes in https://github.com/colmap/colmap/pull/4103
+* Expose pycolmap.match_from_pairs to support custom pair matching on GPU by @samuelm2 in https://github.com/colmap/colmap/pull/4056
+* Update onnxruntime FetchContent for ARM64 support by @johnnynunez in https://github.com/colmap/colmap/pull/4106
+* Early exit incremental initialization if there are no points by @ahojnnes in https://github.com/colmap/colmap/pull/4108
+* Fix incorrect propagation of incremental options in automatic reconstructor by @sarlinpe in https://github.com/colmap/colmap/pull/4111
+* Fix triangulation angle computation in patch match sampling by @ahojnnes in https://github.com/colmap/colmap/pull/4110
+* Correctly set the rpath in CMake by @sarlinpe in https://github.com/colmap/colmap/pull/4114
+* Fix inverted units in ExifFocalLength metadata extraction by @MAX4ARCH in https://github.com/colmap/colmap/pull/4113
+* Add vocab tree for ALIKED N16 rot feature by @ahojnnes in https://github.com/colmap/colmap/pull/4119
+* Add track_length option in synthetic tooling and report ms/iter in BA benchmark. by @B1ueber2y in https://github.com/colmap/colmap/pull/4118
+* Fix install destination for onnxruntime by @ahojnnes in https://github.com/colmap/colmap/pull/4120
+* Read image orientation from EXIF and extract upright features by @sarlinpe in https://github.com/colmap/colmap/pull/4122
+* Fix and improve documentation by @ahojnnes in https://github.com/colmap/colmap/pull/4123
+* Optimize includes in MVS folder by @ahojnnes in https://github.com/colmap/colmap/pull/4125
+* Follow-up fixes on EXIF auto-rotation by @sarlinpe in https://github.com/colmap/colmap/pull/4126
+* Replace typedefs with using by @ahojnnes in https://github.com/colmap/colmap/pull/4128
+* Add optional position prior support to RefineGeneralizedAbsolutePose by @ahojnnes in https://github.com/colmap/colmap/pull/4129
+* Add Python bindings for feature extractor by @ahojnnes in https://github.com/colmap/colmap/pull/4130
+* Add Python bindings for feature matcher by @ahojnnes in https://github.com/colmap/colmap/pull/4131
+* Rotate LightGlue inputs based on gravity by @sarlinpe in https://github.com/colmap/colmap/pull/4132
+* Fixing OpenGL profiles on Linux (Ubuntu 25.10) by @martin-pr in https://github.com/colmap/colmap/pull/4133
+* Add pre-trained vocabulary tree for ALIKED N32 variant by @ahojnnes in https://github.com/colmap/colmap/pull/4134
+* Untie circular dependency between feature and scene libraries by @ahojnnes in https://github.com/colmap/colmap/pull/4135
+* Add tests for matcher cache by @ahojnnes in https://github.com/colmap/colmap/pull/4136
+* Explicitly accept dragMoveEvent to fix broken drag-and-drop in Qt6 by @StonerLing in https://github.com/colmap/colmap/pull/4139
+* Parse unregistered config options with warning instead of error by @StonerLing in https://github.com/colmap/colmap/pull/4140
+* Revamp logging configuration and fix UI log sink formatting by @StonerLing in https://github.com/colmap/colmap/pull/4141
+* Make view graph calibration a standalone module by @ahojnnes in https://github.com/colmap/colmap/pull/4143
+* Refactor ONNX runtime configuration handling in CMake files by @whuaegeanse in https://github.com/colmap/colmap/pull/4144
+* Relative pose decomposition operates in-memory on database cache by @ahojnnes in https://github.com/colmap/colmap/pull/4146
+* Enforce compile-time type checking for option registration by @StonerLing in https://github.com/colmap/colmap/pull/4148
+* Relax assertion for the global bundle adjustment by @lpanaf in https://github.com/colmap/colmap/pull/4149
+* Expose more logging options in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/4150
+* Load keypoints for all images to database cache for triangulation by @B1ueber2y in https://github.com/colmap/colmap/pull/4151
+* Add separate trial counter for structure-less registration by @B1ueber2y in https://github.com/colmap/colmap/pull/4152
+* Fix the usage of filter_frames in FindNextImages by @B1ueber2y in https://github.com/colmap/colmap/pull/4153
+* Read inputs in parallel in patch match by @ahojnnes in https://github.com/colmap/colmap/pull/4154
+* Improved caching for faster and more reliable CI by @ahojnnes in https://github.com/colmap/colmap/pull/4156
+* Add retries for more reliable file download by @ahojnnes in https://github.com/colmap/colmap/pull/4157
+* Add support for building shared libraries by @ahojnnes in https://github.com/colmap/colmap/pull/4158
+* Fix missing colmap namespace in file macro by @B1ueber2y in https://github.com/colmap/colmap/pull/4159
+* Fix file THROW_CHECK_* macros from double evaluation of path expressions by @ahojnnes in https://github.com/colmap/colmap/pull/4160
+* Fix empty patch match results on CUDA compute >= 100 (Blackwell GPUs) by @ahojnnes in https://github.com/colmap/colmap/pull/4161
+* Add AGENTS.md file by @ahojnnes in https://github.com/colmap/colmap/pull/4162
+* Fix docker action caching by @ahojnnes in https://github.com/colmap/colmap/pull/4163
+* Add compiler caching for CUDA code by @ahojnnes in https://github.com/colmap/colmap/pull/4164
+* Improve ONNX Runtime error handling and CUDA compatibility warnings by @StonerLing in https://github.com/colmap/colmap/pull/4167
+* Add structureless fallback options to reconstruction widget by @ahojnnes in https://github.com/colmap/colmap/pull/4168
+* Add multi-threading support for (LO)RANSAC loop by @ahojnnes in https://github.com/colmap/colmap/pull/4169
+* Add missing estimate sub-folder sources to cmake project by @ahojnnes in https://github.com/colmap/colmap/pull/4171
+* Improve bundle adjustment test coverage by @ahojnnes in https://github.com/colmap/colmap/pull/4172
+* Improve test coverage for coordinate frame estimators by @ahojnnes in https://github.com/colmap/colmap/pull/4173
+* Improve test coverage for MVS consistency graph by @ahojnnes in https://github.com/colmap/colmap/pull/4174
+* Add tests for SPRT sampler by @ahojnnes in https://github.com/colmap/colmap/pull/4175
+* Improve reconstruction test coverage by @ahojnnes in https://github.com/colmap/colmap/pull/4176
+* Add tests for MVS model by @ahojnnes in https://github.com/colmap/colmap/pull/4177
+* Add tests for incremental mapper by @ahojnnes in https://github.com/colmap/colmap/pull/4178
+* Add tests for feature matching utils by @ahojnnes in https://github.com/colmap/colmap/pull/4179
+* Expand meshing test coverage by @ahojnnes in https://github.com/colmap/colmap/pull/4180
+* Expand pose_graph_test coverage by @ahojnnes in https://github.com/colmap/colmap/pull/4181
+* Expand extractor_test coverage by @ahojnnes in https://github.com/colmap/colmap/pull/4182
+* Expand matcher_test coverage by @ahojnnes in https://github.com/colmap/colmap/pull/4183
+* Add more log options in GUI by @StonerLing in https://github.com/colmap/colmap/pull/4186
+* Add test for EstimateManhattanWorldFrame by @ahojnnes in https://github.com/colmap/colmap/pull/4187
+* Fix ONNX model path handling for Windows by converting to UTF-8 by @whuaegeanse in https://github.com/colmap/colmap/pull/4188
+* Add tests for rotation averaging edge cases by @ahojnnes in https://github.com/colmap/colmap/pull/4190
+* Add mesh texture mapping by @ahojnnes in https://github.com/colmap/colmap/pull/4202
+* Update install instructions for conda to mention Mamba by @ahojnnes in https://github.com/colmap/colmap/pull/4204
+* Homogenize undistorter options by @ahojnnes in https://github.com/colmap/colmap/pull/4205
+* Add support for importing surface mesh in viewer by @ahojnnes in https://github.com/colmap/colmap/pull/4207
+* Save memory by storing colors as uint8 instead of float32 by @ahojnnes in https://github.com/colmap/colmap/pull/4210
+* Configure Delaunay meshing num_threads in automatic reconstruction, more logging by @ahojnnes in https://github.com/colmap/colmap/pull/4211
+* Log image reader non-success status as warning by @ahojnnes in https://github.com/colmap/colmap/pull/4212
+* Support drag-and-drop for PLY point cloud / surface mesh in viewer by @ahojnnes in https://github.com/colmap/colmap/pull/4214
+* Fix broken panorama_sfm.py by @sarlinpe in https://github.com/colmap/colmap/pull/4215
+* Add implementation of mesh simplification by @ahojnnes in https://github.com/colmap/colmap/pull/4216
+* Tests for filtering logic for incremental mapping by @winterclincke in https://github.com/colmap/colmap/pull/4219
+* Deduplicate SIFT tests by @ahojnnes in https://github.com/colmap/colmap/pull/4220
+* Fix ONNX installation on Linux for lib64 target by @ahojnnes in https://github.com/colmap/colmap/pull/4221
+* Misc safety improvements by @ahojnnes in https://github.com/colmap/colmap/pull/4222
+* Improved test coverage for bitmap by @ahojnnes in https://github.com/colmap/colmap/pull/4224
+* Fix 180-degree flipped solutions in gravity-aligned rotation averaging by @ahojnnes in https://github.com/colmap/colmap/pull/4225
+* Improve docs regarding view graph calibrator in global pipeline by @B1ueber2y in https://github.com/colmap/colmap/pull/4226
+* Remove legacy cluster_ids in the global pipeline by @B1ueber2y in https://github.com/colmap/colmap/pull/4227
+* Fallback to BA CPU solver if GPU failed by @ahojnnes in https://github.com/colmap/colmap/pull/4230
+* Log out BA failures as errors by @ahojnnes in https://github.com/colmap/colmap/pull/4231
+* Fix dangling pointers in OptionManager after ResetOptions by @B1ueber2y in https://github.com/colmap/colmap/pull/4232
+* Fix model_aligner crash by using new pose prior API by @B1ueber2y in https://github.com/colmap/colmap/pull/4233
+* Prevent nested threading for ONNX by @ahojnnes in https://github.com/colmap/colmap/pull/4235
+* Scale max_image_size proportionally by feature extractor type in quality presets by @ahojnnes in https://github.com/colmap/colmap/pull/4236
+* Rename reconstruction clusterer command to model clusterer by @ahojnnes in https://github.com/colmap/colmap/pull/4237
+* Fix CPU parallelization for ALIKED by @ahojnnes in https://github.com/colmap/colmap/pull/4238
+* feat: Added global mapping bindings by @TannerGilbert in https://github.com/colmap/colmap/pull/4228
+
+--------------------------
+COLMAP 3.13.0 (11/07/2025)
+--------------------------
+
+New Features
+------------
+* Improved human-readable consistency checks when configuring a
+  reconstruction with rigs, cameras, frames, and images.
+* Improved multi-GPU feature extraction & matching performance by avoiding global mutex.
+* Improved robustness of pose prior mapper against outlier priors.
+* Improved the performance of reconstruction initialization through parallelization.
+* Added CUDA-enabled pycolmap package for Linux and automatic publishing to PyPI.
+* Make the reconstruction process fully deterministic with a new random_seed parameter.
+* Added support for filtering stationary points in two-view geometry estimation.
+* Added option to perform geometric verification with rig constraints.
+* Added option to skip matching for image pairs within the same frame.
+* Added option to keep specific cameras or rigs constant during the reconstruction.
+* Added option to clean two-view geometries in database_cleaner.
+* Added option to specify timeout for incremental mapper.
+* Added an abstract database interface for easier integration with other database backends.
+* Added experimental support for feature sub-selection for global BA.
+* Added testing tools for synthetic reconstruction noise and image generation.
+* Added official support for Python 3.14.
+* Added support for Qt6 while still fully supporting Qt5.
+
+Bug Fixes
+---------
+* Fixed various issues with new rig support.
+* Fixed rare deadlocks in feature matching.
+* Support for UTF-8 database paths in Windows.
+* Fixed bundle adjustment performance regression due to changed Gauge behavior.
+* Removed custom manifold from colmap to avoid issues with pyceres.
+* Fixed rare crash of GUI when clearing the model viewer.
+* Fixed focal length extraction from 35mm equivalent EXIF information.
+* Fixed coordinate bug in ComputeEqualPartsBboxes.
+
+Breaking Changes
+----------------
+* Dropped official support for Python 3.8.
+* Dropped official support for MacOS x86.
+* Upgraded to pybind11 3.X.
+* Removed deprecated rig bundle adjuster command in favor of rig configurator and
+  default bundle adjuster supporting the same functionality.
+* Allow one-to-many matches in correspondence graph. Previously, only one-to-one matches were added
+  to the correspondence graph and therefore other matches were not used during reconstruction.
+
+Full Change List (sorted temporally)
+------------------------------------
+* Autoselect compatible nvidia for docker by @MasahiroOgawa in https://github.com/colmap/colmap/pull/3454
+* Add 3.12.1 changelog to main by @ahojnnes in https://github.com/colmap/colmap/pull/3461
+* Add min_num_neighbors constraint for spatial matching by @StonerLing in https://github.com/colmap/colmap/pull/3463
+* Refactor feature extraction/matching to support other features by @ahojnnes in https://github.com/colmap/colmap/pull/3465
+* Define VisualIndex::Read as static in python bindings by @ahojnnes in https://github.com/colmap/colmap/pull/3467
+* Only find C/CXX OpenMP components by @ahojnnes in https://github.com/colmap/colmap/pull/3469
+* Remove unnecessary GPU checks in pycolmap by @sarlinpe in https://github.com/colmap/colmap/pull/3472
+* Fix a bug affecting feature matching on GPU by @sarlinpe in https://github.com/colmap/colmap/pull/3473
+* Add command line option for `TwoViewGeometry.detect_watermark` by @gareth-cross in https://github.com/colmap/colmap/pull/3476
+* Add and test GetRelativePath by @sarlinpe in https://github.com/colmap/colmap/pull/3475
+* Update GetPathBaseName to rely on std::filesystem by @sarlinpe in https://github.com/colmap/colmap/pull/3481
+* Fix potential deadlock in job queue by @huluoboge in https://github.com/colmap/colmap/pull/3480
+* Update FindMetis.cmake to also link GK_LIBRARIES by @yeicor in https://github.com/colmap/colmap/pull/3470
+* Remove check in database_cache.cc that breaks backwards compatibility with image_list_file_path by @pd-karoly-harsanyi in https://github.com/colmap/colmap/pull/3478
+* Fix docker run script for GUI by @MasahiroOgawa in https://github.com/colmap/colmap/pull/3483
+* Ensure UTF-8 encoding for database paths passed to SQLite open by @StonerLing in https://github.com/colmap/colmap/pull/3482
+* Add changelog for 3.12.2 release by @ahojnnes in https://github.com/colmap/colmap/pull/3488
+* Add changelog for 3.12.3 release by @ahojnnes in https://github.com/colmap/colmap/pull/3490
+* Fix BundleAdjustmentConfig::SetConstantRigFromWorldPose by @whuaegeanse in https://github.com/colmap/colmap/pull/3501
+* Add random_seed option to RANSACOptions for reproducible TwoViewGeometry estimation by @StonerLing in https://github.com/colmap/colmap/pull/3492
+* Configure trivial rigs for unconfigured images by @ahojnnes in https://github.com/colmap/colmap/pull/3497
+* Fix pycolmap test command by @ahojnnes in https://github.com/colmap/colmap/pull/3506
+* Pano SFM example improvements and fixes by @ahojnnes in https://github.com/colmap/colmap/pull/3503
+* Support Python 3.14 and retire 3.8 by @ahojnnes in https://github.com/colmap/colmap/pull/3518
+* Upgrade ruff and automatically apply fixes by @ahojnnes in https://github.com/colmap/colmap/pull/3515
+* Update point3D errors after bundle adjustment or SfM by @whuaegeanse in https://github.com/colmap/colmap/pull/3500
+* Add option to filter stationary points in two-view geometry estimation by @ahojnnes in https://github.com/colmap/colmap/pull/3521
+* Add unit test for watermark detection by @ahojnnes in https://github.com/colmap/colmap/pull/3524
+* Fix comment for FilterStationaryMatches by @sarlinpe in https://github.com/colmap/colmap/pull/3525
+* Ignore compile_commands.json in git by @ahojnnes in https://github.com/colmap/colmap/pull/3526
+* Fix bundle adjustment performance regression due to changed Gauge by @ahojnnes in https://github.com/colmap/colmap/pull/3527
+* Bind CUDA utils in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/3532
+* Add explicit tests for fixing gauge freedom and bugfix by @ahojnnes in https://github.com/colmap/colmap/pull/3533
+* Fix format specifier overflow in WriteSnapshot() timestamp by @StonerLing in https://github.com/colmap/colmap/pull/3534
+* Change input in cost function to log scale and remove custom manifold from colmap.  by @B1ueber2y in https://github.com/colmap/colmap/pull/3538
+* Throw exception when image.SetFramePtr() sets a frame without the image listed as its data. by @B1ueber2y in https://github.com/colmap/colmap/pull/3540
+* Avoid frame having data from a sensor that does not exist in its associated rig.  by @B1ueber2y in https://github.com/colmap/colmap/pull/3543
+* Revert scale changes for metric reconstruction in rig sfm. by @B1ueber2y in https://github.com/colmap/colmap/pull/3530
+* Fix comment for C++20 support. by @B1ueber2y in https://github.com/colmap/colmap/pull/3547
+* Clean up unused includes in scene folder by @ahojnnes in https://github.com/colmap/colmap/pull/3548
+* Add random_seed to IncrementalMapper to control all RANSAC seeds for improved SfM reproducibility by @StonerLing in https://github.com/colmap/colmap/pull/3544
+* Throw exception at counting registered images when an image in the frame does not exist in the reconstruction.  by @B1ueber2y in https://github.com/colmap/colmap/pull/3546
+* Clean up unused includes in retrieval folder by @ahojnnes in https://github.com/colmap/colmap/pull/3549
+* Clean up unused includes in optim folder by @ahojnnes in https://github.com/colmap/colmap/pull/3550
+* Fix ModelViewerWidget::ClearReconstruction by @whuaegeanse in https://github.com/colmap/colmap/pull/3552
+* Fix build with Boost 1.89.0 by @cho-m in https://github.com/colmap/colmap/pull/3553
+* Clean up unused includes in util folder by @ahojnnes in https://github.com/colmap/colmap/pull/3551
+* Retire Mac x86 support by @ahojnnes in https://github.com/colmap/colmap/pull/3555
+* Update database bindings by @ahojnnes in https://github.com/colmap/colmap/pull/3556
+* Throw exception for Frame::SetRigId when rig pointer is available. by @B1ueber2y in https://github.com/colmap/colmap/pull/3558
+* Fix rig configuration with differing IDs between database and reconstruction by @ahojnnes in https://github.com/colmap/colmap/pull/3557
+* Removing the Global Lock in SiftGPUFeatureMatcher for CUDA backend by @yimingc in https://github.com/colmap/colmap/pull/3561
+* Add option to skip matching for image pairs in same frame by @ahojnnes in https://github.com/colmap/colmap/pull/3563
+* Add option to keep specific cameras constant by @ahojnnes in https://github.com/colmap/colmap/pull/3565
+* Throw exception if any camera in the rig does not exist in the reconstruction. by @B1ueber2y in https://github.com/colmap/colmap/pull/3564
+* Clean up unused includes in controllers folder by @ahojnnes in https://github.com/colmap/colmap/pull/3566
+* Extract image pair conversion functions into type utils by @ahojnnes in https://github.com/colmap/colmap/pull/3568
+* Clean up unused includes in estimators folder by @ahojnnes in https://github.com/colmap/colmap/pull/3567
+* Expect error threshold for generalized relative pose in pixel space by @ahojnnes in https://github.com/colmap/colmap/pull/3571
+* Add function to read number of matches by @ahojnnes in https://github.com/colmap/colmap/pull/3572
+* Add a test to ensure THROW_CHECK conditions are evaluated exactly once by @ahojnnes in https://github.com/colmap/colmap/pull/3573
+* Simplify and reuse feature matcher thread creation by @ahojnnes in https://github.com/colmap/colmap/pull/3575
+* Increase exhaustive matching cache size by @ahojnnes in https://github.com/colmap/colmap/pull/3576
+* Add option to clean two-view geometries by @ahojnnes in https://github.com/colmap/colmap/pull/3577
+* Decouple feature matching and two-view geometry options by @ahojnnes in https://github.com/colmap/colmap/pull/3578
+* Display CLI floating-point defaults with 3 significant digits by @StonerLing in https://github.com/colmap/colmap/pull/3579
+* Make use_log_scale an option for Point3DAlignmentCost. by @B1ueber2y in https://github.com/colmap/colmap/pull/3574
+* Cache max number of keypoints by @ahojnnes in https://github.com/colmap/colmap/pull/3583
+* Add tool for geometric verification by @ahojnnes in https://github.com/colmap/colmap/pull/3581
+* Minor perf and code quality improvements for visual inverted index by @ahojnnes in https://github.com/colmap/colmap/pull/3584
+* Upgrade pybind11 to 3.0.0 by @ahojnnes in https://github.com/colmap/colmap/pull/3523
+* Fix missing colmap namespace in sqlite3 macro. by @B1ueber2y in https://github.com/colmap/colmap/pull/3587
+* Use pybind smart holder for all classes by @ahojnnes in https://github.com/colmap/colmap/pull/3542
+* Add option to perform geometric verification with rig constraints by @ahojnnes in https://github.com/colmap/colmap/pull/3498
+* Use Qt QSettings to remember last-used paths across file dialogs by @MotivaCG in https://github.com/colmap/colmap/pull/3585
+* Fix MaybeLoadImages by @whuaegeanse in https://github.com/colmap/colmap/pull/3586
+* Sync 3.12 changelog changes by @ahojnnes in https://github.com/colmap/colmap/pull/3591
+* Document rig-related feature matching options and change rig verification defaults by @ahojnnes in https://github.com/colmap/colmap/pull/3592
+* Abstract database interface and sqlite implementation by @ahojnnes in https://github.com/colmap/colmap/pull/3541
+* Share feature extraction max_image_size option by @ahojnnes in https://github.com/colmap/colmap/pull/3600
+* Support for reading RGB or grayscale images for feature extraction by @ahojnnes in https://github.com/colmap/colmap/pull/3603
+* Support both Qt5 and Qt6 by @zhouzq-thu in https://github.com/colmap/colmap/pull/3597
+* Add option to fix individual rigs by @ahojnnes in https://github.com/colmap/colmap/pull/3604
+* Ensure download support on Ubuntu by installing libssl-dev for crypto by @ahojnnes in https://github.com/colmap/colmap/pull/3607
+* Update pybind11 to 3.0.1 by @ahojnnes in https://github.com/colmap/colmap/pull/3609
+* Fix focal length extraction from 35mm equivalent by @ahojnnes in https://github.com/colmap/colmap/pull/3617
+* Update to Windows 2025 runners and pin pycolmap image versions by @ahojnnes in https://github.com/colmap/colmap/pull/3618
+* Update to latest vcpkg by @ahojnnes in https://github.com/colmap/colmap/pull/3619
+* Add bindings for mvs::model for covisibility support in pycolmap by @B1ueber2y in https://github.com/colmap/colmap/pull/3621
+* Fix inconsistent pycolmap naming for RegisterFrame and DeRegisterFrame. by @B1ueber2y in https://github.com/colmap/colmap/pull/3623
+* Add Conda package installation instructions by @Tobias-Fischer in https://github.com/colmap/colmap/pull/3624
+* Call Retriangulate irrespective of the logging level by @sarlinpe in https://github.com/colmap/colmap/pull/3626
+* Add missing rig and frame interfaces for pycolmap database. by @B1ueber2y in https://github.com/colmap/colmap/pull/3629
+* Throw exception when the rig configurations of the database and existing reconstruction are inconsistent.  by @B1ueber2y in https://github.com/colmap/colmap/pull/3628
+* Improve the Gauge logic for fixing two views. by @B1ueber2y in https://github.com/colmap/colmap/pull/3627
+* Add changelog for 3.12.6 release. by @B1ueber2y in https://github.com/colmap/colmap/pull/3632
+* Ensure min/max_focal_length_ratio and max_extra_param are piped to triangulation by @ahojnnes in https://github.com/colmap/colmap/pull/3637
+* Fix broken logic of removing cameras at Reconstruction::TearDown(). by @B1ueber2y in https://github.com/colmap/colmap/pull/3634
+* Minor: resolve -Wsign-compare warning for min_num_inliers. by @B1ueber2y in https://github.com/colmap/colmap/pull/3639
+* Remove redundant binding of feature module in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/3640
+* Remove plyfile python package copy due to GNU license by @ahojnnes in https://github.com/colmap/colmap/pull/3644
+* rig_from_world and sensor_from_rig in pycolmap should return reference rather than copy. by @B1ueber2y in https://github.com/colmap/colmap/pull/3645
+* Also replace mask file extension to .png instead of appending by @Dawars in https://github.com/colmap/colmap/pull/3611
+* Fix crash when built without GPU support by @sarlinpe in https://github.com/colmap/colmap/pull/3649
+* Replace custom filtering with image filter view by @ahojnnes in https://github.com/colmap/colmap/pull/3651
+* Expose image_ids filter view in frame in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/3652
+* Simplify and fix updating cameras with priors in benchmarking by @ahojnnes in https://github.com/colmap/colmap/pull/3653
+* Fix typo in patch match options documentation by @ahojnnes in https://github.com/colmap/colmap/pull/3655
+* Consistently name local BA options and deduplicate local_ba_num_images by @ahojnnes in https://github.com/colmap/colmap/pull/3657
+* Adjust reconstruction consistency checks by @ahojnnes in https://github.com/colmap/colmap/pull/3658
+* Improve the doc for loop_detection_period. by @sarlinpe in https://github.com/colmap/colmap/pull/3661
+* Expose comparison operators in Python bindings by @jhacsonmeza in https://github.com/colmap/colmap/pull/3663
+* Feature sub-selection for global BA by @ahojnnes in https://github.com/colmap/colmap/pull/3650
+* Compute alignment RANSAC max_error from RMS stddev and chi-square by @StonerLing in https://github.com/colmap/colmap/pull/3664
+* Address clang-tidy 21 errors by @ahojnnes in https://github.com/colmap/colmap/pull/3668
+* Extract synthetic reconstruction noise functionality into separate utility by @ahojnnes in https://github.com/colmap/colmap/pull/3670
+* Fix copy assignment of image by @ahojnnes in https://github.com/colmap/colmap/pull/3671
+* Add gmock matcher for checking approximate reconstruction equality by @ahojnnes in https://github.com/colmap/colmap/pull/3672
+* Add gmock matcher for checking reconstruction equality by @ahojnnes in https://github.com/colmap/colmap/pull/3673
+* Include cassert by @FlexW in https://github.com/colmap/colmap/pull/3674
+* Parallelize incremental mapper initialization by @ahojnnes in https://github.com/colmap/colmap/pull/3675
+* Add timeout option for incremental mapper by @ahojnnes in https://github.com/colmap/colmap/pull/3676
+* Implement equals operator for FeatureKeypoint/Match by @ahojnnes in https://github.com/colmap/colmap/pull/3678
+* Add method to update keypoints in database by @ahojnnes in https://github.com/colmap/colmap/pull/3679
+* Fix noise synthesis to consistently update database keypoints by @ahojnnes in https://github.com/colmap/colmap/pull/3680
+* Add missing binding for Reconstruction::DeleteAllPoints2DAndPoints3D. by @B1ueber2y in https://github.com/colmap/colmap/pull/3682
+* Fix BA convergence setting bug during initialization by @ahojnnes in https://github.com/colmap/colmap/pull/3677
+* Add notice of the version of panorama_sfm.py by @sarlinpe in https://github.com/colmap/colmap/pull/3685
+* Cuda-Enabled Pip Package (Linux x86-64 only) by @Tobias314 in https://github.com/colmap/colmap/pull/3608
+* Update to CUDA 12.9.1 in CI by @ahojnnes in https://github.com/colmap/colmap/pull/3610
+* Add test for BA controller by @ahojnnes in https://github.com/colmap/colmap/pull/3683
+* Add tests for option manager by @ahojnnes in https://github.com/colmap/colmap/pull/3684
+* Add tests for feature matching controllers by @ahojnnes in https://github.com/colmap/colmap/pull/3686
+* Remove unused variable in reconstruction test by @ahojnnes in https://github.com/colmap/colmap/pull/3691
+* Update the logic of duplicate correspondence to support one-to-many matches. by @B1ueber2y in https://github.com/colmap/colmap/pull/3681
+* Some misc code improvements for ObservationManager by @ahojnnes in https://github.com/colmap/colmap/pull/3689
+* Update PyPI publishing by @sarlinpe in https://github.com/colmap/colmap/pull/3692
+* Update deprecated Eigen JacobiSVD usage by @ahojnnes in https://github.com/colmap/colmap/pull/3690
+* Add unit test for feature extraction controller by @ahojnnes in https://github.com/colmap/colmap/pull/3693
+* Update to latest clang-format 20.1.5 by @ahojnnes in https://github.com/colmap/colmap/pull/3694
+* Add function to synthesize images by @ahojnnes in https://github.com/colmap/colmap/pull/3696
+* Remove deprecated rig bundle adjuster by @B1ueber2y in https://github.com/colmap/colmap/pull/3698
+* Fix coordinate bug in ComputeEqualPartsBboxes by @ahojnnes in https://github.com/colmap/colmap/pull/3700
+* Create unit test for automatic reconstruction controller by @ahojnnes in https://github.com/colmap/colmap/pull/3697
+* Add unit test for HammingDistanceWeightFunctor by @ahojnnes in https://github.com/colmap/colmap/pull/3702
+* Add unit test for option manager parsing and move sys exit to call sites by @ahojnnes in https://github.com/colmap/colmap/pull/3703
+* Add unit test for feature importer controller by @ahojnnes in https://github.com/colmap/colmap/pull/3704
+
+--------------------------
+COLMAP 3.12.6 (09/17/2025)
+--------------------------
+
+Improvements
+------------
+* Upgrade to pybind 3.0.1 and use smart holder for all classes.
+* Support both Qt5 and Qt6.
+* Ensure download support on Ubuntu by installing libssl-dev for crypto.
+* Add bindings for mvs::model for covisibility support in pycolmap.
+* Add missing rig and frame interfaces for pycolmap database.
+* Throw exception when the rig configurations of the database and existing reconstruction are inconsistent.
+* Improve the Gauge logic for fixing two views.
+
+Bug Fixes
+---------
+* Fix focal length extraction from 35mm equivalent.
+* Fix inconsistent pycolmap naming for RegisterFrame and DeRegisterFrame.
+* Call Retriangulate irrespective of the logging level.
+* Fix bundle adjustment with constant rig from world pose.
+
+--------------------------
+COLMAP 3.12.5 (08/22/2025)
+--------------------------
+
+Improvements
+------------
+* Add various safety checks with more understandable error messages
+  when adding misconfigured rigs/cameras/frames/images to the reconstruction.
+* Recover original metric reconstruction scale in case of configured rigs.
+
+Bug Fixes
+---------
+* Fix incompatibilities due to redundant symbol definition in pycolmap/pyceres.
+* Fix error threshold for generalized relative pose to be in pixel space.
+* Fix rig configuration in case of inconsistent IDs in database/reconstruction.
+* Fix missing colmap namespace in sqlite3 macro.
+* Fix CMake configuration with Boost 1.89 or newer.
+* Fix viewer crash when clearing the reconstruction.
+
+--------------------------
+COLMAP 3.12.4 (08/04/2025)
+--------------------------
+
+Bug Fixes
+---------
+* Fix global bundle adjustment performance regression due
+  to changing gauge fixing mechanism by fixing points vs. cameras.
+
 --------------------------
 COLMAP 3.12.3 (07/16/2025)
 --------------------------
@@ -32,6 +791,7 @@ Bug Fixes
 * Fix Docker runtime libraries
 * Fix spatial matcher bug
 * Minor fixes for documentation
+
 
 --------------------------
 COLMAP 3.12.0 (06/30/2025)

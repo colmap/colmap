@@ -41,13 +41,15 @@ namespace {
 FeatureDescriptorsFloat CreateRandomFeatureDescriptors(
     const size_t num_features) {
   SetPRNGSeed(0);
-  FeatureDescriptorsFloat descriptors(num_features, 128);
+  FeatureDescriptorsFloat descriptors;
+  descriptors.type = FeatureExtractorType::SIFT;
+  descriptors.data.resize(num_features, 128);
   for (size_t i = 0; i < num_features; ++i) {
     for (size_t j = 0; j < 128; ++j) {
-      descriptors(i, j) = std::pow(RandomUniformReal(0.0f, 1.0f), 2);
+      descriptors.data(i, j) = std::pow(RandomUniformReal(0.0f, 1.0f), 2);
     }
   }
-  L2NormalizeFeatureDescriptors(&descriptors);
+  L2NormalizeFeatureDescriptors(&descriptors.data);
   return descriptors;
 }
 
@@ -76,41 +78,75 @@ TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
   Eigen::RowMajorMatrixXf distances;
   index->Search(/*num_neighbors=*/1, query_descriptors, indices, distances);
 
-  ASSERT_EQ(indices.rows(), query_descriptors.rows());
+  ASSERT_EQ(indices.rows(), query_descriptors.data.rows());
   ASSERT_EQ(indices.cols(), 1);
-  ASSERT_EQ(distances.rows(), query_descriptors.rows());
+  ASSERT_EQ(distances.rows(), query_descriptors.data.rows());
   ASSERT_EQ(distances.cols(), 1);
 
-  for (int i = 0; i < query_descriptors.rows(); ++i) {
+  for (int i = 0; i < query_descriptors.data.rows(); ++i) {
     EXPECT_EQ(indices(i, 0), i);
     EXPECT_NEAR(distances(i, 0), 0, 1e-6);
   }
 
   index->Search(/*num_neighbors=*/2, query_descriptors, indices, distances);
-  ASSERT_EQ(indices.rows(), query_descriptors.rows());
+  ASSERT_EQ(indices.rows(), query_descriptors.data.rows());
   ASSERT_EQ(indices.cols(), 2);
-  ASSERT_EQ(distances.rows(), query_descriptors.rows());
+  ASSERT_EQ(distances.rows(), query_descriptors.data.rows());
   ASSERT_EQ(distances.cols(), 2);
 
-  for (int i = 0; i < query_descriptors.rows(); ++i) {
+  for (int i = 0; i < query_descriptors.data.rows(); ++i) {
     EXPECT_EQ(indices(i, 0), i);
     EXPECT_NEAR(distances(i, 0), 0, 1e-6);
     EXPECT_NE(indices(i, 1), i);
-    EXPECT_NEAR(
-        distances(i, 1),
-        (query_descriptors.row(i) - index_descriptors.row(indices(i, 1)))
-            .squaredNorm(),
-        1e-6);
+    EXPECT_NEAR(distances(i, 1),
+                (query_descriptors.data.row(i) -
+                 index_descriptors.data.row(indices(i, 1)))
+                    .squaredNorm(),
+                1e-6);
   }
 
-  index->Search(/*num_neighbors=*/index_descriptors.rows() + 1,
+  index->Search(/*num_neighbors=*/index_descriptors.data.rows() + 1,
                 query_descriptors,
                 indices,
                 distances);
-  ASSERT_EQ(indices.rows(), query_descriptors.rows());
-  ASSERT_EQ(indices.cols(), index_descriptors.rows());
-  ASSERT_EQ(distances.rows(), query_descriptors.rows());
-  ASSERT_EQ(distances.cols(), index_descriptors.rows());
+  ASSERT_EQ(indices.rows(), query_descriptors.data.rows());
+  ASSERT_EQ(indices.cols(), index_descriptors.data.rows());
+  ASSERT_EQ(distances.rows(), query_descriptors.data.rows());
+  ASSERT_EQ(distances.cols(), index_descriptors.data.rows());
+}
+
+TEST(FeatureDescriptorIndexTests, TypeMismatch) {
+  constexpr int kNumDescriptors = 100;
+
+  std::unique_ptr<FeatureDescriptorIndex> index;
+  try {
+    index = FeatureDescriptorIndex::Create(FeatureDescriptorIndex::Type::FAISS);
+  } catch (const std::runtime_error& e) {
+    GTEST_SKIP() << "Skipping test due to: " << e.what();
+  }
+  ASSERT_NE(index, nullptr);
+
+  // Prepare SIFT descriptors for index build.
+  FeatureDescriptorsFloat sift_desc =
+      CreateRandomFeatureDescriptors(kNumDescriptors);
+
+  // Prepare descriptors with a different type.
+  FeatureDescriptorsFloat undefined_desc =
+      CreateRandomFeatureDescriptors(kNumDescriptors);
+  undefined_desc.type = FeatureExtractorType::UNDEFINED;
+
+  // Build should throw when descriptor types are inconsistent.
+  index->Build(undefined_desc);
+
+  // Build correctly with SIFT so we can test Query mismatch.
+  index->Build(sift_desc);
+
+  // Query should throw when descriptor types are inconsistent.
+  Eigen::RowMajorMatrixXi indices;
+  Eigen::RowMajorMatrixXf distances;
+  EXPECT_THROW(index->Search(
+                   /*num_neighbors=*/1, undefined_desc, indices, distances),
+               std::invalid_argument);
 }
 
 INSTANTIATE_TEST_SUITE_P(

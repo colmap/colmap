@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ARG UBUNTU_VERSION=24.04
 ARG NVIDIA_CUDA_VERSION=12.9.1
 
@@ -6,9 +8,11 @@ ARG NVIDIA_CUDA_VERSION=12.9.1
 #
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} AS builder
 
-ARG COLMAP_GIT_COMMIT=main
 ARG CUDA_ARCHITECTURES=all-major
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
+ARG FETCHCONTENT_FULLY_DISCONNECTED=OFF
+ENV CCACHE_DIR=/colmap/build/.ccache
+ENV CCACHE_BASEDIR=/colmap
 
 # Prevent stop building ubuntu at time zone selection.
 ENV DEBIAN_FRONTEND=noninteractive
@@ -16,7 +20,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Prepare and empty machine for building.
 RUN apt-get update && \
     apt-get install -y \
-        git \
+        ccache \
         cmake \
         ninja-build \
         build-essential \
@@ -24,33 +28,49 @@ RUN apt-get update && \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libfreeimage-dev \
+        libopenimageio-dev \
+        openimageio-tools \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
         libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
-        qtbase5-dev \
-        libqt5opengl5-dev \
+        qt6-base-dev \
+        libqt6opengl6-dev \
+        libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
+        libssl-dev \
         libmkl-full-dev
 
+# Fix issue in Ubuntu's openimageio CMake config.
+# We don't depend on any of openimageio's OpenCV functionality,
+# but it still requires the OpenCV include directory to exist.
+RUN mkdir -p /usr/include/opencv4
+
+# Copy source into the image.
+COPY . /colmap
+
 # Build and install COLMAP.
-RUN git clone https://github.com/colmap/colmap.git
-RUN cd colmap && \
-    git fetch https://github.com/colmap/colmap.git ${COLMAP_GIT_COMMIT} && \
-    git checkout FETCH_HEAD && \
-    mkdir build && \
+RUN cd /colmap && \
+    mkdir -p build/.ccache && \
     cd build && \
     cmake .. \
         -GNinja \
         -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
         -DCMAKE_INSTALL_PREFIX=/colmap-install \
+        -DFETCHCONTENT_FULLY_DISCONNECTED=${FETCHCONTENT_FULLY_DISCONNECTED} \
         -DBLA_VENDOR=Intel10_64lp && \
     ninja install
+
+#
+# Stage to export build caches for CI round-tripping via actions/cache.
+#
+FROM scratch AS cache-export
+COPY --from=builder /colmap/build/.ccache/ /.ccache/
+COPY --from=builder /colmap/build/_deps/ /_deps/
 
 #
 # Docker runtime stage.
@@ -68,15 +88,17 @@ RUN apt-get update && \
         libopengl0 \
         libmetis5 \
         libceres4t64 \
-        libfreeimage3 \
+        libopenimageio2.4t64 \
         libgcc-s1 \
         libgl1 \
         libglew2.2 \
         libgoogle-glog0v6t64 \
-        libqt5core5a \
-        libqt5gui5 \
-        libqt5widgets5 \
+        libqt6core6 \
+        libqt6gui6 \
+        libqt6widgets6 \
+        libqt6openglwidgets6 \
         libcurl4 \
+        libssl3t64 \
         libmkl-locale \
         libmkl-intel-lp64 \
         libmkl-intel-thread \

@@ -34,6 +34,7 @@
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/util/base_controller.h"
 
+#include <filesystem>
 #include <memory>
 
 namespace colmap {
@@ -46,11 +47,9 @@ namespace colmap {
 class HierarchicalPipeline : public BaseController {
  public:
   struct Options {
-    // The path to the image folder which are used as input.
-    std::string image_path;
-
-    // The path to the database file which is used as input.
-    std::string database_path;
+    // The image path at which to find the images to extract point colors.
+    // If not specified, all point colors will be black.
+    std::filesystem::path image_path;
 
     // The maximum number of trials to initialize a cluster.
     int init_num_trials = 10;
@@ -69,12 +68,14 @@ class HierarchicalPipeline : public BaseController {
 
   HierarchicalPipeline(
       const Options& options,
+      std::shared_ptr<Database> database,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
  private:
   const Options options_;
+  std::shared_ptr<DatabaseCache> database_cache_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 

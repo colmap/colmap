@@ -57,21 +57,29 @@ TEST(PRNGSeed, Nominal) {
 }
 
 TEST(Repeatability, Nominal) {
+  constexpr size_t kNumPoints = 100;
+
   SetPRNGSeed(0);
   std::vector<int> numbers1;
-  for (size_t i = 0; i < 100; ++i) {
+  numbers1.reserve(kNumPoints);
+  for (size_t i = 0; i < kNumPoints; ++i) {
     numbers1.push_back(RandomUniformInteger(0, 10000));
   }
+
   SetPRNGSeed(1);
   std::vector<int> numbers2;
-  for (size_t i = 0; i < 100; ++i) {
+  numbers2.reserve(kNumPoints);
+  for (size_t i = 0; i < kNumPoints; ++i) {
     numbers2.push_back(RandomUniformInteger(0, 10000));
   }
+
   SetPRNGSeed(0);
   std::vector<int> numbers3;
-  for (size_t i = 0; i < 100; ++i) {
+  numbers3.reserve(kNumPoints);
+  for (size_t i = 0; i < kNumPoints; ++i) {
     numbers3.push_back(RandomUniformInteger(0, 10000));
   }
+
   EXPECT_EQ(numbers1, numbers3);
   bool all_equal = true;
   for (size_t i = 0; i < numbers1.size(); ++i) {
@@ -104,6 +112,7 @@ TEST(RandomGaussian, Nominal) {
   const double kSigma = 1.0;
   const size_t kNumValues = 100000;
   std::vector<double> values;
+  values.reserve(kNumValues);
   for (size_t i = 0; i < kNumValues; ++i) {
     values.push_back(RandomGaussian(kMean, kSigma));
   }

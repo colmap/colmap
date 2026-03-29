@@ -57,9 +57,7 @@ class GlogSink : public google::LogSink {
             ? 3
             : 0;
     std::string text(message_len + 1 + severity_len, '\0');
-    std::copy(message + severity_len,
-              message + message_len + severity_len,
-              text.begin());
+    std::copy(message, message + message_len, text.begin() + severity_len);
     text.back() = '\n';
     switch (severity) {
       case google::GLOG_WARNING:
@@ -75,7 +73,7 @@ class GlogSink : public google::LogSink {
       default:
         break;
     }
-    log_widget_->Append(text);
+    log_widget_->Append(severity, std::move(text));
   }
 
  private:
@@ -123,21 +121,49 @@ LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
   grid->addWidget(text_box_, 1, 0, 1, 2);
 }
 
-void LogWidget::Append(const std::string& text) {
+void LogWidget::Append(google::LogSeverity severity, std::string text) {
   QMutexLocker locker(&mutex_);
-  text_queue_ += text;
+  text_queue_.push_back({severity, std::move(text)});
 }
 
 void LogWidget::Flush() {
   QMutexLocker locker(&mutex_);
 
-  if (text_queue_.size() > 0) {
-    // Write to log widget
-    text_box_->moveCursor(QTextCursor::End);
-    text_box_->insertPlainText(QString::fromStdString(text_queue_));
-    text_box_->moveCursor(QTextCursor::End);
-    text_queue_.clear();
+  if (text_queue_.empty()) {
+    return;
   }
+
+  text_box_->moveCursor(QTextCursor::End);
+
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  if (FLAGS_colorlogtostderr) {
+    for (const auto& entry : text_queue_) {
+      QTextCharFormat format;
+      switch (entry.severity) {
+        case google::GLOG_WARNING:
+          format.setForeground(Qt::darkYellow);
+          format.setFontWeight(QFont::DemiBold);
+          break;
+        case google::GLOG_ERROR:
+          format.setForeground(Qt::darkRed);
+          format.setFontWeight(QFont::DemiBold);
+          break;
+        default:
+          break;
+      }
+      text_box_->setCurrentCharFormat(format);
+      text_box_->insertPlainText(QString::fromStdString(entry.text));
+    }
+  } else
+#endif
+  {
+    for (const auto& entry : text_queue_) {
+      text_box_->insertPlainText(QString::fromStdString(entry.text));
+    }
+  }
+
+  text_box_->moveCursor(QTextCursor::End);
+  text_queue_.clear();
 }
 
 void LogWidget::Clear() {

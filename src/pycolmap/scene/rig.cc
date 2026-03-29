@@ -14,8 +14,7 @@ namespace py = pybind11;
 using namespace pybind11::literals;
 
 void BindSceneRig(py::module& m) {
-  py::class_ext_<RigConfig::RigCamera, std::shared_ptr<RigConfig::RigCamera>>
-      PyRigConfigCamera(m, "RigConfigCamera");
+  py::classh_ext<RigConfig::RigCamera> PyRigConfigCamera(m, "RigConfigCamera");
   PyRigConfigCamera.def(py::init<>())
       .def_readwrite("ref_sensor", &RigConfig::RigCamera::ref_sensor)
       .def_readwrite("image_prefix", &RigConfig::RigCamera::image_prefix)
@@ -23,8 +22,7 @@ void BindSceneRig(py::module& m) {
       .def_readwrite("camera", &RigConfig::RigCamera::camera);
   MakeDataclass(PyRigConfigCamera);
 
-  py::class_ext_<RigConfig, std::shared_ptr<RigConfig>> PyRigConfig(
-      m, "RigConfig");
+  py::classh_ext<RigConfig> PyRigConfig(m, "RigConfig");
   PyRigConfig.def(py::init<>()).def_readwrite("cameras", &RigConfig::cameras);
   MakeDataclass(PyRigConfig);
 

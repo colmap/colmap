@@ -32,8 +32,6 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/base_controller.h"
-#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -57,125 +55,6 @@ struct UndistortCameraOptions {
   double roi_min_y = 0.0;
   double roi_max_x = 1.0;
   double roi_max_y = 1.0;
-};
-
-// Undistort images and export undistorted cameras, as required by the
-// mvs::PatchMatchController class.
-class COLMAPUndistorter : public BaseController {
- public:
-  COLMAPUndistorter(
-      const UndistortCameraOptions& options,
-      const Reconstruction& reconstruction,
-      const std::string& image_path,
-      const std::string& output_path,
-      int num_related_images = 20,
-      CopyType copy_type = CopyType::COPY,
-      const std::vector<image_t>& image_ids = std::vector<image_t>());
-
-  void Run();
-
- private:
-  bool Undistort(image_t image_id) const;
-  void WritePatchMatchConfig() const;
-  void WriteFusionConfig() const;
-  void WriteScript(bool geometric) const;
-
-  UndistortCameraOptions options_;
-  const std::string image_path_;
-  const std::string output_path_;
-  const CopyType copy_type_;
-  const int num_patch_match_src_images_;
-  const Reconstruction& reconstruction_;
-  const std::vector<image_t> image_ids_;
-  std::vector<std::string> image_names_;
-};
-
-// Undistort images and prepare data for CMVS/PMVS.
-class PMVSUndistorter : public BaseController {
- public:
-  PMVSUndistorter(const UndistortCameraOptions& options,
-                  const Reconstruction& reconstruction,
-                  const std::string& image_path,
-                  const std::string& output_path);
-
-  void Run();
-
- private:
-  bool Undistort(size_t reg_image_idx) const;
-  void WriteVisibilityData() const;
-  void WriteOptionFile() const;
-  void WritePMVSScript() const;
-  void WriteCMVSPMVSScript() const;
-  void WriteCOLMAPScript(bool geometric) const;
-  void WriteCMVSCOLMAPScript(bool geometric) const;
-
-  UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
-  const Reconstruction& reconstruction_;
-};
-
-// Undistort images and prepare data for CMP-MVS.
-class CMPMVSUndistorter : public BaseController {
- public:
-  CMPMVSUndistorter(const UndistortCameraOptions& options,
-                    const Reconstruction& reconstruction,
-                    const std::string& image_path,
-                    const std::string& output_path);
-
-  void Run();
-
- private:
-  bool Undistort(size_t reg_image_idx) const;
-
-  UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
-  const Reconstruction& reconstruction_;
-};
-
-// Undistort images and export undistorted cameras without the need for a
-// reconstruction. Instead, the image names and camera model information are
-// read from a text file.
-class PureImageUndistorter : public BaseController {
- public:
-  PureImageUndistorter(const UndistortCameraOptions& options,
-                       const std::string& image_path,
-                       const std::string& output_path,
-                       const std::vector<std::pair<std::string, Camera>>&
-                           image_names_and_cameras);
-
-  void Run();
-
- private:
-  bool Undistort(size_t reg_image_idx) const;
-
-  UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
-  const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras_;
-};
-
-// Rectify stereo image pairs.
-class StereoImageRectifier : public BaseController {
- public:
-  StereoImageRectifier(
-      const UndistortCameraOptions& options,
-      const Reconstruction& reconstruction,
-      const std::string& image_path,
-      const std::string& output_path,
-      const std::vector<std::pair<image_t, image_t>>& stereo_pairs);
-
-  void Run();
-
- private:
-  void Rectify(image_t image_id1, image_t image_id2) const;
-
-  UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
-  const std::vector<std::pair<image_t, image_t>>& stereo_pairs_;
-  const Reconstruction& reconstruction_;
 };
 
 // Undistort camera by resizing the image and shifting the principal point.

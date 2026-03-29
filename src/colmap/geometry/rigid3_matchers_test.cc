@@ -48,10 +48,10 @@ TEST(Rigid3d, Eq) {
   const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   Rigid3d y = x;
   EXPECT_THAT(x, Rigid3dEq(y));
-  y.rotation.w() += 1e-7;
+  y.rotation().w() += 1e-7;
   EXPECT_THAT(x, testing::Not(Rigid3dEq(y)));
   y = x;
-  y.translation.x() += 1e-7;
+  y.translation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Rigid3dEq(y)));
 
   testing::StrictMock<MockTestClass> mock;
@@ -65,10 +65,10 @@ TEST(Rigid3d, Near) {
   const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   Rigid3d y = x;
   EXPECT_THAT(x, Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8));
-  y.rotation.w() += 1e-7;
+  y.rotation().w() += 1e-7;
   EXPECT_THAT(x, testing::Not(Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8)));
   y = x;
-  y.translation.x() += 1e-7;
+  y.translation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Rigid3dNear(y)));
 
   testing::StrictMock<MockTestClass> mock;
@@ -76,6 +76,46 @@ TEST(Rigid3d, Near) {
   EXPECT_CALL(mock, TestMethod(Rigid3dNear(y))).Times(1);
   mock.TestMethod(x);
   mock.TestMethod(y);
+}
+
+TEST(Rigid3d, LeftRotationNearIdentity) {
+  Rigid3d x(Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  x.rotation().x() += 1e-16;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  x.rotation().x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y, 1e-8)));
+}
+
+TEST(Rigid3d, RightRotationNearIdentity) {
+  Rigid3d x(Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  y.rotation().x() += 1e-16;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  y.rotation().x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y, 1e-8)));
+}
+
+TEST(Rigid3d, LeftTranslationNearIdentity) {
+  Rigid3d x(Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  x.translation().x() += 1e-16;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  x.translation().x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y, 1e-8)));
+}
+
+TEST(Rigid3d, RightTranslationNearIdentity) {
+  Rigid3d x(Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  y.translation().x() += 1e-16;
+  EXPECT_THAT(x, Rigid3dNear(y, 1e-8));
+  y.translation().x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y, 1e-8)));
 }
 
 }  // namespace

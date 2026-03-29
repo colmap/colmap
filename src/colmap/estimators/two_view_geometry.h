@@ -32,7 +32,12 @@
 #include "colmap/feature/types.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/database_cache.h"
+#include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace colmap {
 
@@ -40,6 +45,10 @@ namespace colmap {
 struct TwoViewGeometryOptions {
   // Minimum number of inliers for non-degenerate two-view geometry.
   int min_num_inliers = 15;
+
+  // Minimum ratio of inliers to total matches for non-degenerate geometry.
+  // Disabled by default, only effective when > 0.
+  double min_inlier_ratio = 0.0;
 
   // In case both cameras are calibrated, the calibration is verified by
   // estimating an essential and fundamental matrix and comparing their
@@ -134,13 +143,33 @@ TwoViewGeometry EstimateTwoViewGeometry(
     FeatureMatches matches,
     const TwoViewGeometryOptions& options);
 
+// Estimate the two-view geometries for all matched images between a pair of
+// rigs.
+//
+// @param rig1            First rig.
+// @param rig2            Second rig.
+// @param images          Images in first and second rig.
+// @param cameras         Cameras in first and second rig.
+// @param matches         Feature matches between first and second rig.
+// @param options         Two-view geometry estimation options.
+//
+// @return                Two-view geometries for all matched images.
+std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
+EstimateRigTwoViewGeometries(
+    const Rig& rig1,
+    const Rig& rig2,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>&
+        matches,
+    const TwoViewGeometryOptions& options);
+
 // Estimate relative pose for two-view geometry.
 //
 // @param camera1         Camera of first image.
 // @param points1         Feature points in first image.
 // @param camera2         Camera of second image.
 // @param points2         Feature points in second image.
-// @param matches         Feature matches between first and second image.
 // @param options         Two-view geometry estimation options.
 bool EstimateTwoViewGeometryPose(const Camera& camera1,
                                  const std::vector<Eigen::Vector2d>& points1,
@@ -180,5 +209,22 @@ void FilterStationaryMatches(double max_error,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
                              FeatureMatches* matches);
+
+// Compute two-view geometry from known relative pose and input matches.
+TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const Rigid3d& cam2_from_cam1,
+    const FeatureMatches& matches,
+    int min_num_inliers = 15,
+    double max_error = 4.0);
+
+// Decompose relative poses from two-view geometries in the database cache and
+// update the results in-memory. Skips pairs that already have a relative
+// pose or have invalid two-view geometries (UNDEFINED, DEGENERATE, WATERMARK,
+// MULTIPLE).
+void MaybeDecomposeRelativePoses(DatabaseCache* database_cache);
 
 }  // namespace colmap

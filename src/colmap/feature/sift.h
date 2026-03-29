@@ -30,14 +30,15 @@
 #pragma once
 
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/index.h"
 #include "colmap/feature/matcher.h"
+#include "colmap/feature/onnx_matchers.h"
+#include "colmap/feature/resources.h"
+#include "colmap/util/cache.h"
 
 namespace colmap {
 
 struct SiftExtractionOptions {
-  // Maximum image size, otherwise image will be down-scaled.
-  int max_image_size = 3200;
-
   // Maximum number of features to detect, keeping larger-scale features.
   int max_num_features = 8192;
 
@@ -125,6 +126,14 @@ struct SiftMatchingOptions {
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*
       cpu_descriptor_index_cache = nullptr;
 
+  // LightGlue matching options.
+  LightGlueONNXMatchingOptions lightglue = []() {
+    LightGlueONNXMatchingOptions options;
+    options.min_score = 0.1;
+    options.model_path = kDefaultSiftLightGlueFeatureMatcherUri;
+    return options;
+  }();
+
   bool Check() const;
 };
 
@@ -148,7 +157,7 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
 //    0.32 0.12 1.23 1.0 1 2 3 4
 //    0.32 0.12 1.23 1.0 1 2 3 4
 //
-void LoadSiftFeaturesFromTextFile(const std::string& path,
+void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
                                   FeatureKeypoints* keypoints,
                                   FeatureDescriptors* descriptors);
 

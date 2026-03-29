@@ -1,4 +1,4 @@
-#include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"

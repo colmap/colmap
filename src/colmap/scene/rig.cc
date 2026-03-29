@@ -96,17 +96,17 @@ void UpdateRigAndCameraCalibsFromReconstruction(
           database.UpdateCamera(camera);
         }
         if (rig_from_cam_rotations.empty()) {
-          rig_from_cam_translation = rig_from_cam.translation;
+          rig_from_cam_translation = rig_from_cam.translation();
         } else {
-          rig_from_cam_translation += rig_from_cam.translation;
+          rig_from_cam_translation += rig_from_cam.translation();
         }
-        rig_from_cam_rotations.push_back(rig_from_cam.rotation);
+        rig_from_cam_rotations.push_back(rig_from_cam.rotation());
       }
     }
   }
 
   // Compute the average sensor_from_rig poses over all frames.
-  for (auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+  for (auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
     if (sensor_from_rig.has_value()) {
       // Do not compute it for explicitly provided poses in the config.
       continue;
@@ -203,8 +203,9 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
     const sensor_t& reconstruction_sensor_id =
         reconstruction_image.CameraPtr()->SensorId();
 
-    if (reconstruction_rig.Sensors().count(reconstruction_sensor_id) == 0 &&
-        database_rig.Sensors().count(database_sensor_id) != 0) {
+    if (reconstruction_rig.NonRefSensors().count(reconstruction_sensor_id) ==
+            0 &&
+        database_rig.NonRefSensors().count(database_sensor_id) != 0) {
       reconstruction_rig.AddSensor(
           reconstruction_sensor_id,
           database_rig.SensorFromRig(database_sensor_id));
@@ -253,9 +254,10 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
 
 }  // namespace
 
-std::vector<RigConfig> ReadRigConfig(const std::string& rig_config_path) {
+std::vector<RigConfig> ReadRigConfig(
+    const std::filesystem::path& rig_config_path) {
   boost::property_tree::ptree pt;
-  boost::property_tree::read_json(rig_config_path.c_str(), pt);
+  boost::property_tree::read_json(rig_config_path.string().c_str(), pt);
 
   std::vector<RigConfig> configs;
   for (const auto& rig_node : pt) {
@@ -279,15 +281,15 @@ std::vector<RigConfig> ReadRigConfig(const std::string& rig_config_path) {
         for (const auto& node : cam_from_rig_rotation_node.get()) {
           cam_from_rig_wxyz[index++] = node.second.get_value<double>();
         }
-        cam_from_rig.rotation = Eigen::Quaterniond(cam_from_rig_wxyz(0),
-                                                   cam_from_rig_wxyz(1),
-                                                   cam_from_rig_wxyz(2),
-                                                   cam_from_rig_wxyz(3));
+        cam_from_rig.rotation() = Eigen::Quaterniond(cam_from_rig_wxyz(0),
+                                                     cam_from_rig_wxyz(1),
+                                                     cam_from_rig_wxyz(2),
+                                                     cam_from_rig_wxyz(3));
 
         THROW_CHECK(cam_from_rig_translation_node);
         index = 0;
         for (const auto& node : cam_from_rig_translation_node.get()) {
-          cam_from_rig.translation(index++) = node.second.get_value<double>();
+          cam_from_rig.translation()(index++) = node.second.get_value<double>();
         }
         config_camera.cam_from_rig = cam_from_rig;
       }

@@ -1,5 +1,6 @@
 #include "colmap/scene/two_view_geometry.h"
 
+#include "colmap/feature/types.h"
 #include "colmap/scene/camera.h"
 
 #include "pycolmap/helpers.h"
@@ -21,6 +22,7 @@ void BindTwoViewGeometryScene(py::module& m) {
   PyTwoViewGeometryConfiguration.value("UNDEFINED", TwoViewGeometry::UNDEFINED)
       .value("DEGENERATE", TwoViewGeometry::DEGENERATE)
       .value("CALIBRATED", TwoViewGeometry::CALIBRATED)
+      .value("CALIBRATED_RIG", TwoViewGeometry::CALIBRATED_RIG)
       .value("UNCALIBRATED", TwoViewGeometry::UNCALIBRATED)
       .value("PLANAR", TwoViewGeometry::PLANAR)
       .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
@@ -29,7 +31,7 @@ void BindTwoViewGeometryScene(py::module& m) {
       .value("MULTIPLE", TwoViewGeometry::MULTIPLE);
   AddStringToEnumConstructor(PyTwoViewGeometryConfiguration);
 
-  py::class_<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
+  py::classh<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
   PyTwoViewGeometry.def(py::init<>())
       .def_readwrite("config", &TwoViewGeometry::config)
       .def_readwrite("E", &TwoViewGeometry::E)
@@ -39,10 +41,11 @@ void BindTwoViewGeometryScene(py::module& m) {
       .def_property(
           "inlier_matches",
           [](const TwoViewGeometry& self) {
-            return FeatureMatchesToMatrix(self.inlier_matches);
+            return MatchesToMatrix(self.inlier_matches);
           },
-          [](TwoViewGeometry& self, const PyFeatureMatches& matrix) {
-            self.inlier_matches = FeatureMatchesFromMatrix(matrix);
+          [](TwoViewGeometry& self,
+             const Eigen::Ref<const FeatureMatchesMatrix>& matrix) {
+            self.inlier_matches = MatchesFromMatrix(matrix);
           })
       .def_readwrite("tri_angle", &TwoViewGeometry::tri_angle)
       .def("invert", &TwoViewGeometry::Invert);

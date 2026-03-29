@@ -34,10 +34,19 @@
 #include <unordered_map>
 #include <vector>
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/boykov_kolmogorov_max_flow.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/one_bit_color_map.hpp>
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 namespace colmap {
 
@@ -62,11 +71,10 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
 template <typename node_t, typename value_t>
 class MinSTGraphCut {
  public:
-  typedef boost::
-      adjacency_list_traits<boost::vecS, boost::vecS, boost::directedS>
-          graph_traits_t;
-  typedef graph_traits_t::edge_descriptor edge_descriptor_t;
-  typedef graph_traits_t::vertices_size_type vertices_size_t;
+  using graph_traits_t =
+      boost::adjacency_list_traits<boost::vecS, boost::vecS, boost::directedS>;
+  using edge_descriptor_t = graph_traits_t::edge_descriptor;
+  using vertices_size_t = graph_traits_t::vertices_size_type;
 
   struct Edge {
     value_t capacity;
@@ -74,9 +82,8 @@ class MinSTGraphCut {
     edge_descriptor_t reverse;
   };
 
-  typedef boost::
-      adjacency_list<boost::vecS, boost::vecS, boost::directedS, size_t, Edge>
-          graph_t;
+  using graph_t = boost::
+      adjacency_list<boost::vecS, boost::vecS, boost::directedS, size_t, Edge>;
 
   explicit MinSTGraphCut(size_t num_nodes);
 

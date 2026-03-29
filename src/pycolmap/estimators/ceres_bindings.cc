@@ -161,8 +161,7 @@ void BindCeresTypes(py::module& m) {
 
 void BindCeresSolver(py::module& m) {
   using Options = ceres::Solver::Options;
-  py::class_<Options, std::shared_ptr<Options>> PyOptions(
-      m, "SolverOptions", py::module_local());
+  py::classh<Options> PyOptions(m, "SolverOptions", py::module_local());
   PyOptions.def(py::init<>())
       .def(py::init<const Options&>())
       .def("IsValid", &Options::IsValid)
@@ -264,8 +263,7 @@ void BindCeresSolver(py::module& m) {
   MakeDataclass(PyOptions);
 
   using Summary = ceres::Solver::Summary;
-  py::class_<Summary, std::shared_ptr<Summary>> PySummary(
-      m, "SolverSummary", py::module_local());
+  py::classh<Summary> PySummary(m, "SolverSummary", py::module_local());
   PySummary.def(py::init<>())
       .def(py::init<const Summary&>())
       .def("BriefReport", &Summary::BriefReport)
@@ -366,7 +364,7 @@ void BindCeresSolver(py::module& m) {
   MakeDataclass(PySummary);
 
   using IterSummary = ceres::IterationSummary;
-  py::class_<IterSummary, std::shared_ptr<IterSummary>> PyIterSummary(
+  py::classh<IterSummary> PyIterSummary(
       m, "IterationSummary", py::module_local());
   PyIterSummary.def(py::init<>())
       .def(py::init<const IterSummary&>())

@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/scene/database.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/types.h"
 
 #include <memory>
@@ -78,7 +78,7 @@ class SceneClustering {
   std::vector<const Cluster*> GetLeafClusters() const;
 
   static SceneClustering Create(const Options& options,
-                                const Database& database);
+                                const DatabaseCache& database_cache);
 
  private:
   void PartitionHierarchicalCluster(

@@ -29,18 +29,18 @@
 
 #include "colmap/mvs/image.h"
 
-#include "colmap/scene/projection.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 namespace colmap {
 namespace mvs {
 
 Image::Image() {}
 
-Image::Image(const std::string& path,
+Image::Image(const std::filesystem::path& path,
              const size_t width,
              const size_t height,
              const float* K,
@@ -66,7 +66,7 @@ void Image::Rescale(const float factor_x, const float factor_y) {
   const size_t new_width = std::round(width_ * factor_x);
   const size_t new_height = std::round(height_ * factor_y);
 
-  if (bitmap_.Data() != nullptr) {
+  if (!bitmap_.IsEmpty()) {
     bitmap_.Rescale(new_width, new_height);
   }
 

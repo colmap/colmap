@@ -43,7 +43,7 @@ const static size_t kMaxPatchMatchWindowRadius = 32;
 #define PrintOption(option) LOG(INFO) << #option ": " << option
 
 void PatchMatchOptions::Print() const {
-  PrintHeading2("PatchMatchOptions");
+  LOG_HEADING2("PatchMatchOptions");
   PrintOption(max_image_size);
   PrintOption(gpu_index);
   PrintOption(depth_min);
@@ -67,6 +67,7 @@ void PatchMatchOptions::Print() const {
   PrintOption(filter_geom_consistency_max_cost);
   PrintOption(write_consistency_graph);
   PrintOption(allow_missing_files);
+  PrintOption(num_threads);
 }
 
 bool PatchMatchOptions::Check() const {
@@ -94,6 +95,7 @@ bool PatchMatchOptions::Check() const {
   CHECK_OPTION_GE(filter_min_num_consistent, 0);
   CHECK_OPTION_GE(filter_geom_consistency_max_cost, 0.0f);
   CHECK_OPTION_GT(cache_size, 0);
+  CHECK_OPTION_GE(num_threads, -1);
   return true;
 }
 

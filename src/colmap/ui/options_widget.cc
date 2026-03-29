@@ -93,6 +93,7 @@ QSpinBox* OptionsWidget::AddOptionInt(int* option,
   QSpinBox* spinbox = new QSpinBox(this);
   spinbox->setMinimum(min);
   spinbox->setMaximum(max);
+  spinbox->setValue(*option);
 
   AddOptionRow(label_text, spinbox, option);
 
@@ -112,6 +113,7 @@ QDoubleSpinBox* OptionsWidget::AddOptionDouble(double* option,
   spinbox->setMaximum(max);
   spinbox->setSingleStep(step);
   spinbox->setDecimals(decimals);
+  spinbox->setValue(*option);
 
   AddOptionRow(label_text, spinbox, option);
 
@@ -131,6 +133,7 @@ QDoubleSpinBox* OptionsWidget::AddOptionDoubleLog(double* option,
   spinbox->setMaximum(max);
   spinbox->setSingleStep(step);
   spinbox->setDecimals(decimals);
+  spinbox->setValue(*option);
 
   AddOptionRow(label_text, spinbox, option);
 
@@ -142,6 +145,7 @@ QDoubleSpinBox* OptionsWidget::AddOptionDoubleLog(double* option,
 QCheckBox* OptionsWidget::AddOptionBool(bool* option,
                                         const std::string& label_text) {
   QCheckBox* checkbox = new QCheckBox(this);
+  checkbox->setChecked(*option);
 
   AddOptionRow(label_text, checkbox, option);
 
@@ -153,6 +157,7 @@ QCheckBox* OptionsWidget::AddOptionBool(bool* option,
 QLineEdit* OptionsWidget::AddOptionText(std::string* option,
                                         const std::string& label_text) {
   QLineEdit* line_edit = new QLineEdit(this);
+  line_edit->setText(QString::fromStdString(*option));
 
   AddOptionRow(label_text, line_edit, option);
 
@@ -161,9 +166,10 @@ QLineEdit* OptionsWidget::AddOptionText(std::string* option,
   return line_edit;
 }
 
-QLineEdit* OptionsWidget::AddOptionFilePath(std::string* option,
+QLineEdit* OptionsWidget::AddOptionFilePath(std::filesystem::path* option,
                                             const std::string& label_text) {
   QLineEdit* line_edit = new QLineEdit(this);
+  line_edit->setText(QString::fromStdString(option->string()));
 
   AddOptionRow(label_text, line_edit, option);
 
@@ -181,9 +187,10 @@ QLineEdit* OptionsWidget::AddOptionFilePath(std::string* option,
   return line_edit;
 }
 
-QLineEdit* OptionsWidget::AddOptionDirPath(std::string* option,
+QLineEdit* OptionsWidget::AddOptionDirPath(std::filesystem::path* option,
                                            const std::string& label_text) {
   QLineEdit* line_edit = new QLineEdit(this);
+  line_edit->setText(QString::fromStdString(option->string()));
 
   AddOptionRow(label_text, line_edit, option);
 
@@ -238,7 +245,7 @@ void OptionsWidget::ReadOptions() {
   }
 
   for (auto& option : options_path_) {
-    option.first->setText(QString::fromStdString(*option.second));
+    option.first->setText(QString::fromStdString(option.second->string()));
   }
 }
 

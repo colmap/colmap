@@ -23,7 +23,8 @@ jobs:
         config: [
           {
             os: ubuntu-24.04,
-            cmakeBuildType: RelWithDebInfo,
+            qtVersion: 6,
+            cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
@@ -33,6 +34,7 @@ jobs:
           },
           {
             os: ubuntu-22.04,
+            qtVersion: 6,
             cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: true,
@@ -43,6 +45,7 @@ jobs:
           },
           {
             os: ubuntu-22.04,
+            qtVersion: 5,
             cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: false,
@@ -53,6 +56,7 @@ jobs:
           },
           {
             os: ubuntu-24.04,
+            qtVersion: 6,
             cmakeBuildType: Release,
             asanEnabled: true,
             guiEnabled: false,
@@ -63,6 +67,7 @@ jobs:
           },
           {
             os: ubuntu-24.04,
+            qtVersion: 6,
             cmakeBuildType: ClangTidy,
             asanEnabled: false,
             guiEnabled: false,
@@ -79,18 +84,39 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+      FETCHCONTENT_CACHE_VERSION: 1
+      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
-        id: cache-builds
+      - name: Check code format
+        if: matrix.config.checkCodeFormat
+        run: |
+          set +x -euo pipefail
+          python -m pip install ruff==0.15.7 clang-format==22.1.1
+          ./scripts/format/c++.sh --all
+          ./scripts/format/python.sh --all
+          git diff --name-only
+          git diff --exit-code || (echo "Code formatting failed" && exit 1)
+
+      - name: Restore Compiler cache
+        uses: actions/cache@v4
+        id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        id: cache-fetchcontent
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
 
       - name: Install compiler cache
         run: |
@@ -102,29 +128,25 @@ jobs:
           fi
 
           set -x
-          wget https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2-linux-x86_64.tar.xz
-          echo "0b33f39766fe9db67f40418aed6a5b3d7b2f4f7fab025a8213264b77a2d0e1b1  ccache-4.8.2-linux-x86_64.tar.xz" | sha256sum --check
-          tar xfv ccache-4.8.2-linux-x86_64.tar.xz
+          wget https://github.com/ccache/ccache/releases/download/v4.12.2/ccache-4.12.2-linux-x86_64.tar.xz
+          echo "630c34ec94d451b200f5b14a6a25580d6a45bc80c394b7e0b93e33556eee5d32  ccache-4.12.2-linux-x86_64.tar.xz" | sha256sum --check
+          tar xfv ccache-4.12.2-linux-x86_64.tar.xz
           mkdir -p "$COMPILER_CACHE_DIR/bin"
-          mv ./ccache-4.8.2-linux-x86_64/ccache "$COMPILER_CACHE_DIR/bin"
+          mv ./ccache-4.12.2-linux-x86_64/ccache "$COMPILER_CACHE_DIR/bin"
           ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
           wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
           echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
           unzip "${ctcache_commit_id}.zip"
           mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
 
-      - name: Check code format
-        if: matrix.config.checkCodeFormat
-        run: |
-          set +x -euo pipefail
-          python -m pip install ruff==0.12.7 clang-format==19.1.0
-          ./scripts/format/c++.sh
-          ./scripts/format/python.sh
-          git diff --name-only
-          git diff --exit-code || (echo "Code formatting failed" && exit 1)
-
       - name: Setup Ubuntu
         run: |
+          if [ "${{ matrix.config.qtVersion }}" == "5" ]; then
+            qt_packages="qtbase5-dev libqt5opengl5-dev libcgal-qt5-dev"
+          elif [ "${{ matrix.config.qtVersion }}" == "6" ]; then
+            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6"
+          fi
+
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
             cmake \
@@ -134,31 +156,30 @@ jobs:
             libboost-system-dev \
             libeigen3-dev \
             libceres-dev \
-            libfreeimage-dev \
+            libopenimageio-dev \
+            openimageio-tools \
+            libsuitesparse-dev \
             libmetis-dev \
             libgoogle-glog-dev \
             libgtest-dev \
             libgmock-dev \
             libsqlite3-dev \
             libglew-dev \
-            qtbase5-dev \
-            libqt5opengl5-dev \
+            $qt_packages \
             libcgal-dev \
-            libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
             libmkl-full-dev \
             xvfb
 
+          # Fix issue in Ubuntu's openimageio CMake config.
+          # We don't depend on any of openimageio's OpenCV functionality,
+          # but it still requires the OpenCV include directory to exist.
+          sudo mkdir -p /usr/include/opencv4
+
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
-            if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
-              sudo apt-get install -y \
-                nvidia-cuda-toolkit \
-                nvidia-cuda-toolkit-gcc
-              echo "CC=/usr/bin/cuda-gcc" >> $GITHUB_ENV
-              echo "CXX=/usr/bin/cuda-g++" >> $GITHUB_ENV
-            elif [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+            if [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
               sudo apt-get install -y \
                 nvidia-cuda-toolkit \
                 nvidia-cuda-toolkit-gcc \
@@ -189,7 +210,7 @@ jobs:
         run: |
           set -x
           cmake --version
-          mkdir build
+          mkdir -p build
           cd build
           cmake .. \
             -GNinja \
@@ -197,11 +218,13 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=./install \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
             -DTESTS_ENABLED=ON \
+            -DWERROR_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
-            -DBLA_VENDOR=Intel10_64lp
+            -DBLA_VENDOR=Intel10_64lp \
+            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           ninja -k 10000
 
       - name: Install and build sample
@@ -224,7 +247,7 @@ jobs:
         if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' }}
         run: |
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
-            ctestExclusions="(feature/colmap_feature_sift_test)|(mvs/colmap_mvs_gpu_mat_test)"
+            ctestExclusions="(feature/sift_test)|(mvs/gpu_mat_test)"
           fi
 
           export DISPLAY=":99.0"
@@ -245,10 +268,10 @@ jobs:
           mkdir eth3d_benchmark
           # Error thresholds in degrees and meters,
           # as the ETH3D groundtruth has metric scale.
-          GLOG_v=1 python ./scripts/python/benchmark_eth3d.py \
+          GLOG_v=1 python ./python/ci/test_regression_eth3d.py \
               --workspace_path ./eth3d_benchmark \
               --colmap_path ./build/src/colmap/exe/colmap \
-              --dataset_names boulders,door \
+              --dataset_names boulders door \
               --max_rotation_error 1.0 \
               --max_proj_center_error 0.05 \
               --use_cpu

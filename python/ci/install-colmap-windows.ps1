@@ -1,3 +1,7 @@
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+$PSNativeCommandUseErrorActionPreference = $true
+
 $CURRDIR = $PWD
 
 $COMPILER_TOOLS_DIR = "${env:COMPILER_CACHE_DIR}/bin"
@@ -12,12 +16,11 @@ If (!(Test-Path -path "${COMPILER_TOOLS_DIR}/ccache.exe" -PathType Leaf)) {
 cd ${CURRDIR}
 git clone https://github.com/microsoft/vcpkg ${env:VCPKG_INSTALLATION_ROOT}
 cd ${env:VCPKG_INSTALLATION_ROOT}
-git checkout "${env:VCPKG_COMMIT_ID}"
 ./bootstrap-vcpkg.bat
 
 cd ${CURRDIR}
 & "./scripts/shell/enter_vs_dev_shell.ps1"
-& "${env:VCPKG_INSTALLATION_ROOT}/vcpkg.exe" integrate install
+& "${env:VCPKG_ROOT}/vcpkg.exe" integrate install
 
 # Build COLMAP
 mkdir build
@@ -26,12 +29,15 @@ cmake .. `
     -GNinja `
     -DCMAKE_MAKE_PROGRAM=ninja `
     -DCUDA_ENABLED="OFF" `
+    -DONNX_ENABLED="OFF" `
     -DGUI_ENABLED="OFF" `
     -DCGAL_ENABLED="OFF" `
     -DLSD_ENABLED="OFF" `
     -DCMAKE_BUILD_TYPE="Release" `
     -DCMAKE_TOOLCHAIN_FILE="${env:CMAKE_TOOLCHAIN_FILE}" `
-    -DVCPKG_TARGET_TRIPLET="${env:VCPKG_TARGET_TRIPLET}"
+    -DVCPKG_TARGET_TRIPLET="${env:VCPKG_TARGET_TRIPLET}" `
+    -DFETCHCONTENT_BASE_DIR="${env:FETCHCONTENT_BASE_DIR}" `
+    -DFETCHCONTENT_FULLY_DISCONNECTED="${env:FETCHCONTENT_FULLY_DISCONNECTED}"
 ninja install
 
 ccache --show-stats --verbose

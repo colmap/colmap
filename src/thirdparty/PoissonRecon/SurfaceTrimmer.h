@@ -1,1 +1,1 @@
-int SurfaceTrimmer(int argc, char* argv[]);
+int RunSurfaceTrimmer( int argc , char* argv[] );

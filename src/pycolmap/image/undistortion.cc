@@ -12,7 +12,7 @@ namespace py = pybind11;
 
 void BindUndistortion(py::module& m) {
   auto PyUndistortCameraOptions =
-      py::class_<UndistortCameraOptions>(m, "UndistortCameraOptions")
+      py::classh<UndistortCameraOptions>(m, "UndistortCameraOptions")
           .def(py::init<>())
           .def_readwrite("blank_pixels", &UndistortCameraOptions::blank_pixels)
           .def_readwrite("min_scale", &UndistortCameraOptions::min_scale)

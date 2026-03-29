@@ -5,6 +5,11 @@ CURRDIR=$(pwd)
 
 export PATH="/usr/bin"
 
+# Install config manager and EPEL release
+yum install -y dnf-plugins-core epel-release
+# Enable the PowerTools repository (required for ninja-build)
+yum config-manager --set-enabled powertools
+
 # Install toolchain under AlmaLinux 8,
 # see https://almalinux.pkgs.org/8/almalinux-appstream-x86_64/
 yum install -y \
@@ -20,9 +25,26 @@ yum install -y \
     curl \
     zip \
     unzip \
-    tar
+    tar \
+    perl \
+    libXmu-devel \
+    libXi-devel \
+    mesa-libGL-devel \
+    mesa-libGLU-devel
 
 source scl_source enable gcc-toolset-12
+
+CUDA_HOME="/usr/local/cuda"
+if [ ! -d "${CUDA_HOME}" ] && [ -d "${CUDA_HOME}-12.9" ]; then
+    ln -s "${CUDA_HOME}-12.9" "${CUDA_HOME}"
+fi
+if [ -d "${CUDA_HOME}" ]; then
+    export PATH="${CUDA_HOME}/bin:${PATH}"
+    if [ ! -f "/usr/local/bin/nvcc" ] && [ -f "${CUDA_HOME}/bin/nvcc" ]; then
+        ln -s "${CUDA_HOME}/bin/nvcc" /usr/local/bin/nvcc
+    fi
+    echo "${CUDA_HOME}/lib64" > /etc/ld.so.conf.d/cuda.conf
+fi
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
@@ -34,11 +56,11 @@ if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
     cp ${FILE}/ccache ${COMPILER_TOOLS_DIR}
 fi
 export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
+ln -sf ${COMPILER_TOOLS_DIR}/ccache /usr/local/bin/ccache
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
-git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
 
@@ -46,7 +68,9 @@ git checkout ${VCPKG_COMMIT_ID}
 cd ${CURRDIR}
 mkdir build && cd build
 cmake3 .. -GNinja \
-    -DCUDA_ENABLED=OFF \
+    -DCUDA_ENABLED="${BUILD_CUDA_ENABLED}" \
+    -DCMAKE_CUDA_ARCHITECTURES="all-major" \
+    -DONNX_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
@@ -55,7 +79,9 @@ cmake3 .. -GNinja \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
-    -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
+    -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl" \
+    -DFETCHCONTENT_BASE_DIR="${FETCHCONTENT_BASE_DIR}" \
+    -DFETCHCONTENT_FULLY_DISCONNECTED="${FETCHCONTENT_FULLY_DISCONNECTED}"
 ninja install
 
 ccache --show-stats --verbose

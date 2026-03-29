@@ -30,17 +30,139 @@
 #include "colmap/ui/main_window.h"
 
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/sensor/bitmap.h"
+#include "colmap/ui/render_options.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/ply.h"
 #include "colmap/util/version.h"
 
+#include <QDir>
+#include <QFileInfo>
+#include <QSettings>
+#include <QStandardPaths>
 #include <clocale>
 
 static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
 namespace colmap {
+namespace {
 
-MainWindow::MainWindow(const OptionManager& options)
-    : options_(options),
+// Keys used with QSettings to persist last-used directories for different
+// contexts.
+constexpr char kLastGlobalDir[] =
+    "last_dir/global";  // Fallback if no context-specific path exists
+constexpr char kLastDirProject[] =
+    "last_dir/project";  // Last location of open/save project dialogs
+constexpr char kLastImportExport[] =
+    "last_dir/import_export";  // Last location used in import/export dialogs
+constexpr char kLastGrabImage[] =
+    "last_dir/grab_image";  // Last location for "grab image" operations
+
+// Get proper QSettings
+QSettings GetQSettings() { return QSettings("Colmap", "ColmapUI"); }
+
+// Default fallback: Documents (or home).
+QString DefaultBaseDir() {
+  QString d =
+      QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+  if (d.isEmpty()) d = QDir::homePath();
+  return d;
+}
+
+// Load last dir for a given key, falling back to a global last dir,
+// and finally to a sensible default.
+QString GetLastOpen(const QString& key) {
+  QSettings s = GetQSettings();
+  s.beginGroup("paths");
+  QString per = s.value(key, "").toString();
+  if (!per.isEmpty()) {
+    s.endGroup();
+    return per;
+  }
+  QString global = s.value(kLastGlobalDir, "").toString();
+  s.endGroup();
+  if (!global.isEmpty()) return global;
+  return DefaultBaseDir();
+}
+
+// Save the directory part of a path (or the dir itself) under key,
+// and also refresh a global "last dir" to improve first-time UX elsewhere.
+void SetLastOpen(const QString& key, const QString& pathOrDir) {
+  QString dir = pathOrDir;
+  QFileInfo fi(pathOrDir);
+  if (!fi.exists() || fi.isFile()) dir = fi.absolutePath();
+  if (dir.isEmpty()) dir = DefaultBaseDir();
+  QSettings s = GetQSettings();
+  s.beginGroup("paths");
+  s.setValue(key, dir);
+  s.setValue(kLastGlobalDir, dir);
+  s.endGroup();
+}
+
+std::string GetLogTarget() {
+  if (FLAGS_logtostderr) {
+    return "stderr";
+  }
+
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  if (FLAGS_logtostdout) {
+    return "stdout";
+  }
+#endif
+
+  if (FLAGS_alsologtostderr) {
+    return "stderr_and_file";
+  }
+
+  return "file";
+}
+
+void ApplyLogOptions(const std::string& log_target,
+                     int verbosity,
+                     int min_severity,
+                     bool color) {
+  FLAGS_v = verbosity;
+  FLAGS_minloglevel = min_severity;
+
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  FLAGS_colorlogtostderr = color;
+#endif
+
+  FLAGS_logtostderr = false;
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_logtostdout = false;
+#endif
+  FLAGS_alsologtostderr = false;
+
+  if (log_target == "stderr") {
+    FLAGS_logtostderr = true;
+  } else if (log_target == "stdout") {
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+    FLAGS_logtostdout = true;
+#else
+    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                    "Falling back to stderr.";
+    FLAGS_logtostderr = true;
+#endif
+  } else if (log_target == "file") {
+    // default file logging
+  } else if (log_target == "stderr_and_file") {
+    FLAGS_alsologtostderr = true;
+  } else {
+    LOG(ERROR) << "Invalid log_target: " << log_target
+               << ". Falling back to stderr_and_file.";
+    FLAGS_alsologtostderr = true;
+  }
+
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+#endif
+}
+
+}  // anonymous namespace
+
+MainWindow::MainWindow(OptionManager options)
+    : options_(std::move(options)),
       reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
@@ -51,6 +173,8 @@ MainWindow::MainWindow(const OptionManager& options)
 
   resize(1024, 600);
   UpdateWindowTitle();
+
+  setAcceptDrops(true);
 
   CreateWidgets();
   CreateActions();
@@ -64,11 +188,68 @@ MainWindow::MainWindow(const OptionManager& options)
   options_.AddAllOptions();
 }
 
-void MainWindow::ImportReconstruction(const std::string& path) {
-  const size_t idx = reconstruction_manager_->Read(path);
-  reconstruction_manager_widget_->Update();
-  reconstruction_manager_widget_->SelectReconstruction(idx);
-  RenderNow();
+void MainWindow::ImportReconstruction(
+    const std::filesystem::path& import_path) {
+  if (import_path.empty()) {
+    return;
+  }
+
+  SetLastOpen(kLastImportExport, QString::fromStdString(import_path.string()));
+
+  const std::filesystem::path project_path = import_path / "project.ini";
+
+  const std::filesystem::path cameras_bin_path = import_path / "cameras.bin";
+  const std::filesystem::path images_bin_path = import_path / "images.bin";
+  const std::filesystem::path points3D_bin_path = import_path / "points3D.bin";
+  const std::filesystem::path cameras_txt_path = import_path / "cameras.txt";
+  const std::filesystem::path images_txt_path = import_path / "images.txt";
+  const std::filesystem::path points3D_txt_path = import_path / "points3D.txt";
+
+  const bool is_valid_reconstruction_dir =
+      (ExistsFile(cameras_bin_path) && ExistsFile(images_bin_path) &&
+       ExistsFile(points3D_bin_path)) ||
+      (ExistsFile(cameras_txt_path) && ExistsFile(images_txt_path) &&
+       ExistsFile(points3D_txt_path));
+  if (!is_valid_reconstruction_dir) {
+    QMessageBox::critical(this,
+                          "",
+                          tr("cameras, images, and points3D files do not exist "
+                             "in chosen directory."));
+    return;
+  }
+
+  if (!ReconstructionOverwrite()) {
+    return;
+  }
+
+  bool edit_project = false;
+  if (ExistsFile(project_path)) {
+    options_.ReRead(project_path);
+  } else {
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "",
+        tr("Directory does not contain a <i>project.ini</i>. To "
+           "resume the reconstruction, you need to specify a valid "
+           "database and image path. Do you want to select the paths "
+           "now (or press <i>No</i> to only visualize the reconstruction)?"),
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+      edit_project = true;
+    }
+  }
+
+  thread_control_widget_->StartFunction(
+      "Importing...", [this, import_path, edit_project]() {
+        const size_t idx = reconstruction_manager_->Read(import_path);
+        reconstruction_manager_widget_->Update();
+        reconstruction_manager_widget_->SelectReconstruction(idx);
+        action_bundle_adjustment_->setEnabled(true);
+        action_render_now_->trigger();
+        if (edit_project) {
+          action_project_edit_->trigger();
+        }
+      });
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -77,7 +258,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     return;
   }
 
-  if (project_widget_->IsValid() && *options_.project_path == "") {
+  if (project_widget_->IsValid() && options_.project_path->empty()) {
     // Project was created, but not yet saved
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(
@@ -107,6 +288,52 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     event->accept();
 
     window_closed_ = true;
+  }
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+  HandleDragEvent(event);
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent* event) {
+  HandleDragEvent(event);
+}
+
+void MainWindow::dropEvent(QDropEvent* event) {
+  const QMimeData* mime_data = event->mimeData();
+  if (!mime_data->hasUrls()) {
+    event->ignore();
+    return;
+  }
+
+  if (mime_data->urls().size() > 1) {
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "",
+        tr("Multiple paths detected. The first path will be used. Continue?"),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::No) {
+      return;
+    }
+  }
+
+  const std::string drop_path =
+      mime_data->urls().first().toLocalFile().toStdString();
+
+  try {
+    if (QFileInfo(QString::fromStdString(drop_path)).isDir()) {
+      ImportReconstruction(drop_path);
+    } else if (QFileInfo(QString::fromStdString(drop_path))
+                   .suffix()
+                   .compare("ply", Qt::CaseInsensitive) == 0) {
+      ImportFrom(drop_path);
+    } else {
+      QMessageBox::critical(
+          this, "", tr("Unsupported file type. Only PLY files are supported."));
+    }
+  } catch (const std::exception& e) {
+    QMessageBox::critical(this, "", tr("Failed to import: ") + e.what());
   }
 }
 
@@ -185,17 +412,21 @@ void MainWindow::CreateActions() {
 
   action_import_ =
       new QAction(QIcon(":/media/import.png"), tr("Import model"), this);
+  action_import_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
   connect(action_import_, &QAction::triggered, this, &MainWindow::Import);
   blocking_actions_.push_back(action_import_);
 
   action_import_from_ = new QAction(
-      QIcon(":/media/import-from.png"), tr("Import model from..."), this);
-  connect(
-      action_import_from_, &QAction::triggered, this, &MainWindow::ImportFrom);
+      QIcon(":/media/import-from.png"), tr("Import from ..."), this);
+  connect(action_import_from_,
+          &QAction::triggered,
+          this,
+          QOverload<>::of(&MainWindow::ImportFrom));
   blocking_actions_.push_back(action_import_from_);
 
   action_export_ =
       new QAction(QIcon(":/media/export.png"), tr("Export model"), this);
+  action_export_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_E));
   connect(action_export_, &QAction::triggered, this, &MainWindow::Export);
   blocking_actions_.push_back(action_export_);
 
@@ -433,11 +664,11 @@ void MainWindow::CreateActions() {
           this,
           &MainWindow::ResetOptions);
 
-  action_set_log_level_ = new QAction(tr("Set log level"), this);
-  connect(action_set_log_level_,
+  action_set_log_options_ = new QAction(tr("Set log options"), this);
+  connect(action_set_log_options_,
           &QAction::triggered,
           this,
-          &MainWindow::SetLogLevel);
+          &MainWindow::SetLogOptions);
 
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
@@ -539,7 +770,7 @@ void MainWindow::CreateMenus() {
   extras_menu->addSeparator();
   extras_menu->addAction(action_set_options_);
   extras_menu->addAction(action_reset_options_);
-  extras_menu->addAction(action_set_log_level_);
+  extras_menu->addAction(action_set_log_options_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -548,11 +779,6 @@ void MainWindow::CreateMenus() {
   help_menu->addAction(action_support_);
   help_menu->addAction(action_license_);
   menuBar()->addAction(help_menu->menuAction());
-
-  // TODO: Make the native menu bar work on OSX. Simply setting this to true
-  // will result in a menubar which is not clickable until the main window is
-  // defocused and refocused.
-  menuBar()->setNativeMenuBar(false);
 }
 
 void MainWindow::CreateToolbar() {
@@ -622,11 +848,13 @@ void MainWindow::CreateControllers() {
     mapper_controller_->Wait();
   }
 
+  options_.mapper->image_path = *options_.image_path;
+
   mapper_controller_ = std::make_unique<ControllerThread<IncrementalPipeline>>(
-      std::make_shared<IncrementalPipeline>(options_.mapper,
-                                            *options_.image_path,
-                                            *options_.database_path,
-                                            reconstruction_manager_));
+      std::make_shared<IncrementalPipeline>(
+          options_.mapper,
+          Database::Open(*options_.database_path),
+          reconstruction_manager_));
   mapper_controller_->GetController()->AddCallback(
       IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
@@ -657,6 +885,14 @@ void MainWindow::CreateControllers() {
       });
 }
 
+void MainWindow::HandleDragEvent(QDropEvent* event) {
+  if (event->mimeData()->hasUrls()) {
+    event->acceptProposedAction();
+  } else {
+    event->ignore();
+  }
+}
+
 void MainWindow::ProjectNew() {
   if (ReconstructionOverwrite()) {
     project_widget_->Reset();
@@ -671,22 +907,28 @@ bool MainWindow::ProjectOpen() {
   }
 
   const std::string project_path =
-      QFileDialog::getOpenFileName(
-          this, tr("Select project file"), "", tr("Project file (*.ini)"))
+      QFileDialog::getOpenFileName(this,
+                                   tr("Select project file"),
+                                   GetLastOpen(kLastDirProject),
+                                   tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
-  // If selection not canceled
-  if (project_path != "") {
-    if (options_.ReRead(project_path)) {
-      *options_.project_path = project_path;
-      project_widget_->SetDatabasePath(*options_.database_path);
-      project_widget_->SetImagePath(*options_.image_path);
-      UpdateWindowTitle();
-      return true;
-    } else {
-      ShowInvalidProjectError();
-    }
+
+  if (project_path.empty()) {
+    // Selection cancelled.
+    return false;
   }
+
+  if (options_.ReRead(project_path)) {
+    *options_.project_path = project_path;
+    project_widget_->SetDatabasePath(*options_.database_path);
+    project_widget_->SetImagePath(*options_.image_path);
+    UpdateWindowTitle();
+    SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
+    return true;
+  }
+
+  ShowInvalidProjectError();
 
   return false;
 }
@@ -699,21 +941,25 @@ void MainWindow::ProjectEdit() {
 void MainWindow::ProjectSave() {
   if (!ExistsFile(*options_.project_path)) {
     std::string project_path =
-        QFileDialog::getSaveFileName(
-            this, tr("Select project file"), "", tr("Project file (*.ini)"))
+        QFileDialog::getSaveFileName(this,
+                                     tr("Select project file"),
+                                     GetLastOpen(kLastDirProject),
+                                     tr("Project file (*.ini)"))
             .toUtf8()
             .constData();
-    // If selection not canceled
-    if (project_path != "") {
+    if (!project_path.empty()) {
       if (!HasFileExtension(project_path, ".ini")) {
         project_path += ".ini";
       }
       *options_.project_path = project_path;
       options_.Write(*options_.project_path);
+      SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
     }
   } else {
     // Project path was chosen previously, either here or via command-line.
     options_.Write(*options_.project_path);
+    SetLastOpen(kLastDirProject,
+                QString::fromStdString(options_.project_path->string()));
   }
 
   UpdateWindowTitle();
@@ -721,13 +967,16 @@ void MainWindow::ProjectSave() {
 
 void MainWindow::ProjectSaveAs() {
   const std::string new_project_path =
-      QFileDialog::getSaveFileName(
-          this, tr("Select project file"), "", tr("Project file (*.ini)"))
+      QFileDialog::getSaveFileName(this,
+                                   tr("Select project file"),
+                                   GetLastOpen(kLastDirProject),
+                                   tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
   if (new_project_path != "") {
     *options_.project_path = new_project_path;
     options_.Write(*options_.project_path);
+    SetLastOpen(kLastDirProject, QString::fromStdString(new_project_path));
   }
 
   UpdateWindowTitle();
@@ -735,99 +984,88 @@ void MainWindow::ProjectSaveAs() {
 
 void MainWindow::Import() {
   const std::string import_path =
-      QFileDialog::getExistingDirectory(
-          this, tr("Select source..."), "", QFileDialog::ShowDirsOnly)
+      QFileDialog::getExistingDirectory(this,
+                                        tr("Select source..."),
+                                        GetLastOpen(kLastImportExport),
+                                        QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (import_path == "") {
-    return;
-  }
-
-  const std::string project_path = JoinPaths(import_path, "project.ini");
-  const std::string cameras_bin_path = JoinPaths(import_path, "cameras.bin");
-  const std::string images_bin_path = JoinPaths(import_path, "images.bin");
-  const std::string points3D_bin_path = JoinPaths(import_path, "points3D.bin");
-  const std::string cameras_txt_path = JoinPaths(import_path, "cameras.txt");
-  const std::string images_txt_path = JoinPaths(import_path, "images.txt");
-  const std::string points3D_txt_path = JoinPaths(import_path, "points3D.txt");
-
-  if ((!ExistsFile(cameras_bin_path) || !ExistsFile(images_bin_path) ||
-       !ExistsFile(points3D_bin_path)) &&
-      (!ExistsFile(cameras_txt_path) || !ExistsFile(images_txt_path) ||
-       !ExistsFile(points3D_txt_path))) {
-    QMessageBox::critical(this,
-                          "",
-                          tr("cameras, images, and points3D files do not exist "
-                             "in chosen directory."));
-    return;
-  }
-
-  if (!ReconstructionOverwrite()) {
-    return;
-  }
-
-  bool edit_project = false;
-  if (ExistsFile(project_path)) {
-    options_.ReRead(project_path);
-  } else {
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this,
-        "",
-        tr("Directory does not contain a <i>project.ini</i>. To "
-           "resume the reconstruction, you need to specify a valid "
-           "database and image path. Do you want to select the paths "
-           "now (or press <i>No</i> to only visualize the reconstruction)?"),
-        QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-      edit_project = true;
-    }
-  }
-
-  thread_control_widget_->StartFunction(
-      "Importing...", [this, import_path, edit_project]() {
-        const size_t idx = reconstruction_manager_->Read(import_path);
-        reconstruction_manager_widget_->Update();
-        reconstruction_manager_widget_->SelectReconstruction(idx);
-        action_bundle_adjustment_->setEnabled(true);
-        action_render_now_->trigger();
-        if (edit_project) {
-          action_project_edit_->trigger();
-        }
-      });
+  ImportReconstruction(import_path);
 }
 
 void MainWindow::ImportFrom() {
   const std::string import_path =
-      QFileDialog::getOpenFileName(this, tr("Select source..."), "")
+      QFileDialog::getOpenFileName(this,
+                                   tr("Select PLY file..."),
+                                   GetLastOpen(kLastImportExport),
+                                   tr("PLY files (*.ply)"))
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (import_path == "") {
+  if (import_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
+  SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
+  ImportFrom(import_path);
+}
+
+void MainWindow::ImportFrom(const std::string& import_path) {
   if (!ExistsFile(import_path)) {
     QMessageBox::critical(this, "", tr("Invalid file"));
     return;
   }
 
-  if (!HasFileExtension(import_path, ".ply")) {
-    QMessageBox::critical(
-        this, "", tr("Invalid file format (supported formats: PLY)"));
-    return;
-  }
+  if (HasPlyMeshFaces(import_path)) {
+    thread_control_widget_->StartFunction(
+        "Importing surface mesh...", [this, import_path]() {
+          try {
+            PlyTexturedMesh textured_mesh = ReadPlyMesh(import_path);
 
-  thread_control_widget_->StartFunction("Importing...", [this, import_path]() {
-    const size_t reconstruction_idx = reconstruction_manager_->Add();
-    reconstruction_manager_->Get(reconstruction_idx)->ImportPLY(import_path);
-    options_.render->min_track_len = 0;
-    reconstruction_manager_widget_->Update();
-    reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
-    action_render_now_->trigger();
-  });
+            // Clear any previous texture data.
+            model_viewer_widget_->surface_texture_data.clear();
+            model_viewer_widget_->surface_texture_width = 0;
+            model_viewer_widget_->surface_texture_height = 0;
+
+            // Load texture atlas if the mesh has UV coordinates and a
+            // texture file reference.
+            if (!textured_mesh.face_uvs.empty() &&
+                !textured_mesh.texture_file.empty()) {
+              const auto ply_dir =
+                  std::filesystem::path(import_path).parent_path();
+              const auto texture_path = ply_dir / textured_mesh.texture_file;
+              Bitmap bitmap;
+              if (bitmap.Read(texture_path, /*as_rgb=*/true)) {
+                model_viewer_widget_->surface_texture_data =
+                    bitmap.RowMajorData();
+                model_viewer_widget_->surface_texture_width = bitmap.Width();
+                model_viewer_widget_->surface_texture_height = bitmap.Height();
+              } else {
+                LOG(WARNING) << "Failed to read texture file: " << texture_path
+                             << ". Falling back to vertex colors.";
+                textured_mesh.face_uvs.clear();
+              }
+            }
+
+            model_viewer_widget_->surface_mesh = std::move(textured_mesh);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+          }
+        });
+  } else {
+    thread_control_widget_->StartFunction(
+        "Importing point cloud...", [this, import_path]() {
+          try {
+            model_viewer_widget_->point_cloud = ReadPly(import_path);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read point cloud: " << e.what();
+          }
+        });
+  }
 }
 
 void MainWindow::Export() {
@@ -835,25 +1073,29 @@ void MainWindow::Export() {
     return;
   }
 
-  const std::string export_path =
-      QFileDialog::getExistingDirectory(
-          this, tr("Select destination..."), "", QFileDialog::ShowDirsOnly)
+  const std::filesystem::path export_path =
+      QFileDialog::getExistingDirectory(this,
+                                        tr("Select destination..."),
+                                        GetLastOpen(kLastImportExport),
+                                        QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (export_path == "") {
+  // Selection cancelled?
+  if (export_path.empty()) {
     return;
   }
+
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path.string()));
 
   const std::string cameras_name = "cameras.bin";
   const std::string images_name = "images.bin";
   const std::string points3D_name = "points3D.bin";
 
-  const std::string project_path = JoinPaths(export_path, "project.ini");
-  const std::string cameras_path = JoinPaths(export_path, cameras_name);
-  const std::string images_path = JoinPaths(export_path, images_name);
-  const std::string points3D_path = JoinPaths(export_path, points3D_name);
+  const std::filesystem::path project_path = export_path / "project.ini";
+  const std::filesystem::path cameras_path = export_path / cameras_name;
+  const std::filesystem::path images_path = export_path / images_name;
+  const std::filesystem::path points3D_path = export_path / points3D_name;
 
   if (ExistsFile(cameras_path) || ExistsFile(images_path) ||
       ExistsFile(points3D_path)) {
@@ -886,20 +1128,24 @@ void MainWindow::ExportAll() {
     return;
   }
 
-  const std::string export_path =
-      QFileDialog::getExistingDirectory(
-          this, tr("Select destination..."), "", QFileDialog::ShowDirsOnly)
+  const std::filesystem::path export_path =
+      QFileDialog::getExistingDirectory(this,
+                                        tr("Select destination..."),
+                                        GetLastOpen(kLastImportExport),
+                                        QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (export_path == "") {
+  if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path.string()));
+
   thread_control_widget_->StartFunction("Exporting...", [this, export_path]() {
     reconstruction_manager_->Write(export_path);
-    options_.Write(JoinPaths(export_path, "project.ini"));
+    options_.Write(export_path / "project.ini");
   });
 }
 
@@ -909,20 +1155,22 @@ void MainWindow::ExportAs() {
   }
 
   QString filter("NVM (*.nvm)");
-  const std::string export_path =
+  const std::filesystem::path export_path =
       QFileDialog::getSaveFileName(
           this,
           tr("Select destination..."),
-          "",
+          GetLastOpen(kLastImportExport),
           "NVM (*.nvm);;Bundler (*.out);;PLY (*.ply);;VRML (*.wrl)",
           &filter)
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (export_path == "") {
+  if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
+
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path.string()));
 
   thread_control_widget_->StartFunction(
       "Exporting...", [this, export_path, filter]() {
@@ -931,16 +1179,16 @@ void MainWindow::ExportAs() {
         if (filter == "NVM (*.nvm)") {
           ExportNVM(*reconstruction, export_path);
         } else if (filter == "Bundler (*.out)") {
-          ExportBundler(
-              *reconstruction, export_path, export_path + ".list.txt");
+          ExportBundler(*reconstruction,
+                        export_path,
+                        AddFileExtension(export_path, ".list.txt"));
         } else if (filter == "PLY (*.ply)") {
           ExportPLY(*reconstruction, export_path);
         } else if (filter == "VRML (*.wrl)") {
-          const auto base_path =
-              export_path.substr(0, export_path.find_last_of('.'));
+          const auto base_path = export_path.parent_path() / export_path.stem();
           ExportVRML(*reconstruction,
-                     base_path + ".images.wrl",
-                     base_path + ".points3D.wrl",
+                     AddFileExtension(base_path, ".images.wrl"),
+                     AddFileExtension(base_path, ".points3D.wrl"),
                      1,
                      Eigen::Vector3d(1, 0, 0));
         }
@@ -952,25 +1200,29 @@ void MainWindow::ExportAsText() {
     return;
   }
 
-  const std::string export_path =
-      QFileDialog::getExistingDirectory(
-          this, tr("Select destination..."), "", QFileDialog::ShowDirsOnly)
+  const std::filesystem::path export_path =
+      QFileDialog::getExistingDirectory(this,
+                                        tr("Select destination..."),
+                                        GetLastOpen(kLastImportExport),
+                                        QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (export_path == "") {
+  if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
+
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path.string()));
 
   const std::string cameras_name = "cameras.txt";
   const std::string images_name = "images.txt";
   const std::string points3D_name = "points3D.txt";
 
-  const std::string project_path = JoinPaths(export_path, "project.ini");
-  const std::string cameras_path = JoinPaths(export_path, cameras_name);
-  const std::string images_path = JoinPaths(export_path, images_name);
-  const std::string points3D_path = JoinPaths(export_path, points3D_name);
+  const std::filesystem::path project_path = export_path / "project.ini";
+  const std::filesystem::path cameras_path = export_path / cameras_name;
+  const std::filesystem::path images_path = export_path / images_name;
+  const std::filesystem::path points3D_path = export_path / points3D_name;
 
   if (ExistsFile(cameras_path) || ExistsFile(images_path) ||
       ExistsFile(points3D_path)) {
@@ -1187,7 +1439,13 @@ void MainWindow::RenderNow() {
 
 void MainWindow::RenderSelectedReconstruction() {
   if (reconstruction_manager_->Size() == 0) {
-    RenderClear();
+    if (model_viewer_widget_->surface_mesh.has_value() ||
+        model_viewer_widget_->point_cloud.has_value()) {
+      model_viewer_widget_->reconstruction = nullptr;
+      model_viewer_widget_->ReloadReconstruction();
+    } else {
+      RenderClear();
+    }
     return;
   }
 
@@ -1245,8 +1503,10 @@ bool MainWindow::IsSelectedReconstructionValid() {
 }
 
 void MainWindow::GrabImage() {
-  QString file_name = QFileDialog::getSaveFileName(
-      this, tr("Save image"), "", tr("Images (*.png *.jpg)"));
+  QString file_name = QFileDialog::getSaveFileName(this,
+                                                   tr("Save image"),
+                                                   GetLastOpen(kLastGrabImage),
+                                                   tr("Images (*.png *.jpg)"));
   if (file_name != "") {
     if (!HasFileExtension(file_name.toUtf8().constData(), ".png") &&
         !HasFileExtension(file_name.toUtf8().constData(), ".jpg")) {
@@ -1254,6 +1514,7 @@ void MainWindow::GrabImage() {
     }
     QImage image = model_viewer_widget_->GrabImage();
     image.save(file_name);
+    SetLastOpen(kLastGrabImage, file_name);
   }
 }
 
@@ -1350,15 +1611,66 @@ void MainWindow::ResetOptions() {
   options_.ResetOptions(kResetPaths);
 }
 
-void MainWindow::SetLogLevel() {
-  bool ok = false;
-  const int log_level =
-      QInputDialog::getInt(this, "", "Log Level:", FLAGS_v, 0, 3, 1, &ok);
-  if (!ok) {
-    return;
-  }
+void MainWindow::SetLogOptions() {
+  QDialog dialog(this);
+  dialog.setWindowTitle("Log Options");
+  dialog.resize(220, 160);
 
-  FLAGS_v = log_level;
+  QFormLayout* form_layout = new QFormLayout(&dialog);
+
+  // Log target
+  QComboBox* log_target_box = new QComboBox(&dialog);
+  log_target_box->addItems({"stderr", "stdout", "file", "stderr_and_file"});
+  log_target_box->setCurrentText(GetLogTarget().c_str());
+  log_target_box->setToolTip(
+      QString("Default output path: system temporary directory "
+              "(usually: %1)")
+          .arg(std::filesystem::temp_directory_path().c_str()));
+  form_layout->addRow("Log target", log_target_box);
+
+  // NOTE: glog resolves log file paths during initialization.
+  // Runtime modification of FLAGS_log_dir does not re-open log files,
+  // therefore directory changes are not supported here.
+
+  // Verbosity
+  QSpinBox* verbosity_box = new QSpinBox(&dialog);
+  verbosity_box->setRange(0, 10);
+  verbosity_box->setValue(FLAGS_v);
+  form_layout->addRow("Verbosity", verbosity_box);
+
+  // Minimum severity
+  QComboBox* min_severity_box = new QComboBox(&dialog);
+  min_severity_box->addItems({"INFO", "WARNING", "ERROR", "FATAL"});
+  min_severity_box->setCurrentIndex(FLAGS_minloglevel);
+  form_layout->addRow("Minimum severity", min_severity_box);
+
+  // Color
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  QComboBox* color_box = new QComboBox(&dialog);
+  color_box->addItems({"Disabled", "Enabled"});
+  color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
+  form_layout->addRow("Colored logging", color_box);
+#endif
+
+  QDialogButtonBox* buttons = new QDialogButtonBox(
+      QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+  form_layout->addRow(buttons);
+
+  if (dialog.exec() == QDialog::Accepted) {
+    ApplyLogOptions(log_target_box->currentText().toStdString(),
+                    verbosity_box->value(),
+                    min_severity_box->currentIndex(),
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+                    color_box->currentIndex()
+#else
+                    0
+#endif
+    );
+  }
 }
 
 void MainWindow::About() {
@@ -1427,10 +1739,10 @@ void MainWindow::DisableBlockingActions() {
 }
 
 void MainWindow::UpdateWindowTitle() {
-  if (*options_.project_path == "") {
+  if (options_.project_path->empty()) {
     setWindowTitle(QString::fromStdString("COLMAP"));
   } else {
-    std::string project_title = *options_.project_path;
+    std::string project_title = options_.project_path->string();
     if (project_title.size() > 80) {
       project_title =
           "..." + project_title.substr(project_title.size() - 77, 77);
