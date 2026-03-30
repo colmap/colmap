@@ -421,6 +421,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddRequiredOption("image_path", &mapper_options.image_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("num_threads", &mapper_options.num_threads);
   options.AddDefaultOption("num_workers", &mapper_options.num_workers);
   options.AddDefaultOption("image_overlap",
                            &mapper_options.clustering_options.image_overlap);
