@@ -139,7 +139,7 @@ class ImuPreintegrator {
 
   // Feed measurements. Must be added in chronological order.
   void FeedImu(const ImuMeasurement& m);
-  void FeedImu(const std::vector<ImuMeasurement>& ms);
+  void FeedImu(const ImuMeasurements& ms);
 
   // Extract the preintegrated data struct. Calls Finalize() internally.
   PreintegratedImuData Extract();

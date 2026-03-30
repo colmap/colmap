@@ -501,7 +501,7 @@ void ImuPreintegrator::FeedImu(const ImuMeasurement& m) {
     THROW_CHECK_LE(m.timestamp, t_start_)
         << "The timestamp of the first IMU measurement should not be later "
            "than the start of integration";
-    measurements_.push_back(m);
+    measurements_.Insert(m);
     has_started_ = true;
     return;
   }
@@ -512,8 +512,8 @@ void ImuPreintegrator::FeedImu(const ImuMeasurement& m) {
   if (m.timestamp <= t_start_) {
     LOG(WARNING) << "The timestamp of this measurement is earlier than "
                     "t_start. Ignore the previous measurements.";
-    measurements_.clear();
-    measurements_.push_back(m);
+    measurements_.Clear();
+    measurements_.Insert(m);
     return;
   }
   if (last_measurement.timestamp >= t_end_) {
@@ -523,11 +523,11 @@ void ImuPreintegrator::FeedImu(const ImuMeasurement& m) {
   }
 
   // Append measurements
-  measurements_.push_back(m);
+  measurements_.Insert(m);
   IntegrateOneMeasurement(last_measurement, m);
 }
 
-void ImuPreintegrator::FeedImu(const std::vector<ImuMeasurement>& ms) {
+void ImuPreintegrator::FeedImu(const ImuMeasurements& ms) {
   for (const auto& m : ms) {
     FeedImu(m);
   }
@@ -543,7 +543,7 @@ void ImuPreintegrator::Update(PreintegratedImuData* data) { *data = data_; }
 void ImuPreintegrator::Reintegrate() {
   Reset();
   has_started_ = true;
-  for (size_t i = 1; i < measurements_.size(); ++i) {
+  for (size_t i = 1; i < measurements_.Size(); ++i) {
     IntegrateOneMeasurement(measurements_[i - 1], measurements_[i]);
   }
   data_.Finalize(options_.max_condition_number);

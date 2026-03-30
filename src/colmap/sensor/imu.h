@@ -94,14 +94,142 @@ std::ostream& operator<<(std::ostream& stream,
 std::ostream& operator<<(std::ostream& stream,
                          const ImuMeasurement& measurement);
 
-// IMU measurements stored as a plain vector. Callers must ensure
-// measurements are sorted by timestamp (chronological order).
-using ImuMeasurements = std::vector<ImuMeasurement>;
+// Sorted list of IMU measurements ordered by timestamp.
+class ImuMeasurements {
+ public:
+  ImuMeasurements() = default;
+  explicit ImuMeasurements(const std::vector<ImuMeasurement>& ms) {
+    Insert(ms);
+  }
+  ImuMeasurements(const ImuMeasurements& ms) { Insert(ms); }
 
-// Extract measurements spanning the edge [t1, t2] from a sorted vector.
-// Returns measurements from the sample just before t1 through the sample at
-// or just after t2.
-ImuMeasurements ExtractMeasurementsInTimeRange(
-    const ImuMeasurements& measurements, timestamp_t t1, timestamp_t t2);
+  void Insert(const ImuMeasurement& m) {
+    // Fast path: append if empty or new measurement comes after all existing.
+    if (Empty() || m.timestamp > measurements_.back().timestamp) {
+      measurements_.push_back(m);
+      return;
+    }
+    if (m.timestamp == measurements_.back().timestamp) {
+      throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
+                                  std::to_string(m.timestamp));
+    }
+    auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+      return m1.timestamp < m2.timestamp;
+    };
+    auto it =
+        std::lower_bound(measurements_.begin(), measurements_.end(), m, cmp);
+    if (it != measurements_.end() && it->timestamp == m.timestamp) {
+      throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
+                                  std::to_string(m.timestamp));
+    }
+    measurements_.insert(it, m);
+  }
+
+  void Insert(const std::vector<ImuMeasurement>& ms) {
+    if (Empty()) {
+      measurements_ = ms;
+      std::sort(measurements_.begin(),
+                measurements_.end(),
+                [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+                  return m1.timestamp < m2.timestamp;
+                });
+      ThrowIfHasDuplicates(measurements_);
+    } else {
+      for (auto it = ms.begin(); it != ms.end(); ++it) Insert(*it);
+    }
+  }
+
+  void Insert(const ImuMeasurements& ms) {
+    if (Empty()) {
+      measurements_ = ms.Data();
+    } else {
+      InsertSorted(ms.Data());
+    }
+  }
+
+  // Insert measurements that are already sorted by timestamp.
+  // If all new measurements come after the existing ones, this is O(m) append.
+  // Otherwise falls back to O(n+m) merge. Throws on duplicate timestamps.
+  void InsertSorted(const std::vector<ImuMeasurement>& sorted_ms) {
+    if (sorted_ms.empty()) return;
+    ThrowIfHasDuplicates(sorted_ms);
+    if (Empty()) {
+      measurements_ = sorted_ms;
+      return;
+    }
+    if (sorted_ms.front().timestamp > measurements_.back().timestamp) {
+      measurements_.insert(
+          measurements_.end(), sorted_ms.begin(), sorted_ms.end());
+      return;
+    }
+    if (sorted_ms.front().timestamp == measurements_.back().timestamp) {
+      throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
+                                  std::to_string(sorted_ms.front().timestamp));
+    }
+    std::vector<ImuMeasurement> merged;
+    merged.reserve(measurements_.size() + sorted_ms.size());
+    std::merge(measurements_.begin(),
+               measurements_.end(),
+               sorted_ms.begin(),
+               sorted_ms.end(),
+               std::back_inserter(merged),
+               [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+                 return m1.timestamp < m2.timestamp;
+               });
+    // Check for cross-range duplicates after merge.
+    ThrowIfHasDuplicates(merged);
+    measurements_ = std::move(merged);
+  }
+
+  void Remove(const ImuMeasurement& m) {
+    auto it = std::lower_bound(
+        measurements_.begin(),
+        measurements_.end(),
+        m,
+        [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+          return m1.timestamp < m2.timestamp;
+        });
+    if (it != measurements_.end() && it->timestamp == m.timestamp)
+      measurements_.erase(it);
+    else
+      throw std::invalid_argument("Element not found in the list");
+  }
+
+  void Clear() { measurements_.clear(); }
+  bool Empty() const { return measurements_.empty(); }
+  size_t Size() const { return measurements_.size(); }
+
+  const ImuMeasurement& operator[](size_t index) const {
+    return measurements_[index];
+  }
+  typename std::vector<ImuMeasurement>::const_iterator begin() const {
+    return measurements_.begin();
+  }
+  typename std::vector<ImuMeasurement>::const_iterator end() const {
+    return measurements_.end();
+  }
+  const ImuMeasurement& front() const { return measurements_.front(); }
+  const ImuMeasurement& back() const { return measurements_.back(); }
+  const std::vector<ImuMeasurement>& Data() const { return measurements_; }
+
+  // Extract measurements that fully contain the edge [t1, t2]: from the
+  // sample at or just before t1 to the sample at or just after t2. This
+  // ensures the returned range brackets both endpoints, which is required
+  // for correct IMU preintegration when t1/t2 fall between samples.
+  ImuMeasurements ExtractMeasurementsContainEdge(timestamp_t t1,
+                                                 timestamp_t t2) const;
+
+ private:
+  static void ThrowIfHasDuplicates(const std::vector<ImuMeasurement>& ms) {
+    for (size_t i = 1; i < ms.size(); ++i) {
+      if (ms[i].timestamp == ms[i - 1].timestamp) {
+        throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
+                                    std::to_string(ms[i].timestamp));
+      }
+    }
+  }
+
+  std::vector<ImuMeasurement> measurements_;
+};
 
 }  // namespace colmap

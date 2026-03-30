@@ -63,6 +63,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_sensor
 )
 COLMAP_ADD_TEST(
+    NAME imu_test
+    SRCS imu_test.cc
+    LINK_LIBS colmap_sensor
+)
+COLMAP_ADD_TEST(
     NAME models_test
     SRCS models_test.cc
     LINK_LIBS colmap_sensor

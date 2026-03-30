@@ -35,5 +35,3 @@ PYBIND11_MAKE_OPAQUE(Point3DMap);
 using PoseGraphEdgeMap =
     std::unordered_map<colmap::image_pair_t, colmap::PoseGraph::Edge>;
 PYBIND11_MAKE_OPAQUE(PoseGraphEdgeMap);
-
-PYBIND11_MAKE_OPAQUE(colmap::ImuMeasurements);

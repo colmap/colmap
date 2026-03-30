@@ -75,10 +75,10 @@ void BindImuPreintegration(py::module& m) {
       .def("feed_imu",
            py::overload_cast<const ImuMeasurement&>(&ImuPreintegrator::FeedImu),
            "measurement"_a)
-      .def("feed_imu",
-           py::overload_cast<const std::vector<ImuMeasurement>&>(
-               &ImuPreintegrator::FeedImu),
-           "measurements"_a)
+      .def(
+          "feed_imu",
+          py::overload_cast<const ImuMeasurements&>(&ImuPreintegrator::FeedImu),
+          "measurements"_a)
       .def("extract", &ImuPreintegrator::Extract)
       .def(
           "update",

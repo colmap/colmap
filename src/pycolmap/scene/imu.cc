@@ -55,13 +55,38 @@ void BindImu(py::module& m) {
       });
   MakeDataclass(PyImuMeasurement);
 
-  py::bind_vector<ImuMeasurements>(m, "ImuMeasurements");
-
-  m.def("extract_measurements_in_time_range",
-        &ExtractMeasurementsInTimeRange,
-        "measurements"_a,
-        "t1"_a,
-        "t2"_a);
+  py::classh<ImuMeasurements>(m, "ImuMeasurements")
+      .def(py::init<>())
+      .def("insert",
+           py::overload_cast<const ImuMeasurement&>(&ImuMeasurements::Insert),
+           "measurement"_a)
+      .def("insert",
+           py::overload_cast<const std::vector<ImuMeasurement>&>(
+               &ImuMeasurements::Insert),
+           "measurements"_a)
+      .def("insert",
+           py::overload_cast<const ImuMeasurements&>(&ImuMeasurements::Insert),
+           "measurements"_a)
+      .def("insert_sorted",
+           &ImuMeasurements::InsertSorted,
+           "sorted_measurements"_a)
+      .def("clear", &ImuMeasurements::Clear)
+      .def("empty", &ImuMeasurements::Empty)
+      .def("__len__", &ImuMeasurements::Size)
+      .def("__getitem__", &ImuMeasurements::operator[])
+      .def("extract_measurements_contain_edge",
+           &ImuMeasurements::ExtractMeasurementsContainEdge,
+           "t1"_a,
+           "t2"_a)
+      .def(
+          "__iter__",
+          [](const ImuMeasurements& ms) {
+            return py::make_iterator(ms.begin(), ms.end());
+          },
+          py::keep_alive<0, 1>())
+      .def("__repr__", [](const ImuMeasurements& ms) {
+        return "ImuMeasurements(size=" + std::to_string(ms.Size()) + ")";
+      });
 
   py::classh<Imu>(m, "Imu")
       .def(py::init<>())

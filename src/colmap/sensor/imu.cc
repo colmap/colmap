@@ -33,27 +33,25 @@
 
 namespace colmap {
 
-ImuMeasurements ExtractMeasurementsInTimeRange(
-    const ImuMeasurements& measurements, timestamp_t t1, timestamp_t t2) {
-  THROW_CHECK(!measurements.empty())
-      << "Cannot query measurements from empty container.";
+ImuMeasurements ImuMeasurements::ExtractMeasurementsContainEdge(
+    timestamp_t t1, timestamp_t t2) const {
+  THROW_CHECK(!Empty()) << "Cannot query measurements from empty container.";
   THROW_CHECK_LT(t1, t2) << "t1 must be less than t2.";
-  THROW_CHECK_GE(t1, measurements.front().timestamp)
+  THROW_CHECK_GE(t1, front().timestamp)
       << "t1 is before the first measurement.";
-  THROW_CHECK_LE(t2, measurements.back().timestamp)
-      << "t2 is after the last measurement.";
+  THROW_CHECK_LE(t2, back().timestamp) << "t2 is after the last measurement.";
   auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
     return m1.timestamp < m2.timestamp;
   };
   ImuMeasurement dummy;
   dummy.timestamp = t1;
-  auto it1 =
-      std::upper_bound(measurements.begin(), measurements.end(), dummy, cmp);
+  auto it1 = std::upper_bound(begin(), end(), dummy, cmp);
   dummy.timestamp = t2;
-  auto it2 =
-      std::lower_bound(measurements.begin(), measurements.end(), dummy, cmp);
-  // Include the sample just before t1 through the sample at/after t2.
-  return ImuMeasurements(it1 - 1, it2 + 1);
+  auto it2 = std::lower_bound(begin(), end(), dummy, cmp);
+  // Range: sample at/before t1 through sample at/after t2.
+  ImuMeasurements result;
+  result.InsertSorted(std::vector<ImuMeasurement>(it1 - 1, it2 + 1));
+  return result;
 }
 
 std::ostream& operator<<(std::ostream& stream,
