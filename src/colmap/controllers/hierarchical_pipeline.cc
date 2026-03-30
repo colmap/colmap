@@ -188,11 +188,12 @@ void HierarchicalPipeline::Run() {
   }
   const int num_total_threads = GetEffectiveNumThreads(options_.num_threads);
   const int kDefaultNumWorkers = 8;
-  const int num_eff_workers =
-      options_.num_workers < 1
-          ? std::min(static_cast<int>(leaf_clusters.size()),
-                     std::min(kDefaultNumWorkers, num_total_threads))
-          : std::min(options_.num_workers, num_total_threads);
+  const int num_eff_workers = std::max(
+      1,
+      std::min(static_cast<int>(leaf_clusters.size()),
+               std::min(options_.num_workers < 1 ? kDefaultNumWorkers
+                                                 : options_.num_workers,
+                        num_total_threads)));
   const int num_threads_per_worker =
       std::max(1, num_total_threads / num_eff_workers);
 
