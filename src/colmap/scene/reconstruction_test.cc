@@ -34,7 +34,9 @@
 #include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/testing.h"
 
@@ -1379,6 +1381,46 @@ TEST(Reconstruction, CreateImageDirs) {
 
   EXPECT_TRUE(std::filesystem::exists(test_dir / "subdir1"));
   EXPECT_TRUE(std::filesystem::exists(test_dir / "subdir2" / "subdir3"));
+}
+
+void WriteSolidColorImages(const Reconstruction& reconstruction,
+                           const std::filesystem::path& image_path,
+                           const BitmapColor<uint8_t>& color) {
+  for (const auto& image_id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(image_id);
+    const auto& camera = reconstruction.Camera(image.CameraId());
+    Bitmap bitmap(camera.width, camera.height, /*as_rgb=*/true);
+    bitmap.Fill(color);
+    bitmap.Write(image_path / image.Name());
+  }
+}
+
+TEST(Reconstruction, ExtractColorsForAllImages) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 3;
+  options.num_points3D = 10;
+  options.num_points2D_without_point3D = 2;
+  SynthesizeDataset(options, &reconstruction);
+
+  const auto image_path = CreateTestDir() / "images";
+  CreateDirIfNotExists(image_path);
+  const BitmapColor<uint8_t> kColor(20, 40, 220);
+  WriteSolidColorImages(reconstruction, image_path, kColor);
+
+  // Delete one image file so extraction must handle the missing file.
+  const auto first_image_id = *reconstruction.RegImageIds().begin();
+  const auto& first_image = reconstruction.Image(first_image_id);
+  std::filesystem::remove(image_path / first_image.Name());
+
+  reconstruction.ExtractColorsForAllImages(image_path, /*num_threads=*/2);
+
+  for (const auto& point3D_id : reconstruction.Point3DIds()) {
+    const auto& color = reconstruction.Point3D(point3D_id).color;
+    EXPECT_EQ(color, Eigen::Vector3ub(kColor.r, kColor.g, kColor.b));
+  }
 }
 
 }  // namespace
