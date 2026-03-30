@@ -1113,7 +1113,7 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 void Reconstruction::ExtractColorsForAllImages(
     const std::filesystem::path& path, const int num_threads) {
   struct ColorData {
-    Eigen::Vector3i sum = Eigen::Vector3i::Zero();
+    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
     int count = 0;
   };
   ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
@@ -1153,8 +1153,8 @@ void Reconstruction::ExtractColorsForAllImages(
 
   // Merge per-thread results.
   std::unordered_map<point3D_t, ColorData> merged_data;
-  for (auto& data : thread_data) {
-    for (auto& [point3D_id, thread_color_data] : data) {
+  for (const auto& data : thread_data) {
+    for (const auto& [point3D_id, thread_color_data] : data) {
       auto& merged_color_data = merged_data[point3D_id];
       merged_color_data.sum += thread_color_data.sum;
       merged_color_data.count += thread_color_data.count;
@@ -1164,7 +1164,7 @@ void Reconstruction::ExtractColorsForAllImages(
   const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
   for (auto& [point3D_id, point3D] : points3D_) {
     if (auto it = merged_data.find(point3D_id); it != merged_data.end()) {
-      Eigen::Vector3d color = it->second.sum.cast<double>() / it->second.count;
+      Eigen::Vector3d color = it->second.sum / it->second.count;
       for (Eigen::Index i = 0; i < color.size(); ++i) {
         color[i] = std::round(color[i]);
       }
