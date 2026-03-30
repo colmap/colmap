@@ -181,6 +181,11 @@ void HierarchicalPipeline::Run() {
 
   // Determine the number of workers and threads per worker. The total thread
   // budget is divided across workers to avoid oversubscription.
+  if (options_.incremental_options.num_threads > 0) {
+    LOG(WARNING)
+        << "Mapper.num_threads is ignored in hierarchical mapping. Use "
+           "num_threads to control the total thread budget instead.";
+  }
   const int num_total_threads = GetEffectiveNumThreads(options_.num_threads);
   const int kDefaultNumWorkers = 8;
   const int num_eff_workers =
