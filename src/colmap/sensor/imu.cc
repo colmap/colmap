@@ -33,9 +33,8 @@
 
 namespace colmap {
 
-ImuMeasurements GetMeasurementsContainEdge(const ImuMeasurements& measurements,
-                                           timestamp_t t1,
-                                           timestamp_t t2) {
+ImuMeasurements ExtractMeasurementsInTimeRange(
+    const ImuMeasurements& measurements, timestamp_t t1, timestamp_t t2) {
   THROW_CHECK(!measurements.empty())
       << "Cannot query measurements from empty container.";
   THROW_CHECK_LT(t1, t2) << "t1 must be less than t2.";

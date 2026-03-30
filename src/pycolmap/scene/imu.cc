@@ -57,8 +57,8 @@ void BindImu(py::module& m) {
 
   py::bind_vector<ImuMeasurements>(m, "ImuMeasurements");
 
-  m.def("get_measurements_contain_edge",
-        &GetMeasurementsContainEdge,
+  m.def("extract_measurements_in_time_range",
+        &ExtractMeasurementsInTimeRange,
         "measurements"_a,
         "t1"_a,
         "t2"_a);

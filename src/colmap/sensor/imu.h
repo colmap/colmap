@@ -101,8 +101,7 @@ using ImuMeasurements = std::vector<ImuMeasurement>;
 // Extract measurements spanning the edge [t1, t2] from a sorted vector.
 // Returns measurements from the sample just before t1 through the sample at
 // or just after t2.
-ImuMeasurements GetMeasurementsContainEdge(const ImuMeasurements& measurements,
-                                           timestamp_t t1,
-                                           timestamp_t t2);
+ImuMeasurements ExtractMeasurementsInTimeRange(
+    const ImuMeasurements& measurements, timestamp_t t1, timestamp_t t2);
 
 }  // namespace colmap

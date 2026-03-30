@@ -396,26 +396,28 @@ void ImuPreintegrator::IntegrateRK4(const Eigen::Vector3d& accel_true,
   const Eigen::Matrix3d R_eval_mid = R_mid * Rs;
 
   // k1: evaluate at start rotation.
-  auto [F1, G1] = build_F_G(Rs);
-  Eigen::Matrix<double, 15, 15> P_dot_1 = F1 * data_.covariance +
-                                          data_.covariance * F1.transpose() +
-                                          G1 * Q_c * G1.transpose();
+  const auto [F1, G1] = build_F_G(Rs);
+  const Eigen::Matrix<double, 15, 15> P_dot_1 =
+      F1 * data_.covariance + data_.covariance * F1.transpose() +
+      G1 * Q_c * G1.transpose();
 
   // k2: evaluate at midpoint rotation.
-  auto [F2, G2] = build_F_G(R_eval_mid);
-  Eigen::Matrix<double, 15, 15> P_2 = data_.covariance + P_dot_1 * dt / 2.0;
-  Eigen::Matrix<double, 15, 15> P_dot_2 =
+  const auto [F2, G2] = build_F_G(R_eval_mid);
+  const Eigen::Matrix<double, 15, 15> P_2 =
+      data_.covariance + P_dot_1 * dt / 2.0;
+  const Eigen::Matrix<double, 15, 15> P_dot_2 =
       F2 * P_2 + P_2 * F2.transpose() + G2 * Q_c * G2.transpose();
 
   // k3: same F as k2 (same midpoint).
-  Eigen::Matrix<double, 15, 15> P_3 = data_.covariance + P_dot_2 * dt / 2.0;
-  Eigen::Matrix<double, 15, 15> P_dot_3 =
+  const Eigen::Matrix<double, 15, 15> P_3 =
+      data_.covariance + P_dot_2 * dt / 2.0;
+  const Eigen::Matrix<double, 15, 15> P_dot_3 =
       F2 * P_3 + P_3 * F2.transpose() + G2 * Q_c * G2.transpose();
 
   // k4: evaluate at end rotation.
-  auto [F4, G4] = build_F_G(Rs_new);
-  Eigen::Matrix<double, 15, 15> P_4 = data_.covariance + P_dot_3 * dt;
-  Eigen::Matrix<double, 15, 15> P_dot_4 =
+  const auto [F4, G4] = build_F_G(Rs_new);
+  const Eigen::Matrix<double, 15, 15> P_4 = data_.covariance + P_dot_3 * dt;
+  const Eigen::Matrix<double, 15, 15> P_dot_4 =
       F4 * P_4 + P_4 * F4.transpose() + G4 * Q_c * G4.transpose();
 
   // Combine RK4 increments.
