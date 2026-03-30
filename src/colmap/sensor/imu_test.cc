@@ -132,8 +132,7 @@ TEST(ImuMeasurements, Nominal) {
   ms8.Insert(M(20));
   EXPECT_ANY_THROW(ms8.Insert(M(20)));
   // Duplicate via unsorted vector.
-  EXPECT_ANY_THROW(
-      ImuMeasurements(std::vector<ImuMeasurement>{M(10), M(10)}));
+  EXPECT_ANY_THROW(ImuMeasurements(std::vector<ImuMeasurement>{M(10), M(10)}));
   // Duplicate via InsertSorted.
   ImuMeasurements ms9;
   ms9.Insert(M(10));
