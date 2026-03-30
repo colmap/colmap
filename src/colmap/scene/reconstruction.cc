@@ -38,6 +38,7 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
+#include "colmap/util/threading.h"
 
 #include <set>
 
@@ -1110,48 +1111,60 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 }
 
 void Reconstruction::ExtractColorsForAllImages(
-    const std::filesystem::path& path) {
-  std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
-  std::unordered_map<point3D_t, size_t> color_counts;
+    const std::filesystem::path& path, const int num_threads) {
+  struct ColorData {
+    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+    int count = 0;
+  };
+  ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
+  std::vector<std::unordered_map<point3D_t, ColorData>> thread_data(
+      thread_pool.NumThreads());
 
   for (const auto& image_id : RegImageIds()) {
-    const class Image& image = Image(image_id);
-    const auto image_path = path / image.Name();
+    thread_pool.AddTask([&, image_id]() {
+      const class Image& image = Image(image_id);
+      const auto image_path = path / image.Name();
 
-    Bitmap bitmap;
-    if (!bitmap.Read(image_path,
-                     /*as_rgb=*/true)) {
-      LOG(WARNING) << "Could not read image " << image.Name() << " at path "
-                   << image_path;
-      continue;
-    }
+      Bitmap bitmap;
+      if (!bitmap.Read(image_path, /*as_rgb=*/true)) {
+        LOG(WARNING) << "Could not read image " << image.Name() << " at path "
+                     << image_path;
+        return;
+      }
 
-    for (const Point2D& point2D : image.Points2D()) {
-      if (point2D.HasPoint3D()) {
-        BitmapColor<float> color;
-        // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
-        if (bitmap.InterpolateBilinear(
-                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
-          if (color_sums.count(point2D.point3D_id)) {
-            Eigen::Vector3d& color_sum = color_sums[point2D.point3D_id];
-            color_sum(0) += color.r;
-            color_sum(1) += color.g;
-            color_sum(2) += color.b;
-            color_counts[point2D.point3D_id] += 1;
-          } else {
-            color_sums.emplace(point2D.point3D_id,
-                               Eigen::Vector3d(color.r, color.g, color.b));
-            color_counts.emplace(point2D.point3D_id, 1);
+      auto& data = thread_data[thread_pool.GetThreadIndex()];
+      for (const Point2D& point2D : image.Points2D()) {
+        if (point2D.HasPoint3D()) {
+          BitmapColor<float> color;
+          // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
+          if (bitmap.InterpolateBilinear(
+                  point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
+            auto& color_data = data[point2D.point3D_id];
+            color_data.sum(0) += color.r;
+            color_data.sum(1) += color.g;
+            color_data.sum(2) += color.b;
+            ++color_data.count;
           }
         }
       }
+    });
+  }
+  thread_pool.Wait();
+
+  // Merge per-thread results.
+  std::unordered_map<point3D_t, ColorData> merged_data;
+  for (const auto& data : thread_data) {
+    for (const auto& [point3D_id, thread_color_data] : data) {
+      auto& merged_color_data = merged_data[point3D_id];
+      merged_color_data.sum += thread_color_data.sum;
+      merged_color_data.count += thread_color_data.count;
     }
   }
 
   const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
   for (auto& [point3D_id, point3D] : points3D_) {
-    if (color_sums.count(point3D_id)) {
-      Eigen::Vector3d color = color_sums[point3D_id] / color_counts[point3D_id];
+    if (auto it = merged_data.find(point3D_id); it != merged_data.end()) {
+      Eigen::Vector3d color = it->second.sum / it->second.count;
       for (Eigen::Index i = 0; i < color.size(); ++i) {
         color[i] = std::round(color[i]);
       }
