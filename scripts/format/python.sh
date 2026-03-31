@@ -38,7 +38,7 @@ if [[ "$format_all" == true ]] || [[ "$current_branch" == "main" ]]; then
 else
     merge_base=$(git merge-base main HEAD)
     committed_files=$( \
-        git diff --name-only --diff-filter=d "$merge_base" HEAD \
+        git diff --name-only --diff-filter=d "$merge_base" \
         | grep "$path_regex" || true)
 fi
 
