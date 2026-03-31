@@ -90,11 +90,12 @@ void WarpImageBetweenCameras(const Camera& source_camera,
       const std::optional<Eigen::Vector2d> source_point =
           source_camera.ImgFromCam(cam_point->homogeneous());
 
-      BitmapColor<float> color;
-      if (source_point &&
-          source_image.InterpolateBilinear(
-              source_point->x() - 0.5, source_point->y() - 0.5, &color)) {
-        target_image->SetPixel(x, y, color.Cast<uint8_t>());
+      const auto color =
+          source_point ? source_image.InterpolateBilinear(
+                             source_point->x() - 0.5, source_point->y() - 0.5)
+                       : std::nullopt;
+      if (color) {
+        target_image->SetPixel(x, y, color->Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
@@ -123,10 +124,9 @@ void WarpImageWithHomography(const Eigen::Matrix3d& H,
 
       const Eigen::Vector2d source_pixel = (H * target_pixel).hnormalized();
 
-      BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(
-              source_pixel.x() - 0.5, source_pixel.y() - 0.5, &color)) {
-        target_image->SetPixel(x, y, color.Cast<uint8_t>());
+      if (const auto color = source_image.InterpolateBilinear(
+              source_pixel.x() - 0.5, source_pixel.y() - 0.5)) {
+        target_image->SetPixel(x, y, color->Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
@@ -177,11 +177,12 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
       const std::optional<Eigen::Vector2d> source_point =
           source_camera.ImgFromCam(cam_point->homogeneous());
 
-      BitmapColor<float> color;
-      if (source_point &&
-          source_image.InterpolateBilinear(
-              source_point->x() - 0.5, source_point->y() - 0.5, &color)) {
-        target_image->SetPixel(x, y, color.Cast<uint8_t>());
+      const auto color =
+          source_point ? source_image.InterpolateBilinear(
+                             source_point->x() - 0.5, source_point->y() - 0.5)
+                       : std::nullopt;
+      if (color) {
+        target_image->SetPixel(x, y, color->Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }

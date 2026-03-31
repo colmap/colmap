@@ -725,14 +725,14 @@ void BakeTexture(Bitmap* atlas,
                bary.z() * rp.face_projections[i][2]) *
               texture_inv_scale_factor;
 
-          BitmapColor<float> color;
-          if (!src_bmp.InterpolateBilinear(static_cast<double>(img_pos.x()),
-                                           static_cast<double>(img_pos.y()),
-                                           &color)) {
+          const auto color =
+              src_bmp.InterpolateBilinear(static_cast<double>(img_pos.x()),
+                                          static_cast<double>(img_pos.y()));
+          if (!color) {
             continue;
           }
 
-          atlas->SetPixel(px, py, color.Cast<uint8_t>());
+          atlas->SetPixel(px, py, color->Cast<uint8_t>());
           (*baked_mask)[static_cast<size_t>(py) * aw + px] = true;
         }
       }
@@ -851,20 +851,20 @@ void ApplyGlobalColorCorrection(
         const Eigen::Vector2f proj_l = ProjectPoint(img_l.GetP(), vert);
         const Eigen::Vector2f proj_r = ProjectPoint(img_r.GetP(), vert);
 
-        BitmapColor<float> color_l, color_r;
-        if (!img_l.GetBitmap().InterpolateBilinear(
-                proj_l.x(), proj_l.y(), &color_l) ||
-            !img_r.GetBitmap().InterpolateBilinear(
-                proj_r.x(), proj_r.y(), &color_r)) {
+        const auto color_l =
+            img_l.GetBitmap().InterpolateBilinear(proj_l.x(), proj_l.y());
+        const auto color_r =
+            img_r.GetBitmap().InterpolateBilinear(proj_r.x(), proj_r.y());
+        if (!color_l || !color_r) {
           continue;
         }
 
-        const double f_l = (ch == 0)   ? color_l.r
-                           : (ch == 1) ? color_l.g
-                                       : color_l.b;
-        const double f_r = (ch == 0)   ? color_r.r
-                           : (ch == 1) ? color_r.g
-                                       : color_r.b;
+        const double f_l = (ch == 0)   ? color_l->r
+                           : (ch == 1) ? color_l->g
+                                       : color_l->b;
+        const double f_r = (ch == 0)   ? color_r->r
+                           : (ch == 1) ? color_r->g
+                                       : color_r->b;
 
         triplets.emplace_back(var_l, var_l, 1.0);
         triplets.emplace_back(var_r, var_r, 1.0);
@@ -954,8 +954,8 @@ void ApplyGlobalColorCorrection(
                                bary.z() * vert_offsets[2][c];
           }
 
-          BitmapColor<uint8_t> color;
-          atlas->GetPixel(px, py, &color);
+          auto color =
+              atlas->GetPixel(px, py).value_or(BitmapColor<uint8_t>(0));
           color.r = static_cast<uint8_t>(
               std::max(0.0, std::min(255.0, color.r + offset_interp[0])));
           color.g = static_cast<uint8_t>(
@@ -988,7 +988,8 @@ void InpaintAtlas(Bitmap* atlas,
       const size_t idx = static_cast<size_t>(y) * aw + x;
       if (baked_mask[idx]) {
         dist[idx] = 0;
-        atlas->GetPixel(x, y, &fill_colors[idx]);
+        fill_colors[idx] =
+            atlas->GetPixel(x, y).value_or(BitmapColor<uint8_t>(0));
         queue.push({x, y});
       }
     }
