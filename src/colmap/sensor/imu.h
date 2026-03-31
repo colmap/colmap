@@ -101,7 +101,6 @@ class ImuMeasurements {
   explicit ImuMeasurements(const std::vector<ImuMeasurement>& ms) {
     Insert(ms);
   }
-  ImuMeasurements(const ImuMeasurements& ms) { Insert(ms); }
 
   void Insert(const ImuMeasurement& m) {
     // Fast path: append if empty or new measurement comes after all existing.
