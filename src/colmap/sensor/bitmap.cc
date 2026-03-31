@@ -275,8 +275,9 @@ std::optional<BitmapColor<float>> Bitmap::InterpolateBilinear(
     const double v1_b = dx_1 * p10[2] + dx * p11[2];
 
     // Row-wise linear interpolation.
-    return BitmapColor<float>(
-        dy_1 * v0_r + dy * v1_r, dy_1 * v0_g + dy * v1_g, dy_1 * v0_b + dy * v1_b);
+    return BitmapColor<float>(dy_1 * v0_r + dy * v1_r,
+                              dy_1 * v0_g + dy * v1_g,
+                              dy_1 * v0_b + dy * v1_b);
   }
 
   return std::nullopt;

@@ -411,9 +411,12 @@ TEST(Bitmap, Rot90) {
   rotated1.Rot90(1);  // 90 CCW
   EXPECT_EQ(rotated1.Width(), 5);
   EXPECT_EQ(rotated1.Height(), 10);
-  EXPECT_EQ(rotated1.GetPixel(0, 9)->r, 255);  // Top-left (0,0) -> Bottom-left (0,9)
-  EXPECT_EQ(rotated1.GetPixel(0, 0)->r, 128);  // Top-right (9,0) -> Top-left (0,0)
-  EXPECT_EQ(rotated1.GetPixel(4, 0)->r, 64);  // Bottom-right (9,4) -> Top-right (4,0)
+  // Top-left (0,0) -> Bottom-left (0,9)
+  EXPECT_EQ(rotated1.GetPixel(0, 9)->r, 255);
+  // Top-right (9,0) -> Top-left (0,0)
+  EXPECT_EQ(rotated1.GetPixel(0, 0)->r, 128);
+  // Bottom-right (9,4) -> Top-right (4,0)
+  EXPECT_EQ(rotated1.GetPixel(4, 0)->r, 64);
 
   Bitmap rotated2 = bitmap.Clone();
   rotated2.Rot90(2);  // 180 CCW
@@ -425,7 +428,8 @@ TEST(Bitmap, Rot90) {
   rotated3.Rot90(3);  // 270 CCW
   EXPECT_EQ(rotated3.Width(), 5);
   EXPECT_EQ(rotated3.Height(), 10);
-  EXPECT_EQ(rotated3.GetPixel(4, 0)->r, 255);  // Top-left (0,0) -> Top-right (4,0)
+  // Top-left (0,0) -> Top-right (4,0)
+  EXPECT_EQ(rotated3.GetPixel(4, 0)->r, 255);
 }
 
 TEST(Bitmap, Rot90Empty) {

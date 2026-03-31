@@ -725,9 +725,9 @@ void BakeTexture(Bitmap* atlas,
                bary.z() * rp.face_projections[i][2]) *
               texture_inv_scale_factor;
 
-          const auto color = src_bmp.InterpolateBilinear(
-              static_cast<double>(img_pos.x()),
-              static_cast<double>(img_pos.y()));
+          const auto color =
+              src_bmp.InterpolateBilinear(static_cast<double>(img_pos.x()),
+                                          static_cast<double>(img_pos.y()));
           if (!color) {
             continue;
           }
@@ -954,7 +954,8 @@ void ApplyGlobalColorCorrection(
                                bary.z() * vert_offsets[2][c];
           }
 
-          auto color = atlas->GetPixel(px, py).value_or(BitmapColor<uint8_t>(0));
+          auto color =
+              atlas->GetPixel(px, py).value_or(BitmapColor<uint8_t>(0));
           color.r = static_cast<uint8_t>(
               std::max(0.0, std::min(255.0, color.r + offset_interp[0])));
           color.g = static_cast<uint8_t>(
@@ -987,7 +988,8 @@ void InpaintAtlas(Bitmap* atlas,
       const size_t idx = static_cast<size_t>(y) * aw + x;
       if (baked_mask[idx]) {
         dist[idx] = 0;
-        fill_colors[idx] = atlas->GetPixel(x, y).value_or(BitmapColor<uint8_t>(0));
+        fill_colors[idx] =
+            atlas->GetPixel(x, y).value_or(BitmapColor<uint8_t>(0));
         queue.push({x, y});
       }
     }

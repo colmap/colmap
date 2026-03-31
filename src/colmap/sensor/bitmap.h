@@ -113,8 +113,8 @@ class Bitmap {
   void Fill(const BitmapColor<uint8_t>& color);
 
   // Interpolate color at given floating point position.
-  std::optional<BitmapColor<uint8_t>> InterpolateNearestNeighbor(double x,
-                                                                 double y) const;
+  std::optional<BitmapColor<uint8_t>> InterpolateNearestNeighbor(
+      double x, double y) const;
   std::optional<BitmapColor<float>> InterpolateBilinear(double x,
                                                         double y) const;
 
