@@ -129,19 +129,20 @@ if(CUDA_ENABLED)
     #      https://github.com/ggml-org/llama.cpp/issues/18331
     set(_COLMAP_BLACKWELL_TARGET FALSE)
 
-    # Check if any native architecture keywords are present.
-    set(_HAS_NATIVE_ARCH_KEYWORD FALSE)
+    # Classify architecture keywords. "all"/"all-major" expand based on the
+    # CUDA toolkit version, while "native" expands based on installed GPUs.
+    set(_HAS_ALL_KEYWORD FALSE)
+    set(_HAS_NATIVE_KEYWORD FALSE)
     foreach(_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
-        if(_arch STREQUAL "native" OR _arch STREQUAL "all" OR
-           _arch STREQUAL "all-major")
-            set(_HAS_NATIVE_ARCH_KEYWORD TRUE)
-            break()
+        if(_arch STREQUAL "all" OR _arch STREQUAL "all-major")
+            set(_HAS_ALL_KEYWORD TRUE)
+        elseif(_arch STREQUAL "native")
+            set(_HAS_NATIVE_KEYWORD TRUE)
         endif()
     endforeach()
 
-    # Query the actual GPUs if native keywords are used, since the filtering
-    # logic below needs to resolve them into explicit architectures.
-    if(_HAS_NATIVE_ARCH_KEYWORD)
+    # Query installed GPUs only for "native", since it targets present hardware.
+    if(_HAS_NATIVE_KEYWORD)
         execute_process(
             COMMAND nvidia-smi
                 --query-gpu=compute_cap
@@ -166,8 +167,16 @@ if(CUDA_ENABLED)
         endif()
     endforeach()
 
-    # Detect Blackwell from nvidia-smi output for native keywords.
-    if(NOT _COLMAP_BLACKWELL_TARGET AND _HAS_NATIVE_ARCH_KEYWORD)
+    # Detect Blackwell from "all"/"all-major": these expand based on the
+    # toolkit, not installed GPUs. CUDA 12.8 added sm_100 support.
+    if(NOT _COLMAP_BLACKWELL_TARGET AND _HAS_ALL_KEYWORD)
+        if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+            set(_COLMAP_BLACKWELL_TARGET TRUE)
+        endif()
+    endif()
+
+    # Detect Blackwell from "native" via nvidia-smi (installed GPU check).
+    if(NOT _COLMAP_BLACKWELL_TARGET AND _HAS_NATIVE_KEYWORD)
         if(_NVIDIA_SMI_RESULT EQUAL 0 AND _GPU_COMPUTE_CAPS)
             foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
                 string(STRIP "${_cap}" _cap)
@@ -195,9 +204,24 @@ if(CUDA_ENABLED)
                 if(_arch_num LESS 100)
                     list(APPEND _COLMAP_MVS_CUDA_ARCHS "${_arch}")
                 endif()
-            elseif(_arch STREQUAL "native" OR _arch STREQUAL "all" OR
-                   _arch STREQUAL "all-major")
-                # Replace keyword with explicit non-Blackwell GPU architectures.
+            elseif(_arch STREQUAL "all")
+                # "all"/"all-major" keywords require CMake 3.24+, which
+                # provides CMAKE_CUDA_ARCHITECTURES_ALL[_MAJOR] variables.
+                foreach(_exp IN LISTS CMAKE_CUDA_ARCHITECTURES_ALL)
+                    string(REGEX REPLACE "[-].*" "" _exp_num "${_exp}")
+                    if(_exp_num MATCHES "^[0-9]+$" AND _exp_num LESS 100)
+                        list(APPEND _COLMAP_MVS_CUDA_ARCHS "${_exp}")
+                    endif()
+                endforeach()
+            elseif(_arch STREQUAL "all-major")
+                foreach(_exp IN LISTS CMAKE_CUDA_ARCHITECTURES_ALL_MAJOR)
+                    string(REGEX REPLACE "[-].*" "" _exp_num "${_exp}")
+                    if(_exp_num MATCHES "^[0-9]+$" AND _exp_num LESS 100)
+                        list(APPEND _COLMAP_MVS_CUDA_ARCHS "${_exp}")
+                    endif()
+                endforeach()
+            elseif(_arch STREQUAL "native")
+                # Replace with explicit non-Blackwell GPU architectures.
                 if(_NVIDIA_SMI_RESULT EQUAL 0 AND _GPU_COMPUTE_CAPS)
                     foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
                         string(STRIP "${_cap}" _cap)
