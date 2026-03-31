@@ -221,24 +221,22 @@ void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   }
 }
 
-bool Bitmap::InterpolateNearestNeighbor(const double x,
-                                        const double y,
-                                        BitmapColor<uint8_t>* color) const {
+std::optional<BitmapColor<uint8_t>> Bitmap::InterpolateNearestNeighbor(
+    const double x, const double y) const {
   const int xx = static_cast<int>(std::round(x));
   const int yy = static_cast<int>(std::round(y));
-  return GetPixel(xx, yy, color);
+  return GetPixel(xx, yy);
 }
 
-bool Bitmap::InterpolateBilinear(const double x,
-                                 const double y,
-                                 BitmapColor<float>* color) const {
+std::optional<BitmapColor<float>> Bitmap::InterpolateBilinear(
+    const double x, const double y) const {
   const int x0 = static_cast<int>(std::floor(x));
   const int x1 = x0 + 1;
   const int y0 = static_cast<int>(std::floor(y));
   const int y1 = y0 + 1;
 
   if (x0 < 0 || x1 >= width_ || y0 < 0 || y1 >= height_) {
-    return false;
+    return std::nullopt;
   }
 
   const double dx = x - x0;
@@ -258,8 +256,8 @@ bool Bitmap::InterpolateBilinear(const double x,
     const double v1 = dx_1 * line1[x0] + dx * line1[x1];
 
     // Row-wise linear interpolation.
-    color->r = dy_1 * v0 + dy * v1;
-    return true;
+    const float r = dy_1 * v0 + dy * v1;
+    return BitmapColor<float>(r, r, r);
   } else if (IsRGB()) {
     const uint8_t* p00 = &line0[3 * x0];
     const uint8_t* p01 = &line0[3 * x1];
@@ -277,13 +275,11 @@ bool Bitmap::InterpolateBilinear(const double x,
     const double v1_b = dx_1 * p10[2] + dx * p11[2];
 
     // Row-wise linear interpolation.
-    color->r = dy_1 * v0_r + dy * v1_r;
-    color->g = dy_1 * v0_g + dy * v1_g;
-    color->b = dy_1 * v0_b + dy * v1_b;
-    return true;
+    return BitmapColor<float>(
+        dy_1 * v0_r + dy * v1_r, dy_1 * v0_g + dy * v1_g, dy_1 * v0_b + dy * v1_b);
   }
 
-  return false;
+  return std::nullopt;
 }
 
 std::optional<int> Bitmap::ExifOrientation() const {
