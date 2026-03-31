@@ -4642,7 +4642,6 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("zenitkm", 36.0000f);
   }
 
-
   {
     auto& make_specs = specs["aerovironment"];
     make_specs.reserve(1);
