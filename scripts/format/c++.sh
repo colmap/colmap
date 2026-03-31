@@ -25,18 +25,28 @@ fi
 
 current_branch=$(git rev-parse --abbrev-ref HEAD)
 
+staged_files=$( \
+    git diff --cached --name-only --diff-filter=d \
+    | grep "$path_regex" || true)
+untracked_files=$( \
+    git ls-files --others --exclude-standard \
+    | grep "$path_regex" || true)
+
 if [[ "$format_all" == true ]] || [[ "$current_branch" == "main" ]]; then
-    all_files=$( \
+    committed_files=$( \
         git ls-tree --full-tree -r --name-only HEAD . \
-        | grep "$path_regex" \
-        | sed "s~^~$root_folder/~")
+        | grep "$path_regex" || true)
 else
     merge_base=$(git merge-base main HEAD)
-    all_files=$( \
+    committed_files=$( \
         git diff --name-only --diff-filter=d "$merge_base" HEAD \
-        | grep "$path_regex" \
-        | sed "s~^~$root_folder/~")
+        | grep "$path_regex" || true)
 fi
+
+all_files=$( \
+    printf '%s\n' "$committed_files" "$staged_files" "$untracked_files" \
+    | grep -v '^$' | sort -u \
+    | sed "s~^~$root_folder/~")
 
 if [[ -z "$all_files" ]]; then
     echo "No C++ files to format"
