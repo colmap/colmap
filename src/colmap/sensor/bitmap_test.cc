@@ -412,24 +412,24 @@ TEST(Bitmap, Rot90) {
   EXPECT_EQ(rotated1.Width(), 5);
   EXPECT_EQ(rotated1.Height(), 10);
   // Top-left (0,0) -> Bottom-left (0,9)
-  EXPECT_EQ(rotated1.GetPixel(0, 9)->r, 255);
+  EXPECT_EQ(rotated1.GetPixel(0, 9).value().r, 255);
   // Top-right (9,0) -> Top-left (0,0)
-  EXPECT_EQ(rotated1.GetPixel(0, 0)->r, 128);
+  EXPECT_EQ(rotated1.GetPixel(0, 0).value().r, 128);
   // Bottom-right (9,4) -> Top-right (4,0)
-  EXPECT_EQ(rotated1.GetPixel(4, 0)->r, 64);
+  EXPECT_EQ(rotated1.GetPixel(4, 0).value().r, 64);
 
   Bitmap rotated2 = bitmap.Clone();
   rotated2.Rot90(2);  // 180 CCW
   EXPECT_EQ(rotated2.Width(), 10);
   EXPECT_EQ(rotated2.Height(), 5);
-  EXPECT_EQ(rotated2.GetPixel(9, 4)->r, 255);
+  EXPECT_EQ(rotated2.GetPixel(9, 4).value().r, 255);
 
   Bitmap rotated3 = bitmap.Clone();
   rotated3.Rot90(3);  // 270 CCW
   EXPECT_EQ(rotated3.Width(), 5);
   EXPECT_EQ(rotated3.Height(), 10);
   // Top-left (0,0) -> Top-right (4,0)
-  EXPECT_EQ(rotated3.GetPixel(4, 0)->r, 255);
+  EXPECT_EQ(rotated3.GetPixel(4, 0).value().r, 255);
 }
 
 TEST(Bitmap, Rot90Empty) {
@@ -485,8 +485,8 @@ TEST(Bitmap, Clone) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 3);
-  ASSERT_TRUE(cloned_bitmap.GetPixel(0, 0).has_value());
-  EXPECT_EQ(*cloned_bitmap.GetPixel(0, 0), BitmapColor<uint8_t>(10, 20, 30));
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(10, 20, 30));
 }
 
 TEST(Bitmap, CloneAsRGB) {
@@ -497,8 +497,8 @@ TEST(Bitmap, CloneAsRGB) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 3);
-  ASSERT_TRUE(cloned_bitmap.GetPixel(0, 0).has_value());
-  EXPECT_EQ(*cloned_bitmap.GetPixel(0, 0), BitmapColor<uint8_t>(10, 10, 10));
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(10, 10, 10));
   const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
@@ -528,8 +528,8 @@ TEST(Bitmap, CloneAsGrey) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 1);
-  ASSERT_TRUE(cloned_bitmap.GetPixel(0, 0).has_value());
-  EXPECT_EQ(*cloned_bitmap.GetPixel(0, 0), BitmapColor<uint8_t>(19, 19, 19));
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(19, 19, 19));
   const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;

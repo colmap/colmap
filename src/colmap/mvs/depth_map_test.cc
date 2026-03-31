@@ -82,10 +82,10 @@ TEST(DepthMap, ToBitmap) {
   EXPECT_EQ(bitmap.Width(), depth_map.GetWidth());
   EXPECT_EQ(bitmap.Height(), depth_map.GetHeight());
   EXPECT_TRUE(bitmap.IsRGB());
-  EXPECT_EQ(*bitmap.GetPixel(0, 0), BitmapColor<uint8_t>(0, 0, 128));
-  EXPECT_EQ(*bitmap.GetPixel(0, 1), BitmapColor<uint8_t>(128, 0, 0));
-  EXPECT_EQ(*bitmap.GetPixel(1, 0), BitmapColor<uint8_t>(128, 255, 127));
-  EXPECT_EQ(*bitmap.GetPixel(1, 1), BitmapColor<uint8_t>(128, 0, 0));
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value(), BitmapColor<uint8_t>(0, 0, 128));
+  EXPECT_EQ(bitmap.GetPixel(0, 1).value(), BitmapColor<uint8_t>(128, 0, 0));
+  EXPECT_EQ(bitmap.GetPixel(1, 0).value(), BitmapColor<uint8_t>(128, 255, 127));
+  EXPECT_EQ(bitmap.GetPixel(1, 1).value(), BitmapColor<uint8_t>(128, 0, 0));
 }
 
 }  // namespace
