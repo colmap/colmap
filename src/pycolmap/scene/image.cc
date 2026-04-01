@@ -100,12 +100,11 @@ void BindSceneImage(py::module& m) {
            "frame (rig).")
       .def_property_readonly(
           "has_pose", &Image::HasPose, "Whether the image has a valid pose.")
-      .def_property(
-          "points2D",
-          py::overload_cast<>(&Image::Points2D),
-          py::overload_cast<Point2DVector>(&Image::SetPoints2D),
-          py::return_value_policy::reference_internal,
-          "Array of Points2D (=keypoints).")
+      .def_property("points2D",
+                    py::overload_cast<>(&Image::Points2D),
+                    py::overload_cast<Point2DVector>(&Image::SetPoints2D),
+                    py::return_value_policy::reference_internal,
+                    "Array of Points2D (=keypoints).")
       .def("point2D",
            py::overload_cast<camera_t>(&Image::Point2D),
            py::return_value_policy::reference_internal,
