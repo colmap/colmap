@@ -499,19 +499,19 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
       // Loads the image name.
       std::string image_name;
-      line_stream >> image_name;
+      THROW_CHECK(line_stream >> image_name);
 
       // Loads the camera and its parameters
       struct Camera camera;
 
-      line_stream >> item;
+      THROW_CHECK(line_stream >> item);
       camera.model_id = CameraModelNameToId(item);
       if (camera.model_id == CameraModelId::kInvalid) {
         LOG(ERROR) << "Camera model " << item << " does not exist";
         return EXIT_FAILURE;
       }
 
-      line_stream >> camera.width >> camera.height;
+      THROW_CHECK(line_stream >> camera.width >> camera.height);
 
       camera.params.reserve(CameraModelNumParams(camera.model_id));
       double param;

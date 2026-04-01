@@ -1590,7 +1590,7 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
 
   point2D_t num_features;
   size_t dim;
-  header_line_stream >> num_features >> dim;
+  THROW_CHECK(header_line_stream >> num_features >> dim);
 
   THROW_CHECK_EQ(dim, kSiftDescriptorDim)
       << "SIFT features must have kSiftDescriptorDim dimensions";
@@ -1605,14 +1605,14 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
     feature_line_stream.imbue(std::locale::classic());
 
     float x, y, scale, orientation;
-    feature_line_stream >> x >> y >> scale >> orientation;
+    THROW_CHECK(feature_line_stream >> x >> y >> scale >> orientation);
 
     (*keypoints)[i] = FeatureKeypoint(x, y, scale, orientation);
 
     // Descriptor
     for (size_t j = 0; j < dim; ++j) {
       float value;
-      feature_line_stream >> value;
+      THROW_CHECK(feature_line_stream >> value);
       THROW_CHECK_GE(value, 0);
       THROW_CHECK_LE(value, 255);
       descriptors->data(i, j) = TruncateCast<float, uint8_t>(value);

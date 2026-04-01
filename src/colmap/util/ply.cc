@@ -740,12 +740,12 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       line_stream.imbue(std::locale::classic());
 
       int num_face_vertices;
-      line_stream >> num_face_vertices;
+      THROW_CHECK(line_stream >> num_face_vertices);
       THROW_CHECK_EQ(num_face_vertices, 3)
           << "Only triangular faces are supported";
 
       int idx1, idx2, idx3;
-      line_stream >> idx1 >> idx2 >> idx3;
+      THROW_CHECK(line_stream >> idx1 >> idx2 >> idx3);
       THROW_CHECK_GE(idx1, 0) << "Negative face vertex index at face " << i;
       THROW_CHECK_GE(idx2, 0) << "Negative face vertex index at face " << i;
       THROW_CHECK_GE(idx3, 0) << "Negative face vertex index at face " << i;
@@ -759,13 +759,13 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
 
       if (has_texcoord) {
         int num_texcoords;
-        line_stream >> num_texcoords;
+        THROW_CHECK(line_stream >> num_texcoords);
         THROW_CHECK_EQ(num_texcoords, 6)
             << "Expected 6 texture coordinates per triangular face";
 
         for (int j = 0; j < 6; ++j) {
           float uv;
-          line_stream >> uv;
+          THROW_CHECK(line_stream >> uv);
           result.face_uvs.push_back(uv);
         }
       }

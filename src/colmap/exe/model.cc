@@ -136,8 +136,8 @@ void ReadFileCameraLocations(const std::filesystem::path& ref_images_path,
     line_parser.imbue(std::locale::classic());
     std::string image_name;
     Eigen::Vector3d camera_position;
-    line_parser >> image_name >> camera_position[0] >> camera_position[1] >>
-        camera_position[2];
+    THROW_CHECK(line_parser >> image_name >> camera_position[0] >>
+                camera_position[1] >> camera_position[2]);
     ref_image_names->push_back(image_name);
     ref_locations->push_back(camera_position);
   }
