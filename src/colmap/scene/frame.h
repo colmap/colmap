@@ -45,18 +45,29 @@ namespace colmap {
 // the list of data ids.
 class Frame {
  public:
+  Frame() = default;
+  Frame(const Frame& other);
+  Frame& operator=(const Frame& other);
+  Frame(Frame&&) = default;
+  Frame& operator=(Frame&&) = default;
+
   // Access the unique identifier of the frame.
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
 
   // Access the frame's associated data.
-  inline std::set<data_t>& DataIds();
   inline const std::set<data_t>& DataIds() const;
   inline void AddDataId(const data_t& data_id);
   inline size_t NumDataIds() const;
 
   // Check whether the data is associated with the frame.
   inline bool HasDataId(data_t data_id) const;
+
+  // Finalize the data ids, preventing further modifications. This is called
+  // when the frame is added to a reconstruction to ensure consistency of
+  // cached counters like num_reg_images_.
+  inline void FinalizeDataIds();
+  inline bool FinalDataIds() const;
 
   // Clear all the associated data.
   void ClearDataIds();
@@ -112,6 +123,7 @@ class Frame {
   rig_t rig_id_ = kInvalidRigId;
 
   std::set<data_t> data_ids_;
+  bool data_ids_finalized_ = false;
 
   // Store the rig_from_world transformation and an optional rig calibration.
   // If the rig calibration is a nullptr, the frame becomes a single sensor
@@ -131,11 +143,12 @@ frame_t Frame::FrameId() const { return frame_id_; }
 
 void Frame::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 
-std::set<data_t>& Frame::DataIds() { return data_ids_; }
-
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
 void Frame::AddDataId(const data_t& data_id) {
+  THROW_CHECK(!data_ids_finalized_)
+      << "Cannot add data id to a finalized frame. Data ids must be added "
+         "before the frame is added to a reconstruction.";
   if (HasRigPtr()) {
     THROW_CHECK(RigPtr()->HasSensor(data_id.sensor_id));
   }
@@ -147,6 +160,10 @@ size_t Frame::NumDataIds() const { return data_ids_.size(); }
 bool Frame::HasDataId(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();
 }
+
+void Frame::FinalizeDataIds() { data_ids_finalized_ = true; }
+
+bool Frame::FinalDataIds() const { return data_ids_finalized_; }
 
 rig_t Frame::RigId() const { return rig_id_; }
 

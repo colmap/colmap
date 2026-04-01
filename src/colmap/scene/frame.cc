@@ -31,7 +31,30 @@
 
 namespace colmap {
 
-void Frame::ClearDataIds() { data_ids_.clear(); }
+Frame::Frame(const Frame& other)
+    : frame_id_(other.frame_id_),
+      rig_id_(other.rig_id_),
+      data_ids_(other.data_ids_),
+      rig_from_world_(other.rig_from_world_),
+      rig_ptr_(other.rig_ptr_) {}
+
+Frame& Frame::operator=(const Frame& other) {
+  if (this != &other) {
+    frame_id_ = other.frame_id_;
+    rig_id_ = other.rig_id_;
+    data_ids_ = other.data_ids_;
+    data_ids_finalized_ = false;
+    rig_from_world_ = other.rig_from_world_;
+    rig_ptr_ = other.rig_ptr_;
+  }
+  return *this;
+}
+
+void Frame::ClearDataIds() {
+  THROW_CHECK(!data_ids_finalized_)
+      << "Cannot clear data ids of a finalized frame.";
+  data_ids_.clear();
+}
 
 void Frame::SetRigPtr(class Rig* rig) {
   THROW_CHECK_NOTNULL(rig);

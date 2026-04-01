@@ -456,7 +456,9 @@ void Reconstruction::AddFrame(class Frame frame) {
   }
   const bool is_registered = frame.HasPose();
   const frame_t frame_id = frame.FrameId();
-  THROW_CHECK(frames_.emplace(frame_id, std::move(frame)).second);
+  auto [it, inserted] = frames_.emplace(frame_id, std::move(frame));
+  THROW_CHECK(inserted);
+  it->second.FinalizeDataIds();
   if (is_registered) {
     THROW_CHECK_NE(frame_id, kInvalidFrameId);
     RegisterFrame(frame_id);
@@ -886,7 +888,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   // Transcribe frame data.
   for (auto& [_, frame] : frames_) {
-    auto new_frame = frame;
+    class Frame new_frame = frame;
     new_frame.ClearDataIds();
     for (data_t data_id : frame.DataIds()) {
       if (data_id.sensor_id.type == SensorType::CAMERA) {
@@ -894,6 +896,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
       }
       new_frame.AddDataId(data_id);
     }
+    new_frame.FinalizeDataIds();
     frame = std::move(new_frame);
   }
 

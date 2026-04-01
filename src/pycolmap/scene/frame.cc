@@ -39,6 +39,12 @@ void BindFrame(py::module& m) {
       .def("clear_data_ids",
            &Frame::ClearDataIds,
            "Clear all the associated data.")
+      .def("finalize_data_ids",
+           &Frame::FinalizeDataIds,
+           "Finalize data ids, preventing further modifications.")
+      .def("final_data_ids",
+           &Frame::FinalDataIds,
+           "Check whether data ids have been finalized.")
       .def_property_readonly(
           "data_ids",
           [](const Frame& self) { return self.DataIds(); },
