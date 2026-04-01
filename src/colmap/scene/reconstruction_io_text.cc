@@ -285,12 +285,12 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       while (line_stream2 >> point.x() >> point.y()) {
         points2D.push_back(point);
 
-        point3D_t point3D_id;
-        THROW_CHECK(line_stream2 >> point3D_id);
-        if (point3D_id == -1) {
+        int64_t point3D_id_signed;
+        THROW_CHECK(line_stream2 >> point3D_id_signed);
+        if (point3D_id_signed == -1) {
           point3D_ids.push_back(kInvalidPoint3DId);
         } else {
-          point3D_ids.push_back(point3D_id);
+          point3D_ids.push_back(static_cast<point3D_t>(point3D_id_signed));
         }
       }
     }
