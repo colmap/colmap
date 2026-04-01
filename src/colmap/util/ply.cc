@@ -37,6 +37,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <locale>
 #include <sstream>
 
 #include <Eigen/Core>
@@ -303,14 +304,14 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
 
       PlyPoint point;
 
-      point.x = std::stold(items.at(X_index));
-      point.y = std::stold(items.at(Y_index));
-      point.z = std::stold(items.at(Z_index));
+      point.x = StringToDouble(items.at(X_index));
+      point.y = StringToDouble(items.at(Y_index));
+      point.z = StringToDouble(items.at(Z_index));
 
       if (!is_normal_missing) {
-        point.nx = std::stold(items.at(NX_index));
-        point.ny = std::stold(items.at(NY_index));
-        point.nz = std::stold(items.at(NZ_index));
+        point.nx = StringToDouble(items.at(NX_index));
+        point.ny = StringToDouble(items.at(NY_index));
+        point.nz = StringToDouble(items.at(NZ_index));
       }
 
       if (!is_rgb_missing) {
@@ -332,6 +333,7 @@ void WriteTextPlyPoints(const std::filesystem::path& path,
                         const bool write_rgb) {
   std::ofstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
+  file.imbue(std::locale::classic());
 
   file << "ply\n";
   file << "format ascii 1.0\n";
@@ -716,9 +718,9 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
         items.push_back(item);
       }
 
-      const float x = std::stof(items.at(X_index));
-      const float y = std::stof(items.at(Y_index));
-      const float z = std::stof(items.at(Z_index));
+      const float x = StringToDouble(items.at(X_index));
+      const float y = StringToDouble(items.at(Y_index));
+      const float z = StringToDouble(items.at(Z_index));
 
       if (has_colors) {
         const uint8_t r = static_cast<uint8_t>(std::stoi(items.at(R_index)));
@@ -735,6 +737,7 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       std::getline(file, line);
       StringTrim(&line);
       std::stringstream line_stream(line);
+      line_stream.imbue(std::locale::classic());
 
       int num_face_vertices;
       line_stream >> num_face_vertices;
@@ -776,6 +779,7 @@ void WriteTextPlyMesh(const std::filesystem::path& path,
                       const PlyTexturedMesh& mesh) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
+  file.imbue(std::locale::classic());
 
   const bool has_texcoords = !mesh.face_uvs.empty();
   if (has_texcoords) {

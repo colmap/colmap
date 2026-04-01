@@ -36,6 +36,7 @@
 #include "colmap/util/file.h"
 
 #include <fstream>
+#include <locale>
 
 namespace colmap {
 namespace mvs {
@@ -283,6 +284,7 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
 
   std::ifstream file(bundle_file_path);
   THROW_CHECK_FILE_OPEN(file, bundle_file_path);
+  file.imbue(std::locale::classic());
 
   // Header line.
   std::string header;
@@ -375,6 +377,7 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
 
     std::ifstream proj_matrix_file(proj_matrix_path);
     THROW_CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);
+    proj_matrix_file.imbue(std::locale::classic());
 
     std::string contour;
     proj_matrix_file >> contour;

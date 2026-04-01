@@ -39,11 +39,13 @@
 #include "colmap/util/types.h"
 
 #include <fstream>
+#include <locale>
 
 namespace colmap {
 
 void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
+  stream.imbue(std::locale::classic());
 
   std::string line;
   std::string item;
@@ -56,24 +58,25 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
+    line_stream.imbue(std::locale::classic());
 
     Rig rig;
 
     // ID
-    std::getline(line_stream, item, ' ');
-    rig.SetRigId(std::stoull(item));
+    camera_t rig_id;
+    line_stream >> rig_id;
+    rig.SetRigId(rig_id);
 
     // NUM_SENSORS
-    std::getline(line_stream, item, ' ');
-    const uint64_t num_sensors = std::stoull(item);
+    uint64_t num_sensors;
+    line_stream >> num_sensors;
 
     if (num_sensors > 0) {
       // REF_SENSOR
       sensor_t ref_sensor_id;
-      std::getline(line_stream, item, ' ');
+      line_stream >> item;
       ref_sensor_id.type = SensorTypeFromString(item);
-      std::getline(line_stream, item, ' ');
-      ref_sensor_id.id = std::stoul(item);
+      line_stream >> ref_sensor_id.id;
       rig.AddRefSensor(ref_sensor_id);
     }
 
@@ -81,38 +84,25 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
     if (num_sensors > 1) {
       for (uint64_t i = 0; i < num_sensors - 1; ++i) {
         sensor_t sensor_id;
-        std::getline(line_stream, item, ' ');
+        line_stream >> item;
         sensor_id.type = SensorTypeFromString(item);
-        std::getline(line_stream, item, ' ');
-        sensor_id.id = std::stoul(item);
+        line_stream >> sensor_id.id;
 
-        std::getline(line_stream, item, ' ');
-        const bool has_pose = item == "1";
+        int has_pose_int;
+        line_stream >> has_pose_int;
+        const bool has_pose = has_pose_int == 1;
 
         std::optional<Rigid3d> sensor_from_rig;
         if (has_pose) {
           sensor_from_rig = Rigid3d();
 
-          std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation().w() = std::stold(item);
-
-          std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation().x() = std::stold(item);
-
-          std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation().y() = std::stold(item);
-
-          std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation().z() = std::stold(item);
-
-          std::getline(line_stream, item, ' ');
-          sensor_from_rig->translation().x() = std::stold(item);
-
-          std::getline(line_stream, item, ' ');
-          sensor_from_rig->translation().y() = std::stold(item);
-
-          std::getline(line_stream, item, ' ');
-          sensor_from_rig->translation().z() = std::stold(item);
+          line_stream >> sensor_from_rig->rotation().w();
+          line_stream >> sensor_from_rig->rotation().x();
+          line_stream >> sensor_from_rig->rotation().y();
+          line_stream >> sensor_from_rig->rotation().z();
+          line_stream >> sensor_from_rig->translation().x();
+          line_stream >> sensor_from_rig->translation().y();
+          line_stream >> sensor_from_rig->translation().z();
         }
 
         rig.AddSensor(sensor_id, sensor_from_rig);
@@ -132,6 +122,7 @@ void ReadRigsText(Reconstruction& reconstruction,
 
 void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
+  stream.imbue(std::locale::classic());
 
   std::string line;
   std::string item;
@@ -144,30 +135,28 @@ void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
+    line_stream.imbue(std::locale::classic());
 
     struct Camera camera;
 
     // ID
-    std::getline(line_stream, item, ' ');
-    camera.camera_id = std::stoul(item);
+    line_stream >> camera.camera_id;
 
     // MODEL
-    std::getline(line_stream, item, ' ');
+    line_stream >> item;
     camera.model_id = CameraModelNameToId(item);
 
     // WIDTH
-    std::getline(line_stream, item, ' ');
-    camera.width = std::stoll(item);
+    line_stream >> camera.width;
 
     // HEIGHT
-    std::getline(line_stream, item, ' ');
-    camera.height = std::stoll(item);
+    line_stream >> camera.height;
 
     // PARAMS
     camera.params.reserve(CameraModelNumParams(camera.model_id));
-    while (!line_stream.eof()) {
-      std::getline(line_stream, item, ' ');
-      camera.params.push_back(std::stold(item));
+    double param;
+    while (line_stream >> param) {
+      camera.params.push_back(param);
     }
 
     THROW_CHECK(camera.VerifyParams());
@@ -184,6 +173,7 @@ void ReadCamerasText(Reconstruction& reconstruction,
 
 void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
+  stream.imbue(std::locale::classic());
 
   std::string line;
   std::string item;
@@ -196,55 +186,43 @@ void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
+    line_stream.imbue(std::locale::classic());
 
     Frame frame;
 
     // ID
-    std::getline(line_stream, item, ' ');
-    frame.SetFrameId(std::stoul(item));
+    frame_t frame_id;
+    line_stream >> frame_id;
+    frame.SetFrameId(frame_id);
 
     // RIG_ID
-    std::getline(line_stream, item, ' ');
-    frame.SetRigId(std::stoul(item));
+    camera_t rig_id;
+    line_stream >> rig_id;
+    frame.SetRigId(rig_id);
 
     // RIG_FROM_WORLD
 
     Rigid3d rig_from_world;
 
-    std::getline(line_stream, item, ' ');
-    rig_from_world.rotation().w() = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    rig_from_world.rotation().x() = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    rig_from_world.rotation().y() = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    rig_from_world.rotation().z() = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    rig_from_world.translation().x() = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    rig_from_world.translation().y() = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    rig_from_world.translation().z() = std::stold(item);
+    line_stream >> rig_from_world.rotation().w();
+    line_stream >> rig_from_world.rotation().x();
+    line_stream >> rig_from_world.rotation().y();
+    line_stream >> rig_from_world.rotation().z();
+    line_stream >> rig_from_world.translation().x();
+    line_stream >> rig_from_world.translation().y();
+    line_stream >> rig_from_world.translation().z();
 
     frame.SetRigFromWorld(rig_from_world);
 
     // DATA_IDS
-    std::getline(line_stream, item, ' ');
-    const uint32_t num_data_ids = std::stoul(item);
+    uint32_t num_data_ids;
+    line_stream >> num_data_ids;
     for (uint32_t i = 0; i < num_data_ids; ++i) {
       data_t data_id;
-      std::getline(line_stream, item, ' ');
+      line_stream >> item;
       data_id.sensor_id.type = SensorTypeFromString(item);
-      std::getline(line_stream, item, ' ');
-      data_id.sensor_id.id = std::stoul(item);
-      std::getline(line_stream, item, ' ');
-      data_id.id = std::stoull(item);
+      line_stream >> data_id.sensor_id.id;
+      line_stream >> data_id.id;
       frame.AddDataId(data_id);
     }
 
@@ -261,6 +239,7 @@ void ReadFramesText(Reconstruction& reconstruction,
 
 void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
+  stream.imbue(std::locale::classic());
 
   // Handle backwards-compatibility for when we didn't have rigs and frames.
   const bool is_legacy_reconstruction =
@@ -286,40 +265,29 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream1(line);
+    line_stream1.imbue(std::locale::classic());
 
     // ID
-    std::getline(line_stream1, item, ' ');
-    const image_t image_id = std::stoul(item);
+    image_t image_id;
+    line_stream1 >> image_id;
 
     class Image image;
     image.SetImageId(image_id);
 
     Rigid3d cam_from_world;
 
-    std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation().w() = std::stold(item);
-
-    std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation().x() = std::stold(item);
-
-    std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation().y() = std::stold(item);
-
-    std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation().z() = std::stold(item);
-
-    std::getline(line_stream1, item, ' ');
-    cam_from_world.translation().x() = std::stold(item);
-
-    std::getline(line_stream1, item, ' ');
-    cam_from_world.translation().y() = std::stold(item);
-
-    std::getline(line_stream1, item, ' ');
-    cam_from_world.translation().z() = std::stold(item);
+    line_stream1 >> cam_from_world.rotation().w();
+    line_stream1 >> cam_from_world.rotation().x();
+    line_stream1 >> cam_from_world.rotation().y();
+    line_stream1 >> cam_from_world.rotation().z();
+    line_stream1 >> cam_from_world.translation().x();
+    line_stream1 >> cam_from_world.translation().y();
+    line_stream1 >> cam_from_world.translation().z();
 
     // CAMERA_ID
-    std::getline(line_stream1, item, ' ');
-    image.SetCameraId(std::stoul(item));
+    camera_t camera_id;
+    line_stream1 >> camera_id;
+    image.SetCameraId(camera_id);
 
     if (is_legacy_reconstruction) {
       CreateFrameForImage(image, cam_from_world, reconstruction);
@@ -332,7 +300,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     // NAME
-    std::getline(line_stream1, item, ' ');
+    line_stream1 >> item;
     image.SetName(item);
 
     // POINTS2D
@@ -342,27 +310,22 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
 
     StringTrim(&line);
     std::stringstream line_stream2(line);
+    line_stream2.imbue(std::locale::classic());
 
     points2D.clear();
     point3D_ids.clear();
 
     if (!line.empty()) {
-      while (!line_stream2.eof()) {
-        Eigen::Vector2d point;
-
-        std::getline(line_stream2, item, ' ');
-        point.x() = std::stold(item);
-
-        std::getline(line_stream2, item, ' ');
-        point.y() = std::stold(item);
-
+      Eigen::Vector2d point;
+      while (line_stream2 >> point.x() >> point.y()) {
         points2D.push_back(point);
 
-        std::getline(line_stream2, item, ' ');
-        if (item == "-1") {
+        point3D_t point3D_id;
+        line_stream2 >> point3D_id;
+        if (point3D_id == -1) {
           point3D_ids.push_back(kInvalidPoint3DId);
         } else {
-          point3D_ids.push_back(std::stoll(item));
+          point3D_ids.push_back(point3D_id);
         }
       }
     }
@@ -389,9 +352,9 @@ void ReadImagesText(Reconstruction& reconstruction,
 
 void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
+  stream.imbue(std::locale::classic());
 
   std::string line;
-  std::string item;
 
   while (std::getline(stream, line)) {
     StringTrim(&line);
@@ -401,52 +364,35 @@ void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
+    line_stream.imbue(std::locale::classic());
 
     // ID
-    std::getline(line_stream, item, ' ');
-    const point3D_t point3D_id = std::stoll(item);
+    point3D_t point3D_id;
+    line_stream >> point3D_id;
 
     struct Point3D point3D;
 
     // XYZ
-    std::getline(line_stream, item, ' ');
-    point3D.xyz(0) = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    point3D.xyz(1) = std::stold(item);
-
-    std::getline(line_stream, item, ' ');
-    point3D.xyz(2) = std::stold(item);
+    line_stream >> point3D.xyz(0);
+    line_stream >> point3D.xyz(1);
+    line_stream >> point3D.xyz(2);
 
     // Color
-    std::getline(line_stream, item, ' ');
-    point3D.color(0) = static_cast<uint8_t>(std::stoi(item));
-
-    std::getline(line_stream, item, ' ');
-    point3D.color(1) = static_cast<uint8_t>(std::stoi(item));
-
-    std::getline(line_stream, item, ' ');
-    point3D.color(2) = static_cast<uint8_t>(std::stoi(item));
+    int r, g, b;
+    line_stream >> r >> g >> b;
+    point3D.color(0) = static_cast<uint8_t>(r);
+    point3D.color(1) = static_cast<uint8_t>(g);
+    point3D.color(2) = static_cast<uint8_t>(b);
 
     // ERROR
-    std::getline(line_stream, item, ' ');
-    point3D.error = std::stold(item);
+    line_stream >> point3D.error;
 
     // TRACK
-    while (!line_stream.eof()) {
+    {
       TrackElement track_el;
-
-      std::getline(line_stream, item, ' ');
-      StringTrim(&item);
-      if (item.empty()) {
-        break;
+      while (line_stream >> track_el.image_id >> track_el.point2D_idx) {
+        point3D.track.AddElement(track_el);
       }
-      track_el.image_id = std::stoul(item);
-
-      std::getline(line_stream, item, ' ');
-      track_el.point2D_idx = std::stoul(item);
-
-      point3D.track.AddElement(track_el);
     }
 
     point3D.track.Compress();
@@ -466,6 +412,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
   THROW_CHECK(stream.good());
 
   // Ensure that we don't loose any precision by storing in text.
+  stream.imbue(std::locale::classic());
   stream.precision(17);
 
   stream << "# Rig calib list with one line of data per calib:\n";
@@ -478,6 +425,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
     const Rig& rig = reconstruction.Rig(rig_id);
 
     std::ostringstream line;
+    line.imbue(std::locale::classic());
     line.precision(17);
 
     line << rig_id << " ";
@@ -526,6 +474,7 @@ void WriteCamerasText(const Reconstruction& reconstruction,
   THROW_CHECK(stream.good());
 
   // Ensure that we don't loose any precision by storing in text.
+  stream.imbue(std::locale::classic());
   stream.precision(17);
 
   stream << "# Camera list with one line of data per camera:\n";
@@ -536,6 +485,7 @@ void WriteCamerasText(const Reconstruction& reconstruction,
     const Camera& camera = reconstruction.Camera(camera_id);
 
     std::ostringstream line;
+    line.imbue(std::locale::classic());
     line.precision(17);
 
     line << camera_id << " ";
@@ -570,6 +520,7 @@ void WriteFramesText(const Reconstruction& reconstruction,
       [](const Frame& frame) { return frame.HasPose(); });
 
   // Ensure that we don't loose any precision by storing in text.
+  stream.imbue(std::locale::classic());
   stream.precision(17);
 
   stream << "# Frame list with one line of data per frame:\n";
@@ -618,6 +569,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
   THROW_CHECK(stream.good());
 
   // Ensure that we don't loose any precision by storing in text.
+  stream.imbue(std::locale::classic());
   stream.precision(17);
 
   stream << "# Image list with two lines of data per image:\n";
@@ -629,6 +581,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
          << reconstruction.ComputeMeanObservationsPerRegImage() << '\n';
 
   std::ostringstream line;
+  line.imbue(std::locale::classic());
   line.precision(17);
 
   for (const image_t image_id : reconstruction.RegImageIds()) {
@@ -685,6 +638,7 @@ void WritePoints3DText(const Reconstruction& reconstruction,
   THROW_CHECK(stream.good());
 
   // Ensure that we don't loose any precision by storing in text.
+  stream.imbue(std::locale::classic());
   stream.precision(17);
 
   stream << "# 3D point list with one line of data per point:\n";
@@ -708,6 +662,7 @@ void WritePoints3DText(const Reconstruction& reconstruction,
     stream << point3D.error << " ";
 
     std::ostringstream line;
+    line.imbue(std::locale::classic());
     line.precision(17);
 
     for (const auto& track_el : point3D.track.Elements()) {

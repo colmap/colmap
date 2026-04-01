@@ -34,6 +34,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <locale>
 #include <sstream>
 
 #include <gtest/gtest.h>
@@ -556,6 +557,108 @@ TEST(ExportVRML, Nominal) {
       reconstruction, images_path, points3D_path, image_scale, image_rgb);
   EXPECT_TRUE(std::filesystem::exists(images_path));
   EXPECT_TRUE(std::filesystem::exists(points3D_path));
+}
+
+// Custom numpunct facet that uses comma as decimal separator, for testing
+// locale independence without requiring a specific system locale.
+struct CommaDecimalFacet : std::numpunct<char> {
+ protected:
+  char do_decimal_point() const override { return ','; }
+};
+
+TEST(TextIO, LocaleIndependentRoundtrip) {
+  // Set global locale to use comma as decimal separator.
+  const std::locale original_locale = std::locale::global(
+      std::locale(std::locale::classic(), new CommaDecimalFacet));
+
+  Reconstruction orig;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &orig);
+
+  // Write under comma-decimal locale.
+  ReaderWriterTextStringStream rw;
+  rw.WriteRigs(orig);
+  rw.WriteCameras(orig);
+  rw.WriteFrames(orig);
+  rw.WriteImages(orig);
+  rw.WritePoints3D(orig);
+
+  // Verify written float data uses dot, not comma, as decimal separator.
+  // Check a data line (skip comment lines starting with '#').
+  {
+    std::istringstream iss(rw.CamerasStr());
+    std::string line;
+    while (std::getline(iss, line)) {
+      if (!line.empty() && line[0] != '#') {
+        EXPECT_EQ(line.find(','), std::string::npos)
+            << "Written camera data line contains commas (locale leak): "
+            << line;
+        break;
+      }
+    }
+  }
+
+  // Read back under comma-decimal locale.
+  Reconstruction test;
+  rw.ReadCameras(test);
+  EXPECT_EQ(orig.Cameras(), test.Cameras());
+  rw.ReadRigs(test);
+  EXPECT_EQ(orig.Rigs(), test.Rigs());
+  rw.ReadFrames(test);
+  EXPECT_EQ(orig.Frames(), test.Frames());
+  rw.ReadImages(test);
+  EXPECT_EQ(orig.Images(), test.Images());
+  rw.ReadPoints3D(test);
+  EXPECT_EQ(orig.Points3D(), test.Points3D());
+
+  // Restore original locale.
+  std::locale::global(original_locale);
+}
+
+TEST(TextIO, LocaleIndependentReadFromString) {
+  // Set global locale to use comma as decimal separator.
+  const std::locale original_locale = std::locale::global(
+      std::locale(std::locale::classic(), new CommaDecimalFacet));
+
+  // Manually construct TXT model content with dot-separated decimals
+  // (reproducing the exact scenario from GitHub issue #4315).
+  std::stringstream cameras_stream;
+  cameras_stream << "1 PINHOLE 100 100 50.5 50.5 50.5 50.5\n";
+
+  std::stringstream images_stream;
+  images_stream << "1 0.5 0.5 0.5 0.5 0.1 0.2 0.3 1 test.png\n\n";
+
+  std::stringstream points3D_stream;
+
+  Reconstruction reconstruction;
+  ReadCamerasText(reconstruction, cameras_stream);
+
+  // Read images — this is the core of the reported bug.
+  ReadImagesText(reconstruction, images_stream);
+  ReadPoints3DText(reconstruction, points3D_stream);
+
+  const auto& image = reconstruction.Images().begin()->second;
+  const Rigid3d& cam_from_world = image.CamFromWorld();
+
+  // These were all zero before the fix.
+  EXPECT_NEAR(cam_from_world.rotation().w(), 0.5, 1e-10);
+  EXPECT_NEAR(cam_from_world.rotation().x(), 0.5, 1e-10);
+  EXPECT_NEAR(cam_from_world.rotation().y(), 0.5, 1e-10);
+  EXPECT_NEAR(cam_from_world.rotation().z(), 0.5, 1e-10);
+  EXPECT_NEAR(cam_from_world.translation().x(), 0.1, 1e-10);
+  EXPECT_NEAR(cam_from_world.translation().y(), 0.2, 1e-10);
+  EXPECT_NEAR(cam_from_world.translation().z(), 0.3, 1e-10);
+
+  // Verify camera params were parsed correctly too.
+  const auto& camera = reconstruction.Cameras().begin()->second;
+  EXPECT_NEAR(camera.params[0], 50.5, 1e-10);
+
+  // Restore original locale.
+  std::locale::global(original_locale);
 }
 
 }  // namespace
