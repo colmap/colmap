@@ -458,6 +458,8 @@ void Reconstruction::AddFrame(class Frame frame) {
   const frame_t frame_id = frame.FrameId();
   auto [it, inserted] = frames_.emplace(frame_id, std::move(frame));
   THROW_CHECK(inserted);
+  // We finalize the data ids, otherwise some internal bookkeeping
+  // (e.g., counting reg_image_ids_) will be incorrect.
   it->second.FinalizeDataIds();
   if (is_registered) {
     THROW_CHECK_NE(frame_id, kInvalidFrameId);
@@ -896,6 +898,8 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
       }
       new_frame.AddDataId(data_id);
     }
+    // We finalize the data ids, otherwise some internal bookkeeping (e.g.,
+    // counting reg_image_ids_) will be incorrect.
     new_frame.FinalizeDataIds();
     frame = std::move(new_frame);
   }
