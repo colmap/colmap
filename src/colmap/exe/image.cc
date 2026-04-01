@@ -37,9 +37,12 @@
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
+#include <locale>
+#include <sstream>
 
 namespace colmap {
 namespace {
@@ -491,32 +494,29 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
       }
 
       std::string item;
-      std::stringstream line_stream(line);
+      std::istringstream line_stream(line);
+      line_stream.imbue(std::locale::classic());
 
       // Loads the image name.
       std::string image_name;
-      std::getline(line_stream, image_name, ' ');
+      THROW_CHECK(line_stream >> image_name);
 
       // Loads the camera and its parameters
       struct Camera camera;
 
-      std::getline(line_stream, item, ' ');
+      THROW_CHECK(line_stream >> item);
       camera.model_id = CameraModelNameToId(item);
       if (camera.model_id == CameraModelId::kInvalid) {
         LOG(ERROR) << "Camera model " << item << " does not exist";
         return EXIT_FAILURE;
       }
 
-      std::getline(line_stream, item, ' ');
-      camera.width = std::stoll(item);
-
-      std::getline(line_stream, item, ' ');
-      camera.height = std::stoll(item);
+      THROW_CHECK(line_stream >> camera.width >> camera.height);
 
       camera.params.reserve(CameraModelNumParams(camera.model_id));
-      while (!line_stream.eof()) {
-        std::getline(line_stream, item, ' ');
-        camera.params.push_back(std::stold(item));
+      double param;
+      while (line_stream >> param) {
+        camera.params.push_back(param);
       }
 
       THROW_CHECK(camera.VerifyParams());

@@ -29,8 +29,12 @@
 
 #include "colmap/util/string.h"
 
+#include "colmap/util/logging.h"
+
 #include <algorithm>
 #include <cstdarg>
+#include <locale>
+#include <sstream>
 
 #include <boost/algorithm/string.hpp>
 
@@ -191,6 +195,20 @@ std::string UTF8ToCodePageWin(const std::string& str, unsigned int code_page) {
 #endif
 
 }  // namespace internal
+
+double StringToDouble(const std::string& str) {
+  std::istringstream iss(str);
+  iss.imbue(std::locale::classic());
+  double value;
+  iss >> value;
+  THROW_CHECK(!iss.fail()) << "Failed to parse floating-point value: " << str;
+  // Verify no trailing non-whitespace characters remain.
+  std::string remaining;
+  iss >> remaining;
+  THROW_CHECK(remaining.empty())
+      << "Failed to parse floating-point value: " << str;
+  return value;
+}
 
 std::string StringPrintf(const char* format, ...) {
   va_list ap;
