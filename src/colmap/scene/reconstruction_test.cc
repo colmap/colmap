@@ -336,8 +336,8 @@ TEST(Reconstruction, AddImage) {
     try {
       reconstruction.AddImage(image);
     } catch (const std::exception& e) {
-      EXPECT_THAT(
-          e.what(), testing::HasSubstr("Frame with ID 1 does not exist"));
+      EXPECT_THAT(e.what(),
+                  testing::HasSubstr("Frame with ID 1 does not exist"));
     }
   }
 
