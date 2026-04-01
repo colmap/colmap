@@ -302,7 +302,7 @@ TEST(StringToDouble, LocaleIndependence) {
   ss << "1,23";
   double d;
   ss >> d;
-  EXPECT_EQ(d, 1.23);
+  EXPECT_DOUBLE_EQ(d, 1.23);
 
   // StringToDouble must still parse dot-separated decimals correctly.
   EXPECT_DOUBLE_EQ(StringToDouble("0.5"), 0.5);
