@@ -126,7 +126,7 @@ std::vector<T> CSVToVector(const std::string& csv) {
       } else if constexpr (std::is_same<T, int>::value) {
         values.push_back(std::stoi(elem));
       } else if constexpr (std::is_same<T, float>::value) {
-        values.push_back(StringToDouble(elem));
+        values.push_back(static_cast<float>(StringToDouble(elem)));
       } else if constexpr (std::is_same<T, double>::value) {
         values.push_back(StringToDouble(elem));
       }

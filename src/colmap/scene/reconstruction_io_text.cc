@@ -225,8 +225,6 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       ExtractImageToFramePtr(reconstruction);
 
   std::string line;
-  std::string item;
-
   std::vector<Eigen::Vector2d> points2D;
   std::vector<point3D_t> point3D_ids;
 
