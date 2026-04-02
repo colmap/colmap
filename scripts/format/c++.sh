@@ -28,9 +28,6 @@ current_branch=$(git rev-parse --abbrev-ref HEAD)
 staged_files=$( \
     git diff --cached --name-only --diff-filter=d \
     | grep "$path_regex" || true)
-untracked_files=$( \
-    git ls-files --others --exclude-standard \
-    | grep "$path_regex" || true)
 
 if [[ "$format_all" == true ]] || [[ "$current_branch" == "main" ]]; then
     committed_files=$( \
@@ -44,7 +41,7 @@ else
 fi
 
 all_files=$( \
-    printf '%s\n' "$committed_files" "$staged_files" "$untracked_files" \
+    printf '%s\n' "$committed_files" "$staged_files" \
     | grep -v '^$' | sort -u \
     | sed "s~^~$root_folder/~")
 
