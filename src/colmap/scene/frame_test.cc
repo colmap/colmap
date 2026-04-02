@@ -51,6 +51,39 @@ TEST(Frame, Default) {
   EXPECT_EQ(frame.NumDataIds(), 0);
 }
 
+TEST(Frame, Copy) {
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(2);
+  const data_t data_id1(sensor_t(SensorType::CAMERA, 1), 1);
+  const data_t data_id2(sensor_t(SensorType::CAMERA, 1), 2);
+  frame.AddDataId(data_id1);
+  frame.FinalizeDataIds();
+
+  // Copy constructor: copy should not be finalized.
+  Frame copy(frame);
+  EXPECT_FALSE(copy.HasFinalDataIds());
+  EXPECT_EQ(copy.FrameId(), 1);
+  EXPECT_EQ(copy.RigId(), 2);
+  EXPECT_TRUE(copy.HasDataId(data_id1));
+  EXPECT_NO_THROW(copy.AddDataId(data_id2));
+  EXPECT_TRUE(copy.HasDataId(data_id2));
+  EXPECT_NO_THROW(copy.ClearDataIds());
+  EXPECT_EQ(copy.NumDataIds(), 0);
+
+  // Copy assignment: target should not be finalized.
+  Frame assigned;
+  assigned = frame;
+  EXPECT_FALSE(assigned.HasFinalDataIds());
+  EXPECT_EQ(assigned.FrameId(), 1);
+  EXPECT_TRUE(assigned.HasDataId(data_id1));
+  EXPECT_NO_THROW(assigned.AddDataId(data_id2));
+
+  // Original remains finalized.
+  EXPECT_TRUE(frame.HasFinalDataIds());
+  EXPECT_ANY_THROW(frame.AddDataId(data_id2));
+}
+
 TEST(Frame, SetUp) {
   Frame frame;
   Rig rig;
@@ -230,6 +263,22 @@ TEST(Frame, Print) {
   EXPECT_EQ(stream.str(),
             "Frame(frame_id=1, rig_id=2, has_pose=0, "
             "data_ids=[(CAMERA, 1, 3), (IMU, 0, 2)])");
+}
+
+TEST(Frame, FinalizeDataIds) {
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(2);
+  const data_t data_id1(sensor_t(SensorType::CAMERA, 1), 1);
+  const data_t data_id2(sensor_t(SensorType::CAMERA, 1), 2);
+  frame.AddDataId(data_id1);
+  EXPECT_FALSE(frame.HasFinalDataIds());
+  frame.FinalizeDataIds();
+  EXPECT_TRUE(frame.HasFinalDataIds());
+  EXPECT_ANY_THROW(frame.AddDataId(data_id2));
+  EXPECT_ANY_THROW(frame.ClearDataIds());
+  EXPECT_EQ(frame.NumDataIds(), 1);
+  EXPECT_TRUE(frame.HasDataId(data_id1));
 }
 
 }  // namespace
