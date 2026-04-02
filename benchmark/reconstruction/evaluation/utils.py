@@ -459,6 +459,58 @@ def _build_image_point3D_sets(
     return image_points
 
 
+def _compute_all_frustum_vertices(
+    sparse_gt: pycolmap.Reconstruction,
+    frustum_near: float | None,
+    frustum_far: float | None,
+) -> dict[int, npt.NDArray[np.floating]]:
+    """Compute frustum vertices for all images in the reconstruction."""
+    depth_ranges: dict[int, tuple[float, float]] = {}
+    if frustum_near is None or frustum_far is None:
+        depth_ranges = estimate_depth_ranges(sparse_gt)
+
+    frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
+    for image_id, image_gt in sparse_gt.images.items():
+        camera_gt = sparse_gt.cameras[image_gt.camera_id]
+        est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
+        near = frustum_near if frustum_near is not None else est_near
+        far = frustum_far if frustum_far is not None else est_far
+        frustum_vertices[image_id] = compute_frustum_vertices(
+            image_gt, camera_gt, near, far
+        )
+    return frustum_vertices
+
+
+def _is_pair_covisible_by_tracks(
+    gt1: pycolmap.Image,
+    gt2: pycolmap.Image,
+    image_point3D_sets: dict[int, set[int]],
+    min_shared_points: int,
+) -> bool:
+    shared = len(
+        image_point3D_sets[gt1.image_id] & image_point3D_sets[gt2.image_id]
+    )
+    return shared >= min_shared_points
+
+
+def _is_pair_covisible_by_frustum(
+    gt1: pycolmap.Image,
+    gt2: pycolmap.Image,
+    sparse_gt: pycolmap.Reconstruction,
+    frustum_vertices: dict[int, npt.NDArray[np.floating]],
+    max_viewing_angle_deg: float,
+) -> bool:
+    return check_covisibility(
+        gt1,
+        sparse_gt.cameras[gt1.camera_id],
+        frustum_vertices[gt1.image_id],
+        gt2,
+        sparse_gt.cameras[gt2.camera_id],
+        frustum_vertices[gt2.image_id],
+        max_viewing_angle_deg,
+    )
+
+
 def filter_covisibility(
     database_path: Path,
     sparse_gt: pycolmap.Reconstruction,
@@ -477,8 +529,6 @@ def filter_covisibility(
     pycolmap.logging.info("Filtering non-covisible image pairs")
 
     use_tracks = min_shared_points > 0 and sparse_gt.num_points3D() > 0
-    image_point3D_sets: dict[int, set[int]] = {}
-    frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
 
     if use_tracks:
         pycolmap.logging.info(
@@ -486,46 +536,36 @@ def filter_covisibility(
             f"(min_shared_points={min_shared_points})"
         )
         image_point3D_sets = _build_image_point3D_sets(sparse_gt)
+        is_covisible = functools.partial(
+            _is_pair_covisible_by_tracks,
+            image_point3D_sets=image_point3D_sets,
+            min_shared_points=min_shared_points,
+        )
     else:
         if min_shared_points > 0:
             pycolmap.logging.warning(
                 "No GT 3D points available for track-based covisibility, "
                 "falling back to frustum-based check"
             )
+        frustum_vertices = _compute_all_frustum_vertices(
+            sparse_gt, covisibility_frustum_near, covisibility_frustum_far
+        )
+        is_covisible = functools.partial(
+            _is_pair_covisible_by_frustum,
+            sparse_gt=sparse_gt,
+            frustum_vertices=frustum_vertices,
+            max_viewing_angle_deg=max_viewing_angle_deg,
+        )
 
-        depth_ranges: dict[int, tuple[float, float]] = {}
-        if (
-            covisibility_frustum_near is None
-            or covisibility_frustum_far is None
-        ):
-            depth_ranges = estimate_depth_ranges(sparse_gt)
-
-        for image_id, image_gt in sparse_gt.images.items():
-            camera_gt = sparse_gt.cameras[image_gt.camera_id]
-            est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
-            near = (
-                covisibility_frustum_near
-                if covisibility_frustum_near is not None
-                else est_near
-            )
-            far = (
-                covisibility_frustum_far
-                if covisibility_frustum_far is not None
-                else est_far
-            )
-            frustum_vertices[image_id] = compute_frustum_vertices(
-                image_gt, camera_gt, near, far
-            )
-
-    images_gt_by_name: dict[str, pycolmap.Image] = {}
-    for image_gt in sparse_gt.images.values():
-        images_gt_by_name[image_gt.name] = image_gt
+    images_gt_by_name: dict[str, pycolmap.Image] = {
+        image_gt.name: image_gt for image_gt in sparse_gt.images.values()
+    }
 
     with pycolmap.Database.open(str(database_path)) as database:
-        db_images = database.read_all_images()
-        db_id_to_name: dict[int, str] = {}
-        for db_image in db_images:
-            db_id_to_name[db_image.image_id] = db_image.name
+        db_id_to_name: dict[int, str] = {
+            db_image.image_id: db_image.name
+            for db_image in database.read_all_images()
+        }
 
         pair_ids, _ = database.read_two_view_geometry_num_inliers()
         total_pairs = len(pair_ids)
@@ -539,27 +579,9 @@ def filter_covisibility(
             if name1 is None or name2 is None:
                 continue
 
-            gt1 = images_gt_by_name[name1]
-            gt2 = images_gt_by_name[name2]
-
-            if use_tracks:
-                shared = len(
-                    image_point3D_sets[gt1.image_id]
-                    & image_point3D_sets[gt2.image_id]
-                )
-                is_covisible = shared >= min_shared_points
-            else:
-                is_covisible = check_covisibility(
-                    gt1,
-                    sparse_gt.cameras[gt1.camera_id],
-                    frustum_vertices[gt1.image_id],
-                    gt2,
-                    sparse_gt.cameras[gt2.camera_id],
-                    frustum_vertices[gt2.image_id],
-                    max_viewing_angle_deg,
-                )
-
-            if not is_covisible:
+            if not is_covisible(
+                images_gt_by_name[name1], images_gt_by_name[name2]
+            ):
                 database.delete_matches(image_id1, image_id2)
                 database.delete_two_view_geometry(image_id1, image_id2)
                 filtered_count += 1

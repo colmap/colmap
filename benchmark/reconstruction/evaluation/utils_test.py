@@ -35,7 +35,7 @@ import pycolmap
 from .utils import (
     Metrics,
     _build_image_point3D_sets,
-    check_covisibility,
+    _check_frustum_covisibility,
     compute_abs_errors,
     compute_auc,
     compute_avg_metrics,
@@ -632,7 +632,7 @@ class TestComputeFrustumVertices:
         assert center[2] > offset[2]
 
 
-class TestCheckCovisibility:
+class TestCheckFrustumCovisibility:
     def _build_two_camera_recon(
         self, pos1, pos2, rot1=None, rot2=None
     ) -> pycolmap.Reconstruction:
@@ -647,7 +647,7 @@ class TestCheckCovisibility:
         cam = recon.cameras[1]
         imgs = [recon.images[1], recon.images[2]]
         verts = [compute_frustum_vertices(img, cam, near, far) for img in imgs]
-        return check_covisibility(
+        return _check_frustum_covisibility(
             imgs[0], cam, verts[0], imgs[1], cam, verts[1], max_angle
         )
 
