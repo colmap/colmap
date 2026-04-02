@@ -34,6 +34,10 @@
 
 namespace colmap {
 
+// Locale-independent string-to-double conversion.
+// Always uses '.' as decimal separator regardless of LC_NUMERIC.
+double StringToDouble(const std::string& str);
+
 // Format string by replacing embedded format specifiers with their respective
 // values, see `printf` for more details. This is a modified implementation
 // of Google's BSD-licensed StringPrintf function.

@@ -120,7 +120,8 @@ void GlobalPipeline::Run() {
   output_reconstruction = *reconstruction;
   if (!options_.image_path.empty()) {
     LOG(INFO) << "Extracting colors ...";
-    output_reconstruction.ExtractColorsForAllImages(options_.image_path);
+    output_reconstruction.ExtractColorsForAllImages(options_.image_path,
+                                                    options_.num_threads);
   }
 
   if (has_insufficient_prior_focal_lengths) {

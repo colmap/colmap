@@ -228,7 +228,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["canon"];
-    make_specs.reserve(314);
+    make_specs.reserve(428);
     make_specs.emplace_back("digitalixus100is", 6.1600f);
     make_specs.emplace_back("digitalixus110is", 6.1600f);
     make_specs.emplace_back("digitalixus200is", 6.1600f);
@@ -543,11 +543,124 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("pro90is", 7.1100f);
     make_specs.emplace_back("s200", 7.5300f);
     make_specs.emplace_back("sx220hs", 6.1600f);
+    make_specs.emplace_back("digitalixus120is", 6.1700f);
+    make_specs.emplace_back("eos2000d", 22.3200f);
+    make_specs.emplace_back("eos5dmarkiv", 36.0000f);
+    make_specs.emplace_back("powershotg3x(3:2)", 12.6900f);
+    make_specs.emplace_back("powershotg5x(3:2)", 12.7300f);
+    make_specs.emplace_back("powershotg5x(4:3)", 11.7700f);
+    make_specs.emplace_back("powershotg5x(16:9)", 12.1500f);
+    make_specs.emplace_back("powershotg7x(3:2)", 12.7300f);
+    make_specs.emplace_back("powershotg7x(4:3)", 11.7700f);
+    make_specs.emplace_back("powershotg7x(16:9)", 12.1500f);
+    make_specs.emplace_back("powershotg7xmarkii(3:2)", 12.7300f);
+    make_specs.emplace_back("powershotg7xmarkii(4:3)", 11.7700f);
+    make_specs.emplace_back("powershotg7xmarkii(16:9)", 12.1500f);
+    make_specs.emplace_back("powershotg7xmarkiii(3:2)", 12.7300f);
+    make_specs.emplace_back("powershotg9xmarkii", 12.7300f);
+    make_specs.emplace_back("powershotg1xmarkiii", 21.4600f);
+    make_specs.emplace_back("powershotg5xmarkii", 13.2000f);
+    make_specs.emplace_back("ixus750", 7.2100f);
+    make_specs.emplace_back("ixydigital700", 7.2100f);
+    make_specs.emplace_back("ixus700", 7.2100f);
+    make_specs.emplace_back("ixydigital600", 7.2100f);
+    make_specs.emplace_back("ixus55", 5.7200f);
+    make_specs.emplace_back("ixy55", 5.7200f);
+    make_specs.emplace_back("ixus50", 5.7200f);
+    make_specs.emplace_back("ixus70", 5.7200f);
+    make_specs.emplace_back("ixy50", 5.7200f);
+    make_specs.emplace_back("ixus40", 5.7200f);
+    make_specs.emplace_back("ixy40", 5.7200f);
+    make_specs.emplace_back("ixus30", 5.7200f);
+    make_specs.emplace_back("ixusv2", 5.3300f);
+    make_specs.emplace_back("ixy200a", 5.3300f);
+    make_specs.emplace_back("ixusii", 5.3300f);
+    make_specs.emplace_back("ixy30", 5.3300f);
+    make_specs.emplace_back("ixusi", 5.6300f);
+    make_specs.emplace_back("ixus500", 7.1500f);
+    make_specs.emplace_back("ixy500", 7.1500f);
+    make_specs.emplace_back("ixus430", 7.1500f);
+    make_specs.emplace_back("ixy450", 7.1500f);
+    make_specs.emplace_back("ixus400", 7.1500f);
+    make_specs.emplace_back("ixy400", 7.1500f);
+    make_specs.emplace_back("ixus80is", 5.7500f);
+    make_specs.emplace_back("ixus95is", 6.1800f);
+    make_specs.emplace_back("ixy220f", 6.2000f);
+    make_specs.emplace_back("eosm2", 22.3200f);
+    make_specs.emplace_back("eosm5", 22.3200f);
+    make_specs.emplace_back("eosm6", 22.3200f);
+    make_specs.emplace_back("eosm6markii", 22.3200f);
+    make_specs.emplace_back("eosm50", 22.3200f);
+    make_specs.emplace_back("eosm50markii", 22.3200f);
+    make_specs.emplace_back("eoskissm", 22.3200f);
+    make_specs.emplace_back("eosm100", 22.3200f);
+    make_specs.emplace_back("eosm200", 22.3200f);
+    make_specs.emplace_back("eosr7", 22.3200f);
+    make_specs.emplace_back("eosr10", 22.3200f);
+    make_specs.emplace_back("eosr50", 22.3200f);
+    make_specs.emplace_back("eosr50v", 22.3200f);
+    make_specs.emplace_back("eosr100", 22.3200f);
+    make_specs.emplace_back("eosr", 36.0000f);
+    make_specs.emplace_back("eosrp", 36.0000f);
+    make_specs.emplace_back("eosr1", 36.0000f);
+    make_specs.emplace_back("eosr3", 36.0000f);
+    make_specs.emplace_back("eosr5", 36.0000f);
+    make_specs.emplace_back("eosr5c", 36.0000f);
+    make_specs.emplace_back("eosr5markii", 36.0000f);
+    make_specs.emplace_back("eosr6", 36.0000f);
+    make_specs.emplace_back("eosr6markii", 36.0000f);
+    make_specs.emplace_back("eosr8", 36.0000f);
+    make_specs.emplace_back("eos6dmarkii", 35.8200f);
+    make_specs.emplace_back("eos1dxmarkii", 36.0000f);
+    make_specs.emplace_back("eosdigitalrebelxs", 22.1900f);
+    make_specs.emplace_back("eoskissdigitalf", 22.1900f);
+    make_specs.emplace_back("eoskissx50", 22.2200f);
+    make_specs.emplace_back("eosdigitalrebel", 22.6800f);
+    make_specs.emplace_back("eoskissdigital", 22.6800f);
+    make_specs.emplace_back("eosdigitalrebelxt", 22.1900f);
+    make_specs.emplace_back("eoskissdigitaln", 22.1900f);
+    make_specs.emplace_back("eosdigitalrebelxti", 22.1900f);
+    make_specs.emplace_back("eoskissdigitalx", 22.1900f);
+    make_specs.emplace_back("eosdigitalrebelxsi", 22.1900f);
+    make_specs.emplace_back("eoskissdigitalx2", 22.1900f);
+    make_specs.emplace_back("eosrebelt1i", 22.3200f);
+    make_specs.emplace_back("eoskissx3", 22.3200f);
+    make_specs.emplace_back("eoskissx5", 22.3200f);
+    make_specs.emplace_back("eoskissx6i", 22.3200f);
+    make_specs.emplace_back("eos800d", 22.3200f);
+    make_specs.emplace_back("eosrebelt7i", 22.3200f);
+    make_specs.emplace_back("eoskissx7i", 22.3200f);
+    make_specs.emplace_back("eoskissx8i", 22.3200f);
+    make_specs.emplace_back("eos8000d", 22.3200f);
+    make_specs.emplace_back("eoskissx9i", 22.3200f);
+    make_specs.emplace_back("eos850d", 22.3200f);
+    make_specs.emplace_back("eosrebelt8i", 22.3200f);
+    make_specs.emplace_back("eoskissx10i", 22.3200f);
+    make_specs.emplace_back("eos9000d", 22.3200f);
+    make_specs.emplace_back("eoskissx70", 22.2200f);
+    make_specs.emplace_back("eoshi", 22.2200f);
+    make_specs.emplace_back("eos1300d", 22.2200f);
+    make_specs.emplace_back("eosrebelt6", 22.2200f);
+    make_specs.emplace_back("eoskissx90", 22.3200f);
+    make_specs.emplace_back("eosrebelt7", 22.3200f);
+    make_specs.emplace_back("eos4000d", 22.3200f);
+    make_specs.emplace_back("eosrebelt100", 22.3200f);
+    make_specs.emplace_back("eoskissx7", 22.3200f);
+    make_specs.emplace_back("eos200d", 22.3200f);
+    make_specs.emplace_back("eosrebelsl2", 22.3200f);
+    make_specs.emplace_back("eos250d", 22.3200f);
+    make_specs.emplace_back("eosrebelsl3", 22.3200f);
+    make_specs.emplace_back("eos200dii", 22.3200f);
+    make_specs.emplace_back("eoskissx9", 22.3200f);
+    make_specs.emplace_back("eos90d", 22.3200f);
+    make_specs.emplace_back("eos80d", 22.3200f);
+    make_specs.emplace_back("eos77d", 22.3200f);
+    make_specs.emplace_back("eosd2000", 22.6000f);
   }
 
   {
     auto& make_specs = specs["casio"];
-    make_specs.reserve(161);
+    make_specs.reserve(170);
     make_specs.emplace_back("exfr10", 6.1600f);
     make_specs.emplace_back("exilimexje10", 6.1600f);
     make_specs.emplace_back("exn10", 6.1600f);
@@ -709,6 +822,15 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("qvr52", 7.1100f);
     make_specs.emplace_back("qvr61", 7.1100f);
     make_specs.emplace_back("qvr62", 7.1100f);
+    make_specs.emplace_back("exz750", 7.2100f);
+    make_specs.emplace_back("exp700", 7.4400f);
+    make_specs.emplace_back("exp600", 7.4400f);
+    make_specs.emplace_back("exz4", 5.7200f);
+    make_specs.emplace_back("exz3", 5.7200f);
+    make_specs.emplace_back("exz55", 5.7200f);
+    make_specs.emplace_back("exz40", 5.7200f);
+    make_specs.emplace_back("exz30", 5.7200f);
+    make_specs.emplace_back("exfh20", 6.0900f);
   }
 
   {
@@ -792,7 +914,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["fujifilm"];
-    make_specs.reserve(365);
+    make_specs.reserve(416);
     make_specs.emplace_back("a850", 5.7500f);
     make_specs.emplace_back("bigjobhd3w", 5.7500f);
     make_specs.emplace_back("bigjobhd1", 5.3300f);
@@ -1158,6 +1280,57 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("xf1", 8.8000f);
     make_specs.emplace_back("xq1", 8.8000f);
     make_specs.emplace_back("xq2", 8.8000f);
+    make_specs.emplace_back("finepixf11", 7.6900f);
+    make_specs.emplace_back("finepixf10", 7.6900f);
+    make_specs.emplace_back("finepixs9000", 7.7300f);
+    make_specs.emplace_back("finepixs5500", 5.3300f);
+    make_specs.emplace_back("finepixs5100", 5.3300f);
+    make_specs.emplace_back("finepixs7000", 7.7100f);
+    make_specs.emplace_back("finepixf810", 7.0600f);
+    make_specs.emplace_back("finepixe550", 7.6900f);
+    make_specs.emplace_back("finepixs3000", 5.4700f);
+    make_specs.emplace_back("x100f", 23.6000f);
+    make_specs.emplace_back("x100v", 23.5000f);
+    make_specs.emplace_back("x100vi", 23.5000f);
+    make_specs.emplace_back("xf10", 23.5000f);
+    make_specs.emplace_back("x70", 23.6000f);
+    make_specs.emplace_back("finepixs5600", 5.7400f);
+    make_specs.emplace_back("finepixa370", 5.7400f);
+    make_specs.emplace_back("gfx100rf", 43.2700f);
+    make_specs.emplace_back("xpro2", 23.5600f);
+    make_specs.emplace_back("xe2s", 23.5400f);
+    make_specs.emplace_back("xe3", 23.5400f);
+    make_specs.emplace_back("xe4", 23.4700f);
+    make_specs.emplace_back("xe5", 23.4700f);
+    make_specs.emplace_back("xt2", 23.5600f);
+    make_specs.emplace_back("xt3", 23.4700f);
+    make_specs.emplace_back("xt4", 23.4700f);
+    make_specs.emplace_back("xt5", 23.4700f);
+    make_specs.emplace_back("xpro3", 23.4700f);
+    make_specs.emplace_back("xh1", 23.5600f);
+    make_specs.emplace_back("xh2", 23.5600f);
+    make_specs.emplace_back("xh2s", 23.5600f);
+    make_specs.emplace_back("xm5", 23.4700f);
+    make_specs.emplace_back("xt20", 23.5400f);
+    make_specs.emplace_back("xt30", 23.4700f);
+    make_specs.emplace_back("xt30ii", 23.4700f);
+    make_specs.emplace_back("xt30iii", 23.4700f);
+    make_specs.emplace_back("xt50", 23.4700f);
+    make_specs.emplace_back("xs10", 23.4700f);
+    make_specs.emplace_back("xs20", 23.4700f);
+    make_specs.emplace_back("xt100", 23.5400f);
+    make_specs.emplace_back("xt200", 23.5400f);
+    make_specs.emplace_back("xa3", 23.5400f);
+    make_specs.emplace_back("xa5", 23.5400f);
+    make_specs.emplace_back("xa7", 23.5400f);
+    make_specs.emplace_back("xa10", 23.5400f);
+    make_specs.emplace_back("gfx50r", 45.5700f);
+    make_specs.emplace_back("gfx50s", 45.5700f);
+    make_specs.emplace_back("gfx50sii", 45.5700f);
+    make_specs.emplace_back("gfx100", 45.5700f);
+    make_specs.emplace_back("gfx100s", 45.5700f);
+    make_specs.emplace_back("gfx100sii", 45.5700f);
+    make_specs.emplace_back("gfx100ii", 45.5700f);
   }
 
   {
@@ -1355,7 +1528,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["kodak"];
-    make_specs.reserve(207);
+    make_specs.reserve(212);
     make_specs.emplace_back("dc200plus", 7.2700f);
     make_specs.emplace_back("dc200", 7.2700f);
     make_specs.emplace_back("dc210plus", 7.2700f);
@@ -1563,11 +1736,16 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("pixprofz51", 6.1600f);
     make_specs.emplace_back("s1", 17.3000f);
     make_specs.emplace_back("slice", 6.1600f);
+    make_specs.emplace_back("dc120", 7.1800f);
+    make_specs.emplace_back("dc50", 8.8000f);
+    make_specs.emplace_back("cx6330", 5.2500f);
+    make_specs.emplace_back("cx7525", 5.7000f);
+    make_specs.emplace_back("dcspro14nx", 36.0000f);
   }
 
   {
     auto& make_specs = specs["konica"];
-    make_specs.reserve(18);
+    make_specs.reserve(19);
     make_specs.emplace_back("dg2", 5.3300f);
     make_specs.emplace_back("dg3z", 5.3300f);
     make_specs.emplace_back("qm100", 4.8000f);
@@ -1586,11 +1764,12 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("reviokd420z", 5.7500f);
     make_specs.emplace_back("reviokd500z", 7.1100f);
     make_specs.emplace_back("reviokd510z", 7.1100f);
+    make_specs.emplace_back("miloltadynax5d", 23.5000f);
   }
 
   {
     auto& make_specs = specs["konica-minolta"];
-    make_specs.reserve(24);
+    make_specs.reserve(27);
     make_specs.emplace_back("dg5w", 5.7500f);
     make_specs.emplace_back("dimagea200", 8.8000f);
     make_specs.emplace_back("dimagea2", 8.8000f);
@@ -1615,6 +1794,9 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("eminid", 8.8000f);
     make_specs.emplace_back("eminim", 8.8000f);
     make_specs.emplace_back("emini", 8.8000f);
+    make_specs.emplace_back("dimageg400", 5.6300f);
+    make_specs.emplace_back("maxxum5d", 23.5100f);
+    make_specs.emplace_back("maxxum7d", 23.6500f);
   }
 
   {
@@ -1641,7 +1823,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["leica"];
-    make_specs.reserve(47);
+    make_specs.reserve(74);
     make_specs.emplace_back("clux1", 5.7500f);
     make_specs.emplace_back("clux2", 5.7500f);
     make_specs.emplace_back("clux3", 6.0800f);
@@ -1689,6 +1871,33 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("x(typ113)", 23.6000f);
     make_specs.emplace_back("xvario", 23.6000f);
     make_specs.emplace_back("x2", 23.6000f);
+    make_specs.emplace_back("clux(typ1546)", 13.2000f);
+    make_specs.emplace_back("q2", 36.0000f);
+    make_specs.emplace_back("q2monochrom", 36.0000f);
+    make_specs.emplace_back("q3", 36.0000f);
+    make_specs.emplace_back("q343", 36.0000f);
+    make_specs.emplace_back("q3monochrom", 36.0000f);
+    make_specs.emplace_back("xvario(typ107)", 23.6000f);
+    make_specs.emplace_back("sl2", 36.0000f);
+    make_specs.emplace_back("sl2s", 36.0000f);
+    make_specs.emplace_back("sl3", 36.0000f);
+    make_specs.emplace_back("sl3s", 36.0000f);
+    make_specs.emplace_back("tl", 23.5300f);
+    make_specs.emplace_back("tl2", 23.5300f);
+    make_specs.emplace_back("cl(typ7323)", 23.5300f);
+    make_specs.emplace_back("m(typ240)", 36.0000f);
+    make_specs.emplace_back("mev1", 36.0000f);
+    make_specs.emplace_back("m8digitalcamera", 27.0700f);
+    make_specs.emplace_back("m9digitalcamera", 36.0000f);
+    make_specs.emplace_back("m10", 36.0000f);
+    make_specs.emplace_back("m10monochrom", 36.0000f);
+    make_specs.emplace_back("m10d", 36.0000f);
+    make_specs.emplace_back("m10p", 36.0000f);
+    make_specs.emplace_back("m10r", 36.0000f);
+    make_specs.emplace_back("m11", 36.0000f);
+    make_specs.emplace_back("m11monochrom", 36.0000f);
+    make_specs.emplace_back("m11p", 36.0000f);
+    make_specs.emplace_back("m11d", 36.0000f);
   }
 
   {
@@ -1778,7 +1987,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["nikon"];
-    make_specs.reserve(266);
+    make_specs.reserve(313);
     make_specs.emplace_back("1aw1", 13.2000f);
     make_specs.emplace_back("1j1", 13.2000f);
     make_specs.emplace_back("1j2", 13.2000f);
@@ -2045,18 +2254,70 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("e2s", 8.8000f);
     make_specs.emplace_back("e3s", 8.8000f);
     make_specs.emplace_back("e3", 8.8000f);
+    make_specs.emplace_back("coolpixp1000", 6.2300f);
+    make_specs.emplace_back("coolpixp1100", 6.2300f);
+    make_specs.emplace_back("z5", 36.0000f);
+    make_specs.emplace_back("z5ii", 36.0000f);
+    make_specs.emplace_back("z6", 36.0000f);
+    make_specs.emplace_back("z6ii", 36.0000f);
+    make_specs.emplace_back("z6iii", 36.0000f);
+    make_specs.emplace_back("z7", 36.0000f);
+    make_specs.emplace_back("z7ii", 36.0000f);
+    make_specs.emplace_back("z8", 36.0000f);
+    make_specs.emplace_back("z9", 36.0000f);
+    make_specs.emplace_back("zf", 36.0000f);
+    make_specs.emplace_back("zr", 36.0000f);
+    make_specs.emplace_back("z30", 23.5100f);
+    make_specs.emplace_back("z50", 23.5100f);
+    make_specs.emplace_back("z50ii", 23.5100f);
+    make_specs.emplace_back("zfc", 23.5100f);
+    make_specs.emplace_back("d500", 23.5100f);
+    make_specs.emplace_back("d780", 36.0000f);
+    make_specs.emplace_back("d850", 36.0000f);
+    make_specs.emplace_back("d3400", 23.6400f);
+    make_specs.emplace_back("d3500", 23.6400f);
+    make_specs.emplace_back("d5600", 23.4700f);
+    make_specs.emplace_back("d7500", 23.4700f);
+    make_specs.emplace_back("d5", 35.8900f);
+    make_specs.emplace_back("d6", 36.0000f);
+    make_specs.emplace_back("coolpixl3", 5.7600f);
+    make_specs.emplace_back("e2500", 5.2700f);
+    make_specs.emplace_back("e3100", 5.2700f);
+    make_specs.emplace_back("e3200", 5.2700f);
+    make_specs.emplace_back("e3700", 5.2700f);
+    make_specs.emplace_back("e4200", 7.1760f);
+    make_specs.emplace_back("e4300", 7.1800f);
+    make_specs.emplace_back("e4500", 7.1760f);
+    make_specs.emplace_back("e4600", 5.7600f);
+    make_specs.emplace_back("e5000", 8.8000f);
+    make_specs.emplace_back("e5200", 7.1760f);
+    make_specs.emplace_back("e5400", 7.1760f);
+    make_specs.emplace_back("e5600", 5.7600f);
+    make_specs.emplace_back("e5700", 8.8000f);
+    make_specs.emplace_back("e5900", 7.1760f);
+    make_specs.emplace_back("e7600", 7.1760f);
+    make_specs.emplace_back("e775", 5.2700f);
+    make_specs.emplace_back("e7900", 7.1760f);
+    make_specs.emplace_back("e8800", 8.8000f);
+    make_specs.emplace_back("e990", 7.1760f);
+    make_specs.emplace_back("e995", 7.1760f);
   }
 
   {
     auto& make_specs = specs["nokia"];
-    make_specs.reserve(2);
+    make_specs.reserve(7);
     make_specs.emplace_back("808pureview", 10.8200f);
     make_specs.emplace_back("lumia1020", 8.6400f);
+    make_specs.emplace_back("lumia1520", 5.5300f);
+    make_specs.emplace_back("lumia920", 4.8000f);
+    make_specs.emplace_back("n80", 5.2700f);
+    make_specs.emplace_back("n93", 4.5360f);
+    make_specs.emplace_back("n95", 5.7000f);
   }
 
   {
     auto& make_specs = specs["olympus"];
-    make_specs.reserve(314);
+    make_specs.reserve(373);
     make_specs.emplace_back("aira01", 17.3000f);
     make_specs.emplace_back("az1ferrari2004", 5.3300f);
     make_specs.emplace_back("az1", 5.3300f);
@@ -2371,11 +2632,70 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("x920", 6.1600f);
     make_specs.emplace_back("xz1", 7.8500f);
     make_specs.emplace_back("xz2ihs", 7.5300f);
+    make_specs.emplace_back("µminidigital", 5.7700f);
+    make_specs.emplace_back("stylusvervedigital", 5.7700f);
+    make_specs.emplace_back("c7000zoom", 7.2100f);
+    make_specs.emplace_back("c7000zoom", 7.2100f);
+    make_specs.emplace_back("c4000zoom", 7.0400f);
+    make_specs.emplace_back("c4100zoom", 7.0400f);
+    make_specs.emplace_back("x2", 7.0600f);
+    make_specs.emplace_back("c750ultrazoom", 5.7400f);
+    make_specs.emplace_back("c730ultrazoom", 5.3100f);
+    make_specs.emplace_back("c700ultrazoom", 5.3100f);
+    make_specs.emplace_back("µii", 36.0000f);
+    make_specs.emplace_back("stylusepic", 36.0000f);
+    make_specs.emplace_back("sp500ultrazoom", 5.7700f);
+    make_specs.emplace_back("sp560ultrazoom", 5.9700f);
+    make_specs.emplace_back("xz2", 7.4000f);
+    make_specs.emplace_back("stylus1/1s", 7.4100f);
+    make_specs.emplace_back("toughtg1", 6.2300f);
+    make_specs.emplace_back("toughtg2", 6.2300f);
+    make_specs.emplace_back("toughtg5", 6.1600f);
+    make_specs.emplace_back("toughtg6", 6.2300f);
+    make_specs.emplace_back("ep1", 17.3100f);
+    make_specs.emplace_back("ep2", 17.3100f);
+    make_specs.emplace_back("ep3", 17.3100f);
+    make_specs.emplace_back("ep5", 17.3100f);
+    make_specs.emplace_back("ep7", 17.3100f);
+    make_specs.emplace_back("epl1", 17.3100f);
+    make_specs.emplace_back("epl1s", 17.3100f);
+    make_specs.emplace_back("epl2", 17.3100f);
+    make_specs.emplace_back("epl3", 17.3100f);
+    make_specs.emplace_back("epl5", 17.3100f);
+    make_specs.emplace_back("epl6", 17.3100f);
+    make_specs.emplace_back("epl7", 17.3100f);
+    make_specs.emplace_back("epl8", 17.3100f);
+    make_specs.emplace_back("epl9", 17.3100f);
+    make_specs.emplace_back("epm1", 17.3100f);
+    make_specs.emplace_back("epm2", 17.3100f);
+    make_specs.emplace_back("em1", 17.3100f);
+    make_specs.emplace_back("em1ii", 17.3100f);
+    make_specs.emplace_back("em1iii", 17.3100f);
+    make_specs.emplace_back("em5", 17.3100f);
+    make_specs.emplace_back("em5ii", 17.3100f);
+    make_specs.emplace_back("em5iii", 17.3100f);
+    make_specs.emplace_back("em10", 17.3100f);
+    make_specs.emplace_back("em10ii", 17.3100f);
+    make_specs.emplace_back("em10iii", 17.3100f);
+    make_specs.emplace_back("em10iiis", 17.3100f);
+    make_specs.emplace_back("em10iv", 17.3100f);
+    make_specs.emplace_back("penf", 17.3100f);
+    make_specs.emplace_back("e300", 17.3100f);
+    make_specs.emplace_back("e330", 17.3100f);
+    make_specs.emplace_back("e410", 17.3100f);
+    make_specs.emplace_back("e500", 17.3100f);
+    make_specs.emplace_back("e510", 17.3100f);
+    make_specs.emplace_back("e20", 9.1500f);
+    make_specs.emplace_back("e20n", 9.1500f);
+    make_specs.emplace_back("e20p", 9.1500f);
+    make_specs.emplace_back("x450", 5.2700f);
+    make_specs.emplace_back("d535z", 5.2700f);
+    make_specs.emplace_back("c370z", 5.2700f);
   }
 
   {
     auto& make_specs = specs["panasonic"];
-    make_specs.reserve(234);
+    make_specs.reserve(371);
     make_specs.emplace_back("dsnapsvas10", 4.5000f);
     make_specs.emplace_back("dsnapsvas30", 4.5000f);
     make_specs.emplace_back("dsnapsvas3", 4.5000f);
@@ -2610,11 +2930,148 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("lumixdmczx1", 6.0800f);
     make_specs.emplace_back("lumixdmczx3", 6.0800f);
     make_specs.emplace_back("pvdc3000", 7.1100f);
+    make_specs.emplace_back("lumixdmcfz42", 6.0800f);
+    make_specs.emplace_back("lumixdmcgh5", 17.3000f);
+    make_specs.emplace_back("lumixdmctz41", 6.0800f);
+    make_specs.emplace_back("lumixdmczs100/tz100", 13.2000f);
+    make_specs.emplace_back("dmclx1", 6.4100f);
+    make_specs.emplace_back("dmclx3", 6.5100f);
+    make_specs.emplace_back("dmclx5", 7.3500f);
+    make_specs.emplace_back("dmclx7", 6.7900f);
+    make_specs.emplace_back("dmclx10", 13.2000f);
+    make_specs.emplace_back("dmclx15", 13.2000f);
+    make_specs.emplace_back("dmclc1", 8.8000f);
+    make_specs.emplace_back("dmclz2", 5.7100f);
+    make_specs.emplace_back("dmclz1", 5.7100f);
+    make_specs.emplace_back("dmcfx9", 5.7200f);
+    make_specs.emplace_back("dmcfx8", 5.7200f);
+    make_specs.emplace_back("dmcfx7", 5.7200f);
+    make_specs.emplace_back("dmcfx2", 5.7200f);
+    make_specs.emplace_back("dmcfz30", 7.3200f);
+    make_specs.emplace_back("dmcfz20", 5.7700f);
+    make_specs.emplace_back("dmcfz10", 5.9300f);
+    make_specs.emplace_back("dmcfz5", 5.7700f);
+    make_specs.emplace_back("dmcfz3", 4.5500f);
+    make_specs.emplace_back("dmcfz28", 6.1800f);
+    make_specs.emplace_back("dmcfx150", 7.3600f);
+    make_specs.emplace_back("dmclx2", 7.8000f);
+    make_specs.emplace_back("dmcfz18", 5.6700f);
+    make_specs.emplace_back("dmcfz35", 6.1800f);
+    make_specs.emplace_back("dmcfz40", 6.1800f);
+    make_specs.emplace_back("dmcfz40(3:2)", 5.9600f);
+    make_specs.emplace_back("dmcfz45", 6.1800f);
+    make_specs.emplace_back("dmcfz45(3:2)", 5.9600f);
+    make_specs.emplace_back("dmcfz50", 7.1500f);
+    make_specs.emplace_back("dmcfz8", 5.7500f);
+    make_specs.emplace_back("dmcfz100", 6.1800f);
+    make_specs.emplace_back("dmcfz100(3:2)", 5.9600f);
+    make_specs.emplace_back("dmcfz200", 6.2300f);
+    make_specs.emplace_back("dmcfz300", 6.2300f);
+    make_specs.emplace_back("dmcfz330", 6.2300f);
+    make_specs.emplace_back("dmclx100", 15.6600f);
+    make_specs.emplace_back("dclx100m2", 15.6600f);
+    make_specs.emplace_back("dmcfz1000", 13.2000f);
+    make_specs.emplace_back("dmcfz2000", 13.2000f);
+    make_specs.emplace_back("dmcfz2500", 13.2000f);
+    make_specs.emplace_back("dcfz10002", 13.2000f);
+    make_specs.emplace_back("dmcfz150", 6.2300f);
+    make_specs.emplace_back("dmclf1", 7.4100f);
+    make_specs.emplace_back("dmctz60", 6.2000f);
+    make_specs.emplace_back("dmctz61", 6.2000f);
+    make_specs.emplace_back("dmczs40", 6.2000f);
+    make_specs.emplace_back("dmctz70", 6.2000f);
+    make_specs.emplace_back("dmctz71", 6.2000f);
+    make_specs.emplace_back("dmczs50", 6.2000f);
+    make_specs.emplace_back("dmctz80", 6.2000f);
+    make_specs.emplace_back("dmctz81", 6.2000f);
+    make_specs.emplace_back("dmczs60", 6.2000f);
+    make_specs.emplace_back("dmctz90", 6.2000f);
+    make_specs.emplace_back("dmctz91", 6.2000f);
+    make_specs.emplace_back("dctz90", 6.2000f);
+    make_specs.emplace_back("dctz99", 6.2000f);
+    make_specs.emplace_back("dmctz96", 6.2000f);
+    make_specs.emplace_back("dmczs70", 6.2000f);
+    make_specs.emplace_back("dmctz100", 12.5900f);
+    make_specs.emplace_back("dmctz101", 12.5900f);
+    make_specs.emplace_back("dmctz110", 12.5900f);
+    make_specs.emplace_back("dmczs100", 12.5900f);
+    make_specs.emplace_back("dmczs110", 12.5900f);
+    make_specs.emplace_back("dczs200", 13.2000f);
+    make_specs.emplace_back("dczs220", 13.2000f);
+    make_specs.emplace_back("dctz200", 13.2000f);
+    make_specs.emplace_back("dctz200d", 13.2000f);
+    make_specs.emplace_back("dczs200d", 13.2000f);
+    make_specs.emplace_back("dctz220", 13.2000f);
+    make_specs.emplace_back("dctz202", 13.2000f);
+    make_specs.emplace_back("dmcg1", 17.3100f);
+    make_specs.emplace_back("dmcgf1", 17.3100f);
+    make_specs.emplace_back("dmcgh1", 17.3100f);
+    make_specs.emplace_back("dmcgm1", 17.3100f);
+    make_specs.emplace_back("dmcgx1", 17.3100f);
+    make_specs.emplace_back("dmcg2", 17.3100f);
+    make_specs.emplace_back("dmcgf2", 17.3100f);
+    make_specs.emplace_back("dmcgh2", 17.3100f);
+    make_specs.emplace_back("dmcg3", 17.3100f);
+    make_specs.emplace_back("dmcgf3", 17.3100f);
+    make_specs.emplace_back("dmcgh3", 17.3100f);
+    make_specs.emplace_back("dmcgh4", 17.3100f);
+    make_specs.emplace_back("dcgh5", 17.3100f);
+    make_specs.emplace_back("dcgh5m2", 17.3100f);
+    make_specs.emplace_back("dcgh5s", 17.3100f);
+    make_specs.emplace_back("dcgh6", 17.3100f);
+    make_specs.emplace_back("dcgh7", 17.3100f);
+    make_specs.emplace_back("dmcg5", 17.3100f);
+    make_specs.emplace_back("dcg9", 17.3100f);
+    make_specs.emplace_back("dcg9m2", 17.3100f);
+    make_specs.emplace_back("dcgx9", 17.3100f);
+    make_specs.emplace_back("dcgx7mk3", 17.3100f);
+    make_specs.emplace_back("dcg100", 17.3100f);
+    make_specs.emplace_back("dcg100d", 17.3100f);
+    make_specs.emplace_back("dcg110", 17.3100f);
+    make_specs.emplace_back("dmcgf5", 17.3100f);
+    make_specs.emplace_back("dmcg6", 17.3100f);
+    make_specs.emplace_back("dmcgf6", 17.3100f);
+    make_specs.emplace_back("dmcg7", 17.3100f);
+    make_specs.emplace_back("dmcgf7", 17.3100f);
+    make_specs.emplace_back("dmcgx7", 17.3100f);
+    make_specs.emplace_back("dmcg70", 17.3100f);
+    make_specs.emplace_back("dmcg10", 17.3100f);
+    make_specs.emplace_back("dmcgm5", 17.3100f);
+    make_specs.emplace_back("dmcgf8", 17.3100f);
+    make_specs.emplace_back("dmcgx8", 17.3100f);
+    make_specs.emplace_back("dmcg80", 17.3100f);
+    make_specs.emplace_back("dmcg81", 17.3100f);
+    make_specs.emplace_back("dmcg85", 17.3100f);
+    make_specs.emplace_back("dmcg8", 17.3100f);
+    make_specs.emplace_back("dmcgx80", 17.3100f);
+    make_specs.emplace_back("dmcgx85", 17.3100f);
+    make_specs.emplace_back("dcgx800", 17.3100f);
+    make_specs.emplace_back("dcgx880", 17.3100f);
+    make_specs.emplace_back("dcg90", 17.3100f);
+    make_specs.emplace_back("dcg91", 17.3100f);
+    make_specs.emplace_back("dcg95", 17.3100f);
+    make_specs.emplace_back("dcg99", 17.3100f);
+    make_specs.emplace_back("dcg95d", 17.3100f);
+    make_specs.emplace_back("dcg99d", 17.3100f);
+    make_specs.emplace_back("dcg97", 17.3100f);
+    make_specs.emplace_back("dcs1", 36.0000f);
+    make_specs.emplace_back("dcs1m2", 36.0000f);
+    make_specs.emplace_back("dcs1m2es", 36.0000f);
+    make_specs.emplace_back("dcs1h", 36.0000f);
+    make_specs.emplace_back("dcs1r", 36.0000f);
+    make_specs.emplace_back("dcs1rm2", 36.0000f);
+    make_specs.emplace_back("dcs5", 36.0000f);
+    make_specs.emplace_back("dcs5d", 36.0000f);
+    make_specs.emplace_back("dcs5m2", 36.0000f);
+    make_specs.emplace_back("dcs5m2x", 36.0000f);
+    make_specs.emplace_back("dcs9", 36.0000f);
+    make_specs.emplace_back("dmcl1", 17.3100f);
+    make_specs.emplace_back("dmcl10", 17.3100f);
   }
 
   {
     auto& make_specs = specs["pentax"];
-    make_specs.reserve(140);
+    make_specs.reserve(150);
     make_specs.emplace_back("645d", 44.0000f);
     make_specs.emplace_back("645z", 44.0000f);
     make_specs.emplace_back("efina", 6.1600f);
@@ -2755,6 +3212,16 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("x70", 6.0800f);
     make_specs.emplace_back("x90", 6.0800f);
     make_specs.emplace_back("xg1", 6.0800f);
+    make_specs.emplace_back("optio230gs", 5.2700f);
+    make_specs.emplace_back("k5iis", 23.5900f);
+    make_specs.emplace_back("k3iii", 23.2900f);
+    make_specs.emplace_back("k3iiimonochrome", 23.2900f);
+    make_specs.emplace_back("k1", 36.0000f);
+    make_specs.emplace_back("k1ii", 36.0000f);
+    make_specs.emplace_back("k2000", 23.5100f);
+    make_specs.emplace_back("k70", 23.4700f);
+    make_specs.emplace_back("kf", 23.4700f);
+    make_specs.emplace_back("kp", 23.4700f);
   }
 
   {
@@ -2895,7 +3362,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["ricoh"];
-    make_specs.reserve(76);
+    make_specs.reserve(80);
     make_specs.emplace_back("caplio400gwide", 5.3300f);
     make_specs.emplace_back("caplio500gwide", 7.1100f);
     make_specs.emplace_back("caplio500g", 7.1100f);
@@ -2972,6 +3439,10 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("wg4", 6.1600f);
     make_specs.emplace_back("wg5gps", 6.1600f);
     make_specs.emplace_back("wgm1", 6.1600f);
+    make_specs.emplace_back("griii", 23.5000f);
+    make_specs.emplace_back("griiihdf", 23.5000f);
+    make_specs.emplace_back("griiix", 23.5000f);
+    make_specs.emplace_back("griiixhdf", 23.5000f);
   }
 
   {
@@ -3102,7 +3573,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["samsung"];
-    make_specs.reserve(279);
+    make_specs.reserve(291);
     make_specs.emplace_back("aq100", 6.0800f);
     make_specs.emplace_back("cl5", 5.7500f);
     make_specs.emplace_back("cl65", 6.0800f);
@@ -3382,6 +3853,18 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("wb800f", 6.1600f);
     make_specs.emplace_back("wb850f", 6.1600f);
     make_specs.emplace_back("wp10", 6.0800f);
+    make_specs.emplace_back("galaxys7", 5.5900f);
+    make_specs.emplace_back("galaxys8", 5.5900f);
+    make_specs.emplace_back("galaxynote8", 5.7200f);
+    make_specs.emplace_back("galaxys21", 5.7700f);
+    make_specs.emplace_back("nx300m", 23.5100f);
+    make_specs.emplace_back("galaxys2", 4.5400f);
+    make_specs.emplace_back("galaxys3", 4.5400f);
+    make_specs.emplace_back("galaxys4", 4.6900f);
+    make_specs.emplace_back("galaxys4zoom", 6.1900f);
+    make_specs.emplace_back("gti9195", 4.5400f);
+    make_specs.emplace_back("gti9300", 4.5300f);
+    make_specs.emplace_back("techwinpro815", 8.8000f);
   }
 
   {
@@ -3469,7 +3952,7 @@ camera_specs_t InitializeCameraSpecs() {
 
   {
     auto& make_specs = specs["sigma"];
-    make_specs.reserve(15);
+    make_specs.reserve(20);
     make_specs.emplace_back("dp1merrill", 24.0000f);
     make_specs.emplace_back("dp1s", 20.7000f);
     make_specs.emplace_back("dp1x", 20.7000f);
@@ -3485,11 +3968,16 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("sd15", 20.7000f);
     make_specs.emplace_back("sd1", 24.0000f);
     make_specs.emplace_back("sd9", 20.7000f);
+    make_specs.emplace_back("bf", 36.0000f);
+    make_specs.emplace_back("fp", 36.0000f);
+    make_specs.emplace_back("fpl", 36.0000f);
+    make_specs.emplace_back("sdquattro", 23.6400f);
+    make_specs.emplace_back("sdquattroh", 26.7500f);
   }
 
   {
     auto& make_specs = specs["sony"];
-    make_specs.reserve(302);
+    make_specs.reserve(426);
     make_specs.emplace_back("a77ii", 23.5000f);
     make_specs.emplace_back("alpha7ii", 35.8000f);
     make_specs.emplace_back("alpha7r", 35.9000f);
@@ -3792,6 +4280,130 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("slta65", 23.5000f);
     make_specs.emplace_back("slta77", 23.5000f);
     make_specs.emplace_back("slta99", 35.8000f);
+    make_specs.emplace_back("dscr1", 20.6000f);
+    make_specs.emplace_back("dsch1", 5.7700f);
+    make_specs.emplace_back("dscf828", 8.8000f);
+    make_specs.emplace_back("cybershot", 7.1500f);
+    make_specs.emplace_back("dscp200", 7.2100f);
+    make_specs.emplace_back("dscp150", 7.2100f);
+    make_specs.emplace_back("dscp100", 7.2100f);
+    make_specs.emplace_back("dscp93", 7.2100f);
+    make_specs.emplace_back("dscw12", 7.2100f);
+    make_specs.emplace_back("dscw7", 7.2100f);
+    make_specs.emplace_back("dscw15", 7.2100f);
+    make_specs.emplace_back("dscw5", 7.2100f);
+    make_specs.emplace_back("dscw1", 7.2100f);
+    make_specs.emplace_back("dscv3", 7.1500f);
+    make_specs.emplace_back("dscv1", 7.1500f);
+    make_specs.emplace_back("dsct1", 6.1300f);
+    make_specs.emplace_back("dscs90", 5.3300f);
+    make_specs.emplace_back("dscst80", 5.3300f);
+    make_specs.emplace_back("dscs80", 5.3300f);
+    make_specs.emplace_back("dscs60", 5.3300f);
+    make_specs.emplace_back("dscp73", 5.3300f);
+    make_specs.emplace_back("rx100", 13.2000f);
+    make_specs.emplace_back("rx100ii", 13.2000f);
+    make_specs.emplace_back("rx100iii", 13.2000f);
+    make_specs.emplace_back("rx100iv", 13.2000f);
+    make_specs.emplace_back("rx100v", 13.2000f);
+    make_specs.emplace_back("rx100vi", 13.0100f);
+    make_specs.emplace_back("rx100vii", 13.0100f);
+    make_specs.emplace_back("rx100viia", 13.0100f);
+    make_specs.emplace_back("rx100va", 13.2000f);
+    make_specs.emplace_back("dschx300", 6.2000f);
+    make_specs.emplace_back("dschx20v", 6.1600f);
+    make_specs.emplace_back("xperiaz3", 4.4000f);
+    make_specs.emplace_back("rx10", 13.2000f);
+    make_specs.emplace_back("rx10ii", 13.2000f);
+    make_specs.emplace_back("rx10iii", 13.2000f);
+    make_specs.emplace_back("rx10iv", 13.2000f);
+    make_specs.emplace_back("rx1r", 36.0000f);
+    make_specs.emplace_back("rx1rii", 36.0000f);
+    make_specs.emplace_back("rx1riii", 36.0000f);
+    make_specs.emplace_back("rx0", 12.8200f);
+    make_specs.emplace_back("rx0ii", 12.8200f);
+    make_specs.emplace_back("zv1", 12.8200f);
+    make_specs.emplace_back("nex3", 23.4700f);
+    make_specs.emplace_back("nexc3", 23.4700f);
+    make_specs.emplace_back("nexf3", 23.4700f);
+    make_specs.emplace_back("nex3n", 23.4700f);
+    make_specs.emplace_back("nex5", 23.4700f);
+    make_specs.emplace_back("nex5n", 23.4700f);
+    make_specs.emplace_back("nex5r", 23.4700f);
+    make_specs.emplace_back("nex5t", 23.4700f);
+    make_specs.emplace_back("nex6", 23.4700f);
+    make_specs.emplace_back("nex7", 23.4700f);
+    make_specs.emplace_back("alpha6000", 23.4700f);
+    make_specs.emplace_back("alpha3000", 23.4700f);
+    make_specs.emplace_back("alpha5000", 23.4700f);
+    make_specs.emplace_back("alpha5100", 23.4700f);
+    make_specs.emplace_back("alpha7iii", 36.0000f);
+    make_specs.emplace_back("alpha7riii", 36.0000f);
+    make_specs.emplace_back("alpha7riiia", 36.0000f);
+    make_specs.emplace_back("alpha7iv", 36.0000f);
+    make_specs.emplace_back("alpha7v", 36.0000f);
+    make_specs.emplace_back("alpha7riv", 36.0000f);
+    make_specs.emplace_back("alpha7riva", 36.0000f);
+    make_specs.emplace_back("alpha7rv", 36.0000f);
+    make_specs.emplace_back("alpha7c", 36.0000f);
+    make_specs.emplace_back("alpha7cii", 36.0000f);
+    make_specs.emplace_back("alpha7cr", 36.0000f);
+    make_specs.emplace_back("alpha7siii", 36.0000f);
+    make_specs.emplace_back("alpha6100", 23.4700f);
+    make_specs.emplace_back("alpha6300", 23.4700f);
+    make_specs.emplace_back("alpha6400", 23.4700f);
+    make_specs.emplace_back("alpha6500", 23.4700f);
+    make_specs.emplace_back("alpha6600", 23.4700f);
+    make_specs.emplace_back("alpha6700", 23.4700f);
+    make_specs.emplace_back("alpha9", 36.0000f);
+    make_specs.emplace_back("alpha9ii", 36.0000f);
+    make_specs.emplace_back("alpha9iii", 36.0000f);
+    make_specs.emplace_back("alpha1", 36.0000f);
+    make_specs.emplace_back("alpha1ii", 36.0000f);
+    make_specs.emplace_back("fx2", 36.0000f);
+    make_specs.emplace_back("fx3", 36.0000f);
+    make_specs.emplace_back("fx30", 23.2900f);
+    make_specs.emplace_back("zve1", 36.0000f);
+    make_specs.emplace_back("zve10", 23.4700f);
+    make_specs.emplace_back("zve10ii", 23.4700f);
+    make_specs.emplace_back("alpha33", 23.6400f);
+    make_specs.emplace_back("alpha35", 23.6400f);
+    make_specs.emplace_back("alpha37", 23.6400f);
+    make_specs.emplace_back("alpha55", 23.6400f);
+    make_specs.emplace_back("alpha57", 23.6400f);
+    make_specs.emplace_back("alpha58", 23.6400f);
+    make_specs.emplace_back("alpha65", 23.6400f);
+    make_specs.emplace_back("alpha68", 23.4700f);
+    make_specs.emplace_back("alpha77", 23.4700f);
+    make_specs.emplace_back("alpha77ii", 23.4700f);
+    make_specs.emplace_back("alpha99", 35.8200f);
+    make_specs.emplace_back("alpha99v", 35.8200f);
+    make_specs.emplace_back("alpha100", 23.6400f);
+    make_specs.emplace_back("alpha200", 23.6400f);
+    make_specs.emplace_back("alpha230", 23.6400f);
+    make_specs.emplace_back("alpha290", 23.6400f);
+    make_specs.emplace_back("alpha300", 23.4700f);
+    make_specs.emplace_back("alpha330", 23.4700f);
+    make_specs.emplace_back("alpha350", 23.4700f);
+    make_specs.emplace_back("alpha380", 23.5600f);
+    make_specs.emplace_back("alpha390", 23.6400f);
+    make_specs.emplace_back("alpha450", 23.4700f);
+    make_specs.emplace_back("alpha500", 23.4700f);
+    make_specs.emplace_back("alpha550", 23.4700f);
+    make_specs.emplace_back("alpha560", 23.6400f);
+    make_specs.emplace_back("alpha580", 23.6400f);
+    make_specs.emplace_back("alpha700", 23.4700f);
+    make_specs.emplace_back("alpha850", 36.0000f);
+    make_specs.emplace_back("alpha900", 36.0000f);
+    make_specs.emplace_back("alpha99ii", 36.0000f);
+    make_specs.emplace_back("c6903", 6.1700f);
+    make_specs.emplace_back("d5503", 6.1700f);
+    make_specs.emplace_back("dschx5v", 6.1040f);
+    make_specs.emplace_back("dscn12", 7.1760f);
+    make_specs.emplace_back("ilce5100", 23.5000f);
+    make_specs.emplace_back("ilce7s", 35.8000f);
+    make_specs.emplace_back("slta77v", 23.5000f);
+    make_specs.emplace_back("xperiaz1", 6.1700f);
   }
 
   {
@@ -3883,6 +4495,239 @@ camera_specs_t InitializeCameraSpecs() {
     make_specs.emplace_back("megaimagex", 7.1100f);
   }
 
+  {
+    auto& make_specs = specs["apple"];
+    make_specs.reserve(57);
+    make_specs.emplace_back("iphone4", 4.5400f);
+    make_specs.emplace_back("iphone4s", 4.5400f);
+    make_specs.emplace_back("iphone5", 4.5400f);
+    make_specs.emplace_back("iphone5s", 4.8900f);
+    make_specs.emplace_back("iphone6", 4.8900f);
+    make_specs.emplace_back("iphone6plus", 4.8900f);
+    make_specs.emplace_back("iphonexs", 5.7600f);
+    make_specs.emplace_back("iphonexs(tele)", 3.9900f);
+    make_specs.emplace_back("iphone5c", 4.5400f);
+    make_specs.emplace_back("iphone6s", 4.8900f);
+    make_specs.emplace_back("iphone6splus", 4.8900f);
+    make_specs.emplace_back("iphonese", 4.8900f);
+    make_specs.emplace_back("iphone7", 4.8900f);
+    make_specs.emplace_back("iphone7plus", 4.8900f);
+    make_specs.emplace_back("iphone8", 4.8900f);
+    make_specs.emplace_back("iphone8plus", 4.8900f);
+    make_specs.emplace_back("iphonex", 4.8900f);
+    make_specs.emplace_back("iphonexr", 5.7600f);
+    make_specs.emplace_back("iphonexsmax", 5.7600f);
+    make_specs.emplace_back("iphone11", 5.7600f);
+    make_specs.emplace_back("iphone11pro", 5.7600f);
+    make_specs.emplace_back("iphone11promax", 5.7600f);
+    make_specs.emplace_back("iphonese(2ndgeneration)", 4.8900f);
+    make_specs.emplace_back("iphone12mini", 5.7600f);
+    make_specs.emplace_back("iphone12", 5.7600f);
+    make_specs.emplace_back("iphone12pro", 5.7600f);
+    make_specs.emplace_back("iphone12promax", 7.6000f);
+    make_specs.emplace_back("iphone13mini", 6.8600f);
+    make_specs.emplace_back("iphone13", 6.8600f);
+    make_specs.emplace_back("iphone13pro", 7.6600f);
+    make_specs.emplace_back("iphone13promax", 7.6600f);
+    make_specs.emplace_back("iphonese(3rdgeneration)", 4.8900f);
+    make_specs.emplace_back("iphone14", 7.6600f);
+    make_specs.emplace_back("iphone14plus", 7.6600f);
+    make_specs.emplace_back("iphone14pro", 9.8000f);
+    make_specs.emplace_back("iphone14promax", 9.8000f);
+    make_specs.emplace_back("iphone15", 8.2900f);
+    make_specs.emplace_back("iphone15plus", 8.2900f);
+    make_specs.emplace_back("iphone15pro", 9.8000f);
+    make_specs.emplace_back("iphone15promax", 9.8000f);
+    make_specs.emplace_back("iphone16mini", 8.2900f);
+    make_specs.emplace_back("iphone16", 8.2900f);
+    make_specs.emplace_back("iphone16plus", 8.2900f);
+    make_specs.emplace_back("iphone16pro", 9.8000f);
+    make_specs.emplace_back("iphone16promax", 9.8000f);
+    make_specs.emplace_back("iphone16e", 5.7600f);
+    make_specs.emplace_back("ipad3", 4.5400f);
+    make_specs.emplace_back("iphone3", 4.7400f);
+    make_specs.emplace_back("iphone3,1", 4.7400f);
+    make_specs.emplace_back("iphone4,1", 4.5700f);
+    make_specs.emplace_back("iphone5,1", 4.5700f);
+    make_specs.emplace_back("iphone5,2", 4.5700f);
+    make_specs.emplace_back("iphone5,3", 4.5700f);
+    make_specs.emplace_back("iphone5,4", 4.5700f);
+    make_specs.emplace_back("iphone6,1", 4.8900f);
+    make_specs.emplace_back("iphone6,2", 4.8900f);
+    make_specs.emplace_back("iphone7,2", 6.1000f);
+  }
+
+  {
+    auto& make_specs = specs["dji"];
+    make_specs.reserve(20);
+    make_specs.emplace_back("fc300s", 6.1600f);
+    make_specs.emplace_back("fc6310", 13.2000f);
+    make_specs.emplace_back("phantomvisionfc200", 5.7700f);
+    make_specs.emplace_back("phantom3profc300x", 6.2900f);
+    make_specs.emplace_back("mavicprofc220", 6.1400f);
+    make_specs.emplace_back("air2s", 12.6800f);
+    make_specs.emplace_back("mavicairfc2103", 6.1800f);
+    make_specs.emplace_back("mini3pro", 9.6100f);
+    make_specs.emplace_back("phantom4rtk", 12.6800f);
+    make_specs.emplace_back("fc2103", 6.0700f);
+    make_specs.emplace_back("fc220", 6.1700f);
+    make_specs.emplace_back("fc300c", 6.3100f);
+    make_specs.emplace_back("fc300x", 6.2000f);
+    make_specs.emplace_back("fc330", 6.2500f);
+    make_specs.emplace_back("fc350", 6.1700f);
+    make_specs.emplace_back("fc350z", 6.1700f);
+    make_specs.emplace_back("fc6540", 23.5000f);
+    make_specs.emplace_back("xt2", 10.8800f);
+    make_specs.emplace_back("zenmusep1", 35.9000f);
+    make_specs.emplace_back("zh20t", 7.6800f);
+  }
+
+  {
+    auto& make_specs = specs["huawei"];
+    make_specs.reserve(5);
+    make_specs.emplace_back("blnl24", 4.9600f);
+    make_specs.emplace_back("p30pro", 7.1200f);
+    make_specs.emplace_back("p20pro", 7.6100f);
+    make_specs.emplace_back("p10lite", 5.0300f);
+    make_specs.emplace_back("huaweip6u06", 4.8000f);
+  }
+
+  {
+    auto& make_specs = specs["gopro"];
+    make_specs.reserve(9);
+    make_specs.emplace_back("hd2", 5.4100f);
+    make_specs.emplace_back("hero3+black", 6.3900f);
+    make_specs.emplace_back("hero4silver", 6.1700f);
+    make_specs.emplace_back("hero4black", 6.1700f);
+    make_specs.emplace_back("hero5black", 6.9200f);
+    make_specs.emplace_back("hero10black", 6.2900f);
+    make_specs.emplace_back("hero11black", 6.2500f);
+    make_specs.emplace_back("hd2u", 5.8000f);
+    make_specs.emplace_back("hd3", 5.7600f);
+  }
+
+  {
+    auto& make_specs = specs["hasselblad"];
+    make_specs.reserve(10);
+    make_specs.emplace_back("djimavic2pro", 12.3600f);
+    make_specs.emplace_back("djimavic3", 17.7200f);
+    make_specs.emplace_back("x1dii50c", 45.5700f);
+    make_specs.emplace_back("x2d100c", 45.5700f);
+    make_specs.emplace_back("x2dii100c", 45.5700f);
+    make_specs.emplace_back("cfvii50c/907x", 45.5700f);
+    make_specs.emplace_back("cfv100c/907x", 45.5700f);
+    make_specs.emplace_back("500mech.", 54.5500f);
+    make_specs.emplace_back("h3d", 50.0000f);
+    make_specs.emplace_back("l2d20c", 17.5000f);
+  }
+
+  {
+    auto& make_specs = specs["omsystem"];
+    make_specs.reserve(5);
+    make_specs.emplace_back("om1", 17.3100f);
+    make_specs.emplace_back("om1ii", 17.3100f);
+    make_specs.emplace_back("om3", 17.3100f);
+    make_specs.emplace_back("om5", 17.3100f);
+    make_specs.emplace_back("om5ii", 17.3100f);
+  }
+
+  {
+    auto& make_specs = specs["kmz"];
+    make_specs.reserve(6);
+    make_specs.emplace_back("zenit122", 36.0000f);
+    make_specs.emplace_back("zenit122k", 36.0000f);
+    make_specs.emplace_back("zenit212k", 36.0000f);
+    make_specs.emplace_back("zenit312k", 36.0000f);
+    make_specs.emplace_back("zenit412ls", 36.0000f);
+    make_specs.emplace_back("zenitkm", 36.0000f);
+  }
+
+  {
+    auto& make_specs = specs["aerovironment"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("quantix", 6.0800f);
+  }
+
+  {
+    auto& make_specs = specs["gitup"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("git2", 6.2160f);
+  }
+
+  {
+    auto& make_specs = specs["google"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("nexuss", 3.9000f);
+  }
+
+  {
+    auto& make_specs = specs["htc"];
+    make_specs.reserve(2);
+    make_specs.emplace_back("one", 4.5400f);
+    make_specs.emplace_back("onex", 4.8000f);
+  }
+
+  {
+    auto& make_specs = specs["lg"];
+    make_specs.reserve(3);
+    make_specs.emplace_back("g3", 4.6900f);
+    make_specs.emplace_back("lgd390n", 4.8000f);
+    make_specs.emplace_back("lgd855", 4.8000f);
+  }
+
+  {
+    auto& make_specs = specs["lge"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("nexus5", 4.5400f);
+  }
+
+  {
+    auto& make_specs = specs["mantis"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("i23", 45.0000f);
+  }
+
+  {
+    auto& make_specs = specs["mobius"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("actioncam", 2.1000f);
+  }
+
+  {
+    auto& make_specs = specs["oneplu"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("a000", 4.8000f);
+  }
+
+  {
+    auto& make_specs = specs["phantom"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("visionfc200", 6.1700f);
+  }
+
+  {
+    auto& make_specs = specs["phaseone"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("ixmrs100f", 53.4000f);
+  }
+
+  {
+    auto& make_specs = specs["skydio"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("2", 5.4760f);
+  }
+
+  {
+    auto& make_specs = specs["teracube"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("teracubeone", 4.7100f);
+  }
+
+  {
+    auto& make_specs = specs["yuneec"];
+    make_specs.reserve(1);
+    make_specs.emplace_back("e90", 13.2000f);
+  }
   return specs;
 }
 

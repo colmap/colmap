@@ -61,11 +61,11 @@ void CheckBitmapsEqual(const Bitmap& bitmap1, const Bitmap& bitmap2) {
   ASSERT_EQ(bitmap1.Height(), bitmap2.Height());
   for (int x = 1; x < bitmap1.Width() - 1; ++x) {
     for (int y = 1; y < bitmap1.Height() - 1; ++y) {
-      BitmapColor<uint8_t> color1;
-      BitmapColor<uint8_t> color2;
-      EXPECT_TRUE(bitmap1.GetPixel(x, y, &color1));
-      EXPECT_TRUE(bitmap2.GetPixel(x, y, &color2));
-      EXPECT_EQ(color1, color2);
+      const auto color1 = bitmap1.GetPixel(x, y);
+      const auto color2 = bitmap2.GetPixel(x, y);
+      ASSERT_TRUE(color1.has_value());
+      ASSERT_TRUE(color2.has_value());
+      EXPECT_EQ(*color1, *color2);
     }
   }
 }
@@ -78,11 +78,11 @@ void CheckBitmapsTransposed(const Bitmap& bitmap1, const Bitmap& bitmap2) {
   ASSERT_EQ(bitmap1.Height(), bitmap2.Height());
   for (int x = 1; x < bitmap1.Width() - 1; ++x) {
     for (int y = 1; y < bitmap1.Height() - 1; ++y) {
-      BitmapColor<uint8_t> color1;
-      BitmapColor<uint8_t> color2;
-      EXPECT_TRUE(bitmap1.GetPixel(x, y, &color1));
-      EXPECT_TRUE(bitmap2.GetPixel(y, x, &color2));
-      EXPECT_EQ(color1, color2);
+      const auto color1 = bitmap1.GetPixel(x, y);
+      const auto color2 = bitmap2.GetPixel(y, x);
+      ASSERT_TRUE(color1.has_value());
+      ASSERT_TRUE(color2.has_value());
+      EXPECT_EQ(*color1, *color2);
     }
   }
 }
@@ -113,15 +113,14 @@ TEST(Warp, ShiftedCameras) {
       source_camera, target_camera, source_image_gray, &target_image_gray);
   for (int x = 0; x < target_image_gray.Width(); ++x) {
     for (int y = 0; y < target_image_gray.Height(); ++y) {
-      BitmapColor<uint8_t> color;
-      EXPECT_TRUE(target_image_gray.GetPixel(x, y, &color));
+      const auto color = target_image_gray.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
       if (x >= 50) {
-        EXPECT_EQ(color, BitmapColor<uint8_t>(0));
+        EXPECT_EQ(*color, BitmapColor<uint8_t>(0));
       } else {
-        BitmapColor<uint8_t> source_color;
-        if (source_image_gray.GetPixel(x + 50, y, &source_color) &&
-            color != BitmapColor<uint8_t>(0)) {
-          EXPECT_EQ(color, source_color);
+        const auto source_color = source_image_gray.GetPixel(x + 50, y);
+        if (source_color && *color != BitmapColor<uint8_t>(0)) {
+          EXPECT_EQ(*color, *source_color);
         }
       }
     }

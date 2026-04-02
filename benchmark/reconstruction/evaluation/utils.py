@@ -1247,7 +1247,13 @@ def create_result_table(
     for dataset, category_metrics in dataset_metrics.items():
         for category, scene_metrics in category_metrics.items():
             text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
-            for scene, metrics in scene_metrics.items():
+            for scene, metrics in sorted(
+                scene_metrics.items(),
+                key=lambda x: (
+                    x[0].startswith("__"),
+                    x[0],
+                ),
+            ):
                 scores = get_scores(first_metrics.error_type, metrics)
                 assert len(scores) == len(thresholds)
                 row = ""

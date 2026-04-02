@@ -239,9 +239,8 @@ TEST(MeshTextureMapping, EndToEnd) {
   bool found_colored_pixel = false;
   for (int y = 0; y < result.atlas_height && !found_colored_pixel; ++y) {
     for (int x = 0; x < result.atlas_width && !found_colored_pixel; ++x) {
-      BitmapColor<uint8_t> color;
-      result.texture_atlas.GetPixel(x, y, &color);
-      if (color.r > 100 && color.g < 150 && color.b < 150) {
+      const auto color = result.texture_atlas.GetPixel(x, y);
+      if (color && color->r > 100 && color->g < 150 && color->b < 150) {
         found_colored_pixel = true;
       }
     }
@@ -501,13 +500,13 @@ TEST(MeshTextureMapping, BakeSolidColor) {
   int baked_count = 0;
   for (int y = 0; y < result.atlas_height; ++y) {
     for (int x = 0; x < result.atlas_width; ++x) {
-      BitmapColor<uint8_t> color;
-      result.texture_atlas.GetPixel(x, y, &color);
-      if (color.r != 0 || color.g != 0 || color.b != 0) {
+      const auto color = result.texture_atlas.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
+      if (color->r != 0 || color->g != 0 || color->b != 0) {
         // Due to bilinear interpolation, allow some tolerance.
-        EXPECT_NEAR(color.r, src_color.r, 5);
-        EXPECT_NEAR(color.g, src_color.g, 5);
-        EXPECT_NEAR(color.b, src_color.b, 5);
+        EXPECT_NEAR(color->r, src_color.r, 5);
+        EXPECT_NEAR(color->g, src_color.g, 5);
+        EXPECT_NEAR(color->b, src_color.b, 5);
         ++baked_count;
       }
     }
@@ -542,18 +541,16 @@ TEST(MeshTextureMapping, InpaintFillsNearbyPixels) {
   int count_inpaint = 0, count_no_inpaint = 0;
   for (int y = 0; y < result_inpaint.atlas_height; ++y) {
     for (int x = 0; x < result_inpaint.atlas_width; ++x) {
-      BitmapColor<uint8_t> color;
-      result_inpaint.texture_atlas.GetPixel(x, y, &color);
-      if (color.r != 0 || color.g != 0 || color.b != 0) {
+      const auto color = result_inpaint.texture_atlas.GetPixel(x, y);
+      if (color && (color->r != 0 || color->g != 0 || color->b != 0)) {
         ++count_inpaint;
       }
     }
   }
   for (int y = 0; y < result_no_inpaint.atlas_height; ++y) {
     for (int x = 0; x < result_no_inpaint.atlas_width; ++x) {
-      BitmapColor<uint8_t> color;
-      result_no_inpaint.texture_atlas.GetPixel(x, y, &color);
-      if (color.r != 0 || color.g != 0 || color.b != 0) {
+      const auto color = result_no_inpaint.texture_atlas.GetPixel(x, y);
+      if (color && (color->r != 0 || color->g != 0 || color->b != 0)) {
         ++count_no_inpaint;
       }
     }
@@ -588,13 +585,14 @@ TEST(MeshTextureMapping, InpaintDoesNotOverwriteBaked) {
   // Check that baked pixels are unchanged.
   for (int y = 0; y < result_base.atlas_height; ++y) {
     for (int x = 0; x < result_base.atlas_width; ++x) {
-      BitmapColor<uint8_t> base_color, inpaint_color;
-      result_base.texture_atlas.GetPixel(x, y, &base_color);
-      result_inpaint.texture_atlas.GetPixel(x, y, &inpaint_color);
-      if (base_color.r != 0 || base_color.g != 0 || base_color.b != 0) {
-        EXPECT_EQ(base_color.r, inpaint_color.r);
-        EXPECT_EQ(base_color.g, inpaint_color.g);
-        EXPECT_EQ(base_color.b, inpaint_color.b);
+      const auto base_color = result_base.texture_atlas.GetPixel(x, y);
+      const auto inpaint_color = result_inpaint.texture_atlas.GetPixel(x, y);
+      ASSERT_TRUE(base_color.has_value());
+      ASSERT_TRUE(inpaint_color.has_value());
+      if (base_color->r != 0 || base_color->g != 0 || base_color->b != 0) {
+        EXPECT_EQ(base_color->r, inpaint_color->r);
+        EXPECT_EQ(base_color->g, inpaint_color->g);
+        EXPECT_EQ(base_color->b, inpaint_color->b);
       }
     }
   }
@@ -622,12 +620,13 @@ TEST(MeshTextureMapping, GlobalColorCorrectionNoSeams) {
 
   for (int y = 0; y < result_with_cc.atlas_height; ++y) {
     for (int x = 0; x < result_with_cc.atlas_width; ++x) {
-      BitmapColor<uint8_t> c1, c2;
-      result_with_cc.texture_atlas.GetPixel(x, y, &c1);
-      result_without_cc.texture_atlas.GetPixel(x, y, &c2);
-      EXPECT_EQ(c1.r, c2.r);
-      EXPECT_EQ(c1.g, c2.g);
-      EXPECT_EQ(c1.b, c2.b);
+      const auto c1 = result_with_cc.texture_atlas.GetPixel(x, y);
+      const auto c2 = result_without_cc.texture_atlas.GetPixel(x, y);
+      ASSERT_TRUE(c1.has_value());
+      ASSERT_TRUE(c2.has_value());
+      EXPECT_EQ(c1->r, c2->r);
+      EXPECT_EQ(c1->g, c2->g);
+      EXPECT_EQ(c1->b, c2->b);
     }
   }
 }

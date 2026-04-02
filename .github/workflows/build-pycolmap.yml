@@ -97,6 +97,7 @@ jobs:
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${{ github.workspace }}/build/vcpkg_installed"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.WERROR_ENABLED=ON"
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           echo "FETCHCONTENT_BASE_DIR=${FETCHCONTENT_CACHE_DIR}" >> "$GITHUB_ENV"
@@ -171,6 +172,7 @@ jobs:
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/project/build/vcpkg_installed"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.WERROR_ENABLED=ON"
           echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # Remap caching paths to the container
@@ -215,7 +217,7 @@ jobs:
 
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.1
+        uses: pypa/cibuildwheel@v3.4.0
         with:
           package-dir: ./
         env:

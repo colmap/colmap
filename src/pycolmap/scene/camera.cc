@@ -131,7 +131,7 @@ void BindCamera(py::module& m) {
           [](const Camera& self,
              const py::EigenDRef<const Eigen::MatrixX2d>& image_points) {
             std::vector<Eigen::Vector2d> cam_points(image_points.rows());
-            for (size_t i = 0; i < image_points.rows(); ++i) {
+            for (Eigen::Index i = 0; i < image_points.rows(); ++i) {
               const std::optional<Eigen::Vector2d> cam_point =
                   self.CamFromImg(image_points.row(i));
               if (cam_point) {
