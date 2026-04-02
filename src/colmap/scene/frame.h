@@ -33,8 +33,6 @@
 #include "colmap/sensor/rig.h"
 #include "colmap/util/types.h"
 
-#include <cstdint>
-#include <memory>
 #include <optional>
 #include <set>
 
@@ -67,7 +65,7 @@ class Frame {
   // when the frame is added to a reconstruction to ensure consistency of
   // cached counters like num_reg_images_.
   inline void FinalizeDataIds();
-  inline bool FinalDataIds() const;
+  inline bool HasFinalDataIds() const;
 
   // Clear all the associated data.
   void ClearDataIds();
@@ -123,7 +121,7 @@ class Frame {
   rig_t rig_id_ = kInvalidRigId;
 
   std::set<data_t> data_ids_;
-  bool data_ids_finalized_ = false;
+  bool has_final_data_ids_ = false;
 
   // Store the rig_from_world transformation and an optional rig calibration.
   // If the rig calibration is a nullptr, the frame becomes a single sensor
@@ -146,7 +144,7 @@ void Frame::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
 void Frame::AddDataId(const data_t& data_id) {
-  THROW_CHECK(!data_ids_finalized_)
+  THROW_CHECK(!has_final_data_ids_)
       << "Cannot add data id to a finalized frame. Data ids must be added "
          "before the frame is added to a reconstruction.";
   if (HasRigPtr()) {
@@ -161,9 +159,9 @@ bool Frame::HasDataId(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();
 }
 
-void Frame::FinalizeDataIds() { data_ids_finalized_ = true; }
+void Frame::FinalizeDataIds() { has_final_data_ids_ = true; }
 
-bool Frame::FinalDataIds() const { return data_ids_finalized_; }
+bool Frame::HasFinalDataIds() const { return has_final_data_ids_; }
 
 rig_t Frame::RigId() const { return rig_id_; }
 
