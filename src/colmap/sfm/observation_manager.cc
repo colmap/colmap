@@ -76,6 +76,10 @@ ObservationManager::ObservationManager(
 
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
+  // Note: num_visible_correspondences is NOT initialized here — callers that
+  // need it (e.g., IncrementalMapper::BeginReconstruction) must call
+  // RegisterFrame for each existing frame, which handles both
+  // num_visible_correspondences and registration bookkeeping.
   for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -83,13 +87,6 @@ ObservationManager::ObservationManager(
       if (image.Point2D(point2D_idx).HasPoint3D()) {
         SetObservationAsTriangulated(
             image_id, point2D_idx, /*is_continued_point3D=*/false);
-      }
-      if (correspondence_graph_) {
-        const auto corr_range =
-            correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-        for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-          image_stats_[corr->image_id].num_visible_correspondences += 1;
-        }
       }
     }
   }
@@ -622,36 +619,30 @@ void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
   reconstruction_.DeRegisterFrame(frame_id);
 }
 
-std::vector<frame_t> ObservationManager::FilterFrames(
+std::vector<frame_t> ObservationManager::FindFramesToFilter(
     const double min_focal_length_ratio,
     const double max_focal_length_ratio,
-    const double max_extra_param) {
+    const double max_extra_param,
+    const int min_num_observations) const {
   std::vector<frame_t> filtered_frame_ids;
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     const Frame& frame = reconstruction_.Frame(frame_id);
-    int num_points3D = 0;
+    bool bogus_camera = false;
+    int num_observations = 0;
     for (const data_t& data_id : frame.ImageIds()) {
       const Image& image = reconstruction_.Image(data_id.id);
-      num_points3D += image.NumPoints3D();
+      num_observations += image.NumPoints3D();
       if (image.CameraPtr()->HasBogusParams(min_focal_length_ratio,
                                             max_focal_length_ratio,
                                             max_extra_param)) {
-        // Flag the frame for filtering.
-        num_points3D = 0;
+        bogus_camera = true;
         break;
       }
     }
-    if (num_points3D == 0) {
+    if (bogus_camera || num_observations < min_num_observations) {
       filtered_frame_ids.push_back(frame_id);
     }
   }
-
-  // Only de-register after iterating over reg_frame_ids_ to avoid
-  // simultaneous iteration and modification of the vector.
-  for (const frame_t frame_id : filtered_frame_ids) {
-    DeRegisterFrame(frame_id);
-  }
-
   return filtered_frame_ids;
 }
 

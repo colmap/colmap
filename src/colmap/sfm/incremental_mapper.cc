@@ -1256,12 +1256,14 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
     return {};
   }
 
-  const std::vector<frame_t> frame_ids =
-      obs_manager_->FilterFrames(options.min_focal_length_ratio,
-                                 options.max_focal_length_ratio,
-                                 options.max_extra_param);
+  const std::vector<frame_t> filtered_frame_ids =
+      obs_manager_->FindFramesToFilter(
+          /*min_focal_length_ratio=*/options.min_focal_length_ratio,
+          /*max_focal_length_ratio=*/options.max_focal_length_ratio,
+          /*max_extra_param=*/options.max_extra_param,
+          /*min_num_observations=*/1);
 
-  for (const frame_t frame_id : frame_ids) {
+  for (const frame_t frame_id : filtered_frame_ids) {
     if (!options.fix_existing_frames ||
         existing_frame_ids_.count(frame_id) == 0) {
       DeRegisterFrameEvent(frame_id);
@@ -1269,9 +1271,8 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
     }
   }
 
-  const size_t num_filtered_frames = frame_ids.size();
-  VLOG(1) << "=> Filtered frames: " << num_filtered_frames;
-  return num_filtered_frames;
+  VLOG(1) << "=> Filtered frames: " << filtered_frame_ids.size();
+  return filtered_frame_ids.size();
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {

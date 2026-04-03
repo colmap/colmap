@@ -444,5 +444,71 @@ TEST_F(IncrementalMapperTest, FilterPointsRemovesCorruptedPoint) {
   EXPECT_FALSE(reconstruction_->ExistsPoint3D(corrupted_point3D_id));
 }
 
+// Filtering a frame must not cause num_visible_correspondences to underflow.
+// Regression test for a double de-registration bug where FilterFrames called
+// DeRegisterFrame internally, then DeRegisterFrameEvent called it again,
+// double-decrementing the uint32_t counter and causing underflow.
+TEST_F(IncrementalMapperLargeDatasetTest,
+       FilterFramesDoesNotUnderflowVisibleCorrespondences) {
+  BeginWithSynthesizedReconstruction();
+
+  ASSERT_GE(reconstruction_->NumRegFrames(), 20);
+
+  const frame_t target_frame_id = FindRegisteredFrameWithPoints3D();
+  ASSERT_NE(target_frame_id, kInvalidFrameId);
+
+  DeleteAllObservationsInFrame(target_frame_id);
+  ASSERT_EQ(CountFramePoints3D(target_frame_id), 0);
+
+  mapper_->FilterFrames(options_);
+
+  // Collect the image IDs of the deregistered frame.
+  std::unordered_set<image_t> deregistered_image_ids;
+  for (const data_t& data_id :
+       reconstruction_->Frame(target_frame_id).ImageIds()) {
+    deregistered_image_ids.insert(data_id.id);
+  }
+
+  // After filtering, verify exact num_visible_correspondences for every image.
+  // DeRegisterFrame decrements the correspondence partners' counters, so each
+  // remaining image loses exactly the matches it had to the deregistered
+  // images. The deregistered images' own counters are unchanged (DeRegisterFrame
+  // only touches partners). An underflowed uint32_t would wrap to a very large
+  // value, failing these exact checks.
+  const auto& corr_graph = *cache_->CorrespondenceGraph();
+  const auto& obs_manager = mapper_->ObservationManager();
+  for (const auto& [image_id, image] : reconstruction_->Images()) {
+    point2D_t expected = obs_manager.NumCorrespondences(image_id);
+    if (!deregistered_image_ids.count(image_id)) {
+      // Registered image: lost matches to each deregistered image.
+      for (const image_t dereg_id : deregistered_image_ids) {
+        expected -= corr_graph.NumMatchesBetweenImages(image_id, dereg_id);
+      }
+    }
+    EXPECT_EQ(obs_manager.NumVisibleCorrespondences(image_id), expected)
+        << "num_visible_correspondences wrong for image " << image_id;
+  }
+}
+
+// Loading a pre-existing reconstruction must not double-count
+// num_visible_correspondences. Regression test for a bug where the
+// ObservationManager constructor incremented num_visible_correspondences for
+// all registered images, and then BeginReconstruction called RegisterFrame
+// for those same frames, doubling the count.
+TEST_F(IncrementalMapperTest,
+       BeginReconstructionDoesNotDoubleCountVisibleCorrespondences) {
+  BeginWithSynthesizedReconstruction();
+
+  // All images are registered, so num_visible_correspondences must exactly
+  // equal num_correspondences (every correspondence partner is registered).
+  // Before the fix, num_visible_correspondences was 2x num_correspondences.
+  for (const auto& [image_id, image] : reconstruction_->Images()) {
+    const auto& obs_manager = mapper_->ObservationManager();
+    EXPECT_EQ(obs_manager.NumVisibleCorrespondences(image_id),
+              obs_manager.NumCorrespondences(image_id))
+        << "num_visible_correspondences wrong for image " << image_id;
+  }
+}
+
 }  // namespace
 }  // namespace colmap

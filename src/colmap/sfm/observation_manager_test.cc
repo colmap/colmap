@@ -365,18 +365,23 @@ TEST(ObservationManager, FilterFrames) {
   obs_manager.AddObservation(point3D_id1, TrackElement(1, 0));
   obs_manager.AddObservation(point3D_id1, TrackElement(2, 0));
   obs_manager.AddObservation(point3D_id1, TrackElement(3, 0));
-  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
-                           /*max_focal_length_ratio=*/10.0,
-                           /*max_extra_param=*/1.0);
+  auto filter_frames = [&](double min_focal_length_ratio,
+                           double max_focal_length_ratio,
+                           double max_extra_param) {
+    for (const frame_t frame_id : obs_manager.FindFramesToFilter(
+             /*min_focal_length_ratio=*/min_focal_length_ratio,
+             /*max_focal_length_ratio=*/max_focal_length_ratio,
+             /*max_extra_param=*/max_extra_param,
+             /*min_num_observations=*/1)) {
+      obs_manager.DeRegisterFrame(frame_id);
+    }
+  };
+  filter_frames(0.0, 10.0, 1.0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   reconstruction.DeleteObservation(3, 0);
-  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
-                           /*max_focal_length_ratio=*/10.0,
-                           /*max_extra_param=*/1.0);
+  filter_frames(0.0, 10.0, 1.0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 2);
-  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
-                           /*max_focal_length_ratio=*/0.9,
-                           /*max_extra_param=*/1.0);
+  filter_frames(0.0, 0.9, 1.0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
 }
 

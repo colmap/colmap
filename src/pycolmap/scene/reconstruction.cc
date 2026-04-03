@@ -194,7 +194,7 @@ void BindReconstruction(py::module& m) {
       .def("register_frame",
            &Reconstruction::RegisterFrame,
            "frame_id"_a,
-           "Register an existing frame.")
+           "Register an existing frame, and all its references.")
       .def("deregister_frame",
            &Reconstruction::DeRegisterFrame,
            "frame_id"_a,
