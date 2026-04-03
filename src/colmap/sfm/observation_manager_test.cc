@@ -365,9 +365,9 @@ TEST(ObservationManager, FilterFrames) {
   obs_manager.AddObservation(point3D_id1, TrackElement(1, 0));
   obs_manager.AddObservation(point3D_id1, TrackElement(2, 0));
   obs_manager.AddObservation(point3D_id1, TrackElement(3, 0));
-  auto filter_frames = [&](double min_focal_length_ratio,
-                           double max_focal_length_ratio,
-                           double max_extra_param) {
+  auto filter_frames = [&obs_manager](double min_focal_length_ratio,
+                                      double max_focal_length_ratio,
+                                      double max_extra_param) {
     for (const frame_t frame_id : obs_manager.FindFramesToFilter(
              /*min_focal_length_ratio=*/min_focal_length_ratio,
              /*max_focal_length_ratio=*/max_focal_length_ratio,

@@ -105,6 +105,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
     // elements from the underlying vector.
     const std::vector<frame_t> reg_frame_ids = reconstruction_->RegFrameIds();
     for (const frame_t frame_id : reg_frame_ids) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
     }
   }
@@ -176,7 +177,9 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Update Reconstruction
   //////////////////////////////////////////////////////////////////////////////
 
+  obs_manager_->RegisterFrame(image1.FrameId());
   RegisterFrameEvent(image1.FrameId());
+  obs_manager_->RegisterFrame(image2.FrameId());
   RegisterFrameEvent(image2.FrameId());
 }
 
@@ -412,6 +415,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -589,6 +593,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
   frame.SetRigFromWorld(rig_from_world);
 
+  obs_manager_->RegisterFrame(frame.FrameId());
   RegisterFrameEvent(frame.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -776,6 +781,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
@@ -1256,23 +1262,24 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
     return {};
   }
 
-  const std::vector<frame_t> filtered_frame_ids =
+  const std::vector<frame_t> filter_frame_ids =
       obs_manager_->FindFramesToFilter(
           /*min_focal_length_ratio=*/options.min_focal_length_ratio,
           /*max_focal_length_ratio=*/options.max_focal_length_ratio,
           /*max_extra_param=*/options.max_extra_param,
           /*min_num_observations=*/1);
 
-  for (const frame_t frame_id : filtered_frame_ids) {
+  for (const frame_t frame_id : filter_frame_ids) {
     if (!options.fix_existing_frames ||
         existing_frame_ids_.count(frame_id) == 0) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
       filtered_frames_.insert(frame_id);
     }
   }
 
-  VLOG(1) << "=> Filtered frames: " << filtered_frame_ids.size();
-  return filtered_frame_ids.size();
+  VLOG(1) << "=> Filtered frames: " << filter_frame_ids.size();
+  return filter_frame_ids.size();
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
@@ -1345,8 +1352,6 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 }
 
 void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
-  obs_manager_->RegisterFrame(frame_id);
-
   const Frame& frame = reconstruction_->Frame(frame_id);
 
   size_t& num_reg_frames_for_rig =
@@ -1394,8 +1399,6 @@ void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
       reg_stats_.num_shared_reg_images -= 1;
     }
   }
-
-  obs_manager_->DeRegisterFrame(frame_id);
 }
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(
