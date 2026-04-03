@@ -631,10 +631,11 @@ void BindIncrementalMapperImpl(py::module& m) {
            "tri_options"_a,
            "normalize_reconstruction"_a = true,
            "Perform multiple rounds of global bundle adjustment.")
-      .def("filter_frames",
-           &IncrementalMapper::FilterFrames,
-           "options"_a,
-           "Filter frames with degenerate camera parameters.")
+      .def(
+          "filter_frames",
+          &IncrementalMapper::FilterFrames,
+          "options"_a,
+          "Filter frames with degenerate camera parameters or no observations.")
       .def("filter_points",
            &IncrementalMapper::FilterPoints,
            "options"_a,

@@ -444,5 +444,138 @@ TEST_F(IncrementalMapperTest, FilterPointsRemovesCorruptedPoint) {
   EXPECT_FALSE(reconstruction_->ExistsPoint3D(corrupted_point3D_id));
 }
 
+TEST_F(IncrementalMapperLargeDatasetTest,
+       ObservationBookkeepingAfterInitAndFilter) {
+  BeginWithSynthesizedReconstruction();
+
+  const size_t num_reg_frames_before = reconstruction_->NumRegFrames();
+  const size_t num_reg_images_before = mapper_->NumTotalRegImages();
+
+  // All images are registered, so num_visible_correspondences must exactly
+  // equal num_correspondences (every correspondence partner is registered).
+  const auto& obs_manager = mapper_->ObservationManager();
+  for (const auto& [image_id, image] : reconstruction_->Images()) {
+    EXPECT_EQ(obs_manager.NumObservations(image_id), image.NumPoints3D());
+    EXPECT_EQ(obs_manager.NumVisiblePoints3D(image_id),
+              reconstruction_->NumPoints3D());
+    EXPECT_EQ(obs_manager.NumVisibleCorrespondences(image_id),
+              obs_manager.NumCorrespondences(image_id))
+        << "num_visible_correspondences wrong for image " << image_id;
+  }
+
+  const frame_t target_frame_id = FindRegisteredFrameWithPoints3D();
+  ASSERT_NE(target_frame_id, kInvalidFrameId);
+  const Frame& target_frame = reconstruction_->Frame(target_frame_id);
+  const size_t num_images_in_frame = std::distance(
+      target_frame.ImageIds().begin(), target_frame.ImageIds().end());
+
+  DeleteAllObservationsInFrame(target_frame_id);
+  ASSERT_EQ(CountFramePoints3D(target_frame_id), 0);
+
+  mapper_->FilterFrames(options_);
+
+  // Verify reconstruction state.
+  EXPECT_EQ(reconstruction_->NumRegFrames(), num_reg_frames_before - 1);
+
+  // Verify reg_stats_ consistency after filtering.
+  EXPECT_EQ(mapper_->NumTotalRegImages(),
+            num_reg_images_before - num_images_in_frame);
+  EXPECT_EQ(mapper_->FilteredFrames().count(target_frame_id), 1);
+
+  std::unordered_set<image_t> filtered_image_ids;
+  for (const data_t& data_id : target_frame.ImageIds()) {
+    filtered_image_ids.insert(data_id.id);
+  }
+
+  // After filtering, verify exact num_visible_correspondences for every image.
+  // DeRegisterFrame decrements the correspondence partners' counters, so each
+  // remaining image loses exactly the matches it had to the deregistered
+  // images. The deregistered images' own counters are unchanged
+  // (DeRegisterFrame only touches partners). An underflowed uint32_t would wrap
+  // to a very large value, failing these exact checks.
+  const auto& corr_graph = *cache_->CorrespondenceGraph();
+  for (const auto& [image_id, image] : reconstruction_->Images()) {
+    point2D_t expected_visible_corrs = obs_manager.NumCorrespondences(image_id);
+    if (!filtered_image_ids.count(image_id)) {
+      // Registered image: lost matches to each deregistered image.
+      for (const image_t filtered_image_id : filtered_image_ids) {
+        expected_visible_corrs -=
+            corr_graph.NumMatchesBetweenImages(image_id, filtered_image_id);
+      }
+    }
+    EXPECT_EQ(obs_manager.NumVisibleCorrespondences(image_id),
+              expected_visible_corrs)
+        << "num_visible_correspondences wrong for image " << image_id;
+
+    // Visibility counts must remain internally consistent.
+    EXPECT_LE(obs_manager.NumVisiblePoints3D(image_id),
+              obs_manager.NumObservations(image_id));
+  }
+}
+
+// Re-initializing from a discarded reconstruction must produce correct
+// observation bookkeeping, verifying symmetry of register/deregister paths.
+TEST_F(IncrementalMapperLargeDatasetTest,
+       ObservationBookkeepingAfterDiscardAndReinit) {
+  BeginWithSynthesizedReconstruction();
+
+  const size_t num_reg_frames = reconstruction_->NumRegFrames();
+  ASSERT_GE(num_reg_frames, 20);
+
+  // Discard and re-initialize with the same ground truth reconstruction.
+  mapper_->EndReconstruction(/*discard=*/true);
+  BeginWithSynthesizedReconstruction();
+
+  EXPECT_EQ(reconstruction_->NumRegFrames(), num_reg_frames);
+  EXPECT_EQ(mapper_->NumTotalRegImages(), reconstruction_->NumRegImages());
+
+  // After a full discard + reinit cycle, the observation bookkeeping
+  // must be correct again — no state leaks from the previous cycle.
+  const auto& obs_manager = mapper_->ObservationManager();
+  for (const auto& [image_id, image] : reconstruction_->Images()) {
+    EXPECT_EQ(obs_manager.NumVisibleCorrespondences(image_id),
+              obs_manager.NumCorrespondences(image_id))
+        << "num_visible_correspondences wrong for image " << image_id;
+  }
+}
+
+// Filtering must update reg_stats_ (per-rig and per-camera counts) to match
+// the actual reconstruction state.
+TEST_F(IncrementalMapperLargeDatasetTest, FilterFramesRegStatsConsistency) {
+  BeginWithSynthesizedReconstruction();
+
+  ASSERT_GE(reconstruction_->NumRegFrames(), 20);
+
+  const frame_t target_frame_id = FindRegisteredFrameWithPoints3D();
+  ASSERT_NE(target_frame_id, kInvalidFrameId);
+  const Frame& target_frame = reconstruction_->Frame(target_frame_id);
+  const rig_t target_rig_id = target_frame.RigId();
+
+  // Record per-rig and per-camera counts before filtering.
+  const size_t rig_count_before =
+      mapper_->NumRegFramesPerRig().at(target_rig_id);
+  std::unordered_map<camera_t, size_t> camera_counts_before;
+  for (const data_t& data_id : target_frame.ImageIds()) {
+    const camera_t camera_id = reconstruction_->Image(data_id.id).CameraId();
+    camera_counts_before[camera_id] =
+        mapper_->NumRegImagesPerCamera().at(camera_id);
+  }
+
+  DeleteAllObservationsInFrame(target_frame_id);
+  mapper_->FilterFrames(options_);
+
+  // Per-rig count should decrease by exactly 1.
+  EXPECT_EQ(mapper_->NumRegFramesPerRig().at(target_rig_id),
+            rig_count_before - 1);
+
+  // Per-camera counts should decrease by exactly the number of images in the
+  // filtered frame that used each camera.
+  for (const data_t& data_id : target_frame.ImageIds()) {
+    const camera_t camera_id = reconstruction_->Image(data_id.id).CameraId();
+    EXPECT_EQ(mapper_->NumRegImagesPerCamera().at(camera_id),
+              camera_counts_before.at(camera_id) - 1);
+  }
+}
+
 }  // namespace
 }  // namespace colmap
