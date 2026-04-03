@@ -453,7 +453,6 @@ TEST_F(IncrementalMapperLargeDatasetTest,
 
   // All images are registered, so num_visible_correspondences must exactly
   // equal num_correspondences (every correspondence partner is registered).
-  // Before the fix, num_visible_correspondences was 2x num_correspondences.
   const auto& obs_manager = mapper_->ObservationManager();
   for (const auto& [image_id, image] : reconstruction_->Images()) {
     EXPECT_EQ(obs_manager.NumObservations(image_id), image.NumPoints3D());
@@ -483,11 +482,8 @@ TEST_F(IncrementalMapperLargeDatasetTest,
             num_reg_images_before - num_images_in_frame);
   EXPECT_EQ(mapper_->FilteredFrames().count(target_frame_id), 1);
 
-  // Collect the image IDs of the deregistered frame.
-  std::unordered_set<image_t> deregistered_image_ids;
-  for (const data_t& data_id : target_frame.ImageIds()) {
-    deregistered_image_ids.insert(data_id.id);
-  }
+  const std::unordered_set<image_t> filtered_image_ids = {
+      target_frame.ImageIds().begin(), target_frame.ImageIds().end()};
 
   // After filtering, verify exact num_visible_correspondences for every image.
   // DeRegisterFrame decrements the correspondence partners' counters, so each
@@ -498,11 +494,11 @@ TEST_F(IncrementalMapperLargeDatasetTest,
   const auto& corr_graph = *cache_->CorrespondenceGraph();
   for (const auto& [image_id, image] : reconstruction_->Images()) {
     point2D_t expected_visible_corrs = obs_manager.NumCorrespondences(image_id);
-    if (!deregistered_image_ids.count(image_id)) {
+    if (!filtered_image_ids.count(image_id)) {
       // Registered image: lost matches to each deregistered image.
-      for (const image_t dereg_image_id : deregistered_image_ids) {
+      for (const image_t filtered_image_id : filtered_image_ids) {
         expected_visible_corrs -=
-            corr_graph.NumMatchesBetweenImages(image_id, dereg_image_id);
+            corr_graph.NumMatchesBetweenImages(image_id, filtered_image_id);
       }
     }
     EXPECT_EQ(obs_manager.NumVisibleCorrespondences(image_id),
