@@ -482,8 +482,10 @@ TEST_F(IncrementalMapperLargeDatasetTest,
             num_reg_images_before - num_images_in_frame);
   EXPECT_EQ(mapper_->FilteredFrames().count(target_frame_id), 1);
 
-  const std::unordered_set<image_t> filtered_image_ids = {
-      target_frame.ImageIds().begin(), target_frame.ImageIds().end()};
+  std::unordered_set<image_t> filtered_image_ids;
+  for (const data_t& data_id : target_frame.ImageIds()) {
+    filtered_image_ids.insert(data_id.id);
+  }
 
   // After filtering, verify exact num_visible_correspondences for every image.
   // DeRegisterFrame decrements the correspondence partners' counters, so each
