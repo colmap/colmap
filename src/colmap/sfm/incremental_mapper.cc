@@ -83,6 +83,7 @@ void IncrementalMapper::BeginReconstruction(
       database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
 
   reg_stats_.num_shared_reg_images = 0;
+  reg_stats_.num_reg_frames_per_rig.clear();
   reg_stats_.num_reg_images_per_camera.clear();
   for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
     RegisterFrameEvent(frame_id);
@@ -1269,17 +1270,19 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
           /*max_extra_param=*/options.max_extra_param,
           /*min_num_observations=*/1);
 
+  size_t num_filtered = 0;
   for (const frame_t frame_id : filter_frame_ids) {
     if (!options.fix_existing_frames ||
         existing_frame_ids_.count(frame_id) == 0) {
       obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
       filtered_frames_.insert(frame_id);
+      ++num_filtered;
     }
   }
 
-  VLOG(1) << "=> Filtered frames: " << filter_frame_ids.size();
-  return filter_frame_ids.size();
+  VLOG(1) << "=> Filtered frames: " << num_filtered;
+  return num_filtered;
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
