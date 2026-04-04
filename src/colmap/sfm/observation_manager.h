@@ -143,7 +143,7 @@ class ObservationManager {
   // bogus camera parameters, without de-registering them. Pass them to
   // DeRegisterFrame to reset their pose.
   //
-  // @return    The identifiers of the filterable frames.
+  // @return    The identifiers of the frames to filter.
   std::vector<frame_t> FindFramesToFilter(double min_focal_length_ratio,
                                           double max_focal_length_ratio,
                                           double max_extra_param,

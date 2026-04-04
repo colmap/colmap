@@ -198,6 +198,9 @@ void ObservationManager::DecrementCorrespondenceHasPoint3D(
   const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
+  THROW_CHECK_GT(stats.num_correspondences_have_point3D[point2D_idx], 0)
+      << "Correspondence counter underflow for image " << image_id
+      << " point2D " << point2D_idx;
   stats.num_correspondences_have_point3D[point2D_idx] -= 1;
   if (stats.num_correspondences_have_point3D[point2D_idx] == 0) {
     stats.num_visible_points3D -= 1;
@@ -585,7 +588,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
 
 void ObservationManager::RegisterFrame(const frame_t frame_id) {
   const Frame& frame = reconstruction_.Frame(frame_id);
-  for (const data_t& data_id : frame.DataIds()) {
+  for (const data_t& data_id : frame.ImageIds()) {
     Image& image = reconstruction_.Image(data_id.id);
     const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -603,7 +606,7 @@ void ObservationManager::RegisterFrame(const frame_t frame_id) {
 
 void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
   const Frame& frame = reconstruction_.Frame(frame_id);
-  for (const data_t& data_id : frame.DataIds()) {
+  for (const data_t& data_id : frame.ImageIds()) {
     Image& image = reconstruction_.Image(data_id.id);
     const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -611,6 +614,10 @@ void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
         const auto corr_range =
             correspondence_graph_->FindCorrespondences(data_id.id, point2D_idx);
         for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+          THROW_CHECK_GT(
+              image_stats_[corr->image_id].num_visible_correspondences, 0)
+              << "Visible correspondences underflow for image "
+              << corr->image_id << " when deregistering frame " << frame_id;
           image_stats_[corr->image_id].num_visible_correspondences -= 1;
         }
       }
