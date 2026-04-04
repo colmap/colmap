@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
         camera.h camera.cc
         frame.h frame.cc
         image.h image.cc
+        imu.h
         point2d.h point2d.cc
         two_view_geometry.h two_view_geometry.cc
     PUBLIC_LINK_LIBS
