@@ -577,5 +577,52 @@ TEST_F(IncrementalMapperLargeDatasetTest, FilterFramesRegStatsConsistency) {
   }
 }
 
+TEST_F(IncrementalMapperTest, RegStatsResetBetweenReconstructions) {
+  BeginWithSynthesizedReconstruction();
+
+  const size_t num_reg_images_first = mapper_->NumTotalRegImages();
+  const auto rig_counts_first = mapper_->NumRegFramesPerRig();
+  const auto camera_counts_first = mapper_->NumRegImagesPerCamera();
+  ASSERT_GT(num_reg_images_first, 0);
+  ASSERT_FALSE(rig_counts_first.empty());
+  ASSERT_FALSE(camera_counts_first.empty());
+  ASSERT_FALSE(mapper_->ExistingFrameIds().empty());
+
+  // End without discard (keeps cross-reconstruction state).
+  mapper_->EndReconstruction(/*discard=*/false);
+
+  // Begin a fresh empty reconstruction.
+  reconstruction_ = std::make_shared<Reconstruction>();
+  mapper_->BeginReconstruction(reconstruction_);
+
+  // Per-reconstruction stats must be reset for a fresh reconstruction.
+  EXPECT_TRUE(mapper_->NumRegFramesPerRig().empty());
+  EXPECT_TRUE(mapper_->NumRegImagesPerCamera().empty());
+  EXPECT_TRUE(mapper_->FilteredFrames().empty());
+  EXPECT_TRUE(mapper_->ExistingFrameIds().empty());
+  EXPECT_EQ(mapper_->NumSharedRegImages(), 0);
+
+  // Cross-reconstruction stats must persist.
+  EXPECT_EQ(mapper_->NumTotalRegImages(), num_reg_images_first);
+
+  mapper_->EndReconstruction(/*discard=*/false);
+
+  // Re-add the same reconstruction — images are now shared across two cycles.
+  BeginWithSynthesizedReconstruction();
+
+  // Per-reconstruction stats must match the first cycle.
+  EXPECT_EQ(mapper_->NumRegFramesPerRig(), rig_counts_first);
+  EXPECT_EQ(mapper_->NumRegImagesPerCamera(), camera_counts_first);
+  EXPECT_FALSE(mapper_->ExistingFrameIds().empty());
+
+  // All images were already registered in the first cycle, so they are
+  // now shared. num_total_reg_images stays the same (same images, not new
+  // ones), and num_shared_reg_images equals the number of re-registered images.
+  EXPECT_EQ(mapper_->NumTotalRegImages(), num_reg_images_first);
+  EXPECT_EQ(mapper_->NumSharedRegImages(), num_reg_images_first);
+
+  mapper_->EndReconstruction(/*discard=*/false);
+}
+
 }  // namespace
 }  // namespace colmap
