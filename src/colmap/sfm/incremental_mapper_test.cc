@@ -577,10 +577,6 @@ TEST_F(IncrementalMapperLargeDatasetTest, FilterFramesRegStatsConsistency) {
   }
 }
 
-// Verify that per-reconstruction reg_stats_ (num_reg_frames_per_rig,
-// num_reg_images_per_camera) are reset between reconstruction cycles.
-// Regression test for a bug where num_reg_frames_per_rig was not cleared
-// in BeginReconstruction, causing stale counts to accumulate.
 TEST_F(IncrementalMapperTest, RegStatsResetBetweenReconstructions) {
   BeginWithSynthesizedReconstruction();
 
