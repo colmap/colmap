@@ -614,11 +614,11 @@ void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
         const auto corr_range =
             correspondence_graph_->FindCorrespondences(data_id.id, point2D_idx);
         for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-          THROW_CHECK_GT(
-              image_stats_[corr->image_id].num_visible_correspondences, 0)
+          auto& stats = image_stats_[corr->image_id];
+          THROW_CHECK_GT(stats.num_visible_correspondences, 0)
               << "Visible correspondences underflow for image "
               << corr->image_id << " when deregistering frame " << frame_id;
-          image_stats_[corr->image_id].num_visible_correspondences -= 1;
+          stats.num_visible_correspondences -= 1;
         }
       }
       if (image.Point2D(point2D_idx).HasPoint3D()) {
