@@ -1670,19 +1670,29 @@ double_val - double-precision floating point value
 
 void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsigned int &uint_val , long long &longlong_val , unsigned long long &ulonglong_val , double &double_val )
 {
+	// Use memcpy instead of type-punning pointer casts to read from the
+	// buffer.  The original code cast char* to int*/float*/etc. which
+	// violates C++ strict-aliasing rules.  At -O3 GCC exploits this and
+	// may reorder or eliminate the loads, returning garbage.
+	// Note: -Wstrict-aliasing does not catch this because the cast goes
+	// through a void* intermediate which defeats the heuristic checker.
+	//
+	// For the float/double cases we also avoid direct casts from
+	// floating-point to unsigned integer types, which are UB when the
+	// value is negative or out-of-range.  Instead we convert through
+	// long long first (well-defined truncation from double for values
+	// within ±2^63) and then use the well-defined signed-to-unsigned
+	// integer conversion.
 	char c[8];
-	void *ptr;
 
-	ptr = ( void * )c;
-
-	if( fread( ptr , ply_type_size[type] , 1 , fp )!=1 ) MK_THROW( "fread() failed -- aborting: " , std::string( type_names[type] ) );
-	if( ( file_type!=native_binary_type ) && ( ply_type_size[type]>1 ) ) swap_bytes( (char *)ptr , ply_type_size[type] );
+	if( fread( c , ply_type_size[type] , 1 , fp )!=1 ) MK_THROW( "fread() failed -- aborting: " , std::string( type_names[type] ) );
+	if( ( file_type!=native_binary_type ) && ( ply_type_size[type]>1 ) ) swap_bytes( c , ply_type_size[type] );
 
 	switch( type )
 	{
 	case PLY_CHAR:
 	case PLY_INT_8:
-		int_val = *((char *) ptr);
+		int_val = (signed char)c[0];
 		uint_val = int_val;
 		longlong_val = int_val;
 		ulonglong_val = int_val;
@@ -1690,7 +1700,7 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_UCHAR:
 	case PLY_UINT_8:
-		uint_val = *((unsigned char *) ptr);
+		uint_val = (unsigned char)c[0];
 		int_val = uint_val;
 		longlong_val = int_val;
 		ulonglong_val = int_val;
@@ -1698,7 +1708,7 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_SHORT:
 	case PLY_INT_16:
-		int_val = *((short int *) ptr);
+		{ short v; memcpy( &v , c , sizeof(v) ); int_val = v; }
 		uint_val = int_val;
 		longlong_val = int_val;
 		ulonglong_val = int_val;
@@ -1706,7 +1716,7 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_USHORT:
 	case PLY_UINT_16:
-		uint_val = *((unsigned short int *) ptr);
+		{ unsigned short v; memcpy( &v , c , sizeof(v) ); uint_val = v; }
 		int_val = uint_val;
 		longlong_val = int_val;
 		ulonglong_val = int_val;
@@ -1714,7 +1724,7 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_INT:
 	case PLY_INT_32:
-		int_val = *((int *) ptr);
+		memcpy( &int_val , c , sizeof(int_val) );
 		uint_val = int_val;
 		longlong_val = int_val;
 		ulonglong_val = int_val;
@@ -1722,7 +1732,7 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_UINT:
 	case PLY_UINT_32:
-		uint_val = *((unsigned int *) ptr);
+		memcpy( &uint_val , c , sizeof(uint_val) );
 		int_val = uint_val;
 		longlong_val = int_val;
 		ulonglong_val = int_val;
@@ -1730,7 +1740,7 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_LONGLONG:
 	case PLY_INT_64:
-		longlong_val = *((long long *) ptr);
+		memcpy( &longlong_val , c , sizeof(longlong_val) );
 		ulonglong_val = (unsigned long long)longlong_val;
 		int_val = (int)longlong_val;
 		uint_val = (unsigned int)longlong_val;
@@ -1738,7 +1748,7 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_ULONGLONG:
 	case PLY_UINT_64:
-		ulonglong_val = *((unsigned long long *) ptr);
+		memcpy( &ulonglong_val , c , sizeof(ulonglong_val) );
 		longlong_val = (long long)ulonglong_val;
 		int_val = (int)ulonglong_val;
 		uint_val = (unsigned int)ulonglong_val;
@@ -1746,19 +1756,21 @@ void get_binary_item( FILE *fp , int file_type , int type , int &int_val , unsig
 		break;
 	case PLY_FLOAT:
 	case PLY_FLOAT_32:
-		double_val = *((float *) ptr);
-		int_val = (int)double_val;
-		uint_val = (unsigned int)double_val;
-		longlong_val = (long long)double_val;
-		ulonglong_val = (unsigned long long)int_val;
+		{ float v; memcpy( &v , c , sizeof(v) ); double_val = v; }
+		// Clamp to avoid undefined behavior with an out of range double.
+		longlong_val = static_cast<long long>(std::clamp(double_val, static_cast<double>(std::numeric_limits<long long>::min()), static_cast<double>(std::numeric_limits<long long>::max())));
+		int_val = (int)longlong_val;
+		uint_val = (unsigned int)longlong_val;
+		ulonglong_val = (unsigned long long)longlong_val;
 		break;
 	case PLY_DOUBLE:
 	case PLY_FLOAT_64:
-		double_val = *((double *) ptr);
-		int_val = (int)double_val;
-		uint_val = (unsigned int)double_val;
-		longlong_val = (long long)double_val;
-		ulonglong_val = (unsigned long long)int_val;
+		memcpy( &double_val , c , sizeof(double_val) );
+		// Clamp to avoid undefined behavior with an out of range double.
+		longlong_val = static_cast<long long>(std::clamp(double_val, static_cast<double>(std::numeric_limits<long long>::min()), static_cast<double>(std::numeric_limits<long long>::max())));
+		int_val = (int)longlong_val;
+		uint_val = (unsigned int)longlong_val;
+		ulonglong_val = (unsigned long long)longlong_val;
 		break;
 	default: MK_THROW( "Bad type: " , type );
 	}

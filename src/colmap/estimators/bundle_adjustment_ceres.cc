@@ -1082,7 +1082,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
 }  // namespace
 
-std::unique_ptr<BundleAdjuster> CreateDefaultCeresBundleAdjuster(
+std::unique_ptr<CeresBundleAdjuster> CreateDefaultCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction) {
@@ -1090,7 +1090,7 @@ std::unique_ptr<BundleAdjuster> CreateDefaultCeresBundleAdjuster(
       options, config, reconstruction);
 }
 
-std::unique_ptr<BundleAdjuster> CreatePosePriorCeresBundleAdjuster(
+std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const PosePriorBundleAdjustmentOptions& prior_options,
     const BundleAdjustmentConfig& config,

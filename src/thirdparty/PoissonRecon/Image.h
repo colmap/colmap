@@ -301,7 +301,7 @@ namespace PoissonRecon
 	}
 
 #ifdef SUPPORT_TILES
-	bool TiledImageReader::GetInfo( const char* fileName , unsigned int& width , unsigned int& height , unsigned int& channels )
+	inline bool TiledImageReader::GetInfo( const char* fileName , unsigned int& width , unsigned int& height , unsigned int& channels )
 	{
 		char* fileDir = FileNameParser::Dir( fileName );
 		unsigned int *_tileHeights , *_tileWidths;
@@ -346,7 +346,7 @@ namespace PoissonRecon
 		return true;
 	}
 
-	TiledImageReader::TiledImageReader( const char* fileName , unsigned int& width , unsigned int& height , unsigned int& channels )
+	inline TiledImageReader::TiledImageReader( const char* fileName , unsigned int& width , unsigned int& height , unsigned int& channels )
 	{
 		char* fileDir = FileNameParser::Dir( fileName );
 		FILE* fp = fopen( fileName , "r" );
@@ -395,7 +395,7 @@ namespace PoissonRecon
 		width = _width = _tileWidths[_tileColumns] , height = _height = _tileHeights[_tileRows] , channels = _channels;
 		_currentPixelRow = _currentTileRow = 0;
 	}
-	TiledImageReader::~TiledImageReader( void )
+	inline TiledImageReader::~TiledImageReader( void )
 	{
 		delete[] _tileReaders;
 		for( unsigned int i=0 ; i<_tileColumns*_tileRows ; i++ ) delete[] _tileNames[i];
@@ -403,7 +403,7 @@ namespace PoissonRecon
 		delete[] _tileWidths;
 		delete[] _tileHeights;
 	}
-	unsigned TiledImageReader::nextRow( unsigned char* row )
+	inline unsigned TiledImageReader::nextRow( unsigned char* row )
 	{
 		// If it's the first row, set up the readers
 		if( _currentPixelRow==_tileHeights[ _currentTileRow ] ) for( unsigned int c=0 ; c<_tileColumns ; c++ ) _tileReaders[c] = ImageReader::Get( _tileNames[ _currentTileRow * _tileColumns + c ] );
@@ -421,7 +421,7 @@ namespace PoissonRecon
 		return _currentPixelRow++;
 	}
 
-	TiledImageWriter::TiledImageWriter( const char* fileName , unsigned int width , unsigned int height , unsigned int channels , ImageWriterParams params )
+	inline TiledImageWriter::TiledImageWriter( const char* fileName , unsigned int width , unsigned int height , unsigned int channels , ImageWriterParams params )
 	{
 		_width = width , _height = height , _channels = channels , _tileWidth = params.tileWidth , _tileHeight = params.tileHeight;
 		_tileColumns = ( _width + ( _tileWidth-1 ) ) / _tileWidth , _tileRows = ( _height + ( _tileHeight-1 ) ) / _tileHeight;
@@ -451,13 +451,13 @@ namespace PoissonRecon
 		fclose( fp );
 		_currentPixelRow = 0;
 	}
-	TiledImageWriter::~TiledImageWriter( void )
+	inline TiledImageWriter::~TiledImageWriter( void )
 	{
 		delete[] _tileWriters;
 		for( unsigned int i=0 ; i<_tileColumns*_tileRows ; i++ ) delete[] _tileNames[i];
 		delete[] _tileNames;
 	}
-	unsigned int TiledImageWriter::nextRow( const unsigned char* row )
+	inline unsigned int TiledImageWriter::nextRow( const unsigned char* row )
 	{
 		unsigned int r = _currentPixelRow / _tileHeight;
 		if( ( _currentPixelRow % _tileHeight )==0 )
