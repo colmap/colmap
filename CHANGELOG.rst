@@ -7,7 +7,7 @@ COLMAP 4.0.3 (04/06/2026)
 
 Bug Fixes
 ---------
-* Fix various issues in incremental mapper's reg_stats bookkepping
+* Fix various issues in incremental mapper's reg_stats bookkeeping
 * Fix reading of dynamic matrices in SQLite3 database
 * Fix optional access in guided matching
 * Fix conditional Eigen alignment for 3.4.0 pre-release version
