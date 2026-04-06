@@ -2,6 +2,33 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.0.3 (04/06/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Fix various issues in incremental mapper's reg_stats bookkepping
+* Fix reading of dynamic matrices in SQLite3 database
+* Fix optional access in guided matching
+* Fix conditional Eigen alignment for 3.4.0 pre-release version
+* Fix ceres::GradientChecker constructor for older Ceres versions
+* Fix for pycolmap installation related to ONNX
+* Fix bug where num_reg_images was not cleared
+* Fix mask usage log never printing in feature writer thread
+* Fix undefined behavior in PoissonRecon
+* Fix locale-dependent float parsing/formatting
+* Fix empty PatchMatch results on Blackwell GPUs (sm_100+)
+* Fix pyceres .problem attribute on CeresBundleAdjuster returned by factory functions
+* Fix missing rotation averaging options to global mapper
+* Fix piping of bundle adjustment options in global mapper
+
+Improvements
+------------
+* Handle CHOLMOD includes not being in a subdirectory
+* Use non-deprecated SQLite3::SQLite3 CMake target
+* Reduce thread oversubscription in hierarchical mapper
+
+-------------------------
 COLMAP 4.0.2 (03/18/2026)
 -------------------------
 
@@ -129,7 +156,7 @@ Full Change List (sorted temporally)
 ------------------------------------
 * Fix MSVC compatibility with ``isnan`` by @nharbiso in https://github.com/colmap/colmap/pull/3720
 * Include v3.13 to legacy dropdown. by @B1ueber2y in https://github.com/colmap/colmap/pull/3724
-* (bugfix) initializing added_two_view_geometry_options to false by @AlePuglisi in https://github.com/colmap/colmap/pull/3727
+* (bugfix) initializing added_two_view_geometry_options_ to false by @AlePuglisi in https://github.com/colmap/colmap/pull/3727
 * Update the tag of the doc submodule to the latest commit. by @B1ueber2y in https://github.com/colmap/colmap/pull/3729
 * Fix duplicated parameters for pycolmap.extract_features and fix pycolmap README. by @B1ueber2y in https://github.com/colmap/colmap/pull/3728
 * Document how to speed up bundle adjustment by @StonerLing in https://github.com/colmap/colmap/pull/3730
@@ -456,7 +483,7 @@ Full Change List (sorted temporally)
 * Expose more logging options in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/4150
 * Load keypoints for all images to database cache for triangulation by @B1ueber2y in https://github.com/colmap/colmap/pull/4151
 * Add separate trial counter for structure-less registration by @B1ueber2y in https://github.com/colmap/colmap/pull/4152
-* Fix the usage of filter_frames in FindNextImages by @B1ueber2y in https://github.com/colmap/colmap/pull/4153
+* Fix the usage of filter_frames_ in FindNextImages by @B1ueber2y in https://github.com/colmap/colmap/pull/4153
 * Read inputs in parallel in patch match by @ahojnnes in https://github.com/colmap/colmap/pull/4154
 * Improved caching for faster and more reliable CI by @ahojnnes in https://github.com/colmap/colmap/pull/4156
 * Add retries for more reliable file download by @ahojnnes in https://github.com/colmap/colmap/pull/4157
