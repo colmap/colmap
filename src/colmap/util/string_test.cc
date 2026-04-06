@@ -228,31 +228,31 @@ TEST(StringContains, Nominal) {
 }
 
 TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtrip) {
-  const std::unordered_map<int, std::string> kCodePageToUTF8Strings = {
+  const std::vector<std::pair<int, std::string>> kCodePageToUTF8Strings = {
       {// English
-       {0, u8"Bundle Adjustment"},
+       {0, "Bundle Adjustment"},
        // Simplified Chinese
-       {936, u8"光束法平差"},
+       {936, "光束法平差"},
        // Japanese
-       {932, u8"バンドル調整"},
+       {932, "バンドル調整"},
        // Korean
-       {949, u8"번들조정"},
+       {949, "번들조정"},
        // French
-       {1252, u8"Ajustement de faisceau"},
+       {1252, "Ajustement de faisceau"},
        // German
-       {1252, u8"Bündelanpassung"},
+       {1252, "Bündelanpassung"},
        // Russian
-       {1251, u8"Байндл-адаптация"},
+       {1251, "Байндл-адаптация"},
        // Greek
-       {1253, u8"Προσαρμογή δεσμίδας"},
+       {1253, "Προσαρμογή δεσμίδας"},
        // Turkish
-       {1254, u8"Işın Demeti Ayarı"},
+       {1254, "Işın Demeti Ayarı"},
        // Hebrew
-       {1255, u8"התאמת צרור"},
+       {1255, "התאמת צרור"},
        // Arabic
-       {1256, u8"ضبط الحزمة"},
+       {1256, "ضبط الحزمة"},
        // Thai
-       {874, u8"ปรับค่ากลุ่มภาพ"}}};
+       {874, "ปรับค่ากลุ่มภาพ"}}};
 
   for (const auto& [code_page, original] : kCodePageToUTF8Strings) {
 #ifdef _WIN32
