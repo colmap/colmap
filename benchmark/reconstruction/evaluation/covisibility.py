@@ -289,7 +289,6 @@ def filter_covisibility(
             if not is_covisible(
                 images_gt_by_name[name1], images_gt_by_name[name2]
             ):
-                database.delete_matches(image_id1, image_id2)
                 database.delete_two_view_geometry(image_id1, image_id2)
                 filtered_count += 1
 
