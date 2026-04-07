@@ -2,6 +2,33 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.0.3 (04/06/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Fix various issues in incremental mapper's reg_stats bookkeeping
+* Fix reading of dynamic matrices in SQLite3 database
+* Fix optional access in guided matching
+* Fix conditional Eigen alignment for 3.4.0 pre-release version
+* Fix ceres::GradientChecker constructor for older Ceres versions
+* Fix for pycolmap installation related to ONNX
+* Fix bug where num_reg_images was not cleared
+* Fix mask usage log never printing in feature writer thread
+* Fix undefined behavior in PoissonRecon
+* Fix locale-dependent float parsing/formatting
+* Fix empty PatchMatch results on Blackwell GPUs (sm_100+)
+* Fix pyceres .problem attribute on CeresBundleAdjuster returned by factory functions
+* Fix missing rotation averaging options to global mapper
+* Fix piping of bundle adjustment options in global mapper
+
+Improvements
+------------
+* Handle CHOLMOD includes not being in a subdirectory
+* Use non-deprecated SQLite3::SQLite3 CMake target
+* Reduce thread oversubscription in hierarchical mapper
+
+-------------------------
 COLMAP 4.0.2 (03/18/2026)
 -------------------------
 

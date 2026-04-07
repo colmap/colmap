@@ -184,27 +184,13 @@ int RunImageFilterer(int argc, char** argv) {
 
   const size_t num_reg_images = reconstruction.NumRegImages();
 
-  ObservationManager(reconstruction)
-      .FilterFrames(
-          min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
-
-  std::vector<frame_t> filtered_frame_ids;
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      filtered_frame_ids.push_back(frame_id);
-    }
-    bool enough_observations = false;
-    for (const data_t& data_id : frame.ImageIds()) {
-      const Image& image = reconstruction.Image(data_id.id);
-      if (image.NumPoints3D() >= static_cast<size_t>(min_num_observations)) {
-        enough_observations = true;
-      }
-    }
-
-    if (!enough_observations) {
-      filtered_frame_ids.push_back(frame_id);
-    }
-  }
+  std::vector<frame_t> filtered_frame_ids =
+      ObservationManager(reconstruction)
+          .FindFramesToFilter(
+              /*min_focal_length_ratio=*/min_focal_length_ratio,
+              /*max_focal_length_ratio=*/max_focal_length_ratio,
+              /*max_extra_param=*/max_extra_param,
+              /*min_num_observations=*/min_num_observations);
 
   for (const auto frame_id : filtered_frame_ids) {
     reconstruction.DeRegisterFrame(frame_id);

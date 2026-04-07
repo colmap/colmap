@@ -93,16 +93,19 @@ void BindObservationManager(py::module& m) {
            "Filter observations that have negative depth. Return the number of "
            "filtered observations.")
       .def("filter_frames",
-           &ObservationManager::FilterFrames,
+           &ObservationManager::FindFramesToFilter,
            "min_focal_length_ratio"_a,
            "max_focal_length_ratio"_a,
            "max_extra_param"_a,
-           "Filter frames without observations or bogus camera parameters."
-           "Return the identifiers of the filtered frames.")
+           "min_num_observations"_a,
+           "Find frames that should be filtered due to having no observations "
+           "or bogus camera parameters, without de-registering them. Pass them "
+           "to DeRegisterFrame to reset their pose."
+           "Return the identifiers of the frames to filter.")
       .def("register_frame",
-           &ObservationManager::DeRegisterFrame,
+           &ObservationManager::RegisterFrame,
            "frame_id"_a,
-           "Register an existing frame, and all its references.")
+           "Register an existing frame, and all its references..")
       .def("deregister_frame",
            &ObservationManager::DeRegisterFrame,
            "frame_id"_a,
