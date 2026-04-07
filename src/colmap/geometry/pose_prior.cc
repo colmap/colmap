@@ -98,7 +98,8 @@ std::optional<Eigen::Vector3d> GravityFromExifOrientation(int orientation) {
       LOG(WARNING) << "Unsupported EXIF orientation: " << orientation;
       return std::nullopt;
     default:
-      LOG(FATAL) << "Unknown EXIF orientation: " << orientation;
+      LOG(ERROR) << "Unknown EXIF orientation: " << orientation;
+      return std::nullopt;
   }
 }
 
