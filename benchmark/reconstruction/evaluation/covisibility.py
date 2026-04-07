@@ -289,6 +289,10 @@ def filter_covisibility(
             if not is_covisible(
                 images_gt_by_name[name1], images_gt_by_name[name2]
             ):
+                # Only delete the two-view geometry, so it will be ignored
+                # during reconstruction but keep the raw matches, so upon
+                # re-running the pipeline, the matches will be re-computed,
+                # if not filtering by covisibility.
                 database.delete_two_view_geometry(image_id1, image_id2)
                 filtered_count += 1
 
