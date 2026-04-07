@@ -213,7 +213,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--filter_covisibility",
-        default=False,
+        default=True,
         action="store_true",
         help="Filter out non-covisible image pairs based on GT camera poses.",
     )
