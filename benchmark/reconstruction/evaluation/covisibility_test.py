@@ -33,9 +33,9 @@ import pycolmap
 
 from .covisibility import (
     _build_image_point3D_sets,
-    _compute_frustum_vertices,
     _estimate_depth_ranges,
     _is_pair_covisible_by_frustum,
+    _sample_frustum_points,
 )
 
 
@@ -151,14 +151,14 @@ class TestEstimateDepthRanges:
         assert near2 < 15
 
 
-class TestComputeFrustumVertices:
+class TestSampleFrustumPoints:
     def test_identity_camera_shape(self):
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
         _add_image(recon, 1, "img.jpg", np.array([0, 0, 0]))
 
-        verts = _compute_frustum_vertices(recon.images[1], cam, 1.0, 10.0)
+        verts = _sample_frustum_points(recon.images[1], cam, 1.0, 10.0)
         # num_steps=5 default: 5*5 grid at 5 depths = 125 points
         assert verts.shape == (125, 3)
 
@@ -168,7 +168,7 @@ class TestComputeFrustumVertices:
         recon.add_camera_with_trivial_rig(cam)
         _add_image(recon, 1, "img.jpg", np.array([0, 0, 0]))
 
-        verts = _compute_frustum_vertices(
+        verts = _sample_frustum_points(
             recon.images[1], cam, 1.0, 10.0, num_steps=3
         )
         assert verts.shape == (27, 3)
@@ -181,7 +181,7 @@ class TestComputeFrustumVertices:
         _add_image(recon, 1, "img.jpg", np.array([0, 0, 0]))
 
         near, far = 2.0, 20.0
-        verts = _compute_frustum_vertices(recon.images[1], cam, near, far)
+        verts = _sample_frustum_points(recon.images[1], cam, near, far)
         # In world coords, z should span [near, far] for identity pose
         np.testing.assert_almost_equal(verts[:, 2].min(), near)
         np.testing.assert_almost_equal(verts[:, 2].max(), far)
@@ -193,7 +193,7 @@ class TestComputeFrustumVertices:
         offset = np.array([10.0, 20.0, 30.0])
         _add_image(recon, 1, "img.jpg", offset)
 
-        verts = _compute_frustum_vertices(
+        verts = _sample_frustum_points(
             recon.images[1], cam, 1.0, 10.0, num_steps=2
         )
         # Center of near plane should be at camera position + [0,0,near]
@@ -217,7 +217,7 @@ class TestCheckFrustumCovisibility:
         cam = recon.cameras[1]
         imgs = [recon.images[1], recon.images[2]]
         frustum_vertices = {
-            img.image_id: _compute_frustum_vertices(img, cam, near, far)
+            img.image_id: _sample_frustum_points(img, cam, near, far)
             for img in imgs
         }
         return _is_pair_covisible_by_frustum(

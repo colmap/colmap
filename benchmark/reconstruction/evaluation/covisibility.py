@@ -82,14 +82,14 @@ def _estimate_depth_ranges(
     return depth_ranges
 
 
-def _compute_frustum_vertices(
+def _sample_frustum_points(
     image: pycolmap.Image,
     camera: pycolmap.Camera,
     near: float,
     far: float,
     num_steps: int = 5,
 ) -> npt.NDArray[np.floating]:
-    """Compute sample points on a camera viewing frustum in world coordinates.
+    """Sample points on a camera viewing frustum in world coordinates.
 
     Samples a grid of points on the image plane (corners, edges, and interior)
     at multiple depths between near and far, then transforms them to world
@@ -105,14 +105,14 @@ def _compute_frustum_vertices(
     cam_rays = np.column_stack([cam_points, np.ones(len(cam_points))])
 
     depths = np.linspace(near, far, num_steps)
-    verts_in_cam = np.vstack([cam_rays * d for d in depths])
+    points_in_cam = np.vstack([cam_rays * d for d in depths])
 
     world_from_cam = image.cam_from_world().inverse()
-    verts_in_world = (
-        world_from_cam.rotation.matrix() @ verts_in_cam.T
+    points_in_world = (
+        world_from_cam.rotation.matrix() @ points_in_cam.T
         + world_from_cam.translation[:, np.newaxis]
     ).T
-    return verts_in_world
+    return points_in_world
 
 
 def _build_image_point3D_sets(
@@ -129,7 +129,7 @@ def _build_image_point3D_sets(
     return image_points
 
 
-def _compute_all_frustum_vertices(
+def _sample_frustum_points_for_all_images(
     sparse_gt: pycolmap.Reconstruction,
     frustum_near: float | None,
     frustum_far: float | None,
@@ -145,7 +145,7 @@ def _compute_all_frustum_vertices(
         est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
         near = frustum_near if frustum_near is not None else est_near
         far = frustum_far if frustum_far is not None else est_far
-        frustum_vertices[image_id] = _compute_frustum_vertices(
+        frustum_vertices[image_id] = _sample_frustum_points(
             image_gt, camera_gt, near, far
         )
     return frustum_vertices
@@ -252,7 +252,7 @@ def filter_covisibility(
                 "No GT 3D points available for track-based covisibility, "
                 "falling back to frustum-based check"
             )
-        frustum_vertices = _compute_all_frustum_vertices(
+        frustum_vertices = _sample_frustum_points_for_all_images(
             sparse_gt, covisibility_frustum_near, covisibility_frustum_far
         )
         is_covisible = functools.partial(
