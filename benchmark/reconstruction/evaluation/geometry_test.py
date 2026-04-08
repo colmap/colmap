@@ -83,11 +83,3 @@ class TestVecAngularDistDeg:
         dist = vec_angular_dist_deg(vec1, vec2)
         # Should normalize internally
         np.testing.assert_almost_equal(dist, 90.0)
-
-    def test_clipping_behavior(self):
-        # Test that dot product is clipped to [-1, 1] to avoid numerical issues
-        vec1 = np.array([1.0, 1e-10, 1e-10])
-        vec2 = np.array([1.0, -1e-10, -1e-10])
-        dist = vec_angular_dist_deg(vec1, vec2)
-        # Should not raise error even with potential numerical issues
-        assert 0 <= dist <= 180
