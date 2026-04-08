@@ -152,20 +152,21 @@ def _compute_all_frustum_vertices(
 
 
 def _is_pair_covisible_by_tracks(
-    gt1: pycolmap.Image,
-    gt2: pycolmap.Image,
+    image1: pycolmap.Image,
+    image2: pycolmap.Image,
     image_point3D_sets: dict[int, set[int]],
     min_shared_points: int,
 ) -> bool:
     shared = len(
-        image_point3D_sets[gt1.image_id] & image_point3D_sets[gt2.image_id]
+        image_point3D_sets[image1.image_id]
+        & image_point3D_sets[image2.image_id]
     )
     return shared >= min_shared_points
 
 
 def _is_pair_covisible_by_frustum(
-    gt1: pycolmap.Image,
-    gt2: pycolmap.Image,
+    image1: pycolmap.Image,
+    image2: pycolmap.Image,
     sparse_gt: pycolmap.Reconstruction,
     frustum_vertices: dict[int, npt.NDArray[np.floating]],
     max_viewing_angle_deg: float,
@@ -177,44 +178,41 @@ def _is_pair_covisible_by_frustum(
        threshold.
     2. Vertex projection: accept if any of A's frustum vertices projects into
        B's image (or vice versa) with positive depth.
-    3. Camera center projection: accept if either camera's projection center
-       projects into the other's image with positive depth.
     """
-    dir_a = gt1.viewing_direction()
-    dir_b = gt2.viewing_direction()
-    angle = vec_angular_dist_deg(dir_a, dir_b)
-    if angle > max_viewing_angle_deg:
+    if (
+        vec_angular_dist_deg(
+            image1.viewing_direction(), image2.viewing_direction()
+        )
+        > max_viewing_angle_deg
+    ):
         return False
 
-    camera_a = sparse_gt.cameras[gt1.camera_id]
-    camera_b = sparse_gt.cameras[gt2.camera_id]
-    vertices_a = frustum_vertices[gt1.image_id]
-    vertices_b = frustum_vertices[gt2.image_id]
+    camera1 = sparse_gt.cameras[image1.camera_id]
+    camera2 = sparse_gt.cameras[image2.camera_id]
+    vertices1 = frustum_vertices[image1.image_id]
+    vertices2 = frustum_vertices[image2.image_id]
 
     def project_and_check(points, image, camera):
         cam_from_world = image.cam_from_world()
         R = cam_from_world.rotation.matrix()
         t = cam_from_world.translation
-        K = camera.calibration_matrix()
         points_in_cam = (R @ points.T + t[:, np.newaxis]).T
-        for p in points_in_cam:
-            if p[2] <= 0:
-                continue
-            proj = K @ p
-            px, py = proj[0] / proj[2], proj[1] / proj[2]
-            if 0 <= px <= camera.width and 0 <= py <= camera.height:
-                return True
-        return False
+        mask = points_in_cam[:, 2] > 0
+        if not np.any(mask):
+            return False
+        img_points = camera.img_from_cam(points_in_cam[mask])
+        if img_points is None:
+            return False
+        in_bounds = (
+            (img_points[:, 0] >= 0)
+            & (img_points[:, 0] <= camera.width)
+            & (img_points[:, 1] >= 0)
+            & (img_points[:, 1] <= camera.height)
+        )
+        return bool(np.any(in_bounds))
 
-    if project_and_check(vertices_a, gt2, camera_b) or project_and_check(
-        vertices_b, gt1, camera_a
-    ):
-        return True
-
-    center_a = gt1.projection_center().reshape(1, 3)
-    center_b = gt2.projection_center().reshape(1, 3)
-    return project_and_check(center_a, gt2, camera_b) or project_and_check(
-        center_b, gt1, camera_a
+    return project_and_check(vertices1, image2, camera2) or project_and_check(
+        vertices2, image1, camera1
     )
 
 
