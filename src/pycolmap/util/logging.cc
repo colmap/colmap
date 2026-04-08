@@ -120,4 +120,5 @@ void BindLogging(py::module& m) {
 #endif
     google::InstallFailureSignalHandler();
   }
+  FLAGS_alsologtostderr = true;
 }
