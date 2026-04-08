@@ -27,6 +27,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import argparse
+
 import numpy as np
 import pytest
 
@@ -34,6 +36,7 @@ import pycolmap
 
 from .utils import (
     Metrics,
+    _parse_gpu_index,
     compute_abs_errors,
     compute_auc,
     compute_avg_metrics,
@@ -44,6 +47,35 @@ from .utils import (
     normalize_vec,
     vec_angular_dist_deg,
 )
+
+
+class TestParseGpuIndex:
+    @staticmethod
+    def _make_args(gpu_index: str) -> argparse.Namespace:
+        return argparse.Namespace(gpu_index=gpu_index)
+
+    def test_single_gpu(self):
+        assert _parse_gpu_index(self._make_args("0")) == [0]
+
+    def test_multiple_gpus(self):
+        assert _parse_gpu_index(self._make_args("0,1,2")) == [0, 1, 2]
+
+    def test_trailing_comma(self):
+        assert _parse_gpu_index(self._make_args("1,")) == [1]
+
+    def test_empty_string(self):
+        assert _parse_gpu_index(self._make_args("")) == [-1]
+
+    def test_only_commas(self):
+        assert _parse_gpu_index(self._make_args(",")) == [-1]
+
+    def test_auto_detect(self, monkeypatch):
+        monkeypatch.setattr(pycolmap, "get_num_cuda_devices", lambda: 3)
+        assert _parse_gpu_index(self._make_args("-1")) == [0, 1, 2]
+
+    def test_auto_detect_no_devices(self, monkeypatch):
+        monkeypatch.setattr(pycolmap, "get_num_cuda_devices", lambda: 0)
+        assert _parse_gpu_index(self._make_args("-1")) == [-1]
 
 
 class TestNormalizeVec:
