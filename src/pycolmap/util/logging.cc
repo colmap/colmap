@@ -117,8 +117,10 @@ void BindLogging(py::module& m) {
   {
 #if !defined(COLMAP_NO_INIT_GOOGLE_LOGGING)
     google::InitGoogleLogging("");
-#endif
     google::InstallFailureSignalHandler();
+#endif
   }
+#if !defined(COLMAP_NO_INIT_GOOGLE_LOGGING)
   FLAGS_alsologtostderr = true;
+#endif
 }
