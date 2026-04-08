@@ -134,21 +134,20 @@ def _sample_frustum_points_for_all_images(
     frustum_near: float | None,
     frustum_far: float | None,
 ) -> dict[int, npt.NDArray[np.floating]]:
-    """Compute frustum vertices for all images in the reconstruction."""
     depth_ranges: dict[int, tuple[float, float]] = {}
     if frustum_near is None or frustum_far is None:
         depth_ranges = _estimate_depth_ranges(sparse_gt)
 
-    frustum_vertices: dict[int, npt.NDArray[np.floating]] = {}
+    frustum_points: dict[int, npt.NDArray[np.floating]] = {}
     for image_id, image_gt in sparse_gt.images.items():
         camera_gt = sparse_gt.cameras[image_gt.camera_id]
         est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
         near = frustum_near if frustum_near is not None else est_near
         far = frustum_far if frustum_far is not None else est_far
-        frustum_vertices[image_id] = _sample_frustum_points(
+        frustum_points[image_id] = _sample_frustum_points(
             image_gt, camera_gt, near, far
         )
-    return frustum_vertices
+    return frustum_points
 
 
 def _is_pair_covisible_by_tracks(
@@ -168,7 +167,7 @@ def _is_pair_covisible_by_frustum(
     image1: pycolmap.Image,
     image2: pycolmap.Image,
     sparse_gt: pycolmap.Reconstruction,
-    frustum_vertices: dict[int, npt.NDArray[np.floating]],
+    frustum_points: dict[int, npt.NDArray[np.floating]],
     max_viewing_angle_deg: float,
 ) -> bool:
     """Check whether two cameras have overlapping viewing frustums.
@@ -189,10 +188,14 @@ def _is_pair_covisible_by_frustum(
 
     camera1 = sparse_gt.cameras[image1.camera_id]
     camera2 = sparse_gt.cameras[image2.camera_id]
-    vertices1 = frustum_vertices[image1.image_id]
-    vertices2 = frustum_vertices[image2.image_id]
+    points1 = frustum_points[image1.image_id]
+    points2 = frustum_points[image2.image_id]
 
-    def project_and_check(points, image, camera):
+    def project_and_check(
+        points: npt.NDArray[np.floating],
+        image: pycolmap.Image,
+        camera: pycolmap.Camera,
+    ) -> bool:
         cam_from_world = image.cam_from_world()
         R = cam_from_world.rotation.matrix()
         t = cam_from_world.translation
@@ -211,8 +214,8 @@ def _is_pair_covisible_by_frustum(
         )
         return bool(np.any(in_bounds))
 
-    return project_and_check(vertices1, image2, camera2) or project_and_check(
-        vertices2, image1, camera1
+    return project_and_check(points1, image2, camera2) or project_and_check(
+        points2, image1, camera1
     )
 
 
@@ -252,13 +255,13 @@ def filter_covisibility(
                 "No GT 3D points available for track-based covisibility, "
                 "falling back to frustum-based check"
             )
-        frustum_vertices = _sample_frustum_points_for_all_images(
+        frustum_points = _sample_frustum_points_for_all_images(
             sparse_gt, covisibility_frustum_near, covisibility_frustum_far
         )
         is_covisible = functools.partial(
             _is_pair_covisible_by_frustum,
             sparse_gt=sparse_gt,
-            frustum_vertices=frustum_vertices,
+            frustum_points=frustum_points,
             max_viewing_angle_deg=max_viewing_angle_deg,
         )
 
