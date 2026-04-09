@@ -32,6 +32,7 @@ import numpy as np
 import pycolmap
 
 from .covisibility import (
+    Frustum,
     _build_image_point3D_sets,
     _estimate_depth_ranges,
     _is_pair_covisible_by_frustum,
@@ -216,12 +217,15 @@ class TestCheckFrustumCovisibility:
     def _check(self, recon, max_angle=90.0, near=1.0, far=100.0):
         cam = recon.cameras[1]
         imgs = [recon.images[1], recon.images[2]]
-        frustum_vertices = {
-            img.image_id: _sample_frustum_points(img, cam, near, far)
+        frustums = {
+            img.image_id: Frustum(
+                points=_sample_frustum_points(img, cam, near, far),
+                depth_range=(near, far),
+            )
             for img in imgs
         }
         return _is_pair_covisible_by_frustum(
-            imgs[0], imgs[1], recon, frustum_vertices, max_angle
+            imgs[0], imgs[1], recon, frustums, max_angle
         )
 
     def test_covisible_side_by_side(self):
@@ -263,6 +267,30 @@ class TestCheckFrustumCovisibility:
         # Two cameras far apart, both looking +z, with small frustum depth
         recon = self._build_two_camera_recon([0, 0, 0], [1000, 0, 0])
         assert self._check(recon, near=1.0, far=2.0) is False
+
+    def test_not_covisible_depth_out_of_range(self):
+        # Two cameras side by side looking +z. Their frustums project into
+        # each other's images, but the depth ranges don't overlap: camera 1
+        # expects depths 1-5 while camera 2 expects 50-100. Each camera's
+        # frustum points land outside the other's depth range.
+        recon = self._build_two_camera_recon([-0.5, 0, 0], [0.5, 0, 0])
+        cam = recon.cameras[1]
+        img1, img2 = recon.images[1], recon.images[2]
+        frustums = {
+            img1.image_id: Frustum(
+                points=_sample_frustum_points(img1, cam, 1.0, 5.0),
+                depth_range=(1.0, 5.0),
+            ),
+            img2.image_id: Frustum(
+                points=_sample_frustum_points(img2, cam, 50.0, 100.0),
+                depth_range=(50.0, 100.0),
+            ),
+        }
+        assert not _is_pair_covisible_by_frustum(
+            img1, img2, recon, frustums, 90.0
+        )
+        # Sanity: with matching depth ranges, these cameras are covisible.
+        assert self._check(recon, near=1.0, far=100.0)
 
     def test_covisible_identical_cameras(self):
         recon = self._build_two_camera_recon([0, 0, 0], [0, 0, 0])

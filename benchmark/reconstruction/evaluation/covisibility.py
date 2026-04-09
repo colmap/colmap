@@ -27,6 +27,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import dataclasses
 import functools
 from pathlib import Path
 
@@ -36,6 +37,14 @@ import numpy.typing as npt
 import pycolmap
 
 from .geometry import vec_angular_dist_deg
+
+
+@dataclasses.dataclass
+class Frustum:
+    # Sampled 3D points on the frustum in world coordinates.
+    points: npt.NDArray[np.floating]
+    # Near/far depth bounds (in camera coordinates) for the frustum.
+    depth_range: tuple[float, float]
 
 
 def _estimate_depth_ranges(
@@ -129,25 +138,26 @@ def _build_image_point3D_sets(
     return image_points
 
 
-def _sample_frustum_points_for_all_images(
+def _compute_frustums_for_all_images(
     sparse_gt: pycolmap.Reconstruction,
     frustum_near: float | None,
     frustum_far: float | None,
-) -> dict[int, npt.NDArray[np.floating]]:
+) -> dict[int, Frustum]:
     depth_ranges: dict[int, tuple[float, float]] = {}
     if frustum_near is None or frustum_far is None:
         depth_ranges = _estimate_depth_ranges(sparse_gt)
 
-    frustum_points: dict[int, npt.NDArray[np.floating]] = {}
+    frustums: dict[int, Frustum] = {}
     for image_id, image_gt in sparse_gt.images.items():
         camera_gt = sparse_gt.cameras[image_gt.camera_id]
         est_near, est_far = depth_ranges.get(image_id, (0.1, 100.0))
         near = frustum_near if frustum_near is not None else est_near
         far = frustum_far if frustum_far is not None else est_far
-        frustum_points[image_id] = _sample_frustum_points(
-            image_gt, camera_gt, near, far
+        frustums[image_id] = Frustum(
+            points=_sample_frustum_points(image_gt, camera_gt, near, far),
+            depth_range=(near, far),
         )
-    return frustum_points
+    return frustums
 
 
 def _is_pair_covisible_by_tracks(
@@ -167,7 +177,7 @@ def _is_pair_covisible_by_frustum(
     image1: pycolmap.Image,
     image2: pycolmap.Image,
     sparse_gt: pycolmap.Reconstruction,
-    frustum_points: dict[int, npt.NDArray[np.floating]],
+    frustums: dict[int, Frustum],
     max_viewing_angle_deg: float,
 ) -> bool:
     """Check whether two cameras have overlapping viewing frustums.
@@ -176,7 +186,8 @@ def _is_pair_covisible_by_frustum(
     1. Viewing angle: reject if angle between viewing directions exceeds the
        threshold.
     2. Vertex projection: accept if any of A's frustum vertices projects into
-       B's image (or vice versa) with positive depth.
+       B's image (or vice versa) with positive depth within the target
+       image's expected GT depth range.
     """
     if (
         vec_angular_dist_deg(
@@ -188,19 +199,19 @@ def _is_pair_covisible_by_frustum(
 
     camera1 = sparse_gt.cameras[image1.camera_id]
     camera2 = sparse_gt.cameras[image2.camera_id]
-    points1 = frustum_points[image1.image_id]
-    points2 = frustum_points[image2.image_id]
 
     def project_and_check(
-        points: npt.NDArray[np.floating],
+        frustum: Frustum,
         image: pycolmap.Image,
         camera: pycolmap.Camera,
     ) -> bool:
+        near, far = frustums[image.image_id].depth_range
         cam_from_world = image.cam_from_world()
         R = cam_from_world.rotation.matrix()
         t = cam_from_world.translation
-        points_in_cam = (R @ points.T + t[:, np.newaxis]).T
-        mask = points_in_cam[:, 2] > 0
+        points_in_cam = (R @ frustum.points.T + t[:, np.newaxis]).T
+        depths = points_in_cam[:, 2]
+        mask = (depths >= near) & (depths <= far)
         if not np.any(mask):
             return False
         img_points = camera.img_from_cam(points_in_cam[mask])
@@ -214,9 +225,9 @@ def _is_pair_covisible_by_frustum(
         )
         return bool(np.any(in_bounds))
 
-    return project_and_check(points1, image2, camera2) or project_and_check(
-        points2, image1, camera1
-    )
+    return project_and_check(
+        frustums[image1.image_id], image2, camera2
+    ) and project_and_check(frustums[image2.image_id], image1, camera1)
 
 
 def filter_covisibility(
@@ -255,13 +266,13 @@ def filter_covisibility(
                 "No GT 3D points available for track-based covisibility, "
                 "falling back to frustum-based check"
             )
-        frustum_points = _sample_frustum_points_for_all_images(
+        frustums = _compute_frustums_for_all_images(
             sparse_gt, covisibility_frustum_near, covisibility_frustum_far
         )
         is_covisible = functools.partial(
             _is_pair_covisible_by_frustum,
             sparse_gt=sparse_gt,
-            frustum_points=frustum_points,
+            frustums=frustums,
             max_viewing_angle_deg=max_viewing_angle_deg,
         )
 
