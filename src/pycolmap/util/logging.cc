@@ -115,8 +115,12 @@ void BindLogging(py::module& m) {
   if (!py::module_::import("sys").attr("modules").contains("pyceres"))
 #endif
   {
+#if !defined(COLMAP_NO_INIT_GOOGLE_LOGGING)
     google::InitGoogleLogging("");
     google::InstallFailureSignalHandler();
+#endif
   }
+#if !defined(COLMAP_NO_INIT_GOOGLE_LOGGING)
   FLAGS_alsologtostderr = true;
+#endif
 }
