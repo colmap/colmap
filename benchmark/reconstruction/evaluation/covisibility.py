@@ -227,7 +227,7 @@ def _is_pair_covisible_by_frustum(
 
     return project_and_check(
         frustums[image1.image_id], image2, camera2
-    ) and project_and_check(frustums[image2.image_id], image1, camera1)
+    ) or project_and_check(frustums[image2.image_id], image1, camera1)
 
 
 def filter_covisibility(
