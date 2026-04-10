@@ -8,6 +8,10 @@ Bibliography
     "Accurate, dense, and robust multiview stereopsis."
     Transactions on Pattern Analysis and Machine Intelligence, 2010.
 
+.. [cohen-steiner2004] Cohen-Steiner, David, and Da, Franck.
+    "A greedy Delaunay-based surface reconstruction algorithm."
+    The Visual Computer, 2004.
+
 .. [garland1997] Garland, Michael, and Heckbert, Paul S.
     "Surface simplification using quadric error metrics."
     Proceedings of SIGGRAPH, 1997.

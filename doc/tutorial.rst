@@ -50,6 +50,7 @@ reconstruction tool, the folder would look similar to this::
     │   │   +── fused.ply
     │   │   +── meshed-poisson.ply
     │   │   +── meshed-delaunay.ply
+    │   │   +── meshed-advancing-front.ply
     │   +── ...
     +── database.db
 
@@ -120,8 +121,9 @@ Multi-View Stereo (MVS) takes the output of SfM to compute depth and/or normal
 information for every pixel in an image. Fusion of the depth and normal maps of
 multiple images in 3D then produces a dense point cloud of the scene. Using the
 depth and normal information of the fused point cloud, algorithms such as the
-(screened) Poisson surface reconstruction [kazhdan2013]_ can then recover the 3D
-surface geometry of the scene. The resulting meshes can optionally be simplified
+(screened) Poisson surface reconstruction [kazhdan2013]_ or the advancing front
+surface reconstruction [cohen-steiner2004]_ can then recover the 3D surface
+geometry of the scene. The resulting meshes can optionally be simplified
 using Quadric Error Metric (QEM) decimation [garland1997]_ to reduce their
 complexity while preserving shape and appearance. Additionally, the meshes can
 be textured using multi-view texture mapping [waechter2014]_, which assigns each

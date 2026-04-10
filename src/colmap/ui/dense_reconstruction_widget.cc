@@ -32,9 +32,10 @@
 #include "colmap/controllers/undistorters.h"
 #include "colmap/image/undistortion.h"
 #if defined(COLMAP_MVS_ENABLED)
+#include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/fusion.h"
-#include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/mvs/poisson_meshing.h"
 #endif
 #include "colmap/ui/main_window.h"
 #include "colmap/ui/render_options.h"

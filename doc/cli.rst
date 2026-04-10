@@ -81,6 +81,10 @@ of commands as an alternative to the automatic reconstruction command::
         --input_path $DATASET_PATH/dense \
         --output_path $DATASET_PATH/dense/meshed-delaunay.ply
 
+    $ colmap advancing_front_mesher \
+        --input_path $DATASET_PATH/dense \
+        --output_path $DATASET_PATH/dense/meshed-advancing-front.ply
+
     # Optionally simplify a dense mesh to reduce its size.
     $ colmap mesh_simplifier \
         --input_path $DATASET_PATH/dense/meshed-poisson.ply \
@@ -277,8 +281,8 @@ available as ``colmap [command]``:
   HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
   for different capture scenarios, ``--feature`` (SIFT, ALIKED) to select the
   feature extraction algorithm, ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL)
-  to choose the SfM pipeline, and ``--mesher`` (POISSON, DELAUNAY) to select the
-  surface reconstruction method.
+  to choose the SfM pipeline, and ``--mesher`` (POISSON, DELAUNAY,
+  ADVANCING_FRONT) to select the surface reconstruction method.
 
 - ``project_generator``: Generate project files at different quality settings.
 
@@ -340,6 +344,10 @@ available as ``colmap [command]``:
 
 - ``delaunay_mesher``: Meshing of the reconstructed sparse or dense point cloud
   using a graph cut on the Delaunay triangulation and visibility voting.
+
+- ``advancing_front_mesher``: Meshing of the fused point cloud using advancing
+  front surface reconstruction. Supports visibility-based filtering and
+  block-wise parallel processing for large-scale scenes. Requires CGAL.
 
 - ``mesh_simplifier``: Simplify a triangle mesh (PLY format) using Quadric Error
   Metric (QEM) decimation. This reduces the number of faces in a mesh while
