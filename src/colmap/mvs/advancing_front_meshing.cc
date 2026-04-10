@@ -593,14 +593,11 @@ std::vector<std::vector<size_t>> AssignRaysToBlocks(
     const std::vector<K::Segment_3>& rays,
     const std::vector<std::vector<size_t>>& block_point_indices,
     const BlockGrid& grid) {
-  std::vector<CGAL::Bbox_3> block_bboxes(grid.NumBlocks());
-  for (int bx = 0; bx < grid.nx; ++bx) {
-    for (int by = 0; by < grid.ny; ++by) {
-      for (int bz = 0; bz < grid.nz; ++bz) {
-        block_bboxes[grid.BlockIndex(bx, by, bz)] = grid.BlockBbox(bx, by, bz);
-      }
-    }
-  }
+  // For each ray, compute the range of blocks its AABB overlaps with,
+  // then do an exact segment-box intersection test only on those blocks.
+  // This is O(rays * local_blocks) instead of O(rays * total_blocks).
+  const Eigen::Vector3i grid_dims(grid.nx, grid.ny, grid.nz);
+  const double inv_block_size = 1.0 / grid.block_size;
 
   std::vector<std::vector<size_t>> block_ray_indices(grid.NumBlocks());
   const size_t log_interval = std::max(rays.size() / 10, size_t{1});
@@ -609,12 +606,41 @@ std::vector<std::vector<size_t>> AssignRaysToBlocks(
       LOG(INFO) << colmap::StringPrintf(
           "Assigning rays to blocks [%d/%d]", ray_idx, rays.size());
     }
-    for (int idx = 0; idx < grid.NumBlocks(); ++idx) {
-      if (block_point_indices[idx].empty()) {
-        continue;
-      }
-      if (CGAL::do_intersect(rays[ray_idx], block_bboxes[idx])) {
-        block_ray_indices[idx].push_back(ray_idx);
+
+    // Compute the ray's AABB in grid coordinates.
+    const auto& seg = rays[ray_idx];
+    const Eigen::Vector3d p0(seg.source().x() - grid.min.x(),
+                             seg.source().y() - grid.min.y(),
+                             seg.source().z() - grid.min.z());
+    const Eigen::Vector3d p1(seg.target().x() - grid.min.x(),
+                             seg.target().y() - grid.min.y(),
+                             seg.target().z() - grid.min.z());
+    const Eigen::Vector3d ray_min = p0.cwiseMin(p1);
+    const Eigen::Vector3d ray_max = p0.cwiseMax(p1);
+
+    // Determine the block range that the ray's AABB overlaps (with overlap).
+    const Eigen::Vector3i b_min =
+        ((ray_min.array() - grid.overlap) * inv_block_size)
+            .floor()
+            .cast<int>()
+            .max(0);
+    const Eigen::Vector3i b_max =
+        ((ray_max.array() + grid.overlap) * inv_block_size)
+            .floor()
+            .cast<int>()
+            .min(grid_dims.array() - 1);
+
+    for (int bx = b_min.x(); bx <= b_max.x(); ++bx) {
+      for (int by = b_min.y(); by <= b_max.y(); ++by) {
+        for (int bz = b_min.z(); bz <= b_max.z(); ++bz) {
+          const int idx = grid.BlockIndex(bx, by, bz);
+          if (block_point_indices[idx].empty()) {
+            continue;
+          }
+          if (CGAL::do_intersect(seg, grid.BlockBbox(bx, by, bz))) {
+            block_ray_indices[idx].push_back(ray_idx);
+          }
+        }
       }
     }
   }
