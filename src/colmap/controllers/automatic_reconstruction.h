@@ -46,7 +46,7 @@ class AutomaticReconstructionController : public Thread {
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
   MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED);
   MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
-  MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
+  MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY, ADVANCING_FRONT);
 
   struct Options {
     // The path to the workspace folder in which all results are stored.

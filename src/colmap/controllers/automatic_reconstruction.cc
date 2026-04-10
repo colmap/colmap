@@ -38,9 +38,11 @@
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #if defined(COLMAP_MVS_ENABLED)
+#include "colmap/mvs/advancing_front_meshing.h"
+#include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/fusion.h"
-#include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/mvs/poisson_meshing.h"
 #endif
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/database.h"
@@ -379,6 +381,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
       meshing_path = dense_path / "meshed-poisson.ply";
     } else if (options_.mesher == Mesher::DELAUNAY) {
       meshing_path = dense_path / "meshed-delaunay.ply";
+    } else if (options_.mesher == Mesher::ADVANCING_FRONT) {
+      meshing_path = dense_path / "meshed-advancing-front.ply";
     }
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
@@ -467,11 +471,19 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #if defined(COLMAP_CGAL_ENABLED)
         mvs::DenseDelaunayMeshing(
             *option_manager_.delaunay_meshing, dense_path, meshing_path);
-#else  // COLMAP_CGAL_ENABLED
+#else   // COLMAP_CGAL_ENABLED
         LOG(WARNING)
             << "Skipping Delaunay meshing because CGAL is not available";
         return;
-
+#endif  // COLMAP_CGAL_ENABLED
+      } else if (options_.mesher == Mesher::ADVANCING_FRONT) {
+#if defined(COLMAP_CGAL_ENABLED)
+        mvs::AdvancingFrontMeshing(
+            *option_manager_.advancing_front_meshing, dense_path, meshing_path);
+#else   // COLMAP_CGAL_ENABLED
+        LOG(WARNING) << "Skipping advancing front meshing because CGAL is "
+                        "not available";
+        return;
 #endif  // COLMAP_CGAL_ENABLED
       }
     }
