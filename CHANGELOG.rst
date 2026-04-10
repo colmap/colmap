@@ -1,6 +1,21 @@
 Changelog
 =========
 
+-------------------
+COLMAP (unreleased)
+-------------------
+
+New Features
+------------
+* Added advancing front surface reconstruction meshing algorithm with
+  visibility-based filtering and block-wise parallel processing
+* Added ``ReadPointsVisibility`` to ``fusion.h``
+
+Improvements
+------------
+* Decomposed ``meshing.h/cc`` into separate files per algorithm
+  (``poisson_meshing``, ``delaunay_meshing``, ``advancing_front_meshing``)
+
 -------------------------
 COLMAP 4.0.3 (04/06/2026)
 -------------------------
