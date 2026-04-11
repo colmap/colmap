@@ -147,7 +147,9 @@ def solve_bundle_adjustment(
     )
     problem = bundle_adjuster.problem  # type: ignore[attr-defined]
     add_imu_residuals(problem, reconstruction, imu_data, variables)
-    solver_options = ba_options.ceres.create_solver_options(ba_config, problem)
+    solver_options = pyceres.SolverOptions(
+        ba_options.ceres.create_solver_options(ba_config, problem)
+    )
     solver_options.minimizer_progress_to_stdout = True
     # Set up reintegration callback to update preintegrated data when
     # biases drift beyond the linearization point.
@@ -158,7 +160,7 @@ def solve_bundle_adjustment(
             imu_data[image_id],
             variables["imu_states"][image_id],
         )
-    solver_options.callbacks.append(callback)  # type: ignore[attr-defined]
+    solver_options.callbacks.append(callback)
     solver_options.update_state_every_iteration = True
     summary = pyceres.SolverSummary()
     pyceres.solve(solver_options, problem, summary)
@@ -312,7 +314,7 @@ def run_vi_optimization(
 
 
 def download_data() -> None:
-    data_url = "https://polybox.ethz.ch/index.php/s/NS6ozZswc90hzt4/download"
+    data_url = "https://polybox.ethz.ch/index.php/s/SHcCxyecDsz7MzS/download"
     data_path = Path("sample_data")
     if not data_path.exists():
         logging.info("Downloading the data.")
