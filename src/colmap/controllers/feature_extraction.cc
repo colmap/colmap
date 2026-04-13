@@ -61,12 +61,10 @@ void MaskFeatures(const Bitmap& mask,
                   FeatureKeypoints* keypoints,
                   FeatureDescriptors* descriptors) {
   size_t out_index = 0;
-  BitmapColor<uint8_t> color;
   for (size_t i = 0; i < keypoints->size(); ++i) {
-    if (!mask.GetPixel(static_cast<int>(keypoints->at(i).x),
-                       static_cast<int>(keypoints->at(i).y),
-                       &color) ||
-        color.r == 0) {
+    const auto color = mask.GetPixel(static_cast<int>(keypoints->at(i).x),
+                                     static_cast<int>(keypoints->at(i).y));
+    if (!color || color->r == 0) {
       // Delete this keypoint by not copying it to the output.
     } else {
       // Retain this keypoint by copying it to the output index (in case this

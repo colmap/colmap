@@ -456,7 +456,11 @@ void Reconstruction::AddFrame(class Frame frame) {
   }
   const bool is_registered = frame.HasPose();
   const frame_t frame_id = frame.FrameId();
-  THROW_CHECK(frames_.emplace(frame_id, std::move(frame)).second);
+  auto [it, inserted] = frames_.emplace(frame_id, std::move(frame));
+  THROW_CHECK(inserted);
+  // We finalize the data ids, otherwise some internal bookkeeping
+  // (e.g., counting reg_image_ids_) will be incorrect.
+  it->second.FinalizeDataIds();
   if (is_registered) {
     THROW_CHECK_NE(frame_id, kInvalidFrameId);
     RegisterFrame(frame_id);
@@ -886,7 +890,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   // Transcribe frame data.
   for (auto& [_, frame] : frames_) {
-    auto new_frame = frame;
+    class Frame new_frame = frame;
     new_frame.ClearDataIds();
     for (data_t data_id : frame.DataIds()) {
       if (data_id.sensor_id.type == SensorType::CAMERA) {
@@ -894,6 +898,9 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
       }
       new_frame.AddDataId(data_id);
     }
+    // We finalize the data ids, otherwise some internal bookkeeping (e.g.,
+    // counting reg_image_ids_) will be incorrect.
+    new_frame.FinalizeDataIds();
     frame = std::move(new_frame);
   }
 
@@ -1096,11 +1103,10 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
     if (point2D.HasPoint3D()) {
       struct Point3D& point3D = Point3D(point2D.point3D_id);
       if (point3D.color == kBlackColor) {
-        BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
-        if (bitmap.InterpolateBilinear(
-                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
-          const BitmapColor<uint8_t> color_ub = color.Cast<uint8_t>();
+        if (const auto color = bitmap.InterpolateBilinear(
+                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5)) {
+          const BitmapColor<uint8_t> color_ub = color->Cast<uint8_t>();
           point3D.color = Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b);
         }
       }
@@ -1135,14 +1141,13 @@ void Reconstruction::ExtractColorsForAllImages(
       auto& data = thread_data[thread_pool.GetThreadIndex()];
       for (const Point2D& point2D : image.Points2D()) {
         if (point2D.HasPoint3D()) {
-          BitmapColor<float> color;
           // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
-          if (bitmap.InterpolateBilinear(
-                  point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
+          if (const auto color = bitmap.InterpolateBilinear(
+                  point2D.xy(0) - 0.5, point2D.xy(1) - 0.5)) {
             auto& color_data = data[point2D.point3D_id];
-            color_data.sum(0) += color.r;
-            color_data.sum(1) += color.g;
-            color_data.sum(2) += color.b;
+            color_data.sum(0) += color->r;
+            color_data.sum(1) += color->g;
+            color_data.sum(2) += color->b;
             ++color_data.count;
           }
         }

@@ -39,10 +39,10 @@ namespace colmap {
 namespace {
 
 FeatureDescriptorsFloat CreateRandomFeatureDescriptors(
-    const size_t num_features) {
+    const FeatureExtractorType type, const size_t num_features) {
   SetPRNGSeed(0);
   FeatureDescriptorsFloat descriptors;
-  descriptors.type = FeatureExtractorType::SIFT;
+  descriptors.type = type;
   descriptors.data.resize(num_features, 128);
   for (size_t i = 0; i < num_features; ++i) {
     for (size_t j = 0; j < 128; ++j) {
@@ -50,19 +50,31 @@ FeatureDescriptorsFloat CreateRandomFeatureDescriptors(
     }
   }
   L2NormalizeFeatureDescriptors(&descriptors.data);
+  if (type == FeatureExtractorType::SIFT) {
+    // Mimic the real SIFT pipeline: convert to uint8 [0,255] then back to
+    // float. This ensures values are integer-valued floats in [0, 255],
+    // which is required for QT_8bit_direct quantization.
+    descriptors.data =
+        FeatureDescriptorsToUnsignedByte(descriptors.data).cast<float>();
+  }
   return descriptors;
 }
 
+struct FeatureDescriptorIndexTestParams {
+  FeatureDescriptorIndex::Type index_type;
+  FeatureExtractorType extractor_type;
+  int num_descriptors;
+};
+
 class ParameterizedFeatureDescriptorIndexTests
-    : public ::testing::TestWithParam<
-          std::pair<FeatureDescriptorIndex::Type, /*num_descriptors=*/int>> {};
+    : public ::testing::TestWithParam<FeatureDescriptorIndexTestParams> {};
 
 TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
-  const auto [type, num_descriptors] = GetParam();
+  const auto& params = GetParam();
 
   std::unique_ptr<FeatureDescriptorIndex> index;
   try {
-    index = FeatureDescriptorIndex::Create(type);
+    index = FeatureDescriptorIndex::Create(params.index_type);
   } catch (const std::runtime_error& e) {
     GTEST_SKIP() << "Skipping test due to: " << e.what();
   }
@@ -70,7 +82,8 @@ TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
   EXPECT_NE(index, nullptr);
 
   const FeatureDescriptorsFloat index_descriptors =
-      CreateRandomFeatureDescriptors(num_descriptors);
+      CreateRandomFeatureDescriptors(params.extractor_type,
+                                     params.num_descriptors);
   const FeatureDescriptorsFloat& query_descriptors = index_descriptors;
   index->Build(index_descriptors);
 
@@ -127,16 +140,15 @@ TEST(FeatureDescriptorIndexTests, TypeMismatch) {
   ASSERT_NE(index, nullptr);
 
   // Prepare SIFT descriptors for index build.
-  FeatureDescriptorsFloat sift_desc =
-      CreateRandomFeatureDescriptors(kNumDescriptors);
+  FeatureDescriptorsFloat sift_desc = CreateRandomFeatureDescriptors(
+      FeatureExtractorType::SIFT, kNumDescriptors);
 
   // Prepare descriptors with a different type.
-  FeatureDescriptorsFloat undefined_desc =
-      CreateRandomFeatureDescriptors(kNumDescriptors);
-  undefined_desc.type = FeatureExtractorType::UNDEFINED;
+  FeatureDescriptorsFloat aliked_desc = CreateRandomFeatureDescriptors(
+      FeatureExtractorType::ALIKED_N16ROT, kNumDescriptors);
 
   // Build should throw when descriptor types are inconsistent.
-  index->Build(undefined_desc);
+  index->Build(aliked_desc);
 
   // Build correctly with SIFT so we can test Query mismatch.
   index->Build(sift_desc);
@@ -145,16 +157,26 @@ TEST(FeatureDescriptorIndexTests, TypeMismatch) {
   Eigen::RowMajorMatrixXi indices;
   Eigen::RowMajorMatrixXf distances;
   EXPECT_THROW(index->Search(
-                   /*num_neighbors=*/1, undefined_desc, indices, distances),
+                   /*num_neighbors=*/1, aliked_desc, indices, distances),
                std::invalid_argument);
 }
 
 INSTANTIATE_TEST_SUITE_P(
     FeatureDescriptorIndexTests,
     ParameterizedFeatureDescriptorIndexTests,
-    ::testing::Values(std::make_pair(FeatureDescriptorIndex::Type::FAISS, 100),
-                      std::make_pair(FeatureDescriptorIndex::Type::FAISS,
-                                     1000)));
+    ::testing::Values(
+        FeatureDescriptorIndexTestParams{FeatureDescriptorIndex::Type::FAISS,
+                                         FeatureExtractorType::SIFT,
+                                         100},
+        FeatureDescriptorIndexTestParams{FeatureDescriptorIndex::Type::FAISS,
+                                         FeatureExtractorType::SIFT,
+                                         1000},
+        FeatureDescriptorIndexTestParams{FeatureDescriptorIndex::Type::FAISS,
+                                         FeatureExtractorType::ALIKED_N16ROT,
+                                         100},
+        FeatureDescriptorIndexTestParams{FeatureDescriptorIndex::Type::FAISS,
+                                         FeatureExtractorType::ALIKED_N16ROT,
+                                         1000}));
 
 }  // namespace
 }  // namespace colmap

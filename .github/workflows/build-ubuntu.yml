@@ -142,9 +142,9 @@ jobs:
       - name: Setup Ubuntu
         run: |
           if [ "${{ matrix.config.qtVersion }}" == "5" ]; then
-            qt_packages="qtbase5-dev libqt5opengl5-dev libcgal-qt5-dev"
+            qt_packages="qtbase5-dev libqt5opengl5-dev libqt5svg5-dev libcgal-qt5-dev"
           elif [ "${{ matrix.config.qtVersion }}" == "6" ]; then
-            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6"
+            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6 libqt6svg6-dev"
           fi
 
           sudo apt-get update && sudo apt-get install -y \
