@@ -35,6 +35,7 @@
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexPQ.h>
+#include <faiss/IndexScalarQuantizer.h>
 #include <omp.h>
 
 namespace colmap {
@@ -65,11 +66,14 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
         const int num_centroids = 4 * std::sqrt(index_descriptors.data.rows());
         coarse_quantizer_ =
             std::make_unique<faiss::IndexFlatL2>(index_descriptors.data.cols());
-        index_ = std::make_unique<faiss::IndexIVFFlat>(
+        index_ = std::make_unique<faiss::IndexIVFScalarQuantizer>(
             /*quantizer=*/coarse_quantizer_.get(),
             /*d=*/index_descriptors.data.cols(),
-            /*nlist_=*/num_centroids);
-        auto* index_impl = dynamic_cast<faiss::IndexIVFFlat*>(index_.get());
+            /*nlist_=*/num_centroids,
+            faiss::ScalarQuantizer::QuantizerType::QT_8bit_direct,
+            faiss::METRIC_L2,
+            false);
+        auto* index_impl = dynamic_cast<faiss::IndexIVFScalarQuantizer*>(index_.get());
         // Avoid warnings during the training phase.
         index_impl->cp.min_points_per_centroid = 1;
         index_->train(index_descriptors.data.rows(),
