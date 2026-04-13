@@ -191,7 +191,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector3d>& cam_rays1,
                         const std::vector<Eigen::Vector3d>& cam_rays2,
-                        Rigid3d* cam_from_world);
+                        Rigid3d* cam2_from_cam1);
 
 // Refine essential matrix.
 //
