@@ -55,11 +55,12 @@ endif()
 if(FETCH_FAISS)
     include(FetchContent)
     FetchContent_Declare(faiss
-        URL https://github.com/ahojnnes/faiss/archive/36b77353dc435383e0c23a709e7997a29d049041.zip
-        URL_HASH SHA256=aaf90b3dd3e353ff0bc3391581788cda7c510749023d1937707fc99c38ef2587
+        URL https://github.com/facebookresearch/faiss/archive/refs/tags/v1.14.1.zip
+        URL_HASH SHA256=4b1ae7e7a0a46385b4084f0e3945623a15fcf99d793bf44d82aae8e24f11e5f5
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
+    set(FAISS_OPT_LEVEL dd)
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
     set(FAISS_ENABLE_MKL OFF)
