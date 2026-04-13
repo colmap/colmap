@@ -34,8 +34,8 @@
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
-#include <faiss/IndexScalarQuantizer.h>
 #include <faiss/IndexPQ.h>
+#include <faiss/IndexScalarQuantizer.h>
 #include <omp.h>
 
 namespace colmap {
