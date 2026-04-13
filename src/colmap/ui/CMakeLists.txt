@@ -33,6 +33,7 @@ set(FOLDER_NAME "ui")
 set(COLMAP_UI_QT_LIBS
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::OpenGL
+    Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::Widgets
 )
 
