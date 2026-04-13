@@ -60,6 +60,8 @@ if(FETCH_FAISS)
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
+    # Use dynamic dispatch (dd) to automatically select the highest SIMD
+    # instruction set supported by the target machine (e.g., AVX2, AVX512).
     set(FAISS_OPT_LEVEL dd)
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
