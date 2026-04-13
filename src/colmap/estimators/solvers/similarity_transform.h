@@ -67,10 +67,10 @@ class SimilarityTransformEstimator {
 
   // Estimate the similarity transform.
   //
-  // @param src      Set of corresponding source points.
-  // @param tgt      Set of corresponding destination points.
-  //
-  // @return         4x4 homogeneous transformation matrix.
+  // @param src          Set of corresponding source points.
+  // @param tgt          Set of corresponding destination points.
+  // @param tgt_from_src Output vector of kDim x (kDim+1) transformation
+  //                     matrices.
   static void Estimate(const std::vector<X_t>& src,
                        const std::vector<Y_t>& tgt,
                        std::vector<M_t>* tgt_from_src);
@@ -81,10 +81,10 @@ class SimilarityTransformEstimator {
   // transforming the source to the destination coordinates.
   //
   // @param src           Set of corresponding points in the source coordinate
-  //                      system as a Nx3 matrix.
+  //                      system.
   // @param tgt           Set of corresponding points in the destination
-  //                      coordinate system as a Nx3 matrix.
-  // @param tgt_from_src  4x4 homogeneous transformation matrix.
+  //                      coordinate system.
+  // @param tgt_from_src  kDim x (kDim+1) transformation matrix.
   // @param residuals     Output vector of residuals for each point pair.
   static void Residuals(const std::vector<X_t>& src,
                         const std::vector<Y_t>& tgt,

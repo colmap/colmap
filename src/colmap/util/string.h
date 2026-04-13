@@ -48,7 +48,7 @@ std::string StringReplace(const std::string& str,
                           const std::string& old_str,
                           const std::string& new_str);
 
-// Get substring of string after search key
+// Get substring of string after the last occurrence of the search key.
 std::string StringGetAfter(const std::string& str, const std::string& key);
 
 // Split string into list of words using the given delimiters.

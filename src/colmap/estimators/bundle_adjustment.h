@@ -108,8 +108,7 @@ class BundleAdjustmentConfig {
   void SetVariableCamIntrinsics(camera_t camera_id);
   bool HasConstantCamIntrinsics(camera_t camera_id) const;
 
-  // Set the pose of added images as constant. The pose is defined as the
-  // rotational and translational part of the projection matrix.
+  // Set the sensor-from-rig extrinsic pose as constant or variable.
   void SetConstantSensorFromRigPose(sensor_t sensor_id);
   void SetVariableSensorFromRigPose(sensor_t sensor_id);
   bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
