@@ -70,7 +70,7 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
             /*quantizer=*/coarse_quantizer_.get(),
             /*d=*/index_descriptors.data.cols(),
             /*nlist_=*/num_centroids,
-            faiss::ScalarQuantizer::QuantizerType::QT_8bit_direct,
+            faiss::ScalarQuantizer::QT_8bit_direct,
             faiss::METRIC_L2,
             false);
         auto* index_impl = dynamic_cast<faiss::IndexIVFScalarQuantizer*>(index_.get());
