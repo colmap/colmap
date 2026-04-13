@@ -62,7 +62,10 @@ if(FETCH_FAISS)
     message(STATUS "Configuring faiss...")
     # Use dynamic dispatch (dd) to automatically select the highest SIMD
     # instruction set supported by the target machine (e.g., AVX2, AVX512).
-    set(FAISS_OPT_LEVEL dd)
+    # Dynamic dispatch is not supported on MSVC (faiss v1.14.1).
+    if(NOT IS_MSVC)
+        set(FAISS_OPT_LEVEL dd)
+    endif()
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
     set(FAISS_ENABLE_MKL OFF)
