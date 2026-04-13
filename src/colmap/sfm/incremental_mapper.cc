@@ -1059,11 +1059,21 @@ bool IncrementalMapper::AdjustGlobalBundle(
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
 
+  const size_t num_reg_frames = reconstruction_->NumRegFrames();
+
+  // After filtering, the reconstruction may have fewer than 2 images,
+  // in which case global bundle adjustment is not possible.
+  if (num_reg_frames < 2) {
+    LOG(WARNING) << "At least two images must be registered for global "
+                    "bundle-adjustment";
+    return false;
+  }
+
   BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
   constexpr size_t kMinNumRegFramesForFastBA = 10;
   const bool is_small_reconstruction =
-      reconstruction_->NumRegFrames() < kMinNumRegFramesForFastBA;
+      num_reg_frames < kMinNumRegFramesForFastBA;
   if (is_small_reconstruction && custom_ba_options.ceres) {
     custom_ba_options.ceres->solver_options.function_tolerance /= 10;
     custom_ba_options.ceres->solver_options.gradient_tolerance /= 10;
@@ -1082,12 +1092,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
     for (const data_t& data_id : frame.ImageIds()) {
       ba_config.AddImage(data_id.id);
     }
-  }
-
-  // After filtering, the reconstruction may have fewer than 2 images,
-  // in which case global bundle adjustment is not possible.
-  if (ba_config.NumImages() < 2) {
-    return false;
   }
 
   // Fix the existing images, if option specified.
