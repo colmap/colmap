@@ -75,7 +75,7 @@ ObservationManager::ObservationManager(
   }
 
   // If an existing model was loaded from disk and there were already images
-  // registered previously, we need to set observations as triangulated.
+  // registered previously, we need to initialize the observation bookkeeping.
   for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -198,6 +198,9 @@ void ObservationManager::DecrementCorrespondenceHasPoint3D(
   const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
+  THROW_CHECK_GT(stats.num_correspondences_have_point3D[point2D_idx], 0)
+      << "Correspondence counter underflow for image " << image_id
+      << " point2D " << point2D_idx;
   stats.num_correspondences_have_point3D[point2D_idx] -= 1;
   if (stats.num_correspondences_have_point3D[point2D_idx] == 0) {
     stats.num_visible_points3D -= 1;
@@ -585,7 +588,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
 
 void ObservationManager::RegisterFrame(const frame_t frame_id) {
   const Frame& frame = reconstruction_.Frame(frame_id);
-  for (const data_t& data_id : frame.DataIds()) {
+  for (const data_t& data_id : frame.ImageIds()) {
     Image& image = reconstruction_.Image(data_id.id);
     const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -603,7 +606,7 @@ void ObservationManager::RegisterFrame(const frame_t frame_id) {
 
 void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
   const Frame& frame = reconstruction_.Frame(frame_id);
-  for (const data_t& data_id : frame.DataIds()) {
+  for (const data_t& data_id : frame.ImageIds()) {
     Image& image = reconstruction_.Image(data_id.id);
     const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -611,7 +614,11 @@ void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
         const auto corr_range =
             correspondence_graph_->FindCorrespondences(data_id.id, point2D_idx);
         for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-          image_stats_[corr->image_id].num_visible_correspondences -= 1;
+          auto& stats = image_stats_[corr->image_id];
+          THROW_CHECK_GT(stats.num_visible_correspondences, 0)
+              << "Visible correspondences underflow for image "
+              << corr->image_id << " when deregistering frame " << frame_id;
+          stats.num_visible_correspondences -= 1;
         }
       }
       if (image.Point2D(point2D_idx).HasPoint3D()) {
@@ -622,37 +629,31 @@ void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
   reconstruction_.DeRegisterFrame(frame_id);
 }
 
-std::vector<frame_t> ObservationManager::FilterFrames(
+std::vector<frame_t> ObservationManager::FindFramesToFilter(
     const double min_focal_length_ratio,
     const double max_focal_length_ratio,
-    const double max_extra_param) {
-  std::vector<frame_t> filtered_frame_ids;
+    const double max_extra_param,
+    const int min_num_observations) const {
+  std::vector<frame_t> frame_ids;
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     const Frame& frame = reconstruction_.Frame(frame_id);
-    int num_points3D = 0;
+    bool bogus_camera = false;
+    int num_observations = 0;
     for (const data_t& data_id : frame.ImageIds()) {
       const Image& image = reconstruction_.Image(data_id.id);
-      num_points3D += image.NumPoints3D();
+      num_observations += image.NumPoints3D();
       if (image.CameraPtr()->HasBogusParams(min_focal_length_ratio,
                                             max_focal_length_ratio,
                                             max_extra_param)) {
-        // Flag the frame for filtering.
-        num_points3D = 0;
+        bogus_camera = true;
         break;
       }
     }
-    if (num_points3D == 0) {
-      filtered_frame_ids.push_back(frame_id);
+    if (bogus_camera || num_observations < min_num_observations) {
+      frame_ids.push_back(frame_id);
     }
   }
-
-  // Only de-register after iterating over reg_frame_ids_ to avoid
-  // simultaneous iteration and modification of the vector.
-  for (const frame_t frame_id : filtered_frame_ids) {
-    DeRegisterFrame(frame_id);
-  }
-
-  return filtered_frame_ids;
+  return frame_ids;
 }
 
 std::ostream& operator<<(std::ostream& stream,

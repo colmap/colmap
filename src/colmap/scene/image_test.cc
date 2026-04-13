@@ -249,7 +249,7 @@ TEST(Image, Points2DWith3D) {
   std::vector<Point2D> points2D(10);
   points2D[0].xy = Eigen::Vector2d(1.0, 2.0);
   points2D[0].point3D_id = 1;
-  image.SetPoints2D(points2D);
+  image.SetPoints2D(std::move(points2D));
   EXPECT_EQ(image.Points2D().size(), 10);
   EXPECT_EQ(image.Point2D(0).xy(0), 1.0);
   EXPECT_EQ(image.Point2D(0).xy(1), 2.0);

@@ -558,7 +558,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
         // Shuffle 2D points, so each image has 3D points ordered differently.
         std::shuffle(points2D.begin(), points2D.end(), *PRNG);
-        image.SetPoints2D(points2D);
 
         if (database != nullptr) {
           // Create keypoints to add to database.
@@ -596,6 +595,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             point3D.track.AddElement(image.ImageId(), point2D_idx);
           }
         }
+
+        image.SetPoints2D(std::move(points2D));
 
         if (database != nullptr) {
           database->UpdateImage(image);

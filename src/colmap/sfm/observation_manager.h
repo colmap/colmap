@@ -139,12 +139,15 @@ class ObservationManager {
       const std::unordered_set<point3D_t>& point3D_ids,
       ReprojectionErrorType error_type = ReprojectionErrorType::PIXEL);
 
-  // Filter frames without observations or bogus camera parameters.
+  // Find frames that should be filtered due to having no observations or
+  // bogus camera parameters, without de-registering them. Pass them to
+  // DeRegisterFrame to reset their pose.
   //
-  // @return    The identifiers of the filtered frames.
-  std::vector<frame_t> FilterFrames(double min_focal_length_ratio,
-                                    double max_focal_length_ratio,
-                                    double max_extra_param);
+  // @return    The identifiers of the frames to filter.
+  std::vector<frame_t> FindFramesToFilter(double min_focal_length_ratio,
+                                          double max_focal_length_ratio,
+                                          double max_extra_param,
+                                          int min_num_observations) const;
 
   // Register/De-register an existing frame, and all its references.
   void RegisterFrame(frame_t frame_id);

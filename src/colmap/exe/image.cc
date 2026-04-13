@@ -37,9 +37,12 @@
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
+#include <locale>
+#include <sstream>
 
 namespace colmap {
 namespace {
@@ -181,27 +184,13 @@ int RunImageFilterer(int argc, char** argv) {
 
   const size_t num_reg_images = reconstruction.NumRegImages();
 
-  ObservationManager(reconstruction)
-      .FilterFrames(
-          min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
-
-  std::vector<frame_t> filtered_frame_ids;
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      filtered_frame_ids.push_back(frame_id);
-    }
-    bool enough_observations = false;
-    for (const data_t& data_id : frame.ImageIds()) {
-      const Image& image = reconstruction.Image(data_id.id);
-      if (image.NumPoints3D() >= static_cast<size_t>(min_num_observations)) {
-        enough_observations = true;
-      }
-    }
-
-    if (!enough_observations) {
-      filtered_frame_ids.push_back(frame_id);
-    }
-  }
+  std::vector<frame_t> filtered_frame_ids =
+      ObservationManager(reconstruction)
+          .FindFramesToFilter(
+              /*min_focal_length_ratio=*/min_focal_length_ratio,
+              /*max_focal_length_ratio=*/max_focal_length_ratio,
+              /*max_extra_param=*/max_extra_param,
+              /*min_num_observations=*/min_num_observations);
 
   for (const auto frame_id : filtered_frame_ids) {
     reconstruction.DeRegisterFrame(frame_id);
@@ -491,32 +480,29 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
       }
 
       std::string item;
-      std::stringstream line_stream(line);
+      std::istringstream line_stream(line);
+      line_stream.imbue(std::locale::classic());
 
       // Loads the image name.
       std::string image_name;
-      std::getline(line_stream, image_name, ' ');
+      THROW_CHECK(line_stream >> image_name);
 
       // Loads the camera and its parameters
       struct Camera camera;
 
-      std::getline(line_stream, item, ' ');
+      THROW_CHECK(line_stream >> item);
       camera.model_id = CameraModelNameToId(item);
       if (camera.model_id == CameraModelId::kInvalid) {
         LOG(ERROR) << "Camera model " << item << " does not exist";
         return EXIT_FAILURE;
       }
 
-      std::getline(line_stream, item, ' ');
-      camera.width = std::stoll(item);
-
-      std::getline(line_stream, item, ' ');
-      camera.height = std::stoll(item);
+      THROW_CHECK(line_stream >> camera.width >> camera.height);
 
       camera.params.reserve(CameraModelNumParams(camera.model_id));
-      while (!line_stream.eof()) {
-        std::getline(line_stream, item, ' ');
-        camera.params.push_back(std::stold(item));
+      double param;
+      while (line_stream >> param) {
+        camera.params.push_back(param);
       }
 
       THROW_CHECK(camera.VerifyParams());

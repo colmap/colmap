@@ -36,6 +36,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
+#include "colmap/util/string.h"
 
 #if defined(COLMAP_GPU_ENABLED)
 #include "thirdparty/SiftGPU/SiftGPU.h"
@@ -51,9 +52,11 @@
 
 #include <array>
 #include <fstream>
+#include <locale>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <sstream>
 
 #include <Eigen/Geometry>
 
@@ -1577,18 +1580,17 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
 
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
+  file.imbue(std::locale::classic());
 
   std::string line;
-  std::string item;
 
   std::getline(file, line);
-  std::stringstream header_line_stream(line);
+  std::istringstream header_line_stream(line);
+  header_line_stream.imbue(std::locale::classic());
 
-  std::getline(header_line_stream >> std::ws, item, ' ');
-  const point2D_t num_features = std::stoul(item);
-
-  std::getline(header_line_stream >> std::ws, item, ' ');
-  const size_t dim = std::stoul(item);
+  point2D_t num_features;
+  size_t dim;
+  THROW_CHECK(header_line_stream >> num_features >> dim);
 
   THROW_CHECK_EQ(dim, kSiftDescriptorDim)
       << "SIFT features must have kSiftDescriptorDim dimensions";
@@ -1599,26 +1601,18 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
 
   for (size_t i = 0; i < num_features; ++i) {
     std::getline(file, line);
-    std::stringstream feature_line_stream(line);
+    std::istringstream feature_line_stream(line);
+    feature_line_stream.imbue(std::locale::classic());
 
-    std::getline(feature_line_stream >> std::ws, item, ' ');
-    const float x = std::stold(item);
-
-    std::getline(feature_line_stream >> std::ws, item, ' ');
-    const float y = std::stold(item);
-
-    std::getline(feature_line_stream >> std::ws, item, ' ');
-    const float scale = std::stold(item);
-
-    std::getline(feature_line_stream >> std::ws, item, ' ');
-    const float orientation = std::stold(item);
+    float x, y, scale, orientation;
+    THROW_CHECK(feature_line_stream >> x >> y >> scale >> orientation);
 
     (*keypoints)[i] = FeatureKeypoint(x, y, scale, orientation);
 
     // Descriptor
     for (size_t j = 0; j < dim; ++j) {
-      std::getline(feature_line_stream >> std::ws, item, ' ');
-      const float value = std::stod(item);
+      float value;
+      THROW_CHECK(feature_line_stream >> value);
       THROW_CHECK_GE(value, 0);
       THROW_CHECK_LE(value, 255);
       descriptors->data(i, j) = TruncateCast<float, uint8_t>(value);

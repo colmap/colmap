@@ -104,6 +104,7 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
 
 bool HierarchicalPipeline::Options::Check() const {
   CHECK_OPTION_GT(init_num_trials, -1);
+  CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(num_workers, -1);
   clustering_options.Check();
   THROW_CHECK_EQ(clustering_options.branching, 2);
@@ -178,17 +179,23 @@ void HierarchicalPipeline::Run() {
 
   LOG_HEADING1("Reconstructing clusters");
 
-  // Determine the number of workers and threads per worker.
-  const int kMaxNumThreads = -1;
-  const int num_eff_threads = GetEffectiveNumThreads(kMaxNumThreads);
+  // Determine the number of workers and threads per worker. The total thread
+  // budget is divided across workers to avoid oversubscription.
+  if (options_.incremental_options.num_threads > 0) {
+    LOG(WARNING)
+        << "Mapper.num_threads is ignored in hierarchical mapping. Use "
+           "num_threads to control the total thread budget instead.";
+  }
+  const int num_total_threads = GetEffectiveNumThreads(options_.num_threads);
   const int kDefaultNumWorkers = 8;
-  const int num_eff_workers =
-      options_.num_workers < 1
-          ? std::min(static_cast<int>(leaf_clusters.size()),
-                     std::min(kDefaultNumWorkers, num_eff_threads))
-          : options_.num_workers;
+  const int num_eff_workers = std::max(
+      1,
+      std::min(static_cast<int>(leaf_clusters.size()),
+               std::min(options_.num_workers < 1 ? kDefaultNumWorkers
+                                                 : options_.num_workers,
+                        num_total_threads)));
   const int num_threads_per_worker =
-      std::max(1, num_eff_threads / num_eff_workers);
+      std::max(1, num_total_threads / num_eff_workers);
 
   // Function to reconstruct one cluster using incremental mapping.
   auto ReconstructCluster =
@@ -204,9 +211,7 @@ void HierarchicalPipeline::Run() {
         incremental_options->image_path = options_.image_path;
         incremental_options->max_model_overlap = 3;
         incremental_options->init_num_trials = options_.init_num_trials;
-        if (incremental_options->num_threads < 0) {
-          incremental_options->num_threads = num_threads_per_worker;
-        }
+        incremental_options->num_threads = num_threads_per_worker;
 
         std::unordered_set<std::string> cluster_image_names;
         cluster_image_names.reserve(cluster.image_ids.size());

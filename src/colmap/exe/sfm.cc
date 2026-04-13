@@ -201,18 +201,20 @@ int RunBundleAdjuster(int argc, char** argv) {
 int RunColorExtractor(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
+  int num_threads = -1;
 
   OptionManager options;
   options.AddImageOptions();
   options.AddDefaultOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("num_threads", &num_threads);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  reconstruction.ExtractColorsForAllImages(*options.image_path);
+  reconstruction.ExtractColorsForAllImages(*options.image_path, num_threads);
   reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;
@@ -421,6 +423,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddRequiredOption("image_path", &mapper_options.image_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("num_threads", &mapper_options.num_threads);
   options.AddDefaultOption("num_workers", &mapper_options.num_workers);
   options.AddDefaultOption("image_overlap",
                            &mapper_options.clustering_options.image_overlap);

@@ -34,7 +34,9 @@
 #include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/testing.h"
 
@@ -316,35 +318,56 @@ TEST(Reconstruction, AddImageWrongFrameCorrespondence) {
 }
 
 TEST(Reconstruction, AddImage) {
-  Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
-  reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
+  Image image;
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(1);
+  image.SetFrameId(1);
+
+  // Verify that adding an image fails if the frame does not exist.
+  {
+    Reconstruction reconstruction;
+    reconstruction.AddCamera(camera);
+    reconstruction.AddRig(rig);
+    try {
+      reconstruction.AddImage(image);
+    } catch (const std::exception& e) {
+      EXPECT_THAT(e.what(),
+                  testing::HasSubstr("Frame with ID 1 does not exist"));
+    }
+  }
+
+  // Verify that adding an image fails if the frame has no matching data id.
+  {
+    Reconstruction reconstruction;
+    reconstruction.AddCamera(camera);
+    reconstruction.AddRig(rig);
+    Frame frame_without_data;
+    frame_without_data.SetFrameId(1);
+    frame_without_data.SetRigId(rig.RigId());
+    reconstruction.AddFrame(frame_without_data);
+    try {
+      reconstruction.AddImage(image);
+    } catch (const std::exception& e) {
+      EXPECT_THAT(
+          e.what(),
+          testing::HasSubstr("Check failed: frame.HasDataId(image.DataId())"));
+    }
+  }
+
+  // Successfully add the image when the frame has the matching data id.
+  Reconstruction reconstruction;
+  reconstruction.AddCamera(camera);
   reconstruction.AddRig(rig);
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
-  Image image;
-  image.SetCameraId(camera.camera_id);
-  image.SetImageId(1);
-  image.SetFrameId(frame.FrameId());
-  try {
-    reconstruction.AddImage(image);
-  } catch (const std::exception& e) {
-    EXPECT_THAT(e.what(), testing::HasSubstr("Frame with ID 1 does not exist"));
-  }
+  frame.AddDataId(image.DataId());
   reconstruction.AddFrame(frame);
-  try {
-    reconstruction.AddImage(image);
-  } catch (const std::exception& e) {
-    EXPECT_THAT(
-        e.what(),
-        testing::HasSubstr("Check failed: frame.HasDataId(image.DataId())"));
-  }
-  reconstruction.Frame(frame.FrameId()).AddDataId(image.DataId());
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
@@ -1379,6 +1402,46 @@ TEST(Reconstruction, CreateImageDirs) {
 
   EXPECT_TRUE(std::filesystem::exists(test_dir / "subdir1"));
   EXPECT_TRUE(std::filesystem::exists(test_dir / "subdir2" / "subdir3"));
+}
+
+void WriteSolidColorImages(const Reconstruction& reconstruction,
+                           const std::filesystem::path& image_path,
+                           const BitmapColor<uint8_t>& color) {
+  for (const auto& image_id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(image_id);
+    const auto& camera = reconstruction.Camera(image.CameraId());
+    Bitmap bitmap(camera.width, camera.height, /*as_rgb=*/true);
+    bitmap.Fill(color);
+    bitmap.Write(image_path / image.Name());
+  }
+}
+
+TEST(Reconstruction, ExtractColorsForAllImages) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 3;
+  options.num_points3D = 10;
+  options.num_points2D_without_point3D = 2;
+  SynthesizeDataset(options, &reconstruction);
+
+  const auto image_path = CreateTestDir() / "images";
+  CreateDirIfNotExists(image_path);
+  const BitmapColor<uint8_t> kColor(20, 40, 220);
+  WriteSolidColorImages(reconstruction, image_path, kColor);
+
+  // Delete one image file so extraction must handle the missing file.
+  const auto first_image_id = *reconstruction.RegImageIds().begin();
+  const auto& first_image = reconstruction.Image(first_image_id);
+  std::filesystem::remove(image_path / first_image.Name());
+
+  reconstruction.ExtractColorsForAllImages(image_path, /*num_threads=*/2);
+
+  for (const auto& point3D_id : reconstruction.Point3DIds()) {
+    const auto& color = reconstruction.Point3D(point3D_id).color;
+    EXPECT_EQ(color, Eigen::Vector3ub(kColor.r, kColor.g, kColor.b));
+  }
 }
 
 }  // namespace
