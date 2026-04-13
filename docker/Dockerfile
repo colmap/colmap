@@ -39,6 +39,7 @@ RUN apt-get update && \
         qt6-base-dev \
         libqt6opengl6-dev \
         libqt6openglwidgets6 \
+        libqt6svg6-dev \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
@@ -97,6 +98,7 @@ RUN apt-get update && \
         libqt6gui6 \
         libqt6widgets6 \
         libqt6openglwidgets6 \
+        libqt6svg6 \
         libcurl4 \
         libssl3t64 \
         libmkl-locale \
