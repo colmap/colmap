@@ -577,6 +577,36 @@ TEST_F(IncrementalMapperLargeDatasetTest, FilterFramesRegStatsConsistency) {
   }
 }
 
+// Reproduces the crash when FilterFrames aggressively deregisters frames,
+// leaving fewer than 2 images for a subsequent AdjustGlobalBundle call.
+TEST_F(IncrementalMapperLargeDatasetTest,
+       AdjustGlobalBundleReturnsFalseAfterAggressiveFiltering) {
+  BeginWithSynthesizedReconstruction();
+
+  ASSERT_GE(reconstruction_->NumRegFrames(), 20);
+
+  // Delete observations in all but one frame. Because DeleteObservation
+  // removes shared 3D points, this cascades to the surviving frame too,
+  // so FilterFrames ends up deregistering all frames.
+  const auto reg_frame_ids = reconstruction_->RegFrameIds();
+  bool skipped_first = false;
+  for (const frame_t frame_id : reg_frame_ids) {
+    if (!skipped_first) {
+      skipped_first = true;
+      continue;
+    }
+    DeleteAllObservationsInFrame(frame_id);
+  }
+
+  mapper_->FilterFrames(options_);
+  ASSERT_LT(reconstruction_->NumRegImages(), 2);
+
+  // Before the fix, this would crash with:
+  //   THROW_CHECK_GE(ba_config.NumImages(), 2)
+  BundleAdjustmentOptions ba_options;
+  EXPECT_FALSE(mapper_->AdjustGlobalBundle(options_, ba_options));
+}
+
 TEST_F(IncrementalMapperTest, RegStatsResetBetweenReconstructions) {
   BeginWithSynthesizedReconstruction();
 
