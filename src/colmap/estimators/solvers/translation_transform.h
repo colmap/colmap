@@ -50,10 +50,10 @@ class TranslationTransformEstimator {
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 1;
 
-  // Estimate the 2D translation transform.
+  // Estimate the N-D translation transform.
   //
-  // @param points1      Set of corresponding source 2D points.
-  // @param points2      Set of corresponding destination 2D points.
+  // @param points1      Set of corresponding source points.
+  // @param points2      Set of corresponding destination points.
   //
   // @return             Translation vector.
   static void Estimate(const std::vector<X_t>& points1,
@@ -62,8 +62,8 @@ class TranslationTransformEstimator {
 
   // Calculate the squared translation error.
   //
-  // @param points1      Set of corresponding source 2D points.
-  // @param points2      Set of corresponding destination 2D points.
+  // @param points1      Set of corresponding source points.
+  // @param points2      Set of corresponding destination points.
   // @param translation  Translation vector.
   // @param residuals    Output vector of residuals for each point pair.
   static void Residuals(const std::vector<X_t>& points1,
