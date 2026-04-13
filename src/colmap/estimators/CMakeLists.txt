@@ -40,6 +40,7 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
         coordinate_frame.h coordinate_frame.cc
         covariance.h covariance.cc
+        imu_preintegration.h imu_preintegration.cc
         generalized_pose.h generalized_pose.cc
         global_positioning.h global_positioning.cc
         gravity_refinement.h gravity_refinement.cc
@@ -130,5 +131,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME global_positioning_test
     SRCS global_positioning_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME imu_preintegration_test
+    SRCS imu_preintegration_test.cc
     LINK_LIBS colmap_estimators
 )
