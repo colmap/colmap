@@ -112,7 +112,7 @@ void BindObservationManager(py::module& m) {
            &ObservationManager::FilterPoints3DWithSmallTriangulationAngle,
            "min_tri_angle"_a,
            "point3D_ids"_a,
-           "Filter 3D points with insufficient triangulation angle. Return "
+           "Filter 3D points with insufficient triangulation angle in degrees. Return "
            "the number of filtered observations.")
       .def("filter_frames",
            &ObservationManager::FindFramesToFilter,
