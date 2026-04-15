@@ -19,6 +19,13 @@ void BindObservationManager(py::module& m) {
       .def_readwrite("num_tri_corrs", &ImagePairStat::num_tri_corrs)
       .def_readwrite("num_total_corrs", &ImagePairStat::num_total_corrs);
 
+  auto PyReprojectionErrorType =
+      py::enum_<ReprojectionErrorType>(m, "ReprojectionErrorType")
+          .value("PIXEL", ReprojectionErrorType::PIXEL)
+          .value("NORMALIZED", ReprojectionErrorType::NORMALIZED)
+          .value("ANGULAR", ReprojectionErrorType::ANGULAR);
+  AddStringToEnumConstructor(PyReprojectionErrorType);
+
   py::classh<ObservationManager>(m, "ObservationManager")
       .def(py::init<Reconstruction&,
                     std::shared_ptr<const CorrespondenceGraph>>(),
@@ -92,6 +99,21 @@ void BindObservationManager(py::module& m) {
            &ObservationManager::FilterObservationsWithNegativeDepth,
            "Filter observations that have negative depth. Return the number of "
            "filtered observations.")
+      .def("filter_points3D_with_large_reprojection_error",
+           &ObservationManager::FilterPoints3DWithLargeReprojectionError,
+           "max_error"_a,
+           "point3D_ids"_a,
+           "error_type"_a = ReprojectionErrorType::PIXEL,
+           "Filter observations with large reprojection error. For PIXEL and "
+           "NORMALIZED, max_error is the reprojection error; for ANGULAR, it "
+           "is the angular error in degrees. Return the number of filtered "
+           "observations.")
+      .def("filter_points3D_with_small_triangulation_angle",
+           &ObservationManager::FilterPoints3DWithSmallTriangulationAngle,
+           "min_tri_angle"_a,
+           "point3D_ids"_a,
+           "Filter 3D points with insufficient triangulation angle. Return "
+           "the number of filtered observations.")
       .def("filter_frames",
            &ObservationManager::FindFramesToFilter,
            "min_focal_length_ratio"_a,
