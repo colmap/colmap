@@ -169,7 +169,7 @@ std::string NormalizePath(const std::filesystem::path& path) {
 
 std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
                                       const std::filesystem::path& base_path) {
-  return NormalizePath(std::filesystem::relative(full_path, base_path));
+  return NormalizePath(full_path.lexically_proximate(base_path));
 }
 
 std::vector<std::filesystem::path> GetRecursiveFileList(
