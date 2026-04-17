@@ -36,6 +36,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -55,14 +57,52 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
   models->clear();
 
+  // Use the bearing-vector path when at least one observation has a non-zero
+  // cam_ray (set by EstimateTriangulation when the camera supports
+  // CamFromImgRay). This handles omnidirectional (SPHERE) observations whose
+  // back-hemisphere rays can't be represented by the 2D (u, v, 1) cam_point.
+  const bool use_bearings = std::any_of(
+      point_data.begin(), point_data.end(), [](const PointData& p) {
+        return p.cam_ray.squaredNorm() > 0;
+      });
+
+  std::vector<Eigen::Matrix3x4d> cams_from_world(point_data.size());
+  std::vector<Eigen::Vector3d> cam_rays;
+  std::vector<Eigen::Vector2d> cam_points;
+  if (use_bearings) {
+    cam_rays.resize(point_data.size());
+  } else {
+    cam_points.resize(point_data.size());
+  }
+  for (size_t i = 0; i < point_data.size(); ++i) {
+    cams_from_world[i] = pose_data[i].cam_from_world;
+    if (use_bearings) {
+      cam_rays[i] = point_data[i].cam_ray.squaredNorm() > 0
+                        ? point_data[i].cam_ray
+                        : point_data[i].cam_point.homogeneous().normalized();
+    } else {
+      cam_points[i] = point_data[i].cam_point;
+    }
+  }
+
   if (point_data.size() == 2) {
     // Two-view triangulation.
     M_t xyz;
-    if (TriangulatePoint(pose_data[0].cam_from_world,
-                         pose_data[1].cam_from_world,
-                         point_data[0].cam_point,
-                         point_data[1].cam_point,
-                         &xyz) &&
+    bool triangulated = false;
+    if (use_bearings) {
+      triangulated = TriangulateMultiViewPoint(
+          span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                        cams_from_world.size()),
+          span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
+          &xyz);
+    } else {
+      triangulated = TriangulatePoint(pose_data[0].cam_from_world,
+                                      pose_data[1].cam_from_world,
+                                      point_data[0].cam_point,
+                                      point_data[1].cam_point,
+                                      &xyz);
+    }
+    if (triangulated &&
         HasPointPositiveDepth(pose_data[0].cam_from_world, xyz) &&
         HasPointPositiveDepth(pose_data[1].cam_from_world, xyz) &&
         CalculateTriangulationAngle(pose_data[0].proj_center,
@@ -74,20 +114,22 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
     }
   } else {
     // Multi-view triangulation.
-
-    std::vector<Eigen::Matrix3x4d> cams_from_world(point_data.size());
-    std::vector<Eigen::Vector2d> cam_points(point_data.size());
-    for (size_t i = 0; i < point_data.size(); ++i) {
-      cams_from_world[i] = pose_data[i].cam_from_world;
-      cam_points[i] = point_data[i].cam_point;
-    }
-
     M_t xyz;
-    if (!TriangulateMultiViewPoint(
-            span<const Eigen::Matrix3x4d>(cams_from_world.data(),
-                                          cams_from_world.size()),
-            span<const Eigen::Vector2d>(cam_points.data(), cam_points.size()),
-            &xyz)) {
+    const bool triangulated =
+        use_bearings
+            ? TriangulateMultiViewPoint(
+                  span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                                cams_from_world.size()),
+                  span<const Eigen::Vector3d>(cam_rays.data(),
+                                              cam_rays.size()),
+                  &xyz)
+            : TriangulateMultiViewPoint(
+                  span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                                cams_from_world.size()),
+                  span<const Eigen::Vector2d>(cam_points.data(),
+                                              cam_points.size()),
+                  &xyz);
+    if (!triangulated) {
       return;
     }
 
@@ -129,10 +171,17 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
                                             pose_data[i].cam_from_world,
                                             *pose_data[i].camera);
     } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
-      const double angular_error = CalculateAngularReprojectionError(
-          point_data[i].cam_point.homogeneous().normalized(),
-          xyz,
-          pose_data[i].cam_from_world);
+      // Prefer the stored 3D bearing when available (set by CamFromImgRay);
+      // fall back to the legacy 2D → (u, v, 1) → normalize path otherwise.
+      // This lets omnidirectional (SPHERE) back-hemisphere observations
+      // contribute angular residuals without the 2D representation that
+      // can't encode Z <= 0.
+      const Eigen::Vector3d ray =
+          point_data[i].cam_ray.squaredNorm() > 0
+              ? point_data[i].cam_ray
+              : point_data[i].cam_point.homogeneous().normalized();
+      const double angular_error =
+          CalculateAngularReprojectionError(ray, xyz, pose_data[i].cam_from_world);
       (*residuals)[i] = angular_error * angular_error;
     }
   }
@@ -163,6 +212,17 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
       point_data[i].cam_point = *cam_point;
     } else {
       point_data[i].cam_point.setZero();
+    }
+    // Populate the 3D bearing if the camera supports it. Essential for
+    // omnidirectional models (e.g. SPHERE) where back-hemisphere
+    // observations produce nullopt from CamFromImg but still yield a valid
+    // unit ray from CamFromImgRay.
+    if (const std::optional<Eigen::Vector3d> cam_ray =
+            cameras[i]->CamFromImgRay(points[i]);
+        cam_ray) {
+      point_data[i].cam_ray = *cam_ray;
+    } else {
+      point_data[i].cam_ray.setZero();
     }
     pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();
     pose_data[i].proj_center = cams_from_world[i].TgtOriginInSrc();

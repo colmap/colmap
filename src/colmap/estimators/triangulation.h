@@ -57,14 +57,28 @@ class TriangulationEstimator {
   };
 
   struct PointData {
-    PointData() {}
+    PointData() = default;
     PointData(const Eigen::Vector2d& img_point,
               const Eigen::Vector2d& cam_point)
-        : img_point(img_point), cam_point(cam_point) {}
+        : img_point(img_point),
+          cam_point(cam_point),
+          cam_ray(cam_point.homogeneous().normalized()) {}
+    PointData(const Eigen::Vector2d& img_point,
+              const Eigen::Vector2d& cam_point,
+              const Eigen::Vector3d& cam_ray)
+        : img_point(img_point), cam_point(cam_point), cam_ray(cam_ray) {}
     // Image observation in pixels. Only needs to be set for REPROJECTION_ERROR.
     Eigen::Vector2d img_point;
-    // Normalized camera coordinates. Must always be set.
-    Eigen::Vector2d cam_point;
+    // Normalized camera coordinates (u = X/Z, v = Y/Z). Must be set for
+    // perspective cameras. For omnidirectional (SPHERE) cameras, back-
+    // hemisphere observations may leave this zero and rely on cam_ray only.
+    Eigen::Vector2d cam_point = Eigen::Vector2d::Zero();
+    // Unit bearing vector in camera frame. For non-perspective cameras
+    // (SPHERE) this is the canonical representation; for perspective cameras
+    // it's cam_point.homogeneous().normalized(). Required for angular-error
+    // residuals and for triangulation when cam_point can't represent the ray
+    // (back hemisphere).
+    Eigen::Vector3d cam_ray = Eigen::Vector3d::Zero();
   };
 
   struct PoseData {
