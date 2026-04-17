@@ -309,6 +309,55 @@ TEST(OptionManager, ParseWithProjectPath) {
   EXPECT_EQ(options.feature_extraction->max_image_size, 3000);
 }
 
+TEST(OptionManager, ParseWithProjectPathAndCliOverrides) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  const auto config_image_path = test_dir / "images_from_config";
+  const auto custom_image_path = test_dir / "images_from_cli";
+  CreateDirIfNotExists(config_image_path);
+  CreateDirIfNotExists(custom_image_path);
+
+  OptionManager options_write;
+  options_write.AddDatabaseOptions();
+  options_write.AddImageOptions();
+  options_write.AddFeatureExtractionOptions();
+
+  *options_write.database_path = test_dir / "database_from_config.db";
+  *options_write.image_path = config_image_path;
+  options_write.feature_extraction->max_image_size = 3000;
+  options_write.feature_extraction->sift->max_num_features = 4096;
+  options_write.Write(config_path);
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddFeatureExtractionOptions();
+
+  const std::vector<std::string> args = {
+      "colmap",
+      "--project_path",
+      config_path.string(),
+      "--image_path",
+      custom_image_path.string(),
+      "--FeatureExtraction.max_image_size",
+      "1024",
+  };
+
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
+
+  EXPECT_EQ(*options.project_path, config_path);
+  EXPECT_EQ(*options.database_path, *options_write.database_path);
+  EXPECT_EQ(*options.image_path, custom_image_path);
+  EXPECT_EQ(options.feature_extraction->max_image_size, 1024);
+  EXPECT_EQ(options.feature_extraction->sift->max_num_features, 4096);
+}
+
 TEST(OptionManager, ParseEmptyArguments) {
   OptionManager options;
 

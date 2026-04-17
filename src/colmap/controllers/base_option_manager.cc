@@ -253,9 +253,21 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
       if (!Read(*project_path)) {
         return false;
       }
-    } else {
-      vmap.notify();
     }
+
+    if (vmap.count("project_path")) {
+      // When a project file is loaded, only re-apply explicit CLI arguments so
+      // config-loaded values are preserved while CLI overrides still win.
+      for (auto it = vmap.begin(); it != vmap.end();) {
+        if (it->first == "project_path" || it->second.defaulted()) {
+          it = vmap.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
+
+    vmap.notify();
 
     ApplyEnumConversions();
     ApplyLogFlags();

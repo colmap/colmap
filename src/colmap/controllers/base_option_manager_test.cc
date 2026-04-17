@@ -323,6 +323,46 @@ TEST(BaseOptionManager, ParseWithProjectPath) {
   EXPECT_EQ(*options.image_path, *options_write.image_path);
 }
 
+TEST(BaseOptionManager, ParseWithProjectPathAndCliOverrides) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  const auto config_images_path = test_dir / "images_from_config";
+  const auto cli_images_path = test_dir / "images_from_cli";
+  CreateDirIfNotExists(config_images_path);
+  CreateDirIfNotExists(cli_images_path);
+
+  BaseOptionManager options_write;
+  options_write.AddDatabaseOptions();
+  options_write.AddImageOptions();
+  *options_write.database_path = test_dir / "database_from_config.db";
+  *options_write.image_path = config_images_path;
+  options_write.Write(config_path);
+
+  BaseOptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+
+  const std::vector<std::string> args = {
+      "colmap",
+      "--project_path",
+      config_path.string(),
+      "--image_path",
+      cli_images_path.string(),
+  };
+
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
+
+  EXPECT_EQ(*options.project_path, config_path);
+  EXPECT_EQ(*options.database_path, *options_write.database_path);
+  EXPECT_EQ(*options.image_path, cli_images_path);
+}
+
 TEST(BaseOptionManager, ParseEmptyArguments) {
   BaseOptionManager options;
 
