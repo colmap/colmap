@@ -495,6 +495,19 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     return false;
   }
 
+  // Non-perspective cameras (e.g., SPHERE) lack a meaningful pinhole
+  // calibration matrix K, so the UNCALIBRATED / PLANAR / PANORAMIC paths
+  // below — which call camera.CalibrationMatrix() — don't apply. Only the
+  // CALIBRATED essential-matrix branch is valid since it uses bearing
+  // vectors from CamFromImgRay and no K. Pairs in other configs are skipped
+  // rather than crashing.
+  const bool camera1_has_k = camera1.FocalLengthIdxs().size() > 0;
+  const bool camera2_has_k = camera2.FocalLengthIdxs().size() > 0;
+  if ((!camera1_has_k || !camera2_has_k) &&
+      geometry->config != TwoViewGeometry::ConfigurationType::CALIBRATED) {
+    return false;
+  }
+
   // Extract normalized inlier points.
   const size_t num_inlier_matches = geometry->inlier_matches.size();
   if (num_inlier_matches == 0) {
@@ -505,17 +518,17 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inlier_matches);
   for (size_t i = 0; i < num_inlier_matches; ++i) {
     const FeatureMatch& match = geometry->inlier_matches[i];
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points1[match.point2D_idx1]);
-        cam_point1) {
-      inlier_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    if (const std::optional<Eigen::Vector3d> ray1 =
+            camera1.CamFromImgRay(points1[match.point2D_idx1]);
+        ray1) {
+      inlier_cam_rays1[i] = *ray1;
     } else {
       inlier_cam_rays1[i].setZero();
     }
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2[match.point2D_idx2]);
-        cam_point2) {
-      inlier_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    if (const std::optional<Eigen::Vector3d> ray2 =
+            camera2.CamFromImgRay(points2[match.point2D_idx2]);
+        ray2) {
+      inlier_cam_rays2[i] = *ray2;
     } else {
       inlier_cam_rays2[i].setZero();
     }
@@ -619,17 +632,17 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points1[idx1]);
-        cam_point1) {
-      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    if (const std::optional<Eigen::Vector3d> ray1 =
+            camera1.CamFromImgRay(points1[idx1]);
+        ray1) {
+      matched_cam_rays1[i] = *ray1;
     } else {
       matched_cam_rays1[i].setZero();
     }
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2[idx2]);
-        cam_point2) {
-      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    if (const std::optional<Eigen::Vector3d> ray2 =
+            camera2.CamFromImgRay(points2[idx2]);
+        ray2) {
+      matched_cam_rays2[i] = *ray2;
     } else {
       matched_cam_rays2[i].setZero();
     }
@@ -881,17 +894,17 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
   for (size_t i = 0; i < num_matches; ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points1[idx1]);
-        cam_point1) {
-      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    if (const std::optional<Eigen::Vector3d> ray1 =
+            camera1.CamFromImgRay(points1[idx1]);
+        ray1) {
+      matched_cam_rays1[i] = *ray1;
     } else {
       matched_cam_rays1[i].setZero();
     }
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2[idx2]);
-        cam_point2) {
-      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    if (const std::optional<Eigen::Vector3d> ray2 =
+            camera2.CamFromImgRay(points2[idx2]);
+        ray2) {
+      matched_cam_rays2[i] = *ray2;
     } else {
       matched_cam_rays2[i].setZero();
     }
