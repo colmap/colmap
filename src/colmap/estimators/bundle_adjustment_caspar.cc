@@ -24,7 +24,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
                        BundleAdjustmentConfig config,
                        Reconstruction& reconstruction)
       : BundleAdjuster(options, config), reconstruction_(reconstruction) {
-    VLOG(1) << "Using Caspar bu ndle adjuster";
+    VLOG(1) << "Using Caspar bundle adjuster";
 
     BuildObservationCounts();
     BuildCameraFrameIndex();
@@ -211,8 +211,19 @@ class CasparBundleAdjuster : public BundleAdjuster {
     const bool calib_var = AreIntrinsicsVariable(camera.camera_id);
     const bool point_var = IsPointVariable(point2D.point3D_id);
 
+    // For non-ref cameras with a variable rig pose, Caspar can't express
+    // project(CamFromRig * RigFromWorld * point, calib) as a variable-pose
+    // factor. Using a stale initial CamFromWorld as FIXED_POSE corrupts the
+    // point and calibration optimization (noisy fixed poses pull points away
+    // from the correct positions). Skip these observations entirely.
+    // Non-ref cameras with a constant rig pose are safe: the pose won't drift,
+    // so FIXED_POSE with the current CamFromWorld gives correct residuals.
+    if (!image.IsRefInFrame() && pose_var) return;
+
+    const bool effective_pose_var = pose_var && image.IsRefInFrame();
+
     // Skip fully-constant observations — nothing to optimize
-    if (!pose_var && !calib_var && !point_var) return;
+    if (!effective_pose_var && !calib_var && !point_var) return;
 
     // Fixed-calib variants are not supported: skip observations where
     // calibration would be constant but pose or point are variable.
@@ -227,11 +238,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
     ModelData& md = model_data_per_model_.at(camera.model_id);
 
     FactorVariant v;
-    if (pose_var && point_var)
+    if (effective_pose_var && point_var)
       v = FactorVariant::BASE;
-    else if (!pose_var && point_var)
+    else if (!effective_pose_var && point_var)
       v = FactorVariant::FIXED_POSE;
-    else if (pose_var && !point_var)
+    else if (effective_pose_var && !point_var)
       v = FactorVariant::FIXED_POINT;
     else
       v = FactorVariant::FIXED_POSE_FIXED_POINT;
@@ -239,10 +250,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VariantData& vd = md.variants[static_cast<int>(v)];
     vd.calib_indices.push_back(calib_idx);
 
-    if (pose_var)
+    if (effective_pose_var)
       vd.pose_indices.push_back(GetOrCreatePose(image.FrameId()));
     else
-      AppendPose(vd.const_poses, image.FramePtr()->RigFromWorld());
+      // Use CamFromWorld() which correctly computes CamFromRig * RigFromWorld
+      // for non-ref cameras, and equals RigFromWorld for ref cameras.
+      AppendPose(vd.const_poses, image.CamFromWorld());
 
     if (point_var)
       vd.point_indices.push_back(GetOrCreatePoint(point2D.point3D_id, point3D));
@@ -335,9 +348,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   bool IsPointVariable(const point3D_t point3D_id) const {
     if (config_.HasConstantPoint(point3D_id)) return false;
+    auto it = point3D_num_observations_.find(point3D_id);
+    if (it == point3D_num_observations_.end()) return false;
     const Point3D& point3D = reconstruction_.Point3D(point3D_id);
-    if (point3D.track.Length() > point3D_num_observations_.at(point3D_id))
-      return false;
+    if (point3D.track.Length() > it->second) return false;
     return true;
   }
 
@@ -397,6 +411,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void WriteResultsToReconstruction() {
     for (const auto& [idx, point_id] : index_to_point_id_) {
       if (config_.HasConstantPoint(point_id)) continue;
+      // Skip points that are not truly variable (e.g. partially contained
+      // tracks with external observations). Their solver nodes hold float
+      // copies of the original double values and must not be written back.
+      if (!IsPointVariable(point_id)) continue;
       Point3D& point = reconstruction_.Point3D(point_id);
       point.xyz.x() = point_data_[idx * 3 + 0];
       point.xyz.y() = point_data_[idx * 3 + 1];
@@ -478,7 +496,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     caspar::SolverParams<StorageType> params;
     auto solver = CreateSolver(params, BuildSizing());
     SetupSolverData(solver);
-    caspar::SolveResult result = solver.solve(/*print_progress=*/true);
+    caspar::SolveResult result = solver.solve(/*print_progress=*/false);
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
 
