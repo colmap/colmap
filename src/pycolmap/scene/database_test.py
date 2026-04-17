@@ -178,6 +178,6 @@ def test_database_merge(tmp_path):
 
 
 def test_database_transaction(database, simple_camera):
-    with pycolmap.DatabaseTransaction(database) as transaction:
+    with pycolmap.DatabaseTransaction(database):
         database.write_camera(simple_camera)
     assert database.num_cameras() == 1

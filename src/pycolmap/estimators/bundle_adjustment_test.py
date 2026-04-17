@@ -108,23 +108,23 @@ def test_bundle_adjustment_config_images_property():
     assert len(images) == 0
 
 
-def test_ceres_bundle_adjustment_options_default_init():
+def test_ceres_ba_options_default_init():
     options = pycolmap.CeresBundleAdjustmentOptions()
     assert options is not None
 
 
-def test_ceres_bundle_adjustment_options_check():
+def test_ceres_ba_options_check():
     options = pycolmap.CeresBundleAdjustmentOptions()
     result = options.check()
     assert isinstance(result, bool)
 
 
-def test_bundle_adjustment_options_default_init():
+def test_ba_options_default_init():
     options = pycolmap.BundleAdjustmentOptions()
     assert options is not None
 
 
-def test_bundle_adjustment_options_refine_focal_length_readwrite():
+def test_ba_options_refine_focal_length_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     original = options.refine_focal_length
     assert isinstance(original, bool)
@@ -132,7 +132,7 @@ def test_bundle_adjustment_options_refine_focal_length_readwrite():
     assert options.refine_focal_length == (not original)
 
 
-def test_bundle_adjustment_options_refine_principal_point_readwrite():
+def test_ba_options_refine_principal_point_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     original = options.refine_principal_point
     assert isinstance(original, bool)
@@ -140,7 +140,7 @@ def test_bundle_adjustment_options_refine_principal_point_readwrite():
     assert options.refine_principal_point == (not original)
 
 
-def test_bundle_adjustment_options_refine_extra_params_readwrite():
+def test_ba_options_refine_extra_params_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     original = options.refine_extra_params
     assert isinstance(original, bool)
@@ -148,7 +148,7 @@ def test_bundle_adjustment_options_refine_extra_params_readwrite():
     assert options.refine_extra_params == (not original)
 
 
-def test_bundle_adjustment_options_refine_points3d_readwrite():
+def test_ba_options_refine_points3d_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     original = options.refine_points3D
     assert isinstance(original, bool)
@@ -156,14 +156,14 @@ def test_bundle_adjustment_options_refine_points3d_readwrite():
     assert options.refine_points3D == (not original)
 
 
-def test_bundle_adjustment_options_min_track_length_readwrite():
+def test_ba_options_min_track_length_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     assert isinstance(options.min_track_length, int)
     options.min_track_length = 5
     assert options.min_track_length == 5
 
 
-def test_bundle_adjustment_options_print_summary_readwrite():
+def test_ba_options_print_summary_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     original = options.print_summary
     assert isinstance(original, bool)
@@ -171,42 +171,42 @@ def test_bundle_adjustment_options_print_summary_readwrite():
     assert options.print_summary == (not original)
 
 
-def test_bundle_adjustment_options_backend_readwrite():
+def test_ba_options_backend_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     options.backend = pycolmap.BundleAdjustmentBackend.CERES
     assert options.backend == pycolmap.BundleAdjustmentBackend.CERES
 
 
-def test_bundle_adjustment_options_ceres_property():
+def test_ba_options_ceres_property():
     options = pycolmap.BundleAdjustmentOptions()
     ceres = options.ceres
     assert isinstance(ceres, pycolmap.CeresBundleAdjustmentOptions)
 
 
-def test_bundle_adjustment_options_check():
+def test_ba_options_check():
     options = pycolmap.BundleAdjustmentOptions()
     result = options.check()
     assert isinstance(result, bool)
 
 
-def test_pose_prior_bundle_adjustment_options_default_init():
+def test_pose_prior_ba_options_default_init():
     options = pycolmap.PosePriorBundleAdjustmentOptions()
     assert options is not None
 
 
-def test_pose_prior_bundle_adjustment_options_prior_position_fallback_stddev_readwrite():
+def test_pose_prior_ba_options_prior_position_fallback_stddev_readwrite():
     options = pycolmap.PosePriorBundleAdjustmentOptions()
     assert isinstance(options.prior_position_fallback_stddev, float)
     options.prior_position_fallback_stddev = 5.0
     assert options.prior_position_fallback_stddev == 5.0
 
 
-def test_ceres_pose_prior_bundle_adjustment_options_default_init():
+def test_ceres_pose_prior_ba_options_default_init():
     options = pycolmap.CeresPosePriorBundleAdjustmentOptions()
     assert options is not None
 
 
-def test_ceres_pose_prior_bundle_adjustment_options_check():
+def test_ceres_pose_prior_ba_options_check():
     options = pycolmap.CeresPosePriorBundleAdjustmentOptions()
     result = options.check()
     assert isinstance(result, bool)

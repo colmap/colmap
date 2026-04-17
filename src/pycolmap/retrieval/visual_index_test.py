@@ -23,7 +23,6 @@ def test_visual_index_index_options_init():
 
 def test_visual_index_index_options_num_neighbors():
     options = pycolmap.VisualIndex.IndexOptions()
-    original = options.num_neighbors
     options.num_neighbors = 5
     assert options.num_neighbors == 5
 
