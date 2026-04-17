@@ -88,13 +88,17 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
       switch (variant) {
         case FactorVariant::BASE:
           sz.num_simple_radial = md.variants[v].num_factors;
+          break;
         case FactorVariant::FIXED_POINT:
           sz.num_simple_radial_fixed_point = md.variants[v].num_factors;
+          break;
         case FactorVariant::FIXED_POSE:
           sz.num_simple_radial_fixed_pose = md.variants[v].num_factors;
+          break;
         case FactorVariant::FIXED_POSE_FIXED_POINT:
           sz.num_simple_radial_fixed_pose_fixed_point =
               md.variants[v].num_factors;
+          break;
       }
     }
   }
@@ -135,7 +139,9 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.set_simple_radial_point_indices_from_host(d.point_indices.data(), n);
         s.set_simple_radial_pixel_data_from_stacked_host(d.pixels.data(), 0, n);
         s.set_simple_radial_num(n);
+        break;
       case FactorVariant::FIXED_POINT:
+        s.set_simple_radial_fixed_point_num(n);
         s.set_simple_radial_fixed_point_pose_indices_from_host(
             d.pose_indices.data(), n);
         s.set_simple_radial_fixed_point_calib_indices_from_host(
@@ -144,8 +150,9 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
             d.const_points.data(), 0, n);
         s.set_simple_radial_fixed_point_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
-        s.set_simple_radial_fixed_point_num(n);
+        break;
       case FactorVariant::FIXED_POSE:
+        s.set_simple_radial_fixed_pose_num(n);
         s.set_simple_radial_fixed_pose_calib_indices_from_host(
             d.calib_indices.data(), n);
         s.set_simple_radial_fixed_pose_point_indices_from_host(
@@ -154,8 +161,9 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
             d.const_poses.data(), 0, n);
         s.set_simple_radial_fixed_pose_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
-        s.set_simple_radial_fixed_pose_num(n);
+        break;
       case FactorVariant::FIXED_POSE_FIXED_POINT:
+        s.set_simple_radial_fixed_pose_fixed_point_num(n);
         s.set_simple_radial_fixed_pose_fixed_point_calib_indices_from_host(
             d.calib_indices.data(), n);
         s.set_simple_radial_fixed_pose_fixed_point_pose_data_from_stacked_host(
@@ -164,7 +172,7 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
             d.const_points.data(), 0, n);
         s.set_simple_radial_fixed_pose_fixed_point_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
-        s.set_simple_radial_fixed_pose_fixed_point_num(n);
+        break;
     }
   }
 };
@@ -185,12 +193,16 @@ class PinholeAdapter : public ICasparModelAdapter {
       switch (variant) {
         case FactorVariant::BASE:
           sz.num_pinhole = md.variants[v].num_factors;
+          break;
         case FactorVariant::FIXED_POINT:
           sz.num_pinhole_fixed_point = md.variants[v].num_factors;
+          break;
         case FactorVariant::FIXED_POSE:
           sz.num_pinhole_fixed_pose = md.variants[v].num_factors;
+          break;
         case FactorVariant::FIXED_POSE_FIXED_POINT:
           sz.num_pinhole_fixed_pose_fixed_point = md.variants[v].num_factors;
+          break;
       }
     }
   }
@@ -230,7 +242,9 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.set_pinhole_point_indices_from_host(d.point_indices.data(), n);
         s.set_pinhole_pixel_data_from_stacked_host(d.pixels.data(), 0, n);
         s.set_pinhole_num(n);
+        break;
       case FactorVariant::FIXED_POINT:
+        s.set_pinhole_fixed_point_num(n);
         s.set_pinhole_fixed_point_pose_indices_from_host(d.pose_indices.data(),
                                                          n);
         s.set_pinhole_fixed_point_calib_indices_from_host(
@@ -239,8 +253,9 @@ class PinholeAdapter : public ICasparModelAdapter {
             d.const_points.data(), 0, n);
         s.set_pinhole_fixed_point_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
-        s.set_pinhole_fixed_point_num(n);
+        break;
       case FactorVariant::FIXED_POSE:
+        s.set_pinhole_fixed_pose_num(n);
         s.set_pinhole_fixed_pose_calib_indices_from_host(d.calib_indices.data(),
                                                          n);
         s.set_pinhole_fixed_pose_point_indices_from_host(d.point_indices.data(),
@@ -249,8 +264,9 @@ class PinholeAdapter : public ICasparModelAdapter {
             d.const_poses.data(), 0, n);
         s.set_pinhole_fixed_pose_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
-        s.set_pinhole_fixed_pose_num(n);
+        break;
       case FactorVariant::FIXED_POSE_FIXED_POINT:
+        s.set_pinhole_fixed_pose_fixed_point_num(n);
         s.set_pinhole_fixed_pose_fixed_point_calib_indices_from_host(
             d.calib_indices.data(), n);
         s.set_pinhole_fixed_pose_fixed_point_pose_data_from_stacked_host(
@@ -259,7 +275,7 @@ class PinholeAdapter : public ICasparModelAdapter {
             d.const_points.data(), 0, n);
         s.set_pinhole_fixed_pose_fixed_point_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
-        s.set_pinhole_fixed_pose_fixed_point_num(n);
+        break;
     }
   }
 };
@@ -294,14 +310,14 @@ inline caspar::GraphSolver CreateSolver(
                              sz.num_simple_radial_fixed_calib,
                              sz.num_simple_radial_fixed_pose_fixed_point,
                              sz.num_simple_radial_fixed_pose_fixed_calib,
-                             sz.num_pinhole_fixed_point_fixed_calib,
+                             sz.num_simple_radial_fixed_point_fixed_calib,
                              sz.num_pinhole,
                              sz.num_pinhole_fixed_pose,
                              sz.num_pinhole_fixed_point,
-                             sz.num_simple_radial_fixed_calib,
-                             sz.num_simple_radial_fixed_pose_fixed_point,
-                             sz.num_simple_radial_fixed_pose_fixed_calib,
-                             sz.num_simple_radial_fixed_point_fixed_calib);
+                             sz.num_pinhole_fixed_calib,
+                             sz.num_pinhole_fixed_pose_fixed_point,
+                             sz.num_pinhole_fixed_pose_fixed_calib,
+                             sz.num_pinhole_fixed_point_fixed_calib);
 }
 
 }  // namespace colmap
