@@ -98,7 +98,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kSimpleDivision,          // = 12
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
-                                kFisheye                  // = 15
+                                kFisheye,                 // = 15
+                                kSphere                   // = 16
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -169,7 +170,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(FisheyeCameraModel)
+  CAMERA_MODEL_CASE(FisheyeCameraModel)              \
+  CAMERA_MODEL_CASE(SphereCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -239,6 +241,35 @@ struct BaseCameraModel {
   static inline bool IterativeUndistortion(const double* params,
                                            double* u,
                                            double* v);
+
+  // Unproject a pixel to a unit bearing vector in the camera frame.
+  //
+  // Default implementation: delegates to CameraModel::CamFromImg and
+  // normalizes the resulting homogeneous coordinate. Correct for perspective
+  // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
+  //
+  // Omnidirectional camera models (notably SPHERE) override this to produce
+  // rays in any direction of the full sphere. Downstream geometry code should
+  // prefer CamFromImgRay over the 2D CamFromImg whenever a 3D bearing is
+  // needed, since the 2D (u, v, 1) representation cannot encode rays with
+  // rz <= 0.
+  static inline bool CamFromImgRay(const double* params,
+                                   double x,
+                                   double y,
+                                   double* rx,
+                                   double* ry,
+                                   double* rz) {
+    double u = 0;
+    double v = 0;
+    if (!CameraModel::CamFromImg(params, x, y, &u, &v)) {
+      return false;
+    }
+    const double norm = std::sqrt(u * u + v * v + 1.0);
+    *rx = u / norm;
+    *ry = v / norm;
+    *rz = 1.0 / norm;
+    return true;
+  }
 
  private:
   BaseCameraModel() = default;
@@ -555,6 +586,81 @@ struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
+// Equirectangular spherical panorama camera model.
+//
+// Projects 3D points in the camera frame onto a 2:1 aspect-ratio
+// equirectangular image plane. The full 4π steradians of the sphere are
+// representable in the forward projection direction (ImgFromCam). The inverse
+// direction (CamFromImg) is restricted to the forward hemisphere (Z > 0)
+// because the legacy 2D normalized-coordinate representation (u = X/Z,
+// v = Y/Z) cannot encode directions with Z <= 0. Back-hemisphere features
+// require the CamFromImgRay bearing-vector extension (separate change).
+//
+// Camera frame convention: +X right, +Y down, +Z forward (COLMAP standard).
+// Image layout: u axis (column) = azimuth, center column (x = W/2) looks
+// along +Z. v axis (row) = elevation, center row (y = H/2) is the equator,
+// y = 0 is the zenith (-Y), y = H is the nadir (+Y).
+//
+// Parameters: `width, height` — the rendered equirectangular image size in
+// pixels. There is no focal length or distortion; an equirectangular
+// projection is fully specified by the image resolution.
+//
+// Parameter list:
+//
+//    w, h
+//
+struct SphereCameraModel : public BaseCameraModel<SphereCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSphere, "SPHERE", 0, 0, 2, false)
+
+  // Override BaseCameraModel: the only parameters are image dimensions —
+  // always valid by construction — so the generic bogus-focal / bogus-extra
+  // checks don't apply.
+  template <typename T>
+  static inline bool HasBogusParams(const std::vector<T>& params,
+                                    size_t width,
+                                    size_t height,
+                                    T min_focal_length_ratio,
+                                    T max_focal_length_ratio,
+                                    T max_extra_param) {
+    (void)params;
+    (void)width;
+    (void)height;
+    (void)min_focal_length_ratio;
+    (void)max_focal_length_ratio;
+    (void)max_extra_param;
+    return false;
+  }
+
+  // Override BaseCameraModel: SPHERE has no focal length. Convert pixel
+  // thresholds to normalized-camera-coord thresholds using the angular
+  // resolution at the equator (2π rad per W pixels in azimuth).
+  template <typename T>
+  static inline T CamFromImgThreshold(const T* params, T threshold) {
+    return threshold * T(2.0 * M_PI) / params[0];
+  }
+
+  // Override BaseCameraModel: the default CamFromImgRay goes through the 2D
+  // CamFromImg which fails for back-hemisphere pixels. SPHERE can produce
+  // valid unit bearings for any pixel in the equirectangular image, so we
+  // compute the ray directly from the azimuth/elevation parametrization.
+  static inline bool CamFromImgRay(const double* params,
+                                   double x,
+                                   double y,
+                                   double* rx,
+                                   double* ry,
+                                   double* rz) {
+    const double width = params[0];
+    const double height = params[1];
+    const double theta = 2.0 * M_PI * (x / width - 0.5);
+    const double phi = M_PI * (0.5 - y / height);
+    const double cos_phi = std::cos(phi);
+    *rx = cos_phi * std::sin(theta);
+    *ry = -std::sin(phi);
+    *rz = cos_phi * std::cos(theta);
+    return true;
+  }
+};
+
 // Check whether camera model with given name or identifier exists.
 bool ExistsCameraModelWithName(const std::string& model_name);
 bool ExistsCameraModelWithId(CameraModelId model_id);
@@ -653,6 +759,27 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
 //
 // @return              Output ray in camera frame (u, v, w).
 inline std::optional<Eigen::Vector2d> CameraModelCamFromImg(
+    CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector2d& xy);
+
+// Unproject a pixel to a unit 3D bearing vector in the camera frame.
+//
+// Unlike `CameraModelCamFromImg` (limited to the forward hemisphere via the
+// 2D normalized-coordinate representation), this function returns a valid
+// bearing for any pixel the camera model can unproject — including back-
+// facing rays for omnidirectional (SPHERE) cameras.
+//
+// Prefer this over `CameraModelCamFromImg` followed by homogeneous +
+// normalize when downstream code needs a 3D ray.
+//
+// @param model_id      Unique identifier of camera model.
+// @param params        Array of camera parameters.
+// @param xy            Image coordinates in pixels.
+//
+// @return              Unit bearing vector in camera frame, or std::nullopt
+//                      if unprojection fails.
+inline std::optional<Eigen::Vector3d> CameraModelCamFromImgRay(
     CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector2d& xy);
@@ -2335,6 +2462,95 @@ bool FisheyeCameraModel::CamFromImg(
   return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// SphereCameraModel
+
+std::string SphereCameraModel::InitializeParamsInfo() { return "w, h"; }
+
+std::array<size_t, 0> SphereCameraModel::InitializeFocalLengthIdxs() {
+  return {};
+}
+
+std::array<size_t, 0> SphereCameraModel::InitializePrincipalPointIdxs() {
+  return {};
+}
+
+std::array<size_t, 2> SphereCameraModel::InitializeExtraParamsIdxs() {
+  return {0, 1};
+}
+
+std::vector<double> SphereCameraModel::InitializeParams(
+    const double /*focal_length*/, const size_t width, const size_t height) {
+  // focal_length is ignored: an equirectangular projection is fully specified
+  // by the image dimensions.
+  return {static_cast<double>(width), static_cast<double>(height)};
+}
+
+// Projects camera-frame point (u, v, w) onto the equirectangular image plane.
+// Unlike pinhole/fisheye models that require w > 0, SPHERE accepts any non-
+// zero direction — all 4π sr of the sphere are representable.
+template <typename T>
+bool SphereCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  const T width = params[0];
+  const T height = params[1];
+
+  const T horizontal = ceres::sqrt(u * u + w * w);
+  // Degenerate: zero direction vector.
+  if (horizontal + ceres::abs(v) <
+      T(std::numeric_limits<double>::epsilon())) {
+    return false;
+  }
+
+  // Azimuth θ ∈ (-π, π], measured from +Z axis (forward). +X is θ = +π/2.
+  const T theta = ceres::atan2(u, w);
+  // Elevation φ ∈ [-π/2, π/2], measured from the equator. -Y (up) is +π/2.
+  const T phi = ceres::atan2(-v, horizontal);
+
+  *x = (theta / T(2.0 * M_PI) + T(0.5)) * width;
+  *y = (T(0.5) - phi / T(M_PI)) * height;
+  return true;
+}
+
+// Inverse equirectangular projection. Returns the normalized camera
+// coordinates (u = X/Z, v = Y/Z) of the pixel's ray, valid only when the ray
+// falls in the forward hemisphere (Z > 0). Back-hemisphere pixels return
+// false; a 3D bearing-vector interface (CamFromImgRay, planned separately)
+// will support them.
+bool SphereCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double width = params[0];
+  const double height = params[1];
+
+  const double theta = 2.0 * M_PI * (x / width - 0.5);
+  const double phi = M_PI * (0.5 - y / height);
+
+  const double cos_phi = std::cos(phi);
+  const double rx = cos_phi * std::sin(theta);
+  const double ry = -std::sin(phi);
+  const double rz = cos_phi * std::cos(theta);
+
+  if (rz <= std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  *u = rx / rz;
+  *v = ry / rz;
+  return true;
+}
+
+// SPHERE has no lens distortion. The macro declares a Distortion function;
+// this no-op satisfies the interface.
+template <typename T>
+void SphereCameraModel::Distortion(const T* /*extra_params*/,
+                                   const T& /*u*/,
+                                   const T& /*v*/,
+                                   T* du,
+                                   T* dv) {
+  *du = T(0);
+  *dv = T(0);
+}
+
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     const CameraModelId model_id,
     const std::vector<double>& params,
@@ -2368,6 +2584,40 @@ std::optional<Eigen::Vector2d> CameraModelCamFromImg(
             params.data(), xy.x(), xy.y(), &uv.x(), &uv.y())) { \
       return uv;                                                \
     }                                                           \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+  return std::nullopt;
+}
+
+// Unproject a pixel to a unit bearing vector in camera coordinates.
+//
+// Unlike CameraModelCamFromImg (which is limited to the forward hemisphere
+// via the 2D normalized-coordinate representation), this function returns a
+// valid 3D unit ray for any pixel on the camera model's image plane,
+// including back-facing rays on omnidirectional (SPHERE) cameras.
+//
+// Downstream geometry code (two-view geometry, absolute/relative pose,
+// triangulation) should prefer this function when a 3D bearing is needed.
+std::optional<Eigen::Vector3d> CameraModelCamFromImgRay(
+    const CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector2d& xy) {
+  Eigen::Vector3d ray;
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                 \
+  case CameraModel::model_id:                          \
+    if (CameraModel::CamFromImgRay(params.data(),      \
+                                   xy.x(),             \
+                                   xy.y(),             \
+                                   &ray.x(),           \
+                                   &ray.y(),           \
+                                   &ray.z())) {        \
+      return ray;                                      \
+    }                                                  \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
