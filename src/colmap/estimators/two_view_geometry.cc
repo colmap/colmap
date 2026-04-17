@@ -666,6 +666,29 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;
 
+  // For non-perspective cameras (e.g. SPHERE) the image pixel plane is not a
+  // flat image plane, so the fundamental-matrix and homography-matrix models
+  // estimated in pixel space are not geometrically meaningful. Force the
+  // CALIBRATED configuration based purely on the essential matrix inliers —
+  // bearing vectors + E are the natively-correct formulation for these cameras.
+  const bool camera1_is_perspective = camera1.FocalLengthIdxs().size() > 0;
+  const bool camera2_is_perspective = camera2.FocalLengthIdxs().size() > 0;
+  if (!camera1_is_perspective || !camera2_is_perspective) {
+    if (!E_report.success ||
+        E_report.support.num_inliers < min_num_inliers) {
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
+    }
+    geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+    geometry.inlier_matches = ExtractInlierMatches(
+        matches, E_report.support.num_inliers, E_report.inlier_mask);
+    if (options.compute_relative_pose) {
+      EstimateTwoViewGeometryPose(
+          camera1, points1, camera2, points2, &geometry);
+    }
+    return geometry;
+  }
+
   LORANSAC<FundamentalMatrixSevenPointEstimator,
            FundamentalMatrixEightPointEstimator>
       F_ransac(ransac_options);
