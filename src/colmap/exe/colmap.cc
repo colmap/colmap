@@ -36,6 +36,7 @@
 #include "colmap/exe/mvs.h"
 #endif
 #include "colmap/exe/sfm.h"
+#include "colmap/exe/sphere.h"
 #include "colmap/exe/vocab_tree.h"
 #include "colmap/util/oiio_utils.h"
 #include "colmap/util/version.h"
@@ -146,6 +147,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("rotation_averager", &colmap::RunRotationAverager);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);
+  commands.emplace_back("sphere_to_cubic", &colmap::RunSphereToCubic);
 #if defined(COLMAP_MVS_ENABLED)
   commands.emplace_back("stereo_fusion", &colmap::RunStereoFuser);
 #endif

@@ -85,6 +85,7 @@ set(COLMAP_MAIN_SRCS
     image.cc
     model.cc
     sfm.cc
+    sphere.cc
     vocab_tree.cc
 )
 if(MVS_ENABLED)
