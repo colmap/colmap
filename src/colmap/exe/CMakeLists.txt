@@ -51,6 +51,7 @@ set(COLMAP_EXE_SRCS
     feature.h feature.cc
     sfm.h sfm.cc
     model.h model.cc
+    sphere.h sphere.cc
 )
 set(COLMAP_EXE_PUBLIC_LIBS
     colmap_controllers
@@ -106,3 +107,9 @@ COLMAP_ADD_EXECUTABLE(
         Boost::boost
 )
 set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)
+
+COLMAP_ADD_TEST(
+    NAME sphere_test
+    SRCS sphere_test.cc
+    LINK_LIBS colmap_exe
+)

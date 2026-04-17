@@ -56,21 +56,9 @@
 #include <Eigen/Geometry>
 
 namespace colmap {
-namespace {
 
-// Cube face rotations. Convention (COLMAP camera frame: +X right, +Y down,
-// +Z forward):
-//   R_sphere_from_face maps a face-cam-frame ray onto the sphere-cam-frame.
-//   The face camera's +Z axis points along the face's direction on the
-//   sphere, with a sensible "up" convention (sphere -Y stays up for F, B, L,
-//   R; reoriented for U, D).
-struct FaceSpec {
-  const char* name;
-  Eigen::Matrix3d r_sphere_from_face;
-};
-
-std::array<FaceSpec, 6> CubeFaceSpecs() {
-  std::array<FaceSpec, 6> faces{};
+std::array<SphereCubeFaceSpec, 6> SphereCubeFaceSpecs() {
+  std::array<SphereCubeFaceSpec, 6> faces{};
   // F: face +Z -> sphere +Z.
   faces[0] = {"F", Eigen::Matrix3d::Identity()};
   // B: face +Z -> sphere -Z. 180° yaw.
@@ -90,6 +78,8 @@ std::array<FaceSpec, 6> CubeFaceSpecs() {
   faces[5].r_sphere_from_face << 1, 0, 0, 0, 0, 1, 0, -1, 0;
   return faces;
 }
+
+namespace {
 
 // Render one cube face from an equirectangular (ERP) bitmap by bilinear
 // resampling. Uses COLMAP camera-frame conventions (+X right, +Y down, +Z
@@ -189,7 +179,7 @@ int RunSphereToCubic(int argc, char** argv) {
                             reconstruction.NumImages(),
                             reconstruction.NumPoints3D());
 
-  const auto faces = CubeFaceSpecs();
+  const auto faces = SphereCubeFaceSpecs();
   const double focal_px =
       face_size / (2.0 * std::tan(DegToRad(fov_deg) / 2.0));
   const double face_cx = face_size / 2.0;
@@ -257,7 +247,7 @@ int RunSphereToCubic(int argc, char** argv) {
 
     std::array<image_t, 6> face_image_ids{};
     for (size_t face_idx = 0; face_idx < faces.size(); ++face_idx) {
-      const FaceSpec& face = faces[face_idx];
+      const SphereCubeFaceSpec& face = faces[face_idx];
 
       Bitmap face_bitmap =
           RenderCubeFace(erp, face.r_sphere_from_face, face_size, focal_px);

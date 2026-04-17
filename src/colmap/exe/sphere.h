@@ -29,7 +29,32 @@
 
 #pragma once
 
+#include "colmap/util/eigen_alignment.h"
+
+#include <array>
+
+#include <Eigen/Core>
+
 namespace colmap {
+
+// Specification for a single cube face of an equirectangular panorama
+// decomposition. The rotation maps face-camera-frame vectors into the
+// sphere-camera-frame (both follow COLMAP convention: +X right, +Y down,
+// +Z forward).
+struct SphereCubeFaceSpec {
+  const char* name;
+  Eigen::Matrix3d r_sphere_from_face;
+};
+
+// Returns the six canonical cube faces in order F, B, L, R, U, D. Each face's
+// r_sphere_from_face rotates a face-cam-frame ray into the sphere-cam-frame:
+//   - F: face +Z = sphere +Z (forward).
+//   - B: face +Z = sphere -Z (backward).
+//   - L: face +Z = sphere -X (left).
+//   - R: face +Z = sphere +X (right).
+//   - U: face +Z = sphere -Y (up).
+//   - D: face +Z = sphere +Y (down).
+std::array<SphereCubeFaceSpec, 6> SphereCubeFaceSpecs();
 
 // Convert a SPHERE-camera sparse reconstruction into a PINHOLE (cubic) sparse
 // reconstruction plus rendered cube-face images. For each SPHERE panorama in
