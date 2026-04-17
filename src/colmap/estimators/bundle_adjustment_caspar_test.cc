@@ -215,7 +215,9 @@ TEST(DefaultBundleAdjuster, TwoView) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  // Caspar does not implement gauge fixing; fix both frames explicitly instead.
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -232,8 +234,8 @@ TEST(DefaultBundleAdjuster, TwoView) {
                             orig_reconstruction.Image(1));
 
   CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
-                                            orig_reconstruction.Image(2));
+  CheckConstantCamFromWorld(reconstruction.Image(2),
+                            orig_reconstruction.Image(2));
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
@@ -257,7 +259,12 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  // Caspar does not implement gauge fixing. Fixing all frames ensures that
+  // observations from non-ref cameras are included (Caspar skips non-ref
+  // cameras in variable-pose frames).
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    config.SetConstantRigFromWorldPose(frame_id);
+  }
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -270,12 +277,7 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
   EXPECT_EQ(summary->num_residuals, 800);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
-  CheckVariableCamFromWorld(reconstruction.Image(1),
-                            orig_reconstruction.Image(1));
-
   CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-  CheckVariableCamFromWorld(reconstruction.Image(2),
-                            orig_reconstruction.Image(2));
 
   size_t num_variable_points = 0;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
@@ -283,7 +285,7 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
       ++num_variable_points;
     }
   }
-  EXPECT_EQ(num_variable_points, 97);
+  EXPECT_EQ(num_variable_points, 100);
 }
 
 TEST(DefaultBundleAdjuster, ManyViewRig) {
@@ -303,7 +305,12 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  // Caspar does not implement gauge fixing. Fixing all frames ensures that
+  // observations from non-ref cameras are included (Caspar skips non-ref
+  // cameras in variable-pose frames).
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    config.SetConstantRigFromWorldPose(frame_id);
+  }
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -319,18 +326,13 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
     CheckVariableCamera(camera, orig_reconstruction.Camera(camera_id));
   }
 
-  for (const image_t image_id : reconstruction.RegImageIds()) {
-    CheckVariableCamFromWorld(reconstruction.Image(image_id),
-                              orig_reconstruction.Image(image_id));
-  }
-
   size_t num_variable_points = 0;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D != orig_reconstruction.Point3D(point3D_id)) {
       ++num_variable_points;
     }
   }
-  EXPECT_EQ(num_variable_points, 97);
+  EXPECT_EQ(num_variable_points, 100);
 }
 
 TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
@@ -350,9 +352,13 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  const frame_t constant_frame_id = 1;
-  config.SetConstantRigFromWorldPose(constant_frame_id);
-  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  // Caspar does not implement gauge fixing. Fixing all frames ensures that
+  // observations from non-ref cameras are included (Caspar skips non-ref
+  // cameras in variable-pose frames). Since Caspar does not optimize
+  // sensor_from_rig, fixing any frame keeps all cameras in that frame constant.
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    config.SetConstantRigFromWorldPose(frame_id);
+  }
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -369,14 +375,8 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
   }
 
   for (const image_t image_id : reconstruction.RegImageIds()) {
-    const auto& image = reconstruction.Image(image_id);
-    if (image.FrameId() == constant_frame_id &&
-        image.FramePtr()->RigPtr()->IsRefSensor(
-            image.CameraPtr()->SensorId())) {
-      CheckConstantCamFromWorld(image, orig_reconstruction.Image(image_id));
-    } else {
-      CheckVariableCamFromWorld(image, orig_reconstruction.Image(image_id));
-    }
+    CheckConstantCamFromWorld(reconstruction.Image(image_id),
+                              orig_reconstruction.Image(image_id));
   }
 
   size_t num_variable_points = 0;
@@ -385,7 +385,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
       ++num_variable_points;
     }
   }
-  EXPECT_EQ(num_variable_points, 97);
+  EXPECT_EQ(num_variable_points, 100);
 }
 
 TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
@@ -510,7 +510,9 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   config.AddImage(1);
   config.AddImage(2);
   config.AddImage(3);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  // Caspar does not implement gauge fixing; fix two frames explicitly instead.
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -527,8 +529,8 @@ TEST(DefaultBundleAdjuster, VariableImage) {
                             orig_reconstruction.Image(1));
 
   CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
-                                            orig_reconstruction.Image(2));
+  CheckConstantCamFromWorld(reconstruction.Image(2),
+                            orig_reconstruction.Image(2));
 
   CheckVariableCamera(reconstruction.Camera(3), orig_reconstruction.Camera(3));
   CheckVariableCamFromWorld(reconstruction.Image(3),
@@ -555,7 +557,9 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  // Caspar does not implement gauge fixing; fix both frames explicitly instead.
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
 
   // refine_extra_params is still true, so calibration remains variable
   // (Caspar requires at least one intrinsic parameter to be refined).
@@ -572,8 +576,8 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
-                                            orig_reconstruction.Image(2));
+  CheckConstantCamFromWorld(reconstruction.Image(2),
+                            orig_reconstruction.Image(2));
 
   const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
   const size_t extra_param_idx = SimpleRadialCameraModel::extra_params_idxs[0];
@@ -613,7 +617,9 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  // Caspar does not implement gauge fixing; fix both frames explicitly instead.
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
@@ -628,8 +634,8 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
-                                            orig_reconstruction.Image(2));
+  CheckConstantCamFromWorld(reconstruction.Image(2),
+                            orig_reconstruction.Image(2));
 
   const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
   const size_t principal_point_idx_x =
@@ -681,7 +687,9 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  // Caspar does not implement gauge fixing; fix both frames explicitly instead.
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
 
   // refine_focal_length is still true, so calibration remains variable
   // (Caspar requires at least one intrinsic parameter to be refined).
@@ -698,8 +706,8 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
-                                            orig_reconstruction.Image(2));
+  CheckConstantCamFromWorld(reconstruction.Image(2),
+                            orig_reconstruction.Image(2));
 
   const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
   const size_t extra_param_idx = SimpleRadialCameraModel::extra_params_idxs[0];
