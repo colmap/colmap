@@ -65,8 +65,8 @@ def test_depth_map_rescale():
 def test_depth_map_downsize():
     depth_map = pycolmap.DepthMap(64, 48, 0.1, 100.0)
     depth_map.downsize(32, 24)
-    assert depth_map.width <= 32
-    assert depth_map.height <= 24
+    assert depth_map.width == 32
+    assert depth_map.height == 24
 
 
 def test_depth_map_to_bitmap():

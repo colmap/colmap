@@ -49,9 +49,9 @@ def test_solver_options_default_init():
 
 def test_solver_options_is_valid():
     options = pycolmap._core.pyceres.SolverOptions()
-    message = ""
-    result = options.IsValid(message)
-    assert isinstance(result, bool)
+    valid, error = options.IsValid()
+    assert valid is True
+    assert error == ""
 
 
 def test_solver_summary_default_init():

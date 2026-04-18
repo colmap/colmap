@@ -130,4 +130,4 @@ def test_correspondence_graph_is_two_view_observation():
     two_view.inlier_matches = np.array([[0, 0]], dtype=np.uint32)
     graph.add_two_view_geometry(1, 2, two_view)
     graph.finalize()
-    assert isinstance(graph.is_two_view_observation(1, 0), bool)
+    assert graph.is_two_view_observation(1, 0) is True

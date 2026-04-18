@@ -1,3 +1,5 @@
+import numpy as np
+
 import pycolmap
 
 
@@ -82,8 +84,6 @@ def test_absolute_pose_refinement_options_position_prior_covariance_readwrite():
     options = pycolmap.AbsolutePoseRefinementOptions()
     covariance = options.position_prior_covariance
     assert covariance is not None
-    import numpy as np
-
     new_covariance = np.eye(3) * 2.0
     options.position_prior_covariance = new_covariance
     result = options.position_prior_covariance

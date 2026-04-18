@@ -156,6 +156,7 @@ def test_bitmap_write_read(tmp_path):
     assert loaded is not None
     assert loaded.width == 64
     assert loaded.height == 48
+    np.testing.assert_array_equal(loaded.to_array(), array)
 
 
 def test_bitmap_set_jpeg_quality():

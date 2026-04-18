@@ -1,3 +1,5 @@
+import time
+
 import pycolmap
 
 
@@ -39,9 +41,9 @@ def test_timer_reset():
 def test_timer_elapsed_seconds():
     timer = pycolmap.Timer()
     timer.start()
+    time.sleep(0.001)
     elapsed = timer.elapsed_seconds()
-    assert isinstance(elapsed, float)
-    assert elapsed >= 0.0
+    assert elapsed > 0.0
 
 
 def test_timer_elapsed_micro_seconds():
