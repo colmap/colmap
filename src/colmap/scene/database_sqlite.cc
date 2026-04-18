@@ -414,6 +414,20 @@ PosePrior ReadPosePriorRow(sqlite3_stmt* sql_stmt) {
       sqlite3_column_int64(sql_stmt, 6));
   pose_prior.gravity =
       ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt, SQLITE_ROW, 7);
+  // Rotation prior: columns 8 (quaternion xyzw, 4 doubles) and 9 (3x3
+  // covariance). NULL / empty blob → leave default NaN so HasRotation() is
+  // false. ReadStaticMatrixBlob returns Zero for empty blobs which would
+  // look like a legitimate rotation, so detect num_bytes==0 explicitly.
+  if (sqlite3_column_bytes(sql_stmt, 8) > 0) {
+    const Eigen::Vector4d coeffs =
+        ReadStaticMatrixBlob<Eigen::Vector4d>(sql_stmt, SQLITE_ROW, 8);
+    pose_prior.sensor_from_world_rotation =
+        Eigen::Quaterniond(coeffs(3), coeffs(0), coeffs(1), coeffs(2));
+  }
+  if (sqlite3_column_bytes(sql_stmt, 9) > 0) {
+    pose_prior.rotation_covariance =
+        ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt, SQLITE_ROW, 9);
+  }
   return pose_prior;
 }
 
@@ -1253,6 +1267,20 @@ class SqliteDatabase : public Database {
         7,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.gravity, 8);
+    // Rotation prior: bind NULL when not populated so the DB round-trips
+    // "no rotation prior" cleanly. Quaternion order is (x, y, z, w).
+    if (pose_prior.HasRotation()) {
+      const Eigen::Vector4d coeffs = pose_prior.sensor_from_world_rotation.coeffs();
+      WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, coeffs, 9);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_pose_prior_, 9));
+    }
+    if (pose_prior.HasRotationCov()) {
+      WriteStaticMatrixBlob(
+          sql_stmt_write_pose_prior_, pose_prior.rotation_covariance, 10);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_pose_prior_, 10));
+    }
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 
     return static_cast<image_t>(
@@ -1507,8 +1535,20 @@ class SqliteDatabase : public Database {
         6,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.gravity, 7);
+    if (pose_prior.HasRotation()) {
+      const Eigen::Vector4d coeffs = pose_prior.sensor_from_world_rotation.coeffs();
+      WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, coeffs, 8);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_update_pose_prior_, 8));
+    }
+    if (pose_prior.HasRotationCov()) {
+      WriteStaticMatrixBlob(
+          sql_stmt_update_pose_prior_, pose_prior.rotation_covariance, 9);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_update_pose_prior_, 9));
+    }
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_update_pose_prior_, 8, pose_prior.pose_prior_id));
+        sql_stmt_update_pose_prior_, 10, pose_prior.pose_prior_id));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
@@ -1707,7 +1747,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "UPDATE pose_priors SET corr_data_id=?, corr_sensor_id=?, "
         "corr_sensor_type=?, position=?, position_covariance=?, "
-        "coordinate_system=?, gravity=? WHERE pose_prior_id=?;",
+        "coordinate_system=?, gravity=?, rotation=?, rotation_covariance=? "
+        "WHERE pose_prior_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
         "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;",
@@ -1779,12 +1820,14 @@ class SqliteDatabase : public Database {
         &sql_stmt_read_images_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity FROM "
+        "position, position_covariance, coordinate_system, gravity, rotation, "
+        "rotation_covariance FROM "
         "pose_priors WHERE pose_prior_id = ?;",
         &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity FROM "
+        "position, position_covariance, coordinate_system, gravity, rotation, "
+        "rotation_covariance FROM "
         "pose_priors;",
         &sql_stmt_read_pose_priors_);
     prepare_sql_stmt(
@@ -1840,7 +1883,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "INSERT INTO pose_priors(pose_prior_id, corr_data_id, corr_sensor_id, "
         "corr_sensor_type, position, position_covariance, coordinate_system, "
-        "gravity) VALUES(?, ?, ?, ?, ?, ?, ?, ?);",
+        "gravity, rotation, rotation_covariance) "
+        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
         "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
@@ -1998,7 +2042,9 @@ class SqliteDatabase : public Database {
         "    position                   BLOB,"
         "    position_covariance        BLOB,"
         "    gravity                    BLOB,"
-        "    coordinate_system          INTEGER               NOT NULL);"
+        "    coordinate_system          INTEGER               NOT NULL,"
+        "    rotation                   BLOB,"
+        "    rotation_covariance        BLOB);"
         "CREATE UNIQUE INDEX IF NOT EXISTS pose_prior_data_assignment ON "
         "   pose_priors(corr_data_id, corr_sensor_id, corr_sensor_type);";
 
@@ -2242,6 +2288,23 @@ class SqliteDatabase : public Database {
                                   static_cast<int>(FeatureExtractorType::SIFT))
                          .c_str(),
                      nullptr);
+      }
+    }
+
+    // Rotation prior columns on pose_priors. Added by the aperture fork to
+    // carry per-image orientation priors (e.g. compass heading on
+    // streetview panoramas) alongside position priors.
+    if (ExistsTable("pose_priors")) {
+      if (!ExistsColumn("pose_priors", "rotation")) {
+        SQLITE3_EXEC(database_,
+                     "ALTER TABLE pose_priors ADD COLUMN rotation BLOB;",
+                     nullptr);
+      }
+      if (!ExistsColumn("pose_priors", "rotation_covariance")) {
+        SQLITE3_EXEC(
+            database_,
+            "ALTER TABLE pose_priors ADD COLUMN rotation_covariance BLOB;",
+            nullptr);
       }
     }
 

@@ -78,6 +78,25 @@ void UpdateDatabasePosePriorsCovariance(
   }
 }
 
+void UpdateDatabasePosePriorsRotationCovariance(
+    const std::filesystem::path& database_path,
+    const Eigen::Matrix3d& rotation_covariance) {
+  auto database = Database::Open(database_path);
+  DatabaseTransaction database_transaction(database.get());
+
+  LOG(INFO) << "Setting up database pose priors with the same rotation "
+               "covariance matrix: \n"
+            << rotation_covariance << '\n';
+
+  for (auto& pose_prior : database->ReadAllPosePriors()) {
+    if (!pose_prior.HasRotation()) {
+      continue;
+    }
+    pose_prior.rotation_covariance = rotation_covariance;
+    database->UpdatePosePrior(pose_prior);
+  }
+}
+
 }  // namespace
 
 int RunAutomaticReconstructor(int argc, char** argv) {
@@ -468,6 +487,16 @@ int RunPosePriorMapper(int argc, char** argv) {
   double prior_position_std_y = 1.;
   double prior_position_std_z = 1.;
 
+  // Rotation priors are optional. The aperture fork extends pose_priors with a
+  // per-frame rotation (e.g. compass heading lifted to a level quaternion);
+  // when populated, they additionally constrain BA's rotation solution,
+  // preventing the "rotate the camera to explain a position error" compensation
+  // that otherwise produces ghosting in dense MVS.
+  bool overwrite_rotation_priors_covariance = false;
+  double prior_rotation_std_x_deg = 5.;
+  double prior_rotation_std_y_deg = 5.;
+  double prior_rotation_std_z_deg = 5.;
+
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
@@ -489,6 +518,19 @@ int RunPosePriorMapper(int argc, char** argv) {
                            &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
+  options.AddDefaultOption(
+      "overwrite_rotation_priors_covariance",
+      &overwrite_rotation_priors_covariance,
+      "If true, overwrite the rotation-prior covariance on every row that "
+      "has a rotation prior using prior_rotation_std_*_deg (degrees, "
+      "angle-axis residual).");
+  options.AddDefaultOption("prior_rotation_std_x_deg", &prior_rotation_std_x_deg);
+  options.AddDefaultOption("prior_rotation_std_y_deg", &prior_rotation_std_y_deg);
+  options.AddDefaultOption("prior_rotation_std_z_deg", &prior_rotation_std_z_deg);
+  options.AddDefaultOption("use_robust_loss_on_prior_rotation",
+                           &options.mapper->use_robust_loss_on_prior_rotation);
+  options.AddDefaultOption("prior_rotation_loss_scale",
+                           &options.mapper->prior_rotation_loss_scale);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -505,6 +547,19 @@ int RunPosePriorMapper(int argc, char** argv) {
             .cwiseAbs2()
             .asDiagonal();
     UpdateDatabasePosePriorsCovariance(*options.database_path, covariance);
+  }
+
+  if (overwrite_rotation_priors_covariance) {
+    constexpr double kDegToRad = M_PI / 180.0;
+    const Eigen::Matrix3d rotation_covariance =
+        (Eigen::Vector3d(prior_rotation_std_x_deg,
+                         prior_rotation_std_y_deg,
+                         prior_rotation_std_z_deg) *
+         kDegToRad)
+            .cwiseAbs2()
+            .asDiagonal();
+    UpdateDatabasePosePriorsRotationCovariance(*options.database_path,
+                                               rotation_covariance);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

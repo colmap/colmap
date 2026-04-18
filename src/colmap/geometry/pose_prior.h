@@ -68,9 +68,23 @@ struct PosePrior {
   // The gravity (down) in the sensor coordinate system.
   Eigen::Vector3d gravity = Eigen::Vector3d::Constant(kNaN);
 
+  // The sensor-from-world rotation prior. When populated this constrains the
+  // full 3-DoF orientation of the sensor. For inputs that only provide a
+  // compass heading, callers should synthesize a level rotation from the
+  // world-up axis + yaw and store the resulting quaternion here.
+  Eigen::Quaterniond sensor_from_world_rotation =
+      Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN);
+  // Covariance of the rotation prior, expressed in the sensor frame as an
+  // angle-axis 3-vector. Only the diagonal is used by the default BA cost.
+  Eigen::Matrix3d rotation_covariance = Eigen::Matrix3d::Constant(kNaN);
+
   inline bool HasPosition() const { return position.allFinite(); }
   inline bool HasPositionCov() const { return position_covariance.allFinite(); }
   inline bool HasGravity() const { return gravity.allFinite(); }
+  inline bool HasRotation() const {
+    return sensor_from_world_rotation.coeffs().allFinite();
+  }
+  inline bool HasRotationCov() const { return rotation_covariance.allFinite(); }
 
   bool operator==(const PosePrior& other) const;
   bool operator!=(const PosePrior& other) const;

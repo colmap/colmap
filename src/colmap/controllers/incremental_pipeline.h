@@ -149,6 +149,13 @@ struct IncrementalPipelineOptions {
   // (chi2 for 3DOF at 95% = 7.815).
   double prior_position_loss_scale = 7.815;
 
+  // Whether to use a robust (Cauchy) loss on prior camera rotation.
+  bool use_robust_loss_on_prior_rotation = false;
+
+  // Threshold on the residual for the robust rotation prior loss
+  // (chi2 for 3DOF at 95% = 7.815).
+  double prior_rotation_loss_scale = 7.815;
+
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.

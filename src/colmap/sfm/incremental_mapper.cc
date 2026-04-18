@@ -1145,6 +1145,12 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
     prior_options.ceres->prior_position_loss_scale =
         options.prior_position_loss_scale;
+    if (options.use_robust_loss_on_prior_rotation) {
+      prior_options.ceres->prior_rotation_loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+    }
+    prior_options.ceres->prior_rotation_loss_scale =
+        options.prior_rotation_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(custom_ba_options,

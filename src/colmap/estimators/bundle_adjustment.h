@@ -248,6 +248,11 @@ struct PosePriorBundleAdjustmentOptions
   // Fallback if no prior position covariance is provided.
   double prior_position_fallback_stddev = 1.0;
 
+  // Fallback if no prior rotation covariance is provided. Interpreted as the
+  // standard deviation per axis of the angle-axis rotation prior residual
+  // (radians). Default 0.1 rad ≈ 5.7°.
+  double prior_rotation_fallback_stddev = 0.1;
+
   // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
 

@@ -109,6 +109,15 @@ struct CeresPosePriorBundleAdjustmentOptions {
   // Threshold on the residual for the robust loss.
   double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
+  // Loss function for prior rotation loss (angle-axis residual, sensor frame).
+  CeresBundleAdjustmentOptions::LossFunctionType
+      prior_rotation_loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+
+  // Threshold on the residual for the robust rotation loss. Same 3-DoF 95%
+  // chi-square default as the position loss since the residual is also 3-DoF.
+  double prior_rotation_loss_scale = std::sqrt(kChiSquare95ThreeDof);
+
   bool Check() const;
 };
 

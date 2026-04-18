@@ -80,6 +80,64 @@ struct AbsolutePosePriorCostFunctor
   const Rigid3d world_from_sensor_prior_;
 };
 
+// 3-DoF error on the sensor rotation. Residual is the log of the error
+// rotation, expressed in the sensor frame. Models a unit-weight prior; wrap
+// with CovarianceWeightedCostFunctor to apply a measurement covariance.
+struct AbsolutePoseRotationPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsolutePoseRotationPriorCostFunctor, 3, 7> {
+ public:
+  explicit AbsolutePoseRotationPriorCostFunctor(
+      const Eigen::Quaterniond& sensor_from_world_rotation_prior)
+      : world_from_sensor_prior_rotation_(
+            sensor_from_world_rotation_prior.inverse()) {}
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_world, T* residuals_ptr) const {
+    const Eigen::Quaternion<T> param_from_prior_rotation =
+        EigenQuaternionMap<T>(sensor_from_world) *
+        world_from_sensor_prior_rotation_.cast<T>();
+    EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
+                               residuals_ptr);
+    return true;
+  }
+
+ private:
+  const Eigen::Quaterniond world_from_sensor_prior_rotation_;
+};
+
+// 3-DoF error on the rig sensor rotation in the world coordinate frame. The
+// sensor-from-world rotation is composed from sensor-from-rig and
+// rig-from-world, so both parameter blocks are Jacobian'd by Ceres.
+struct AbsoluteRigPoseRotationPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsoluteRigPoseRotationPriorCostFunctor,
+                                 3,
+                                 7,
+                                 7> {
+ public:
+  explicit AbsoluteRigPoseRotationPriorCostFunctor(
+      const Eigen::Quaterniond& sensor_from_world_rotation_prior)
+      : world_from_sensor_prior_rotation_(
+            sensor_from_world_rotation_prior.inverse()) {}
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_rig,
+                  const T* const rig_from_world,
+                  T* residuals_ptr) const {
+    const Eigen::Quaternion<T> sensor_from_world_rotation =
+        EigenQuaternionMap<T>(sensor_from_rig) *
+        EigenQuaternionMap<T>(rig_from_world);
+    const Eigen::Quaternion<T> param_from_prior_rotation =
+        sensor_from_world_rotation *
+        world_from_sensor_prior_rotation_.cast<T>();
+    EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
+                               residuals_ptr);
+    return true;
+  }
+
+ private:
+  const Eigen::Quaterniond world_from_sensor_prior_rotation_;
+};
+
 // 3-DoF error on the sensor position in the world coordinate frame.
 struct AbsolutePosePositionPriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePositionPriorCostFunctor, 3, 7> {

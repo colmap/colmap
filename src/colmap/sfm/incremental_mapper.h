@@ -149,6 +149,14 @@ class IncrementalMapper {
     // (chi2 for 3DOF at 95% = 7.815)
     double prior_position_loss_scale = 7.815;
 
+    // Whether to use a robust (Cauchy) loss on prior rotation. When false the
+    // rotation residual uses trivial (L2) loss.
+    bool use_robust_loss_on_prior_rotation = false;
+
+    // Threshold on the residual for the robust rotation loss. Same 3-DoF 95%
+    // chi-square as the position default.
+    double prior_rotation_loss_scale = 7.815;
+
     // Number of threads.
     int num_threads = -1;
 
