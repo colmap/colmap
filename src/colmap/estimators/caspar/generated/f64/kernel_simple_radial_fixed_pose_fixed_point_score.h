@@ -5,16 +5,20 @@
 
 namespace caspar {
 
-void simple_radial_fixed_pose_fixed_point_score(double* calib,
-                                                unsigned int calib_num_alloc,
-                                                SharedIndex* calib_indices,
-                                                double* pixel,
-                                                unsigned int pixel_num_alloc,
-                                                double* pose,
-                                                unsigned int pose_num_alloc,
-                                                double* point,
-                                                unsigned int point_num_alloc,
-                                                double* const out_rTr,
-                                                size_t problem_size);
+void simple_radial_fixed_pose_fixed_point_score(
+    double* focal,
+    unsigned int focal_num_alloc,
+    SharedIndex* focal_indices,
+    double* extra_calib,
+    unsigned int extra_calib_num_alloc,
+    SharedIndex* extra_calib_indices,
+    double* pixel,
+    unsigned int pixel_num_alloc,
+    double* pose,
+    unsigned int pose_num_alloc,
+    double* point,
+    unsigned int point_num_alloc,
+    double* const out_rTr,
+    size_t problem_size);
 
 }  // namespace caspar

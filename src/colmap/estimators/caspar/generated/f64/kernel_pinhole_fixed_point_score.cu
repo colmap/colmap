@@ -14,9 +14,12 @@ __global__ void __launch_bounds__(1024, 1)
     pinhole_fixed_point_score_kernel(double* pose,
                                      unsigned int pose_num_alloc,
                                      SharedIndex* pose_indices,
-                                     double* calib,
-                                     unsigned int calib_num_alloc,
-                                     SharedIndex* calib_indices,
+                                     double* focal,
+                                     unsigned int focal_num_alloc,
+                                     SharedIndex* focal_indices,
+                                     double* extra_calib,
+                                     unsigned int extra_calib_num_alloc,
+                                     SharedIndex* extra_calib_indices,
                                      double* pixel,
                                      unsigned int pixel_num_alloc,
                                      double* point,
@@ -31,34 +34,43 @@ __global__ void __launch_bounds__(1024, 1)
       (global_thread_idx < problem_size
            ? pose_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
-  __shared__ SharedIndex calib_indices_loc[1024];
-  calib_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex focal_indices_loc[1024];
+  focal_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? calib_indices[global_thread_idx]
+           ? focal_indices[global_thread_idx]
+           : SharedIndex{0xffffffff, 0xffff, 0xffff});
+  __shared__ SharedIndex extra_calib_indices_loc[1024];
+  extra_calib_indices_loc[threadIdx.x] =
+      (global_thread_idx < problem_size
+           ? extra_calib_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
   __shared__ double out_rTr_local[1];
 
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27;
-  load_shared<2, double, double>(
-      calib, 2 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
+  load_shared<2, double, double>(extra_calib,
+                                 0 * extra_calib_num_alloc,
+                                 extra_calib_indices_loc,
+                                 (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
-        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r0, r1);
+    read_shared_2<double>((double*)inout_shared,
+                          extra_calib_indices_loc[threadIdx.x].target,
+                          r0,
+                          r1);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     read_idx_2<1024, double, double, double2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
-    r2 = fma(r2, r4, r0);
+    r3 = fma(r3, r4, r1);
   };
   load_shared<2, double, double>(
-      calib, 0 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
+      focal, 0 * focal_num_alloc, focal_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     read_shared_2<double>(
-        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r0, r5);
+        (double*)inout_shared, focal_indices_loc[threadIdx.x].target, r1, r5);
   };
   __syncthreads();
   load_shared<2, double, double>(
@@ -73,44 +85,44 @@ __global__ void __launch_bounds__(1024, 1)
         point, 0 * point_num_alloc, global_thread_idx, r8, r9);
   };
   load_shared<2, double, double>(
-      pose, 2 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+      pose, 0 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     read_shared_2<double>(
         (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r10, r11);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r12 = -2.00000000000000000e+00;
-    r13 = r11 * r12;
+    r12 = r10 * r11;
+    r13 = 2.00000000000000000e+00;
+    r12 = r12 * r13;
   };
   load_shared<2, double, double>(
-      pose, 0 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+      pose, 2 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     read_shared_2<double>(
         (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r14, r15);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r16 = 2.00000000000000000e+00;
-    r17 = r14 * r16;
-    r18 = r15 * r17;
-    r19 = fma(r10, r13, r18);
-    r19 = fma(r9, r19, r6);
+    r16 = r14 * r13;
+    r17 = fma(r15, r16, r12);
+    r17 = fma(r8, r17, r7);
     read_idx_1<1024, double, double, double>(
-        point, 2 * point_num_alloc, global_thread_idx, r6);
-    r20 = r15 * r11;
-    r21 = r10 * r17;
-    r20 = fma(r16, r20, r21);
-    r22 = r10 * r10;
-    r22 = r12 * r22;
+        point, 2 * point_num_alloc, global_thread_idx, r7);
+    r18 = r11 * r16;
+    r19 = -2.00000000000000000e+00;
+    r20 = r15 * r19;
+    r21 = fma(r10, r20, r18);
+    r22 = r14 * r14;
+    r22 = r22 * r19;
     r23 = 1.00000000000000000e+00;
-    r24 = r15 * r15;
-    r24 = fma(r12, r24, r23);
+    r24 = r10 * r10;
+    r24 = fma(r19, r24, r23);
     r25 = r22 + r24;
-    r19 = fma(r6, r20, r19);
-    r19 = fma(r8, r25, r19);
-    r25 = r0 * r19;
-    r20 = 1.00000000000000008e-15;
+    r17 = fma(r7, r21, r17);
+    r17 = fma(r9, r25, r17);
+    r25 = r5 * r17;
+    r21 = 1.00000000000000008e-15;
   };
   load_shared<1, double, double>(
       pose, 6 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
@@ -120,32 +132,32 @@ __global__ void __launch_bounds__(1024, 1)
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r27 = r15 * r10;
-    r27 = r27 * r16;
-    r17 = fma(r11, r17, r27);
-    r17 = fma(r9, r17, r26);
-    r21 = fma(r15, r13, r21);
-    r26 = r14 * r14;
-    r26 = r26 * r12;
-    r24 = r26 + r24;
-    r17 = fma(r8, r21, r17);
-    r17 = fma(r6, r24, r17);
-    r24 = copysign(1.0, r17);
-    r24 = fma(r20, r24, r17);
+    r27 = r10 * r15;
+    r27 = fma(r13, r27, r18);
+    r27 = fma(r9, r27, r26);
+    r16 = r10 * r16;
+    r26 = fma(r11, r20, r16);
+    r18 = r11 * r11;
+    r18 = r19 * r18;
+    r24 = r18 + r24;
+    r27 = fma(r8, r26, r27);
+    r27 = fma(r7, r24, r27);
+    r24 = copysign(1.0, r27);
+    r24 = fma(r21, r24, r27);
     r24 = 1.0 / r24;
-    r2 = fma(r24, r25, r2);
-    r4 = fma(r3, r4, r1);
-    r3 = r10 * r11;
-    r3 = fma(r16, r3, r18);
-    r3 = fma(r8, r3, r7);
-    r13 = fma(r14, r13, r27);
+    r3 = fma(r24, r25, r3);
+    r4 = fma(r2, r4, r0);
+    r20 = fma(r14, r20, r12);
+    r20 = fma(r9, r20, r6);
+    r9 = r11 * r15;
+    r9 = fma(r13, r9, r16);
     r22 = r23 + r22;
-    r22 = r22 + r26;
-    r3 = fma(r6, r13, r3);
-    r3 = fma(r9, r22, r3);
-    r22 = r5 * r3;
+    r22 = r22 + r18;
+    r20 = fma(r7, r9, r20);
+    r20 = fma(r8, r22, r20);
+    r22 = r1 * r20;
     r4 = fma(r24, r22, r4);
-    r4 = fma(r4, r4, r2 * r2);
+    r4 = fma(r4, r4, r3 * r3);
   };
   sum_store<double>(out_rTr_local,
                     (double*)inout_shared,
@@ -158,9 +170,12 @@ __global__ void __launch_bounds__(1024, 1)
 void pinhole_fixed_point_score(double* pose,
                                unsigned int pose_num_alloc,
                                SharedIndex* pose_indices,
-                               double* calib,
-                               unsigned int calib_num_alloc,
-                               SharedIndex* calib_indices,
+                               double* focal,
+                               unsigned int focal_num_alloc,
+                               SharedIndex* focal_indices,
+                               double* extra_calib,
+                               unsigned int extra_calib_num_alloc,
+                               SharedIndex* extra_calib_indices,
                                double* pixel,
                                unsigned int pixel_num_alloc,
                                double* point,
@@ -175,9 +190,12 @@ void pinhole_fixed_point_score(double* pose,
   pinhole_fixed_point_score_kernel<<<n_blocks, 1024>>>(pose,
                                                        pose_num_alloc,
                                                        pose_indices,
-                                                       calib,
-                                                       calib_num_alloc,
-                                                       calib_indices,
+                                                       focal,
+                                                       focal_num_alloc,
+                                                       focal_indices,
+                                                       extra_calib,
+                                                       extra_calib_num_alloc,
+                                                       extra_calib_indices,
                                                        pixel,
                                                        pixel_num_alloc,
                                                        point,

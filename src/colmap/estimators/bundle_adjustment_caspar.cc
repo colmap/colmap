@@ -208,7 +208,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
     if (!adapter) return;
 
     const bool pose_var = IsPoseVariable(image.FrameId());
-    const bool calib_var = AreIntrinsicsVariable(camera.camera_id);
+    const bool focal_var = IsFocalVariable(camera.camera_id);
+    const bool extra_calib_var = IsExtraCalibVariable(camera.camera_id);
     const bool point_var = IsPointVariable(point2D.point3D_id);
 
     // For non-ref cameras with a variable rig pose, Caspar can't express
@@ -223,13 +224,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
     const bool effective_pose_var = pose_var && image.IsRefInFrame();
 
     // Skip fully-constant observations — nothing to optimize
-    if (!effective_pose_var && !calib_var && !point_var) return;
+    if (!effective_pose_var && !focal_var && !extra_calib_var && !point_var)
+      return;
 
-    // Fixed-calib variants are not supported: skip observations where
-    // calibration would be constant but pose or point are variable.
-    if (!calib_var) {
-      LOG(WARNING) << "Skipping observation: fixed-calib variants not "
-                      "supported. "
+    // Variants where both focal and extra_calib are fixed are not dispatched.
+    if (!focal_var && !extra_calib_var) {
+      LOG(WARNING) << "Skipping observation: fully-fixed-calib variants not "
+                      "supported for camera "
                    << camera.camera_id;
       return;
     }
@@ -237,18 +238,35 @@ class CasparBundleAdjuster : public BundleAdjuster {
     const size_t calib_idx = GetOrCreateCalibration(camera.camera_id, camera);
     ModelData& md = model_data_per_model_.at(camera.model_id);
 
+    // Select the variant from the 4-dimensional (pose, focal, extra_calib,
+    // point) fixed/tunable space.
     FactorVariant v;
-    if (effective_pose_var && point_var)
+    if (effective_pose_var && focal_var && extra_calib_var && point_var)
       v = FactorVariant::BASE;
-    else if (!effective_pose_var && point_var)
+    else if (!effective_pose_var && focal_var && extra_calib_var && point_var)
       v = FactorVariant::FIXED_POSE;
-    else if (effective_pose_var && !point_var)
+    else if (effective_pose_var && !focal_var && extra_calib_var && point_var)
+      v = FactorVariant::FIXED_FOCAL;
+    else if (effective_pose_var && focal_var && !extra_calib_var && point_var)
+      v = FactorVariant::FIXED_EXTRA_CALIB;
+    else if (effective_pose_var && focal_var && extra_calib_var && !point_var)
       v = FactorVariant::FIXED_POINT;
-    else
+    else if (!effective_pose_var && !focal_var && extra_calib_var && point_var)
+      v = FactorVariant::FIXED_POSE_FIXED_FOCAL;
+    else if (!effective_pose_var && focal_var && !extra_calib_var && point_var)
+      v = FactorVariant::FIXED_POSE_FIXED_EXTRA_CALIB;
+    else if (!effective_pose_var && focal_var && extra_calib_var && !point_var)
       v = FactorVariant::FIXED_POSE_FIXED_POINT;
+    else if (effective_pose_var && !focal_var && extra_calib_var && !point_var)
+      v = FactorVariant::FIXED_FOCAL_FIXED_POINT;
+    else if (effective_pose_var && focal_var && !extra_calib_var && !point_var)
+      v = FactorVariant::FIXED_EXTRA_CALIB_FIXED_POINT;
+    else if (!effective_pose_var && !focal_var && extra_calib_var && !point_var)
+      v = FactorVariant::FIXED_POSE_FIXED_FOCAL_FIXED_POINT;
+    else  // !pose && focal && !extra_calib && !point
+      v = FactorVariant::FIXED_POSE_FIXED_EXTRA_CALIB_FIXED_POINT;
 
     VariantData& vd = md.variants[static_cast<int>(v)];
-    vd.calib_indices.push_back(calib_idx);
 
     if (effective_pose_var)
       vd.pose_indices.push_back(GetOrCreatePose(image.FrameId()));
@@ -256,6 +274,22 @@ class CasparBundleAdjuster : public BundleAdjuster {
       // Use CamFromWorld() which correctly computes CamFromRig * RigFromWorld
       // for non-ref cameras, and equals RigFromWorld for ref cameras.
       AppendPose(vd.const_poses, image.CamFromWorld());
+
+    if (focal_var) {
+      vd.focal_indices.push_back(calib_idx);
+    } else {
+      const size_t fs = adapter->FocalSize();
+      for (size_t i = 0; i < fs; ++i)
+        vd.const_focal.push_back(md.focal_data[calib_idx * fs + i]);
+    }
+
+    if (extra_calib_var) {
+      vd.extra_calib_indices.push_back(calib_idx);
+    } else {
+      const size_t es = adapter->ExtraCalibSize();
+      for (size_t i = 0; i < es; ++i)
+        vd.const_extra_calib.push_back(md.extra_calib_data[calib_idx * es + i]);
+    }
 
     if (point_var)
       vd.point_indices.push_back(GetOrCreatePoint(point2D.point3D_id, point3D));
@@ -314,7 +348,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   // Calib indices are per-model: index 0 for SimpleRadial is unrelated to
-  // index 0 for Pinhole. The key is (model_id, calib_idx).
+  // index 0 for Pinhole. The key is (model_id, calib_idx). The same index
+  // addresses both focal_data and extra_calib_data for that model.
   size_t GetOrCreateCalibration(const camera_t camera_id,
                                 const Camera& camera) {
     auto [it, inserted] = camera_to_calib_index_.try_emplace(camera_id, 0);
@@ -323,8 +358,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
       size_t& model_calib_count = calib_num_per_model_[camera.model_id];
       it->second = model_calib_count;
       calib_index_to_camera_[{camera.model_id, model_calib_count}] = camera_id;
-      adapter->ExtractCalib(
-          camera, model_data_per_model_.at(camera.model_id).calib_data);
+      ModelData& md = model_data_per_model_.at(camera.model_id);
+      adapter->ExtractFocal(camera, md.focal_data);
+      adapter->ExtractExtraCalib(camera, md.extra_calib_data);
       ++model_calib_count;
     }
     return it->second;
@@ -336,14 +372,24 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return true;
   }
 
-  bool AreIntrinsicsVariable(const camera_t camera_id) const {
-    const bool any_refinement = options_.refine_focal_length ||
-                                options_.refine_principal_point ||
-                                options_.refine_extra_params;
-    if (!any_refinement) return false;
+  bool IsFocalVariable(const camera_t camera_id) const {
+    if (!options_.refine_focal_length) return false;
     if (config_.HasConstantCamIntrinsics(camera_id)) return false;
     if (cameras_from_outside_config_.count(camera_id)) return false;
     return true;
+  }
+
+  // True when principal point or distortion params are being refined.
+  bool IsExtraCalibVariable(const camera_t camera_id) const {
+    if (!options_.refine_principal_point && !options_.refine_extra_params)
+      return false;
+    if (config_.HasConstantCamIntrinsics(camera_id)) return false;
+    if (cameras_from_outside_config_.count(camera_id)) return false;
+    return true;
+  }
+
+  bool AreIntrinsicsVariable(const camera_t camera_id) const {
+    return IsFocalVariable(camera_id) || IsExtraCalibVariable(camera_id);
   }
 
   bool IsPointVariable(const point3D_t point3D_id) const {
@@ -370,9 +416,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
       const ModelData& md = model_data_per_model_.at(model_id);
       const size_t n_calib = calib_num_per_model_.at(model_id);
 
-      if (n_calib > 0)
-        adapter_ptr->SetCalibNodes(
-            solver, const_cast<StorageType*>(md.calib_data.data()), n_calib);
+      if (n_calib > 0) {
+        adapter_ptr->SetFocalNodes(
+            solver, const_cast<StorageType*>(md.focal_data.data()), n_calib);
+        adapter_ptr->SetExtraCalibNodes(
+            solver,
+            const_cast<StorageType*>(md.extra_calib_data.data()),
+            n_calib);
+      }
       for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
         if (md.variants[v].num_factors > 0)
           adapter_ptr->SetVariantFactors(
@@ -392,8 +443,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       ModelData& md = model_data_per_model_.at(model_id);
       const size_t n_calib = calib_num_per_model_.at(model_id);
-      if (n_calib > 0)
-        adapter_ptr->GetCalibNodes(solver, md.calib_data.data(), n_calib);
+      if (n_calib > 0) {
+        adapter_ptr->GetFocalNodes(solver, md.focal_data.data(), n_calib);
+        adapter_ptr->GetExtraCalibNodes(
+            solver, md.extra_calib_data.data(), n_calib);
+      }
     }
   }
 
@@ -403,7 +457,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
       Camera& camera = reconstruction_.Camera(camera_id);
       ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
       const ModelData& md = model_data_per_model_.at(camera.model_id);
-      adapter->WriteCalib(camera, md.calib_data.data(), calib_idx);
+      if (IsFocalVariable(camera_id))
+        adapter->WriteFocal(camera, md.focal_data.data(), calib_idx);
+      if (IsExtraCalibVariable(camera_id))
+        adapter->WriteExtraCalib(
+            camera, md.extra_calib_data.data(), calib_idx);
       THROW_CHECK(camera.VerifyParams());
     }
   }

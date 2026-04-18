@@ -60,24 +60,42 @@ class SolverParams:
 class GraphSolver:
     def __init__(self, params: SolverParams,
                  *,
-                 PinholeCalib_num_max: int = 0,
+                 PinholeExtraCalib_num_max: int = 0,
+                 PinholeFocal_num_max: int = 0,
                  Point_num_max: int = 0,
                  Pose_num_max: int = 0,
-                 SimpleRadialCalib_num_max: int = 0,
+                 SimpleRadialExtraCalib_num_max: int = 0,
+                 SimpleRadialFocal_num_max: int = 0,
                  simple_radial_num_max: int = 0,
                  simple_radial_fixed_pose_num_max: int = 0,
+                 simple_radial_fixed_focal_num_max: int = 0,
+                 simple_radial_fixed_extra_calib_num_max: int = 0,
                  simple_radial_fixed_point_num_max: int = 0,
-                 simple_radial_fixed_calib_num_max: int = 0,
+                 simple_radial_fixed_pose_fixed_focal_num_max: int = 0,
+                 simple_radial_fixed_pose_fixed_extra_calib_num_max: int = 0,
                  simple_radial_fixed_pose_fixed_point_num_max: int = 0,
-                 simple_radial_fixed_pose_fixed_calib_num_max: int = 0,
-                 simple_radial_fixed_point_fixed_calib_num_max: int = 0,
+                 simple_radial_fixed_focal_fixed_extra_calib_num_max: int = 0,
+                 simple_radial_fixed_focal_fixed_point_num_max: int = 0,
+                 simple_radial_fixed_extra_calib_fixed_point_num_max: int = 0,
+                 simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_num_max: int = 0,
+                 simple_radial_fixed_pose_fixed_focal_fixed_point_num_max: int = 0,
+                 simple_radial_fixed_pose_fixed_extra_calib_fixed_point_num_max: int = 0,
+                 simple_radial_fixed_focal_fixed_extra_calib_fixed_point_num_max: int = 0,
                  pinhole_num_max: int = 0,
                  pinhole_fixed_pose_num_max: int = 0,
+                 pinhole_fixed_focal_num_max: int = 0,
+                 pinhole_fixed_extra_calib_num_max: int = 0,
                  pinhole_fixed_point_num_max: int = 0,
-                 pinhole_fixed_calib_num_max: int = 0,
+                 pinhole_fixed_pose_fixed_focal_num_max: int = 0,
+                 pinhole_fixed_pose_fixed_extra_calib_num_max: int = 0,
                  pinhole_fixed_pose_fixed_point_num_max: int = 0,
-                 pinhole_fixed_pose_fixed_calib_num_max: int = 0,
-                 pinhole_fixed_point_fixed_calib_num_max: int = 0,
+                 pinhole_fixed_focal_fixed_extra_calib_num_max: int = 0,
+                 pinhole_fixed_focal_fixed_point_num_max: int = 0,
+                 pinhole_fixed_extra_calib_fixed_point_num_max: int = 0,
+                 pinhole_fixed_pose_fixed_focal_fixed_extra_calib_num_max: int = 0,
+                 pinhole_fixed_pose_fixed_focal_fixed_point_num_max: int = 0,
+                 pinhole_fixed_pose_fixed_extra_calib_fixed_point_num_max: int = 0,
+                 pinhole_fixed_focal_fixed_extra_calib_fixed_point_num_max: int = 0,
     ): ...
 
     def set_params(self, params: SolverParams) -> None:
@@ -102,37 +120,72 @@ class GraphSolver:
         Get the number of allocated bytes.
         """
 
-    def set_PinholeCalib_nodes_from_stacked_host(self, stacked_data: Array, offset: int = 0) -> None:
+    def set_PinholeExtraCalib_nodes_from_stacked_host(self, stacked_data: Array, offset: int = 0) -> None:
         """
-        Set the current value for the PinholeCalib nodes from the stacked host data.
+        Set the current value for the PinholeExtraCalib nodes from the stacked host data.
 
         The offset can be used to start writing at a specific index.
         """
 
-    def set_PinholeCalib_nodes_from_stacked_device(self, stacked_data: CudaArray, offset: int = 0) -> None:
+    def set_PinholeExtraCalib_nodes_from_stacked_device(self, stacked_data: CudaArray, offset: int = 0) -> None:
         """
-        Set the current value for the PinholeCalib nodes from the stacked device data.
+        Set the current value for the PinholeExtraCalib nodes from the stacked device data.
 
         The offset can be used to start writing at a specific index.
         """
 
-    def get_PinholeCalib_nodes_to_stacked_host(self, out_stacked_data: Array, offset: int = 0) -> None:
+    def get_PinholeExtraCalib_nodes_to_stacked_host(self, out_stacked_data: Array, offset: int = 0) -> None:
         """
-        Read the current value for the PinholeCalib nodes into the stacked output host data.
+        Read the current value for the PinholeExtraCalib nodes into the stacked output host data.
 
         The offset can be used to start reading from a specific index.
         """
 
-    def get_PinholeCalib_nodes_to_stacked_device(self, out_stacked_data: CudaArray, offset: int = 0) -> None:
+    def get_PinholeExtraCalib_nodes_to_stacked_device(self, out_stacked_data: CudaArray, offset: int = 0) -> None:
         """
-        Read the current value for the PinholeCalib nodes into the stacked output device data.
+        Read the current value for the PinholeExtraCalib nodes into the stacked output device data.
 
         The offset can be used to start reading from a specific index.
         """
 
-    def set_PinholeCalib_num(self, num: int) -> None:
+    def set_PinholeExtraCalib_num(self, num: int) -> None:
         """
-        Set the current number of active nodes of type PinholeCalib.
+        Set the current number of active nodes of type PinholeExtraCalib.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_PinholeFocal_nodes_from_stacked_host(self, stacked_data: Array, offset: int = 0) -> None:
+        """
+        Set the current value for the PinholeFocal nodes from the stacked host data.
+
+        The offset can be used to start writing at a specific index.
+        """
+
+    def set_PinholeFocal_nodes_from_stacked_device(self, stacked_data: CudaArray, offset: int = 0) -> None:
+        """
+        Set the current value for the PinholeFocal nodes from the stacked device data.
+
+        The offset can be used to start writing at a specific index.
+        """
+
+    def get_PinholeFocal_nodes_to_stacked_host(self, out_stacked_data: Array, offset: int = 0) -> None:
+        """
+        Read the current value for the PinholeFocal nodes into the stacked output host data.
+
+        The offset can be used to start reading from a specific index.
+        """
+
+    def get_PinholeFocal_nodes_to_stacked_device(self, out_stacked_data: CudaArray, offset: int = 0) -> None:
+        """
+        Read the current value for the PinholeFocal nodes into the stacked output device data.
+
+        The offset can be used to start reading from a specific index.
+        """
+
+    def set_PinholeFocal_num(self, num: int) -> None:
+        """
+        Set the current number of active nodes of type PinholeFocal.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
@@ -207,37 +260,72 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_SimpleRadialCalib_nodes_from_stacked_host(self, stacked_data: Array, offset: int = 0) -> None:
+    def set_SimpleRadialExtraCalib_nodes_from_stacked_host(self, stacked_data: Array, offset: int = 0) -> None:
         """
-        Set the current value for the SimpleRadialCalib nodes from the stacked host data.
+        Set the current value for the SimpleRadialExtraCalib nodes from the stacked host data.
 
         The offset can be used to start writing at a specific index.
         """
 
-    def set_SimpleRadialCalib_nodes_from_stacked_device(self, stacked_data: CudaArray, offset: int = 0) -> None:
+    def set_SimpleRadialExtraCalib_nodes_from_stacked_device(self, stacked_data: CudaArray, offset: int = 0) -> None:
         """
-        Set the current value for the SimpleRadialCalib nodes from the stacked device data.
+        Set the current value for the SimpleRadialExtraCalib nodes from the stacked device data.
 
         The offset can be used to start writing at a specific index.
         """
 
-    def get_SimpleRadialCalib_nodes_to_stacked_host(self, out_stacked_data: Array, offset: int = 0) -> None:
+    def get_SimpleRadialExtraCalib_nodes_to_stacked_host(self, out_stacked_data: Array, offset: int = 0) -> None:
         """
-        Read the current value for the SimpleRadialCalib nodes into the stacked output host data.
+        Read the current value for the SimpleRadialExtraCalib nodes into the stacked output host data.
 
         The offset can be used to start reading from a specific index.
         """
 
-    def get_SimpleRadialCalib_nodes_to_stacked_device(self, out_stacked_data: CudaArray, offset: int = 0) -> None:
+    def get_SimpleRadialExtraCalib_nodes_to_stacked_device(self, out_stacked_data: CudaArray, offset: int = 0) -> None:
         """
-        Read the current value for the SimpleRadialCalib nodes into the stacked output device data.
+        Read the current value for the SimpleRadialExtraCalib nodes into the stacked output device data.
 
         The offset can be used to start reading from a specific index.
         """
 
-    def set_SimpleRadialCalib_num(self, num: int) -> None:
+    def set_SimpleRadialExtraCalib_num(self, num: int) -> None:
         """
-        Set the current number of active nodes of type SimpleRadialCalib.
+        Set the current number of active nodes of type SimpleRadialExtraCalib.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_SimpleRadialFocal_nodes_from_stacked_host(self, stacked_data: Array, offset: int = 0) -> None:
+        """
+        Set the current value for the SimpleRadialFocal nodes from the stacked host data.
+
+        The offset can be used to start writing at a specific index.
+        """
+
+    def set_SimpleRadialFocal_nodes_from_stacked_device(self, stacked_data: CudaArray, offset: int = 0) -> None:
+        """
+        Set the current value for the SimpleRadialFocal nodes from the stacked device data.
+
+        The offset can be used to start writing at a specific index.
+        """
+
+    def get_SimpleRadialFocal_nodes_to_stacked_host(self, out_stacked_data: Array, offset: int = 0) -> None:
+        """
+        Read the current value for the SimpleRadialFocal nodes into the stacked output host data.
+
+        The offset can be used to start reading from a specific index.
+        """
+
+    def get_SimpleRadialFocal_nodes_to_stacked_device(self, out_stacked_data: CudaArray, offset: int = 0) -> None:
+        """
+        Read the current value for the SimpleRadialFocal nodes into the stacked output device data.
+
+        The offset can be used to start reading from a specific index.
+        """
+
+    def set_SimpleRadialFocal_num(self, num: int) -> None:
+        """
+        Set the current number of active nodes of type SimpleRadialFocal.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
@@ -252,14 +340,23 @@ class GraphSolver:
         """
         Set the indices for the pose argument for the simple_radial factor from device.
         """
-    def set_simple_radial_calib_indices_from_host(self, indices: Array) -> None:
+    def set_simple_radial_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the simple_radial factor from host.
+        Set the indices for the focal argument for the simple_radial factor from host.
         """
 
-    def set_simple_radial_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_simple_radial_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the simple_radial factor from device.
+        Set the indices for the focal argument for the simple_radial factor from device.
+        """
+    def set_simple_radial_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial factor from host.
+        """
+
+    def set_simple_radial_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial factor from device.
         """
     def set_simple_radial_point_indices_from_host(self, indices: Array) -> None:
         """
@@ -296,14 +393,23 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_simple_radial_fixed_pose_calib_indices_from_host(self, indices: Array) -> None:
+    def set_simple_radial_fixed_pose_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the simple_radial_fixed_pose factor from host.
+        Set the indices for the focal argument for the simple_radial_fixed_pose factor from host.
         """
 
-    def set_simple_radial_fixed_pose_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_simple_radial_fixed_pose_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the simple_radial_fixed_pose factor from device.
+        Set the indices for the focal argument for the simple_radial_fixed_pose factor from device.
+        """
+    def set_simple_radial_fixed_pose_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose factor from host.
+        """
+
+    def set_simple_radial_fixed_pose_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose factor from device.
         """
     def set_simple_radial_fixed_pose_point_indices_from_host(self, indices: Array) -> None:
         """
@@ -357,6 +463,146 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
+    def set_simple_radial_fixed_focal_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_focal factor from host.
+        """
+
+    def set_simple_radial_fixed_focal_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_focal factor from device.
+        """
+    def set_simple_radial_fixed_focal_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_focal factor from host.
+        """
+
+    def set_simple_radial_fixed_focal_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_focal factor from device.
+        """
+    def set_simple_radial_fixed_focal_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_focal factor from host.
+        """
+
+    def set_simple_radial_fixed_focal_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_focal factor from device.
+        """
+
+    def set_simple_radial_fixed_focal_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_focal factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_focal_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_focal factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_focal factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_simple_radial_fixed_extra_calib_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_extra_calib factor from host.
+        """
+
+    def set_simple_radial_fixed_extra_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_extra_calib factor from device.
+        """
+    def set_simple_radial_fixed_extra_calib_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_extra_calib factor from host.
+        """
+
+    def set_simple_radial_fixed_extra_calib_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_extra_calib factor from device.
+        """
+    def set_simple_radial_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_extra_calib factor from host.
+        """
+
+    def set_simple_radial_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_extra_calib factor from device.
+        """
+
+    def set_simple_radial_fixed_extra_calib_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_extra_calib_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_extra_calib factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
     def set_simple_radial_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
         """
         Set the indices for the pose argument for the simple_radial_fixed_point factor from host.
@@ -366,14 +612,23 @@ class GraphSolver:
         """
         Set the indices for the pose argument for the simple_radial_fixed_point factor from device.
         """
-    def set_simple_radial_fixed_point_calib_indices_from_host(self, indices: Array) -> None:
+    def set_simple_radial_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the simple_radial_fixed_point factor from host.
+        Set the indices for the focal argument for the simple_radial_fixed_point factor from host.
         """
 
-    def set_simple_radial_fixed_point_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_simple_radial_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the simple_radial_fixed_point factor from device.
+        Set the indices for the focal argument for the simple_radial_fixed_point factor from device.
+        """
+    def set_simple_radial_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_point factor from device.
         """
 
     def set_simple_radial_fixed_point_pixel_data_from_stacked_host(
@@ -418,75 +673,179 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_simple_radial_fixed_calib_pose_indices_from_host(self, indices: Array) -> None:
+    def set_simple_radial_fixed_pose_fixed_focal_extra_calib_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the pose argument for the simple_radial_fixed_calib factor from host.
-        """
-
-    def set_simple_radial_fixed_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
-        """
-        Set the indices for the pose argument for the simple_radial_fixed_calib factor from device.
-        """
-    def set_simple_radial_fixed_calib_point_indices_from_host(self, indices: Array) -> None:
-        """
-        Set the indices for the point argument for the simple_radial_fixed_calib factor from host.
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose_fixed_focal factor from host.
         """
 
-    def set_simple_radial_fixed_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+    def set_simple_radial_fixed_pose_fixed_focal_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the point argument for the simple_radial_fixed_calib factor from device.
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose_fixed_focal factor from device.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_focal factor from host.
         """
 
-    def set_simple_radial_fixed_calib_pixel_data_from_stacked_host(
+    def set_simple_radial_fixed_pose_fixed_focal_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_focal factor from device.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_pixel_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts simple_radial_fixed_calib factor from stacked host data.
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_calib_pixel_data_from_stacked_device(
+    def set_simple_radial_fixed_pose_fixed_focal_pixel_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts simple_radial_fixed_calib factor from stacked device data.
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal factor from stacked device data.
 
         The offset can be used to start writing from a specific index.
         """
-    def set_simple_radial_fixed_calib_calib_data_from_stacked_host(
+    def set_simple_radial_fixed_pose_fixed_focal_pose_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the calib consts simple_radial_fixed_calib factor from stacked host data.
-
-        The offset can be used to start writing from a specific index.
-        """
-
-    def set_simple_radial_fixed_calib_calib_data_from_stacked_device(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the calib consts simple_radial_fixed_calib factor from stacked device data.
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_focal factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_calib_num(self, num: int) -> None:
+    def set_simple_radial_fixed_pose_fixed_focal_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
         """
-        Set the current number of simple_radial_fixed_calib factors.
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_pose_fixed_focal factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_pose_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_pose_fixed_focal factors.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_simple_radial_fixed_pose_fixed_point_calib_indices_from_host(self, indices: Array) -> None:
+    def set_simple_radial_fixed_pose_fixed_extra_calib_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the simple_radial_fixed_pose_fixed_point factor from host.
+        Set the indices for the focal argument for the simple_radial_fixed_pose_fixed_extra_calib factor from host.
         """
 
-    def set_simple_radial_fixed_pose_fixed_point_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_simple_radial_fixed_pose_fixed_extra_calib_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the simple_radial_fixed_pose_fixed_point factor from device.
+        Set the indices for the focal argument for the simple_radial_fixed_pose_fixed_extra_calib factor from device.
+        """
+    def set_simple_radial_fixed_pose_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_extra_calib factor from host.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_extra_calib factor from device.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_extra_calib_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_pose_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_pose_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_pose_fixed_extra_calib factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_simple_radial_fixed_pose_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_pose_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_pose_fixed_point factor from device.
+        """
+    def set_simple_radial_fixed_pose_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose_fixed_point factor from device.
         """
 
     def set_simple_radial_fixed_pose_fixed_point_pixel_data_from_stacked_host(
@@ -548,140 +907,580 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_simple_radial_fixed_pose_fixed_calib_point_indices_from_host(self, indices: Array) -> None:
+    def set_simple_radial_fixed_focal_fixed_extra_calib_pose_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_calib factor from host.
-        """
-
-    def set_simple_radial_fixed_pose_fixed_calib_point_indices_from_device(self, indices: CudaArray) -> None:
-        """
-        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_calib factor from device.
+        Set the indices for the pose argument for the simple_radial_fixed_focal_fixed_extra_calib factor from host.
         """
 
-    def set_simple_radial_fixed_pose_fixed_calib_pixel_data_from_stacked_host(
+    def set_simple_radial_fixed_focal_fixed_extra_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_focal_fixed_extra_calib factor from device.
+        """
+    def set_simple_radial_fixed_focal_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_focal_fixed_extra_calib factor from host.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_focal_fixed_extra_calib factor from device.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts simple_radial_fixed_pose_fixed_calib factor from stacked host data.
+        Set the values for the pixel consts simple_radial_fixed_focal_fixed_extra_calib factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_pose_fixed_calib_pixel_data_from_stacked_device(
+    def set_simple_radial_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts simple_radial_fixed_pose_fixed_calib factor from stacked device data.
+        Set the values for the pixel consts simple_radial_fixed_focal_fixed_extra_calib factor from stacked device data.
 
         The offset can be used to start writing from a specific index.
         """
-    def set_simple_radial_fixed_pose_fixed_calib_pose_data_from_stacked_host(
+    def set_simple_radial_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pose consts simple_radial_fixed_pose_fixed_calib factor from stacked host data.
-
-        The offset can be used to start writing from a specific index.
-        """
-
-    def set_simple_radial_fixed_pose_fixed_calib_pose_data_from_stacked_device(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the pose consts simple_radial_fixed_pose_fixed_calib factor from stacked device data.
-
-        The offset can be used to start writing from a specific index.
-        """
-    def set_simple_radial_fixed_pose_fixed_calib_calib_data_from_stacked_host(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the calib consts simple_radial_fixed_pose_fixed_calib factor from stacked host data.
+        Set the values for the focal consts simple_radial_fixed_focal_fixed_extra_calib factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_pose_fixed_calib_calib_data_from_stacked_device(
+    def set_simple_radial_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the calib consts simple_radial_fixed_pose_fixed_calib factor from stacked device data.
+        Set the values for the focal consts simple_radial_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_focal_fixed_extra_calib factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_pose_fixed_calib_num(self, num: int) -> None:
+    def set_simple_radial_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
         """
-        Set the current number of simple_radial_fixed_pose_fixed_calib factors.
+        Set the values for the extra_calib consts simple_radial_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_focal_fixed_extra_calib factors.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_simple_radial_fixed_point_fixed_calib_pose_indices_from_host(self, indices: Array) -> None:
+    def set_simple_radial_fixed_focal_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the pose argument for the simple_radial_fixed_point_fixed_calib factor from host.
-        """
-
-    def set_simple_radial_fixed_point_fixed_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
-        """
-        Set the indices for the pose argument for the simple_radial_fixed_point_fixed_calib factor from device.
+        Set the indices for the pose argument for the simple_radial_fixed_focal_fixed_point factor from host.
         """
 
-    def set_simple_radial_fixed_point_fixed_calib_pixel_data_from_stacked_host(
+    def set_simple_radial_fixed_focal_fixed_point_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_focal_fixed_point factor from device.
+        """
+    def set_simple_radial_fixed_focal_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_focal_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_focal_fixed_point factor from device.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_point_pixel_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts simple_radial_fixed_point_fixed_calib factor from stacked host data.
+        Set the values for the pixel consts simple_radial_fixed_focal_fixed_point factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_point_fixed_calib_pixel_data_from_stacked_device(
+    def set_simple_radial_fixed_focal_fixed_point_pixel_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts simple_radial_fixed_point_fixed_calib factor from stacked device data.
+        Set the values for the pixel consts simple_radial_fixed_focal_fixed_point factor from stacked device data.
 
         The offset can be used to start writing from a specific index.
         """
-    def set_simple_radial_fixed_point_fixed_calib_calib_data_from_stacked_host(
+    def set_simple_radial_fixed_focal_fixed_point_focal_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the calib consts simple_radial_fixed_point_fixed_calib factor from stacked host data.
-
-        The offset can be used to start writing from a specific index.
-        """
-
-    def set_simple_radial_fixed_point_fixed_calib_calib_data_from_stacked_device(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the calib consts simple_radial_fixed_point_fixed_calib factor from stacked device data.
-
-        The offset can be used to start writing from a specific index.
-        """
-    def set_simple_radial_fixed_point_fixed_calib_point_data_from_stacked_host(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the point consts simple_radial_fixed_point_fixed_calib factor from stacked host data.
+        Set the values for the focal consts simple_radial_fixed_focal_fixed_point factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_point_fixed_calib_point_data_from_stacked_device(
+    def set_simple_radial_fixed_focal_fixed_point_focal_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the point consts simple_radial_fixed_point_fixed_calib factor from stacked device data.
+        Set the values for the focal consts simple_radial_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_focal_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_focal_fixed_point factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_simple_radial_fixed_point_fixed_calib_num(self, num: int) -> None:
+    def set_simple_radial_fixed_focal_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
         """
-        Set the current number of simple_radial_fixed_point_fixed_calib factors.
+        Set the values for the point consts simple_radial_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_focal_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_simple_radial_fixed_extra_calib_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_extra_calib_fixed_point_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_extra_calib_fixed_point factor from device.
+        """
+    def set_simple_radial_fixed_extra_calib_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_extra_calib_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_extra_calib_fixed_point factor from device.
+        """
+
+    def set_simple_radial_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_extra_calib_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_extra_calib_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from host.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from device.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose_fixed_focal_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the simple_radial_fixed_pose_fixed_focal_fixed_point factor from device.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_focal_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_pose_fixed_focal_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from device.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_pose_fixed_extra_calib_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from device.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of simple_radial_fixed_focal_fixed_extra_calib_fixed_point factors.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
@@ -695,14 +1494,23 @@ class GraphSolver:
         """
         Set the indices for the pose argument for the pinhole factor from device.
         """
-    def set_pinhole_calib_indices_from_host(self, indices: Array) -> None:
+    def set_pinhole_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the pinhole factor from host.
+        Set the indices for the focal argument for the pinhole factor from host.
         """
 
-    def set_pinhole_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_pinhole_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the pinhole factor from device.
+        Set the indices for the focal argument for the pinhole factor from device.
+        """
+    def set_pinhole_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole factor from host.
+        """
+
+    def set_pinhole_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole factor from device.
         """
     def set_pinhole_point_indices_from_host(self, indices: Array) -> None:
         """
@@ -739,14 +1547,23 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_pinhole_fixed_pose_calib_indices_from_host(self, indices: Array) -> None:
+    def set_pinhole_fixed_pose_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the pinhole_fixed_pose factor from host.
+        Set the indices for the focal argument for the pinhole_fixed_pose factor from host.
         """
 
-    def set_pinhole_fixed_pose_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_pinhole_fixed_pose_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the pinhole_fixed_pose factor from device.
+        Set the indices for the focal argument for the pinhole_fixed_pose factor from device.
+        """
+    def set_pinhole_fixed_pose_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose factor from host.
+        """
+
+    def set_pinhole_fixed_pose_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose factor from device.
         """
     def set_pinhole_fixed_pose_point_indices_from_host(self, indices: Array) -> None:
         """
@@ -800,6 +1617,146 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
+    def set_pinhole_fixed_focal_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_focal factor from host.
+        """
+
+    def set_pinhole_fixed_focal_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_focal factor from device.
+        """
+    def set_pinhole_fixed_focal_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_focal factor from host.
+        """
+
+    def set_pinhole_fixed_focal_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_focal factor from device.
+        """
+    def set_pinhole_fixed_focal_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_focal factor from host.
+        """
+
+    def set_pinhole_fixed_focal_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_focal factor from device.
+        """
+
+    def set_pinhole_fixed_focal_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_focal factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_focal_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_focal factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_focal factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_pinhole_fixed_extra_calib_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_extra_calib factor from host.
+        """
+
+    def set_pinhole_fixed_extra_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_extra_calib factor from device.
+        """
+    def set_pinhole_fixed_extra_calib_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_extra_calib factor from host.
+        """
+
+    def set_pinhole_fixed_extra_calib_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_extra_calib factor from device.
+        """
+    def set_pinhole_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_extra_calib factor from host.
+        """
+
+    def set_pinhole_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_extra_calib factor from device.
+        """
+
+    def set_pinhole_fixed_extra_calib_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_extra_calib_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_extra_calib factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
     def set_pinhole_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
         """
         Set the indices for the pose argument for the pinhole_fixed_point factor from host.
@@ -809,14 +1766,23 @@ class GraphSolver:
         """
         Set the indices for the pose argument for the pinhole_fixed_point factor from device.
         """
-    def set_pinhole_fixed_point_calib_indices_from_host(self, indices: Array) -> None:
+    def set_pinhole_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the pinhole_fixed_point factor from host.
+        Set the indices for the focal argument for the pinhole_fixed_point factor from host.
         """
 
-    def set_pinhole_fixed_point_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_pinhole_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the pinhole_fixed_point factor from device.
+        Set the indices for the focal argument for the pinhole_fixed_point factor from device.
+        """
+    def set_pinhole_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_point factor from device.
         """
 
     def set_pinhole_fixed_point_pixel_data_from_stacked_host(
@@ -861,75 +1827,179 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_pinhole_fixed_calib_pose_indices_from_host(self, indices: Array) -> None:
+    def set_pinhole_fixed_pose_fixed_focal_extra_calib_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the pose argument for the pinhole_fixed_calib factor from host.
-        """
-
-    def set_pinhole_fixed_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
-        """
-        Set the indices for the pose argument for the pinhole_fixed_calib factor from device.
-        """
-    def set_pinhole_fixed_calib_point_indices_from_host(self, indices: Array) -> None:
-        """
-        Set the indices for the point argument for the pinhole_fixed_calib factor from host.
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose_fixed_focal factor from host.
         """
 
-    def set_pinhole_fixed_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+    def set_pinhole_fixed_pose_fixed_focal_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the point argument for the pinhole_fixed_calib factor from device.
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose_fixed_focal factor from device.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_pose_fixed_focal factor from host.
         """
 
-    def set_pinhole_fixed_calib_pixel_data_from_stacked_host(
+    def set_pinhole_fixed_pose_fixed_focal_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_pose_fixed_focal factor from device.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_pixel_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts pinhole_fixed_calib factor from stacked host data.
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_focal factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_calib_pixel_data_from_stacked_device(
+    def set_pinhole_fixed_pose_fixed_focal_pixel_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts pinhole_fixed_calib factor from stacked device data.
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_focal factor from stacked device data.
 
         The offset can be used to start writing from a specific index.
         """
-    def set_pinhole_fixed_calib_calib_data_from_stacked_host(
+    def set_pinhole_fixed_pose_fixed_focal_pose_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the calib consts pinhole_fixed_calib factor from stacked host data.
-
-        The offset can be used to start writing from a specific index.
-        """
-
-    def set_pinhole_fixed_calib_calib_data_from_stacked_device(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the calib consts pinhole_fixed_calib factor from stacked device data.
+        Set the values for the pose consts pinhole_fixed_pose_fixed_focal factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_calib_num(self, num: int) -> None:
+    def set_pinhole_fixed_pose_fixed_focal_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
         """
-        Set the current number of pinhole_fixed_calib factors.
+        Set the values for the pose consts pinhole_fixed_pose_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_pose_fixed_focal factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_pose_fixed_focal factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_pose_fixed_focal factors.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_pinhole_fixed_pose_fixed_point_calib_indices_from_host(self, indices: Array) -> None:
+    def set_pinhole_fixed_pose_fixed_extra_calib_focal_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the calib argument for the pinhole_fixed_pose_fixed_point factor from host.
+        Set the indices for the focal argument for the pinhole_fixed_pose_fixed_extra_calib factor from host.
         """
 
-    def set_pinhole_fixed_pose_fixed_point_calib_indices_from_device(self, indices: CudaArray) -> None:
+    def set_pinhole_fixed_pose_fixed_extra_calib_focal_indices_from_device(self, indices: CudaArray) -> None:
         """
-        Set the indices for the calib argument for the pinhole_fixed_pose_fixed_point factor from device.
+        Set the indices for the focal argument for the pinhole_fixed_pose_fixed_extra_calib factor from device.
+        """
+    def set_pinhole_fixed_pose_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_pose_fixed_extra_calib factor from host.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_pose_fixed_extra_calib factor from device.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_extra_calib_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_pose_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_pose_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_pose_fixed_extra_calib factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_pinhole_fixed_pose_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_pose_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_pose_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_pose_fixed_point factor from device.
+        """
+    def set_pinhole_fixed_pose_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_pose_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose_fixed_point factor from device.
         """
 
     def set_pinhole_fixed_pose_fixed_point_pixel_data_from_stacked_host(
@@ -991,153 +2061,603 @@ class GraphSolver:
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_pinhole_fixed_pose_fixed_calib_point_indices_from_host(self, indices: Array) -> None:
+    def set_pinhole_fixed_focal_fixed_extra_calib_pose_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the point argument for the pinhole_fixed_pose_fixed_calib factor from host.
-        """
-
-    def set_pinhole_fixed_pose_fixed_calib_point_indices_from_device(self, indices: CudaArray) -> None:
-        """
-        Set the indices for the point argument for the pinhole_fixed_pose_fixed_calib factor from device.
+        Set the indices for the pose argument for the pinhole_fixed_focal_fixed_extra_calib factor from host.
         """
 
-    def set_pinhole_fixed_pose_fixed_calib_pixel_data_from_stacked_host(
+    def set_pinhole_fixed_focal_fixed_extra_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_focal_fixed_extra_calib factor from device.
+        """
+    def set_pinhole_fixed_focal_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_focal_fixed_extra_calib factor from host.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_focal_fixed_extra_calib factor from device.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts pinhole_fixed_pose_fixed_calib factor from stacked host data.
+        Set the values for the pixel consts pinhole_fixed_focal_fixed_extra_calib factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_pose_fixed_calib_pixel_data_from_stacked_device(
+    def set_pinhole_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts pinhole_fixed_pose_fixed_calib factor from stacked device data.
+        Set the values for the pixel consts pinhole_fixed_focal_fixed_extra_calib factor from stacked device data.
 
         The offset can be used to start writing from a specific index.
         """
-    def set_pinhole_fixed_pose_fixed_calib_pose_data_from_stacked_host(
+    def set_pinhole_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pose consts pinhole_fixed_pose_fixed_calib factor from stacked host data.
-
-        The offset can be used to start writing from a specific index.
-        """
-
-    def set_pinhole_fixed_pose_fixed_calib_pose_data_from_stacked_device(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the pose consts pinhole_fixed_pose_fixed_calib factor from stacked device data.
-
-        The offset can be used to start writing from a specific index.
-        """
-    def set_pinhole_fixed_pose_fixed_calib_calib_data_from_stacked_host(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the calib consts pinhole_fixed_pose_fixed_calib factor from stacked host data.
+        Set the values for the focal consts pinhole_fixed_focal_fixed_extra_calib factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_pose_fixed_calib_calib_data_from_stacked_device(
+    def set_pinhole_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the calib consts pinhole_fixed_pose_fixed_calib factor from stacked device data.
+        Set the values for the focal consts pinhole_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_focal_fixed_extra_calib factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_pose_fixed_calib_num(self, num: int) -> None:
+    def set_pinhole_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
         """
-        Set the current number of pinhole_fixed_pose_fixed_calib factors.
+        Set the values for the extra_calib consts pinhole_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_focal_fixed_extra_calib factors.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
-    def set_pinhole_fixed_point_fixed_calib_pose_indices_from_host(self, indices: Array) -> None:
+    def set_pinhole_fixed_focal_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
         """
-        Set the indices for the pose argument for the pinhole_fixed_point_fixed_calib factor from host.
-        """
-
-    def set_pinhole_fixed_point_fixed_calib_pose_indices_from_device(self, indices: CudaArray) -> None:
-        """
-        Set the indices for the pose argument for the pinhole_fixed_point_fixed_calib factor from device.
+        Set the indices for the pose argument for the pinhole_fixed_focal_fixed_point factor from host.
         """
 
-    def set_pinhole_fixed_point_fixed_calib_pixel_data_from_stacked_host(
+    def set_pinhole_fixed_focal_fixed_point_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_focal_fixed_point factor from device.
+        """
+    def set_pinhole_fixed_focal_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_focal_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_focal_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_focal_fixed_point factor from device.
+        """
+
+    def set_pinhole_fixed_focal_fixed_point_pixel_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts pinhole_fixed_point_fixed_calib factor from stacked host data.
+        Set the values for the pixel consts pinhole_fixed_focal_fixed_point factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_point_fixed_calib_pixel_data_from_stacked_device(
+    def set_pinhole_fixed_focal_fixed_point_pixel_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the pixel consts pinhole_fixed_point_fixed_calib factor from stacked device data.
+        Set the values for the pixel consts pinhole_fixed_focal_fixed_point factor from stacked device data.
 
         The offset can be used to start writing from a specific index.
         """
-    def set_pinhole_fixed_point_fixed_calib_calib_data_from_stacked_host(
+    def set_pinhole_fixed_focal_fixed_point_focal_data_from_stacked_host(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the calib consts pinhole_fixed_point_fixed_calib factor from stacked host data.
-
-        The offset can be used to start writing from a specific index.
-        """
-
-    def set_pinhole_fixed_point_fixed_calib_calib_data_from_stacked_device(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the calib consts pinhole_fixed_point_fixed_calib factor from stacked device data.
-
-        The offset can be used to start writing from a specific index.
-        """
-    def set_pinhole_fixed_point_fixed_calib_point_data_from_stacked_host(
-        self, stacked_data: Array, offset: int = 0
-        ) -> None:
-        """
-        Set the values for the point consts pinhole_fixed_point_fixed_calib factor from stacked host data.
+        Set the values for the focal consts pinhole_fixed_focal_fixed_point factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_point_fixed_calib_point_data_from_stacked_device(
+    def set_pinhole_fixed_focal_fixed_point_focal_data_from_stacked_device(
         self, stacked_data: Array, offset: int = 0
         ) -> None:
         """
-        Set the values for the point consts pinhole_fixed_point_fixed_calib factor from stacked device data.
+        Set the values for the focal consts pinhole_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_focal_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_focal_fixed_point factor from stacked host data.
 
         The offset can be used to start writing from a specific index.
         """
 
-    def set_pinhole_fixed_point_fixed_calib_num(self, num: int) -> None:
+    def set_pinhole_fixed_focal_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
         """
-        Set the current number of pinhole_fixed_point_fixed_calib factors.
+        Set the values for the point consts pinhole_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_focal_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_pinhole_fixed_extra_calib_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_extra_calib_fixed_point_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_extra_calib_fixed_point factor from device.
+        """
+    def set_pinhole_fixed_extra_calib_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_extra_calib_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_extra_calib_fixed_point factor from device.
+        """
+
+    def set_pinhole_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_extra_calib_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_extra_calib_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from host.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the point argument for the pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from device.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_pose_fixed_focal_fixed_extra_calib factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose_fixed_focal_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the extra_calib argument for the pinhole_fixed_pose_fixed_focal_fixed_point factor from device.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_focal_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_pose_fixed_focal_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the focal argument for the pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from device.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pose consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_pose_fixed_extra_calib_fixed_point factors.
+
+        The value is set during initialization and this function is only needed if you want to change
+        the problem between optimization runs. This is work in progress and can have performance impacts.
+        """
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_host(self, indices: Array) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from host.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_device(self, indices: CudaArray) -> None:
+        """
+        Set the indices for the pose argument for the pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from device.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the pixel consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the focal consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the extra_calib consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+        self, stacked_data: Array, offset: int = 0
+        ) -> None:
+        """
+        Set the values for the point consts pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked device data.
+
+        The offset can be used to start writing from a specific index.
+        """
+
+    def set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_num(self, num: int) -> None:
+        """
+        Set the current number of pinhole_fixed_focal_fixed_extra_calib_fixed_point factors.
 
         The value is set during initialization and this function is only needed if you want to change
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
 
-def ConstPinholeCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def ConstPinholeExtraCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
-    Convert the stacked ConstPinholeCalib data to the caspar data format.
+    Convert the stacked ConstPinholeExtraCalib data to the caspar data format.
     """
 
-def ConstPinholeCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def ConstPinholeExtraCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
-    Convert the caspar ConstPinholeCalib data to the stacked data format.
+    Convert the caspar ConstPinholeExtraCalib data to the stacked data format.
+    """
+
+def ConstPinholeFocal_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+    """
+    Convert the stacked ConstPinholeFocal data to the caspar data format.
+    """
+
+def ConstPinholeFocal_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+    """
+    Convert the caspar ConstPinholeFocal data to the stacked data format.
     """
 
 def ConstPixel_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
@@ -1170,24 +2690,44 @@ def ConstPose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaAr
     Convert the caspar ConstPose data to the stacked data format.
     """
 
-def ConstSimpleRadialCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def ConstSimpleRadialExtraCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
-    Convert the stacked ConstSimpleRadialCalib data to the caspar data format.
-    """
-
-def ConstSimpleRadialCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
-    """
-    Convert the caspar ConstSimpleRadialCalib data to the stacked data format.
+    Convert the stacked ConstSimpleRadialExtraCalib data to the caspar data format.
     """
 
-def PinholeCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def ConstSimpleRadialExtraCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
-    Convert the stacked PinholeCalib data to the caspar data format.
+    Convert the caspar ConstSimpleRadialExtraCalib data to the stacked data format.
     """
 
-def PinholeCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def ConstSimpleRadialFocal_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
-    Convert the caspar PinholeCalib data to the stacked data format.
+    Convert the stacked ConstSimpleRadialFocal data to the caspar data format.
+    """
+
+def ConstSimpleRadialFocal_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+    """
+    Convert the caspar ConstSimpleRadialFocal data to the stacked data format.
+    """
+
+def PinholeExtraCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+    """
+    Convert the stacked PinholeExtraCalib data to the caspar data format.
+    """
+
+def PinholeExtraCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+    """
+    Convert the caspar PinholeExtraCalib data to the stacked data format.
+    """
+
+def PinholeFocal_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+    """
+    Convert the stacked PinholeFocal data to the caspar data format.
+    """
+
+def PinholeFocal_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+    """
+    Convert the caspar PinholeFocal data to the stacked data format.
     """
 
 def Point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
@@ -1210,14 +2750,24 @@ def Pose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) 
     Convert the caspar Pose data to the stacked data format.
     """
 
-def SimpleRadialCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def SimpleRadialExtraCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
-    Convert the stacked SimpleRadialCalib data to the caspar data format.
+    Convert the stacked SimpleRadialExtraCalib data to the caspar data format.
     """
 
-def SimpleRadialCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def SimpleRadialExtraCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
-    Convert the caspar SimpleRadialCalib data to the stacked data format.
+    Convert the caspar SimpleRadialExtraCalib data to the stacked data format.
+    """
+
+def SimpleRadialFocal_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+    """
+    Convert the stacked SimpleRadialFocal data to the caspar data format.
+    """
+
+def SimpleRadialFocal_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+    """
+    Convert the caspar SimpleRadialFocal data to the stacked data format.
     """
 
 
@@ -1229,8 +2779,10 @@ def shared_indices(indices: CudaArray, out_shared: CudaArray) -> None:
 def simple_radial_res_jac_first(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1240,10 +2792,14 @@ def simple_radial_res_jac_first(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1254,8 +2810,10 @@ def simple_radial_res_jac_first(
 def simple_radial_res_jac(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1264,10 +2822,14 @@ def simple_radial_res_jac(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1278,8 +2840,10 @@ def simple_radial_res_jac(
 def simple_radial_score(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1291,31 +2855,41 @@ def simple_radial_jtjnjtr_direct(
     pose_njtr: CudaArray,
     pose_njtr_indices: CudaArray,
     pose_jac: CudaArray,
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
     point_njtr: CudaArray,
     point_njtr_indices: CudaArray,
     point_jac: CudaArray,
     out_pose_njtr: CudaArray,
-    out_calib_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
     out_point_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def simple_radial_fixed_pose_res_jac_first(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1324,17 +2898,23 @@ def simple_radial_fixed_pose_res_jac_first(
 ) -> None: ...
 
 def simple_radial_fixed_pose_res_jac(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
     out_res: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1343,8 +2923,10 @@ def simple_radial_fixed_pose_res_jac(
 ) -> None: ...
 
 def simple_radial_fixed_pose_score(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1354,13 +2936,177 @@ def simple_radial_fixed_pose_score(
 ) -> None: ...
 
 def simple_radial_fixed_pose_jtjnjtr_direct(
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
     point_njtr: CudaArray,
     point_njtr_indices: CudaArray,
     point_jac: CudaArray,
-    out_calib_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_focal_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_focal_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_focal_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_focal_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_extra_calib_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_extra_calib_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_extra_calib_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_extra_calib_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
     out_point_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
@@ -1368,8 +3114,10 @@ def simple_radial_fixed_pose_jtjnjtr_direct(
 def simple_radial_fixed_point_res_jac_first(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
@@ -1378,18 +3126,24 @@ def simple_radial_fixed_point_res_jac_first(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def simple_radial_fixed_point_res_jac(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
@@ -1397,18 +3151,24 @@ def simple_radial_fixed_point_res_jac(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def simple_radial_fixed_point_score(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     point: CudaArray,
     out_rTr: CudaArray,
@@ -1419,21 +3179,221 @@ def simple_radial_fixed_point_jtjnjtr_direct(
     pose_njtr: CudaArray,
     pose_njtr_indices: CudaArray,
     pose_jac: CudaArray,
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
     out_pose_njtr: CudaArray,
-    out_calib_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_calib_res_jac_first(
+def simple_radial_fixed_pose_fixed_focal_res_jac_first(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_focal_res_jac(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    out_res: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_focal_score(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_focal_jtjnjtr_direct(
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_res_jac_first(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_res_jac(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_score(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_jtjnjtr_direct(
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_point_res_jac_first(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_point_res_jac(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_point_score(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_point_jtjnjtr_direct(
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_focal_fixed_extra_calib_res_jac_first(
     pose: CudaArray,
     pose_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
     out_pose_jac: CudaArray,
@@ -1447,13 +3407,14 @@ def simple_radial_fixed_calib_res_jac_first(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_calib_res_jac(
+def simple_radial_fixed_focal_fixed_extra_calib_res_jac(
     pose: CudaArray,
     pose_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_res: CudaArray,
     out_pose_jac: CudaArray,
     out_pose_njtr: CudaArray,
@@ -1466,18 +3427,19 @@ def simple_radial_fixed_calib_res_jac(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_calib_score(
+def simple_radial_fixed_focal_fixed_extra_calib_score(
     pose: CudaArray,
     pose_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_rTr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_calib_jtjnjtr_direct(
+def simple_radial_fixed_focal_fixed_extra_calib_jtjnjtr_direct(
     pose_njtr: CudaArray,
     pose_njtr_indices: CudaArray,
     pose_jac: CudaArray,
@@ -1489,57 +3451,143 @@ def simple_radial_fixed_calib_jtjnjtr_direct(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_point_res_jac_first(
-    calib: CudaArray,
-    calib_indices: CudaArray,
-    pixel: CudaArray,
+def simple_radial_fixed_focal_fixed_point_res_jac_first(
     pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_point_res_jac(
-    calib: CudaArray,
-    calib_indices: CudaArray,
-    pixel: CudaArray,
+def simple_radial_fixed_focal_fixed_point_res_jac(
     pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_point_score(
-    calib: CudaArray,
-    calib_indices: CudaArray,
-    pixel: CudaArray,
+def simple_radial_fixed_focal_fixed_point_score(
     pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
     point: CudaArray,
     out_rTr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_point_jtjnjtr_direct(
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
+def simple_radial_fixed_focal_fixed_point_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_calib_res_jac_first(
+def simple_radial_fixed_extra_calib_fixed_point_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_extra_calib_fixed_point_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_extra_calib_fixed_point_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_extra_calib_fixed_point_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_res_jac_first(
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
     out_point_njtr: CudaArray,
@@ -1548,12 +3596,13 @@ def simple_radial_fixed_pose_fixed_calib_res_jac_first(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_calib_res_jac(
+def simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_res_jac(
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_res: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1561,17 +3610,18 @@ def simple_radial_fixed_pose_fixed_calib_res_jac(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_calib_score(
+def simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_score(
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_rTr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_pose_fixed_calib_jtjnjtr_direct(
+def simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_jtjnjtr_direct(
     point_njtr: CudaArray,
     point_njtr_indices: CudaArray,
     point_jac: CudaArray,
@@ -1579,11 +3629,108 @@ def simple_radial_fixed_pose_fixed_calib_jtjnjtr_direct(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_point_fixed_calib_res_jac_first(
+def simple_radial_fixed_pose_fixed_focal_fixed_point_res_jac_first(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_focal_fixed_point_res_jac(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_focal_fixed_point_score(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_focal_fixed_point_jtjnjtr_direct(
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_fixed_point_res_jac_first(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_fixed_point_res_jac(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_fixed_point_score(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_pose_fixed_extra_calib_fixed_point_jtjnjtr_direct(
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def simple_radial_fixed_focal_fixed_extra_calib_fixed_point_res_jac_first(
     pose: CudaArray,
     pose_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
@@ -1593,11 +3740,12 @@ def simple_radial_fixed_point_fixed_calib_res_jac_first(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_point_fixed_calib_res_jac(
+def simple_radial_fixed_focal_fixed_extra_calib_fixed_point_res_jac(
     pose: CudaArray,
     pose_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
     out_pose_njtr: CudaArray,
@@ -1606,17 +3754,18 @@ def simple_radial_fixed_point_fixed_calib_res_jac(
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_point_fixed_calib_score(
+def simple_radial_fixed_focal_fixed_extra_calib_fixed_point_score(
     pose: CudaArray,
     pose_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     point: CudaArray,
     out_rTr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def simple_radial_fixed_point_fixed_calib_jtjnjtr_direct(
+def simple_radial_fixed_focal_fixed_extra_calib_fixed_point_jtjnjtr_direct(
     pose_njtr: CudaArray,
     pose_njtr_indices: CudaArray,
     pose_jac: CudaArray,
@@ -1627,8 +3776,10 @@ def simple_radial_fixed_point_fixed_calib_jtjnjtr_direct(
 def pinhole_res_jac_first(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1638,10 +3789,14 @@ def pinhole_res_jac_first(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1652,8 +3807,10 @@ def pinhole_res_jac_first(
 def pinhole_res_jac(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1662,10 +3819,14 @@ def pinhole_res_jac(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1676,8 +3837,10 @@ def pinhole_res_jac(
 def pinhole_score(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1689,31 +3852,41 @@ def pinhole_jtjnjtr_direct(
     pose_njtr: CudaArray,
     pose_njtr_indices: CudaArray,
     pose_jac: CudaArray,
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
     point_njtr: CudaArray,
     point_njtr_indices: CudaArray,
     point_jac: CudaArray,
     out_pose_njtr: CudaArray,
-    out_calib_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
     out_point_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def pinhole_fixed_pose_res_jac_first(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1722,17 +3895,23 @@ def pinhole_fixed_pose_res_jac_first(
 ) -> None: ...
 
 def pinhole_fixed_pose_res_jac(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
     out_res: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1741,8 +3920,10 @@ def pinhole_fixed_pose_res_jac(
 ) -> None: ...
 
 def pinhole_fixed_pose_score(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
@@ -1752,13 +3933,177 @@ def pinhole_fixed_pose_score(
 ) -> None: ...
 
 def pinhole_fixed_pose_jtjnjtr_direct(
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
     point_njtr: CudaArray,
     point_njtr_indices: CudaArray,
     point_jac: CudaArray,
-    out_calib_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
     out_point_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
@@ -1766,8 +4111,10 @@ def pinhole_fixed_pose_jtjnjtr_direct(
 def pinhole_fixed_point_res_jac_first(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
@@ -1776,18 +4123,24 @@ def pinhole_fixed_point_res_jac_first(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def pinhole_fixed_point_res_jac(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
@@ -1795,18 +4148,24 @@ def pinhole_fixed_point_res_jac(
     out_pose_njtr: CudaArray,
     out_pose_precond_diag: CudaArray,
     out_pose_precond_tril: CudaArray,
-    out_calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def pinhole_fixed_point_score(
     pose: CudaArray,
     pose_indices: CudaArray,
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     point: CudaArray,
     out_rTr: CudaArray,
@@ -1817,27 +4176,32 @@ def pinhole_fixed_point_jtjnjtr_direct(
     pose_njtr: CudaArray,
     pose_njtr_indices: CudaArray,
     pose_jac: CudaArray,
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
     out_pose_njtr: CudaArray,
-    out_calib_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_calib_res_jac_first(
-    pose: CudaArray,
-    pose_indices: CudaArray,
+def pinhole_fixed_pose_fixed_focal_res_jac_first(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
-    out_pose_jac: CudaArray,
-    out_pose_njtr: CudaArray,
-    out_pose_precond_diag: CudaArray,
-    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1845,18 +4209,19 @@ def pinhole_fixed_calib_res_jac_first(
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_calib_res_jac(
-    pose: CudaArray,
-    pose_indices: CudaArray,
+def pinhole_fixed_pose_fixed_focal_res_jac(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
     out_res: CudaArray,
-    out_pose_jac: CudaArray,
-    out_pose_njtr: CudaArray,
-    out_pose_precond_diag: CudaArray,
-    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     out_point_jac: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1864,59 +4229,141 @@ def pinhole_fixed_calib_res_jac(
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_calib_score(
-    pose: CudaArray,
-    pose_indices: CudaArray,
+def pinhole_fixed_pose_fixed_focal_score(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
     out_rTr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_calib_jtjnjtr_direct(
-    pose_njtr: CudaArray,
-    pose_njtr_indices: CudaArray,
-    pose_jac: CudaArray,
+def pinhole_fixed_pose_fixed_focal_jtjnjtr_direct(
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
     point_njtr: CudaArray,
     point_njtr_indices: CudaArray,
     point_jac: CudaArray,
-    out_pose_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_res_jac_first(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_res_jac(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_score(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_jtjnjtr_direct(
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_focal_njtr: CudaArray,
     out_point_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def pinhole_fixed_pose_fixed_point_res_jac_first(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def pinhole_fixed_pose_fixed_point_res_jac(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
-    out_calib_njtr: CudaArray,
-    out_calib_precond_diag: CudaArray,
-    out_calib_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
     problem_size: int
 ) -> None: ...
 
 def pinhole_fixed_pose_fixed_point_score(
-    calib: CudaArray,
-    calib_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
     point: CudaArray,
@@ -1925,19 +4372,219 @@ def pinhole_fixed_pose_fixed_point_score(
 ) -> None: ...
 
 def pinhole_fixed_pose_fixed_point_jtjnjtr_direct(
-    calib_njtr: CudaArray,
-    calib_njtr_indices: CudaArray,
-    calib_jac: CudaArray,
-    out_calib_njtr: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_pose_fixed_calib_res_jac_first(
+def pinhole_fixed_focal_fixed_extra_calib_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_extra_calib_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_point_jac: CudaArray,
+    out_point_njtr: CudaArray,
+    out_point_precond_diag: CudaArray,
+    out_point_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_extra_calib_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    point: CudaArray,
+    point_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_extra_calib_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    point_njtr: CudaArray,
+    point_njtr_indices: CudaArray,
+    point_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_point_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_point_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_point_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_point_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_point_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_fixed_point_res_jac_first(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_fixed_point_res_jac(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_pose_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_pose_precond_diag: CudaArray,
+    out_pose_precond_tril: CudaArray,
+    out_focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_fixed_point_score(
+    pose: CudaArray,
+    pose_indices: CudaArray,
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_extra_calib_fixed_point_jtjnjtr_direct(
+    pose_njtr: CudaArray,
+    pose_njtr_indices: CudaArray,
+    pose_jac: CudaArray,
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    out_pose_njtr: CudaArray,
+    out_focal_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_focal_fixed_extra_calib_res_jac_first(
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
     out_point_njtr: CudaArray,
@@ -1946,12 +4593,13 @@ def pinhole_fixed_pose_fixed_calib_res_jac_first(
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_pose_fixed_calib_res_jac(
+def pinhole_fixed_pose_fixed_focal_fixed_extra_calib_res_jac(
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_res: CudaArray,
     out_point_njtr: CudaArray,
     out_point_precond_diag: CudaArray,
@@ -1959,17 +4607,18 @@ def pinhole_fixed_pose_fixed_calib_res_jac(
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_pose_fixed_calib_score(
+def pinhole_fixed_pose_fixed_focal_fixed_extra_calib_score(
     point: CudaArray,
     point_indices: CudaArray,
     pixel: CudaArray,
     pose: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     out_rTr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_pose_fixed_calib_jtjnjtr_direct(
+def pinhole_fixed_pose_fixed_focal_fixed_extra_calib_jtjnjtr_direct(
     point_njtr: CudaArray,
     point_njtr_indices: CudaArray,
     point_jac: CudaArray,
@@ -1977,11 +4626,108 @@ def pinhole_fixed_pose_fixed_calib_jtjnjtr_direct(
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_point_fixed_calib_res_jac_first(
+def pinhole_fixed_pose_fixed_focal_fixed_point_res_jac_first(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_focal_fixed_point_res_jac(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    out_extra_calib_precond_diag: CudaArray,
+    out_extra_calib_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_focal_fixed_point_score(
+    extra_calib: CudaArray,
+    extra_calib_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    focal: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_focal_fixed_point_jtjnjtr_direct(
+    extra_calib_njtr: CudaArray,
+    extra_calib_njtr_indices: CudaArray,
+    extra_calib_jac: CudaArray,
+    out_extra_calib_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_fixed_point_res_jac_first(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_rTr: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_fixed_point_res_jac(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_res: CudaArray,
+    out_focal_njtr: CudaArray,
+    out_focal_precond_diag: CudaArray,
+    out_focal_precond_tril: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_fixed_point_score(
+    focal: CudaArray,
+    focal_indices: CudaArray,
+    pixel: CudaArray,
+    pose: CudaArray,
+    extra_calib: CudaArray,
+    point: CudaArray,
+    out_rTr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_pose_fixed_extra_calib_fixed_point_jtjnjtr_direct(
+    focal_njtr: CudaArray,
+    focal_njtr_indices: CudaArray,
+    focal_jac: CudaArray,
+    out_focal_njtr: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def pinhole_fixed_focal_fixed_extra_calib_fixed_point_res_jac_first(
     pose: CudaArray,
     pose_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
     out_rTr: CudaArray,
@@ -1991,11 +4737,12 @@ def pinhole_fixed_point_fixed_calib_res_jac_first(
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_point_fixed_calib_res_jac(
+def pinhole_fixed_focal_fixed_extra_calib_fixed_point_res_jac(
     pose: CudaArray,
     pose_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     point: CudaArray,
     out_res: CudaArray,
     out_pose_njtr: CudaArray,
@@ -2004,17 +4751,18 @@ def pinhole_fixed_point_fixed_calib_res_jac(
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_point_fixed_calib_score(
+def pinhole_fixed_focal_fixed_extra_calib_fixed_point_score(
     pose: CudaArray,
     pose_indices: CudaArray,
     pixel: CudaArray,
-    calib: CudaArray,
+    focal: CudaArray,
+    extra_calib: CudaArray,
     point: CudaArray,
     out_rTr: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def pinhole_fixed_point_fixed_calib_jtjnjtr_direct(
+def pinhole_fixed_focal_fixed_extra_calib_fixed_point_jtjnjtr_direct(
     pose_njtr: CudaArray,
     pose_njtr_indices: CudaArray,
     pose_jac: CudaArray,
@@ -2022,14 +4770,14 @@ def pinhole_fixed_point_fixed_calib_jtjnjtr_direct(
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_retract(
-    PinholeCalib: CudaArray,
+def PinholeExtraCalib_retract(
+    PinholeExtraCalib: CudaArray,
     delta: CudaArray,
-    out_PinholeCalib_retracted: CudaArray,
+    out_PinholeExtraCalib_retracted: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_normalize(
+def PinholeExtraCalib_normalize(
     precond_diag: CudaArray,
     precond_tril: CudaArray,
     njtr: CudaArray,
@@ -2038,95 +4786,203 @@ def PinholeCalib_normalize(
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_start_w(
-    PinholeCalib_precond_diag: CudaArray,
+def PinholeExtraCalib_start_w(
+    PinholeExtraCalib_precond_diag: CudaArray,
     diag: CudaArray,
-    PinholeCalib_p: CudaArray,
-    out_PinholeCalib_w: CudaArray,
+    PinholeExtraCalib_p: CudaArray,
+    out_PinholeExtraCalib_w: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_start_w_contribute(
-    PinholeCalib_precond_diag: CudaArray,
+def PinholeExtraCalib_start_w_contribute(
+    PinholeExtraCalib_precond_diag: CudaArray,
     diag: CudaArray,
-    PinholeCalib_p: CudaArray,
-    out_PinholeCalib_w: CudaArray,
+    PinholeExtraCalib_p: CudaArray,
+    out_PinholeExtraCalib_w: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_alpha_numerator_denominator(
-    PinholeCalib_p_kp1: CudaArray,
-    PinholeCalib_r_k: CudaArray,
-    PinholeCalib_w: CudaArray,
-    PinholeCalib_total_ag: CudaArray,
-    PinholeCalib_total_ac: CudaArray,
+def PinholeExtraCalib_alpha_numerator_denominator(
+    PinholeExtraCalib_p_kp1: CudaArray,
+    PinholeExtraCalib_r_k: CudaArray,
+    PinholeExtraCalib_w: CudaArray,
+    PinholeExtraCalib_total_ag: CudaArray,
+    PinholeExtraCalib_total_ac: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_alpha_denumerator_or_beta_nummerator(
-    PinholeCalib_p_kp1: CudaArray,
-    PinholeCalib_w: CudaArray,
-    PinholeCalib_out: CudaArray,
+def PinholeExtraCalib_alpha_denumerator_or_beta_nummerator(
+    PinholeExtraCalib_p_kp1: CudaArray,
+    PinholeExtraCalib_w: CudaArray,
+    PinholeExtraCalib_out: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_update_r_first(
-    PinholeCalib_r_k: CudaArray,
-    PinholeCalib_w: CudaArray,
+def PinholeExtraCalib_update_r_first(
+    PinholeExtraCalib_r_k: CudaArray,
+    PinholeExtraCalib_w: CudaArray,
     negalpha: CudaArray,
-    out_PinholeCalib_r_kp1: CudaArray,
-    out_PinholeCalib_r_0_norm2_tot: CudaArray,
-    out_PinholeCalib_r_kp1_norm2_tot: CudaArray,
+    out_PinholeExtraCalib_r_kp1: CudaArray,
+    out_PinholeExtraCalib_r_0_norm2_tot: CudaArray,
+    out_PinholeExtraCalib_r_kp1_norm2_tot: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_update_r(
-    PinholeCalib_r_k: CudaArray,
-    PinholeCalib_w: CudaArray,
+def PinholeExtraCalib_update_r(
+    PinholeExtraCalib_r_k: CudaArray,
+    PinholeExtraCalib_w: CudaArray,
     negalpha: CudaArray,
-    out_PinholeCalib_r_kp1: CudaArray,
-    out_PinholeCalib_r_kp1_norm2_tot: CudaArray,
+    out_PinholeExtraCalib_r_kp1: CudaArray,
+    out_PinholeExtraCalib_r_kp1_norm2_tot: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_update_step_first(
-    PinholeCalib_p_kp1: CudaArray,
+def PinholeExtraCalib_update_step_first(
+    PinholeExtraCalib_p_kp1: CudaArray,
     alpha: CudaArray,
-    out_PinholeCalib_step_kp1: CudaArray,
+    out_PinholeExtraCalib_step_kp1: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_update_step(
-    PinholeCalib_step_k: CudaArray,
-    PinholeCalib_p_kp1: CudaArray,
+def PinholeExtraCalib_update_step(
+    PinholeExtraCalib_step_k: CudaArray,
+    PinholeExtraCalib_p_kp1: CudaArray,
     alpha: CudaArray,
-    out_PinholeCalib_step_kp1: CudaArray,
+    out_PinholeExtraCalib_step_kp1: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_update_p(
-    PinholeCalib_z: CudaArray,
-    PinholeCalib_p_k: CudaArray,
+def PinholeExtraCalib_update_p(
+    PinholeExtraCalib_z: CudaArray,
+    PinholeExtraCalib_p_k: CudaArray,
     beta: CudaArray,
-    out_PinholeCalib_p_kp1: CudaArray,
+    out_PinholeExtraCalib_p_kp1: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_update_Mp(
-    PinholeCalib_r_k: CudaArray,
-    PinholeCalib_Mp: CudaArray,
+def PinholeExtraCalib_update_Mp(
+    PinholeExtraCalib_r_k: CudaArray,
+    PinholeExtraCalib_Mp: CudaArray,
     beta: CudaArray,
-    out_PinholeCalib_Mp_kp1: CudaArray,
-    out_PinholeCalib_w: CudaArray,
+    out_PinholeExtraCalib_Mp_kp1: CudaArray,
+    out_PinholeExtraCalib_w: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_pred_decrease_times_two(
-    PinholeCalib_step: CudaArray,
-    PinholeCalib_precond_diag: CudaArray,
+def PinholeExtraCalib_pred_decrease_times_two(
+    PinholeExtraCalib_step: CudaArray,
+    PinholeExtraCalib_precond_diag: CudaArray,
     diag: CudaArray,
-    PinholeCalib_njtr: CudaArray,
-    out_PinholeCalib_pred_dec: CudaArray,
+    PinholeExtraCalib_njtr: CudaArray,
+    out_PinholeExtraCalib_pred_dec: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_retract(
+    PinholeFocal: CudaArray,
+    delta: CudaArray,
+    out_PinholeFocal_retracted: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_normalize(
+    precond_diag: CudaArray,
+    precond_tril: CudaArray,
+    njtr: CudaArray,
+    diag: CudaArray,
+    out_normalized: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_start_w(
+    PinholeFocal_precond_diag: CudaArray,
+    diag: CudaArray,
+    PinholeFocal_p: CudaArray,
+    out_PinholeFocal_w: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_start_w_contribute(
+    PinholeFocal_precond_diag: CudaArray,
+    diag: CudaArray,
+    PinholeFocal_p: CudaArray,
+    out_PinholeFocal_w: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_alpha_numerator_denominator(
+    PinholeFocal_p_kp1: CudaArray,
+    PinholeFocal_r_k: CudaArray,
+    PinholeFocal_w: CudaArray,
+    PinholeFocal_total_ag: CudaArray,
+    PinholeFocal_total_ac: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_alpha_denumerator_or_beta_nummerator(
+    PinholeFocal_p_kp1: CudaArray,
+    PinholeFocal_w: CudaArray,
+    PinholeFocal_out: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_update_r_first(
+    PinholeFocal_r_k: CudaArray,
+    PinholeFocal_w: CudaArray,
+    negalpha: CudaArray,
+    out_PinholeFocal_r_kp1: CudaArray,
+    out_PinholeFocal_r_0_norm2_tot: CudaArray,
+    out_PinholeFocal_r_kp1_norm2_tot: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_update_r(
+    PinholeFocal_r_k: CudaArray,
+    PinholeFocal_w: CudaArray,
+    negalpha: CudaArray,
+    out_PinholeFocal_r_kp1: CudaArray,
+    out_PinholeFocal_r_kp1_norm2_tot: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_update_step_first(
+    PinholeFocal_p_kp1: CudaArray,
+    alpha: CudaArray,
+    out_PinholeFocal_step_kp1: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_update_step(
+    PinholeFocal_step_k: CudaArray,
+    PinholeFocal_p_kp1: CudaArray,
+    alpha: CudaArray,
+    out_PinholeFocal_step_kp1: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_update_p(
+    PinholeFocal_z: CudaArray,
+    PinholeFocal_p_k: CudaArray,
+    beta: CudaArray,
+    out_PinholeFocal_p_kp1: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_update_Mp(
+    PinholeFocal_r_k: CudaArray,
+    PinholeFocal_Mp: CudaArray,
+    beta: CudaArray,
+    out_PinholeFocal_Mp_kp1: CudaArray,
+    out_PinholeFocal_w: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def PinholeFocal_pred_decrease_times_two(
+    PinholeFocal_step: CudaArray,
+    PinholeFocal_precond_diag: CudaArray,
+    diag: CudaArray,
+    PinholeFocal_njtr: CudaArray,
+    out_PinholeFocal_pred_dec: CudaArray,
     problem_size: int
 ) -> None: ...
 
@@ -2346,14 +5202,14 @@ def Pose_pred_decrease_times_two(
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_retract(
-    SimpleRadialCalib: CudaArray,
+def SimpleRadialExtraCalib_retract(
+    SimpleRadialExtraCalib: CudaArray,
     delta: CudaArray,
-    out_SimpleRadialCalib_retracted: CudaArray,
+    out_SimpleRadialExtraCalib_retracted: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_normalize(
+def SimpleRadialExtraCalib_normalize(
     precond_diag: CudaArray,
     precond_tril: CudaArray,
     njtr: CudaArray,
@@ -2362,95 +5218,203 @@ def SimpleRadialCalib_normalize(
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_start_w(
-    SimpleRadialCalib_precond_diag: CudaArray,
+def SimpleRadialExtraCalib_start_w(
+    SimpleRadialExtraCalib_precond_diag: CudaArray,
     diag: CudaArray,
-    SimpleRadialCalib_p: CudaArray,
-    out_SimpleRadialCalib_w: CudaArray,
+    SimpleRadialExtraCalib_p: CudaArray,
+    out_SimpleRadialExtraCalib_w: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_start_w_contribute(
-    SimpleRadialCalib_precond_diag: CudaArray,
+def SimpleRadialExtraCalib_start_w_contribute(
+    SimpleRadialExtraCalib_precond_diag: CudaArray,
     diag: CudaArray,
-    SimpleRadialCalib_p: CudaArray,
-    out_SimpleRadialCalib_w: CudaArray,
+    SimpleRadialExtraCalib_p: CudaArray,
+    out_SimpleRadialExtraCalib_w: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_alpha_numerator_denominator(
-    SimpleRadialCalib_p_kp1: CudaArray,
-    SimpleRadialCalib_r_k: CudaArray,
-    SimpleRadialCalib_w: CudaArray,
-    SimpleRadialCalib_total_ag: CudaArray,
-    SimpleRadialCalib_total_ac: CudaArray,
+def SimpleRadialExtraCalib_alpha_numerator_denominator(
+    SimpleRadialExtraCalib_p_kp1: CudaArray,
+    SimpleRadialExtraCalib_r_k: CudaArray,
+    SimpleRadialExtraCalib_w: CudaArray,
+    SimpleRadialExtraCalib_total_ag: CudaArray,
+    SimpleRadialExtraCalib_total_ac: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_alpha_denumerator_or_beta_nummerator(
-    SimpleRadialCalib_p_kp1: CudaArray,
-    SimpleRadialCalib_w: CudaArray,
-    SimpleRadialCalib_out: CudaArray,
+def SimpleRadialExtraCalib_alpha_denumerator_or_beta_nummerator(
+    SimpleRadialExtraCalib_p_kp1: CudaArray,
+    SimpleRadialExtraCalib_w: CudaArray,
+    SimpleRadialExtraCalib_out: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_update_r_first(
-    SimpleRadialCalib_r_k: CudaArray,
-    SimpleRadialCalib_w: CudaArray,
+def SimpleRadialExtraCalib_update_r_first(
+    SimpleRadialExtraCalib_r_k: CudaArray,
+    SimpleRadialExtraCalib_w: CudaArray,
     negalpha: CudaArray,
-    out_SimpleRadialCalib_r_kp1: CudaArray,
-    out_SimpleRadialCalib_r_0_norm2_tot: CudaArray,
-    out_SimpleRadialCalib_r_kp1_norm2_tot: CudaArray,
+    out_SimpleRadialExtraCalib_r_kp1: CudaArray,
+    out_SimpleRadialExtraCalib_r_0_norm2_tot: CudaArray,
+    out_SimpleRadialExtraCalib_r_kp1_norm2_tot: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_update_r(
-    SimpleRadialCalib_r_k: CudaArray,
-    SimpleRadialCalib_w: CudaArray,
+def SimpleRadialExtraCalib_update_r(
+    SimpleRadialExtraCalib_r_k: CudaArray,
+    SimpleRadialExtraCalib_w: CudaArray,
     negalpha: CudaArray,
-    out_SimpleRadialCalib_r_kp1: CudaArray,
-    out_SimpleRadialCalib_r_kp1_norm2_tot: CudaArray,
+    out_SimpleRadialExtraCalib_r_kp1: CudaArray,
+    out_SimpleRadialExtraCalib_r_kp1_norm2_tot: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_update_step_first(
-    SimpleRadialCalib_p_kp1: CudaArray,
+def SimpleRadialExtraCalib_update_step_first(
+    SimpleRadialExtraCalib_p_kp1: CudaArray,
     alpha: CudaArray,
-    out_SimpleRadialCalib_step_kp1: CudaArray,
+    out_SimpleRadialExtraCalib_step_kp1: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_update_step(
-    SimpleRadialCalib_step_k: CudaArray,
-    SimpleRadialCalib_p_kp1: CudaArray,
+def SimpleRadialExtraCalib_update_step(
+    SimpleRadialExtraCalib_step_k: CudaArray,
+    SimpleRadialExtraCalib_p_kp1: CudaArray,
     alpha: CudaArray,
-    out_SimpleRadialCalib_step_kp1: CudaArray,
+    out_SimpleRadialExtraCalib_step_kp1: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_update_p(
-    SimpleRadialCalib_z: CudaArray,
-    SimpleRadialCalib_p_k: CudaArray,
+def SimpleRadialExtraCalib_update_p(
+    SimpleRadialExtraCalib_z: CudaArray,
+    SimpleRadialExtraCalib_p_k: CudaArray,
     beta: CudaArray,
-    out_SimpleRadialCalib_p_kp1: CudaArray,
+    out_SimpleRadialExtraCalib_p_kp1: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_update_Mp(
-    SimpleRadialCalib_r_k: CudaArray,
-    SimpleRadialCalib_Mp: CudaArray,
+def SimpleRadialExtraCalib_update_Mp(
+    SimpleRadialExtraCalib_r_k: CudaArray,
+    SimpleRadialExtraCalib_Mp: CudaArray,
     beta: CudaArray,
-    out_SimpleRadialCalib_Mp_kp1: CudaArray,
-    out_SimpleRadialCalib_w: CudaArray,
+    out_SimpleRadialExtraCalib_Mp_kp1: CudaArray,
+    out_SimpleRadialExtraCalib_w: CudaArray,
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_pred_decrease_times_two(
-    SimpleRadialCalib_step: CudaArray,
-    SimpleRadialCalib_precond_diag: CudaArray,
+def SimpleRadialExtraCalib_pred_decrease_times_two(
+    SimpleRadialExtraCalib_step: CudaArray,
+    SimpleRadialExtraCalib_precond_diag: CudaArray,
     diag: CudaArray,
-    SimpleRadialCalib_njtr: CudaArray,
-    out_SimpleRadialCalib_pred_dec: CudaArray,
+    SimpleRadialExtraCalib_njtr: CudaArray,
+    out_SimpleRadialExtraCalib_pred_dec: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_retract(
+    SimpleRadialFocal: CudaArray,
+    delta: CudaArray,
+    out_SimpleRadialFocal_retracted: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_normalize(
+    precond_diag: CudaArray,
+    precond_tril: CudaArray,
+    njtr: CudaArray,
+    diag: CudaArray,
+    out_normalized: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_start_w(
+    SimpleRadialFocal_precond_diag: CudaArray,
+    diag: CudaArray,
+    SimpleRadialFocal_p: CudaArray,
+    out_SimpleRadialFocal_w: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_start_w_contribute(
+    SimpleRadialFocal_precond_diag: CudaArray,
+    diag: CudaArray,
+    SimpleRadialFocal_p: CudaArray,
+    out_SimpleRadialFocal_w: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_alpha_numerator_denominator(
+    SimpleRadialFocal_p_kp1: CudaArray,
+    SimpleRadialFocal_r_k: CudaArray,
+    SimpleRadialFocal_w: CudaArray,
+    SimpleRadialFocal_total_ag: CudaArray,
+    SimpleRadialFocal_total_ac: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_alpha_denumerator_or_beta_nummerator(
+    SimpleRadialFocal_p_kp1: CudaArray,
+    SimpleRadialFocal_w: CudaArray,
+    SimpleRadialFocal_out: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_update_r_first(
+    SimpleRadialFocal_r_k: CudaArray,
+    SimpleRadialFocal_w: CudaArray,
+    negalpha: CudaArray,
+    out_SimpleRadialFocal_r_kp1: CudaArray,
+    out_SimpleRadialFocal_r_0_norm2_tot: CudaArray,
+    out_SimpleRadialFocal_r_kp1_norm2_tot: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_update_r(
+    SimpleRadialFocal_r_k: CudaArray,
+    SimpleRadialFocal_w: CudaArray,
+    negalpha: CudaArray,
+    out_SimpleRadialFocal_r_kp1: CudaArray,
+    out_SimpleRadialFocal_r_kp1_norm2_tot: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_update_step_first(
+    SimpleRadialFocal_p_kp1: CudaArray,
+    alpha: CudaArray,
+    out_SimpleRadialFocal_step_kp1: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_update_step(
+    SimpleRadialFocal_step_k: CudaArray,
+    SimpleRadialFocal_p_kp1: CudaArray,
+    alpha: CudaArray,
+    out_SimpleRadialFocal_step_kp1: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_update_p(
+    SimpleRadialFocal_z: CudaArray,
+    SimpleRadialFocal_p_k: CudaArray,
+    beta: CudaArray,
+    out_SimpleRadialFocal_p_kp1: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_update_Mp(
+    SimpleRadialFocal_r_k: CudaArray,
+    SimpleRadialFocal_Mp: CudaArray,
+    beta: CudaArray,
+    out_SimpleRadialFocal_Mp_kp1: CudaArray,
+    out_SimpleRadialFocal_w: CudaArray,
+    problem_size: int
+) -> None: ...
+
+def SimpleRadialFocal_pred_decrease_times_two(
+    SimpleRadialFocal_step: CudaArray,
+    SimpleRadialFocal_precond_diag: CudaArray,
+    diag: CudaArray,
+    SimpleRadialFocal_njtr: CudaArray,
+    out_SimpleRadialFocal_pred_dec: CudaArray,
     problem_size: int
 ) -> None: ...
 
