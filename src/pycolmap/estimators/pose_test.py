@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import pycolmap
 
@@ -90,21 +91,15 @@ def test_absolute_pose_refinement_options_position_prior_covariance_readwrite():
     np.testing.assert_array_almost_equal(result, new_covariance)
 
 
-def test_estimate_absolute_pose_is_callable():
-    assert callable(pycolmap.estimate_absolute_pose)
-
-
-def test_refine_absolute_pose_is_callable():
-    assert callable(pycolmap.refine_absolute_pose)
-
-
-def test_estimate_and_refine_absolute_pose_is_callable():
-    assert callable(pycolmap.estimate_and_refine_absolute_pose)
-
-
-def test_estimate_relative_pose_is_callable():
-    assert callable(pycolmap.estimate_relative_pose)
-
-
-def test_refine_relative_pose_is_callable():
-    assert callable(pycolmap.refine_relative_pose)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "estimate_absolute_pose",
+        "refine_absolute_pose",
+        "estimate_and_refine_absolute_pose",
+        "estimate_relative_pose",
+        "refine_relative_pose",
+    ],
+)
+def test_public_api_callable(name):
+    assert callable(getattr(pycolmap, name))

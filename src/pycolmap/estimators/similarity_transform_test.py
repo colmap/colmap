@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import pycolmap
 
@@ -21,10 +22,6 @@ def test_estimate_rigid3d_with_coplanar_points():
     assert result is None or isinstance(result, pycolmap.Rigid3d)
 
 
-def test_estimate_rigid3d_robust_is_callable():
-    assert callable(pycolmap.estimate_rigid3d_robust)
-
-
 def test_estimate_sim3d_with_points():
     source = [
         np.array([0.0, 0.0, 0.0]),
@@ -42,5 +39,12 @@ def test_estimate_sim3d_with_points():
     assert result is None or isinstance(result, pycolmap.Sim3d)
 
 
-def test_estimate_sim3d_robust_is_callable():
-    assert callable(pycolmap.estimate_sim3d_robust)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "estimate_rigid3d_robust",
+        "estimate_sim3d_robust",
+    ],
+)
+def test_public_api_callable(name):
+    assert callable(getattr(pycolmap, name))

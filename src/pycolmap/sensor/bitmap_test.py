@@ -4,8 +4,10 @@ import pycolmap
 
 
 def test_bitmap_rescale_filter_enum():
-    assert pycolmap.BitmapRescaleFilter.BILINEAR is not None
-    assert pycolmap.BitmapRescaleFilter.BOX is not None
+    assert {m.name: int(m) for m in pycolmap.BitmapRescaleFilter} == {
+        "BILINEAR": 0,
+        "BOX": 1,
+    }
 
 
 def test_bitmap_default_init():

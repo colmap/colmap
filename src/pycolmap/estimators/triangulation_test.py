@@ -1,12 +1,11 @@
 import pycolmap
 
 
-def test_triangulation_residual_type_angular_error():
-    assert pycolmap.TriangulationResidualType.ANGULAR_ERROR is not None
-
-
-def test_triangulation_residual_type_reprojection_error():
-    assert pycolmap.TriangulationResidualType.REPROJECTION_ERROR is not None
+def test_triangulation_residual_type_enum():
+    assert {m.name: int(m) for m in pycolmap.TriangulationResidualType} == {
+        "ANGULAR_ERROR": 0,
+        "REPROJECTION_ERROR": 1,
+    }
 
 
 def test_estimate_triangulation_options_default_init():

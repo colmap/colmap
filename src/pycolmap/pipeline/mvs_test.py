@@ -18,9 +18,12 @@ def test_stereo_fusion_options_init():
     assert options is not None
 
 
-def test_patch_match_stereo_callable():
-    assert callable(pycolmap.patch_match_stereo)
-
-
-def test_stereo_fusion_callable():
-    assert callable(pycolmap.stereo_fusion)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "patch_match_stereo",
+        "stereo_fusion",
+    ],
+)
+def test_public_api_callable(name):
+    assert callable(getattr(pycolmap, name))

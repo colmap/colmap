@@ -1,10 +1,12 @@
 import pycolmap
 
 
-def test_sensor_type_enum_values():
-    assert pycolmap.SensorType.INVALID is not None
-    assert pycolmap.SensorType.CAMERA is not None
-    assert pycolmap.SensorType.IMU is not None
+def test_sensor_type_enum():
+    assert {m.name: int(m) for m in pycolmap.SensorType} == {
+        "INVALID": -1,
+        "CAMERA": 0,
+        "IMU": 1,
+    }
 
 
 def test_sensor_type_string_construction():

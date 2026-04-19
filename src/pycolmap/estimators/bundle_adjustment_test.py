@@ -1,56 +1,39 @@
 import pycolmap
 
 
-def test_bundle_adjustment_termination_type_convergence():
-    assert pycolmap.BundleAdjustmentTerminationType.CONVERGENCE is not None
+def test_bundle_adjustment_termination_type_enum():
+    assert {
+        m.name: int(m) for m in pycolmap.BundleAdjustmentTerminationType
+    } == {
+        "CONVERGENCE": 0,
+        "NO_CONVERGENCE": 1,
+        "FAILURE": 2,
+        "USER_SUCCESS": 3,
+        "USER_FAILURE": 4,
+    }
 
 
-def test_bundle_adjustment_termination_type_no_convergence():
-    assert pycolmap.BundleAdjustmentTerminationType.NO_CONVERGENCE is not None
+def test_bundle_adjustment_gauge_enum():
+    assert {m.name: int(m) for m in pycolmap.BundleAdjustmentGauge} == {
+        "UNSPECIFIED": -1,
+        "TWO_CAMS_FROM_WORLD": 0,
+        "THREE_POINTS": 1,
+    }
 
 
-def test_bundle_adjustment_termination_type_failure():
-    assert pycolmap.BundleAdjustmentTerminationType.FAILURE is not None
+def test_bundle_adjustment_backend_enum():
+    assert {m.name: int(m) for m in pycolmap.BundleAdjustmentBackend} == {
+        "CERES": 0,
+    }
 
 
-def test_bundle_adjustment_termination_type_user_success():
-    assert pycolmap.BundleAdjustmentTerminationType.USER_SUCCESS is not None
-
-
-def test_bundle_adjustment_termination_type_user_failure():
-    assert pycolmap.BundleAdjustmentTerminationType.USER_FAILURE is not None
-
-
-def test_bundle_adjustment_gauge_unspecified():
-    assert pycolmap.BundleAdjustmentGauge.UNSPECIFIED is not None
-
-
-def test_bundle_adjustment_gauge_two_cams_from_world():
-    assert pycolmap.BundleAdjustmentGauge.TWO_CAMS_FROM_WORLD is not None
-
-
-def test_bundle_adjustment_gauge_three_points():
-    assert pycolmap.BundleAdjustmentGauge.THREE_POINTS is not None
-
-
-def test_bundle_adjustment_backend_ceres():
-    assert pycolmap.BundleAdjustmentBackend.CERES is not None
-
-
-def test_loss_function_type_trivial():
-    assert pycolmap.LossFunctionType.TRIVIAL is not None
-
-
-def test_loss_function_type_soft_l1():
-    assert pycolmap.LossFunctionType.SOFT_L1 is not None
-
-
-def test_loss_function_type_cauchy():
-    assert pycolmap.LossFunctionType.CAUCHY is not None
-
-
-def test_loss_function_type_huber():
-    assert pycolmap.LossFunctionType.HUBER is not None
+def test_loss_function_type_enum():
+    assert {m.name: int(m) for m in pycolmap.LossFunctionType} == {
+        "TRIVIAL": 0,
+        "SOFT_L1": 1,
+        "CAUCHY": 2,
+        "HUBER": 3,
+    }
 
 
 def test_bundle_adjustment_summary_default_init():

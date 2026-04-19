@@ -1,12 +1,13 @@
+import pytest
+
 import pycolmap
 
 
-def test_rotation_weight_type_geman_mcclure():
-    assert pycolmap.RotationWeightType.GEMAN_MCCLURE is not None
-
-
-def test_rotation_weight_type_half_norm():
-    assert pycolmap.RotationWeightType.HALF_NORM is not None
+def test_rotation_weight_type_enum():
+    assert {m.name: int(m) for m in pycolmap.RotationWeightType} == {
+        "GEMAN_MCCLURE": 0,
+        "HALF_NORM": 1,
+    }
 
 
 def test_rotation_estimator_options_default_init():
@@ -45,13 +46,13 @@ def test_global_positioner_options_default_init():
     assert options is not None
 
 
-def test_run_rotation_averaging_is_callable():
-    assert callable(pycolmap.run_rotation_averaging)
-
-
-def test_run_gravity_refinement_is_callable():
-    assert callable(pycolmap.run_gravity_refinement)
-
-
-def test_run_global_positioning_is_callable():
-    assert callable(pycolmap.run_global_positioning)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "run_rotation_averaging",
+        "run_gravity_refinement",
+        "run_global_positioning",
+    ],
+)
+def test_public_api_callable(name):
+    assert callable(getattr(pycolmap, name))

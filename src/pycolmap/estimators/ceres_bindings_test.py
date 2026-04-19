@@ -7,39 +7,49 @@ def test_pyceres_submodule_exists():
 
 def test_minimizer_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert pyceres.MinimizerType.LINE_SEARCH is not None
-    assert pyceres.MinimizerType.TRUST_REGION is not None
+    assert {m.name: int(m) for m in pyceres.MinimizerType} == {
+        "LINE_SEARCH": 0,
+        "TRUST_REGION": 1,
+    }
 
 
 def test_linear_solver_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert pyceres.LinearSolverType.DENSE_NORMAL_CHOLESKY is not None
-    assert pyceres.LinearSolverType.DENSE_QR is not None
-    assert pyceres.LinearSolverType.SPARSE_NORMAL_CHOLESKY is not None
-    assert pyceres.LinearSolverType.DENSE_SCHUR is not None
-    assert pyceres.LinearSolverType.SPARSE_SCHUR is not None
-    assert pyceres.LinearSolverType.ITERATIVE_SCHUR is not None
+    assert {m.name: int(m) for m in pyceres.LinearSolverType} == {
+        "DENSE_NORMAL_CHOLESKY": 0,
+        "DENSE_QR": 1,
+        "SPARSE_NORMAL_CHOLESKY": 2,
+        "DENSE_SCHUR": 3,
+        "SPARSE_SCHUR": 4,
+        "ITERATIVE_SCHUR": 5,
+    }
 
 
 def test_trust_region_strategy_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert pyceres.TrustRegionStrategyType.LEVENBERG_MARQUARDT is not None
-    assert pyceres.TrustRegionStrategyType.DOGLEG is not None
+    assert {m.name: int(m) for m in pyceres.TrustRegionStrategyType} == {
+        "LEVENBERG_MARQUARDT": 0,
+        "DOGLEG": 1,
+    }
 
 
 def test_logging_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert pyceres.LoggingType.SILENT is not None
-    assert pyceres.LoggingType.PER_MINIMIZER_ITERATION is not None
+    assert {m.name: int(m) for m in pyceres.LoggingType} == {
+        "SILENT": 0,
+        "PER_MINIMIZER_ITERATION": 1,
+    }
 
 
 def test_termination_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert pyceres.TerminationType.CONVERGENCE is not None
-    assert pyceres.TerminationType.NO_CONVERGENCE is not None
-    assert pyceres.TerminationType.FAILURE is not None
-    assert pyceres.TerminationType.USER_SUCCESS is not None
-    assert pyceres.TerminationType.USER_FAILURE is not None
+    assert {m.name: int(m) for m in pyceres.TerminationType} == {
+        "CONVERGENCE": 0,
+        "NO_CONVERGENCE": 1,
+        "FAILURE": 2,
+        "USER_SUCCESS": 3,
+        "USER_FAILURE": 4,
+    }
 
 
 def test_solver_options_default_init():

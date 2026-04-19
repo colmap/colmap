@@ -1,16 +1,12 @@
 import pycolmap
 
 
-def test_synthetic_dataset_match_config_exhaustive():
-    assert pycolmap.SyntheticDatasetMatchConfig.EXHAUSTIVE is not None
-
-
-def test_synthetic_dataset_match_config_chained():
-    assert pycolmap.SyntheticDatasetMatchConfig.CHAINED is not None
-
-
-def test_synthetic_dataset_match_config_sparse():
-    assert pycolmap.SyntheticDatasetMatchConfig.SPARSE is not None
+def test_synthetic_dataset_match_config_enum():
+    assert {m.name: int(m) for m in pycolmap.SyntheticDatasetMatchConfig} == {
+        "EXHAUSTIVE": 1,
+        "CHAINED": 2,
+        "SPARSE": 3,
+    }
 
 
 def test_synthetic_dataset_options_default_init():

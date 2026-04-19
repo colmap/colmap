@@ -1,3 +1,5 @@
+import pytest
+
 import pycolmap
 
 
@@ -135,17 +137,14 @@ def test_exhaustive_pair_generator_class_exists():
     assert hasattr(pycolmap, "ExhaustivePairGenerator")
 
 
-def test_match_exhaustive_callable():
-    assert callable(pycolmap.match_exhaustive)
-
-
-def test_match_spatial_callable():
-    assert callable(pycolmap.match_spatial)
-
-
-def test_verify_matches_callable():
-    assert callable(pycolmap.verify_matches)
-
-
-def test_geometric_verification_callable():
-    assert callable(pycolmap.geometric_verification)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "match_exhaustive",
+        "match_spatial",
+        "verify_matches",
+        "geometric_verification",
+    ],
+)
+def test_public_api_callable(name):
+    assert callable(getattr(pycolmap, name))

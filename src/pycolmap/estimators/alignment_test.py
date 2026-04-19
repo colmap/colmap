@@ -1,3 +1,5 @@
+import pytest
+
 import pycolmap
 
 
@@ -24,20 +26,17 @@ def test_image_alignment_error_proj_center_error_readwrite():
     assert error.proj_center_error == 0.01
 
 
-def test_align_reconstructions_via_reprojections_is_callable():
-    assert callable(pycolmap.align_reconstructions_via_reprojections)
-
-
-def test_align_reconstructions_via_proj_centers_is_callable():
-    assert callable(pycolmap.align_reconstructions_via_proj_centers)
-
-
-def test_align_reconstructions_via_points_is_callable():
-    assert callable(pycolmap.align_reconstructions_via_points)
-
-
-def test_compare_reconstructions_is_callable():
-    assert callable(pycolmap.compare_reconstructions)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "align_reconstructions_via_reprojections",
+        "align_reconstructions_via_proj_centers",
+        "align_reconstructions_via_points",
+        "compare_reconstructions",
+    ],
+)
+def test_public_api_callable(name):
+    assert callable(getattr(pycolmap, name))
 
 
 def test_compare_reconstructions_with_synthetic(synthetic_reconstruction):

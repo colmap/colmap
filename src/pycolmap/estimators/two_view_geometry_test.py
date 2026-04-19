@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import pycolmap
 
@@ -15,20 +16,17 @@ def test_two_view_geometry_options_min_num_inliers_readwrite():
     assert options.min_num_inliers == 30
 
 
-def test_estimate_calibrated_two_view_geometry_is_callable():
-    assert callable(pycolmap.estimate_calibrated_two_view_geometry)
-
-
-def test_estimate_two_view_geometry_is_callable():
-    assert callable(pycolmap.estimate_two_view_geometry)
-
-
-def test_estimate_two_view_geometry_pose_is_callable():
-    assert callable(pycolmap.estimate_two_view_geometry_pose)
-
-
-def test_compute_squared_sampson_error_is_callable():
-    assert callable(pycolmap.compute_squared_sampson_error)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "estimate_calibrated_two_view_geometry",
+        "estimate_two_view_geometry",
+        "estimate_two_view_geometry_pose",
+        "compute_squared_sampson_error",
+    ],
+)
+def test_public_api_callable(name):
+    assert callable(getattr(pycolmap, name))
 
 
 def test_compute_squared_sampson_error_with_identity():

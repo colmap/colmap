@@ -1,20 +1,13 @@
 import pycolmap
 
 
-def test_ba_covariance_options_params_poses():
-    assert pycolmap.BACovarianceOptionsParams.POSES is not None
-
-
-def test_ba_covariance_options_params_points():
-    assert pycolmap.BACovarianceOptionsParams.POINTS is not None
-
-
-def test_ba_covariance_options_params_poses_and_points():
-    assert pycolmap.BACovarianceOptionsParams.POSES_AND_POINTS is not None
-
-
-def test_ba_covariance_options_params_all():
-    assert pycolmap.BACovarianceOptionsParams.ALL is not None
+def test_ba_covariance_options_params_enum():
+    assert {m.name: int(m) for m in pycolmap.BACovarianceOptionsParams} == {
+        "POSES": 0,
+        "POINTS": 1,
+        "POSES_AND_POINTS": 2,
+        "ALL": 3,
+    }
 
 
 def test_ba_covariance_options_default_init():
