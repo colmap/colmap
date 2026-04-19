@@ -2,7 +2,7 @@ import pycolmap
 
 
 def test_sensor_type_enum():
-    assert {m.name: int(m) for m in pycolmap.SensorType} == {
+    assert {k: int(v) for k, v in pycolmap.SensorType.__members__.items()} == {
         "INVALID": -1,
         "CAMERA": 0,
         "IMU": 1,

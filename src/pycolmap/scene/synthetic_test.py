@@ -2,7 +2,10 @@ import pycolmap
 
 
 def test_synthetic_dataset_match_config_enum():
-    assert {m.name: int(m) for m in pycolmap.SyntheticDatasetMatchConfig} == {
+    assert {
+        k: int(v)
+        for k, v in pycolmap.SyntheticDatasetMatchConfig.__members__.items()
+    } == {
         "EXHAUSTIVE": 1,
         "CHAINED": 2,
         "SPARSE": 3,

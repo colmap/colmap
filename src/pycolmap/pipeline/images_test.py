@@ -4,7 +4,7 @@ import pycolmap
 
 
 def test_camera_mode_enum():
-    assert {m.name: int(m) for m in pycolmap.CameraMode} == {
+    assert {k: int(v) for k, v in pycolmap.CameraMode.__members__.items()} == {
         "AUTO": 0,
         "SINGLE": 1,
         "PER_FOLDER": 2,
@@ -13,7 +13,9 @@ def test_camera_mode_enum():
 
 
 def test_file_copy_type_enum():
-    assert {m.name: int(m) for m in pycolmap.FileCopyType} == {
+    assert {
+        k: int(v) for k, v in pycolmap.FileCopyType.__members__.items()
+    } == {
         "copy": 0,
         "hardlink": 1,
         "softlink": 2,

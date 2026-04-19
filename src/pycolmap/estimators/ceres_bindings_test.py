@@ -7,7 +7,9 @@ def test_pyceres_submodule_exists():
 
 def test_minimizer_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert {m.name: int(m) for m in pyceres.MinimizerType} == {
+    assert {
+        k: int(v) for k, v in pyceres.MinimizerType.__members__.items()
+    } == {
         "LINE_SEARCH": 0,
         "TRUST_REGION": 1,
     }
@@ -15,19 +17,25 @@ def test_minimizer_type_enum():
 
 def test_linear_solver_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert {m.name: int(m) for m in pyceres.LinearSolverType} == {
+    assert {
+        k: int(v) for k, v in pyceres.LinearSolverType.__members__.items()
+    } == {
         "DENSE_NORMAL_CHOLESKY": 0,
         "DENSE_QR": 1,
         "SPARSE_NORMAL_CHOLESKY": 2,
         "DENSE_SCHUR": 3,
         "SPARSE_SCHUR": 4,
         "ITERATIVE_SCHUR": 5,
+        "CGNR": 6,
     }
 
 
 def test_trust_region_strategy_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert {m.name: int(m) for m in pyceres.TrustRegionStrategyType} == {
+    assert {
+        k: int(v)
+        for k, v in pyceres.TrustRegionStrategyType.__members__.items()
+    } == {
         "LEVENBERG_MARQUARDT": 0,
         "DOGLEG": 1,
     }
@@ -35,7 +43,7 @@ def test_trust_region_strategy_type_enum():
 
 def test_logging_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert {m.name: int(m) for m in pyceres.LoggingType} == {
+    assert {k: int(v) for k, v in pyceres.LoggingType.__members__.items()} == {
         "SILENT": 0,
         "PER_MINIMIZER_ITERATION": 1,
     }
@@ -43,7 +51,9 @@ def test_logging_type_enum():
 
 def test_termination_type_enum():
     pyceres = pycolmap._core.pyceres
-    assert {m.name: int(m) for m in pyceres.TerminationType} == {
+    assert {
+        k: int(v) for k, v in pyceres.TerminationType.__members__.items()
+    } == {
         "CONVERGENCE": 0,
         "NO_CONVERGENCE": 1,
         "FAILURE": 2,

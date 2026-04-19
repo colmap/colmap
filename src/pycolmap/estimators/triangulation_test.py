@@ -2,7 +2,10 @@ import pycolmap
 
 
 def test_triangulation_residual_type_enum():
-    assert {m.name: int(m) for m in pycolmap.TriangulationResidualType} == {
+    assert {
+        k: int(v)
+        for k, v in pycolmap.TriangulationResidualType.__members__.items()
+    } == {
         "ANGULAR_ERROR": 0,
         "REPROJECTION_ERROR": 1,
     }

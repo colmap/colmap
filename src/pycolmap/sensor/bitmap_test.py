@@ -4,7 +4,9 @@ import pycolmap
 
 
 def test_bitmap_rescale_filter_enum():
-    assert {m.name: int(m) for m in pycolmap.BitmapRescaleFilter} == {
+    assert {
+        k: int(v) for k, v in pycolmap.BitmapRescaleFilter.__members__.items()
+    } == {
         "BILINEAR": 0,
         "BOX": 1,
     }

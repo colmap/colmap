@@ -3,7 +3,8 @@ import pycolmap
 
 def test_bundle_adjustment_termination_type_enum():
     assert {
-        m.name: int(m) for m in pycolmap.BundleAdjustmentTerminationType
+        k: int(v)
+        for k, v in pycolmap.BundleAdjustmentTerminationType.__members__.items()
     } == {
         "CONVERGENCE": 0,
         "NO_CONVERGENCE": 1,
@@ -14,7 +15,9 @@ def test_bundle_adjustment_termination_type_enum():
 
 
 def test_bundle_adjustment_gauge_enum():
-    assert {m.name: int(m) for m in pycolmap.BundleAdjustmentGauge} == {
+    assert {
+        k: int(v) for k, v in pycolmap.BundleAdjustmentGauge.__members__.items()
+    } == {
         "UNSPECIFIED": -1,
         "TWO_CAMS_FROM_WORLD": 0,
         "THREE_POINTS": 1,
@@ -22,13 +25,18 @@ def test_bundle_adjustment_gauge_enum():
 
 
 def test_bundle_adjustment_backend_enum():
-    assert {m.name: int(m) for m in pycolmap.BundleAdjustmentBackend} == {
+    assert {
+        k: int(v)
+        for k, v in pycolmap.BundleAdjustmentBackend.__members__.items()
+    } == {
         "CERES": 0,
     }
 
 
 def test_loss_function_type_enum():
-    assert {m.name: int(m) for m in pycolmap.LossFunctionType} == {
+    assert {
+        k: int(v) for k, v in pycolmap.LossFunctionType.__members__.items()
+    } == {
         "TRIVIAL": 0,
         "SOFT_L1": 1,
         "CAUCHY": 2,

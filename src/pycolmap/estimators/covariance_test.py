@@ -2,7 +2,10 @@ import pycolmap
 
 
 def test_ba_covariance_options_params_enum():
-    assert {m.name: int(m) for m in pycolmap.BACovarianceOptionsParams} == {
+    assert {
+        k: int(v)
+        for k, v in pycolmap.BACovarianceOptionsParams.__members__.items()
+    } == {
         "POSES": 0,
         "POINTS": 1,
         "POSES_AND_POINTS": 2,

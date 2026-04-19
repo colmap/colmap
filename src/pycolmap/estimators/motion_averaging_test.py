@@ -4,7 +4,9 @@ import pycolmap
 
 
 def test_rotation_weight_type_enum():
-    assert {m.name: int(m) for m in pycolmap.RotationWeightType} == {
+    assert {
+        k: int(v) for k, v in pycolmap.RotationWeightType.__members__.items()
+    } == {
         "GEMAN_MCCLURE": 0,
         "HALF_NORM": 1,
     }
