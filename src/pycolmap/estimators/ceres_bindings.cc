@@ -164,7 +164,12 @@ void BindCeresSolver(py::module& m) {
   py::classh<Options> PyOptions(m, "SolverOptions", py::module_local());
   PyOptions.def(py::init<>())
       .def(py::init<const Options&>())
-      .def("IsValid", &Options::IsValid)
+      .def("IsValid",
+           [](const Options& self) {
+             std::string error;
+             bool valid = self.IsValid(&error);
+             return std::make_pair(valid, error);
+           })
       .def_readwrite("minimizer_type", &Options::minimizer_type)
       .def_readwrite("line_search_direction_type",
                      &Options::line_search_direction_type)
