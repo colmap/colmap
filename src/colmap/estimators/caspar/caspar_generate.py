@@ -31,28 +31,26 @@ class ConstPoint(sf.V3):   pass
 class ConstPixel(sf.V2):   pass
 
 
-# Focal length and the remaining calibration parameters (principal point +
-# extra params) are split into separate nodes so each group can be fixed or
-# refined independently via BundleAdjustmentOptions.refine_focal_length and
-# refine_principal_point / refine_extra_params.
+# Focal length and distortion are merged into one node (focal_and_extra) and
+# principal point forms a separate node.  This means the typical default
+# (refine_focal=True, refine_pp=False, refine_extra=True) hits the
+# FIXED_PRINCIPAL_POINT variant instead of BASE, saving GPU work.
 #
-# Splitting increases the variant count from 2^3-1=7 to 2^4-1=15 per model.
-# Variants where both focal and extra_calib are fixed simultaneously are
-# generated but not dispatched (passed as 0-sized to the solver constructor).
-# Verify the generated kernels stay within the 48KB GPU shared memory limit
+# All 2^4-1 = 15 non-fully-fixed subsets are generated and dispatched.
+# Verify the generated kernels stay within the 48 KB GPU shared memory limit
 # per thread block if adding further split groups.
 
 # SimpleRadial: params = [f, cx, cy, k]
-class SimpleRadialFocal(sf.V1):           pass  # [f]
-class ConstSimpleRadialFocal(sf.V1):      pass
-class SimpleRadialExtraCalib(sf.V3):      pass  # [cx, cy, k]
-class ConstSimpleRadialExtraCalib(sf.V3): pass
+class SimpleRadialFocalAndExtra(sf.V2):         pass  # [f, k]
+class ConstSimpleRadialFocalAndExtra(sf.V2):    pass
+class SimpleRadialPrincipalPoint(sf.V2):        pass  # [cx, cy]
+class ConstSimpleRadialPrincipalPoint(sf.V2):   pass
 
 # Pinhole: params = [fx, fy, cx, cy]
-class PinholeFocal(sf.V2):                pass  # [fx, fy]
-class ConstPinholeFocal(sf.V2):           pass
-class PinholeExtraCalib(sf.V2):           pass  # [cx, cy]
-class ConstPinholeExtraCalib(sf.V2):      pass
+class PinholeFocalAndExtra(sf.V2):              pass  # [fx, fy]
+class ConstPinholeFocalAndExtra(sf.V2):         pass
+class PinholePrincipalPoint(sf.V2):             pass  # [cx, cy]
+class ConstPinholePrincipalPoint(sf.V2):        pass
 
 
 # --- Registrar ---
@@ -110,15 +108,15 @@ def register_camera_model(caslib, model_name: str, core_fn, fixable_params: dict
 
 # --- Camera models ---
 def simple_radial_core(
-    pose:        T.Annotated[Pose,                    mem.TunableShared],
-    focal:       T.Annotated[SimpleRadialFocal,       mem.TunableShared],
-    extra_calib: T.Annotated[SimpleRadialExtraCalib,  mem.TunableShared],
-    point:       T.Annotated[Point,                   mem.TunableShared],
-    pixel:       T.Annotated[ConstPixel,              mem.ConstantSequential],
+    pose:            T.Annotated[Pose,                       mem.TunableShared],
+    focal_and_extra: T.Annotated[SimpleRadialFocalAndExtra,  mem.TunableShared],
+    principal_point: T.Annotated[SimpleRadialPrincipalPoint, mem.TunableShared],
+    point:           T.Annotated[Point,                      mem.TunableShared],
+    pixel:           T.Annotated[ConstPixel,                 mem.ConstantSequential],
 ) -> sf.V2:
     cam_T_world = pose
-    f = focal[0]
-    cx, cy, k = extra_calib
+    f, k = focal_and_extra
+    cx, cy = principal_point
     point_cam = cam_T_world * point
     depth = point_cam[2]
     p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
@@ -127,15 +125,15 @@ def simple_radial_core(
 
 
 def pinhole_core(
-    pose:        T.Annotated[Pose,               mem.TunableShared],
-    focal:       T.Annotated[PinholeFocal,       mem.TunableShared],
-    extra_calib: T.Annotated[PinholeExtraCalib,  mem.TunableShared],
-    point:       T.Annotated[Point,              mem.TunableShared],
-    pixel:       T.Annotated[ConstPixel,         mem.ConstantSequential],
+    pose:            T.Annotated[Pose,                    mem.TunableShared],
+    focal_and_extra: T.Annotated[PinholeFocalAndExtra,    mem.TunableShared],
+    principal_point: T.Annotated[PinholePrincipalPoint,   mem.TunableShared],
+    point:           T.Annotated[Point,                   mem.TunableShared],
+    pixel:           T.Annotated[ConstPixel,              mem.ConstantSequential],
 ) -> sf.V2:
     cam_T_world = pose
-    fx, fy = focal
-    cx, cy = extra_calib
+    fx, fy = focal_and_extra
+    cx, cy = principal_point
     point_cam = cam_T_world * point
     depth = point_cam[2]
     p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
@@ -150,35 +148,30 @@ caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 # C++ dispatch function that builds variant names from BundleAdjustmentOptions.
 #
 # COLMAP flag mapping:
-#   refine_rig_from_world   -> pose
-#   refine_focal_length     -> focal
-#   refine_principal_point
-#     || refine_extra_params -> extra_calib
-#   refine_points3D         -> point
+#   refine_rig_from_world                       -> pose
+#   refine_focal_length && refine_extra_params  -> focal_and_extra
+#   refine_principal_point                      -> principal_point
+#   refine_points3D                             -> point
 #
 # Known limitations:
 #   - constant_rig_from_world_rotation not supported (requires splitting
 #     Pose into rotation and translation sub-nodes)
 #   - refine_sensor_from_rig not supported (single camera per rig assumed)
-
-# All 15 subsets are generated per model. C++ dispatches the 12 where at
-# least one of {focal, extra_calib} is tunable. The 3 fully-fixed-calib
-# variants (fixed_focal_fixed_extra_calib, fixed_pose_fixed_focal_fixed_extra_calib,
-# fixed_focal_fixed_extra_calib_fixed_point) are generated but passed as
-# 0-sized to the solver constructor, so they allocate no GPU memory.
+#   - refine_focal_length != refine_extra_params not supported (observations
+#     skipped with a warning; cannot split the merged focal_and_extra block)
 
 FIXABLE_SIMPLE_RADIAL = {
-    'pose':        ConstPose,
-    'focal':       ConstSimpleRadialFocal,
-    'extra_calib': ConstSimpleRadialExtraCalib,
-    'point':       ConstPoint,
+    'pose':            ConstPose,
+    'focal_and_extra': ConstSimpleRadialFocalAndExtra,
+    'principal_point': ConstSimpleRadialPrincipalPoint,
+    'point':           ConstPoint,
 }
 
 FIXABLE_PINHOLE = {
-    'pose':        ConstPose,
-    'focal':       ConstPinholeFocal,
-    'extra_calib': ConstPinholeExtraCalib,
-    'point':       ConstPoint,
+    'pose':            ConstPose,
+    'focal_and_extra': ConstPinholeFocalAndExtra,
+    'principal_point': ConstPinholePrincipalPoint,
+    'point':           ConstPoint,
 }
 
 register_camera_model(caslib, "simple_radial", simple_radial_core, FIXABLE_SIMPLE_RADIAL)
