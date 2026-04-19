@@ -7,7 +7,7 @@ namespace caspar {
 
 void add_casmappings_pybindings(pybind11::module_ module) {
   module.def(
-      "ConstPinholeExtraCalib_stacked_to_caspar",
+      "ConstPinholeFocalAndExtra_stacked_to_caspar",
       [](pybind11::object stacked_data, pybind11::object cas_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -22,14 +22,14 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "The caspar data must have at least as many columns as "
               "stacked_data has rows.");
         }
-        ConstPinholeExtraCalib_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                                 AsDoublePtr(cas_data),
-                                                 cas_stride,
-                                                 0,
-                                                 num_objects);
+        ConstPinholeFocalAndExtra_stacked_to_caspar(AsDoublePtr(stacked_data),
+                                                    AsDoublePtr(cas_data),
+                                                    cas_stride,
+                                                    0,
+                                                    num_objects);
       });
   module.def(
-      "ConstPinholeExtraCalib_caspar_to_stacked",
+      "ConstPinholeFocalAndExtra_caspar_to_stacked",
       [](pybind11::object cas_data, pybind11::object stacked_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -45,14 +45,14 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "stacked_data has rows.");
         }
 
-        ConstPinholeExtraCalib_caspar_to_stacked(AsDoublePtr(cas_data),
-                                                 AsDoublePtr(stacked_data),
-                                                 cas_stride,
-                                                 0,
-                                                 num_objects);
+        ConstPinholeFocalAndExtra_caspar_to_stacked(AsDoublePtr(cas_data),
+                                                    AsDoublePtr(stacked_data),
+                                                    cas_stride,
+                                                    0,
+                                                    num_objects);
       });
   module.def(
-      "ConstPinholeFocal_stacked_to_caspar",
+      "ConstPinholePrincipalPoint_stacked_to_caspar",
       [](pybind11::object stacked_data, pybind11::object cas_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -67,14 +67,14 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "The caspar data must have at least as many columns as "
               "stacked_data has rows.");
         }
-        ConstPinholeFocal_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                            AsDoublePtr(cas_data),
-                                            cas_stride,
-                                            0,
-                                            num_objects);
+        ConstPinholePrincipalPoint_stacked_to_caspar(AsDoublePtr(stacked_data),
+                                                     AsDoublePtr(cas_data),
+                                                     cas_stride,
+                                                     0,
+                                                     num_objects);
       });
   module.def(
-      "ConstPinholeFocal_caspar_to_stacked",
+      "ConstPinholePrincipalPoint_caspar_to_stacked",
       [](pybind11::object cas_data, pybind11::object stacked_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -90,11 +90,11 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "stacked_data has rows.");
         }
 
-        ConstPinholeFocal_caspar_to_stacked(AsDoublePtr(cas_data),
-                                            AsDoublePtr(stacked_data),
-                                            cas_stride,
-                                            0,
-                                            num_objects);
+        ConstPinholePrincipalPoint_caspar_to_stacked(AsDoublePtr(cas_data),
+                                                     AsDoublePtr(stacked_data),
+                                                     cas_stride,
+                                                     0,
+                                                     num_objects);
       });
   module.def(
       "ConstPixel_stacked_to_caspar",
@@ -232,97 +232,7 @@ void add_casmappings_pybindings(pybind11::module_ module) {
                                     num_objects);
       });
   module.def(
-      "ConstSimpleRadialExtraCalib_stacked_to_caspar",
-      [](pybind11::object stacked_data, pybind11::object cas_data) {
-        if (GetNumCols(stacked_data) != 3) {
-          throw std::runtime_error("The stacked data must have 3 columns.");
-        }
-        if (GetNumRows(cas_data) != 4) {
-          throw std::runtime_error("The caspar data must have 4 rows.");
-        }
-        int num_objects = GetNumRows(stacked_data);
-        int cas_stride = GetNumCols(cas_data);
-        if (cas_stride < num_objects) {
-          throw std::runtime_error(
-              "The caspar data must have at least as many columns as "
-              "stacked_data has rows.");
-        }
-        ConstSimpleRadialExtraCalib_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                                      AsDoublePtr(cas_data),
-                                                      cas_stride,
-                                                      0,
-                                                      num_objects);
-      });
-  module.def(
-      "ConstSimpleRadialExtraCalib_caspar_to_stacked",
-      [](pybind11::object cas_data, pybind11::object stacked_data) {
-        if (GetNumCols(stacked_data) != 3) {
-          throw std::runtime_error("The stacked data must have 3 columns.");
-        }
-        if (GetNumRows(cas_data) != 4) {
-          throw std::runtime_error("The caspar data must have 4 rows.");
-        }
-        int num_objects = GetNumRows(stacked_data);
-        int cas_stride = GetNumCols(cas_data);
-        if (cas_stride < num_objects) {
-          throw std::runtime_error(
-              "The caspar data must have at least as many columns as "
-              "stacked_data has rows.");
-        }
-
-        ConstSimpleRadialExtraCalib_caspar_to_stacked(AsDoublePtr(cas_data),
-                                                      AsDoublePtr(stacked_data),
-                                                      cas_stride,
-                                                      0,
-                                                      num_objects);
-      });
-  module.def(
-      "ConstSimpleRadialFocal_stacked_to_caspar",
-      [](pybind11::object stacked_data, pybind11::object cas_data) {
-        if (GetNumCols(stacked_data) != 1) {
-          throw std::runtime_error("The stacked data must have 1 columns.");
-        }
-        if (GetNumRows(cas_data) != 1) {
-          throw std::runtime_error("The caspar data must have 1 rows.");
-        }
-        int num_objects = GetNumRows(stacked_data);
-        int cas_stride = GetNumCols(cas_data);
-        if (cas_stride < num_objects) {
-          throw std::runtime_error(
-              "The caspar data must have at least as many columns as "
-              "stacked_data has rows.");
-        }
-        ConstSimpleRadialFocal_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                                 AsDoublePtr(cas_data),
-                                                 cas_stride,
-                                                 0,
-                                                 num_objects);
-      });
-  module.def(
-      "ConstSimpleRadialFocal_caspar_to_stacked",
-      [](pybind11::object cas_data, pybind11::object stacked_data) {
-        if (GetNumCols(stacked_data) != 1) {
-          throw std::runtime_error("The stacked data must have 1 columns.");
-        }
-        if (GetNumRows(cas_data) != 1) {
-          throw std::runtime_error("The caspar data must have 1 rows.");
-        }
-        int num_objects = GetNumRows(stacked_data);
-        int cas_stride = GetNumCols(cas_data);
-        if (cas_stride < num_objects) {
-          throw std::runtime_error(
-              "The caspar data must have at least as many columns as "
-              "stacked_data has rows.");
-        }
-
-        ConstSimpleRadialFocal_caspar_to_stacked(AsDoublePtr(cas_data),
-                                                 AsDoublePtr(stacked_data),
-                                                 cas_stride,
-                                                 0,
-                                                 num_objects);
-      });
-  module.def(
-      "PinholeExtraCalib_stacked_to_caspar",
+      "ConstSimpleRadialFocalAndExtra_stacked_to_caspar",
       [](pybind11::object stacked_data, pybind11::object cas_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -337,14 +247,15 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "The caspar data must have at least as many columns as "
               "stacked_data has rows.");
         }
-        PinholeExtraCalib_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                            AsDoublePtr(cas_data),
-                                            cas_stride,
-                                            0,
-                                            num_objects);
+        ConstSimpleRadialFocalAndExtra_stacked_to_caspar(
+            AsDoublePtr(stacked_data),
+            AsDoublePtr(cas_data),
+            cas_stride,
+            0,
+            num_objects);
       });
   module.def(
-      "PinholeExtraCalib_caspar_to_stacked",
+      "ConstSimpleRadialFocalAndExtra_caspar_to_stacked",
       [](pybind11::object cas_data, pybind11::object stacked_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -360,14 +271,15 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "stacked_data has rows.");
         }
 
-        PinholeExtraCalib_caspar_to_stacked(AsDoublePtr(cas_data),
-                                            AsDoublePtr(stacked_data),
-                                            cas_stride,
-                                            0,
-                                            num_objects);
+        ConstSimpleRadialFocalAndExtra_caspar_to_stacked(
+            AsDoublePtr(cas_data),
+            AsDoublePtr(stacked_data),
+            cas_stride,
+            0,
+            num_objects);
       });
   module.def(
-      "PinholeFocal_stacked_to_caspar",
+      "ConstSimpleRadialPrincipalPoint_stacked_to_caspar",
       [](pybind11::object stacked_data, pybind11::object cas_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -382,14 +294,15 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "The caspar data must have at least as many columns as "
               "stacked_data has rows.");
         }
-        PinholeFocal_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                       AsDoublePtr(cas_data),
-                                       cas_stride,
-                                       0,
-                                       num_objects);
+        ConstSimpleRadialPrincipalPoint_stacked_to_caspar(
+            AsDoublePtr(stacked_data),
+            AsDoublePtr(cas_data),
+            cas_stride,
+            0,
+            num_objects);
       });
   module.def(
-      "PinholeFocal_caspar_to_stacked",
+      "ConstSimpleRadialPrincipalPoint_caspar_to_stacked",
       [](pybind11::object cas_data, pybind11::object stacked_data) {
         if (GetNumCols(stacked_data) != 2) {
           throw std::runtime_error("The stacked data must have 2 columns.");
@@ -405,11 +318,102 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "stacked_data has rows.");
         }
 
-        PinholeFocal_caspar_to_stacked(AsDoublePtr(cas_data),
-                                       AsDoublePtr(stacked_data),
-                                       cas_stride,
-                                       0,
-                                       num_objects);
+        ConstSimpleRadialPrincipalPoint_caspar_to_stacked(
+            AsDoublePtr(cas_data),
+            AsDoublePtr(stacked_data),
+            cas_stride,
+            0,
+            num_objects);
+      });
+  module.def(
+      "PinholeFocalAndExtra_stacked_to_caspar",
+      [](pybind11::object stacked_data, pybind11::object cas_data) {
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
+        }
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
+        }
+        int num_objects = GetNumRows(stacked_data);
+        int cas_stride = GetNumCols(cas_data);
+        if (cas_stride < num_objects) {
+          throw std::runtime_error(
+              "The caspar data must have at least as many columns as "
+              "stacked_data has rows.");
+        }
+        PinholeFocalAndExtra_stacked_to_caspar(AsDoublePtr(stacked_data),
+                                               AsDoublePtr(cas_data),
+                                               cas_stride,
+                                               0,
+                                               num_objects);
+      });
+  module.def(
+      "PinholeFocalAndExtra_caspar_to_stacked",
+      [](pybind11::object cas_data, pybind11::object stacked_data) {
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
+        }
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
+        }
+        int num_objects = GetNumRows(stacked_data);
+        int cas_stride = GetNumCols(cas_data);
+        if (cas_stride < num_objects) {
+          throw std::runtime_error(
+              "The caspar data must have at least as many columns as "
+              "stacked_data has rows.");
+        }
+
+        PinholeFocalAndExtra_caspar_to_stacked(AsDoublePtr(cas_data),
+                                               AsDoublePtr(stacked_data),
+                                               cas_stride,
+                                               0,
+                                               num_objects);
+      });
+  module.def(
+      "PinholePrincipalPoint_stacked_to_caspar",
+      [](pybind11::object stacked_data, pybind11::object cas_data) {
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
+        }
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
+        }
+        int num_objects = GetNumRows(stacked_data);
+        int cas_stride = GetNumCols(cas_data);
+        if (cas_stride < num_objects) {
+          throw std::runtime_error(
+              "The caspar data must have at least as many columns as "
+              "stacked_data has rows.");
+        }
+        PinholePrincipalPoint_stacked_to_caspar(AsDoublePtr(stacked_data),
+                                                AsDoublePtr(cas_data),
+                                                cas_stride,
+                                                0,
+                                                num_objects);
+      });
+  module.def(
+      "PinholePrincipalPoint_caspar_to_stacked",
+      [](pybind11::object cas_data, pybind11::object stacked_data) {
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
+        }
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
+        }
+        int num_objects = GetNumRows(stacked_data);
+        int cas_stride = GetNumCols(cas_data);
+        if (cas_stride < num_objects) {
+          throw std::runtime_error(
+              "The caspar data must have at least as many columns as "
+              "stacked_data has rows.");
+        }
+
+        PinholePrincipalPoint_caspar_to_stacked(AsDoublePtr(cas_data),
+                                                AsDoublePtr(stacked_data),
+                                                cas_stride,
+                                                0,
+                                                num_objects);
       });
   module.def(
       "Point_stacked_to_caspar",
@@ -502,13 +506,13 @@ void add_casmappings_pybindings(pybind11::module_ module) {
                                num_objects);
       });
   module.def(
-      "SimpleRadialExtraCalib_stacked_to_caspar",
+      "SimpleRadialFocalAndExtra_stacked_to_caspar",
       [](pybind11::object stacked_data, pybind11::object cas_data) {
-        if (GetNumCols(stacked_data) != 3) {
-          throw std::runtime_error("The stacked data must have 3 columns.");
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
         }
-        if (GetNumRows(cas_data) != 4) {
-          throw std::runtime_error("The caspar data must have 4 rows.");
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
         }
         int num_objects = GetNumRows(stacked_data);
         int cas_stride = GetNumCols(cas_data);
@@ -517,20 +521,20 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "The caspar data must have at least as many columns as "
               "stacked_data has rows.");
         }
-        SimpleRadialExtraCalib_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                                 AsDoublePtr(cas_data),
-                                                 cas_stride,
-                                                 0,
-                                                 num_objects);
+        SimpleRadialFocalAndExtra_stacked_to_caspar(AsDoublePtr(stacked_data),
+                                                    AsDoublePtr(cas_data),
+                                                    cas_stride,
+                                                    0,
+                                                    num_objects);
       });
   module.def(
-      "SimpleRadialExtraCalib_caspar_to_stacked",
+      "SimpleRadialFocalAndExtra_caspar_to_stacked",
       [](pybind11::object cas_data, pybind11::object stacked_data) {
-        if (GetNumCols(stacked_data) != 3) {
-          throw std::runtime_error("The stacked data must have 3 columns.");
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
         }
-        if (GetNumRows(cas_data) != 4) {
-          throw std::runtime_error("The caspar data must have 4 rows.");
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
         }
         int num_objects = GetNumRows(stacked_data);
         int cas_stride = GetNumCols(cas_data);
@@ -540,20 +544,20 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "stacked_data has rows.");
         }
 
-        SimpleRadialExtraCalib_caspar_to_stacked(AsDoublePtr(cas_data),
-                                                 AsDoublePtr(stacked_data),
-                                                 cas_stride,
-                                                 0,
-                                                 num_objects);
+        SimpleRadialFocalAndExtra_caspar_to_stacked(AsDoublePtr(cas_data),
+                                                    AsDoublePtr(stacked_data),
+                                                    cas_stride,
+                                                    0,
+                                                    num_objects);
       });
   module.def(
-      "SimpleRadialFocal_stacked_to_caspar",
+      "SimpleRadialPrincipalPoint_stacked_to_caspar",
       [](pybind11::object stacked_data, pybind11::object cas_data) {
-        if (GetNumCols(stacked_data) != 1) {
-          throw std::runtime_error("The stacked data must have 1 columns.");
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
         }
-        if (GetNumRows(cas_data) != 1) {
-          throw std::runtime_error("The caspar data must have 1 rows.");
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
         }
         int num_objects = GetNumRows(stacked_data);
         int cas_stride = GetNumCols(cas_data);
@@ -562,20 +566,20 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "The caspar data must have at least as many columns as "
               "stacked_data has rows.");
         }
-        SimpleRadialFocal_stacked_to_caspar(AsDoublePtr(stacked_data),
-                                            AsDoublePtr(cas_data),
-                                            cas_stride,
-                                            0,
-                                            num_objects);
+        SimpleRadialPrincipalPoint_stacked_to_caspar(AsDoublePtr(stacked_data),
+                                                     AsDoublePtr(cas_data),
+                                                     cas_stride,
+                                                     0,
+                                                     num_objects);
       });
   module.def(
-      "SimpleRadialFocal_caspar_to_stacked",
+      "SimpleRadialPrincipalPoint_caspar_to_stacked",
       [](pybind11::object cas_data, pybind11::object stacked_data) {
-        if (GetNumCols(stacked_data) != 1) {
-          throw std::runtime_error("The stacked data must have 1 columns.");
+        if (GetNumCols(stacked_data) != 2) {
+          throw std::runtime_error("The stacked data must have 2 columns.");
         }
-        if (GetNumRows(cas_data) != 1) {
-          throw std::runtime_error("The caspar data must have 1 rows.");
+        if (GetNumRows(cas_data) != 2) {
+          throw std::runtime_error("The caspar data must have 2 rows.");
         }
         int num_objects = GetNumRows(stacked_data);
         int cas_stride = GetNumCols(cas_data);
@@ -585,11 +589,11 @@ void add_casmappings_pybindings(pybind11::module_ module) {
               "stacked_data has rows.");
         }
 
-        SimpleRadialFocal_caspar_to_stacked(AsDoublePtr(cas_data),
-                                            AsDoublePtr(stacked_data),
-                                            cas_stride,
-                                            0,
-                                            num_objects);
+        SimpleRadialPrincipalPoint_caspar_to_stacked(AsDoublePtr(cas_data),
+                                                     AsDoublePtr(stacked_data),
+                                                     cas_stride,
+                                                     0,
+                                                     num_objects);
       });
 }
 

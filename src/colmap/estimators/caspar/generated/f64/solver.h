@@ -42,109 +42,127 @@ class GraphSolver {
    * Base constructor.
    *
    * @param params: The params to use for the solver
-   * @param PinholeExtraCalib_num_max the maximum number of PinholeExtraCalibs
-   * @param PinholeFocal_num_max the maximum number of PinholeFocals
+   * @param PinholeFocalAndExtra_num_max the maximum number of
+   * PinholeFocalAndExtras
+   * @param PinholePrincipalPoint_num_max the maximum number of
+   * PinholePrincipalPoints
    * @param Point_num_max the maximum number of Points
    * @param Pose_num_max the maximum number of Poses
-   * @param SimpleRadialExtraCalib_num_max the maximum number of
-   * SimpleRadialExtraCalibs
-   * @param SimpleRadialFocal_num_max the maximum number of SimpleRadialFocals
+   * @param SimpleRadialFocalAndExtra_num_max the maximum number of
+   * SimpleRadialFocalAndExtras
+   * @param SimpleRadialPrincipalPoint_num_max the maximum number of
+   * SimpleRadialPrincipalPoints
    * @param simple_radial_num_max the maximum number of simple_radials
    * @param simple_radial_fixed_pose_num_max the maximum number of
    * simple_radial_fixed_poses
-   * @param simple_radial_fixed_focal_num_max the maximum number of
-   * simple_radial_fixed_focals
-   * @param simple_radial_fixed_extra_calib_num_max the maximum number of
-   * simple_radial_fixed_extra_calibs
+   * @param simple_radial_fixed_focal_and_extra_num_max the maximum number of
+   * simple_radial_fixed_focal_and_extras
+   * @param simple_radial_fixed_principal_point_num_max the maximum number of
+   * simple_radial_fixed_principal_points
    * @param simple_radial_fixed_point_num_max the maximum number of
    * simple_radial_fixed_points
-   * @param simple_radial_fixed_pose_fixed_focal_num_max the maximum number of
-   * simple_radial_fixed_pose_fixed_focals
-   * @param simple_radial_fixed_pose_fixed_extra_calib_num_max the maximum
-   * number of simple_radial_fixed_pose_fixed_extra_calibs
+   * @param simple_radial_fixed_pose_fixed_focal_and_extra_num_max the maximum
+   * number of simple_radial_fixed_pose_fixed_focal_and_extras
+   * @param simple_radial_fixed_pose_fixed_principal_point_num_max the maximum
+   * number of simple_radial_fixed_pose_fixed_principal_points
    * @param simple_radial_fixed_pose_fixed_point_num_max the maximum number of
    * simple_radial_fixed_pose_fixed_points
-   * @param simple_radial_fixed_focal_fixed_extra_calib_num_max the maximum
-   * number of simple_radial_fixed_focal_fixed_extra_calibs
-   * @param simple_radial_fixed_focal_fixed_point_num_max the maximum number of
-   * simple_radial_fixed_focal_fixed_points
-   * @param simple_radial_fixed_extra_calib_fixed_point_num_max the maximum
-   * number of simple_radial_fixed_extra_calib_fixed_points
-   * @param simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_num_max the
-   * maximum number of simple_radial_fixed_pose_fixed_focal_fixed_extra_calibs
-   * @param simple_radial_fixed_pose_fixed_focal_fixed_point_num_max the maximum
-   * number of simple_radial_fixed_pose_fixed_focal_fixed_points
-   * @param simple_radial_fixed_pose_fixed_extra_calib_fixed_point_num_max the
-   * maximum number of simple_radial_fixed_pose_fixed_extra_calib_fixed_points
-   * @param simple_radial_fixed_focal_fixed_extra_calib_fixed_point_num_max the
-   * maximum number of simple_radial_fixed_focal_fixed_extra_calib_fixed_points
+   * @param simple_radial_fixed_focal_and_extra_fixed_principal_point_num_max
+   * the maximum number of
+   * simple_radial_fixed_focal_and_extra_fixed_principal_points
+   * @param simple_radial_fixed_focal_and_extra_fixed_point_num_max the maximum
+   * number of simple_radial_fixed_focal_and_extra_fixed_points
+   * @param simple_radial_fixed_principal_point_fixed_point_num_max the maximum
+   * number of simple_radial_fixed_principal_point_fixed_points
+   * @param
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max
+   * the maximum number of
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_points
+   * @param simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_num_max
+   * the maximum number of
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_points
+   * @param simple_radial_fixed_pose_fixed_principal_point_fixed_point_num_max
+   * the maximum number of
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_points
+   * @param
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max
+   * the maximum number of
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_points
    * @param pinhole_num_max the maximum number of pinholes
    * @param pinhole_fixed_pose_num_max the maximum number of pinhole_fixed_poses
-   * @param pinhole_fixed_focal_num_max the maximum number of
-   * pinhole_fixed_focals
-   * @param pinhole_fixed_extra_calib_num_max the maximum number of
-   * pinhole_fixed_extra_calibs
+   * @param pinhole_fixed_focal_and_extra_num_max the maximum number of
+   * pinhole_fixed_focal_and_extras
+   * @param pinhole_fixed_principal_point_num_max the maximum number of
+   * pinhole_fixed_principal_points
    * @param pinhole_fixed_point_num_max the maximum number of
    * pinhole_fixed_points
-   * @param pinhole_fixed_pose_fixed_focal_num_max the maximum number of
-   * pinhole_fixed_pose_fixed_focals
-   * @param pinhole_fixed_pose_fixed_extra_calib_num_max the maximum number of
-   * pinhole_fixed_pose_fixed_extra_calibs
+   * @param pinhole_fixed_pose_fixed_focal_and_extra_num_max the maximum number
+   * of pinhole_fixed_pose_fixed_focal_and_extras
+   * @param pinhole_fixed_pose_fixed_principal_point_num_max the maximum number
+   * of pinhole_fixed_pose_fixed_principal_points
    * @param pinhole_fixed_pose_fixed_point_num_max the maximum number of
    * pinhole_fixed_pose_fixed_points
-   * @param pinhole_fixed_focal_fixed_extra_calib_num_max the maximum number of
-   * pinhole_fixed_focal_fixed_extra_calibs
-   * @param pinhole_fixed_focal_fixed_point_num_max the maximum number of
-   * pinhole_fixed_focal_fixed_points
-   * @param pinhole_fixed_extra_calib_fixed_point_num_max the maximum number of
-   * pinhole_fixed_extra_calib_fixed_points
-   * @param pinhole_fixed_pose_fixed_focal_fixed_extra_calib_num_max the maximum
-   * number of pinhole_fixed_pose_fixed_focal_fixed_extra_calibs
-   * @param pinhole_fixed_pose_fixed_focal_fixed_point_num_max the maximum
-   * number of pinhole_fixed_pose_fixed_focal_fixed_points
-   * @param pinhole_fixed_pose_fixed_extra_calib_fixed_point_num_max the maximum
-   * number of pinhole_fixed_pose_fixed_extra_calib_fixed_points
-   * @param pinhole_fixed_focal_fixed_extra_calib_fixed_point_num_max the
-   * maximum number of pinhole_fixed_focal_fixed_extra_calib_fixed_points
+   * @param pinhole_fixed_focal_and_extra_fixed_principal_point_num_max the
+   * maximum number of pinhole_fixed_focal_and_extra_fixed_principal_points
+   * @param pinhole_fixed_focal_and_extra_fixed_point_num_max the maximum number
+   * of pinhole_fixed_focal_and_extra_fixed_points
+   * @param pinhole_fixed_principal_point_fixed_point_num_max the maximum number
+   * of pinhole_fixed_principal_point_fixed_points
+   * @param
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max the
+   * maximum number of
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_points
+   * @param pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_num_max the
+   * maximum number of pinhole_fixed_pose_fixed_focal_and_extra_fixed_points
+   * @param pinhole_fixed_pose_fixed_principal_point_fixed_point_num_max the
+   * maximum number of pinhole_fixed_pose_fixed_principal_point_fixed_points
+   * @param
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max the
+   * maximum number of
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_points
    */
   GraphSolver(
       const SolverParams<double>& params,
-      size_t PinholeExtraCalib_num_max,
-      size_t PinholeFocal_num_max,
+      size_t PinholeFocalAndExtra_num_max,
+      size_t PinholePrincipalPoint_num_max,
       size_t Point_num_max,
       size_t Pose_num_max,
-      size_t SimpleRadialExtraCalib_num_max,
-      size_t SimpleRadialFocal_num_max,
+      size_t SimpleRadialFocalAndExtra_num_max,
+      size_t SimpleRadialPrincipalPoint_num_max,
       size_t simple_radial_num_max,
       size_t simple_radial_fixed_pose_num_max,
-      size_t simple_radial_fixed_focal_num_max,
-      size_t simple_radial_fixed_extra_calib_num_max,
+      size_t simple_radial_fixed_focal_and_extra_num_max,
+      size_t simple_radial_fixed_principal_point_num_max,
       size_t simple_radial_fixed_point_num_max,
-      size_t simple_radial_fixed_pose_fixed_focal_num_max,
-      size_t simple_radial_fixed_pose_fixed_extra_calib_num_max,
+      size_t simple_radial_fixed_pose_fixed_focal_and_extra_num_max,
+      size_t simple_radial_fixed_pose_fixed_principal_point_num_max,
       size_t simple_radial_fixed_pose_fixed_point_num_max,
-      size_t simple_radial_fixed_focal_fixed_extra_calib_num_max,
-      size_t simple_radial_fixed_focal_fixed_point_num_max,
-      size_t simple_radial_fixed_extra_calib_fixed_point_num_max,
-      size_t simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_num_max,
-      size_t simple_radial_fixed_pose_fixed_focal_fixed_point_num_max,
-      size_t simple_radial_fixed_pose_fixed_extra_calib_fixed_point_num_max,
-      size_t simple_radial_fixed_focal_fixed_extra_calib_fixed_point_num_max,
+      size_t simple_radial_fixed_focal_and_extra_fixed_principal_point_num_max,
+      size_t simple_radial_fixed_focal_and_extra_fixed_point_num_max,
+      size_t simple_radial_fixed_principal_point_fixed_point_num_max,
+      size_t
+          simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max,
+      size_t simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_num_max,
+      size_t simple_radial_fixed_pose_fixed_principal_point_fixed_point_num_max,
+      size_t
+          simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max,
       size_t pinhole_num_max,
       size_t pinhole_fixed_pose_num_max,
-      size_t pinhole_fixed_focal_num_max,
-      size_t pinhole_fixed_extra_calib_num_max,
+      size_t pinhole_fixed_focal_and_extra_num_max,
+      size_t pinhole_fixed_principal_point_num_max,
       size_t pinhole_fixed_point_num_max,
-      size_t pinhole_fixed_pose_fixed_focal_num_max,
-      size_t pinhole_fixed_pose_fixed_extra_calib_num_max,
+      size_t pinhole_fixed_pose_fixed_focal_and_extra_num_max,
+      size_t pinhole_fixed_pose_fixed_principal_point_num_max,
       size_t pinhole_fixed_pose_fixed_point_num_max,
-      size_t pinhole_fixed_focal_fixed_extra_calib_num_max,
-      size_t pinhole_fixed_focal_fixed_point_num_max,
-      size_t pinhole_fixed_extra_calib_fixed_point_num_max,
-      size_t pinhole_fixed_pose_fixed_focal_fixed_extra_calib_num_max,
-      size_t pinhole_fixed_pose_fixed_focal_fixed_point_num_max,
-      size_t pinhole_fixed_pose_fixed_extra_calib_fixed_point_num_max,
-      size_t pinhole_fixed_focal_fixed_extra_calib_fixed_point_num_max);
+      size_t pinhole_fixed_focal_and_extra_fixed_principal_point_num_max,
+      size_t pinhole_fixed_focal_and_extra_fixed_point_num_max,
+      size_t pinhole_fixed_principal_point_fixed_point_num_max,
+      size_t
+          pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max,
+      size_t pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_num_max,
+      size_t pinhole_fixed_pose_fixed_principal_point_fixed_point_num_max,
+      size_t
+          pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max);
 
   // This class is managing cuda memory and cannot be copied.
   GraphSolver(const GraphSolver&) = delete;
@@ -179,102 +197,98 @@ class GraphSolver {
   size_t get_allocation_size();
 
   /**
-   * Set the current value for the PinholeExtraCalib nodes from the stacked host
-   * data.
+   * Set the current value for the PinholeFocalAndExtra nodes from the stacked
+   * host data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholeExtraCalib_nodes_from_stacked_host(const double* const data,
-                                                     size_t offset,
-                                                     size_t num);
+  void set_PinholeFocalAndExtra_nodes_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current value for the PinholeExtraCalib nodes from the stacked
+   * Set the current value for the PinholeFocalAndExtra nodes from the stacked
    * device data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholeExtraCalib_nodes_from_stacked_device(const double* const data,
-                                                       size_t offset,
-                                                       size_t num);
+  void set_PinholeFocalAndExtra_nodes_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
 
   /**
-   * Read the current value for the PinholeExtraCalib nodes into the stacked
+   * Read the current value for the PinholeFocalAndExtra nodes into the stacked
    * output host data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholeExtraCalib_nodes_to_stacked_host(double* const data,
-                                                   size_t offset,
-                                                   size_t num);
+  void get_PinholeFocalAndExtra_nodes_to_stacked_host(double* const data,
+                                                      size_t offset,
+                                                      size_t num);
 
   /**
-   * Read the current value for the PinholeExtraCalib nodes into the stacked
+   * Read the current value for the PinholeFocalAndExtra nodes into the stacked
    * output device data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholeExtraCalib_nodes_to_stacked_device(double* const data,
-                                                     size_t offset,
-                                                     size_t num);
+  void get_PinholeFocalAndExtra_nodes_to_stacked_device(double* const data,
+                                                        size_t offset,
+                                                        size_t num);
 
   /**
-   * Set the current number of active nodes of type PinholeExtraCalib.
+   * Set the current number of active nodes of type PinholeFocalAndExtra.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_PinholeExtraCalib_num(size_t num);
+  void set_PinholeFocalAndExtra_num(size_t num);
 
   /**
-   * Set the current value for the PinholeFocal nodes from the stacked host
-   * data.
-   *
-   * The offset can be used to start writing at a specific index.
-   */
-  void set_PinholeFocal_nodes_from_stacked_host(const double* const data,
-                                                size_t offset,
-                                                size_t num);
-
-  /**
-   * Set the current value for the PinholeFocal nodes from the stacked device
-   * data.
-   *
-   * The offset can be used to start writing at a specific index.
-   */
-  void set_PinholeFocal_nodes_from_stacked_device(const double* const data,
-                                                  size_t offset,
-                                                  size_t num);
-
-  /**
-   * Read the current value for the PinholeFocal nodes into the stacked output
+   * Set the current value for the PinholePrincipalPoint nodes from the stacked
    * host data.
    *
-   * The offset can be used to start reading from a specific index.
+   * The offset can be used to start writing at a specific index.
    */
-  void get_PinholeFocal_nodes_to_stacked_host(double* const data,
-                                              size_t offset,
-                                              size_t num);
+  void set_PinholePrincipalPoint_nodes_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
 
   /**
-   * Read the current value for the PinholeFocal nodes into the stacked output
+   * Set the current value for the PinholePrincipalPoint nodes from the stacked
    * device data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void set_PinholePrincipalPoint_nodes_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Read the current value for the PinholePrincipalPoint nodes into the stacked
+   * output host data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholeFocal_nodes_to_stacked_device(double* const data,
-                                                size_t offset,
-                                                size_t num);
+  void get_PinholePrincipalPoint_nodes_to_stacked_host(double* const data,
+                                                       size_t offset,
+                                                       size_t num);
 
   /**
-   * Set the current number of active nodes of type PinholeFocal.
+   * Read the current value for the PinholePrincipalPoint nodes into the stacked
+   * output device data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void get_PinholePrincipalPoint_nodes_to_stacked_device(double* const data,
+                                                         size_t offset,
+                                                         size_t num);
+
+  /**
+   * Set the current number of active nodes of type PinholePrincipalPoint.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_PinholeFocal_num(size_t num);
+  void set_PinholePrincipalPoint_num(size_t num);
 
   /**
    * Set the current value for the Point nodes from the stacked host data.
@@ -371,100 +385,97 @@ class GraphSolver {
   void set_Pose_num(size_t num);
 
   /**
-   * Set the current value for the SimpleRadialExtraCalib nodes from the stacked
-   * host data.
+   * Set the current value for the SimpleRadialFocalAndExtra nodes from the
+   * stacked host data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialExtraCalib_nodes_from_stacked_host(
+  void set_SimpleRadialFocalAndExtra_nodes_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current value for the SimpleRadialExtraCalib nodes from the stacked
-   * device data.
+   * Set the current value for the SimpleRadialFocalAndExtra nodes from the
+   * stacked device data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialExtraCalib_nodes_from_stacked_device(
+  void set_SimpleRadialFocalAndExtra_nodes_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Read the current value for the SimpleRadialExtraCalib nodes into the
+   * Read the current value for the SimpleRadialFocalAndExtra nodes into the
    * stacked output host data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialExtraCalib_nodes_to_stacked_host(double* const data,
-                                                        size_t offset,
-                                                        size_t num);
+  void get_SimpleRadialFocalAndExtra_nodes_to_stacked_host(double* const data,
+                                                           size_t offset,
+                                                           size_t num);
 
   /**
-   * Read the current value for the SimpleRadialExtraCalib nodes into the
+   * Read the current value for the SimpleRadialFocalAndExtra nodes into the
    * stacked output device data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialExtraCalib_nodes_to_stacked_device(double* const data,
-                                                          size_t offset,
-                                                          size_t num);
+  void get_SimpleRadialFocalAndExtra_nodes_to_stacked_device(double* const data,
+                                                             size_t offset,
+                                                             size_t num);
 
   /**
-   * Set the current number of active nodes of type SimpleRadialExtraCalib.
+   * Set the current number of active nodes of type SimpleRadialFocalAndExtra.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_SimpleRadialExtraCalib_num(size_t num);
+  void set_SimpleRadialFocalAndExtra_num(size_t num);
 
   /**
-   * Set the current value for the SimpleRadialFocal nodes from the stacked host
-   * data.
+   * Set the current value for the SimpleRadialPrincipalPoint nodes from the
+   * stacked host data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialFocal_nodes_from_stacked_host(const double* const data,
-                                                     size_t offset,
-                                                     size_t num);
+  void set_SimpleRadialPrincipalPoint_nodes_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current value for the SimpleRadialFocal nodes from the stacked
-   * device data.
+   * Set the current value for the SimpleRadialPrincipalPoint nodes from the
+   * stacked device data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialFocal_nodes_from_stacked_device(const double* const data,
-                                                       size_t offset,
-                                                       size_t num);
+  void set_SimpleRadialPrincipalPoint_nodes_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
 
   /**
-   * Read the current value for the SimpleRadialFocal nodes into the stacked
-   * output host data.
+   * Read the current value for the SimpleRadialPrincipalPoint nodes into the
+   * stacked output host data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialFocal_nodes_to_stacked_host(double* const data,
-                                                   size_t offset,
-                                                   size_t num);
+  void get_SimpleRadialPrincipalPoint_nodes_to_stacked_host(double* const data,
+                                                            size_t offset,
+                                                            size_t num);
 
   /**
-   * Read the current value for the SimpleRadialFocal nodes into the stacked
-   * output device data.
+   * Read the current value for the SimpleRadialPrincipalPoint nodes into the
+   * stacked output device data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialFocal_nodes_to_stacked_device(double* const data,
-                                                     size_t offset,
-                                                     size_t num);
+  void get_SimpleRadialPrincipalPoint_nodes_to_stacked_device(
+      double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of active nodes of type SimpleRadialFocal.
+   * Set the current number of active nodes of type SimpleRadialPrincipalPoint.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_SimpleRadialFocal_num(size_t num);
+  void set_SimpleRadialPrincipalPoint_num(size_t num);
 
   /**
    * Set the indices for the pose argument for the simple_radial factor from
@@ -481,31 +492,31 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the simple_radial factor from
-   * host.
+   * Set the indices for the focal_and_extra argument for the simple_radial
+   * factor from host.
    */
-  void set_simple_radial_focal_indices_from_host(
+  void set_simple_radial_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the simple_radial factor from
-   * device.
+   * Set the indices for the focal_and_extra argument for the simple_radial
+   * factor from device.
    */
-  void set_simple_radial_focal_indices_from_device(
+  void set_simple_radial_focal_and_extra_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the simple_radial factor
-   * from host.
+   * Set the indices for the principal_point argument for the simple_radial
+   * factor from host.
    */
-  void set_simple_radial_extra_calib_indices_from_host(
+  void set_simple_radial_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the simple_radial factor
-   * from device.
+   * Set the indices for the principal_point argument for the simple_radial
+   * factor from device.
    */
-  void set_simple_radial_extra_calib_indices_from_device(
+  void set_simple_radial_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -551,31 +562,31 @@ class GraphSolver {
   void set_simple_radial_num(size_t num);
 
   /**
-   * Set the indices for the focal argument for the simple_radial_fixed_pose
-   * factor from host.
-   */
-  void set_simple_radial_fixed_pose_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the simple_radial_fixed_pose
-   * factor from device.
-   */
-  void set_simple_radial_fixed_pose_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the focal_and_extra argument for the
    * simple_radial_fixed_pose factor from host.
    */
-  void set_simple_radial_fixed_pose_extra_calib_indices_from_host(
+  void set_simple_radial_fixed_pose_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the focal_and_extra argument for the
    * simple_radial_fixed_pose factor from device.
    */
-  void set_simple_radial_fixed_pose_extra_calib_indices_from_device(
+  void set_simple_radial_fixed_pose_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_pose factor from host.
+   */
+  void set_simple_radial_fixed_pose_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_pose factor from device.
+   */
+  void set_simple_radial_fixed_pose_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -638,178 +649,186 @@ class GraphSolver {
   void set_simple_radial_fixed_pose_num(size_t num);
 
   /**
-   * Set the indices for the pose argument for the simple_radial_fixed_focal
-   * factor from host.
-   */
-  void set_simple_radial_fixed_focal_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the simple_radial_fixed_focal
-   * factor from device.
-   */
-  void set_simple_radial_fixed_focal_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_focal factor from host.
-   */
-  void set_simple_radial_fixed_focal_extra_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_focal factor from device.
-   */
-  void set_simple_radial_fixed_focal_extra_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the simple_radial_fixed_focal
-   * factor from host.
-   */
-  void set_simple_radial_fixed_focal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the simple_radial_fixed_focal
-   * factor from device.
-   */
-  void set_simple_radial_fixed_focal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_focal factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_focal factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts simple_radial_fixed_focal factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts simple_radial_fixed_focal factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_focal factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_focal_num(size_t num);
-
-  /**
    * Set the indices for the pose argument for the
-   * simple_radial_fixed_extra_calib factor from host.
+   * simple_radial_fixed_focal_and_extra factor from host.
    */
-  void set_simple_radial_fixed_extra_calib_pose_indices_from_host(
+  void set_simple_radial_fixed_focal_and_extra_pose_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * simple_radial_fixed_extra_calib factor from device.
+   * simple_radial_fixed_focal_and_extra factor from device.
    */
-  void set_simple_radial_fixed_extra_calib_pose_indices_from_device(
+  void set_simple_radial_fixed_focal_and_extra_pose_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_extra_calib factor from host.
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_focal_and_extra factor from host.
    */
-  void set_simple_radial_fixed_extra_calib_focal_indices_from_host(
+  void
+  set_simple_radial_fixed_focal_and_extra_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_extra_calib factor from device.
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_focal_and_extra factor from device.
    */
-  void set_simple_radial_fixed_extra_calib_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_extra_calib factor from host.
-   */
-  void set_simple_radial_fixed_extra_calib_point_indices_from_host(
+  void
+  set_simple_radial_fixed_focal_and_extra_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * simple_radial_fixed_extra_calib factor from device.
+   * simple_radial_fixed_focal_and_extra factor from host.
    */
-  void set_simple_radial_fixed_extra_calib_point_indices_from_device(
+  void set_simple_radial_fixed_focal_and_extra_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial_fixed_extra_calib factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
+   * Set the indices for the point argument for the
+   * simple_radial_fixed_focal_and_extra factor from device.
    */
-  void set_simple_radial_fixed_extra_calib_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
+  void set_simple_radial_fixed_focal_and_extra_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial_fixed_extra_calib factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_extra_calib_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts simple_radial_fixed_extra_calib
+   * Set the values for the pixel consts simple_radial_fixed_focal_and_extra
    * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_fixed_extra_calib_extra_calib_data_from_stacked_host(
+  void set_simple_radial_fixed_focal_and_extra_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts simple_radial_fixed_extra_calib
+   * Set the values for the pixel consts simple_radial_fixed_focal_and_extra
    * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_fixed_extra_calib_extra_calib_data_from_stacked_device(
+  void set_simple_radial_fixed_focal_and_extra_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of simple_radial_fixed_extra_calib factors.
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_fixed_focal_and_extra factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_simple_radial_fixed_extra_calib_num(size_t num);
+  void set_simple_radial_fixed_focal_and_extra_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_fixed_principal_point factor from host.
+   */
+  void set_simple_radial_fixed_principal_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_fixed_principal_point factor from device.
+   */
+  void set_simple_radial_fixed_principal_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_principal_point factor from host.
+   */
+  void
+  set_simple_radial_fixed_principal_point_focal_and_extra_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_principal_point factor from device.
+   */
+  void
+  set_simple_radial_fixed_principal_point_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * simple_radial_fixed_principal_point factor from host.
+   */
+  void set_simple_radial_fixed_principal_point_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * simple_radial_fixed_principal_point factor from device.
+   */
+  void set_simple_radial_fixed_principal_point_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts simple_radial_fixed_principal_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_fixed_principal_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts simple_radial_fixed_principal_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_fixed_principal_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_principal_point factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_principal_point factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_fixed_principal_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_fixed_principal_point_num(size_t num);
 
   /**
    * Set the indices for the pose argument for the simple_radial_fixed_point
@@ -826,31 +845,31 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the simple_radial_fixed_point
-   * factor from host.
-   */
-  void set_simple_radial_fixed_point_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the simple_radial_fixed_point
-   * factor from device.
-   */
-  void set_simple_radial_fixed_point_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the focal_and_extra argument for the
    * simple_radial_fixed_point factor from host.
    */
-  void set_simple_radial_fixed_point_extra_calib_indices_from_host(
+  void set_simple_radial_fixed_point_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the focal_and_extra argument for the
    * simple_radial_fixed_point factor from device.
    */
-  void set_simple_radial_fixed_point_extra_calib_indices_from_device(
+  void set_simple_radial_fixed_point_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_point factor from host.
+   */
+  void set_simple_radial_fixed_point_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_point factor from device.
+   */
+  void set_simple_radial_fixed_point_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -899,220 +918,251 @@ class GraphSolver {
   void set_simple_radial_fixed_point_num(size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_pose_fixed_focal factor from host.
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from host.
    */
-  void set_simple_radial_fixed_pose_fixed_focal_extra_calib_indices_from_host(
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_pose_fixed_focal factor from device.
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from device.
    */
-  void set_simple_radial_fixed_pose_fixed_focal_extra_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal factor from host.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_point_indices_from_host(
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal factor from device.
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from host.
    */
-  void set_simple_radial_fixed_pose_fixed_focal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_pose_fixed_focal
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts simple_radial_fixed_pose_fixed_focal
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts simple_radial_fixed_pose_fixed_focal
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts simple_radial_fixed_pose_fixed_focal
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts simple_radial_fixed_pose_fixed_focal
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_pose_fixed_focal factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_num(size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_pose_fixed_extra_calib factor from host.
-   */
-  void set_simple_radial_fixed_pose_fixed_extra_calib_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_pose_fixed_extra_calib factor from device.
-   */
-  void set_simple_radial_fixed_pose_fixed_extra_calib_focal_indices_from_device(
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_extra_calib factor from host.
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from device.
    */
-  void set_simple_radial_fixed_pose_fixed_extra_calib_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_extra_calib factor from device.
-   */
-  void set_simple_radial_fixed_pose_fixed_extra_calib_point_indices_from_device(
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_extra_calib factor from stacked host data.
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_host(
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_extra_calib factor from stacked device data.
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_device(
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_extra_calib factor from stacked host data.
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_pose_fixed_extra_calib_pose_data_from_stacked_host(
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_extra_calib factor from stacked device data.
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_pose_fixed_extra_calib_pose_data_from_stacked_device(
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_pose_fixed_extra_calib factor from stacked host data.
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_host(
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_pose_fixed_extra_calib factor from stacked device data.
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_device(
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of simple_radial_fixed_pose_fixed_extra_calib
+   * Set the current number of simple_radial_fixed_pose_fixed_focal_and_extra
    * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_simple_radial_fixed_pose_fixed_extra_calib_num(size_t num);
+  void set_simple_radial_fixed_pose_fixed_focal_and_extra_num(size_t num);
 
   /**
-   * Set the indices for the focal argument for the
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_pose_fixed_principal_point factor from host.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_pose_fixed_principal_point factor from device.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * simple_radial_fixed_pose_fixed_principal_point factor from host.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * simple_radial_fixed_pose_fixed_principal_point factor from device.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_principal_point factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_principal_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_principal_point factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_principal_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_pose_fixed_principal_point factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_pose_fixed_principal_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_fixed_pose_fixed_principal_point
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_fixed_pose_fixed_principal_point_num(size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
    * simple_radial_fixed_pose_fixed_point factor from host.
    */
-  void set_simple_radial_fixed_pose_fixed_point_focal_indices_from_host(
+  void
+  set_simple_radial_fixed_pose_fixed_point_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the
+   * Set the indices for the focal_and_extra argument for the
    * simple_radial_fixed_pose_fixed_point factor from device.
    */
-  void set_simple_radial_fixed_pose_fixed_point_focal_indices_from_device(
+  void
+  set_simple_radial_fixed_pose_fixed_point_focal_and_extra_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the principal_point argument for the
    * simple_radial_fixed_pose_fixed_point factor from host.
    */
-  void set_simple_radial_fixed_pose_fixed_point_extra_calib_indices_from_host(
+  void
+  set_simple_radial_fixed_pose_fixed_point_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the principal_point argument for the
    * simple_radial_fixed_pose_fixed_point factor from device.
    */
-  void set_simple_radial_fixed_pose_fixed_point_extra_calib_indices_from_device(
+  void
+  set_simple_radial_fixed_pose_fixed_point_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -1180,757 +1230,801 @@ class GraphSolver {
 
   /**
    * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_fixed_extra_calib factor from host.
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from host.
    */
-  void set_simple_radial_fixed_focal_fixed_extra_calib_pose_indices_from_host(
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_fixed_extra_calib factor from device.
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * device.
    */
-  void set_simple_radial_fixed_focal_fixed_extra_calib_pose_indices_from_device(
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * simple_radial_fixed_focal_fixed_extra_calib factor from host.
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from host.
    */
-  void set_simple_radial_fixed_focal_fixed_extra_calib_point_indices_from_host(
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * simple_radial_fixed_focal_fixed_extra_calib factor from device.
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * device.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_point_indices_from_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * simple_radial_fixed_focal_fixed_extra_calib factor from stacked host data.
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * simple_radial_fixed_focal_fixed_extra_calib factor from stacked device
-   * data.
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_focal_fixed_extra_calib factor from stacked host data.
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_focal_fixed_extra_calib factor from stacked device
-   * data.
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_focal_fixed_extra_calib factor from stacked host data.
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_focal_fixed_extra_calib factor from stacked device
-   * data.
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_focal_fixed_extra_calib
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_focal_fixed_extra_calib_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_fixed_point factor from host.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_fixed_point factor from device.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_focal_fixed_point factor from host.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_extra_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_focal_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_focal_fixed_point_extra_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_focal_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_focal_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts simple_radial_fixed_focal_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts simple_radial_fixed_focal_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_fixed_focal_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_fixed_focal_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_focal_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_focal_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_extra_calib_fixed_point factor from host.
-   */
-  void set_simple_radial_fixed_extra_calib_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_extra_calib_fixed_point factor from device.
-   */
-  void set_simple_radial_fixed_extra_calib_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_extra_calib_fixed_point factor from host.
-   */
-  void set_simple_radial_fixed_extra_calib_fixed_point_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_extra_calib_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_extra_calib_fixed_point_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_extra_calib_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_extra_calib_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_extra_calib_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_extra_calib_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_extra_calib_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_extra_calib_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_extra_calib_fixed_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_extra_calib_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the current number of
-   * simple_radial_fixed_pose_fixed_focal_fixed_extra_calib factors.
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_num(
-      size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_focal_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_pose_fixed_focal_fixed_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of
-   * simple_radial_fixed_pose_fixed_extra_calib_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_pose_fixed_extra_calib_fixed_point_num(
+  void set_simple_radial_fixed_focal_and_extra_fixed_principal_point_num(
       size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from host.
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from host.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_host(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_pose_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from device.
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from device.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from host.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from device.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_host(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * host data.
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
+   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+  set_simple_radial_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of
-   * simple_radial_fixed_focal_fixed_extra_calib_fixed_point factors.
+   * Set the current number of simple_radial_fixed_focal_and_extra_fixed_point
+   * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_simple_radial_fixed_focal_fixed_extra_calib_fixed_point_num(
+  void set_simple_radial_fixed_focal_and_extra_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_fixed_principal_point_fixed_point factor from host.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_fixed_principal_point_fixed_point factor from device.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_principal_point_fixed_point factor from host.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_principal_point_fixed_point factor from device.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_principal_point_fixed_point factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_principal_point_fixed_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_principal_point_fixed_point factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_principal_point_fixed_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_principal_point_fixed_point factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_principal_point_fixed_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_fixed_principal_point_fixed_point
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_fixed_principal_point_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from host.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from device.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num(
+      size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * host.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * device.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_num(
+      size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * host.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * device.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_num(
+      size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from host.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from device.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void
+  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num(
       size_t num);
 
   /**
@@ -1946,29 +2040,31 @@ class GraphSolver {
                                             size_t num);
 
   /**
-   * Set the indices for the focal argument for the pinhole factor from host.
+   * Set the indices for the focal_and_extra argument for the pinhole factor
+   * from host.
    */
-  void set_pinhole_focal_indices_from_host(const unsigned int* const indices,
-                                           size_t num);
-
-  /**
-   * Set the indices for the focal argument for the pinhole factor from device.
-   */
-  void set_pinhole_focal_indices_from_device(const unsigned int* const indices,
-                                             size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the pinhole factor from
-   * host.
-   */
-  void set_pinhole_extra_calib_indices_from_host(
+  void set_pinhole_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the pinhole factor from
-   * device.
+   * Set the indices for the focal_and_extra argument for the pinhole factor
+   * from device.
    */
-  void set_pinhole_extra_calib_indices_from_device(
+  void set_pinhole_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the pinhole factor
+   * from host.
+   */
+  void set_pinhole_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the pinhole factor
+   * from device.
+   */
+  void set_pinhole_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -2012,31 +2108,31 @@ class GraphSolver {
   void set_pinhole_num(size_t num);
 
   /**
-   * Set the indices for the focal argument for the pinhole_fixed_pose factor
-   * from host.
-   */
-  void set_pinhole_fixed_pose_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the pinhole_fixed_pose factor
-   * from device.
-   */
-  void set_pinhole_fixed_pose_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the pinhole_fixed_pose
+   * Set the indices for the focal_and_extra argument for the pinhole_fixed_pose
    * factor from host.
    */
-  void set_pinhole_fixed_pose_extra_calib_indices_from_host(
+  void set_pinhole_fixed_pose_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the pinhole_fixed_pose
+   * Set the indices for the focal_and_extra argument for the pinhole_fixed_pose
    * factor from device.
    */
-  void set_pinhole_fixed_pose_extra_calib_indices_from_device(
+  void set_pinhole_fixed_pose_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the pinhole_fixed_pose
+   * factor from host.
+   */
+  void set_pinhole_fixed_pose_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the pinhole_fixed_pose
+   * factor from device.
+   */
+  void set_pinhole_fixed_pose_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -2099,178 +2195,180 @@ class GraphSolver {
   void set_pinhole_fixed_pose_num(size_t num);
 
   /**
-   * Set the indices for the pose argument for the pinhole_fixed_focal factor
-   * from host.
-   */
-  void set_pinhole_fixed_focal_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_fixed_focal factor
-   * from device.
-   */
-  void set_pinhole_fixed_focal_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the pinhole_fixed_focal
+   * Set the indices for the pose argument for the pinhole_fixed_focal_and_extra
    * factor from host.
    */
-  void set_pinhole_fixed_focal_extra_calib_indices_from_host(
+  void set_pinhole_fixed_focal_and_extra_pose_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the pinhole_fixed_focal
+   * Set the indices for the pose argument for the pinhole_fixed_focal_and_extra
    * factor from device.
    */
-  void set_pinhole_fixed_focal_extra_calib_indices_from_device(
+  void set_pinhole_fixed_focal_and_extra_pose_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the pinhole_fixed_focal factor
-   * from host.
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_focal_and_extra factor from host.
    */
-  void set_pinhole_fixed_focal_point_indices_from_host(
+  void set_pinhole_fixed_focal_and_extra_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the pinhole_fixed_focal factor
-   * from device.
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_focal_and_extra factor from device.
    */
-  void set_pinhole_fixed_focal_point_indices_from_device(
+  void set_pinhole_fixed_focal_and_extra_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_fixed_focal factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
+   * Set the indices for the point argument for the
+   * pinhole_fixed_focal_and_extra factor from host.
    */
-  void set_pinhole_fixed_focal_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_focal factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts pinhole_fixed_focal factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts pinhole_fixed_focal factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_focal factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_focal_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_fixed_extra_calib
-   * factor from host.
-   */
-  void set_pinhole_fixed_extra_calib_pose_indices_from_host(
+  void set_pinhole_fixed_focal_and_extra_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the pose argument for the pinhole_fixed_extra_calib
-   * factor from device.
+   * Set the indices for the point argument for the
+   * pinhole_fixed_focal_and_extra factor from device.
    */
-  void set_pinhole_fixed_extra_calib_pose_indices_from_device(
+  void set_pinhole_fixed_focal_and_extra_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the pinhole_fixed_extra_calib
-   * factor from host.
-   */
-  void set_pinhole_fixed_extra_calib_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the pinhole_fixed_extra_calib
-   * factor from device.
-   */
-  void set_pinhole_fixed_extra_calib_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole_fixed_extra_calib
-   * factor from host.
-   */
-  void set_pinhole_fixed_extra_calib_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole_fixed_extra_calib
-   * factor from device.
-   */
-  void set_pinhole_fixed_extra_calib_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_extra_calib factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_extra_calib_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_extra_calib factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_extra_calib_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts pinhole_fixed_extra_calib factor
+   * Set the values for the pixel consts pinhole_fixed_focal_and_extra factor
    * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_extra_calib_extra_calib_data_from_stacked_host(
+  void set_pinhole_fixed_focal_and_extra_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts pinhole_fixed_extra_calib factor
+   * Set the values for the pixel consts pinhole_fixed_focal_and_extra factor
    * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_extra_calib_extra_calib_data_from_stacked_device(
+  void set_pinhole_fixed_focal_and_extra_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_extra_calib factors.
+   * Set the values for the focal_and_extra consts pinhole_fixed_focal_and_extra
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts pinhole_fixed_focal_and_extra
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of pinhole_fixed_focal_and_extra factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_extra_calib_num(size_t num);
+  void set_pinhole_fixed_focal_and_extra_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the pinhole_fixed_principal_point
+   * factor from host.
+   */
+  void set_pinhole_fixed_principal_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the pinhole_fixed_principal_point
+   * factor from device.
+   */
+  void set_pinhole_fixed_principal_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_principal_point factor from host.
+   */
+  void set_pinhole_fixed_principal_point_focal_and_extra_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_principal_point factor from device.
+   */
+  void set_pinhole_fixed_principal_point_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * pinhole_fixed_principal_point factor from host.
+   */
+  void set_pinhole_fixed_principal_point_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * pinhole_fixed_principal_point factor from device.
+   */
+  void set_pinhole_fixed_principal_point_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_fixed_principal_point factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_fixed_principal_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_fixed_principal_point factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_fixed_principal_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts pinhole_fixed_principal_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_fixed_principal_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts pinhole_fixed_principal_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_principal_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of pinhole_fixed_principal_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_fixed_principal_point_num(size_t num);
 
   /**
    * Set the indices for the pose argument for the pinhole_fixed_point factor
@@ -2287,31 +2385,31 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the pinhole_fixed_point factor
-   * from host.
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_point factor from host.
    */
-  void set_pinhole_fixed_point_focal_indices_from_host(
+  void set_pinhole_fixed_point_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the pinhole_fixed_point factor
-   * from device.
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_point factor from device.
    */
-  void set_pinhole_fixed_point_focal_indices_from_device(
+  void set_pinhole_fixed_point_focal_and_extra_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the pinhole_fixed_point
-   * factor from host.
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_point factor from host.
    */
-  void set_pinhole_fixed_point_extra_calib_indices_from_host(
+  void set_pinhole_fixed_point_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the pinhole_fixed_point
-   * factor from device.
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_point factor from device.
    */
-  void set_pinhole_fixed_point_extra_calib_indices_from_device(
+  void set_pinhole_fixed_point_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -2360,215 +2458,227 @@ class GraphSolver {
   void set_pinhole_fixed_point_num(size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
-   * pinhole_fixed_pose_fixed_focal factor from host.
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_focal_extra_calib_indices_from_host(
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
-   * pinhole_fixed_pose_fixed_focal factor from device.
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from device.
    */
-  void set_pinhole_fixed_pose_fixed_focal_extra_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal factor from host.
-   */
-  void set_pinhole_fixed_pose_fixed_focal_point_indices_from_host(
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal factor from device.
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_focal_point_indices_from_device(
+  void set_pinhole_fixed_pose_fixed_focal_and_extra_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_fixed_pose_fixed_focal factor
-   * from stacked host data.
+   * Set the indices for the point argument for the
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from device.
+   */
+  void set_pinhole_fixed_pose_fixed_focal_and_extra_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_pose_fixed_focal_pixel_data_from_stacked_host(
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_fixed_pose_fixed_focal factor
-   * from stacked device data.
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_pose_fixed_focal_pixel_data_from_stacked_device(
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_focal factor
-   * from stacked host data.
+   * Set the values for the pose consts pinhole_fixed_pose_fixed_focal_and_extra
+   * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_pose_fixed_focal_pose_data_from_stacked_host(
+  void set_pinhole_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_focal factor
-   * from stacked device data.
+   * Set the values for the pose consts pinhole_fixed_pose_fixed_focal_and_extra
+   * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_pose_fixed_focal_pose_data_from_stacked_device(
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts pinhole_fixed_pose_fixed_focal factor
-   * from stacked host data.
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_pose_fixed_focal_focal_data_from_stacked_host(
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts pinhole_fixed_pose_fixed_focal factor
-   * from stacked device data.
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_pose_fixed_focal_focal_data_from_stacked_device(
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_pose_fixed_focal factors.
+   * Set the current number of pinhole_fixed_pose_fixed_focal_and_extra factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_focal_num(size_t num);
+  void set_pinhole_fixed_pose_fixed_focal_and_extra_num(size_t num);
 
   /**
-   * Set the indices for the focal argument for the
-   * pinhole_fixed_pose_fixed_extra_calib factor from host.
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_pose_fixed_principal_point factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_extra_calib_focal_indices_from_host(
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the
-   * pinhole_fixed_pose_fixed_extra_calib factor from device.
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_pose_fixed_principal_point factor from device.
    */
-  void set_pinhole_fixed_pose_fixed_extra_calib_focal_indices_from_device(
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_extra_calib factor from host.
+   * pinhole_fixed_pose_fixed_principal_point factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_extra_calib_point_indices_from_host(
+  void set_pinhole_fixed_pose_fixed_principal_point_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_extra_calib factor from device.
+   * pinhole_fixed_pose_fixed_principal_point factor from device.
    */
-  void set_pinhole_fixed_pose_fixed_extra_calib_point_indices_from_device(
+  void set_pinhole_fixed_pose_fixed_principal_point_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_fixed_pose_fixed_extra_calib
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_pose_fixed_extra_calib
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_extra_calib_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_extra_calib
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_extra_calib_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_extra_calib
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_extra_calib_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_pose_fixed_extra_calib factor from stacked host data.
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_principal_point factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_host(
+  set_pinhole_fixed_pose_fixed_principal_point_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_pose_fixed_extra_calib factor from stacked device data.
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_principal_point factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_extra_calib_extra_calib_data_from_stacked_device(
+  set_pinhole_fixed_pose_fixed_principal_point_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_pose_fixed_extra_calib factors.
+   * Set the values for the pose consts pinhole_fixed_pose_fixed_principal_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_fixed_pose_fixed_principal_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts pinhole_fixed_pose_fixed_principal_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_pose_fixed_principal_point factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_pose_fixed_principal_point factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of pinhole_fixed_pose_fixed_principal_point factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_extra_calib_num(size_t num);
+  void set_pinhole_fixed_pose_fixed_principal_point_num(size_t num);
 
   /**
-   * Set the indices for the focal argument for the
+   * Set the indices for the focal_and_extra argument for the
    * pinhole_fixed_pose_fixed_point factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_point_focal_indices_from_host(
+  void set_pinhole_fixed_pose_fixed_point_focal_and_extra_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal argument for the
+   * Set the indices for the focal_and_extra argument for the
    * pinhole_fixed_pose_fixed_point factor from device.
    */
-  void set_pinhole_fixed_pose_fixed_point_focal_indices_from_device(
+  void set_pinhole_fixed_pose_fixed_point_focal_and_extra_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the principal_point argument for the
    * pinhole_fixed_pose_fixed_point factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_point_extra_calib_indices_from_host(
+  void set_pinhole_fixed_pose_fixed_point_principal_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the extra_calib argument for the
+   * Set the indices for the principal_point argument for the
    * pinhole_fixed_pose_fixed_point factor from device.
    */
-  void set_pinhole_fixed_pose_fixed_point_extra_calib_indices_from_device(
+  void set_pinhole_fixed_pose_fixed_point_principal_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -2636,728 +2746,773 @@ class GraphSolver {
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_fixed_extra_calib factor from host.
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from host.
    */
-  void set_pinhole_fixed_focal_fixed_extra_calib_pose_indices_from_host(
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_fixed_extra_calib factor from device.
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from device.
    */
-  void set_pinhole_fixed_focal_fixed_extra_calib_pose_indices_from_device(
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_focal_fixed_extra_calib factor from host.
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from host.
    */
-  void set_pinhole_fixed_focal_fixed_extra_calib_point_indices_from_host(
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_focal_fixed_extra_calib factor from device.
-   */
-  void set_pinhole_fixed_focal_fixed_extra_calib_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_focal_fixed_extra_calib
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_focal_fixed_extra_calib
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts pinhole_fixed_focal_fixed_extra_calib
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts pinhole_fixed_focal_fixed_extra_calib
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_focal_fixed_extra_calib factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from device.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_focal_fixed_extra_calib factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_focal_fixed_extra_calib factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_focal_fixed_extra_calib_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_focal_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_focal_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * pinhole_fixed_focal_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_focal_fixed_point_extra_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * pinhole_fixed_focal_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_focal_fixed_point_extra_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_focal_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_focal_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts pinhole_fixed_focal_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_point_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts pinhole_fixed_focal_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_point_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_focal_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_focal_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_focal_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_focal_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * pinhole_fixed_extra_calib_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * pinhole_fixed_extra_calib_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * pinhole_fixed_extra_calib_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * pinhole_fixed_extra_calib_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_extra_calib_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_extra_calib_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_extra_calib_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_extra_calib_fixed_point factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_extra_calib_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_extra_calib_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_extra_calib_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_extra_calib_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from host.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from device.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_point_indices_from_device(
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host
-   * data.
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_host(
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device
-   * data.
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pixel_data_from_stacked_device(
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host
-   * data.
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_host(
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device
-   * data.
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_pose_data_from_stacked_device(
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host
-   * data.
+   * Set the values for the principal_point consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_host(
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device
-   * data.
+   * Set the values for the principal_point consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_focal_data_from_stacked_device(
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked host
-   * data.
+   * Set the current number of
+   * pinhole_fixed_focal_and_extra_fixed_principal_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_fixed_focal_and_extra_fixed_principal_point_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * pinhole_fixed_focal_and_extra_fixed_point factor from host.
+   */
+  void set_pinhole_fixed_focal_and_extra_fixed_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * pinhole_fixed_focal_and_extra_fixed_point factor from device.
+   */
+  void set_pinhole_fixed_focal_and_extra_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_focal_and_extra_fixed_point factor from host.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_focal_and_extra_fixed_point factor from device.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_host(
+  set_pinhole_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_pose_fixed_focal_fixed_extra_calib factor from stacked device
-   * data.
+   * Set the values for the pixel consts
+   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_extra_calib_data_from_stacked_device(
+  set_pinhole_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_pose_fixed_focal_fixed_extra_calib
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of pinhole_fixed_focal_and_extra_fixed_point
    * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_focal_fixed_extra_calib_num(size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from host.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the extra_calib argument for the
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from device.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_extra_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_focal_fixed_point factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_pose_fixed_focal_fixed_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_pose_fixed_focal_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from host.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal argument for the
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from device.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_focal_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_extra_calib_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_pose_fixed_extra_calib_fixed_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_pose_fixed_extra_calib_fixed_point_num(size_t num);
+  void set_pinhole_fixed_focal_and_extra_fixed_point_num(size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from host.
+   * pinhole_fixed_principal_point_fixed_point factor from host.
    */
-  void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_host(
+  void set_pinhole_fixed_principal_point_fixed_point_pose_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from device.
+   * pinhole_fixed_principal_point_fixed_point factor from device.
+   */
+  void set_pinhole_fixed_principal_point_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_principal_point_fixed_point factor from host.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pose_indices_from_device(
+  set_pinhole_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_principal_point_fixed_point factor from device.
+   */
+  void
+  set_pinhole_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
+   * pinhole_fixed_principal_point_fixed_point factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_host(
+  set_pinhole_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
+   * pinhole_fixed_principal_point_fixed_point factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_pixel_data_from_stacked_device(
+  set_pinhole_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
+   * Set the values for the principal_point consts
+   * pinhole_fixed_principal_point_fixed_point factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_host(
+  set_pinhole_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
+   * Set the values for the principal_point consts
+   * pinhole_fixed_principal_point_fixed_point factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_focal_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the extra_calib consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_extra_calib_data_from_stacked_device(
+  set_pinhole_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked host
-   * data.
+   * pinhole_fixed_principal_point_fixed_point factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_host(
+  set_pinhole_fixed_principal_point_fixed_point_point_data_from_stacked_host(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_focal_fixed_extra_calib_fixed_point factor from stacked
-   * device data.
+   * pinhole_fixed_principal_point_fixed_point factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_point_data_from_stacked_device(
+  set_pinhole_fixed_principal_point_fixed_point_point_data_from_stacked_device(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_focal_fixed_extra_calib_fixed_point
+   * Set the current number of pinhole_fixed_principal_point_fixed_point
    * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_focal_fixed_extra_calib_fixed_point_num(size_t num);
+  void set_pinhole_fixed_principal_point_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * host.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * device.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num(
+      size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from host.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from device.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from host.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from device.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * pinhole_fixed_pose_fixed_principal_point_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_fixed_pose_fixed_principal_point_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * host.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * device.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_num(
+      size_t num);
 
  private:
   SolverParams<double> params_;
@@ -3373,78 +3528,84 @@ class GraphSolver {
   double pcg_r_0_norm2_;
   double pcg_r_kp1_norm2_;
 
-  size_t PinholeExtraCalib_num_;
-  size_t PinholeExtraCalib_num_max_;
-  size_t PinholeFocal_num_;
-  size_t PinholeFocal_num_max_;
+  size_t PinholeFocalAndExtra_num_;
+  size_t PinholeFocalAndExtra_num_max_;
+  size_t PinholePrincipalPoint_num_;
+  size_t PinholePrincipalPoint_num_max_;
   size_t Point_num_;
   size_t Point_num_max_;
   size_t Pose_num_;
   size_t Pose_num_max_;
-  size_t SimpleRadialExtraCalib_num_;
-  size_t SimpleRadialExtraCalib_num_max_;
-  size_t SimpleRadialFocal_num_;
-  size_t SimpleRadialFocal_num_max_;
+  size_t SimpleRadialFocalAndExtra_num_;
+  size_t SimpleRadialFocalAndExtra_num_max_;
+  size_t SimpleRadialPrincipalPoint_num_;
+  size_t SimpleRadialPrincipalPoint_num_max_;
   size_t simple_radial_num_;
   size_t simple_radial_num_max_;
   size_t simple_radial_fixed_pose_num_;
   size_t simple_radial_fixed_pose_num_max_;
-  size_t simple_radial_fixed_focal_num_;
-  size_t simple_radial_fixed_focal_num_max_;
-  size_t simple_radial_fixed_extra_calib_num_;
-  size_t simple_radial_fixed_extra_calib_num_max_;
+  size_t simple_radial_fixed_focal_and_extra_num_;
+  size_t simple_radial_fixed_focal_and_extra_num_max_;
+  size_t simple_radial_fixed_principal_point_num_;
+  size_t simple_radial_fixed_principal_point_num_max_;
   size_t simple_radial_fixed_point_num_;
   size_t simple_radial_fixed_point_num_max_;
-  size_t simple_radial_fixed_pose_fixed_focal_num_;
-  size_t simple_radial_fixed_pose_fixed_focal_num_max_;
-  size_t simple_radial_fixed_pose_fixed_extra_calib_num_;
-  size_t simple_radial_fixed_pose_fixed_extra_calib_num_max_;
+  size_t simple_radial_fixed_pose_fixed_focal_and_extra_num_;
+  size_t simple_radial_fixed_pose_fixed_focal_and_extra_num_max_;
+  size_t simple_radial_fixed_pose_fixed_principal_point_num_;
+  size_t simple_radial_fixed_pose_fixed_principal_point_num_max_;
   size_t simple_radial_fixed_pose_fixed_point_num_;
   size_t simple_radial_fixed_pose_fixed_point_num_max_;
-  size_t simple_radial_fixed_focal_fixed_extra_calib_num_;
-  size_t simple_radial_fixed_focal_fixed_extra_calib_num_max_;
-  size_t simple_radial_fixed_focal_fixed_point_num_;
-  size_t simple_radial_fixed_focal_fixed_point_num_max_;
-  size_t simple_radial_fixed_extra_calib_fixed_point_num_;
-  size_t simple_radial_fixed_extra_calib_fixed_point_num_max_;
-  size_t simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_num_;
-  size_t simple_radial_fixed_pose_fixed_focal_fixed_extra_calib_num_max_;
-  size_t simple_radial_fixed_pose_fixed_focal_fixed_point_num_;
-  size_t simple_radial_fixed_pose_fixed_focal_fixed_point_num_max_;
-  size_t simple_radial_fixed_pose_fixed_extra_calib_fixed_point_num_;
-  size_t simple_radial_fixed_pose_fixed_extra_calib_fixed_point_num_max_;
-  size_t simple_radial_fixed_focal_fixed_extra_calib_fixed_point_num_;
-  size_t simple_radial_fixed_focal_fixed_extra_calib_fixed_point_num_max_;
+  size_t simple_radial_fixed_focal_and_extra_fixed_principal_point_num_;
+  size_t simple_radial_fixed_focal_and_extra_fixed_principal_point_num_max_;
+  size_t simple_radial_fixed_focal_and_extra_fixed_point_num_;
+  size_t simple_radial_fixed_focal_and_extra_fixed_point_num_max_;
+  size_t simple_radial_fixed_principal_point_fixed_point_num_;
+  size_t simple_radial_fixed_principal_point_fixed_point_num_max_;
+  size_t
+      simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_;
+  size_t
+      simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_;
+  size_t simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_num_;
+  size_t simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_;
+  size_t simple_radial_fixed_pose_fixed_principal_point_fixed_point_num_;
+  size_t simple_radial_fixed_pose_fixed_principal_point_fixed_point_num_max_;
+  size_t
+      simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_;
+  size_t
+      simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_;
   size_t pinhole_num_;
   size_t pinhole_num_max_;
   size_t pinhole_fixed_pose_num_;
   size_t pinhole_fixed_pose_num_max_;
-  size_t pinhole_fixed_focal_num_;
-  size_t pinhole_fixed_focal_num_max_;
-  size_t pinhole_fixed_extra_calib_num_;
-  size_t pinhole_fixed_extra_calib_num_max_;
+  size_t pinhole_fixed_focal_and_extra_num_;
+  size_t pinhole_fixed_focal_and_extra_num_max_;
+  size_t pinhole_fixed_principal_point_num_;
+  size_t pinhole_fixed_principal_point_num_max_;
   size_t pinhole_fixed_point_num_;
   size_t pinhole_fixed_point_num_max_;
-  size_t pinhole_fixed_pose_fixed_focal_num_;
-  size_t pinhole_fixed_pose_fixed_focal_num_max_;
-  size_t pinhole_fixed_pose_fixed_extra_calib_num_;
-  size_t pinhole_fixed_pose_fixed_extra_calib_num_max_;
+  size_t pinhole_fixed_pose_fixed_focal_and_extra_num_;
+  size_t pinhole_fixed_pose_fixed_focal_and_extra_num_max_;
+  size_t pinhole_fixed_pose_fixed_principal_point_num_;
+  size_t pinhole_fixed_pose_fixed_principal_point_num_max_;
   size_t pinhole_fixed_pose_fixed_point_num_;
   size_t pinhole_fixed_pose_fixed_point_num_max_;
-  size_t pinhole_fixed_focal_fixed_extra_calib_num_;
-  size_t pinhole_fixed_focal_fixed_extra_calib_num_max_;
-  size_t pinhole_fixed_focal_fixed_point_num_;
-  size_t pinhole_fixed_focal_fixed_point_num_max_;
-  size_t pinhole_fixed_extra_calib_fixed_point_num_;
-  size_t pinhole_fixed_extra_calib_fixed_point_num_max_;
-  size_t pinhole_fixed_pose_fixed_focal_fixed_extra_calib_num_;
-  size_t pinhole_fixed_pose_fixed_focal_fixed_extra_calib_num_max_;
-  size_t pinhole_fixed_pose_fixed_focal_fixed_point_num_;
-  size_t pinhole_fixed_pose_fixed_focal_fixed_point_num_max_;
-  size_t pinhole_fixed_pose_fixed_extra_calib_fixed_point_num_;
-  size_t pinhole_fixed_pose_fixed_extra_calib_fixed_point_num_max_;
-  size_t pinhole_fixed_focal_fixed_extra_calib_fixed_point_num_;
-  size_t pinhole_fixed_focal_fixed_extra_calib_fixed_point_num_max_;
+  size_t pinhole_fixed_focal_and_extra_fixed_principal_point_num_;
+  size_t pinhole_fixed_focal_and_extra_fixed_principal_point_num_max_;
+  size_t pinhole_fixed_focal_and_extra_fixed_point_num_;
+  size_t pinhole_fixed_focal_and_extra_fixed_point_num_max_;
+  size_t pinhole_fixed_principal_point_fixed_point_num_;
+  size_t pinhole_fixed_principal_point_fixed_point_num_max_;
+  size_t pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_;
+  size_t
+      pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_;
+  size_t pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_num_;
+  size_t pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_;
+  size_t pinhole_fixed_pose_fixed_principal_point_fixed_point_num_;
+  size_t pinhole_fixed_pose_fixed_principal_point_fixed_point_num_max_;
+  size_t pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_;
+  size_t
+      pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_;
 
   size_t get_nbytes();
   double linearize_first();
@@ -3466,450 +3627,520 @@ class GraphSolver {
   double get_pred_decrease();
 
   double* marker__start_;
-  double* nodes__PinholeExtraCalib__storage_current_;
-  double* nodes__PinholeExtraCalib__storage_check_;
-  double* nodes__PinholeExtraCalib__storage_new_best_;
-  double* nodes__PinholeFocal__storage_current_;
-  double* nodes__PinholeFocal__storage_check_;
-  double* nodes__PinholeFocal__storage_new_best_;
+  double* nodes__PinholeFocalAndExtra__storage_current_;
+  double* nodes__PinholeFocalAndExtra__storage_check_;
+  double* nodes__PinholeFocalAndExtra__storage_new_best_;
+  double* nodes__PinholePrincipalPoint__storage_current_;
+  double* nodes__PinholePrincipalPoint__storage_check_;
+  double* nodes__PinholePrincipalPoint__storage_new_best_;
   double* nodes__Point__storage_current_;
   double* nodes__Point__storage_check_;
   double* nodes__Point__storage_new_best_;
   double* nodes__Pose__storage_current_;
   double* nodes__Pose__storage_check_;
   double* nodes__Pose__storage_new_best_;
-  double* nodes__SimpleRadialExtraCalib__storage_current_;
-  double* nodes__SimpleRadialExtraCalib__storage_check_;
-  double* nodes__SimpleRadialExtraCalib__storage_new_best_;
-  double* nodes__SimpleRadialFocal__storage_current_;
-  double* nodes__SimpleRadialFocal__storage_check_;
-  double* nodes__SimpleRadialFocal__storage_new_best_;
+  double* nodes__SimpleRadialFocalAndExtra__storage_current_;
+  double* nodes__SimpleRadialFocalAndExtra__storage_check_;
+  double* nodes__SimpleRadialFocalAndExtra__storage_new_best_;
+  double* nodes__SimpleRadialPrincipalPoint__storage_current_;
+  double* nodes__SimpleRadialPrincipalPoint__storage_check_;
+  double* nodes__SimpleRadialPrincipalPoint__storage_new_best_;
   SharedIndex* facs__simple_radial__args__pose__idx_shared_;
-  SharedIndex* facs__simple_radial__args__focal__idx_shared_;
-  SharedIndex* facs__simple_radial__args__extra_calib__idx_shared_;
+  SharedIndex* facs__simple_radial__args__focal_and_extra__idx_shared_;
+  SharedIndex* facs__simple_radial__args__principal_point__idx_shared_;
   SharedIndex* facs__simple_radial__args__point__idx_shared_;
   double* facs__simple_radial__args__pixel__data_;
-  SharedIndex* facs__simple_radial_fixed_pose__args__focal__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_pose__args__extra_calib__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_pose__args__focal_and_extra__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_pose__args__principal_point__idx_shared_;
   SharedIndex* facs__simple_radial_fixed_pose__args__point__idx_shared_;
   double* facs__simple_radial_fixed_pose__args__pixel__data_;
   double* facs__simple_radial_fixed_pose__args__pose__data_;
-  SharedIndex* facs__simple_radial_fixed_focal__args__pose__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_focal__args__extra_calib__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_focal__args__point__idx_shared_;
-  double* facs__simple_radial_fixed_focal__args__pixel__data_;
-  double* facs__simple_radial_fixed_focal__args__focal__data_;
-  SharedIndex* facs__simple_radial_fixed_extra_calib__args__pose__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_extra_calib__args__focal__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_extra_calib__args__point__idx_shared_;
-  double* facs__simple_radial_fixed_extra_calib__args__pixel__data_;
-  double* facs__simple_radial_fixed_extra_calib__args__extra_calib__data_;
+  SharedIndex*
+      facs__simple_radial_fixed_focal_and_extra__args__pose__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_focal_and_extra__args__principal_point__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_focal_and_extra__args__point__idx_shared_;
+  double* facs__simple_radial_fixed_focal_and_extra__args__pixel__data_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra__args__focal_and_extra__data_;
+  SharedIndex*
+      facs__simple_radial_fixed_principal_point__args__pose__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_principal_point__args__focal_and_extra__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_principal_point__args__point__idx_shared_;
+  double* facs__simple_radial_fixed_principal_point__args__pixel__data_;
+  double*
+      facs__simple_radial_fixed_principal_point__args__principal_point__data_;
   SharedIndex* facs__simple_radial_fixed_point__args__pose__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_point__args__focal__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_point__args__extra_calib__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_point__args__focal_and_extra__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_point__args__principal_point__idx_shared_;
   double* facs__simple_radial_fixed_point__args__pixel__data_;
   double* facs__simple_radial_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_focal__args__extra_calib__idx_shared_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_;
   SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_focal__args__point__idx_shared_;
-  double* facs__simple_radial_fixed_pose_fixed_focal__args__pixel__data_;
-  double* facs__simple_radial_fixed_pose_fixed_focal__args__pose__data_;
-  double* facs__simple_radial_fixed_pose_fixed_focal__args__focal__data_;
-  SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_extra_calib__args__focal__idx_shared_;
-  SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_extra_calib__args__point__idx_shared_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib__args__pixel__data_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib__args__pose__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_;
   double*
-      facs__simple_radial_fixed_pose_fixed_extra_calib__args__extra_calib__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__pixel__data_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__pose__data_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_;
   SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_point__args__focal__idx_shared_;
+      facs__simple_radial_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_;
   SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_point__args__extra_calib__idx_shared_;
+      facs__simple_radial_fixed_pose_fixed_principal_point__args__point__idx_shared_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_principal_point__args__pixel__data_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_principal_point__args__pose__data_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_principal_point__args__principal_point__data_;
+  SharedIndex*
+      facs__simple_radial_fixed_pose_fixed_point__args__focal_and_extra__idx_shared_;
+  SharedIndex*
+      facs__simple_radial_fixed_pose_fixed_point__args__principal_point__idx_shared_;
   double* facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_;
   double* facs__simple_radial_fixed_pose_fixed_point__args__pose__data_;
   double* facs__simple_radial_fixed_pose_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_focal_fixed_extra_calib__args__pose__idx_shared_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_;
   SharedIndex*
-      facs__simple_radial_fixed_focal_fixed_extra_calib__args__point__idx_shared_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib__args__pixel__data_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib__args__focal__data_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
   double*
-      facs__simple_radial_fixed_focal_fixed_extra_calib__args__extra_calib__data_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_focal_fixed_point__args__pose__idx_shared_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_;
   SharedIndex*
-      facs__simple_radial_fixed_focal_fixed_point__args__extra_calib__idx_shared_;
-  double* facs__simple_radial_fixed_focal_fixed_point__args__pixel__data_;
-  double* facs__simple_radial_fixed_focal_fixed_point__args__focal__data_;
-  double* facs__simple_radial_fixed_focal_fixed_point__args__point__data_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_point__args__pixel__data_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_extra_calib_fixed_point__args__pose__idx_shared_;
+      facs__simple_radial_fixed_principal_point_fixed_point__args__pose__idx_shared_;
   SharedIndex*
-      facs__simple_radial_fixed_extra_calib_fixed_point__args__focal__idx_shared_;
-  double* facs__simple_radial_fixed_extra_calib_fixed_point__args__pixel__data_;
+      facs__simple_radial_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_;
   double*
-      facs__simple_radial_fixed_extra_calib_fixed_point__args__extra_calib__data_;
-  double* facs__simple_radial_fixed_extra_calib_fixed_point__args__point__data_;
+      facs__simple_radial_fixed_principal_point_fixed_point__args__pixel__data_;
+  double*
+      facs__simple_radial_fixed_principal_point_fixed_point__args__principal_point__data_;
+  double*
+      facs__simple_radial_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__args__point__idx_shared_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__args__pixel__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__args__pose__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__args__focal__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__args__extra_calib__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_point__args__extra_calib__idx_shared_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_point__args__pixel__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_point__args__pose__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_point__args__focal__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_point__args__point__data_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__args__focal__idx_shared_;
+      facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_;
   double*
-      facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__args__pixel__data_;
+      facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__args__pose__data_;
+      facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__args__extra_calib__data_;
+      facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_;
   double*
-      facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__args__point__data_;
+      facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__args__pose__idx_shared_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_;
   double*
-      facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__args__pixel__data_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
-      facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__args__focal__data_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__args__extra_calib__data_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_;
   double*
-      facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__args__point__data_;
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex* facs__pinhole__args__pose__idx_shared_;
-  SharedIndex* facs__pinhole__args__focal__idx_shared_;
-  SharedIndex* facs__pinhole__args__extra_calib__idx_shared_;
+  SharedIndex* facs__pinhole__args__focal_and_extra__idx_shared_;
+  SharedIndex* facs__pinhole__args__principal_point__idx_shared_;
   SharedIndex* facs__pinhole__args__point__idx_shared_;
   double* facs__pinhole__args__pixel__data_;
-  SharedIndex* facs__pinhole_fixed_pose__args__focal__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_pose__args__extra_calib__idx_shared_;
+  SharedIndex* facs__pinhole_fixed_pose__args__focal_and_extra__idx_shared_;
+  SharedIndex* facs__pinhole_fixed_pose__args__principal_point__idx_shared_;
   SharedIndex* facs__pinhole_fixed_pose__args__point__idx_shared_;
   double* facs__pinhole_fixed_pose__args__pixel__data_;
   double* facs__pinhole_fixed_pose__args__pose__data_;
-  SharedIndex* facs__pinhole_fixed_focal__args__pose__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_focal__args__extra_calib__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_focal__args__point__idx_shared_;
-  double* facs__pinhole_fixed_focal__args__pixel__data_;
-  double* facs__pinhole_fixed_focal__args__focal__data_;
-  SharedIndex* facs__pinhole_fixed_extra_calib__args__pose__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_extra_calib__args__focal__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_extra_calib__args__point__idx_shared_;
-  double* facs__pinhole_fixed_extra_calib__args__pixel__data_;
-  double* facs__pinhole_fixed_extra_calib__args__extra_calib__data_;
+  SharedIndex* facs__pinhole_fixed_focal_and_extra__args__pose__idx_shared_;
+  SharedIndex*
+      facs__pinhole_fixed_focal_and_extra__args__principal_point__idx_shared_;
+  SharedIndex* facs__pinhole_fixed_focal_and_extra__args__point__idx_shared_;
+  double* facs__pinhole_fixed_focal_and_extra__args__pixel__data_;
+  double* facs__pinhole_fixed_focal_and_extra__args__focal_and_extra__data_;
+  SharedIndex* facs__pinhole_fixed_principal_point__args__pose__idx_shared_;
+  SharedIndex*
+      facs__pinhole_fixed_principal_point__args__focal_and_extra__idx_shared_;
+  SharedIndex* facs__pinhole_fixed_principal_point__args__point__idx_shared_;
+  double* facs__pinhole_fixed_principal_point__args__pixel__data_;
+  double* facs__pinhole_fixed_principal_point__args__principal_point__data_;
   SharedIndex* facs__pinhole_fixed_point__args__pose__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_point__args__focal__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_point__args__extra_calib__idx_shared_;
+  SharedIndex* facs__pinhole_fixed_point__args__focal_and_extra__idx_shared_;
+  SharedIndex* facs__pinhole_fixed_point__args__principal_point__idx_shared_;
   double* facs__pinhole_fixed_point__args__pixel__data_;
   double* facs__pinhole_fixed_point__args__point__data_;
   SharedIndex*
-      facs__pinhole_fixed_pose_fixed_focal__args__extra_calib__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_pose_fixed_focal__args__point__idx_shared_;
-  double* facs__pinhole_fixed_pose_fixed_focal__args__pixel__data_;
-  double* facs__pinhole_fixed_pose_fixed_focal__args__pose__data_;
-  double* facs__pinhole_fixed_pose_fixed_focal__args__focal__data_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_;
   SharedIndex*
-      facs__pinhole_fixed_pose_fixed_extra_calib__args__focal__idx_shared_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_;
+  double* facs__pinhole_fixed_pose_fixed_focal_and_extra__args__pixel__data_;
+  double* facs__pinhole_fixed_pose_fixed_focal_and_extra__args__pose__data_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_;
   SharedIndex*
-      facs__pinhole_fixed_pose_fixed_extra_calib__args__point__idx_shared_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib__args__pixel__data_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib__args__pose__data_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib__args__extra_calib__data_;
-  SharedIndex* facs__pinhole_fixed_pose_fixed_point__args__focal__idx_shared_;
+      facs__pinhole_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_;
   SharedIndex*
-      facs__pinhole_fixed_pose_fixed_point__args__extra_calib__idx_shared_;
+      facs__pinhole_fixed_pose_fixed_principal_point__args__point__idx_shared_;
+  double* facs__pinhole_fixed_pose_fixed_principal_point__args__pixel__data_;
+  double* facs__pinhole_fixed_pose_fixed_principal_point__args__pose__data_;
+  double*
+      facs__pinhole_fixed_pose_fixed_principal_point__args__principal_point__data_;
+  SharedIndex*
+      facs__pinhole_fixed_pose_fixed_point__args__focal_and_extra__idx_shared_;
+  SharedIndex*
+      facs__pinhole_fixed_pose_fixed_point__args__principal_point__idx_shared_;
   double* facs__pinhole_fixed_pose_fixed_point__args__pixel__data_;
   double* facs__pinhole_fixed_pose_fixed_point__args__pose__data_;
   double* facs__pinhole_fixed_pose_fixed_point__args__point__data_;
   SharedIndex*
-      facs__pinhole_fixed_focal_fixed_extra_calib__args__pose__idx_shared_;
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_;
   SharedIndex*
-      facs__pinhole_fixed_focal_fixed_extra_calib__args__point__idx_shared_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib__args__pixel__data_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib__args__focal__data_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib__args__extra_calib__data_;
-  SharedIndex* facs__pinhole_fixed_focal_fixed_point__args__pose__idx_shared_;
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
-      facs__pinhole_fixed_focal_fixed_point__args__extra_calib__idx_shared_;
-  double* facs__pinhole_fixed_focal_fixed_point__args__pixel__data_;
-  double* facs__pinhole_fixed_focal_fixed_point__args__focal__data_;
-  double* facs__pinhole_fixed_focal_fixed_point__args__point__data_;
+      facs__pinhole_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_;
   SharedIndex*
-      facs__pinhole_fixed_extra_calib_fixed_point__args__pose__idx_shared_;
+      facs__pinhole_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_;
+  double* facs__pinhole_fixed_focal_and_extra_fixed_point__args__pixel__data_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_;
+  double* facs__pinhole_fixed_focal_and_extra_fixed_point__args__point__data_;
   SharedIndex*
-      facs__pinhole_fixed_extra_calib_fixed_point__args__focal__idx_shared_;
-  double* facs__pinhole_fixed_extra_calib_fixed_point__args__pixel__data_;
-  double* facs__pinhole_fixed_extra_calib_fixed_point__args__extra_calib__data_;
-  double* facs__pinhole_fixed_extra_calib_fixed_point__args__point__data_;
+      facs__pinhole_fixed_principal_point_fixed_point__args__pose__idx_shared_;
   SharedIndex*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__args__point__idx_shared_;
+      facs__pinhole_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_;
+  double* facs__pinhole_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__args__pixel__data_;
-  double*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__args__pose__data_;
-  double*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__args__focal__data_;
-  double*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__args__extra_calib__data_;
+      facs__pinhole_fixed_principal_point_fixed_point__args__principal_point__data_;
+  double* facs__pinhole_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_point__args__extra_calib__idx_shared_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_point__args__pixel__data_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_point__args__pose__data_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_point__args__focal__data_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_point__args__point__data_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
-      facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__args__focal__idx_shared_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_;
   double*
-      facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__args__pixel__data_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_;
   double*
-      facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__args__pose__data_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_;
   double*
-      facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__args__extra_calib__data_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_;
   double*
-      facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__args__point__data_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_;
   SharedIndex*
-      facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__args__pose__idx_shared_;
+      facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_;
   double*
-      facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__args__pixel__data_;
+      facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
-      facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__args__focal__data_;
+      facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_;
   double*
-      facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__args__extra_calib__data_;
+      facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_;
   double*
-      facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__args__point__data_;
+      facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__args__point__data_;
+  SharedIndex*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_;
   double* marker__scratch_inout_;
   double* facs__simple_radial__res_;
   double* facs__simple_radial_fixed_pose__res_;
-  double* facs__simple_radial_fixed_focal__res_;
-  double* facs__simple_radial_fixed_extra_calib__res_;
+  double* facs__simple_radial_fixed_focal_and_extra__res_;
+  double* facs__simple_radial_fixed_principal_point__res_;
   double* facs__simple_radial_fixed_point__res_;
-  double* facs__simple_radial_fixed_pose_fixed_focal__res_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib__res_;
+  double* facs__simple_radial_fixed_pose_fixed_focal_and_extra__res_;
+  double* facs__simple_radial_fixed_pose_fixed_principal_point__res_;
   double* facs__simple_radial_fixed_pose_fixed_point__res_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib__res_;
-  double* facs__simple_radial_fixed_focal_fixed_point__res_;
-  double* facs__simple_radial_fixed_extra_calib_fixed_point__res_;
-  double* facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__res_;
-  double* facs__simple_radial_fixed_pose_fixed_focal_fixed_point__res_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__res_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__res_;
+  double* facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__res_;
+  double* facs__simple_radial_fixed_focal_and_extra_fixed_point__res_;
+  double* facs__simple_radial_fixed_principal_point_fixed_point__res_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__res_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__res_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__res_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_;
   double* facs__pinhole__res_;
   double* facs__pinhole_fixed_pose__res_;
-  double* facs__pinhole_fixed_focal__res_;
-  double* facs__pinhole_fixed_extra_calib__res_;
+  double* facs__pinhole_fixed_focal_and_extra__res_;
+  double* facs__pinhole_fixed_principal_point__res_;
   double* facs__pinhole_fixed_point__res_;
-  double* facs__pinhole_fixed_pose_fixed_focal__res_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib__res_;
+  double* facs__pinhole_fixed_pose_fixed_focal_and_extra__res_;
+  double* facs__pinhole_fixed_pose_fixed_principal_point__res_;
   double* facs__pinhole_fixed_pose_fixed_point__res_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib__res_;
-  double* facs__pinhole_fixed_focal_fixed_point__res_;
-  double* facs__pinhole_fixed_extra_calib_fixed_point__res_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__res_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_point__res_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__res_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__res_;
+  double* facs__pinhole_fixed_focal_and_extra_fixed_principal_point__res_;
+  double* facs__pinhole_fixed_focal_and_extra_fixed_point__res_;
+  double* facs__pinhole_fixed_principal_point_fixed_point__res_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__res_;
+  double* facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__res_;
+  double* facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__res_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_;
   double* facs__simple_radial__args__pose__jac_;
-  double* facs__simple_radial__args__focal__jac_;
-  double* facs__simple_radial__args__extra_calib__jac_;
+  double* facs__simple_radial__args__focal_and_extra__jac_;
+  double* facs__simple_radial__args__principal_point__jac_;
   double* facs__simple_radial__args__point__jac_;
-  double* facs__simple_radial_fixed_pose__args__focal__jac_;
-  double* facs__simple_radial_fixed_pose__args__extra_calib__jac_;
+  double* facs__simple_radial_fixed_pose__args__focal_and_extra__jac_;
+  double* facs__simple_radial_fixed_pose__args__principal_point__jac_;
   double* facs__simple_radial_fixed_pose__args__point__jac_;
-  double* facs__simple_radial_fixed_focal__args__pose__jac_;
-  double* facs__simple_radial_fixed_focal__args__extra_calib__jac_;
-  double* facs__simple_radial_fixed_focal__args__point__jac_;
-  double* facs__simple_radial_fixed_extra_calib__args__pose__jac_;
-  double* facs__simple_radial_fixed_extra_calib__args__focal__jac_;
-  double* facs__simple_radial_fixed_extra_calib__args__point__jac_;
+  double* facs__simple_radial_fixed_focal_and_extra__args__pose__jac_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra__args__principal_point__jac_;
+  double* facs__simple_radial_fixed_focal_and_extra__args__point__jac_;
+  double* facs__simple_radial_fixed_principal_point__args__pose__jac_;
+  double*
+      facs__simple_radial_fixed_principal_point__args__focal_and_extra__jac_;
+  double* facs__simple_radial_fixed_principal_point__args__point__jac_;
   double* facs__simple_radial_fixed_point__args__pose__jac_;
-  double* facs__simple_radial_fixed_point__args__focal__jac_;
-  double* facs__simple_radial_fixed_point__args__extra_calib__jac_;
-  double* facs__simple_radial_fixed_pose_fixed_focal__args__extra_calib__jac_;
-  double* facs__simple_radial_fixed_pose_fixed_focal__args__point__jac_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib__args__focal__jac_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib__args__point__jac_;
-  double* facs__simple_radial_fixed_pose_fixed_point__args__focal__jac_;
-  double* facs__simple_radial_fixed_pose_fixed_point__args__extra_calib__jac_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib__args__pose__jac_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib__args__point__jac_;
-  double* facs__simple_radial_fixed_focal_fixed_point__args__pose__jac_;
-  double* facs__simple_radial_fixed_focal_fixed_point__args__extra_calib__jac_;
-  double* facs__simple_radial_fixed_extra_calib_fixed_point__args__pose__jac_;
-  double* facs__simple_radial_fixed_extra_calib_fixed_point__args__focal__jac_;
+  double* facs__simple_radial_fixed_point__args__focal_and_extra__jac_;
+  double* facs__simple_radial_fixed_point__args__principal_point__jac_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__args__point__jac_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_;
   double*
-      facs__simple_radial_fixed_pose_fixed_focal_fixed_point__args__extra_calib__jac_;
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__point__jac_;
   double*
-      facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__args__focal__jac_;
+      facs__simple_radial_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_;
   double*
-      facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__args__pose__jac_;
+      facs__simple_radial_fixed_pose_fixed_principal_point__args__point__jac_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_point__args__focal_and_extra__jac_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_point__args__principal_point__jac_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_point__args__pose__jac_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_point__args__principal_point__jac_;
+  double*
+      facs__simple_radial_fixed_principal_point_fixed_point__args__pose__jac_;
+  double*
+      facs__simple_radial_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__jac_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__jac_;
   double* facs__pinhole__args__pose__jac_;
-  double* facs__pinhole__args__focal__jac_;
-  double* facs__pinhole__args__extra_calib__jac_;
+  double* facs__pinhole__args__focal_and_extra__jac_;
+  double* facs__pinhole__args__principal_point__jac_;
   double* facs__pinhole__args__point__jac_;
-  double* facs__pinhole_fixed_pose__args__focal__jac_;
-  double* facs__pinhole_fixed_pose__args__extra_calib__jac_;
+  double* facs__pinhole_fixed_pose__args__focal_and_extra__jac_;
+  double* facs__pinhole_fixed_pose__args__principal_point__jac_;
   double* facs__pinhole_fixed_pose__args__point__jac_;
-  double* facs__pinhole_fixed_focal__args__pose__jac_;
-  double* facs__pinhole_fixed_focal__args__extra_calib__jac_;
-  double* facs__pinhole_fixed_focal__args__point__jac_;
-  double* facs__pinhole_fixed_extra_calib__args__pose__jac_;
-  double* facs__pinhole_fixed_extra_calib__args__focal__jac_;
-  double* facs__pinhole_fixed_extra_calib__args__point__jac_;
+  double* facs__pinhole_fixed_focal_and_extra__args__pose__jac_;
+  double* facs__pinhole_fixed_focal_and_extra__args__principal_point__jac_;
+  double* facs__pinhole_fixed_focal_and_extra__args__point__jac_;
+  double* facs__pinhole_fixed_principal_point__args__pose__jac_;
+  double* facs__pinhole_fixed_principal_point__args__focal_and_extra__jac_;
+  double* facs__pinhole_fixed_principal_point__args__point__jac_;
   double* facs__pinhole_fixed_point__args__pose__jac_;
-  double* facs__pinhole_fixed_point__args__focal__jac_;
-  double* facs__pinhole_fixed_point__args__extra_calib__jac_;
-  double* facs__pinhole_fixed_pose_fixed_focal__args__extra_calib__jac_;
-  double* facs__pinhole_fixed_pose_fixed_focal__args__point__jac_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib__args__focal__jac_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib__args__point__jac_;
-  double* facs__pinhole_fixed_pose_fixed_point__args__focal__jac_;
-  double* facs__pinhole_fixed_pose_fixed_point__args__extra_calib__jac_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib__args__pose__jac_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib__args__point__jac_;
-  double* facs__pinhole_fixed_focal_fixed_point__args__pose__jac_;
-  double* facs__pinhole_fixed_focal_fixed_point__args__extra_calib__jac_;
-  double* facs__pinhole_fixed_extra_calib_fixed_point__args__pose__jac_;
-  double* facs__pinhole_fixed_extra_calib_fixed_point__args__focal__jac_;
+  double* facs__pinhole_fixed_point__args__focal_and_extra__jac_;
+  double* facs__pinhole_fixed_point__args__principal_point__jac_;
   double*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__args__point__jac_;
+      facs__pinhole_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_;
+  double* facs__pinhole_fixed_pose_fixed_focal_and_extra__args__point__jac_;
   double*
-      facs__pinhole_fixed_pose_fixed_focal_fixed_point__args__extra_calib__jac_;
+      facs__pinhole_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_;
+  double* facs__pinhole_fixed_pose_fixed_principal_point__args__point__jac_;
+  double* facs__pinhole_fixed_pose_fixed_point__args__focal_and_extra__jac_;
+  double* facs__pinhole_fixed_pose_fixed_point__args__principal_point__jac_;
   double*
-      facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__args__focal__jac_;
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_;
   double*
-      facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__args__pose__jac_;
-  double* nodes__PinholeExtraCalib__z_;
-  double* nodes__PinholeExtraCalib__z_end__;
-  double* nodes__PinholeFocal__z_;
-  double* nodes__PinholeFocal__z_end__;
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
+  double* facs__pinhole_fixed_focal_and_extra_fixed_point__args__pose__jac_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_point__args__principal_point__jac_;
+  double* facs__pinhole_fixed_principal_point_fixed_point__args__pose__jac_;
+  double*
+      facs__pinhole_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__jac_;
+  double*
+      facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__jac_;
+  double* nodes__PinholeFocalAndExtra__z_;
+  double* nodes__PinholeFocalAndExtra__z_end__;
+  double* nodes__PinholePrincipalPoint__z_;
+  double* nodes__PinholePrincipalPoint__z_end__;
   double* nodes__Point__z_;
   double* nodes__Point__z_end__;
   double* nodes__Pose__z_;
   double* nodes__Pose__z_end__;
-  double* nodes__SimpleRadialExtraCalib__z_;
-  double* nodes__SimpleRadialExtraCalib__z_end__;
-  double* nodes__SimpleRadialFocal__z_;
-  double* nodes__SimpleRadialFocal__z_end__;
-  double* nodes__PinholeExtraCalib__p_;
-  double* nodes__PinholeExtraCalib__p_end__;
-  double* nodes__PinholeFocal__p_;
-  double* nodes__PinholeFocal__p_end__;
+  double* nodes__SimpleRadialFocalAndExtra__z_;
+  double* nodes__SimpleRadialFocalAndExtra__z_end__;
+  double* nodes__SimpleRadialPrincipalPoint__z_;
+  double* nodes__SimpleRadialPrincipalPoint__z_end__;
+  double* nodes__PinholeFocalAndExtra__p_;
+  double* nodes__PinholeFocalAndExtra__p_end__;
+  double* nodes__PinholePrincipalPoint__p_;
+  double* nodes__PinholePrincipalPoint__p_end__;
   double* nodes__Point__p_;
   double* nodes__Point__p_end__;
   double* nodes__Pose__p_;
   double* nodes__Pose__p_end__;
-  double* nodes__SimpleRadialExtraCalib__p_;
-  double* nodes__SimpleRadialExtraCalib__p_end__;
-  double* nodes__SimpleRadialFocal__p_;
-  double* nodes__SimpleRadialFocal__p_end__;
-  double* nodes__PinholeExtraCalib__step_;
-  double* nodes__PinholeExtraCalib__step_end__;
-  double* nodes__PinholeFocal__step_;
-  double* nodes__PinholeFocal__step_end__;
+  double* nodes__SimpleRadialFocalAndExtra__p_;
+  double* nodes__SimpleRadialFocalAndExtra__p_end__;
+  double* nodes__SimpleRadialPrincipalPoint__p_;
+  double* nodes__SimpleRadialPrincipalPoint__p_end__;
+  double* nodes__PinholeFocalAndExtra__step_;
+  double* nodes__PinholeFocalAndExtra__step_end__;
+  double* nodes__PinholePrincipalPoint__step_;
+  double* nodes__PinholePrincipalPoint__step_end__;
   double* nodes__Point__step_;
   double* nodes__Point__step_end__;
   double* nodes__Pose__step_;
   double* nodes__Pose__step_end__;
-  double* nodes__SimpleRadialExtraCalib__step_;
-  double* nodes__SimpleRadialExtraCalib__step_end__;
-  double* nodes__SimpleRadialFocal__step_;
-  double* nodes__SimpleRadialFocal__step_end__;
+  double* nodes__SimpleRadialFocalAndExtra__step_;
+  double* nodes__SimpleRadialFocalAndExtra__step_end__;
+  double* nodes__SimpleRadialPrincipalPoint__step_;
+  double* nodes__SimpleRadialPrincipalPoint__step_end__;
   double* marker__w_start_;
-  double* nodes__PinholeExtraCalib__w_;
-  double* nodes__PinholeFocal__w_;
+  double* nodes__PinholeFocalAndExtra__w_;
+  double* nodes__PinholePrincipalPoint__w_;
   double* nodes__Point__w_;
   double* nodes__Pose__w_;
-  double* nodes__SimpleRadialExtraCalib__w_;
-  double* nodes__SimpleRadialFocal__w_;
+  double* nodes__SimpleRadialFocalAndExtra__w_;
+  double* nodes__SimpleRadialPrincipalPoint__w_;
   double* marker__w_end_;
   double* marker__r_0_start_;
-  double* nodes__PinholeExtraCalib__r_0_;
-  double* nodes__PinholeFocal__r_0_;
+  double* nodes__PinholeFocalAndExtra__r_0_;
+  double* nodes__PinholePrincipalPoint__r_0_;
   double* nodes__Point__r_0_;
   double* nodes__Pose__r_0_;
-  double* nodes__SimpleRadialExtraCalib__r_0_;
-  double* nodes__SimpleRadialFocal__r_0_;
+  double* nodes__SimpleRadialFocalAndExtra__r_0_;
+  double* nodes__SimpleRadialPrincipalPoint__r_0_;
   double* marker__r_0_end_;
   double* marker__r_k_start_;
-  double* nodes__PinholeExtraCalib__r_k_;
-  double* nodes__PinholeFocal__r_k_;
+  double* nodes__PinholeFocalAndExtra__r_k_;
+  double* nodes__PinholePrincipalPoint__r_k_;
   double* nodes__Point__r_k_;
   double* nodes__Pose__r_k_;
-  double* nodes__SimpleRadialExtraCalib__r_k_;
-  double* nodes__SimpleRadialFocal__r_k_;
+  double* nodes__SimpleRadialFocalAndExtra__r_k_;
+  double* nodes__SimpleRadialPrincipalPoint__r_k_;
   double* marker__r_k_end_;
   double* marker__Mp_start_;
-  double* nodes__PinholeExtraCalib__Mp_;
-  double* nodes__PinholeFocal__Mp_;
+  double* nodes__PinholeFocalAndExtra__Mp_;
+  double* nodes__PinholePrincipalPoint__Mp_;
   double* nodes__Point__Mp_;
   double* nodes__Pose__Mp_;
-  double* nodes__SimpleRadialExtraCalib__Mp_;
-  double* nodes__SimpleRadialFocal__Mp_;
+  double* nodes__SimpleRadialFocalAndExtra__Mp_;
+  double* nodes__SimpleRadialPrincipalPoint__Mp_;
   double* marker__Mp_end_;
   double* marker__precond_start_;
-  double* nodes__PinholeExtraCalib__precond_diag_;
-  double* nodes__PinholeExtraCalib__precond_tril_;
-  double* nodes__PinholeFocal__precond_diag_;
-  double* nodes__PinholeFocal__precond_tril_;
+  double* nodes__PinholeFocalAndExtra__precond_diag_;
+  double* nodes__PinholeFocalAndExtra__precond_tril_;
+  double* nodes__PinholePrincipalPoint__precond_diag_;
+  double* nodes__PinholePrincipalPoint__precond_tril_;
   double* nodes__Point__precond_diag_;
   double* nodes__Point__precond_tril_;
   double* nodes__Pose__precond_diag_;
   double* nodes__Pose__precond_tril_;
-  double* nodes__SimpleRadialExtraCalib__precond_diag_;
-  double* nodes__SimpleRadialExtraCalib__precond_tril_;
-  double* nodes__SimpleRadialFocal__precond_diag_;
-  double* nodes__SimpleRadialFocal__precond_tril_;
+  double* nodes__SimpleRadialFocalAndExtra__precond_diag_;
+  double* nodes__SimpleRadialFocalAndExtra__precond_tril_;
+  double* nodes__SimpleRadialPrincipalPoint__precond_diag_;
+  double* nodes__SimpleRadialPrincipalPoint__precond_tril_;
   double* marker__precond_end_;
   double* marker__jp_start_;
   double* facs__simple_radial__jp_;
   double* facs__simple_radial_fixed_pose__jp_;
-  double* facs__simple_radial_fixed_focal__jp_;
-  double* facs__simple_radial_fixed_extra_calib__jp_;
+  double* facs__simple_radial_fixed_focal_and_extra__jp_;
+  double* facs__simple_radial_fixed_principal_point__jp_;
   double* facs__simple_radial_fixed_point__jp_;
-  double* facs__simple_radial_fixed_pose_fixed_focal__jp_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib__jp_;
+  double* facs__simple_radial_fixed_pose_fixed_focal_and_extra__jp_;
+  double* facs__simple_radial_fixed_pose_fixed_principal_point__jp_;
   double* facs__simple_radial_fixed_pose_fixed_point__jp_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib__jp_;
-  double* facs__simple_radial_fixed_focal_fixed_point__jp_;
-  double* facs__simple_radial_fixed_extra_calib_fixed_point__jp_;
-  double* facs__simple_radial_fixed_pose_fixed_focal_fixed_extra_calib__jp_;
-  double* facs__simple_radial_fixed_pose_fixed_focal_fixed_point__jp_;
-  double* facs__simple_radial_fixed_pose_fixed_extra_calib_fixed_point__jp_;
-  double* facs__simple_radial_fixed_focal_fixed_extra_calib_fixed_point__jp_;
+  double* facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__jp_;
+  double* facs__simple_radial_fixed_focal_and_extra_fixed_point__jp_;
+  double* facs__simple_radial_fixed_principal_point_fixed_point__jp_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point__jp_;
+  double* facs__simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point__jp_;
+  double* facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__jp_;
+  double*
+      facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__jp_;
   double* facs__pinhole__jp_;
   double* facs__pinhole_fixed_pose__jp_;
-  double* facs__pinhole_fixed_focal__jp_;
-  double* facs__pinhole_fixed_extra_calib__jp_;
+  double* facs__pinhole_fixed_focal_and_extra__jp_;
+  double* facs__pinhole_fixed_principal_point__jp_;
   double* facs__pinhole_fixed_point__jp_;
-  double* facs__pinhole_fixed_pose_fixed_focal__jp_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib__jp_;
+  double* facs__pinhole_fixed_pose_fixed_focal_and_extra__jp_;
+  double* facs__pinhole_fixed_pose_fixed_principal_point__jp_;
   double* facs__pinhole_fixed_pose_fixed_point__jp_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib__jp_;
-  double* facs__pinhole_fixed_focal_fixed_point__jp_;
-  double* facs__pinhole_fixed_extra_calib_fixed_point__jp_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_extra_calib__jp_;
-  double* facs__pinhole_fixed_pose_fixed_focal_fixed_point__jp_;
-  double* facs__pinhole_fixed_pose_fixed_extra_calib_fixed_point__jp_;
-  double* facs__pinhole_fixed_focal_fixed_extra_calib_fixed_point__jp_;
+  double* facs__pinhole_fixed_focal_and_extra_fixed_principal_point__jp_;
+  double* facs__pinhole_fixed_focal_and_extra_fixed_point__jp_;
+  double* facs__pinhole_fixed_principal_point_fixed_point__jp_;
+  double*
+      facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point__jp_;
+  double* facs__pinhole_fixed_pose_fixed_focal_and_extra_fixed_point__jp_;
+  double* facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__jp_;
+  double*
+      facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__jp_;
   double* marker__jp_end_;
   double* solver__current_diag_;
   double* solver__alpha_numerator_;

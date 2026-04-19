@@ -11,12 +11,12 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    pinhole_fixed_pose_score_kernel(double* focal,
-                                    unsigned int focal_num_alloc,
-                                    SharedIndex* focal_indices,
-                                    double* extra_calib,
-                                    unsigned int extra_calib_num_alloc,
-                                    SharedIndex* extra_calib_indices,
+    pinhole_fixed_pose_score_kernel(double* focal_and_extra,
+                                    unsigned int focal_and_extra_num_alloc,
+                                    SharedIndex* focal_and_extra_indices,
+                                    double* principal_point,
+                                    unsigned int principal_point_num_alloc,
+                                    SharedIndex* principal_point_indices,
                                     double* point,
                                     unsigned int point_num_alloc,
                                     SharedIndex* point_indices,
@@ -29,15 +29,15 @@ __global__ void __launch_bounds__(1024, 1)
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
 
-  __shared__ SharedIndex focal_indices_loc[1024];
-  focal_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex focal_and_extra_indices_loc[1024];
+  focal_and_extra_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? focal_indices[global_thread_idx]
+           ? focal_and_extra_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
-  __shared__ SharedIndex extra_calib_indices_loc[1024];
-  extra_calib_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex principal_point_indices_loc[1024];
+  principal_point_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? extra_calib_indices[global_thread_idx]
+           ? principal_point_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
   __shared__ SharedIndex point_indices_loc[1024];
   point_indices_loc[threadIdx.x] =
@@ -49,13 +49,13 @@ __global__ void __launch_bounds__(1024, 1)
 
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27;
-  load_shared<2, double, double>(extra_calib,
-                                 0 * extra_calib_num_alloc,
-                                 extra_calib_indices_loc,
+  load_shared<2, double, double>(principal_point,
+                                 0 * principal_point_num_alloc,
+                                 principal_point_indices_loc,
                                  (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     read_shared_2<double>((double*)inout_shared,
-                          extra_calib_indices_loc[threadIdx.x].target,
+                          principal_point_indices_loc[threadIdx.x].target,
                           r0,
                           r1);
   };
@@ -66,11 +66,15 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = -1.00000000000000000e+00;
     r3 = fma(r3, r4, r1);
   };
-  load_shared<2, double, double>(
-      focal, 0 * focal_num_alloc, focal_indices_loc, (double*)inout_shared);
+  load_shared<2, double, double>(focal_and_extra,
+                                 0 * focal_and_extra_num_alloc,
+                                 focal_and_extra_indices_loc,
+                                 (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
-        (double*)inout_shared, focal_indices_loc[threadIdx.x].target, r1, r5);
+    read_shared_2<double>((double*)inout_shared,
+                          focal_and_extra_indices_loc[threadIdx.x].target,
+                          r1,
+                          r5);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -155,12 +159,12 @@ __global__ void __launch_bounds__(1024, 1)
   sum_flush_final<double>(out_rTr_local, out_rTr, 1);
 }
 
-void pinhole_fixed_pose_score(double* focal,
-                              unsigned int focal_num_alloc,
-                              SharedIndex* focal_indices,
-                              double* extra_calib,
-                              unsigned int extra_calib_num_alloc,
-                              SharedIndex* extra_calib_indices,
+void pinhole_fixed_pose_score(double* focal_and_extra,
+                              unsigned int focal_and_extra_num_alloc,
+                              SharedIndex* focal_and_extra_indices,
+                              double* principal_point,
+                              unsigned int principal_point_num_alloc,
+                              SharedIndex* principal_point_indices,
                               double* point,
                               unsigned int point_num_alloc,
                               SharedIndex* point_indices,
@@ -175,12 +179,12 @@ void pinhole_fixed_pose_score(double* focal,
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  pinhole_fixed_pose_score_kernel<<<n_blocks, 1024>>>(focal,
-                                                      focal_num_alloc,
-                                                      focal_indices,
-                                                      extra_calib,
-                                                      extra_calib_num_alloc,
-                                                      extra_calib_indices,
+  pinhole_fixed_pose_score_kernel<<<n_blocks, 1024>>>(focal_and_extra,
+                                                      focal_and_extra_num_alloc,
+                                                      focal_and_extra_indices,
+                                                      principal_point,
+                                                      principal_point_num_alloc,
+                                                      principal_point_indices,
                                                       point,
                                                       point_num_alloc,
                                                       point_indices,

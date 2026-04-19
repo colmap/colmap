@@ -6,12 +6,12 @@
 namespace caspar {
 
 void simple_radial_fixed_pose_fixed_point_score(
-    double* focal,
-    unsigned int focal_num_alloc,
-    SharedIndex* focal_indices,
-    double* extra_calib,
-    unsigned int extra_calib_num_alloc,
-    SharedIndex* extra_calib_indices,
+    double* focal_and_extra,
+    unsigned int focal_and_extra_num_alloc,
+    SharedIndex* focal_and_extra_indices,
+    double* principal_point,
+    unsigned int principal_point_num_alloc,
+    SharedIndex* principal_point_indices,
     double* pixel,
     unsigned int pixel_num_alloc,
     double* pose,

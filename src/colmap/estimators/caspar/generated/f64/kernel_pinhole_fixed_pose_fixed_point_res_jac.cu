@@ -12,12 +12,12 @@ namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     pinhole_fixed_pose_fixed_point_res_jac_kernel(
-        double* focal,
-        unsigned int focal_num_alloc,
-        SharedIndex* focal_indices,
-        double* extra_calib,
-        unsigned int extra_calib_num_alloc,
-        SharedIndex* extra_calib_indices,
+        double* focal_and_extra,
+        unsigned int focal_and_extra_num_alloc,
+        SharedIndex* focal_and_extra_indices,
+        double* principal_point,
+        unsigned int principal_point_num_alloc,
+        SharedIndex* principal_point_indices,
         double* pixel,
         unsigned int pixel_num_alloc,
         double* pose,
@@ -26,46 +26,46 @@ __global__ void __launch_bounds__(1024, 1)
         unsigned int point_num_alloc,
         double* out_res,
         unsigned int out_res_num_alloc,
-        double* out_focal_jac,
-        unsigned int out_focal_jac_num_alloc,
-        double* const out_focal_njtr,
-        unsigned int out_focal_njtr_num_alloc,
-        double* const out_focal_precond_diag,
-        unsigned int out_focal_precond_diag_num_alloc,
-        double* const out_focal_precond_tril,
-        unsigned int out_focal_precond_tril_num_alloc,
-        double* out_extra_calib_jac,
-        unsigned int out_extra_calib_jac_num_alloc,
-        double* const out_extra_calib_njtr,
-        unsigned int out_extra_calib_njtr_num_alloc,
-        double* const out_extra_calib_precond_diag,
-        unsigned int out_extra_calib_precond_diag_num_alloc,
-        double* const out_extra_calib_precond_tril,
-        unsigned int out_extra_calib_precond_tril_num_alloc,
+        double* out_focal_and_extra_jac,
+        unsigned int out_focal_and_extra_jac_num_alloc,
+        double* const out_focal_and_extra_njtr,
+        unsigned int out_focal_and_extra_njtr_num_alloc,
+        double* const out_focal_and_extra_precond_diag,
+        unsigned int out_focal_and_extra_precond_diag_num_alloc,
+        double* const out_focal_and_extra_precond_tril,
+        unsigned int out_focal_and_extra_precond_tril_num_alloc,
+        double* out_principal_point_jac,
+        unsigned int out_principal_point_jac_num_alloc,
+        double* const out_principal_point_njtr,
+        unsigned int out_principal_point_njtr_num_alloc,
+        double* const out_principal_point_precond_diag,
+        unsigned int out_principal_point_precond_diag_num_alloc,
+        double* const out_principal_point_precond_tril,
+        unsigned int out_principal_point_precond_tril_num_alloc,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
 
-  __shared__ SharedIndex focal_indices_loc[1024];
-  focal_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex focal_and_extra_indices_loc[1024];
+  focal_and_extra_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? focal_indices[global_thread_idx]
+           ? focal_and_extra_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
-  __shared__ SharedIndex extra_calib_indices_loc[1024];
-  extra_calib_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex principal_point_indices_loc[1024];
+  principal_point_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? extra_calib_indices[global_thread_idx]
+           ? principal_point_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26;
-  load_shared<2, double, double>(extra_calib,
-                                 0 * extra_calib_num_alloc,
-                                 extra_calib_indices_loc,
+  load_shared<2, double, double>(principal_point,
+                                 0 * principal_point_num_alloc,
+                                 principal_point_indices_loc,
                                  (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     read_shared_2<double>((double*)inout_shared,
-                          extra_calib_indices_loc[threadIdx.x].target,
+                          principal_point_indices_loc[threadIdx.x].target,
                           r0,
                           r1);
   };
@@ -76,11 +76,15 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = -1.00000000000000000e+00;
     r2 = fma(r2, r4, r0);
   };
-  load_shared<2, double, double>(
-      focal, 0 * focal_num_alloc, focal_indices_loc, (double*)inout_shared);
+  load_shared<2, double, double>(focal_and_extra,
+                                 0 * focal_and_extra_num_alloc,
+                                 focal_and_extra_indices_loc,
+                                 (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
-        (double*)inout_shared, focal_indices_loc[threadIdx.x].target, r0, r5);
+    read_shared_2<double>((double*)inout_shared,
+                          focal_and_extra_indices_loc[threadIdx.x].target,
+                          r0,
+                          r5);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -144,11 +148,12 @@ __global__ void __launch_bounds__(1024, 1)
     write_idx_2<1024, double, double, double2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
     r22 = r1 * r25;
-    write_idx_2<1024, double, double, double2>(out_focal_jac,
-                                               0 * out_focal_jac_num_alloc,
-                                               global_thread_idx,
-                                               r17,
-                                               r22);
+    write_idx_2<1024, double, double, double2>(
+        out_focal_and_extra_jac,
+        0 * out_focal_and_extra_jac_num_alloc,
+        global_thread_idx,
+        r17,
+        r22);
     r2 = r4 * r2;
     r17 = r17 * r2;
     r22 = r4 * r1;
@@ -156,9 +161,9 @@ __global__ void __launch_bounds__(1024, 1)
     r22 = r22 * r25;
     write_sum_2<double, double>((double*)inout_shared, r17, r22);
   };
-  flush_sum_shared<2, double>(out_focal_njtr,
-                              0 * out_focal_njtr_num_alloc,
-                              focal_indices_loc,
+  flush_sum_shared<2, double>(out_focal_and_extra_njtr,
+                              0 * out_focal_and_extra_njtr_num_alloc,
+                              focal_and_extra_indices_loc,
                               (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r19 = r19 * r19;
@@ -169,34 +174,34 @@ __global__ void __launch_bounds__(1024, 1)
     r22 = r24 * r22;
     write_sum_2<double, double>((double*)inout_shared, r19, r22);
   };
-  flush_sum_shared<2, double>(out_focal_precond_diag,
-                              0 * out_focal_precond_diag_num_alloc,
-                              focal_indices_loc,
+  flush_sum_shared<2, double>(out_focal_and_extra_precond_diag,
+                              0 * out_focal_and_extra_precond_diag_num_alloc,
+                              focal_and_extra_indices_loc,
                               (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r3 = r4 * r3;
     write_sum_2<double, double>((double*)inout_shared, r2, r3);
   };
-  flush_sum_shared<2, double>(out_extra_calib_njtr,
-                              0 * out_extra_calib_njtr_num_alloc,
-                              extra_calib_indices_loc,
+  flush_sum_shared<2, double>(out_principal_point_njtr,
+                              0 * out_principal_point_njtr_num_alloc,
+                              principal_point_indices_loc,
                               (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     write_sum_2<double, double>((double*)inout_shared, r23, r23);
   };
-  flush_sum_shared<2, double>(out_extra_calib_precond_diag,
-                              0 * out_extra_calib_precond_diag_num_alloc,
-                              extra_calib_indices_loc,
+  flush_sum_shared<2, double>(out_principal_point_precond_diag,
+                              0 * out_principal_point_precond_diag_num_alloc,
+                              principal_point_indices_loc,
                               (double*)inout_shared);
 }
 
 void pinhole_fixed_pose_fixed_point_res_jac(
-    double* focal,
-    unsigned int focal_num_alloc,
-    SharedIndex* focal_indices,
-    double* extra_calib,
-    unsigned int extra_calib_num_alloc,
-    SharedIndex* extra_calib_indices,
+    double* focal_and_extra,
+    unsigned int focal_and_extra_num_alloc,
+    SharedIndex* focal_and_extra_indices,
+    double* principal_point,
+    unsigned int principal_point_num_alloc,
+    SharedIndex* principal_point_indices,
     double* pixel,
     unsigned int pixel_num_alloc,
     double* pose,
@@ -205,22 +210,22 @@ void pinhole_fixed_pose_fixed_point_res_jac(
     unsigned int point_num_alloc,
     double* out_res,
     unsigned int out_res_num_alloc,
-    double* out_focal_jac,
-    unsigned int out_focal_jac_num_alloc,
-    double* const out_focal_njtr,
-    unsigned int out_focal_njtr_num_alloc,
-    double* const out_focal_precond_diag,
-    unsigned int out_focal_precond_diag_num_alloc,
-    double* const out_focal_precond_tril,
-    unsigned int out_focal_precond_tril_num_alloc,
-    double* out_extra_calib_jac,
-    unsigned int out_extra_calib_jac_num_alloc,
-    double* const out_extra_calib_njtr,
-    unsigned int out_extra_calib_njtr_num_alloc,
-    double* const out_extra_calib_precond_diag,
-    unsigned int out_extra_calib_precond_diag_num_alloc,
-    double* const out_extra_calib_precond_tril,
-    unsigned int out_extra_calib_precond_tril_num_alloc,
+    double* out_focal_and_extra_jac,
+    unsigned int out_focal_and_extra_jac_num_alloc,
+    double* const out_focal_and_extra_njtr,
+    unsigned int out_focal_and_extra_njtr_num_alloc,
+    double* const out_focal_and_extra_precond_diag,
+    unsigned int out_focal_and_extra_precond_diag_num_alloc,
+    double* const out_focal_and_extra_precond_tril,
+    unsigned int out_focal_and_extra_precond_tril_num_alloc,
+    double* out_principal_point_jac,
+    unsigned int out_principal_point_jac_num_alloc,
+    double* const out_principal_point_njtr,
+    unsigned int out_principal_point_njtr_num_alloc,
+    double* const out_principal_point_precond_diag,
+    unsigned int out_principal_point_precond_diag_num_alloc,
+    double* const out_principal_point_precond_tril,
+    unsigned int out_principal_point_precond_tril_num_alloc,
     size_t problem_size) {
   if (problem_size == 0) {
     return;
@@ -228,12 +233,12 @@ void pinhole_fixed_pose_fixed_point_res_jac(
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   pinhole_fixed_pose_fixed_point_res_jac_kernel<<<n_blocks, 1024>>>(
-      focal,
-      focal_num_alloc,
-      focal_indices,
-      extra_calib,
-      extra_calib_num_alloc,
-      extra_calib_indices,
+      focal_and_extra,
+      focal_and_extra_num_alloc,
+      focal_and_extra_indices,
+      principal_point,
+      principal_point_num_alloc,
+      principal_point_indices,
       pixel,
       pixel_num_alloc,
       pose,
@@ -242,22 +247,22 @@ void pinhole_fixed_pose_fixed_point_res_jac(
       point_num_alloc,
       out_res,
       out_res_num_alloc,
-      out_focal_jac,
-      out_focal_jac_num_alloc,
-      out_focal_njtr,
-      out_focal_njtr_num_alloc,
-      out_focal_precond_diag,
-      out_focal_precond_diag_num_alloc,
-      out_focal_precond_tril,
-      out_focal_precond_tril_num_alloc,
-      out_extra_calib_jac,
-      out_extra_calib_jac_num_alloc,
-      out_extra_calib_njtr,
-      out_extra_calib_njtr_num_alloc,
-      out_extra_calib_precond_diag,
-      out_extra_calib_precond_diag_num_alloc,
-      out_extra_calib_precond_tril,
-      out_extra_calib_precond_tril_num_alloc,
+      out_focal_and_extra_jac,
+      out_focal_and_extra_jac_num_alloc,
+      out_focal_and_extra_njtr,
+      out_focal_and_extra_njtr_num_alloc,
+      out_focal_and_extra_precond_diag,
+      out_focal_and_extra_precond_diag_num_alloc,
+      out_focal_and_extra_precond_tril,
+      out_focal_and_extra_precond_tril_num_alloc,
+      out_principal_point_jac,
+      out_principal_point_jac_num_alloc,
+      out_principal_point_njtr,
+      out_principal_point_njtr_num_alloc,
+      out_principal_point_precond_diag,
+      out_principal_point_precond_diag_num_alloc,
+      out_principal_point_precond_tril,
+      out_principal_point_precond_tril_num_alloc,
       problem_size);
 }
 
