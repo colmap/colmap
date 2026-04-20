@@ -585,8 +585,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     caspar::SolverParams<StorageType> params;
 
-    params.diag_exit_value = 1e15;
-    params.pcg_iter_max = 200;
+    params.pcg_iter_max = 50;
+    params.solver_iter_max = 400;
+    params.diag_min = 1e-6;
+    params.solver_rel_decrease_min = 0.999;
+
     auto solver = CreateSolver(params, BuildSizing());
     SetupSolverData(solver);
     caspar::SolveResult result = solver.solve(/*print_progress=*/false);
