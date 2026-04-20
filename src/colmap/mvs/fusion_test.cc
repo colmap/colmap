@@ -139,6 +139,39 @@ TEST(StereoFusion, Integration) {
   }
 }
 
+TEST(ReadPointsVisibility, RoundTrip) {
+  const auto test_dir = CreateTestDir();
+  const auto vis_path = test_dir / "test.vis";
+
+  std::vector<std::vector<int>> expected = {
+      {0, 1, 2},
+      {1, 3},
+      {},
+      {0, 2, 3, 4},
+  };
+  WritePointsVisibility(vis_path, expected);
+
+  const auto actual = ReadPointsVisibility(vis_path, expected.size());
+
+  ASSERT_EQ(actual.size(), expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    ASSERT_EQ(actual[i].size(), expected[i].size());
+    for (size_t j = 0; j < expected[i].size(); ++j) {
+      EXPECT_EQ(actual[i][j], expected[i][j]);
+    }
+  }
+}
+
+TEST(ReadPointsVisibility, SizeMismatch) {
+  const auto test_dir = CreateTestDir();
+  const auto vis_path = test_dir / "test.vis";
+
+  std::vector<std::vector<int>> data = {{0, 1}, {2}};
+  WritePointsVisibility(vis_path, data);
+
+  EXPECT_THROW(ReadPointsVisibility(vis_path, 5), std::invalid_argument);
+}
+
 }  // namespace
 }  // namespace mvs
 }  // namespace colmap
