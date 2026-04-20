@@ -28,47 +28,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
       : BundleAdjuster(options, config), reconstruction_(reconstruction) {
     VLOG(1) << "Using Caspar bundle adjuster";
 
-    ApplyGaugeFixing();
     BuildObservationCounts();
     BuildCameraFrameIndex();
     BuildFactors();
   }
 
  private:
-  // Translates config_.FixedGauge() into an explicit
-  // SetConstantRigFromWorldPose call. Caspar doesn't read FixedGauge()
-  // internally, so gauge fixing must be expressed as a pinned frame before
-  // BuildFactors() runs.
-  // NOTE: fixing one SE(3) pose removes 6 DOF, leaving 1 DOF (scale)
-  // unconstrained. Ceres removes scale by fixing a second pose; Caspar does not
-  // yet do this, so scale remains a free gauge direction.
-  void ApplyGaugeFixing() {
-    if (config_.FixedGauge() != BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD)
-      return;
-    if (!options_.refine_rig_from_world) return;
-
-    std::vector<image_t> sorted_ids(config_.Images().begin(),
-                                    config_.Images().end());
-    std::sort(sorted_ids.begin(), sorted_ids.end());
-
-    // If any eligible frame is already pinned, the pose gauge is already (at
-    // least partially) fixed — do not add a second constraint.
-    for (const image_t id : sorted_ids) {
-      const Image& img = reconstruction_.Image(id);
-      if (!img.IsRefInFrame()) continue;
-      if (config_.HasConstantRigFromWorldPose(img.FrameId())) return;
-    }
-
-    // Pin the first eligible variable frame, identical to Ceres's first anchor.
-    for (const image_t id : sorted_ids) {
-      const Image& img = reconstruction_.Image(id);
-      if (!img.IsRefInFrame()) continue;
-      config_.SetConstantRigFromWorldPose(img.FrameId());
-      return;
-    }
-    LOG(WARNING) << "Caspar: no eligible ref-sensor frame found to fix gauge.";
-  }
-
   // Returns the adapter for a given model ID, creating it if needed.
   // Returns nullptr for unsupported models.
   ICasparModelAdapter* GetAdapter(const CameraModelId model_id) {
@@ -619,6 +584,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
 
     caspar::SolverParams<StorageType> params;
+
+    params.diag_exit_value = 1e15;
+    params.pcg_iter_max = 200;
     auto solver = CreateSolver(params, BuildSizing());
     SetupSolverData(solver);
     caspar::SolveResult result = solver.solve(/*print_progress=*/false);
@@ -668,10 +636,19 @@ CasparBundleAdjustmentSummary::Create(
   auto summary = std::make_shared<CasparBundleAdjustmentSummary>();
   switch (caspar_summary.exit_reason) {
     case caspar::ExitReason::CONVERGED_DIAG_EXIT:
+      VLOG(1) << "Caspar: CONVERGED_DIAG_EXIT after "
+              << caspar_summary.iteration_count << " iters"
+              << " (diag limit hit — likely premature termination)";
+      summary->termination_type = BundleAdjustmentTerminationType::CONVERGENCE;
+      break;
     case caspar::ExitReason::CONVERGED_SCORE_THRESHOLD:
+      VLOG(1) << "Caspar: CONVERGED_SCORE_THRESHOLD after "
+              << caspar_summary.iteration_count << " iters";
       summary->termination_type = BundleAdjustmentTerminationType::CONVERGENCE;
       break;
     case caspar::ExitReason::MAX_ITERATIONS:
+      VLOG(1) << "Caspar: MAX_ITERATIONS (" << caspar_summary.iteration_count
+              << ")";
       summary->termination_type =
           BundleAdjustmentTerminationType::NO_CONVERGENCE;
       break;
