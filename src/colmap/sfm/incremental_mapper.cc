@@ -1118,14 +1118,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
 
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 #ifdef CASPAR_ENABLED
-
     bundle_adjuster = CreateDefaultCasparBundleAdjuster(
         ba_options, ba_config, *reconstruction_);
-
 #else
-    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
     bundle_adjuster = CreateDefaultBundleAdjuster(
         ba_options, ba_config, *reconstruction_);
 #endif

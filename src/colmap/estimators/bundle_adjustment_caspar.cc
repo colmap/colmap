@@ -1,7 +1,9 @@
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
 #ifdef CASPAR_ENABLED
 #include "caspar/caspar_model_adapter.h"
@@ -26,12 +28,47 @@ class CasparBundleAdjuster : public BundleAdjuster {
       : BundleAdjuster(options, config), reconstruction_(reconstruction) {
     VLOG(1) << "Using Caspar bundle adjuster";
 
+    ApplyGaugeFixing();
     BuildObservationCounts();
     BuildCameraFrameIndex();
     BuildFactors();
   }
 
  private:
+  // Translates config_.FixedGauge() into an explicit
+  // SetConstantRigFromWorldPose call. Caspar doesn't read FixedGauge()
+  // internally, so gauge fixing must be expressed as a pinned frame before
+  // BuildFactors() runs.
+  // NOTE: fixing one SE(3) pose removes 6 DOF, leaving 1 DOF (scale)
+  // unconstrained. Ceres removes scale by fixing a second pose; Caspar does not
+  // yet do this, so scale remains a free gauge direction.
+  void ApplyGaugeFixing() {
+    if (config_.FixedGauge() != BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD)
+      return;
+    if (!options_.refine_rig_from_world) return;
+
+    std::vector<image_t> sorted_ids(config_.Images().begin(),
+                                    config_.Images().end());
+    std::sort(sorted_ids.begin(), sorted_ids.end());
+
+    // If any eligible frame is already pinned, the pose gauge is already (at
+    // least partially) fixed — do not add a second constraint.
+    for (const image_t id : sorted_ids) {
+      const Image& img = reconstruction_.Image(id);
+      if (!img.IsRefInFrame()) continue;
+      if (config_.HasConstantRigFromWorldPose(img.FrameId())) return;
+    }
+
+    // Pin the first eligible variable frame, identical to Ceres's first anchor.
+    for (const image_t id : sorted_ids) {
+      const Image& img = reconstruction_.Image(id);
+      if (!img.IsRefInFrame()) continue;
+      config_.SetConstantRigFromWorldPose(img.FrameId());
+      return;
+    }
+    LOG(WARNING) << "Caspar: no eligible ref-sensor frame found to fix gauge.";
+  }
+
   // Returns the adapter for a given model ID, creating it if needed.
   // Returns nullptr for unsupported models.
   ICasparModelAdapter* GetAdapter(const CameraModelId model_id) {
@@ -214,7 +251,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     // Detect mismatched refinement flags: CASPAR cannot independently fix
     // focal vs. extra_params within the merged focal_and_extra block.
-    // Skip and warn; these observations will be absent from the BA problem.
     if (options_.refine_focal_length != options_.refine_extra_params &&
         !config_.HasConstantCamIntrinsics(camera.camera_id) &&
         !cameras_from_outside_config_.count(camera.camera_id)) {
@@ -227,11 +263,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     // For non-ref cameras with a variable rig pose, Caspar can't express
     // project(CamFromRig * RigFromWorld * point, calib) as a variable-pose
-    // factor. Using a stale initial CamFromWorld as FIXED_POSE corrupts the
-    // point and calibration optimization (noisy fixed poses pull points away
-    // from the correct positions). Skip these observations entirely.
-    // Non-ref cameras with a constant rig pose are safe: the pose won't drift,
-    // so FIXED_POSE with the current CamFromWorld gives correct residuals.
+    // factor.
     if (!image.IsRefInFrame() && pose_var) return;
 
     const bool effective_pose_var = pose_var && image.IsRefInFrame();
@@ -247,36 +279,51 @@ class CasparBundleAdjuster : public BundleAdjuster {
     // Select the variant from the 4-dimensional (pose, focal_and_extra,
     // principal_point, point) fixed/tunable space.
     FactorVariant v;
-    if (effective_pose_var && focal_and_extra_var && principal_point_var && point_var)
+    if (effective_pose_var && focal_and_extra_var && principal_point_var &&
+        point_var)
       v = FactorVariant::BASE;
-    else if (!effective_pose_var && focal_and_extra_var && principal_point_var && point_var)
+    else if (!effective_pose_var && focal_and_extra_var &&
+             principal_point_var && point_var)
       v = FactorVariant::FIXED_POSE;
-    else if (effective_pose_var && !focal_and_extra_var && principal_point_var && point_var)
+    else if (effective_pose_var && !focal_and_extra_var &&
+             principal_point_var && point_var)
       v = FactorVariant::FIXED_FOCAL_AND_EXTRA;
-    else if (effective_pose_var && focal_and_extra_var && !principal_point_var && point_var)
+    else if (effective_pose_var && focal_and_extra_var &&
+             !principal_point_var && point_var)
       v = FactorVariant::FIXED_PRINCIPAL_POINT;
-    else if (effective_pose_var && focal_and_extra_var && principal_point_var && !point_var)
+    else if (effective_pose_var && focal_and_extra_var && principal_point_var &&
+             !point_var)
       v = FactorVariant::FIXED_POINT;
-    else if (!effective_pose_var && !focal_and_extra_var && principal_point_var && point_var)
+    else if (!effective_pose_var && !focal_and_extra_var &&
+             principal_point_var && point_var)
       v = FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA;
-    else if (!effective_pose_var && focal_and_extra_var && !principal_point_var && point_var)
+    else if (!effective_pose_var && focal_and_extra_var &&
+             !principal_point_var && point_var)
       v = FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT;
-    else if (!effective_pose_var && focal_and_extra_var && principal_point_var && !point_var)
+    else if (!effective_pose_var && focal_and_extra_var &&
+             principal_point_var && !point_var)
       v = FactorVariant::FIXED_POSE_FIXED_POINT;
-    else if (effective_pose_var && !focal_and_extra_var && !principal_point_var && point_var)
+    else if (effective_pose_var && !focal_and_extra_var &&
+             !principal_point_var && point_var)
       v = FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT;
-    else if (effective_pose_var && !focal_and_extra_var && principal_point_var && !point_var)
+    else if (effective_pose_var && !focal_and_extra_var &&
+             principal_point_var && !point_var)
       v = FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT;
-    else if (effective_pose_var && focal_and_extra_var && !principal_point_var && !point_var)
+    else if (effective_pose_var && focal_and_extra_var &&
+             !principal_point_var && !point_var)
       v = FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT;
-    else if (!effective_pose_var && !focal_and_extra_var && !principal_point_var && point_var)
+    else if (!effective_pose_var && !focal_and_extra_var &&
+             !principal_point_var && point_var)
       v = FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT;
-    else if (!effective_pose_var && !focal_and_extra_var && principal_point_var && !point_var)
+    else if (!effective_pose_var && !focal_and_extra_var &&
+             principal_point_var && !point_var)
       v = FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT;
-    else if (!effective_pose_var && focal_and_extra_var && !principal_point_var && !point_var)
+    else if (!effective_pose_var && focal_and_extra_var &&
+             !principal_point_var && !point_var)
       v = FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT;
     else  // pose && !focal_and_extra && !principal_point && !point
-      v = FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT;
+      v = FactorVariant::
+          FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT;
 
     VariantData& vd = md.variants[static_cast<int>(v)];
 
