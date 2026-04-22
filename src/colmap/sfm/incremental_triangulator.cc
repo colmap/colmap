@@ -601,8 +601,18 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       }
 
       const Point2D& corr_point2D = image.Point2D(corr->point2D_idx);
-      if (!corr_point2D.HasPoint3D() || corr_point2D.point3D_id == point3D_id ||
-          merge_trials_[point3D_id].count(corr_point2D.point3D_id) > 0) {
+      if (!corr_point2D.HasPoint3D() ||
+          corr_point2D.point3D_id == point3D_id) {
+        continue;
+      }
+
+      // Canonical (min, max) pair so this merge is keyed identically
+      // regardless of which side of the pair we are visiting from.
+      const std::pair<point3D_t, point3D_t> merge_trial_key =
+          point3D_id < corr_point2D.point3D_id
+              ? std::pair{point3D_id, corr_point2D.point3D_id}
+              : std::pair{corr_point2D.point3D_id, point3D_id};
+      if (merge_trials_.count(merge_trial_key) > 0) {
         continue;
       }
 
@@ -611,8 +621,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       const Point3D& corr_point3D =
           reconstruction_.Point3D(corr_point2D.point3D_id);
 
-      merge_trials_[point3D_id].insert(corr_point2D.point3D_id);
-      merge_trials_[corr_point2D.point3D_id].insert(point3D_id);
+      merge_trials_.insert(merge_trial_key);
 
       // Weighted average of point locations, depending on track length.
       const Eigen::Vector3d merged_xyz =
@@ -683,18 +692,37 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
   const Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
-  std::vector<TrackElement> curr_queue = point3D.track.Elements();
-  std::vector<TrackElement> next_queue;
+  // Reuse member-held BFS scratch buffers across Complete() invocations to
+  // avoid per-call heap allocations.
+  complete_curr_queue_.assign(point3D.track.Elements().begin(),
+                              point3D.track.Elements().end());
+  complete_next_queue_.clear();
+  complete_visited_.clear();
+
+  // Seed visited with the existing track members so the BFS never tries to
+  // re-add them.
+  for (const TrackElement& el : complete_curr_queue_) {
+    complete_visited_.insert(std::make_pair(el.image_id, el.point2D_idx));
+  }
 
   const int max_transitivity = options.complete_max_transitivity;
   for (int transitivity = 1; transitivity <= max_transitivity; ++transitivity) {
-    while (!curr_queue.empty()) {
-      const TrackElement queue_elem = curr_queue.back();
-      curr_queue.pop_back();
+    while (!complete_curr_queue_.empty()) {
+      const TrackElement queue_elem = complete_curr_queue_.back();
+      complete_curr_queue_.pop_back();
 
       const auto corr_range = correspondence_graph_->FindCorrespondences(
           queue_elem.image_id, queue_elem.point2D_idx);
       for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+        // Two queue entries at the same transitivity level can share
+        // correspondences. Dedupe before the (more expensive) reprojection
+        // check below so we don't redo it for each parent.
+        if (!complete_visited_
+                 .insert(std::make_pair(corr->image_id, corr->point2D_idx))
+                 .second) {
+          continue;
+        }
+
         const Image& image = reconstruction_.Image(corr->image_id);
         if (!image.HasPose()) {
           continue;
@@ -723,18 +751,19 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
         // Recursively complete track for this new correspondence.
         if (transitivity < max_transitivity) {
-          next_queue.emplace_back(corr->image_id, corr->point2D_idx);
+          complete_next_queue_.emplace_back(corr->image_id,
+                                            corr->point2D_idx);
         }
 
         num_completed += 1;
       }
     }
 
-    if (next_queue.empty()) {
+    if (complete_next_queue_.empty()) {
       break;
     }
 
-    std::swap(curr_queue, next_queue);
+    std::swap(complete_curr_queue_, complete_next_queue_);
   }
 
   return num_completed;
