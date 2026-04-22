@@ -601,8 +601,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       }
 
       const Point2D& corr_point2D = image.Point2D(corr->point2D_idx);
-      if (!corr_point2D.HasPoint3D() ||
-          corr_point2D.point3D_id == point3D_id) {
+      if (!corr_point2D.HasPoint3D() || corr_point2D.point3D_id == point3D_id) {
         continue;
       }
 
@@ -751,8 +750,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
         // Recursively complete track for this new correspondence.
         if (transitivity < max_transitivity) {
-          complete_next_queue_.emplace_back(corr->image_id,
-                                            corr->point2D_idx);
+          complete_next_queue_.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;
