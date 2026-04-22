@@ -611,7 +611,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
           point3D_id < corr_point2D.point3D_id
               ? std::pair{point3D_id, corr_point2D.point3D_id}
               : std::pair{corr_point2D.point3D_id, point3D_id};
-      if (merge_trials_.count(merge_trial_key) > 0) {
+      if (!merge_trials_.insert(merge_trial_key).second) {
         continue;
       }
 
@@ -619,8 +619,6 @@ size_t IncrementalTriangulator::Merge(const Options& options,
 
       const Point3D& corr_point3D =
           reconstruction_.Point3D(corr_point2D.point3D_id);
-
-      merge_trials_.insert(merge_trial_key);
 
       // Weighted average of point locations, depending on track length.
       const Eigen::Vector3d merged_xyz =
