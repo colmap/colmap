@@ -155,8 +155,12 @@ def download_blended_mvs(data_path: Path) -> None:
     )
 
     pycolmap.logging.info("Extracting BlendedMVS")
-    with zipfile.ZipFile(combined_zip, mode="r") as archive:
-        archive.extractall(path=data_path)
+    try:
+        with zipfile.ZipFile(combined_zip, mode="r") as archive:
+            archive.extractall(path=data_path)
+    finally:
+        if combined_zip.exists():
+            combined_zip.unlink()
 
 
 DOWNLOADERS = {
