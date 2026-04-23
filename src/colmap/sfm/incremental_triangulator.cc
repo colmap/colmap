@@ -691,8 +691,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
   // Reuse member-held BFS scratch buffers across Complete() invocations to
   // avoid per-call heap allocations.
-  complete_curr_queue_.assign(point3D.track.Elements().begin(),
-                              point3D.track.Elements().end());
+  complete_curr_queue_ = point3D.track.Elements();
   complete_next_queue_.clear();
   complete_visited_.clear();
 
