@@ -298,12 +298,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VariantData& vd = md.variants[static_cast<int>(v)];
 
     if (effective_pose_var)
-      vd.pose_indices.push_back(GetOrCreatePose(image.FrameId(), camera.model_id));
+      vd.pose_indices.push_back(
+          GetOrCreatePose(image.FrameId(), camera.model_id));
     else
       // Use CamFromWorld() which correctly computes CamFromRig * RigFromWorld
       // for non-ref cameras, and equals RigFromWorld for ref cameras.
-      // Debug test
-      AppendPose(vd.const_poses, reconstruction_.Frame(image.FrameId()).RigFromWorld());
+      AppendPose(vd.const_poses, image.CamFromWorld());
 
     if (focal_and_extra_var) {
       vd.focal_and_extra_indices.push_back(calib_idx);
@@ -471,14 +471,17 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
         // Set merged Calib nodes when both intrinsic groups are tunable.
         const bool has_merged =
-            md.variants[static_cast<int>(FactorVariant::BASE)].num_factors > 0 ||
-            md.variants[static_cast<int>(FactorVariant::FIXED_POSE)].num_factors > 0 ||
-            md.variants[static_cast<int>(FactorVariant::FIXED_POINT)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::BASE)].num_factors >
+                0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POSE)]
+                    .num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POINT)]
+                    .num_factors > 0 ||
             md.variants[static_cast<int>(FactorVariant::FIXED_POSE_FIXED_POINT)]
                     .num_factors > 0;
         if (has_merged) {
           const size_t fae_size = adapter_ptr->FocalAndExtraSize();
-          const size_t pp_size  = adapter_ptr->PrincipalPointSize();
+          const size_t pp_size = adapter_ptr->PrincipalPointSize();
           const size_t cal_size = adapter_ptr->CalibSize();
           std::vector<StorageType> calib_data(n_calib * cal_size);
           for (size_t i = 0; i < n_calib; ++i) {
@@ -491,9 +494,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
           }
           if (n_calib > 0) {
             VLOG(2) << "  SetCalibNodes [cam 0, model "
-                    << static_cast<int>(model_id) << "]: ["
-                    << calib_data[0] << ", " << calib_data[1] << ", "
-                    << calib_data[2] << ", " << calib_data[3] << "]";
+                    << static_cast<int>(model_id) << "]: [" << calib_data[0]
+                    << ", " << calib_data[1] << ", " << calib_data[2] << ", "
+                    << calib_data[3] << "]";
           }
           adapter_ptr->SetCalibNodes(solver, calib_data.data(), n_calib);
         }
@@ -534,22 +537,25 @@ class CasparBundleAdjuster : public BundleAdjuster {
         // focal_and_extra_data and principal_point_data (overwrites the stale
         // split-pool values read above).
         const bool has_merged =
-            md.variants[static_cast<int>(FactorVariant::BASE)].num_factors > 0 ||
-            md.variants[static_cast<int>(FactorVariant::FIXED_POSE)].num_factors > 0 ||
-            md.variants[static_cast<int>(FactorVariant::FIXED_POINT)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::BASE)].num_factors >
+                0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POSE)]
+                    .num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POINT)]
+                    .num_factors > 0 ||
             md.variants[static_cast<int>(FactorVariant::FIXED_POSE_FIXED_POINT)]
                     .num_factors > 0;
         if (has_merged) {
           const size_t fae_size = adapter_ptr->FocalAndExtraSize();
-          const size_t pp_size  = adapter_ptr->PrincipalPointSize();
+          const size_t pp_size = adapter_ptr->PrincipalPointSize();
           const size_t cal_size = adapter_ptr->CalibSize();
           std::vector<StorageType> calib_data(n_calib * cal_size);
           adapter_ptr->GetCalibNodes(solver, calib_data.data(), n_calib);
           if (n_calib > 0) {
             VLOG(2) << "  GetCalibNodes [cam 0, model "
-                    << static_cast<int>(model_id) << "]: ["
-                    << calib_data[0] << ", " << calib_data[1] << ", "
-                    << calib_data[2] << ", " << calib_data[3] << "]";
+                    << static_cast<int>(model_id) << "]: [" << calib_data[0]
+                    << ", " << calib_data[1] << ", " << calib_data[2] << ", "
+                    << calib_data[3] << "]";
           }
           for (size_t i = 0; i < n_calib; ++i) {
             for (size_t j = 0; j < fae_size; ++j)
@@ -600,7 +606,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
       point.xyz.z() = point_data_[idx * 3 + 2];
     }
 
-    for (const auto& [model_id, idx_to_frame] : pose_index_to_frame_per_model_) {
+    for (const auto& [model_id, idx_to_frame] :
+         pose_index_to_frame_per_model_) {
       const auto& data = pose_data_per_model_.at(model_id);
       for (const auto& [idx, frame_id] : idx_to_frame) {
         if (!IsPoseVariable(frame_id)) continue;
@@ -612,7 +619,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
         pose.translation().x() = data[idx * 7 + 4];
         pose.translation().y() = data[idx * 7 + 5];
         pose.translation().z() = data[idx * 7 + 6];
-        pose.rotation().normalize();
       }
     }
 
@@ -722,7 +728,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
   // Pose pools are per-model so that SimpleRadial and Pinhole factors are
   // never batched into the same Caspar block (reducing shared memory use).
   std::unordered_map<CameraModelId, size_t> num_poses_per_model_;
-  std::unordered_map<CameraModelId, std::vector<StorageType>> pose_data_per_model_;
+  std::unordered_map<CameraModelId, std::vector<StorageType>>
+      pose_data_per_model_;
   std::unordered_map<CameraModelId, std::unordered_map<frame_t, size_t>>
       frame_to_pose_index_per_model_;
   std::unordered_map<CameraModelId, std::unordered_map<size_t, frame_t>>
