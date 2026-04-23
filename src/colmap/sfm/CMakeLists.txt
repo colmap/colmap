@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         incremental_mapper.h incremental_mapper.cc
         incremental_triangulator.h incremental_triangulator.cc
         observation_manager.h observation_manager.cc
+        runtime_profile.h
     PUBLIC_LINK_LIBS
         colmap_scene
         colmap_estimators

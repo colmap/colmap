@@ -32,8 +32,11 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database.h"
+#include "colmap/sfm/runtime_profile.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
+
+#include <iostream>
 
 namespace colmap {
 namespace {
@@ -75,6 +78,7 @@ DatabaseCache::Options CreateDatabaseCacheOptions(
 void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                const IncrementalMapper::Options& mapper_options,
                                IncrementalMapper& mapper) {
+  ScopedAccumulator profile(GlobalRuntimeProfile().global_refinement);
   LOG(INFO) << "Retriangulation and Global bundle adjustment";
   mapper.IterativeGlobalRefinement(options.ba_global_max_refinements,
                                    options.ba_global_max_refinement_change,
@@ -295,7 +299,54 @@ IncrementalPipeline::IncrementalPipeline(
   RegisterCallbacks();
 }
 
+namespace {
+
+// TEMP: dumps the per-step runtime profile to stderr. Runs at every Run()
+// exit point so callers see the breakdown regardless of which path took us
+// out (early STOP, max-runtime, normal completion, etc.).
+struct ScopedProfileDump {
+  ~ScopedProfileDump() {
+    const auto& p = GlobalRuntimeProfile();
+    auto fmt = [](const RuntimeProfileStat& s) {
+      return StringPrintf("%6lld calls, %8lld ms",
+                          static_cast<long long>(s.calls),
+                          static_cast<long long>(s.total_us / 1000));
+    };
+    std::cerr
+        << "===== RuntimeProfile (per-step wall-clock) =====\n"
+        << "  init                       " << fmt(p.init) << "\n"
+        << "  find_next_images           " << fmt(p.find_next_images) << "\n"
+        << "  register_next_image        " << fmt(p.register_next_image) << "\n"
+        << "  triangulate_image          " << fmt(p.triangulate_image) << "\n"
+        << "  local_refinement           " << fmt(p.local_refinement) << "\n"
+        << "    local_bundle_adjustment  " << fmt(p.local_bundle_adjustment)
+        << "\n"
+        << "    local_merge_tracks       " << fmt(p.local_merge_tracks) << "\n"
+        << "    local_complete_tracks    " << fmt(p.local_complete_tracks)
+        << "\n"
+        << "    local_complete_image     " << fmt(p.local_complete_image)
+        << "\n"
+        << "    local_filter             " << fmt(p.local_filter) << "\n"
+        << "  global_refinement          " << fmt(p.global_refinement) << "\n"
+        << "    global_complete_tracks   " << fmt(p.global_complete_all_tracks)
+        << "\n"
+        << "    global_merge_tracks      " << fmt(p.global_merge_all_tracks)
+        << "\n"
+        << "    global_retriangulate     " << fmt(p.global_retriangulate)
+        << "\n"
+        << "    global_bundle_adjustment " << fmt(p.global_bundle_adjustment)
+        << "\n"
+        << "    global_filter            " << fmt(p.global_filter) << "\n"
+        << "  extract_colors             " << fmt(p.extract_colors) << "\n"
+        << "  snapshot                   " << fmt(p.snapshot) << "\n"
+        << std::flush;
+  }
+};
+
+}  // namespace
+
 void IncrementalPipeline::Run() {
+  ScopedProfileDump _profile_dump;
   total_run_timer_->Start();
 
   if (database_cache_->NumImages() == 0) {
@@ -473,6 +524,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   ////////////////////////////////////////////////////////////////////////////
 
   if (reconstruction->NumRegFrames() == 0) {
+    ScopedAccumulator p(GlobalRuntimeProfile().init);
     const Status init_status = IncrementalPipeline::InitializeReconstruction(
         mapper, mapper_options, *reconstruction);
     if (init_status != Status::SUCCESS) {
@@ -515,8 +567,12 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     // first, and if that fails, try (less reliable) structure-less
     // registration.
     for (const bool structure_less : structure_less_flags) {
-      const std::vector<image_t> next_images = mapper.FindNextImages(
-          mapper_options, /*structure_less=*/structure_less);
+      std::vector<image_t> next_images;
+      {
+        ScopedAccumulator p(GlobalRuntimeProfile().find_next_images);
+        next_images = mapper.FindNextImages(
+            mapper_options, /*structure_less=*/structure_less);
+      }
 
       for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
         next_image_id = next_images[reg_trial];
@@ -529,6 +585,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
             mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
             mapper.ObservationManager().NumObservations(next_image_id));
 
+        ScopedAccumulator p(GlobalRuntimeProfile().register_next_image);
         if (structure_less) {
           LOG(INFO) << StringPrintf(
               "Registering image with structure-less fallback");
@@ -567,15 +624,22 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
 
     if (reg_next_success) {
       const Image& image = reconstruction->Image(next_image_id);
-      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-        mapper.TriangulateImage(options_->Triangulation(), data_id.id);
+      {
+        ScopedAccumulator p(GlobalRuntimeProfile().triangulate_image);
+        for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+          mapper.TriangulateImage(options_->Triangulation(), data_id.id);
+        }
       }
-      mapper.IterativeLocalRefinement(options_->ba_local_max_refinements,
-                                      options_->ba_local_max_refinement_change,
-                                      mapper_options,
-                                      options_->LocalBundleAdjustment(),
-                                      options_->Triangulation(),
-                                      next_image_id);
+      {
+        ScopedAccumulator p(GlobalRuntimeProfile().local_refinement);
+        mapper.IterativeLocalRefinement(
+            options_->ba_local_max_refinements,
+            options_->ba_local_max_refinement_change,
+            mapper_options,
+            options_->LocalBundleAdjustment(),
+            options_->Triangulation(),
+            next_image_id);
+      }
 
       if (CheckRunGlobalRefinement(
               *reconstruction, ba_prev_num_reg_frames, ba_prev_num_points)) {
@@ -585,6 +649,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       }
 
       if (options_->extract_colors) {
+        ScopedAccumulator p(GlobalRuntimeProfile().extract_colors);
         for (const data_t& data_id : image.FramePtr()->ImageIds()) {
           ExtractColors(options_->image_path, data_id.id, *reconstruction);
         }
@@ -594,6 +659,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
           reconstruction->NumRegFrames() >=
               options_->snapshot_frames_freq + snapshot_prev_num_reg_frames) {
         snapshot_prev_num_reg_frames = reconstruction->NumRegFrames();
+        ScopedAccumulator p(GlobalRuntimeProfile().snapshot);
         WriteSnapshot(*reconstruction, options_->snapshot_path);
       }
 

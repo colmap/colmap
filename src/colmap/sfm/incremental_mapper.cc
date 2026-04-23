@@ -35,6 +35,7 @@
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sfm/incremental_mapper_impl.h"
+#include "colmap/sfm/runtime_profile.h"
 
 #include <array>
 
@@ -1023,33 +1024,49 @@ IncrementalMapper::AdjustLocalBundle(
     image_ids = ba_config.Images();
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
-    const auto summary = bundle_adjuster->Solve();
-
-    report.num_adjusted_observations = summary->num_residuals / 2;
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().local_bundle_adjustment);
+      const auto summary = bundle_adjuster->Solve();
+      report.num_adjusted_observations = summary->num_residuals / 2;
+    }
 
     // Merge refined tracks with other existing points.
-    report.num_merged_observations =
-        triangulator_->MergeTracks(tri_options, variable_point3D_ids);
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().local_merge_tracks);
+      report.num_merged_observations =
+          triangulator_->MergeTracks(tri_options, variable_point3D_ids);
+    }
     // Complete tracks that may have failed to triangulate before refinement
     // of camera pose and calibration in bundle-adjustment. This may avoid
     // that some points are filtered and it helps for subsequent image
     // registrations.
-    report.num_completed_observations =
-        triangulator_->CompleteTracks(tri_options, variable_point3D_ids);
-    report.num_completed_observations +=
-        triangulator_->CompleteImage(tri_options, image_id);
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().local_complete_tracks);
+      report.num_completed_observations =
+          triangulator_->CompleteTracks(tri_options, variable_point3D_ids);
+    }
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().local_complete_image);
+      report.num_completed_observations +=
+          triangulator_->CompleteImage(tri_options, image_id);
+    }
   }
 
   // Filter both the modified images and all changed 3D points to make sure
   // there are no outlier points in the model. This results in duplicate work as
   // many of the provided 3D points may also be contained in the adjusted
   // images, but the filtering is not a bottleneck at this point.
-  report.num_filtered_observations = obs_manager_->FilterPoints3DInImages(
-      options.filter_max_reproj_error, options.filter_min_tri_angle, image_ids);
-  report.num_filtered_observations +=
-      obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
-                                   options.filter_min_tri_angle,
-                                   point3D_ids);
+  {
+    ScopedAccumulator p(GlobalRuntimeProfile().local_filter);
+    report.num_filtered_observations = obs_manager_->FilterPoints3DInImages(
+        options.filter_max_reproj_error,
+        options.filter_min_tri_angle,
+        image_ids);
+    report.num_filtered_observations +=
+        obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
+                                     options.filter_min_tri_angle,
+                                     point3D_ids);
+  }
 
   return report;
 }
@@ -1228,20 +1245,47 @@ void IncrementalMapper::IterativeGlobalRefinement(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const bool normalize_reconstruction) {
-  CompleteAndMergeTracks(tri_options);
-  const size_t num_retriangulated_observations = Retriangulate(tri_options);
+  {
+    ScopedAccumulator p(GlobalRuntimeProfile().global_complete_all_tracks);
+    const size_t num_completed = CompleteTracks(tri_options);
+    VLOG(1) << "=> Completed observations: " << num_completed;
+  }
+  {
+    ScopedAccumulator p(GlobalRuntimeProfile().global_merge_all_tracks);
+    const size_t num_merged = MergeTracks(tri_options);
+    VLOG(1) << "=> Merged observations: " << num_merged;
+  }
+  size_t num_retriangulated_observations = 0;
+  {
+    ScopedAccumulator p(GlobalRuntimeProfile().global_retriangulate);
+    num_retriangulated_observations = Retriangulate(tri_options);
+  }
   VLOG(1) << "=> Retriangulated observations: "
           << num_retriangulated_observations;
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
-    AdjustGlobalBundle(options, ba_options);
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().global_bundle_adjustment);
+      AdjustGlobalBundle(options, ba_options);
+    }
     if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
       reconstruction_->Normalize();
     }
-    size_t num_changed_observations = CompleteAndMergeTracks(tri_options);
-    num_changed_observations += FilterPoints(options);
+    size_t num_changed_observations = 0;
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().global_complete_all_tracks);
+      num_changed_observations += CompleteTracks(tri_options);
+    }
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().global_merge_all_tracks);
+      num_changed_observations += MergeTracks(tri_options);
+    }
+    {
+      ScopedAccumulator p(GlobalRuntimeProfile().global_filter);
+      num_changed_observations += FilterPoints(options);
+    }
     const double changed =
         num_observations == 0
             ? 0
