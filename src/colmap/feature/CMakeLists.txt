@@ -54,15 +54,13 @@ COLMAP_ADD_LIBRARY(
         matcher.h matcher.cc
         onnx_matchers.h onnx_matchers.cc
         onnx_utils.h onnx_utils.cc
-        pairing.h pairing.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
     PUBLIC_LINK_LIBS
         colmap_feature_types
+        colmap_scene_types
         colmap_geometry
-        colmap_retrieval
-        colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
         colmap_math
@@ -77,6 +75,10 @@ if(GPU_ENABLED)
     if(NOT GUI_ENABLED)
         target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
     endif()
+endif()
+
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_feature PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
 if(ONNX_ENABLED)
@@ -118,13 +120,6 @@ COLMAP_ADD_TEST(
     NAME utils_test
     SRCS utils_test.cc
     LINK_LIBS colmap_feature
-)
-COLMAP_ADD_TEST(
-    NAME pairing_test
-    SRCS pairing_test.cc
-    LINK_LIBS
-        colmap_feature
-        colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME sift_test

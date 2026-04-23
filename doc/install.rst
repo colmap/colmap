@@ -68,7 +68,7 @@ Windows, compute clusters, or if you do not have root access under Linux or Mac.
 Debian/Ubuntu
 -------------
 
-*Recommended dependencies:* CUDA (at least version 7.X)
+*Recommended dependencies:* CUDA (at least version 11.X)
 
 Dependencies from the default Ubuntu repositories::
 
@@ -150,7 +150,7 @@ of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#s
 Mac
 ---
 
-Dependencies from `Homebrew <http://brew.sh/>`__::
+Dependencies from `Homebrew <https://brew.sh/>`__::
 
     brew install \
         cmake \
@@ -196,7 +196,7 @@ Run COLMAP::
 Windows
 -------
 
-*Recommended dependencies:* CUDA (at least version 7.X), Visual Studio 2019
+*Recommended dependencies:* CUDA (at least version 11.X), Visual Studio 2019 or newer
 
 On Windows, the recommended way is to build COLMAP using VCPKG::
 
@@ -260,7 +260,7 @@ Install miniconda and run the following commands::
         boost \
         ccache \
         eigen \
-        freeimage \
+        openimageio \
         curl \
         metis \
         glog \
@@ -270,7 +270,6 @@ Install miniconda and run the following commands::
         qt \
         glew \
         sqlite \
-        glew \
         cgal-cpp \
         mesa-libgl-devel-cos7-x86_64 \
         cuda-compiler==12.6.2 \
@@ -380,9 +379,9 @@ Documentation
         make latexpdf
         open _build/pdf/COLMAP.pdf
 
-2. Clone the website repository `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__.
-3. Copy the contents of the generated files at ``_build/html`` to the cloned respository root.
-4. Create a pull request to the `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
+3. Clone the website repository `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__.
+4. Copy the contents of the generated files at ``_build/html`` to the cloned repository root.
+5. Create a pull request to the `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
    repository with the updated files.
-5. (Optional, if main release) Copy the previous release as legacy to the "legacy" folder,
+6. (Optional, if main release) Copy the previous release as legacy to the "legacy" folder,
    under a folder with the release number `see here <https://github.com/colmap/colmap.github.io/tree/master/legacy>`__.

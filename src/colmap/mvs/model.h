@@ -29,15 +29,10 @@
 
 #pragma once
 
-#include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
-#include "colmap/mvs/normal_map.h"
 
-#include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <map>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>

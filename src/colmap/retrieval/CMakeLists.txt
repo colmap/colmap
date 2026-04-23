@@ -37,7 +37,7 @@ COLMAP_ADD_LIBRARY(
         inverted_file.h
         inverted_file_entry.h
         inverted_index.h
-        resources.h
+        resources.h resources.cc
         utils.h
         visual_index.h visual_index.cc
         vote_and_verify.h vote_and_verify.cc

@@ -286,6 +286,14 @@ bool Bitmap::InterpolateBilinear(const double x,
   return false;
 }
 
+std::optional<int> Bitmap::ExifOrientation() const {
+  int orientation = 0;
+  if (GetMetaData("Orientation", "int", &orientation)) {
+    return orientation;
+  }
+  return std::nullopt;
+}
+
 std::optional<std::string> Bitmap::ExifCameraModel() const {
   // Read camera make and model
   const std::optional<std::string> make_str = GetMetaData("Make");
@@ -340,21 +348,21 @@ std::optional<double> Bitmap::ExifFocalLength() const {
         double pixels_per_mm = 0;
         switch (focal_x_res_unit) {
           case 2:  // inches
-            pixels_per_mm = focal_x_res * 25.4;
+            pixels_per_mm = focal_x_res / 25.4;
             break;
           case 3:  // cm
-            pixels_per_mm = focal_x_res * 10.0;
+            pixels_per_mm = focal_x_res / 10.0;
             break;
           case 4:  // mm
             pixels_per_mm = focal_x_res * 1.0;
             break;
           case 5:  // um
-            pixels_per_mm = focal_x_res * 0.1;
+            pixels_per_mm = focal_x_res * 1000.0;
             break;
           default:
             LOG(FATAL) << "Unexpected FocalPlaneXResolution value";
         }
-        return focal_length_mm / pixels_per_mm;
+        return focal_length_mm * pixels_per_mm;
       }
     }
 
@@ -572,6 +580,48 @@ void Bitmap::Rescale(const int new_width,
       OIIO::ImageSpec(new_width, new_height, channels_, OIIO::TypeDesc::UINT8),
       new_data.data());
   THROW_CHECK(OIIO::ImageBufAlgo::resize(new_buf, buf));
+
+  width_ = new_width;
+  height_ = new_height;
+  data_ = std::move(new_data);
+  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
+  meta_data->image_spec.width = new_width;
+  meta_data->image_spec.height = new_height;
+}
+
+void Bitmap::Rot90(int k) {
+  if (IsEmpty()) {
+    return;
+  }
+  k = k % 4;
+  if (k < 0) {
+    k += 4;
+  }
+  if (k == 0) {
+    return;
+  }
+
+  const OIIO::ImageBuf buf(
+      OIIO::ImageSpec(width_, height_, channels_, OIIO::TypeDesc::UINT8),
+      data_.data());
+
+  const bool swap_dims = (k == 1 || k == 3);
+  const int new_width = swap_dims ? height_ : width_;
+  const int new_height = swap_dims ? width_ : height_;
+
+  std::vector<uint8_t> new_data(new_width * new_height * channels_);
+  OIIO::ImageBuf new_buf(
+      OIIO::ImageSpec(new_width, new_height, channels_, OIIO::TypeDesc::UINT8),
+      new_data.data());
+
+  // OIIO rotates clockwise, we rotte counter-clockwise.
+  if (k == 1) {  // 90 CCW = 270 CW
+    THROW_CHECK(OIIO::ImageBufAlgo::rotate270(new_buf, buf));
+  } else if (k == 2) {  // 180 CCW = 180 CW
+    THROW_CHECK(OIIO::ImageBufAlgo::rotate180(new_buf, buf));
+  } else if (k == 3) {  // 270 CCW = 90 CW
+    THROW_CHECK(OIIO::ImageBufAlgo::rotate90(new_buf, buf));
+  }
 
   width_ = new_width;
   height_ = new_height;

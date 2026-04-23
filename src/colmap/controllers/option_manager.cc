@@ -32,12 +32,12 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
+#include "colmap/controllers/pairing.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
-#include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -671,8 +671,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->decompose_relative_pose);
   AddDefaultOption("GlobalMapper.ba_num_iterations",
                    &global_mapper->mapper.ba_num_iterations);
-  AddDefaultOption("GlobalMapper.skip_view_graph_calibration",
-                   &global_mapper->skip_view_graph_calibration);
   AddDefaultOption("GlobalMapper.skip_rotation_averaging",
                    &global_mapper->mapper.skip_rotation_averaging);
   AddDefaultOption("GlobalMapper.skip_track_establishment",
@@ -683,34 +681,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.skip_bundle_adjustment);
   AddDefaultOption("GlobalMapper.skip_retriangulation",
                    &global_mapper->mapper.skip_retriangulation);
-
-  // View graph calibration options.
-  AddDefaultOption("GlobalMapper.vgc_cross_validate_prior_focal_lengths",
-                   &global_mapper->view_graph_calibration
-                        .cross_validate_prior_focal_lengths);
-  AddDefaultOption(
-      "GlobalMapper.vgc_min_calibrated_pair_ratio",
-      &global_mapper->view_graph_calibration.min_calibrated_pair_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_reestimate_relative_pose",
-      &global_mapper->view_graph_calibration.reestimate_relative_pose);
-  AddDefaultOption(
-      "GlobalMapper.vgc_min_focal_length_ratio",
-      &global_mapper->view_graph_calibration.min_focal_length_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_max_focal_length_ratio",
-      &global_mapper->view_graph_calibration.max_focal_length_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_max_calibration_error",
-      &global_mapper->view_graph_calibration.max_calibration_error);
-  AddDefaultOption("GlobalMapper.vgc_relpose_max_error",
-                   &global_mapper->view_graph_calibration.relpose_max_error);
-  AddDefaultOption(
-      "GlobalMapper.vgc_relpose_min_num_inliers",
-      &global_mapper->view_graph_calibration.relpose_min_num_inliers);
-  AddDefaultOption(
-      "GlobalMapper.vgc_relpose_min_inlier_ratio",
-      &global_mapper->view_graph_calibration.relpose_min_inlier_ratio);
 
   // Track establishment options.
   AddDefaultOption(
@@ -881,6 +851,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
                    &patch_match_stereo->allow_missing_files);
   AddDefaultOption("PatchMatchStereo.write_consistency_graph",
                    &patch_match_stereo->write_consistency_graph);
+  AddDefaultOption("PatchMatchStereo.num_threads",
+                   &patch_match_stereo->num_threads);
 }
 
 void OptionManager::AddStereoFusionOptions() {
@@ -963,8 +935,8 @@ void OptionManager::AddRenderOptions() {
   AddDefaultOption("Render.projection_type", &render->projection_type);
 }
 
-void OptionManager::Reset() {
-  BaseOptionManager::Reset();
+void OptionManager::Reset(bool reset_logging) {
+  BaseOptionManager::Reset(reset_logging);
 
   added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
@@ -1045,8 +1017,9 @@ bool OptionManager::Check() {
   return success;
 }
 
-bool OptionManager::Read(const std::filesystem::path& path) {
-  if (!BaseOptionManager::Read(path)) {
+bool OptionManager::Read(const std::filesystem::path& path,
+                         bool allow_unregistered) {
+  if (!BaseOptionManager::Read(path, allow_unregistered)) {
     return false;
   }
   return Check();

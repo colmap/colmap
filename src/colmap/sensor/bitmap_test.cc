@@ -355,6 +355,39 @@ TEST(Bitmap, RescaleGrey) {
   EXPECT_EQ(bitmap2.Channels(), 1);
 }
 
+TEST(Bitmap, Rot90) {
+  Bitmap bitmap(10, 5, /*as_rgb=*/false);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
+  bitmap.SetPixel(9, 0, BitmapColor<uint8_t>(128));
+  bitmap.SetPixel(9, 4, BitmapColor<uint8_t>(64));
+
+  Bitmap rotated1 = bitmap.Clone();
+  rotated1.Rot90(1);  // 90 CCW
+  EXPECT_EQ(rotated1.Width(), 5);
+  EXPECT_EQ(rotated1.Height(), 10);
+  BitmapColor<uint8_t> color;
+  rotated1.GetPixel(0, 9, &color);
+  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Bottom-left (0,9)
+  rotated1.GetPixel(0, 0, &color);
+  EXPECT_EQ(color.r, 128);  // Top-right (9,0) -> Top-left (0,0)
+  rotated1.GetPixel(4, 0, &color);
+  EXPECT_EQ(color.r, 64);  // Bottom-right (9,4) -> Top-right (4,0)
+
+  Bitmap rotated2 = bitmap.Clone();
+  rotated2.Rot90(2);  // 180 CCW
+  EXPECT_EQ(rotated2.Width(), 10);
+  EXPECT_EQ(rotated2.Height(), 5);
+  rotated2.GetPixel(9, 4, &color);
+  EXPECT_EQ(color.r, 255);
+
+  Bitmap rotated3 = bitmap.Clone();
+  rotated3.Rot90(3);  // 270 CCW
+  EXPECT_EQ(rotated3.Width(), 5);
+  EXPECT_EQ(rotated3.Height(), 10);
+  rotated3.GetPixel(4, 0, &color);
+  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Top-right (4,0)
+}
+
 TEST(Bitmap, Clone) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
@@ -435,6 +468,19 @@ TEST(Bitmap, CloneMetaData) {
   EXPECT_EQ(value, kValue);
 }
 
+TEST(Bitmap, ExifOrientation) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  EXPECT_FALSE(bitmap.ExifOrientation().has_value());
+
+  int orientation = 6;
+  bitmap.SetMetaData("Orientation", "int", &orientation);
+
+  const auto exif_orientation = bitmap.ExifOrientation();
+  EXPECT_TRUE(exif_orientation.has_value());
+  EXPECT_EQ(exif_orientation.value(), 6);
+}
+
 TEST(Bitmap, ExifCameraModel) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
@@ -497,6 +543,37 @@ TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
   const auto focal_length = bitmap.ExifFocalLength();
   EXPECT_TRUE(focal_length.has_value());
   EXPECT_EQ(focal_length.value(), 120);
+}
+
+TEST(Bitmap, ExifFocalLengthUnits) {
+  // Initialize a dummy bitmap
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  // Set the base focal length and resolution values
+  const float focal_length_mm = 50.0f;
+  const float focal_x_res = 100.0f;
+  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length_mm);
+  bitmap.SetMetaData("Exif:FocalPlaneXResolution", "float", &focal_x_res);
+
+  // Case 2: Inches (25.4 mm per inch)
+  int unit = 2;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 / 25.4), 1e-4);
+
+  // Case 3: Centimeters (10 mm per cm)
+  unit = 3;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 / 10.0), 1e-4);
+
+  // Case 4: Millimeters (1 mm per mm)
+  unit = 4;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 * 1.0), 1e-4);
+
+  // Case 5: Micrometers (1000 um per mm)
+  unit = 5;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 * 1000.0), 1e-4);
 }
 
 TEST(Bitmap, ExifLatitude) {

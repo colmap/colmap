@@ -42,9 +42,9 @@ namespace colmap {
 // the homography from at least 4 correspondences.
 class HomographyMatrixEstimator {
  public:
-  typedef Eigen::Vector2d X_t;
-  typedef Eigen::Vector2d Y_t;
-  typedef Eigen::Matrix3d M_t;
+  using X_t = Eigen::Vector2d;
+  using Y_t = Eigen::Vector2d;
+  using M_t = Eigen::Matrix3d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 4;

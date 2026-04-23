@@ -65,7 +65,7 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(
 }  // namespace
 
 int RunVocabTreeBuilder(int argc, char** argv) {
-  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path;
   retrieval::VisualIndex::BuildOptions build_options;
   int max_num_descriptors = -1;
 
@@ -104,7 +104,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
 }
 
 int RunVocabTreeRetriever(int argc, char** argv) {
-  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path;
   std::filesystem::path database_image_list_path;
   std::filesystem::path query_image_list_path;
   std::filesystem::path output_index_path;

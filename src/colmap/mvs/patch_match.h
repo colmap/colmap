@@ -31,17 +31,14 @@
 
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
-#include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/patch_match_options.h"
 #ifndef __CUDACC__
 #include "colmap/util/base_controller.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #endif
 
 #include <filesystem>
-#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -151,6 +148,7 @@ class PatchMatchController : public BaseController {
   const std::filesystem::path config_path_;
 
   std::unique_ptr<ThreadPool> thread_pool_;
+  std::unique_ptr<ThreadPool> io_thread_pool_;
   std::mutex workspace_mutex_;
   std::unique_ptr<Workspace> workspace_;
   std::vector<PatchMatch::Problem> problems_;

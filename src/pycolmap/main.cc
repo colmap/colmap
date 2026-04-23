@@ -15,12 +15,14 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindEstimators(py::module& m);
+void BindFeatureTypes(py::module& m);
 void BindFeature(py::module& m);
 void BindGeometry(py::module& m);
 void BindImage(py::module& m);
 void BindOptim(py::module& m);
 void BindPipeline(py::module& m);
 void BindRetrieval(py::module& m);
+void BindSceneTypes(py::module& m);
 void BindScene(py::module& m);
 void BindSensor(py::module& m);
 void BindSfm(py::module& m);
@@ -49,6 +51,8 @@ PYBIND11_MODULE(_core, m) {
   BindGeometry(m);
   BindOptim(m);
   BindSensor(m);
+  BindFeatureTypes(m);
+  BindSceneTypes(m);
   BindFeature(m);
   BindScene(m);
   BindImage(m);

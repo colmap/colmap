@@ -73,6 +73,11 @@ class ONNXModel {
   const std::vector<char*>& output_names() const { return output_names_; }
 
  private:
+  void InitializeSession(const std::string& model_path,
+                         int num_threads,
+                         bool use_gpu,
+                         const std::string& gpu_index);
+
   Ort::Env env_;
   Ort::AllocatorWithDefaultOptions allocator_;
   Ort::SessionOptions session_options_;

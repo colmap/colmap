@@ -80,7 +80,7 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   int GetProjectionType() const;
 
-  // Takes ownwership of the colormap objects.
+  // Takes ownership of the colormap objects.
   void SetPointColormap(PointColormapBase* colormap);
   void SetImageColormap(ImageColormapBase* colormap);
 

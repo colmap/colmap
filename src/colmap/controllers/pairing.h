@@ -29,8 +29,7 @@
 
 #pragma once
 
-#include "colmap/feature/matcher.h"
-#include "colmap/retrieval/resources.h"
+#include "colmap/controllers/matcher_cache.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/threading.h"
@@ -71,7 +70,7 @@ struct VocabTreePairingOptions {
   int max_num_features = -1;
 
   // Path to the vocabulary tree.
-  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path;
 
   // Optional path to file with specific image names to match.
   std::filesystem::path match_list_path = "";
@@ -152,7 +151,7 @@ struct SequentialPairingOptions {
   int num_threads = -1;
 
   // Path to the vocabulary tree.
-  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path;
 
   bool Check() const;
 

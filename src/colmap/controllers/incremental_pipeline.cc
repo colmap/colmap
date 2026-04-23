@@ -66,6 +66,7 @@ DatabaseCache::Options CreateDatabaseCacheOptions(
       database_cache_options.image_names.insert(image.Name());
     }
   }
+  database_cache_options.load_all_images = options.load_all_images;
   database_cache_options.convert_pose_priors_to_enu =
       options.use_prior_position;
   return database_cache_options;
@@ -239,7 +240,7 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(ba_global_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_local_max_refinements, 0);
   CHECK_OPTION_GE(ba_local_max_refinement_change, 0);
-  CHECK_OPTION_GT(ba_global_max_refinements, 0);
+  CHECK_OPTION_GE(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
@@ -409,6 +410,10 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
       mapper.TriangulateImage(tri_options, data_id.id);
     }
+  }
+
+  if (reconstruction.NumPoints3D() == 0) {
+    return Status::BAD_INITIAL_PAIR;
   }
 
   LOG(INFO) << "Global bundle adjustment";

@@ -31,6 +31,7 @@
 
 #include "colmap/feature/onnx_utils.h"
 #include "colmap/feature/utils.h"
+#include "colmap/geometry/pose_prior.h"
 
 #include <algorithm>
 #include <memory>
@@ -87,15 +88,19 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
 
     // Cache features if image changed. Swap cached features when possible
     // to avoid redundant copies (e.g., matching (A, B) then (B, C)).
-    if (prev_features1_.image_id != image1.image_id) {
-      if (prev_features2_.image_id == image1.image_id) {
+    if (prev_features1_.image_id == kInvalidImageId ||
+        prev_features1_.image_id != image1.image_id) {
+      if (image1.image_id != kInvalidImageId &&
+          prev_features2_.image_id == image1.image_id) {
         std::swap(prev_features1_, prev_features2_);
       } else {
         prev_features1_ = FeaturesFromImage(image1);
       }
     }
-    if (prev_features2_.image_id != image2.image_id) {
-      if (prev_features1_.image_id == image2.image_id) {
+    if (prev_features2_.image_id == kInvalidImageId ||
+        prev_features2_.image_id != image2.image_id) {
+      if (image2.image_id != kInvalidImageId &&
+          prev_features1_.image_id == image2.image_id) {
         // This shouldn't happen, as it means we are self-matching an image.
         prev_features2_ = prev_features1_;
       } else {
@@ -192,7 +197,6 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
   };
 
   Features FeaturesFromImage(const Image& image) {
-    THROW_CHECK_NE(image.image_id, kInvalidImageId);
     THROW_CHECK_NOTNULL(image.descriptors);
     THROW_CHECK(image.descriptors->type ==
                     FeatureExtractorType::ALIKED_N16ROT ||
@@ -320,15 +324,19 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     }
 
     // Cache features with swap optimization (identical to ALIKED pattern).
-    if (prev_features1_.image_id != image1.image_id) {
-      if (prev_features2_.image_id == image1.image_id) {
+    if (prev_features1_.image_id == kInvalidImageId ||
+        prev_features1_.image_id != image1.image_id) {
+      if (image1.image_id != kInvalidImageId &&
+          prev_features2_.image_id == image1.image_id) {
         std::swap(prev_features1_, prev_features2_);
       } else {
         prev_features1_ = FeaturesFromImage(image1);
       }
     }
-    if (prev_features2_.image_id != image2.image_id) {
-      if (prev_features1_.image_id == image2.image_id) {
+    if (prev_features2_.image_id == kInvalidImageId ||
+        prev_features2_.image_id != image2.image_id) {
+      if (image2.image_id != kInvalidImageId &&
+          prev_features1_.image_id == image2.image_id) {
         prev_features2_ = prev_features1_;
       } else {
         prev_features2_ = FeaturesFromImage(image2);
@@ -490,7 +498,6 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
   };
 
   CachedFeatures FeaturesFromImage(const Image& image) {
-    THROW_CHECK_NE(image.image_id, kInvalidImageId);
     THROW_CHECK_NOTNULL(image.keypoints);
     THROW_CHECK_NOTNULL(image.descriptors);
     THROW_CHECK_NOTNULL(image.camera);
@@ -516,13 +523,31 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     CachedFeatures features;
     features.image_id = image.image_id;
 
+    const int rot90 =
+        (image.pose_prior != nullptr && image.pose_prior->HasGravity())
+            ? ComputeRot90FromGravity(image.pose_prior->gravity)
+            : 0;
+    const int image_width = image.camera->width;
+    const int image_height = image.camera->height;
+
+    std::vector<FeatureKeypoint> rotated_keypoints;
+    const FeatureKeypoints* keypoints_to_use = image.keypoints.get();
+    if (rot90 != 0) {
+      rotated_keypoints = *image.keypoints;
+      for (auto& kp : rotated_keypoints) {
+        kp.Rot90(rot90, image_width, image_height);
+      }
+      keypoints_to_use = &rotated_keypoints;
+    }
+
     // Convert keypoints: COLMAP (origin at pixel corner, top-left center =
     // (0.5, 0.5)) to LightGlue (top-left center = (0, 0)).
     features.keypoints_shape = {1, num_keypoints, 2};
     features.keypoints_data.resize(num_keypoints * 2);
     for (int i = 0; i < num_keypoints; ++i) {
-      features.keypoints_data[2 * i + 0] = (*image.keypoints)[i].x - 0.5f;
-      features.keypoints_data[2 * i + 1] = (*image.keypoints)[i].y - 0.5f;
+      const FeatureKeypoint& kp = (*keypoints_to_use)[i];
+      features.keypoints_data[2 * i + 0] = kp.x - 0.5f;
+      features.keypoints_data[2 * i + 1] = kp.y - 0.5f;
     }
 
     if (is_aliked) {
@@ -561,16 +586,19 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
       features.orientations_shape = {1, num_keypoints};
       features.orientations_data.resize(num_keypoints);
       for (int i = 0; i < num_keypoints; ++i) {
-        features.scales_data[i] = (*image.keypoints)[i].ComputeScale();
+        const FeatureKeypoint& kp = (*keypoints_to_use)[i];
+        features.scales_data[i] = kp.ComputeScale();
         // LightGlue was trained with radians.
-        features.orientations_data[i] =
-            (*image.keypoints)[i].ComputeOrientation();
+        features.orientations_data[i] = kp.ComputeOrientation();
       }
     }
 
     // Image size as (width, height).
-    features.image_size[0] = static_cast<float>(image.camera->width);
-    features.image_size[1] = static_cast<float>(image.camera->height);
+    const bool swap_dims = rot90 % 2;
+    features.image_size[0] =
+        static_cast<float>(swap_dims ? image_height : image_width);
+    features.image_size[1] =
+        static_cast<float>(swap_dims ? image_width : image_height);
 
     return features;
   }

@@ -40,8 +40,8 @@
 #include <cstdint>
 #include <sstream>
 
-// The number of threads per Cuda thread. Warning: Do not change this value,
-// since the templated window sizes rely on this value.
+// The number of threads per Cuda thread block. Warning: Do not change this
+// value, since the templated window sizes rely on this value.
 #define THREADS_PER_BLOCK 32
 
 // We must not include "util/math.h" to avoid any Eigen includes here,
@@ -253,11 +253,12 @@ __device__ inline void ComputeViewingAngles(
   // Length of ray from reference image to point.
   const float RX_inv_norm = rsqrt(DotProduct3(point, point));
 
-  // Length of ray from source image to point.
+  // Length of ray from point to source image.
   const float SX_inv_norm = rsqrt(DotProduct3(SX, SX));
 
   *cos_incident_angle = DotProduct3(SX, normal) * SX_inv_norm;
-  *cos_triangulation_angle = DotProduct3(SX, point) * RX_inv_norm * SX_inv_norm;
+  *cos_triangulation_angle =
+      -DotProduct3(SX, point) * RX_inv_norm * SX_inv_norm;
 }
 
 __device__ inline void ComposeHomography(
@@ -697,9 +698,8 @@ class LikelihoodComputer {
   // Compute the triangulation angle probability.
   __device__ inline float ComputeTriProb(
       const float cos_triangulation_angle) const {
-    const float abs_cos_triangulation_angle = abs(cos_triangulation_angle);
-    if (abs_cos_triangulation_angle > cos_min_triangulation_angle_) {
-      const float scaled = 1.0f - (1.0f - abs_cos_triangulation_angle) /
+    if (cos_triangulation_angle > cos_min_triangulation_angle_) {
+      const float scaled = 1.0f - (1.0f - cos_triangulation_angle) /
                                       (1.0f - cos_min_triangulation_angle_);
       const float likelihood = 1.0f - scaled * scaled;
       return min(1.0f, max(0.0f, likelihood));
@@ -790,7 +790,7 @@ class LikelihoodComputer {
   const float ncc_norm_factor_;
 };
 
-// Rotate normals by 90deg around z-axis in counter-clockwise direction.
+// Generate random normals for each pixel in the normal map.
 __global__ void InitNormalMap(GpuMat<float> normal_map,
                               GpuMat<curandState> rand_state_map) {
   const int row = blockDim.y * blockIdx.y + threadIdx.y;
@@ -1305,8 +1305,8 @@ void PatchMatchCuda::Run() {
     }
   }
 
-#undef SWITCH_WINDOW_RADIUS
-#undef CALL_RUN_FUNC
+#undef CASE_WINDOW_RADIUS
+#undef CASE_WINDOW_STEP
 }
 
 DepthMap PatchMatchCuda::GetDepthMap() const {

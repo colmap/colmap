@@ -43,6 +43,10 @@ struct SyntheticDatasetOptions {
   int num_cameras_per_rig = 1;
   int num_frames_per_rig = 5;
   int num_points3D = 100;
+  // Target track length per 3D point. If -1 (default), all images observe all
+  // points (dense visibility). If > 0, observations are pruned to exactly this
+  // many per point. Must be -1 or >= 2.
+  int track_length = -1;
 
   double sensor_from_rig_translation_stddev = 0.05;
   // Random rotation in degrees around the z-axis of the sensor.

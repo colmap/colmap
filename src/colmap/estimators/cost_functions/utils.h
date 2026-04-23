@@ -154,7 +154,7 @@ class CovarianceWeightedCostFunctor {
     }
 
     auto residuals_ptr = LastValueParameterPack(args...);
-    typedef typename std::remove_reference<decltype(*residuals_ptr)>::type T;
+    using T = typename std::remove_reference<decltype(*residuals_ptr)>::type;
     Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
     residuals.applyOnTheLeft(left_sqrt_info_.template cast<T>());
     return true;

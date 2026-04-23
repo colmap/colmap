@@ -55,11 +55,11 @@ struct Point2DWithRay {
 class P3PEstimator {
  public:
   // The 2D image feature observations.
-  typedef Point2DWithRay X_t;
+  using X_t = Point2DWithRay;
   // The observed 3D features in the world frame.
-  typedef Eigen::Vector3d Y_t;
+  using Y_t = Eigen::Vector3d;
   // The transformation from the world to the camera frame.
-  typedef Eigen::Matrix3x4d M_t;
+  using M_t = Eigen::Matrix3x4d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
@@ -98,9 +98,9 @@ class P4PFEstimator {
  public:
   // The 2D image feature observations.
   // Expected to be normalized by the principal point.
-  typedef Eigen::Vector2d X_t;
+  using X_t = Eigen::Vector2d;
   // The observed 3D features in the world frame.
-  typedef Eigen::Vector3d Y_t;
+  using Y_t = Eigen::Vector3d;
   struct M_t {
     // The transformation from the world to the camera frame.
     Eigen::Matrix3x4d cam_from_world;
@@ -134,11 +134,11 @@ class P4PFEstimator {
 class EPNPEstimator {
  public:
   // The 2D image feature observations.
-  typedef Point2DWithRay X_t;
+  using X_t = Point2DWithRay;
   // The observed 3D features in the world frame.
-  typedef Eigen::Vector3d Y_t;
+  using Y_t = Eigen::Vector3d;
   // The transformation from the world to the camera frame.
-  typedef Eigen::Matrix3x4d M_t;
+  using M_t = Eigen::Matrix3x4d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 4;

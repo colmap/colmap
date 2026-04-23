@@ -106,4 +106,26 @@ void BindFeatureTypes(py::module& m) {
   MakeDataclass(PyFeatureMatch);
   py::bind_vector<FeatureMatches>(m, "FeatureMatches");
   py::implicitly_convertible<py::iterable, FeatureMatches>();
+
+  m.def("keypoints_to_matrix",
+        &KeypointsToMatrix,
+        "keypoints"_a,
+        "Convert FeatureKeypoints to an Nx4 matrix "
+        "[x, y, scale, orientation].");
+
+  m.def("keypoints_from_matrix",
+        &KeypointsFromMatrix,
+        "keypoints"_a,
+        "Convert an Nx4 matrix [x, y, scale, orientation] to "
+        "FeatureKeypoints.");
+
+  m.def("matches_to_matrix",
+        &MatchesToMatrix,
+        "matches"_a,
+        "Convert FeatureMatches to an Nx2 matrix of point2D indices.");
+
+  m.def("matches_from_matrix",
+        &MatchesFromMatrix,
+        "matches"_a,
+        "Convert an Nx2 matrix of point2D indices to FeatureMatches.");
 }

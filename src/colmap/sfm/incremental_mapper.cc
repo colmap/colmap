@@ -98,6 +98,7 @@ void IncrementalMapper::BeginReconstruction(
 
   filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
+  reg_stats_.num_structure_less_reg_trials.clear();
 }
 
 void IncrementalMapper::EndReconstruction(const bool discard) {
@@ -140,7 +141,9 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
       options,
       *obs_manager_,
       filtered_frames_,
-      /*num_reg_trials=*/reg_stats_.num_reg_trials,
+      /*num_reg_trials=*/
+      structure_less ? reg_stats_.num_structure_less_reg_trials
+                     : reg_stats_.num_reg_trials,
       /*structure_less=*/structure_less);
 }
 
@@ -612,6 +615,8 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
 
   THROW_CHECK(options.Check());
+
+  reg_stats_.num_structure_less_reg_trials[image_id] += 1;
 
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = *image.CameraPtr();
