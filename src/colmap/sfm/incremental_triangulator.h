@@ -204,11 +204,26 @@ class IncrementalTriangulator {
   // Cache for cameras with bogus parameters.
   std::unordered_map<camera_t, bool> camera_has_bogus_params_;
 
-  // Cache for tried track merges to avoid duplicate merge trials.
-  std::unordered_map<point3D_t, std::unordered_set<point3D_t>> merge_trials_;
+  // Cache for tried track merges to avoid duplicate merge trials. Keyed on
+  // a canonical (min, max) pair of 3D-point ids so each attempted merge is
+  // recorded once with a single hashmap operation in either direction.
+  // Uses the std::hash<std::pair<uint64_t, uint64_t>> specialization in
+  // colmap/util/types.h.
+  std::unordered_set<std::pair<point3D_t, point3D_t>> merge_trials_;
 
   // Cache for found correspondences in the graph.
   std::vector<CorrespondenceGraph::Correspondence> found_corrs_;
+
+  // Reusable BFS scratch buffers for Complete(). Held as members so each
+  // invocation swap+clears instead of heap-allocating fresh vectors.
+  std::vector<TrackElement> complete_curr_queue_;
+  std::vector<TrackElement> complete_next_queue_;
+  // Dedupes (image_id, point2D_idx) pairs reached by Complete()'s BFS so
+  // the inner reprojection-error check is not redone for correspondences
+  // shared across multiple parents at the same transitivity level. Uses
+  // the std::hash<std::pair<uint32_t, uint32_t>> specialization in
+  // colmap/util/types.h.
+  std::unordered_set<std::pair<image_t, point2D_t>> complete_visited_;
 
   // Number of trials to retriangulate image pair.
   std::unordered_map<image_pair_t, int> re_num_trials_;

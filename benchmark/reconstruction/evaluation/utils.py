@@ -45,6 +45,9 @@ import numpy.typing as npt
 
 import pycolmap
 
+from .covisibility import filter_covisibility  # noqa: F401
+from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
+
 
 @dataclasses.dataclass(kw_only=True)
 class SceneInfo:
@@ -209,6 +212,40 @@ def parse_args() -> argparse.Namespace:
         "This is useful for evaluating the performance of self-calibration.",
     )
     parser.add_argument(
+        "--filter_covisibility",
+        default=True,
+        action="store_true",
+        help="Filter out non-covisible image pairs based on GT camera poses.",
+    )
+    parser.add_argument(
+        "--covisibility_frustum_near",
+        type=float,
+        default=None,
+        help="Near plane for frustum co-visibility check. "
+        "Auto-detected from GT points if not specified.",
+    )
+    parser.add_argument(
+        "--covisibility_frustum_far",
+        type=float,
+        default=None,
+        help="Far plane for frustum co-visibility check. "
+        "Auto-detected from GT points if not specified.",
+    )
+    parser.add_argument(
+        "--covisibility_max_viewing_angle",
+        type=float,
+        default=120.0,
+        help="Maximum viewing angle in degrees for co-visibility check.",
+    )
+    parser.add_argument(
+        "--covisibility_min_shared_points",
+        type=int,
+        default=5,
+        help="Minimum number of shared GT 3D points for two images to be "
+        "considered covisible. If GT tracks are available and this is > 0, "
+        "track-based covisibility is preferred over frustum-based checking.",
+    )
+    parser.add_argument(
         "--error_type",
         default="relative_auc",
         choices=[
@@ -287,6 +324,7 @@ def colmap_reconstruction(
     workspace_path: Path,
     image_path: Path,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
+    covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
     colmap_extra_args: list | None = None,
     num_threads: int = 1,
 ) -> None:
@@ -374,6 +412,16 @@ def colmap_reconstruction(
         cwd=workspace_path,
     )
 
+    if covisibility_sparse_gt is not None:
+        filter_covisibility(
+            database_path,
+            covisibility_sparse_gt,
+            args.covisibility_frustum_near,
+            args.covisibility_frustum_far,
+            args.covisibility_max_viewing_angle,
+            args.covisibility_min_shared_points,
+        )
+
     # Decouple matching from sparse reconstruction, because matching will
     # initialize an OpenGL context and Mac on Apple silicon tends to assign GUI
     # applications to the low efficiency cores but we want to use the
@@ -451,6 +499,9 @@ def process_scene(
             sparse_gt
             if not args.uncalibrated and scene_info.has_camera_priors
             else None
+        ),
+        covisibility_sparse_gt=(
+            sparse_gt if args.filter_covisibility else None
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
@@ -540,15 +591,18 @@ def process_scenes(
         args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
     )
     with multiprocessing.Pool(processes=args.parallelism) as p:
-        results = p.map(
-            functools.partial(
-                process_scene,
-                args,
-                prepare_scene=prepare_scene,
-                position_accuracy_gt=position_accuracy_gt,
-                num_threads=num_threads,
-            ),
-            scene_infos,
+        results = list(
+            p.imap_unordered(
+                functools.partial(
+                    process_scene,
+                    args,
+                    prepare_scene=prepare_scene,
+                    position_accuracy_gt=position_accuracy_gt,
+                    num_threads=num_threads,
+                ),
+                scene_infos,
+                chunksize=1,
+            )
         )
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
@@ -608,19 +662,6 @@ def process_scenes(
         )
 
     return metrics
-
-
-def normalize_vec(
-    vec: npt.NDArray[np.floating], eps: float = 1e-10
-) -> npt.NDArray[np.floating]:
-    return vec / max(eps, float(np.linalg.norm(vec)))
-
-
-def vec_angular_dist_deg(
-    vec1: npt.NDArray[np.floating], vec2: npt.NDArray[np.floating]
-) -> float:
-    cos_dist = np.clip(np.dot(normalize_vec(vec1), normalize_vec(vec2)), -1, 1)
-    return np.rad2deg(np.acos(cos_dist))
 
 
 def get_error_thresholds(args: argparse.Namespace) -> npt.NDArray[np.floating]:
@@ -920,7 +961,13 @@ def create_result_table(
     for dataset, category_metrics in dataset_metrics.items():
         for category, scene_metrics in category_metrics.items():
             text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
-            for scene, metrics in scene_metrics.items():
+            for scene, metrics in sorted(
+                scene_metrics.items(),
+                key=lambda x: (
+                    x[0].startswith("__"),
+                    x[0],
+                ),
+            ):
                 scores = get_scores(first_metrics.error_type, metrics)
                 assert len(scores) == len(thresholds)
                 row = ""

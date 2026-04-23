@@ -2,6 +2,7 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -75,10 +76,18 @@ void BindDatabaseCache(py::module& m) {
            py::overload_cast<image_t>(&DatabaseCache::Image),
            py::return_value_policy::reference_internal,
            "image_id"_a)
-      .def_property_readonly("rigs", &DatabaseCache::Rigs)
-      .def_property_readonly("cameras", &DatabaseCache::Cameras)
-      .def_property_readonly("frames", &DatabaseCache::Frames)
-      .def_property_readonly("images", &DatabaseCache::Images)
+      .def_property_readonly("rigs",
+                             &DatabaseCache::Rigs,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("cameras",
+                             &DatabaseCache::Cameras,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("frames",
+                             &DatabaseCache::Frames,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("images",
+                             &DatabaseCache::Images,
+                             py::return_value_policy::reference_internal)
       .def_property_readonly("pose_priors", &DatabaseCache::PosePriors)
       .def_property_readonly(
           "correspondence_graph",

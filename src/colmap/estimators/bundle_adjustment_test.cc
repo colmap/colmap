@@ -129,6 +129,173 @@ TEST(BundleAdjustmentConfig, NumResiduals) {
   EXPECT_EQ(config.NumResiduals(reconstruction), 792);
 }
 
+TEST(BundleAdjustmentConfig, AddRemoveImage) {
+  BundleAdjustmentConfig config;
+  EXPECT_EQ(config.NumImages(), 0);
+
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  EXPECT_EQ(config.NumImages(), 3);
+  EXPECT_TRUE(config.HasImage(1));
+  EXPECT_TRUE(config.HasImage(2));
+  EXPECT_TRUE(config.HasImage(3));
+  EXPECT_FALSE(config.HasImage(4));
+
+  config.RemoveImage(2);
+  EXPECT_EQ(config.NumImages(), 2);
+  EXPECT_TRUE(config.HasImage(1));
+  EXPECT_FALSE(config.HasImage(2));
+  EXPECT_TRUE(config.HasImage(3));
+
+  // Removing non-existent image is a no-op
+  config.RemoveImage(99);
+  EXPECT_EQ(config.NumImages(), 2);
+}
+
+TEST(BundleAdjustmentConfig, ConstantVariableCamIntrinsics) {
+  BundleAdjustmentConfig config;
+  EXPECT_EQ(config.NumConstantCamIntrinsics(), 0);
+
+  config.SetConstantCamIntrinsics(1);
+  config.SetConstantCamIntrinsics(2);
+  EXPECT_EQ(config.NumConstantCamIntrinsics(), 2);
+  EXPECT_TRUE(config.HasConstantCamIntrinsics(1));
+  EXPECT_TRUE(config.HasConstantCamIntrinsics(2));
+  EXPECT_FALSE(config.HasConstantCamIntrinsics(3));
+
+  config.SetVariableCamIntrinsics(1);
+  EXPECT_EQ(config.NumConstantCamIntrinsics(), 1);
+  EXPECT_FALSE(config.HasConstantCamIntrinsics(1));
+  EXPECT_TRUE(config.HasConstantCamIntrinsics(2));
+
+  const auto& constant_cams = config.ConstantCamIntrinsics();
+  EXPECT_EQ(constant_cams.size(), 1);
+  EXPECT_EQ(constant_cams.count(2), 1);
+}
+
+TEST(BundleAdjustmentConfig, ConstantVariableSensorFromRigPose) {
+  BundleAdjustmentConfig config;
+  EXPECT_EQ(config.NumConstantSensorFromRigPoses(), 0);
+
+  sensor_t sensor1(SensorType::CAMERA, 1);
+  sensor_t sensor2(SensorType::CAMERA, 2);
+
+  config.SetConstantSensorFromRigPose(sensor1);
+  config.SetConstantSensorFromRigPose(sensor2);
+  EXPECT_EQ(config.NumConstantSensorFromRigPoses(), 2);
+  EXPECT_TRUE(config.HasConstantSensorFromRigPose(sensor1));
+  EXPECT_TRUE(config.HasConstantSensorFromRigPose(sensor2));
+
+  config.SetVariableSensorFromRigPose(sensor1);
+  EXPECT_EQ(config.NumConstantSensorFromRigPoses(), 1);
+  EXPECT_FALSE(config.HasConstantSensorFromRigPose(sensor1));
+  EXPECT_TRUE(config.HasConstantSensorFromRigPose(sensor2));
+
+  const auto& constant_poses = config.ConstantSensorFromRigPoses();
+  EXPECT_EQ(constant_poses.size(), 1);
+  EXPECT_EQ(constant_poses.count(sensor2), 1);
+}
+
+TEST(BundleAdjustmentConfig, ConstantVariableRigFromWorldPose) {
+  BundleAdjustmentConfig config;
+  EXPECT_EQ(config.NumConstantRigFromWorldPoses(), 0);
+
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
+  EXPECT_EQ(config.NumConstantRigFromWorldPoses(), 2);
+  EXPECT_TRUE(config.HasConstantRigFromWorldPose(1));
+  EXPECT_TRUE(config.HasConstantRigFromWorldPose(2));
+
+  config.SetVariableRigFromWorldPose(1);
+  EXPECT_EQ(config.NumConstantRigFromWorldPoses(), 1);
+  EXPECT_FALSE(config.HasConstantRigFromWorldPose(1));
+  EXPECT_TRUE(config.HasConstantRigFromWorldPose(2));
+
+  const auto& constant_rig_poses = config.ConstantRigFromWorldPoses();
+  EXPECT_EQ(constant_rig_poses.size(), 1);
+  EXPECT_EQ(constant_rig_poses.count(2), 1);
+}
+
+TEST(BundleAdjustmentConfig, ConstantVariablePoints) {
+  BundleAdjustmentConfig config;
+  EXPECT_EQ(config.NumPoints(), 0);
+  EXPECT_EQ(config.NumVariablePoints(), 0);
+  EXPECT_EQ(config.NumConstantPoints(), 0);
+
+  config.AddVariablePoint(1);
+  config.AddVariablePoint(2);
+  EXPECT_EQ(config.NumPoints(), 2);
+  EXPECT_EQ(config.NumVariablePoints(), 2);
+  EXPECT_EQ(config.NumConstantPoints(), 0);
+  EXPECT_TRUE(config.HasPoint(1));
+  EXPECT_TRUE(config.HasVariablePoint(1));
+  EXPECT_FALSE(config.HasConstantPoint(1));
+
+  config.AddConstantPoint(3);
+  EXPECT_EQ(config.NumPoints(), 3);
+  EXPECT_EQ(config.NumVariablePoints(), 2);
+  EXPECT_EQ(config.NumConstantPoints(), 1);
+  EXPECT_TRUE(config.HasPoint(3));
+  EXPECT_FALSE(config.HasVariablePoint(3));
+  EXPECT_TRUE(config.HasConstantPoint(3));
+
+  config.RemoveVariablePoint(1);
+  EXPECT_EQ(config.NumVariablePoints(), 1);
+  EXPECT_FALSE(config.HasPoint(1));
+
+  config.RemoveConstantPoint(3);
+  EXPECT_EQ(config.NumConstantPoints(), 0);
+  EXPECT_FALSE(config.HasPoint(3));
+
+  const auto& var_points = config.VariablePoints();
+  EXPECT_EQ(var_points.size(), 1);
+  EXPECT_EQ(var_points.count(2), 1);
+  const auto& const_points = config.ConstantPoints();
+  EXPECT_TRUE(const_points.empty());
+}
+
+TEST(BundleAdjustmentConfig, IgnoredPoints) {
+  BundleAdjustmentConfig config;
+  EXPECT_FALSE(config.IsIgnoredPoint(1));
+
+  config.IgnorePoint(1);
+  EXPECT_TRUE(config.IsIgnoredPoint(1));
+  EXPECT_FALSE(config.IsIgnoredPoint(2));
+}
+
+TEST(BundleAdjustmentConfig, FixGauge) {
+  BundleAdjustmentConfig config;
+  EXPECT_EQ(config.FixedGauge(), BundleAdjustmentGauge::UNSPECIFIED);
+
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  EXPECT_EQ(config.FixedGauge(), BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  EXPECT_EQ(config.FixedGauge(), BundleAdjustmentGauge::THREE_POINTS);
+}
+
+TEST(BundleAdjustmentConfig, Images) {
+  BundleAdjustmentConfig config;
+  config.AddImage(5);
+  config.AddImage(10);
+
+  const auto& images = config.Images();
+  EXPECT_EQ(images.size(), 2);
+  EXPECT_EQ(images.count(5), 1);
+  EXPECT_EQ(images.count(10), 1);
+}
+
+TEST(BundleAdjustmentSummary, BriefReport) {
+  BundleAdjustmentSummary summary;
+  summary.termination_type = BundleAdjustmentTerminationType::CONVERGENCE;
+  summary.num_residuals = 42;
+
+  const std::string report = summary.BriefReport();
+  EXPECT_NE(report.find("CONVERGENCE"), std::string::npos);
+  EXPECT_NE(report.find("42"), std::string::npos);
+}
+
 // Parameterized test for generic BundleAdjuster interface across backends.
 class BundleAdjusterBackendTest
     : public ::testing::TestWithParam<BundleAdjustmentBackend> {};

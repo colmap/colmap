@@ -436,5 +436,98 @@ TEST(ThreadSafeLRUCache, Clear) {
   EXPECT_TRUE(cache.Exists(0));
 }
 
+TEST(LRUCache, ExceptionSafety) {
+  // If load_fn_ throws, the cache should remain in a consistent state.
+  int load_count = 0;
+  LRUCache<int, int> cache(5, [&load_count](const int key) {
+    ++load_count;
+    if (key == 3) {
+      throw std::runtime_error("load failed");
+    }
+    return std::make_shared<int>(key * 10);
+  });
+
+  // Load some initial entries.
+  EXPECT_EQ(*cache.Get(0), 0);
+  EXPECT_EQ(*cache.Get(1), 10);
+  EXPECT_EQ(*cache.Get(2), 20);
+  EXPECT_EQ(cache.NumElems(), 3);
+
+  // Attempting to load key=3 should throw.
+  EXPECT_THROW(cache.Get(3), std::runtime_error);
+
+  // The cache should still be in a valid state with the original 3 entries.
+  EXPECT_EQ(cache.NumElems(), 3);
+  EXPECT_TRUE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(1));
+  EXPECT_TRUE(cache.Exists(2));
+  EXPECT_FALSE(cache.Exists(3));
+
+  // Existing entries should still be retrievable.
+  EXPECT_EQ(*cache.Get(0), 0);
+  EXPECT_EQ(*cache.Get(1), 10);
+  EXPECT_EQ(*cache.Get(2), 20);
+
+  // Loading a new valid key should work fine.
+  EXPECT_EQ(*cache.Get(4), 40);
+  EXPECT_EQ(cache.NumElems(), 4);
+  EXPECT_TRUE(cache.Exists(4));
+}
+
+TEST(MemoryConstrainedLRUCache, PopNumBytesConsistency) {
+  // Pop should maintain correct num_bytes tracking.
+  MemoryConstrainedLRUCache<int, SizedElem> cache(
+      100, [](const int key) { return std::make_shared<SizedElem>(key); });
+
+  cache.Get(10);
+  cache.Get(20);
+  cache.Get(5);
+  EXPECT_EQ(cache.NumBytes(), 35);
+  EXPECT_EQ(cache.NumElems(), 3);
+
+  // Pop should remove the LRU element (key=10, 10 bytes) and update num_bytes.
+  cache.Pop();
+  EXPECT_EQ(cache.NumBytes(), 25);
+  EXPECT_EQ(cache.NumElems(), 2);
+
+  cache.Pop();
+  EXPECT_EQ(cache.NumBytes(), 5);
+  EXPECT_EQ(cache.NumElems(), 1);
+
+  cache.Pop();
+  EXPECT_EQ(cache.NumBytes(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
+
+  // Pop on empty cache should be safe.
+  cache.Pop();
+  EXPECT_EQ(cache.NumBytes(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
+}
+
+TEST(MemoryConstrainedLRUCache, UpdateNumBytesConsistency) {
+  // Should correctly track byte counts even when elements shrink.
+  MemoryConstrainedLRUCache<int, SizedElem> cache(
+      100, [](const int key) { return std::make_shared<SizedElem>(key); });
+
+  cache.Get(10);
+  cache.Get(20);
+  EXPECT_EQ(cache.NumBytes(), 30);
+
+  // Shrink element from 20 bytes to 5 bytes.
+  cache.Get(20)->num_bytes = 5;
+  cache.UpdateNumBytes(20);
+  EXPECT_EQ(cache.NumBytes(), 15);
+
+  // Shrink element to 0 bytes.
+  cache.Get(10)->num_bytes = 0;
+  cache.UpdateNumBytes(10);
+  EXPECT_EQ(cache.NumBytes(), 5);
+
+  // Grow it back.
+  cache.Get(10)->num_bytes = 8;
+  cache.UpdateNumBytes(10);
+  EXPECT_EQ(cache.NumBytes(), 13);
+}
+
 }  // namespace
 }  // namespace colmap

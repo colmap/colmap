@@ -19,6 +19,13 @@ void BindObservationManager(py::module& m) {
       .def_readwrite("num_tri_corrs", &ImagePairStat::num_tri_corrs)
       .def_readwrite("num_total_corrs", &ImagePairStat::num_total_corrs);
 
+  auto PyReprojectionErrorType =
+      py::enum_<ReprojectionErrorType>(m, "ReprojectionErrorType")
+          .value("PIXEL", ReprojectionErrorType::PIXEL)
+          .value("NORMALIZED", ReprojectionErrorType::NORMALIZED)
+          .value("ANGULAR", ReprojectionErrorType::ANGULAR);
+  AddStringToEnumConstructor(PyReprojectionErrorType);
+
   py::classh<ObservationManager>(m, "ObservationManager")
       .def(py::init<Reconstruction&,
                     std::shared_ptr<const CorrespondenceGraph>>(),
@@ -26,6 +33,10 @@ void BindObservationManager(py::module& m) {
            "correspondence_graph"_a = py::none(),
            py::keep_alive<1, 2>())
       .def_property_readonly("image_pairs", &ObservationManager::ImagePairs)
+      .def("add_image",
+           &ObservationManager::AddImage,
+           "image_id"_a,
+           "Incrementally add an image for streaming/online SfM.")
       .def("add_point3D",
            &ObservationManager::AddPoint3D,
            "xyz"_a,
@@ -88,17 +99,35 @@ void BindObservationManager(py::module& m) {
            &ObservationManager::FilterObservationsWithNegativeDepth,
            "Filter observations that have negative depth. Return the number of "
            "filtered observations.")
+      .def("filter_points3D_with_large_reprojection_error",
+           &ObservationManager::FilterPoints3DWithLargeReprojectionError,
+           "max_error"_a,
+           "point3D_ids"_a,
+           "error_type"_a = ReprojectionErrorType::PIXEL,
+           "Filter observations with large reprojection error. For PIXEL and "
+           "NORMALIZED, max_error is the reprojection error; for ANGULAR, it "
+           "is the angular error in degrees. Return the number of filtered "
+           "observations.")
+      .def("filter_points3D_with_small_triangulation_angle",
+           &ObservationManager::FilterPoints3DWithSmallTriangulationAngle,
+           "min_tri_angle"_a,
+           "point3D_ids"_a,
+           "Filter 3D points with insufficient triangulation angle in degrees. "
+           "Return the number of filtered observations.")
       .def("filter_frames",
-           &ObservationManager::FilterFrames,
+           &ObservationManager::FindFramesToFilter,
            "min_focal_length_ratio"_a,
            "max_focal_length_ratio"_a,
            "max_extra_param"_a,
-           "Filter frames without observations or bogus camera parameters."
-           "Return the identifiers of the filtered frames.")
+           "min_num_observations"_a,
+           "Find frames that should be filtered due to having no observations "
+           "or bogus camera parameters, without de-registering them. Pass them "
+           "to DeRegisterFrame to reset their pose."
+           "Return the identifiers of the frames to filter.")
       .def("register_frame",
-           &ObservationManager::DeRegisterFrame,
+           &ObservationManager::RegisterFrame,
            "frame_id"_a,
-           "Register an existing frame, and all its references.")
+           "Register an existing frame, and all its references..")
       .def("deregister_frame",
            &ObservationManager::DeRegisterFrame,
            "frame_id"_a,

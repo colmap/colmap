@@ -35,6 +35,10 @@ if(DEFINED glog_VERSION_MAJOR)
 endif()
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
+# Older CMake versions define SQLite::SQLite3 instead of SQLite3::SQLite3.
+if(NOT TARGET SQLite3::SQLite3 AND TARGET SQLite::SQLite3)
+    add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+endif()
 
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL ${COLMAP_FIND_TYPE})
@@ -247,7 +251,7 @@ if(ONNX_ENABLED)
 
         message(STATUS "Configuring onnxruntime...")
 
-        set(ONNX_VERSION "1.24.1")
+        set(ONNX_VERSION "1.24.4")
         # ONNX Runtime >= 1.22 GPU binaries are built with CUDA >= 12
         if(ONNX_VERSION VERSION_GREATER_EQUAL "1.22"
            AND CUDA_ENABLED AND CUDA_FOUND AND CUDAToolkit_VERSION VERSION_LESS "12.0")
@@ -269,7 +273,7 @@ if(ONNX_ENABLED)
             else()
                 FetchContent_Declare(onnxruntime
                     URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
-                    URL_HASH SHA256=c2969315cd9ce0f5fa04f6b53ff72cb92f87f7dcf38e88cacfa40c8f983fbba9
+                    URL_HASH SHA256=93787795f47e1eee369182e43ed51b9e5da0878ab0346aecf4258979b8bba989
                     ${_fetch_content_declare_args}
                 )
             endif()
@@ -277,20 +281,20 @@ if(ONNX_ENABLED)
             if(IS_ARM64)
                 FetchContent_Declare(onnxruntime
                     URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-aarch64-${ONNX_VERSION}.tgz
-                    URL_HASH SHA256=0f56edd68f7602df790b68b874a46b115add037e88385c6c842bb763b39b9f89
+                    URL_HASH SHA256=866109a9248d057671a039b9d725be4bd86888e3754140e6701ec621be9d4d7e
                     ${_fetch_content_declare_args}
                 )
             else()
                 if(CUDA_ENABLED)
                     FetchContent_Declare(onnxruntime
                         URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
-                        URL_HASH SHA256=1c468821456b7863640555e31ee5b71e56bb959874b9db0dbf79503997993673
+                        URL_HASH SHA256=c5f804ff5d239b436fa59e9f2fb288a39f7eb9552f6a636c8b71e792e91a8808
                         ${_fetch_content_declare_args}
                     )
                 else()
                     FetchContent_Declare(onnxruntime
                         URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz
-                        URL_HASH SHA256=9142552248b735920f9390027e4512a2cacf8946a1ffcbe9071a5c210531026f
+                        URL_HASH SHA256=3a211fbea252c1e66290658f1b735b772056149f28321e71c308942cdb54b747
                         ${_fetch_content_declare_args}
                     )
                 endif()
@@ -298,25 +302,19 @@ if(ONNX_ENABLED)
         elseif(IS_WINDOWS)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
-                URL_HASH SHA256=176af2aade9eb9e429cd2a738aa5d71a1f20ec7123e4b99a382ad62b9db970fb
+                URL_HASH SHA256=ef3337a0b8184eb8beec310f7c83bd50376b3eefc43aab84ac8e452f6987df0a
                 ${_fetch_content_declare_args}
             )
         endif()
 
         FetchContent_MakeAvailable(onnxruntime)
 
-        if(IS_LINUX AND NOT IS_ARM64)
-            set(onnxruntime_LIB_DIR_NAME lib64)
-        else()
-            set(onnxruntime_LIB_DIR_NAME lib)
-        endif()
-
         set(ONNX_INCLUDE_DIR ${onnxruntime_BINARY_DIR}/include/onnxruntime)
         if(NOT EXISTS ${ONNX_INCLUDE_DIR})
             file(MAKE_DIRECTORY ${ONNX_INCLUDE_DIR})
             file(COPY ${onnxruntime_SOURCE_DIR}/include/ DESTINATION ${ONNX_INCLUDE_DIR}/)
         endif()
-        set(onnxruntime_LIB_DIR ${onnxruntime_BINARY_DIR}/lib)
+        set(onnxruntime_LIB_DIR ${onnxruntime_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
         if(NOT EXISTS ${onnxruntime_LIB_DIR})
             file(MAKE_DIRECTORY ${onnxruntime_LIB_DIR})
             file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${onnxruntime_LIB_DIR})
@@ -330,12 +328,13 @@ if(ONNX_ENABLED)
                 file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
                 file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
                 # The downloaded cmake configs may reference lib64/ (e.g. on Linux x64),
-                # but we install libraries to lib/. Patch the configs to match.
+                # but the actual install directory depends on CMAKE_INSTALL_LIBDIR
+                # (lib/ or lib64/ depending on the distro). Patch the configs to match.
                 if(IS_LINUX AND NOT IS_ARM64)
                     file(GLOB _onnx_cmake_configs "${ONNX_DATA_DIR}/cmake/*.cmake")
                     foreach(_config_file ${_onnx_cmake_configs})
                         file(READ "${_config_file}" _config_content)
-                        string(REPLACE "/lib64/" "/lib/" _config_content "${_config_content}")
+                        string(REPLACE "/lib64/" "/${CMAKE_INSTALL_LIBDIR}/" _config_content "${_config_content}")
                         file(WRITE "${_config_file}" "${_config_content}")
                     endforeach()
                 endif()
@@ -418,7 +417,7 @@ endif()
 
 if(GUI_ENABLED)
     find_package(QT NAMES Qt5 Qt6 REQUIRED)
-    set(COLMAP_QT_COMPONENTS Core OpenGL Widgets)
+    set(COLMAP_QT_COMPONENTS Core OpenGL Svg Widgets)
     if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         list(APPEND COLMAP_QT_COMPONENTS OpenGLWidgets)
     endif()
@@ -426,6 +425,7 @@ if(GUI_ENABLED)
     message(STATUS "Found Qt")
     message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Core_DIR}")
     message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}OpenGL_DIR}")
+    message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Svg_DIR}")
     message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Widgets_DIR}")
     if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}OpenGLWidgets_DIR}")
@@ -459,6 +459,13 @@ if(GUI_ENABLED AND Qt${QT_VERSION_MAJOR}_FOUND)
 else()
     set(GUI_ENABLED OFF)
     message(STATUS "Disabling GUI support")
+endif()
+
+if(MVS_ENABLED)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_MVS_ENABLED)
+    message(STATUS "Enabling MVS support")
+else()
+    message(STATUS "Disabling MVS support")
 endif()
 
 if(OPENGL_ENABLED)

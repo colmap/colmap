@@ -401,7 +401,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Set up bundle adjustment options for colmap's incremental mapper.
-  BundleAdjustmentOptions custom_ba_options;
+  BundleAdjustmentOptions custom_ba_options = ba_options;
   custom_ba_options.print_summary = false;
   if (custom_ba_options.ceres && ba_options.ceres) {
     custom_ba_options.ceres->solver_options.num_threads =
@@ -448,8 +448,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   return true;
 }
 
-bool GlobalMapper::Solve(const GlobalMapperOptions& options,
-                         std::unordered_map<frame_t, int>& cluster_ids) {
+bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
 

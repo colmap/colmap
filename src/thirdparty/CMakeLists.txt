@@ -37,8 +37,8 @@ endif()
 if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(poselib
-        URL https://github.com/PoseLib/PoseLib/archive/f119951fca625133112acde48daffa5f20eba451.zip
-        URL_HASH SHA256=3faa27d9d1f6ae7cc47602a66c10ac6f64457bc65a959d1880947d3b3bfe1ed1
+        URL https://github.com/PoseLib/PoseLib/archive/v2.0.5.zip
+        URL_HASH SHA256=3d8d71d94813da8e0c3a6df11ec3591614ad2e731e73f3de4982b9297321a38d
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
@@ -55,11 +55,17 @@ endif()
 if(FETCH_FAISS)
     include(FetchContent)
     FetchContent_Declare(faiss
-        URL https://github.com/ahojnnes/faiss/archive/36b77353dc435383e0c23a709e7997a29d049041.zip
-        URL_HASH SHA256=aaf90b3dd3e353ff0bc3391581788cda7c510749023d1937707fc99c38ef2587
+        URL https://github.com/facebookresearch/faiss/archive/refs/tags/v1.14.1.zip
+        URL_HASH SHA256=4b1ae7e7a0a46385b4084f0e3945623a15fcf99d793bf44d82aae8e24f11e5f5
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
+    # Use dynamic dispatch (dd) to automatically select the highest SIMD
+    # instruction set supported by the target machine (e.g., AVX2, AVX512).
+    # Dynamic dispatch is not supported on MSVC (faiss v1.14.1).
+    if(NOT IS_MSVC)
+        set(FAISS_OPT_LEVEL dd)
+    endif()
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
     set(FAISS_ENABLE_MKL OFF)

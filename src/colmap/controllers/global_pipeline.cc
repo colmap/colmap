@@ -106,8 +106,7 @@ void GlobalPipeline::Run() {
 
   Timer run_timer;
   run_timer.Start();
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(mapper_options, cluster_ids);
+  global_mapper.Solve(mapper_options);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
@@ -121,7 +120,8 @@ void GlobalPipeline::Run() {
   output_reconstruction = *reconstruction;
   if (!options_.image_path.empty()) {
     LOG(INFO) << "Extracting colors ...";
-    output_reconstruction.ExtractColorsForAllImages(options_.image_path);
+    output_reconstruction.ExtractColorsForAllImages(options_.image_path,
+                                                    options_.num_threads);
   }
 
   if (has_insufficient_prior_focal_lengths) {

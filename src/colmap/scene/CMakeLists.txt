@@ -73,7 +73,7 @@ COLMAP_ADD_LIBRARY(
         colmap_scene_types
         colmap_util
         Eigen3::Eigen
-        SQLite::SQLite3
+        SQLite3::SQLite3
     PRIVATE_LINK_LIBS
         colmap_optim
 )
@@ -200,7 +200,7 @@ COLMAP_ADD_TEST(
 )
 
 COLMAP_ADD_TEST(
-    NAME glomap_pose_graph_test
+    NAME pose_graph_test
     SRCS pose_graph_test.cc
     LINK_LIBS colmap_scene
 )

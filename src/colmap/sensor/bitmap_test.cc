@@ -271,20 +271,21 @@ TEST(Bitmap, RowMajorDataGrey) {
 TEST(Bitmap, GetAndSetPixelRGB) {
   Bitmap bitmap(2, 3, /*as_rgb=*/true);
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(1, 2, 3));
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+  const auto color = bitmap.GetPixel(1, 1);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
 }
 
 TEST(Bitmap, GetAndSetPixelGrey) {
   Bitmap bitmap(2, 3, /*as_rgb=*/false);
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(0, 2, 3));
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
+  auto color = bitmap.GetPixel(1, 1);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 1, 1));
+  color = bitmap.GetPixel(1, 1);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 1, 1));
 }
 
 TEST(Bitmap, Fill) {
@@ -292,9 +293,21 @@ TEST(Bitmap, Fill) {
   bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
   for (int y = 0; y < bitmap.Height(); ++y) {
     for (int x = 0; x < bitmap.Width(); ++x) {
-      BitmapColor<uint8_t> color;
-      EXPECT_TRUE(bitmap.GetPixel(x, y, &color));
-      EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+      const auto color = bitmap.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
+      EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
+    }
+  }
+}
+
+TEST(Bitmap, FillGrey) {
+  Bitmap bitmap(10, 10, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(42));
+  for (int y = 0; y < bitmap.Height(); ++y) {
+    for (int x = 0; x < bitmap.Width(); ++x) {
+      const auto color = bitmap.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
+      EXPECT_EQ(color->r, 42);
     }
   }
 }
@@ -303,28 +316,61 @@ TEST(Bitmap, InterpolateNearestNeighbor) {
   Bitmap bitmap(11, 10, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 4, BitmapColor<uint8_t>(1, 2, 3));
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5, 4, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5.4999, 4.4999, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5.5, 4.5, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(4.5, 4.4999, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+  auto color = bitmap.InterpolateNearestNeighbor(5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
+  color = bitmap.InterpolateNearestNeighbor(5.4999, 4.4999);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
+  color = bitmap.InterpolateNearestNeighbor(5.5, 4.5);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(0, 0, 0));
+  color = bitmap.InterpolateNearestNeighbor(4.5, 4.4999);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
 }
 
 TEST(Bitmap, InterpolateBilinear) {
   Bitmap bitmap(11, 10, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 4, BitmapColor<uint8_t>(1, 2, 3));
-  BitmapColor<float> color;
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5, 4, &color));
-  EXPECT_EQ(color, BitmapColor<float>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 4, &color));
-  EXPECT_EQ(color, BitmapColor<float>(0.5, 1, 1.5));
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 4.5, &color));
-  EXPECT_EQ(color, BitmapColor<float>(0.25, 0.5, 0.75));
+  auto color = bitmap.InterpolateBilinear(5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<float>(1, 2, 3));
+  color = bitmap.InterpolateBilinear(5.5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<float>(0.5, 1, 1.5));
+  color = bitmap.InterpolateBilinear(5.5, 4.5);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<float>(0.25, 0.5, 0.75));
+}
+
+TEST(Bitmap, InterpolateBilinearGrey) {
+  Bitmap bitmap(11, 10, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(5, 4, BitmapColor<uint8_t>(100));
+  auto color = bitmap.InterpolateBilinear(5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(color->r, 100.0f);
+  color = bitmap.InterpolateBilinear(5.5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_NEAR(color->r, 50.0f, 1e-5);
+  color = bitmap.InterpolateBilinear(5.5, 4.5);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_NEAR(color->r, 25.0f, 1e-5);
+}
+
+TEST(Bitmap, InterpolateBilinearOutOfBounds) {
+  Bitmap bitmap(11, 10, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
+  // x at the right boundary: x0=10, x1=11 >= width_=11
+  EXPECT_FALSE(bitmap.InterpolateBilinear(10.0, 5.0).has_value());
+  // y at the bottom boundary: y0=9, y1=10 >= height_=10
+  EXPECT_FALSE(bitmap.InterpolateBilinear(5.0, 9.0).has_value());
+  // Negative x: x0=-1 < 0
+  EXPECT_FALSE(bitmap.InterpolateBilinear(-0.5, 5.0).has_value());
+  // Negative y: y0=-1 < 0
+  EXPECT_FALSE(bitmap.InterpolateBilinear(5.0, -0.5).has_value());
 }
 
 TEST(Bitmap, RescaleRGB) {
@@ -365,27 +411,70 @@ TEST(Bitmap, Rot90) {
   rotated1.Rot90(1);  // 90 CCW
   EXPECT_EQ(rotated1.Width(), 5);
   EXPECT_EQ(rotated1.Height(), 10);
-  BitmapColor<uint8_t> color;
-  rotated1.GetPixel(0, 9, &color);
-  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Bottom-left (0,9)
-  rotated1.GetPixel(0, 0, &color);
-  EXPECT_EQ(color.r, 128);  // Top-right (9,0) -> Top-left (0,0)
-  rotated1.GetPixel(4, 0, &color);
-  EXPECT_EQ(color.r, 64);  // Bottom-right (9,4) -> Top-right (4,0)
+  // Top-left (0,0) -> Bottom-left (0,9)
+  EXPECT_EQ(rotated1.GetPixel(0, 9).value().r, 255);
+  // Top-right (9,0) -> Top-left (0,0)
+  EXPECT_EQ(rotated1.GetPixel(0, 0).value().r, 128);
+  // Bottom-right (9,4) -> Top-right (4,0)
+  EXPECT_EQ(rotated1.GetPixel(4, 0).value().r, 64);
 
   Bitmap rotated2 = bitmap.Clone();
   rotated2.Rot90(2);  // 180 CCW
   EXPECT_EQ(rotated2.Width(), 10);
   EXPECT_EQ(rotated2.Height(), 5);
-  rotated2.GetPixel(9, 4, &color);
-  EXPECT_EQ(color.r, 255);
+  EXPECT_EQ(rotated2.GetPixel(9, 4).value().r, 255);
 
   Bitmap rotated3 = bitmap.Clone();
   rotated3.Rot90(3);  // 270 CCW
   EXPECT_EQ(rotated3.Width(), 5);
   EXPECT_EQ(rotated3.Height(), 10);
-  rotated3.GetPixel(4, 0, &color);
-  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Top-right (4,0)
+  // Top-left (0,0) -> Top-right (4,0)
+  EXPECT_EQ(rotated3.GetPixel(4, 0).value().r, 255);
+}
+
+TEST(Bitmap, Rot90Empty) {
+  Bitmap bitmap;
+  bitmap.Rot90(1);
+  EXPECT_TRUE(bitmap.IsEmpty());
+  EXPECT_EQ(bitmap.Width(), 0);
+  EXPECT_EQ(bitmap.Height(), 0);
+}
+
+TEST(Bitmap, Rot90NegativeK) {
+  Bitmap bitmap(10, 5, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
+  bitmap.SetPixel(9, 0, BitmapColor<uint8_t>(128));
+
+  // Rot90(-1) should be equivalent to Rot90(3) (270 CCW = 90 CW).
+  Bitmap rotated_neg = bitmap.Clone();
+  rotated_neg.Rot90(-1);
+
+  Bitmap rotated_3 = bitmap.Clone();
+  rotated_3.Rot90(3);
+
+  EXPECT_EQ(rotated_neg.Width(), rotated_3.Width());
+  EXPECT_EQ(rotated_neg.Height(), rotated_3.Height());
+  EXPECT_EQ(rotated_neg.RowMajorData(), rotated_3.RowMajorData());
+}
+
+TEST(Bitmap, Rot90NoOp) {
+  Bitmap bitmap(10, 5, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
+  const auto original_data = bitmap.RowMajorData();
+
+  Bitmap rotated0 = bitmap.Clone();
+  rotated0.Rot90(0);
+  EXPECT_EQ(rotated0.Width(), 10);
+  EXPECT_EQ(rotated0.Height(), 5);
+  EXPECT_EQ(rotated0.RowMajorData(), original_data);
+
+  Bitmap rotated4 = bitmap.Clone();
+  rotated4.Rot90(4);
+  EXPECT_EQ(rotated4.Width(), 10);
+  EXPECT_EQ(rotated4.Height(), 5);
+  EXPECT_EQ(rotated4.RowMajorData(), original_data);
 }
 
 TEST(Bitmap, Clone) {
@@ -396,9 +485,8 @@ TEST(Bitmap, Clone) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 3);
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(10, 20, 30));
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(10, 20, 30));
 }
 
 TEST(Bitmap, CloneAsRGB) {
@@ -409,15 +497,27 @@ TEST(Bitmap, CloneAsRGB) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 3);
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(10, 10, 10));
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "bitmap.png";
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(10, 10, 10));
+  const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
   EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/true));
   EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
+}
+
+TEST(Bitmap, CloneAsRGBFromRGB) {
+  Bitmap bitmap(4, 3, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(40, 50, 60));
+
+  const Bitmap cloned = bitmap.CloneAsRGB();
+  EXPECT_EQ(cloned.Width(), 4);
+  EXPECT_EQ(cloned.Height(), 3);
+  EXPECT_EQ(cloned.Channels(), 3);
+  EXPECT_TRUE(cloned.IsRGB());
+  EXPECT_EQ(cloned.RowMajorData(), bitmap.RowMajorData());
 }
 
 TEST(Bitmap, CloneAsGrey) {
@@ -428,15 +528,27 @@ TEST(Bitmap, CloneAsGrey) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 1);
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(19, 19, 19));
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "bitmap.png";
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(19, 19, 19));
+  const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
   EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
   EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
+}
+
+TEST(Bitmap, CloneAsGreyFromGrey) {
+  Bitmap bitmap(4, 3, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(42));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(100));
+
+  const Bitmap cloned = bitmap.CloneAsGrey();
+  EXPECT_EQ(cloned.Width(), 4);
+  EXPECT_EQ(cloned.Height(), 3);
+  EXPECT_EQ(cloned.Channels(), 1);
+  EXPECT_TRUE(cloned.IsGrey());
+  EXPECT_EQ(cloned.RowMajorData(), bitmap.RowMajorData());
 }
 
 TEST(Bitmap, SetGetMetaData) {
@@ -495,6 +607,26 @@ TEST(Bitmap, ExifCameraModel) {
   const auto camera_model = bitmap.ExifCameraModel();
   EXPECT_TRUE(camera_model.has_value());
   EXPECT_EQ(camera_model.value(), "make-model-50.000000-100x80");
+}
+
+TEST(Bitmap, ExifCameraModelNoModel) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+  bitmap.SetMetaData("Make", "make");
+  // Do not set Model.
+  const float focal_length_in_35mm_film = 50.f;
+  bitmap.SetMetaData(
+      "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
+
+  EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
+}
+
+TEST(Bitmap, ExifCameraModelNoFocalLength) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+  bitmap.SetMetaData("Make", "make");
+  bitmap.SetMetaData("Model", "model");
+  // Do not set any focal length metadata.
+
+  EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
 }
 
 TEST(Bitmap, ExifFocalLengthIn35mm) {
@@ -645,8 +777,7 @@ TEST(Bitmap, ReadWriteAsRGB) {
   bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4, 2, 0));
   bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5, 2, 1));
 
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "bitmap.png";
+  const auto filename = CreateTestDir() / "bitmap.png";
 
   EXPECT_TRUE(bitmap.Write(filename));
 
@@ -675,8 +806,7 @@ TEST(Bitmap, ReadWriteAsGrey) {
   bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4));
   bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5));
 
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "bitmap.png";
+  const auto filename = CreateTestDir() / "bitmap.png";
 
   EXPECT_TRUE(bitmap.Write(filename));
 
@@ -705,8 +835,7 @@ TEST(Bitmap, ReadWriteAsGreyNonLinear) {
   bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4));
   bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5));
 
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "bitmap.png";
+  const auto filename = CreateTestDir() / "bitmap.png";
 
   EXPECT_TRUE(bitmap.Write(filename, /*delinearize_colorspace=*/false));
 
@@ -717,6 +846,32 @@ TEST(Bitmap, ReadWriteAsGreyNonLinear) {
   EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
   EXPECT_EQ(read_bitmap.Channels(), 1);
   EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
+  EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
+}
+
+TEST(Bitmap, ReadWriteLinearColorspace) {
+  Bitmap bitmap(4, 3, /*as_rgb=*/true, /*linear_colorspace=*/true);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(50, 100, 150));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(200, 180, 160));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(80, 90, 100));
+
+  const auto filename = CreateTestDir() / "linear.png";
+
+  // Write with delinearize (exercises the delinearize path).
+  EXPECT_TRUE(bitmap.Write(filename, /*delinearize_colorspace=*/true));
+
+  // Read back with linearize (exercises the linearize path).
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(
+      filename, /*as_rgb=*/true, /*linearize_colorspace=*/true));
+  EXPECT_EQ(read_bitmap.Width(), 4);
+  EXPECT_EQ(read_bitmap.Height(), 3);
+  EXPECT_EQ(read_bitmap.Channels(), 3);
+
+  // The colorspace metadata is "linear", so the write converts linear->linear
+  // and the read converts linear->linear (both no-ops). Combined with lossless
+  // PNG, pixel data should round-trip exactly.
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
 }
 
@@ -750,6 +905,14 @@ TEST(Bitmap, WriteJpegWithQuality) {
             std::filesystem::file_size(filename_100));
 }
 
+TEST(Bitmap, WriteInvalidFormat) {
+  Bitmap bitmap(4, 3, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
+
+  const auto filename = CreateTestDir() / "image.xyz";
+  EXPECT_FALSE(bitmap.Write(filename));
+}
+
 class ParameterizedBitmapFormatTests
     : public ::testing::TestWithParam<
           std::tuple</*extension=*/std::string,
@@ -765,26 +928,25 @@ TEST_P(ParameterizedBitmapFormatTests, ReadWriteRGB) {
               kSupportsRGBA,
               kSupportsGreyAlpha] = GetParam();
 
-  const int width = 4;
-  const int height = 3;
-  Bitmap write_bitmap(width, height, /*as_rgb=*/true);
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      const uint8_t r = static_cast<uint8_t>((x + y * width) * 20);
-      const uint8_t g = static_cast<uint8_t>((x + y * width) * 15);
-      const uint8_t b = static_cast<uint8_t>((x + y * width) * 10);
+  constexpr int kWidth = 4;
+  constexpr int kHeight = 3;
+  Bitmap write_bitmap(kWidth, kHeight, /*as_rgb=*/true);
+  for (int y = 0; y < kHeight; ++y) {
+    for (int x = 0; x < kWidth; ++x) {
+      const uint8_t r = static_cast<uint8_t>((x + y * kWidth) * 20);
+      const uint8_t g = static_cast<uint8_t>((x + y * kWidth) * 15);
+      const uint8_t b = static_cast<uint8_t>((x + y * kWidth) * 10);
       write_bitmap.SetPixel(x, y, BitmapColor<uint8_t>(r, g, b));
     }
   }
 
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / ("image" + kExtension);
+  const auto filename = CreateTestDir() / ("image" + kExtension);
   EXPECT_TRUE(write_bitmap.Write(filename));
 
   Bitmap rgb_bitmap;
   EXPECT_TRUE(rgb_bitmap.Read(filename));
-  EXPECT_EQ(rgb_bitmap.Width(), width);
-  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Width(), kWidth);
+  EXPECT_EQ(rgb_bitmap.Height(), kHeight);
   EXPECT_EQ(rgb_bitmap.Channels(), 3);
   EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
 
@@ -794,8 +956,8 @@ TEST_P(ParameterizedBitmapFormatTests, ReadWriteRGB) {
 
   Bitmap grey_bitmap;
   EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
-  EXPECT_EQ(grey_bitmap.Width(), width);
-  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Width(), kWidth);
+  EXPECT_EQ(grey_bitmap.Height(), kHeight);
   EXPECT_EQ(grey_bitmap.Channels(), 1);
   EXPECT_EQ(grey_bitmap.BitsPerPixel(), 8);
 }
@@ -807,39 +969,38 @@ TEST_P(ParameterizedBitmapFormatTests, ReadWriteGrey) {
               kSupportsRGBA,
               kSupportsGreyAlpha] = GetParam();
 
-  const int width = 4;
-  const int height = 3;
+  constexpr int kWidth = 4;
+  constexpr int kHeight = 3;
   const std::vector<uint8_t> grey_values = {
       0, 64, 128, 192, 32, 96, 160, 224, 50, 100, 150, 200};
 
   Bitmap write_bitmap;
   if (kSupportsNativeGrey) {
-    write_bitmap = Bitmap(width, height, /*as_rgb=*/false);
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
+    write_bitmap = Bitmap(kWidth, kHeight, /*as_rgb=*/false);
+    for (int y = 0; y < kHeight; ++y) {
+      for (int x = 0; x < kWidth; ++x) {
         write_bitmap.SetPixel(
-            x, y, BitmapColor<uint8_t>(grey_values[y * width + x]));
+            x, y, BitmapColor<uint8_t>(grey_values[y * kWidth + x]));
       }
     }
   } else {
     // Write RGB with uniform values for formats that don't support grey.
-    write_bitmap = Bitmap(width, height, /*as_rgb=*/true);
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        const uint8_t v = grey_values[y * width + x];
+    write_bitmap = Bitmap(kWidth, kHeight, /*as_rgb=*/true);
+    for (int y = 0; y < kHeight; ++y) {
+      for (int x = 0; x < kWidth; ++x) {
+        const uint8_t v = grey_values[y * kWidth + x];
         write_bitmap.SetPixel(x, y, BitmapColor<uint8_t>(v, v, v));
       }
     }
   }
 
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / ("image" + kExtension);
+  const auto filename = CreateTestDir() / ("image" + kExtension);
   EXPECT_TRUE(write_bitmap.Write(filename));
 
   Bitmap grey_bitmap;
   EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
-  EXPECT_EQ(grey_bitmap.Width(), width);
-  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Width(), kWidth);
+  EXPECT_EQ(grey_bitmap.Height(), kHeight);
   EXPECT_EQ(grey_bitmap.Channels(), 1);
   EXPECT_EQ(grey_bitmap.BitsPerPixel(), 8);
 
@@ -851,8 +1012,8 @@ TEST_P(ParameterizedBitmapFormatTests, ReadWriteGrey) {
 
   Bitmap rgb_bitmap;
   EXPECT_TRUE(rgb_bitmap.Read(filename, /*as_rgb=*/true));
-  EXPECT_EQ(rgb_bitmap.Width(), width);
-  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Width(), kWidth);
+  EXPECT_EQ(rgb_bitmap.Height(), kHeight);
   EXPECT_EQ(rgb_bitmap.Channels(), 3);
   EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
 }
@@ -868,21 +1029,20 @@ TEST_P(ParameterizedBitmapFormatTests, ReadRGBA) {
     return;
   }
 
-  const int width = 2;
-  const int height = 3;
-  const int channels = 4;
+  constexpr int kWidth = 2;
+  constexpr int kHeight = 3;
+  constexpr int kChannels = 4;
   const std::vector<uint8_t> rgba_data = {0,  0, 0, 255, 2,  0,  0,  255,
                                           10, 0, 0, 128, 30, 0,  0,  200,
                                           40, 2, 0, 255, 5,  20, 10, 100};
 
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / ("image" + kExtension);
-  WriteImageOIIO(width, height, channels, filename, rgba_data.data());
+  const auto filename = CreateTestDir() / ("image" + kExtension);
+  WriteImageOIIO(kWidth, kHeight, kChannels, filename, rgba_data.data());
 
   Bitmap rgb_bitmap;
   EXPECT_TRUE(rgb_bitmap.Read(filename));
-  EXPECT_EQ(rgb_bitmap.Width(), width);
-  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Width(), kWidth);
+  EXPECT_EQ(rgb_bitmap.Height(), kHeight);
   EXPECT_EQ(rgb_bitmap.Channels(), 3);
   EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
 
@@ -897,8 +1057,8 @@ TEST_P(ParameterizedBitmapFormatTests, ReadRGBA) {
 
   Bitmap grey_bitmap;
   EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
-  EXPECT_EQ(grey_bitmap.Width(), width);
-  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Width(), kWidth);
+  EXPECT_EQ(grey_bitmap.Height(), kHeight);
   EXPECT_EQ(grey_bitmap.Channels(), 1);
 }
 
@@ -913,20 +1073,19 @@ TEST_P(ParameterizedBitmapFormatTests, ReadGreyAlpha) {
     return;
   }
 
-  const int width = 2;
-  const int height = 3;
-  const int channels = 2;  // Gray + Alpha
+  constexpr int kWidth = 2;
+  constexpr int kHeight = 3;
+  constexpr int kChannels = 2;  // Gray + Alpha
   const std::vector<uint8_t> grey_alpha_data = {
       10, 255, 30, 200, 20, 255, 40, 128, 50, 255, 60, 100};
 
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / ("image" + kExtension);
-  WriteImageOIIO(width, height, channels, filename, grey_alpha_data.data());
+  const auto filename = CreateTestDir() / ("image" + kExtension);
+  WriteImageOIIO(kWidth, kHeight, kChannels, filename, grey_alpha_data.data());
 
   Bitmap grey_bitmap;
   EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
-  EXPECT_EQ(grey_bitmap.Width(), width);
-  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Width(), kWidth);
+  EXPECT_EQ(grey_bitmap.Height(), kHeight);
   EXPECT_EQ(grey_bitmap.Channels(), 1);
   EXPECT_EQ(grey_bitmap.BitsPerPixel(), 8);
 
@@ -940,14 +1099,13 @@ TEST_P(ParameterizedBitmapFormatTests, ReadGreyAlpha) {
 
   Bitmap rgb_bitmap;
   EXPECT_TRUE(rgb_bitmap.Read(filename, /*as_rgb=*/true));
-  EXPECT_EQ(rgb_bitmap.Width(), width);
-  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Width(), kWidth);
+  EXPECT_EQ(rgb_bitmap.Height(), kHeight);
   EXPECT_EQ(rgb_bitmap.Channels(), 3);
 }
 
 TEST(Bitmap, ReadNonImageFile) {
-  const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "not_an_image.txt";
+  const auto filename = CreateTestDir() / "not_an_image.txt";
 
   // Create a non-image file
   std::ofstream file(filename);
@@ -964,15 +1122,26 @@ TEST(Bitmap, ReadNonImageFile) {
 }
 
 TEST(Bitmap, ReadNonExistentFile) {
-  const auto test_dir = CreateTestDir();
-
   Bitmap bitmap;
-  EXPECT_FALSE(bitmap.Read(test_dir / "non_existent_file.png"));
+  EXPECT_FALSE(bitmap.Read(CreateTestDir() / "non_existent_file.png"));
 
   // Verify that OIIO error was cleared.
   const std::string pending_error = OIIO::geterror();
   EXPECT_TRUE(pending_error.empty())
       << "OIIO error was not cleared: " << pending_error;
+}
+
+TEST(Bitmap, ReadUnsupportedChannels) {
+  const auto filename = CreateTestDir() / "5channel.tif";
+
+  constexpr int kWidth = 2;
+  constexpr int kHeight = 2;
+  constexpr int kChannels = 5;
+  const std::vector<uint8_t> data(kWidth * kHeight * kChannels, 128);
+  WriteImageOIIO(kWidth, kHeight, kChannels, filename, data.data());
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(filename));
 }
 
 INSTANTIATE_TEST_SUITE_P(

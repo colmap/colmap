@@ -26,7 +26,9 @@ void BindSceneTypes(py::module& m);
 void BindScene(py::module& m);
 void BindSensor(py::module& m);
 void BindSfm(py::module& m);
+#if defined(COLMAP_MVS_ENABLED)
 void BindMvs(py::module& m);
+#endif
 void BindUtil(py::module& m);
 
 PYBIND11_MODULE(_core, m) {
@@ -59,7 +61,9 @@ PYBIND11_MODULE(_core, m) {
   BindEstimators(m);
   BindRetrieval(m);
   BindSfm(m);
+#if defined(COLMAP_MVS_ENABLED)
   BindMvs(m);
+#endif
   BindPipeline(m);
 
   m.def("set_random_seed",

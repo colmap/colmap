@@ -30,6 +30,7 @@
 #include "colmap/exe/model.h"
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/reconstruction_clustering.h"
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
 #include "colmap/geometry/bbox.h"
@@ -44,6 +45,8 @@
 #include "colmap/util/threading.h"
 
 #include <fstream>
+#include <locale>
+#include <unordered_map>
 
 namespace colmap {
 namespace {
@@ -75,6 +78,7 @@ void WriteBoundingBox(const std::filesystem::path& reconstruction_path,
     THROW_CHECK_FILE_OPEN(file, path);
 
     // Ensure that we don't lose any precision by storing in text.
+    file.imbue(std::locale::classic());
     file.precision(17);
     file << bbox.min().transpose() << '\n';
     file << bbox.max().transpose() << '\n';
@@ -86,6 +90,7 @@ void WriteBoundingBox(const std::filesystem::path& reconstruction_path,
     THROW_CHECK_FILE_OPEN(file, path);
 
     // Ensure that we don't lose any precision by storing in text.
+    file.imbue(std::locale::classic());
     file.precision(17);
     const Eigen::Vector3d center = (bbox.min() + bbox.max()) * 0.5;
     file << center.transpose() << "\n\n";
@@ -128,10 +133,11 @@ void ReadFileCameraLocations(const std::filesystem::path& ref_images_path,
                              std::vector<Eigen::Vector3d>* ref_locations) {
   for (const auto& line : ReadTextFileLines(ref_images_path)) {
     std::stringstream line_parser(line);
+    line_parser.imbue(std::locale::classic());
     std::string image_name;
     Eigen::Vector3d camera_position;
-    line_parser >> image_name >> camera_position[0] >> camera_position[1] >>
-        camera_position[2];
+    THROW_CHECK(line_parser >> image_name >> camera_position[0] >>
+                camera_position[1] >> camera_position[2]);
     ref_image_names->push_back(image_name);
     ref_locations->push_back(camera_position);
   }
@@ -146,10 +152,18 @@ void ReadDatabaseCameraLocations(const std::filesystem::path& database_path,
                                  std::vector<std::string>* ref_image_names,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   auto database = Database::Open(database_path);
+
+  // Index pose priors by their associated data ID.
+  std::unordered_map<data_t, PosePrior> pose_priors_by_data_id;
+  for (const auto& pose_prior : database->ReadAllPosePriors()) {
+    pose_priors_by_data_id.emplace(pose_prior.corr_data_id, pose_prior);
+  }
+
   for (const auto& image : database->ReadAllImages()) {
-    if (database->ExistsPosePrior(image.ImageId())) {
+    const auto it = pose_priors_by_data_id.find(image.DataId());
+    if (it != pose_priors_by_data_id.end()) {
       ref_image_names->push_back(image.Name());
-      const auto pose_prior = database->ReadPosePrior(image.ImageId());
+      const auto& pose_prior = it->second;
       if (ref_is_gps) {
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));
@@ -167,6 +181,7 @@ void WriteComparisonErrorsCSV(const std::filesystem::path& path,
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
+  file.imbue(std::locale::classic());
   file.precision(17);
   file << "# Model comparison pose errors: one entry per common image\n";
   file << "# <rotation error (deg)>, <proj center error>\n";
@@ -458,6 +473,46 @@ int RunModelAnalyzer(int argc, char** argv) {
                                 reconstruction.Image(image_id).Name().c_str());
     }
   }
+
+  return EXIT_SUCCESS;
+}
+
+int RunModelClusterer(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddReconstructionClustererOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  LOG_HEADING1("Loading model");
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  ReconstructionClustererController controller(
+      *options.reconstruction_clusterer,
+      reconstruction,
+      reconstruction_manager);
+  controller.Run();
+
+  LOG_HEADING1("Writing clustered model(s)");
+  reconstruction_manager->Write(output_path);
 
   return EXIT_SUCCESS;
 }
@@ -908,6 +963,7 @@ int RunModelSplitter(int argc, char** argv) {
   if (split_type == "tiles") {
     std::ifstream file(split_params);
     THROW_CHECK_FILE_OPEN(file, split_params);
+    file.imbue(std::locale::classic());
 
     double x1, y1, z1, x2, y2, z2;
     std::string tile_key;

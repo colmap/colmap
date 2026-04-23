@@ -33,6 +33,7 @@ set(FOLDER_NAME "ui")
 set(COLMAP_UI_QT_LIBS
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::OpenGL
+    Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::Widgets
 )
 
@@ -57,6 +58,7 @@ COLMAP_ADD_LIBRARY(
         log_widget.h log_widget.cc
         main_window.h main_window.cc
         match_matrix_widget.h match_matrix_widget.cc
+        mesh_painter.h mesh_painter.cc
         model_viewer_widget.h model_viewer_widget.cc
         movie_grabber_widget.h movie_grabber_widget.cc
         options_widget.h options_widget.cc
@@ -80,3 +82,6 @@ COLMAP_ADD_LIBRARY(
         colmap_controllers
         ${COLMAP_UI_QT_LIBS}
 )
+if(MVS_ENABLED)
+    target_link_libraries(colmap_ui PUBLIC colmap_mvs)
+endif()

@@ -250,7 +250,7 @@ TEST(ApplyRigConfig, WithDifferingDatabaseAndReconstructionIds) {
     differing_frame.ResetRigPtr();
     differing_frame.SetFrameId(frame.FrameId() + 1);
     differing_frame.SetRigId(frame.RigId() + 1);
-    differing_frame.DataIds().clear();
+    differing_frame.ClearDataIds();
     for (auto& data_id : frame.DataIds()) {
       differing_frame.AddDataId(
           data_t(sensor_t(data_id.sensor_id.type, data_id.sensor_id.id + 1),

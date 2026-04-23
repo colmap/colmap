@@ -30,8 +30,6 @@
 #pragma once
 
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/sensor/bitmap.h"
 #include "colmap/ui/automatic_reconstruction_widget.h"
 #include "colmap/ui/bundle_adjustment_widget.h"
 #include "colmap/ui/database_management_widget.h"
@@ -91,6 +89,7 @@ class MainWindow : public QMainWindow {
   void ProjectSaveAs();
   void Import();
   void ImportFrom();
+  void ImportFrom(const std::string& import_path);
   void Export();
   void ExportAll();
   void ExportAs();
@@ -136,7 +135,7 @@ class MainWindow : public QMainWindow {
 
   void SetOptions();
   void ResetOptions();
-  void SetLogLevel();
+  void SetLogOptions();
 
   void About();
   void Documentation();
@@ -231,7 +230,7 @@ class MainWindow : public QMainWindow {
   QAction* action_extract_colors_;
   QAction* action_set_options_;
   QAction* action_reset_options_;
-  QAction* action_set_log_level_;
+  QAction* action_set_log_options_;
 
   QAction* action_about_;
   QAction* action_documentation_;

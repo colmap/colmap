@@ -30,6 +30,7 @@
 #include "colmap/ui/render_options_widget.h"
 
 #include "colmap/ui/colormaps.h"
+#include "colmap/ui/render_options.h"
 
 namespace colmap {
 
@@ -179,6 +180,11 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   AddSpacer();
 
+  AddOptionBool(&options->render->mesh_wireframe, "Mesh wireframe");
+  AddOptionBool(&options->render->mesh_color, "Mesh color");
+
+  AddSpacer();
+
   QPushButton* apply = new QPushButton(tr("Apply"), this);
   grid_layout_->addWidget(apply, grid_layout_->rowCount(), 1);
   connect(apply, &QPushButton::released, this, &RenderOptionsWidget::Apply);
@@ -219,23 +225,23 @@ void RenderOptionsWidget::ApplyProjection() {
 }
 
 void RenderOptionsWidget::ApplyPointColormap() {
-  PointColormapBase* point3D_color_map;
+  std::unique_ptr<PointColormapBase> point3D_color_map;
 
   switch (point3D_colormap_cb_->currentIndex()) {
     case 0:
-      point3D_color_map = new PointColormapPhotometric();
+      point3D_color_map = std::make_unique<PointColormapPhotometric>();
       break;
     case 1:
-      point3D_color_map = new PointColormapError();
+      point3D_color_map = std::make_unique<PointColormapError>();
       break;
     case 2:
-      point3D_color_map = new PointColormapTrackLen();
+      point3D_color_map = std::make_unique<PointColormapTrackLen>();
       break;
     case 3:
-      point3D_color_map = new PointColormapGroundResolution();
+      point3D_color_map = std::make_unique<PointColormapGroundResolution>();
       break;
     default:
-      point3D_color_map = new PointColormapPhotometric();
+      point3D_color_map = std::make_unique<PointColormapPhotometric>();
       break;
   }
 
@@ -243,30 +249,30 @@ void RenderOptionsWidget::ApplyPointColormap() {
   point3D_color_map->min_q = static_cast<float>(point3D_colormap_min_q_);
   point3D_color_map->max_q = static_cast<float>(point3D_colormap_max_q_);
 
-  model_viewer_widget_->SetPointColormap(point3D_color_map);
+  model_viewer_widget_->SetPointColormap(std::move(point3D_color_map));
 }
 
 void RenderOptionsWidget::ApplyImageColormap() {
-  ImageColormapBase* image_color_map;
+  std::unique_ptr<ImageColormapBase> image_color_map;
 
   switch (image_colormap_cb_->currentIndex()) {
-    case 0:
-      image_color_map = new ImageColormapUniform();
-      reinterpret_cast<ImageColormapUniform*>(image_color_map)
-          ->uniform_plane_color = image_plane_color_;
-      reinterpret_cast<ImageColormapUniform*>(image_color_map)
-          ->uniform_frame_color = image_frame_color_;
+    case 0: {
+      auto uniform = std::make_unique<ImageColormapUniform>();
+      uniform->uniform_plane_color = image_plane_color_;
+      uniform->uniform_frame_color = image_frame_color_;
+      image_color_map = std::move(uniform);
       break;
+    }
     case 1:
-      image_color_map =
-          new ImageColormapNameFilter(image_colormap_name_filter_);
+      image_color_map = std::make_unique<ImageColormapNameFilter>(
+          image_colormap_name_filter_);
       break;
     default:
-      image_color_map = new ImageColormapUniform();
+      image_color_map = std::make_unique<ImageColormapUniform>();
       break;
   }
 
-  model_viewer_widget_->SetImageColormap(image_color_map);
+  model_viewer_widget_->SetImageColormap(std::move(image_color_map));
 }
 
 void RenderOptionsWidget::ApplyBackgroundColor() {

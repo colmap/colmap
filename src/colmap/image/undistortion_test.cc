@@ -135,9 +135,9 @@ TEST(UndistortCamera, BlankPixels) {
   size_t num_blank_pixels = 0;
   for (int y = 0; y < undistorted_image.Height(); ++y) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
-      BitmapColor<uint8_t> color;
-      EXPECT_TRUE(undistorted_image.GetPixel(x, y, &color));
-      if (color == BitmapColor<uint8_t>(0)) {
+      const auto color = undistorted_image.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
+      if (*color == BitmapColor<uint8_t>(0)) {
         num_blank_pixels += 1;
       }
     }
@@ -177,11 +177,11 @@ TEST(UndistortCamera, NoBlankPixels) {
   // Make sure that there is no blank pixel.
   for (int y = 0; y < undistorted_image.Height(); ++y) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
-      BitmapColor<uint8_t> color;
-      EXPECT_TRUE(undistorted_image.GetPixel(x, y, &color));
-      ASSERT_NE(color.r, 0);
-      ASSERT_NE(color.g, 0);
-      ASSERT_NE(color.b, 0);
+      const auto color = undistorted_image.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
+      ASSERT_NE(color->r, 0);
+      ASSERT_NE(color->g, 0);
+      ASSERT_NE(color->b, 0);
     }
   }
 }

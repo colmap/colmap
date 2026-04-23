@@ -103,7 +103,12 @@ COLMAP offers three SfM pipelines:
 - **Global mapper** (``global_mapper``): Solves for all camera poses
   simultaneously using rotation averaging and global positioning. This can be
   faster for large datasets with good matching graphs, but may be less robust
-  to outliers in the matching.
+  to outliers in the matching. The global mapper depends on good focal length
+  priors. If reliable intrinsics are not available, run
+  ``view_graph_calibrator`` before ``global_mapper`` to estimate them from the
+  view graph (optional but recommended to improve the quality of
+  global SfM). Note that ``view_graph_calibrator`` modifies the database
+  in-place, so it is recommended to work on a copy.
 
 - **Hierarchical mapper** (``hierarchical_mapper``): Partitions the scene into
   overlapping sub-models and reconstructs each independently, then merges them.
@@ -620,6 +625,12 @@ Note that the two algorithms can also be combined by first running the Delaunay
 meshing to robustly filter outliers from the sparse or dense point cloud and
 then, in the second step, performing Poisson surface reconstruction to obtain a
 smooth surface.
+
+After meshing, the ``mesh_texturer`` command can be used to produce a textured
+mesh with a texture atlas [waechter2014]_. This assigns each mesh face to the
+best-view camera image based on projected area and viewing angle, and bakes the
+texture into an atlas with per-face UV coordinates. The command requires the
+undistorted workspace produced by ``image_undistorter`` as input.
 
 
 Speedup dense reconstruction

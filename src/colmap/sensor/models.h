@@ -618,7 +618,7 @@ bool CameraModelVerifyParams(CameraModelId model_id,
 // @param height                  Sensor height of the camera.
 // @param min_focal_length_ratio  Minimum ratio of focal length over
 //                                maximum sensor dimension.
-// @param min_focal_length_ratio  Maximum ratio of focal length over
+// @param max_focal_length_ratio  Maximum ratio of focal length over
 //                                maximum sensor dimension.
 // @param max_extra_param         Maximum magnitude of each extra parameter.
 bool CameraModelHasBogusParams(CameraModelId model_id,
@@ -633,11 +633,11 @@ bool CameraModelHasBogusParams(CameraModelId model_id,
 //
 // This is the inverse of `CameraModelCamFromImg`.
 //
-// @param model_id     Unique model_id of camera model as defined in
-//                     `CAMERA_MODEL_NAME_TO_CODE`.
+// @param model_id     Unique identifier of camera model.
 // @param params       Array of camera parameters.
-// @param u, v         Coordinates in camera system as (u, v, 1).
-// @param x, y         Output image coordinates in pixels.
+// @param uvw          Coordinates in camera system as (u, v, w).
+//
+// @return             Image coordinates in pixels, or std::nullopt on failure.
 inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     CameraModelId model_id,
     const std::vector<double>& params,

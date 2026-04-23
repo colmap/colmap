@@ -124,15 +124,15 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask);
 
-// Estimate relative from 2D-2D correspondences.
+// Estimate relative pose from 2D-2D correspondences.
 //
 // Pose of first camera is assumed to be at the origin without rotation. Pose
 // of second camera is given as world-to-image transformation,
 // i.e. `x2 = [R | t] * X2`.
 //
 // @param ransac_options       RANSAC options.
-// @param cam_rays1            Corresponding 2D rays.
-// @param cam_rays2            Corresponding 2D rays.
+// @param cam_rays1            Corresponding 3D rays in first camera frame.
+// @param cam_rays2            Corresponding 3D rays in second camera frame.
 // @param cam2_from_cam1       Estimated pose between cameras.
 // @param num_inliers          Number of inliers in RANSAC.
 // @param inlier_mask          Inlier mask for 2D-2D correspondences.
@@ -182,27 +182,27 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 //
 // @param options          Solver options.
 // @param inlier_mask      Inlier mask for 2D-2D correspondences.
-// @param cam_points1      First set of corresponding normalized points.
-// @param cam_points2      Second set of corresponding normalized points.
-// @param cam_from_world   Refined pose between cameras.
+// @param cam_rays1        First set of corresponding rays.
+// @param cam_rays2        Second set of corresponding rays.
+// @param cam2_from_cam1   Refined relative pose between cameras.
 //
 // @return                 Flag indicating if solution is usable.
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector3d>& cam_rays1,
                         const std::vector<Eigen::Vector3d>& cam_rays2,
-                        Rigid3d* cam_from_world);
+                        Rigid3d* cam2_from_cam1);
 
 // Refine essential matrix.
 //
 // Decomposes the essential matrix into rotation and translation components
 // and refines the relative pose using the function `RefineRelativePose`.
 //
-// @param E                3x3 essential matrix.
+// @param options          Solver options.
 // @param cam_rays1        First set of corresponding normalized rays.
 // @param cam_rays2        Second set of corresponding normalized rays.
 // @param inlier_mask      Inlier mask for corresponding rays.
-// @param options          Solver options.
+// @param E                3x3 essential matrix (refined in-place).
 //
 // @return                 Flag indicating if solution is usable.
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,

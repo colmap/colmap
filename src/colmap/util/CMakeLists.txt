@@ -59,15 +59,6 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
-if(TESTS_ENABLED)
-    target_sources(
-        colmap_util
-        PRIVATE
-            testing.h testing.cc
-            eigen_matchers.h
-    )
-endif()
-
 if(DOWNLOAD_ENABLED)
     target_link_libraries(colmap_util PRIVATE CURL::libcurl)
     if(TARGET cryptopp::cryptopp)
@@ -103,14 +94,66 @@ if(CUDA_ENABLED)
 endif()
 
 if(TESTS_ENABLED)
+    target_sources(
+        colmap_util
+        PRIVATE
+            testing.h testing.cc
+            eigen_matchers.h
+    )
+    if(BUILD_SHARED_LIBS)
+        # When building shared libraries, gtest/gmock (which are static) must
+        # live in exactly one shared library to avoid duplicate singletons.
+        # Force-load the entire archives into colmap_util so that ALL symbols
+        # (including gmock features like UnorderedElementsAre used by tests)
+        # are available. Link PRIVATE so the static archives don't propagate
+        # and get embedded into other shared libraries too.
+        if(APPLE)
+            target_link_libraries(colmap_util PRIVATE
+                -Wl,-force_load,$<TARGET_FILE:GTest::gmock>
+                -Wl,-force_load,$<TARGET_FILE:GTest::gtest>)
+        elseif(MSVC)
+            target_link_libraries(colmap_util PRIVATE GTest::gmock)
+            target_link_options(colmap_util PRIVATE
+                /WHOLEARCHIVE:$<TARGET_FILE:GTest::gmock>
+                /WHOLEARCHIVE:$<TARGET_FILE:GTest::gtest>)
+        elseif(UNIX)
+            target_link_libraries(colmap_util PRIVATE
+                -Wl,--whole-archive
+                $<TARGET_FILE:GTest::gmock>
+                $<TARGET_FILE:GTest::gtest>
+                -Wl,--no-whole-archive)
+        endif()
+        # Propagate only the include directories (not the libraries) so
+        # consumers can use header-only eigen_matchers.h.
+        target_include_directories(colmap_util SYSTEM PUBLIC
+            $<TARGET_PROPERTY:GTest::gmock,INTERFACE_INCLUDE_DIRECTORIES>)
+    else()
+        # With static libraries, undefined gtest/gmock references in
+        # testing.o are resolved at final executable link time (through
+        # colmap_gtest_main -> GTest::gmock).  Only provide include
+        # directories here so that testing.cc compiles, without creating
+        # a link dependency that CMake would export.
+        target_include_directories(colmap_util SYSTEM PRIVATE
+            $<TARGET_PROPERTY:GTest::gmock,INTERFACE_INCLUDE_DIRECTORIES>)
+    endif()
+endif()
+
+if(TESTS_ENABLED)
     COLMAP_ADD_LIBRARY(
         NAME colmap_gtest_main
+        TYPE STATIC
         SRCS
             gtest_main.cc
         PUBLIC_LINK_LIBS
+            colmap_util
             glog::glog
-            GTest::gmock_main
     )
+    if(NOT BUILD_SHARED_LIBS)
+        # With static builds, colmap_gtest_main provides gmock/gtest symbols
+        # to test executables.  Use GTest::gmock (not GTest::gmock_main) to
+        # avoid conflicting with the custom main() in gtest_main.cc.
+        target_link_libraries(colmap_gtest_main PUBLIC GTest::gmock)
+    endif()
 endif()
 
 COLMAP_ADD_TEST(

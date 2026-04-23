@@ -30,7 +30,10 @@
 #include "colmap/ui/main_window.h"
 
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/sensor/bitmap.h"
+#include "colmap/ui/render_options.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/ply.h"
 #include "colmap/util/version.h"
 
 #include <QDir>
@@ -39,6 +42,9 @@
 #include <QStandardPaths>
 #include <clocale>
 
+static void InitUiResources() { Q_INIT_RESOURCE(resources); }
+
+namespace colmap {
 namespace {
 
 // Keys used with QSettings to persist last-used directories for different
@@ -93,11 +99,67 @@ void SetLastOpen(const QString& key, const QString& pathOrDir) {
   s.endGroup();
 }
 
+std::string GetLogTarget() {
+  if (FLAGS_logtostderr) {
+    return "stderr";
+  }
+
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  if (FLAGS_logtostdout) {
+    return "stdout";
+  }
+#endif
+
+  if (FLAGS_alsologtostderr) {
+    return "stderr_and_file";
+  }
+
+  return "file";
+}
+
+void ApplyLogOptions(const std::string& log_target,
+                     int verbosity,
+                     int min_severity,
+                     bool color) {
+  FLAGS_v = verbosity;
+  FLAGS_minloglevel = min_severity;
+
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  FLAGS_colorlogtostderr = color;
+#endif
+
+  FLAGS_logtostderr = false;
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_logtostdout = false;
+#endif
+  FLAGS_alsologtostderr = false;
+
+  if (log_target == "stderr") {
+    FLAGS_logtostderr = true;
+  } else if (log_target == "stdout") {
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+    FLAGS_logtostdout = true;
+#else
+    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                    "Falling back to stderr.";
+    FLAGS_logtostderr = true;
+#endif
+  } else if (log_target == "file") {
+    // default file logging
+  } else if (log_target == "stderr_and_file") {
+    FLAGS_alsologtostderr = true;
+  } else {
+    LOG(ERROR) << "Invalid log_target: " << log_target
+               << ". Falling back to stderr_and_file.";
+    FLAGS_alsologtostderr = true;
+  }
+
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+#endif
+}
+
 }  // anonymous namespace
-
-static void InitUiResources() { Q_INIT_RESOURCE(resources); }
-
-namespace colmap {
 
 MainWindow::MainWindow(OptionManager options)
     : options_(std::move(options)),
@@ -256,7 +318,23 @@ void MainWindow::dropEvent(QDropEvent* event) {
     }
   }
 
-  ImportReconstruction(mime_data->urls().first().toLocalFile().toStdString());
+  const std::string drop_path =
+      mime_data->urls().first().toLocalFile().toStdString();
+
+  try {
+    if (QFileInfo(QString::fromStdString(drop_path)).isDir()) {
+      ImportReconstruction(drop_path);
+    } else if (QFileInfo(QString::fromStdString(drop_path))
+                   .suffix()
+                   .compare("ply", Qt::CaseInsensitive) == 0) {
+      ImportFrom(drop_path);
+    } else {
+      QMessageBox::critical(
+          this, "", tr("Unsupported file type. Only PLY files are supported."));
+    }
+  } catch (const std::exception& e) {
+    QMessageBox::critical(this, "", tr("Failed to import: ") + e.what());
+  }
 }
 
 void MainWindow::CreateWidgets() {
@@ -296,13 +374,13 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_project_new_ =
-      new QAction(QIcon(":/media/project-new.png"), tr("New project"), this);
+      new QAction(QIcon(":/media/project-new.svg"), tr("New project"), this);
   action_project_new_->setShortcuts(QKeySequence::New);
   connect(
       action_project_new_, &QAction::triggered, this, &MainWindow::ProjectNew);
 
   action_project_open_ =
-      new QAction(QIcon(":/media/project-open.png"), tr("Open project"), this);
+      new QAction(QIcon(":/media/project-open.svg"), tr("Open project"), this);
   action_project_open_->setShortcuts(QKeySequence::Open);
   connect(action_project_open_,
           &QAction::triggered,
@@ -310,14 +388,14 @@ void MainWindow::CreateActions() {
           &MainWindow::ProjectOpen);
 
   action_project_edit_ =
-      new QAction(QIcon(":/media/project-edit.png"), tr("Edit project"), this);
+      new QAction(QIcon(":/media/project-edit.svg"), tr("Edit project"), this);
   connect(action_project_edit_,
           &QAction::triggered,
           this,
           &MainWindow::ProjectEdit);
 
   action_project_save_ =
-      new QAction(QIcon(":/media/project-save.png"), tr("Save project"), this);
+      new QAction(QIcon(":/media/project-save.svg"), tr("Save project"), this);
   action_project_save_->setShortcuts(QKeySequence::Save);
   connect(action_project_save_,
           &QAction::triggered,
@@ -325,7 +403,7 @@ void MainWindow::CreateActions() {
           &MainWindow::ProjectSave);
 
   action_project_save_as_ = new QAction(
-      QIcon(":/media/project-save-as.png"), tr("Save project as..."), this);
+      QIcon(":/media/project-save-as.svg"), tr("Save project as..."), this);
   action_project_save_as_->setShortcuts(QKeySequence::SaveAs);
   connect(action_project_save_as_,
           &QAction::triggered,
@@ -333,34 +411,38 @@ void MainWindow::CreateActions() {
           &MainWindow::ProjectSaveAs);
 
   action_import_ =
-      new QAction(QIcon(":/media/import.png"), tr("Import model"), this);
+      new QAction(QIcon(":/media/import.svg"), tr("Import model"), this);
+  action_import_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
   connect(action_import_, &QAction::triggered, this, &MainWindow::Import);
   blocking_actions_.push_back(action_import_);
 
   action_import_from_ = new QAction(
-      QIcon(":/media/import-from.png"), tr("Import model from..."), this);
-  connect(
-      action_import_from_, &QAction::triggered, this, &MainWindow::ImportFrom);
+      QIcon(":/media/import-from.svg"), tr("Import from ..."), this);
+  connect(action_import_from_,
+          &QAction::triggered,
+          this,
+          QOverload<>::of(&MainWindow::ImportFrom));
   blocking_actions_.push_back(action_import_from_);
 
   action_export_ =
-      new QAction(QIcon(":/media/export.png"), tr("Export model"), this);
+      new QAction(QIcon(":/media/export.svg"), tr("Export model"), this);
+  action_export_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_E));
   connect(action_export_, &QAction::triggered, this, &MainWindow::Export);
   blocking_actions_.push_back(action_export_);
 
   action_export_all_ = new QAction(
-      QIcon(":/media/export-all.png"), tr("Export all models"), this);
+      QIcon(":/media/export-all.svg"), tr("Export all models"), this);
   connect(
       action_export_all_, &QAction::triggered, this, &MainWindow::ExportAll);
   blocking_actions_.push_back(action_export_all_);
 
   action_export_as_ = new QAction(
-      QIcon(":/media/export-as.png"), tr("Export model as..."), this);
+      QIcon(":/media/export-as.svg"), tr("Export model as..."), this);
   connect(action_export_as_, &QAction::triggered, this, &MainWindow::ExportAs);
   blocking_actions_.push_back(action_export_as_);
 
   action_export_as_text_ = new QAction(
-      QIcon(":/media/export-as-text.png"), tr("Export model as text"), this);
+      QIcon(":/media/export-as-text.svg"), tr("Export model as text"), this);
   connect(action_export_as_text_,
           &QAction::triggered,
           this,
@@ -375,7 +457,7 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_feature_extraction_ = new QAction(
-      QIcon(":/media/feature-extraction.png"), tr("Feature extraction"), this);
+      QIcon(":/media/feature-extraction.svg"), tr("Feature extraction"), this);
   connect(action_feature_extraction_,
           &QAction::triggered,
           this,
@@ -383,7 +465,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_feature_extraction_);
 
   action_feature_matching_ = new QAction(
-      QIcon(":/media/feature-matching.png"), tr("Feature matching"), this);
+      QIcon(":/media/feature-matching.svg"), tr("Feature matching"), this);
   connect(action_feature_matching_,
           &QAction::triggered,
           this,
@@ -391,7 +473,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_feature_matching_);
 
   action_database_management_ =
-      new QAction(QIcon(":/media/database-management.png"),
+      new QAction(QIcon(":/media/database-management.svg"),
                   tr("Database management"),
                   this);
   connect(action_database_management_,
@@ -405,7 +487,7 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_automatic_reconstruction_ =
-      new QAction(QIcon(":/media/automatic-reconstruction.png"),
+      new QAction(QIcon(":/media/automatic-reconstruction.svg"),
                   tr("Automatic reconstruction"),
                   this);
   connect(action_automatic_reconstruction_,
@@ -414,7 +496,7 @@ void MainWindow::CreateActions() {
           &MainWindow::AutomaticReconstruction);
 
   action_reconstruction_start_ =
-      new QAction(QIcon(":/media/reconstruction-start.png"),
+      new QAction(QIcon(":/media/reconstruction-start.svg"),
                   tr("Start reconstruction"),
                   this);
   connect(action_reconstruction_start_,
@@ -424,7 +506,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_start_);
 
   action_reconstruction_step_ =
-      new QAction(QIcon(":/media/reconstruction-step.png"),
+      new QAction(QIcon(":/media/reconstruction-step.svg"),
                   tr("Reconstruct next image"),
                   this);
   connect(action_reconstruction_step_,
@@ -434,7 +516,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_step_);
 
   action_reconstruction_pause_ =
-      new QAction(QIcon(":/media/reconstruction-pause.png"),
+      new QAction(QIcon(":/media/reconstruction-pause.svg"),
                   tr("Pause reconstruction"),
                   this);
   connect(action_reconstruction_pause_,
@@ -445,7 +527,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_pause_);
 
   action_reconstruction_reset_ =
-      new QAction(QIcon(":/media/reconstruction-reset.png"),
+      new QAction(QIcon(":/media/reconstruction-reset.svg"),
                   tr("Reset reconstruction"),
                   this);
   connect(action_reconstruction_reset_,
@@ -454,7 +536,7 @@ void MainWindow::CreateActions() {
           &MainWindow::ReconstructionOverwrite);
 
   action_reconstruction_normalize_ =
-      new QAction(QIcon(":/media/reconstruction-normalize.png"),
+      new QAction(QIcon(":/media/reconstruction-normalize.svg"),
                   tr("Normalize reconstruction"),
                   this);
   connect(action_reconstruction_normalize_,
@@ -464,7 +546,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_normalize_);
 
   action_reconstruction_options_ =
-      new QAction(QIcon(":/media/reconstruction-options.png"),
+      new QAction(QIcon(":/media/reconstruction-options.svg"),
                   tr("Reconstruction options"),
                   this);
   connect(action_reconstruction_options_,
@@ -474,7 +556,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_options_);
 
   action_bundle_adjustment_ = new QAction(
-      QIcon(":/media/bundle-adjustment.png"), tr("Bundle adjustment"), this);
+      QIcon(":/media/bundle-adjustment.svg"), tr("Bundle adjustment"), this);
   connect(action_bundle_adjustment_,
           &QAction::triggered,
           this,
@@ -483,7 +565,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_bundle_adjustment_);
 
   action_dense_reconstruction_ =
-      new QAction(QIcon(":/media/dense-reconstruction.png"),
+      new QAction(QIcon(":/media/dense-reconstruction.svg"),
                   tr("Dense reconstruction"),
                   this);
   connect(action_dense_reconstruction_,
@@ -496,21 +578,21 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_render_toggle_ = new QAction(
-      QIcon(":/media/render-enabled.png"), tr("Disable rendering"), this);
+      QIcon(":/media/render-enabled.svg"), tr("Disable rendering"), this);
   connect(action_render_toggle_,
           &QAction::triggered,
           this,
           &MainWindow::RenderToggle);
 
   action_render_reset_view_ = new QAction(
-      QIcon(":/media/render-reset-view.png"), tr("Reset view"), this);
+      QIcon(":/media/render-reset-view.svg"), tr("Reset view"), this);
   connect(action_render_reset_view_,
           &QAction::triggered,
           model_viewer_widget_,
           &ModelViewerWidget::ResetView);
 
   action_render_options_ = new QAction(
-      QIcon(":/media/render-options.png"), tr("Render options"), this);
+      QIcon(":/media/render-options.svg"), tr("Render options"), this);
   connect(action_render_options_,
           &QAction::triggered,
           this,
@@ -527,7 +609,7 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_reconstruction_stats_ =
-      new QAction(QIcon(":/media/reconstruction-stats.png"),
+      new QAction(QIcon(":/media/reconstruction-stats.svg"),
                   tr("Show model statistics"),
                   this);
   connect(action_reconstruction_stats_,
@@ -536,30 +618,30 @@ void MainWindow::CreateActions() {
           &MainWindow::ReconstructionStats);
 
   action_match_matrix_ = new QAction(
-      QIcon(":/media/match-matrix.png"), tr("Show match matrix"), this);
+      QIcon(":/media/match-matrix.svg"), tr("Show match matrix"), this);
   connect(action_match_matrix_,
           &QAction::triggered,
           this,
           &MainWindow::MatchMatrix);
 
   action_log_show_ =
-      new QAction(QIcon(":/media/log.png"), tr("Show log"), this);
+      new QAction(QIcon(":/media/log.svg"), tr("Show log"), this);
   connect(action_log_show_, &QAction::triggered, this, &MainWindow::ShowLog);
 
   action_grab_image_ =
-      new QAction(QIcon(":/media/grab-image.png"), tr("Grab image"), this);
+      new QAction(QIcon(":/media/grab-image.svg"), tr("Grab image"), this);
   connect(
       action_grab_image_, &QAction::triggered, this, &MainWindow::GrabImage);
 
   action_grab_movie_ =
-      new QAction(QIcon(":/media/grab-movie.png"), tr("Grab movie"), this);
+      new QAction(QIcon(":/media/grab-movie.svg"), tr("Grab movie"), this);
   connect(action_grab_movie_,
           &QAction::triggered,
           model_viewer_widget_,
           &ModelViewerWidget::GrabMovie);
 
   action_undistort_ =
-      new QAction(QIcon(":/media/undistort.png"), tr("Undistortion"), this);
+      new QAction(QIcon(":/media/undistort.svg"), tr("Undistortion"), this);
   connect(action_undistort_,
           &QAction::triggered,
           this,
@@ -582,11 +664,11 @@ void MainWindow::CreateActions() {
           this,
           &MainWindow::ResetOptions);
 
-  action_set_log_level_ = new QAction(tr("Set log level"), this);
-  connect(action_set_log_level_,
+  action_set_log_options_ = new QAction(tr("Set log options"), this);
+  connect(action_set_log_options_,
           &QAction::triggered,
           this,
-          &MainWindow::SetLogLevel);
+          &MainWindow::SetLogOptions);
 
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
@@ -688,7 +770,7 @@ void MainWindow::CreateMenus() {
   extras_menu->addSeparator();
   extras_menu->addAction(action_set_options_);
   extras_menu->addAction(action_reset_options_);
-  extras_menu->addAction(action_set_log_level_);
+  extras_menu->addAction(action_set_log_options_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -831,19 +913,22 @@ bool MainWindow::ProjectOpen() {
                                    tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
-  // If selection not canceled
-  if (project_path != "") {
-    if (options_.ReRead(project_path)) {
-      *options_.project_path = project_path;
-      project_widget_->SetDatabasePath(*options_.database_path);
-      project_widget_->SetImagePath(*options_.image_path);
-      UpdateWindowTitle();
-      SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
-      return true;
-    } else {
-      ShowInvalidProjectError();
-    }
+
+  if (project_path.empty()) {
+    // Selection cancelled.
+    return false;
   }
+
+  if (options_.ReRead(project_path)) {
+    *options_.project_path = project_path;
+    project_widget_->SetDatabasePath(*options_.database_path);
+    project_widget_->SetImagePath(*options_.image_path);
+    UpdateWindowTitle();
+    SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
+    return true;
+  }
+
+  ShowInvalidProjectError();
 
   return false;
 }
@@ -862,8 +947,7 @@ void MainWindow::ProjectSave() {
                                      tr("Project file (*.ini)"))
             .toUtf8()
             .constData();
-    // If selection not canceled
-    if (project_path != "") {
+    if (!project_path.empty()) {
       if (!HasFileExtension(project_path, ".ini")) {
         project_path += ".ini";
       }
@@ -912,37 +996,76 @@ void MainWindow::Import() {
 
 void MainWindow::ImportFrom() {
   const std::string import_path =
-      QFileDialog::getOpenFileName(
-          this, tr("Select source..."), GetLastOpen(kLastImportExport))
+      QFileDialog::getOpenFileName(this,
+                                   tr("Select PLY file..."),
+                                   GetLastOpen(kLastImportExport),
+                                   tr("PLY files (*.ply)"))
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (import_path == "") {
+  if (import_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
   SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
+  ImportFrom(import_path);
+}
 
+void MainWindow::ImportFrom(const std::string& import_path) {
   if (!ExistsFile(import_path)) {
     QMessageBox::critical(this, "", tr("Invalid file"));
     return;
   }
 
-  if (!HasFileExtension(import_path, ".ply")) {
-    QMessageBox::critical(
-        this, "", tr("Invalid file format (supported formats: PLY)"));
-    return;
-  }
+  if (HasPlyMeshFaces(import_path)) {
+    thread_control_widget_->StartFunction(
+        "Importing surface mesh...", [this, import_path]() {
+          try {
+            PlyTexturedMesh textured_mesh = ReadPlyMesh(import_path);
 
-  thread_control_widget_->StartFunction("Importing...", [this, import_path]() {
-    const size_t reconstruction_idx = reconstruction_manager_->Add();
-    reconstruction_manager_->Get(reconstruction_idx)->ImportPLY(import_path);
-    options_.render->min_track_len = 0;
-    reconstruction_manager_widget_->Update();
-    reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
-    action_render_now_->trigger();
-  });
+            // Clear any previous texture data.
+            model_viewer_widget_->surface_texture_data.clear();
+            model_viewer_widget_->surface_texture_width = 0;
+            model_viewer_widget_->surface_texture_height = 0;
+
+            // Load texture atlas if the mesh has UV coordinates and a
+            // texture file reference.
+            if (!textured_mesh.face_uvs.empty() &&
+                !textured_mesh.texture_file.empty()) {
+              const auto ply_dir =
+                  std::filesystem::path(import_path).parent_path();
+              const auto texture_path = ply_dir / textured_mesh.texture_file;
+              Bitmap bitmap;
+              if (bitmap.Read(texture_path, /*as_rgb=*/true)) {
+                model_viewer_widget_->surface_texture_data =
+                    bitmap.RowMajorData();
+                model_viewer_widget_->surface_texture_width = bitmap.Width();
+                model_viewer_widget_->surface_texture_height = bitmap.Height();
+              } else {
+                LOG(WARNING) << "Failed to read texture file: " << texture_path
+                             << ". Falling back to vertex colors.";
+                textured_mesh.face_uvs.clear();
+              }
+            }
+
+            model_viewer_widget_->surface_mesh = std::move(textured_mesh);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read surface mesh: " << e.what();
+          }
+        });
+  } else {
+    thread_control_widget_->StartFunction(
+        "Importing point cloud...", [this, import_path]() {
+          try {
+            model_viewer_widget_->point_cloud = ReadPly(import_path);
+            action_render_now_->trigger();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to read point cloud: " << e.what();
+          }
+        });
+  }
 }
 
 void MainWindow::Export() {
@@ -958,7 +1081,7 @@ void MainWindow::Export() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
+  // Selection cancelled?
   if (export_path.empty()) {
     return;
   }
@@ -1013,8 +1136,8 @@ void MainWindow::ExportAll() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1042,8 +1165,8 @@ void MainWindow::ExportAs() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1085,8 +1208,8 @@ void MainWindow::ExportAsText() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
   if (export_path.empty()) {
+    // Selection cancelled.
     return;
   }
 
@@ -1316,7 +1439,13 @@ void MainWindow::RenderNow() {
 
 void MainWindow::RenderSelectedReconstruction() {
   if (reconstruction_manager_->Size() == 0) {
-    RenderClear();
+    if (model_viewer_widget_->surface_mesh.has_value() ||
+        model_viewer_widget_->point_cloud.has_value()) {
+      model_viewer_widget_->reconstruction = nullptr;
+      model_viewer_widget_->ReloadReconstruction();
+    } else {
+      RenderClear();
+    }
     return;
   }
 
@@ -1482,15 +1611,66 @@ void MainWindow::ResetOptions() {
   options_.ResetOptions(kResetPaths);
 }
 
-void MainWindow::SetLogLevel() {
-  bool ok = false;
-  const int log_level =
-      QInputDialog::getInt(this, "", "Log Level:", FLAGS_v, 0, 3, 1, &ok);
-  if (!ok) {
-    return;
-  }
+void MainWindow::SetLogOptions() {
+  QDialog dialog(this);
+  dialog.setWindowTitle("Log Options");
+  dialog.resize(220, 160);
 
-  FLAGS_v = log_level;
+  QFormLayout* form_layout = new QFormLayout(&dialog);
+
+  // Log target
+  QComboBox* log_target_box = new QComboBox(&dialog);
+  log_target_box->addItems({"stderr", "stdout", "file", "stderr_and_file"});
+  log_target_box->setCurrentText(GetLogTarget().c_str());
+  log_target_box->setToolTip(
+      QString("Default output path: system temporary directory "
+              "(usually: %1)")
+          .arg(std::filesystem::temp_directory_path().c_str()));
+  form_layout->addRow("Log target", log_target_box);
+
+  // NOTE: glog resolves log file paths during initialization.
+  // Runtime modification of FLAGS_log_dir does not re-open log files,
+  // therefore directory changes are not supported here.
+
+  // Verbosity
+  QSpinBox* verbosity_box = new QSpinBox(&dialog);
+  verbosity_box->setRange(0, 10);
+  verbosity_box->setValue(FLAGS_v);
+  form_layout->addRow("Verbosity", verbosity_box);
+
+  // Minimum severity
+  QComboBox* min_severity_box = new QComboBox(&dialog);
+  min_severity_box->addItems({"INFO", "WARNING", "ERROR", "FATAL"});
+  min_severity_box->setCurrentIndex(FLAGS_minloglevel);
+  form_layout->addRow("Minimum severity", min_severity_box);
+
+  // Color
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+  QComboBox* color_box = new QComboBox(&dialog);
+  color_box->addItems({"Disabled", "Enabled"});
+  color_box->setCurrentIndex(static_cast<int>(FLAGS_colorlogtostderr));
+  form_layout->addRow("Colored logging", color_box);
+#endif
+
+  QDialogButtonBox* buttons = new QDialogButtonBox(
+      QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+  form_layout->addRow(buttons);
+
+  if (dialog.exec() == QDialog::Accepted) {
+    ApplyLogOptions(log_target_box->currentText().toStdString(),
+                    verbosity_box->value(),
+                    min_severity_box->currentIndex(),
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
+                    color_box->currentIndex()
+#else
+                    0
+#endif
+    );
+  }
 }
 
 void MainWindow::About() {
@@ -1518,13 +1698,13 @@ void MainWindow::RenderToggle() {
   if (render_options_widget_->automatic_update) {
     render_options_widget_->automatic_update = false;
     render_options_widget_->counter = 0;
-    action_render_toggle_->setIcon(QIcon(":/media/render-disabled.png"));
+    action_render_toggle_->setIcon(QIcon(":/media/render-disabled.svg"));
     action_render_toggle_->setText(tr("Enable rendering"));
   } else {
     render_options_widget_->automatic_update = true;
     render_options_widget_->counter = 0;
     RenderNow();
-    action_render_toggle_->setIcon(QIcon(":/media/render-enabled.png"));
+    action_render_toggle_->setIcon(QIcon(":/media/render-enabled.svg"));
     action_render_toggle_->setText(tr("Disable rendering"));
   }
 }

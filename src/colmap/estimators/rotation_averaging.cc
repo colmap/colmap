@@ -178,6 +178,11 @@ Reconstruction CreateExpandedReconstruction(
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   const Rigid3d kUnknownPose(kUnknownRotation, kUnknownTranslation);
 
+  // First pass: build expanded frames with their data ids, and collect images
+  // to add afterwards.
+  std::vector<Image> expanded_images;
+  std::vector<Frame> expanded_frames;
+
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     Frame frame_expanded;
     frame_expanded.SetFrameId(frame_id);
@@ -187,13 +192,8 @@ Reconstruction CreateExpandedReconstruction(
     } else {
       frame_expanded.SetRigFromWorld(kUnknownPose);
     }
-    recon_expanded.AddFrame(std::move(frame_expanded));
-  }
 
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    Frame& frame_expanded = recon_expanded.Frame(frame_id);
     const Rig& original_rig = reconstruction.Rig(frame.RigId());
-
     for (const auto& data_id : frame.ImageIds()) {
       const auto& image = reconstruction.Image(data_id.id);
 
@@ -213,7 +213,7 @@ Reconstruction CreateExpandedReconstruction(
         // Camera belongs to this frame's rig.
         frame_expanded.AddDataId(image_expanded.DataId());
         image_expanded.SetFrameId(frame_id);
-        recon_expanded.AddImage(std::move(image_expanded));
+        expanded_images.push_back(std::move(image_expanded));
       } else {
         // Camera has its own singleton rig, create a new frame for it.
         const frame_t new_frame_id = next_frame_id++;
@@ -222,12 +222,21 @@ Reconstruction CreateExpandedReconstruction(
         new_frame.SetRigId(singleton_rig_ids.at(image.CameraId()));
         new_frame.AddDataId(image_expanded.DataId());
         new_frame.SetRigFromWorld(kUnknownPose);
-        recon_expanded.AddFrame(std::move(new_frame));
+        expanded_frames.push_back(std::move(new_frame));
 
         image_expanded.SetFrameId(new_frame_id);
-        recon_expanded.AddImage(std::move(image_expanded));
+        expanded_images.push_back(std::move(image_expanded));
       }
     }
+    expanded_frames.push_back(std::move(frame_expanded));
+  }
+
+  // Second pass: add all frames, then all images.
+  for (auto& frame : expanded_frames) {
+    recon_expanded.AddFrame(std::move(frame));
+  }
+  for (auto& image : expanded_images) {
+    recon_expanded.AddImage(std::move(image));
   }
 
   return recon_expanded;
@@ -397,8 +406,10 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::vector<PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
-  // Initialize rotations from maximum spanning tree if no gravity priors.
-  if (!options_.skip_initialization && !UseGravity(options_, pose_priors)) {
+  // Initialize rotations from maximum spanning tree. Note that without
+  // intialization, the gravity-aligned rotation averaging is prone to random
+  // flips by 180deg.
+  if (!options_.skip_initialization) {
     InitializeFromMaximumSpanningTree(
         pose_graph, active_image_ids, reconstruction);
   }
@@ -512,12 +523,23 @@ bool InitializeRigRotationsFromImages(
   std::vector<double> weights;
   for (auto& [camera_id, rig_id_and_samples] : cam_from_rig_samples) {
     auto& [rig_id, samples] = rig_id_and_samples;
+    const auto sensor_id = sensor_t(SensorType::CAMERA, camera_id);
+    const auto existing =
+        reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
+    // If sensor_from_rig rotation is already known (translation is valid),
+    // preserve the known rotation instead of overwriting with MST-derived
+    // approximation. Reset translation to NaN so downstream code (global
+    // positioning) still estimates it using the variable-rig formulation.
+    if (existing.has_value() && !existing->translation().hasNaN()) {
+      reconstruction.Rig(rig_id).SetSensorFromRig(
+          sensor_id, Rigid3d(existing->rotation(), kUnknownTranslation));
+      continue;
+    }
     weights.resize(samples.size(), 1.0);
     const Eigen::Quaterniond cam_from_rig =
         AverageQuaternions(samples, weights);
     reconstruction.Rig(rig_id).SetSensorFromRig(
-        sensor_t(SensorType::CAMERA, camera_id),
-        Rigid3d(cam_from_rig, kUnknownTranslation));
+        sensor_id, Rigid3d(cam_from_rig, kUnknownTranslation));
   }
 
   // Step 2: Compute rig_from_world for each frame by averaging across images.

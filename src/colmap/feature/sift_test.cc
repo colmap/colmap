@@ -41,6 +41,8 @@
 #include "colmap/math/random.h"
 #include "colmap/util/opengl_utils.h"
 
+#include <functional>
+
 namespace colmap {
 namespace {
 
@@ -66,21 +68,8 @@ FeatureDescriptors CreateReversedDescriptors(const FeatureDescriptors& src) {
   return FeatureDescriptors(src.type, src.data.colwise().reverse());
 }
 
-TEST(ExtractSiftFeaturesCPU, Nominal) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
-
-  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-  options.use_gpu = false;
-  options.sift->estimate_affine_shape = false;
-  options.sift->domain_size_pooling = false;
-  options.sift->force_covariant_extractor = false;
-  auto extractor = CreateSiftFeatureExtractor(options);
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-  EXPECT_EQ(keypoints.size(), 22);
+void ValidateKeypoints(const FeatureKeypoints& keypoints,
+                       const Bitmap& bitmap) {
   for (size_t i = 0; i < keypoints.size(); ++i) {
     EXPECT_GE(keypoints[i].x, 0);
     EXPECT_GE(keypoints[i].y, 0);
@@ -90,222 +79,131 @@ TEST(ExtractSiftFeaturesCPU, Nominal) {
     EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
     EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
   }
+}
 
-  EXPECT_EQ(descriptors.data.rows(), 22);
+void ValidateDescriptorNorms(const FeatureDescriptors& descriptors) {
   EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
   for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
     EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
   }
 }
 
-TEST(ExtractCovariantSiftFeaturesCPU, Nominal) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
-
-  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-  options.use_gpu = false;
-  options.sift->estimate_affine_shape = false;
-  options.sift->domain_size_pooling = false;
-  options.sift->force_covariant_extractor = true;
-  auto extractor = CreateSiftFeatureExtractor(options);
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-  EXPECT_EQ(keypoints.size(), 22);
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_GE(keypoints[i].x, 0);
-    EXPECT_GE(keypoints[i].y, 0);
-    EXPECT_LE(keypoints[i].x, bitmap.Width());
-    EXPECT_LE(keypoints[i].y, bitmap.Height());
-    EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-  }
-
-  EXPECT_EQ(descriptors.data.rows(), 22);
-  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
-  }
+void ExpectReversedMatches(const FeatureMatches& matches) {
+  EXPECT_EQ(matches.size(), 2);
+  EXPECT_EQ(matches[0].point2D_idx1, 0);
+  EXPECT_EQ(matches[0].point2D_idx2, 1);
+  EXPECT_EQ(matches[1].point2D_idx1, 1);
+  EXPECT_EQ(matches[1].point2D_idx2, 0);
 }
 
-TEST(ExtractCovariantAffineSiftFeaturesCPU, Nominal) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
-
-  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-  options.use_gpu = false;
-  options.sift->estimate_affine_shape = true;
-  options.sift->domain_size_pooling = false;
-  options.sift->force_covariant_extractor = false;
-  auto extractor = CreateSiftFeatureExtractor(options);
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-  EXPECT_EQ(keypoints.size(), 22);
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_GE(keypoints[i].x, 0);
-    EXPECT_GE(keypoints[i].y, 0);
-    EXPECT_LE(keypoints[i].x, bitmap.Width());
-    EXPECT_LE(keypoints[i].y, bitmap.Height());
-    EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-  }
-
-  EXPECT_EQ(descriptors.data.rows(), 22);
-  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
-  }
+void ExpectReversedInlierMatches(const TwoViewGeometry& two_view_geometry) {
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 }
 
-TEST(ExtractCovariantAffineSiftFeaturesCPU, Upright) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
-
-  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-  options.use_gpu = false;
-  options.sift->estimate_affine_shape = true;
-  options.sift->upright = true;
-  options.sift->domain_size_pooling = false;
-  options.sift->force_covariant_extractor = false;
-  auto extractor = CreateSiftFeatureExtractor(options);
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-  EXPECT_EQ(keypoints.size(), 10);
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_GE(keypoints[i].x, 0);
-    EXPECT_GE(keypoints[i].y, 0);
-    EXPECT_LE(keypoints[i].x, bitmap.Width());
-    EXPECT_LE(keypoints[i].y, bitmap.Height());
-    EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-  }
-
-  EXPECT_EQ(descriptors.data.rows(), 10);
-  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
-  }
+TwoViewGeometry CreatePlanarTwoViewGeometry() {
+  TwoViewGeometry tvg;
+  tvg.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
+  tvg.H = Eigen::Matrix3d::Identity();
+  return tvg;
 }
 
-TEST(ExtractCovariantDSPSiftFeaturesCPU, Nominal) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
-
-  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-  options.use_gpu = false;
-  options.sift->estimate_affine_shape = false;
-  options.sift->domain_size_pooling = true;
-  options.sift->force_covariant_extractor = false;
-  auto extractor = CreateSiftFeatureExtractor(options);
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-  EXPECT_EQ(keypoints.size(), 22);
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_GE(keypoints[i].x, 0);
-    EXPECT_GE(keypoints[i].y, 0);
-    EXPECT_LE(keypoints[i].x, bitmap.Width());
-    EXPECT_LE(keypoints[i].y, bitmap.Height());
-    EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-  }
-
-  EXPECT_EQ(descriptors.data.rows(), 22);
-  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
-  }
-}
-
-TEST(ExtractCovariantAffineDSPSiftFeaturesCPU, Nominal) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
-
-  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-  options.use_gpu = false;
-  options.sift->estimate_affine_shape = true;
-  options.sift->domain_size_pooling = true;
-  options.sift->force_covariant_extractor = false;
-  auto extractor = CreateSiftFeatureExtractor(options);
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-  EXPECT_EQ(keypoints.size(), 22);
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_GE(keypoints[i].x, 0);
-    EXPECT_GE(keypoints[i].y, 0);
-    EXPECT_LE(keypoints[i].x, bitmap.Width());
-    EXPECT_LE(keypoints[i].y, bitmap.Height());
-    EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-  }
-
-  EXPECT_EQ(descriptors.data.rows(), 22);
-  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
-  }
-}
-
-TEST(ExtractSiftFeaturesGPU, Nominal) {
+void RunGpuTest(std::function<void()> test_body) {
   char app_name[] = "Test";
   int argc = 1;
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
   class TestThread : public Thread {
+   public:
+    std::function<void()> body;
+
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-
-      const Bitmap bitmap = CreateImageWithSquare(256);
-
-      FeatureExtractionOptions options(FeatureExtractorType::SIFT);
-      options.use_gpu = true;
-      options.sift->estimate_affine_shape = false;
-      options.sift->domain_size_pooling = false;
-      options.sift->force_covariant_extractor = false;
-      auto extractor = CreateSiftFeatureExtractor(options);
-
-      FeatureKeypoints keypoints;
-      FeatureDescriptors descriptors;
-      EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-      EXPECT_GE(keypoints.size(), 12);
-      for (size_t i = 0; i < keypoints.size(); ++i) {
-        EXPECT_GE(keypoints[i].x, 0);
-        EXPECT_GE(keypoints[i].y, 0);
-        EXPECT_LE(keypoints[i].x, bitmap.Width());
-        EXPECT_LE(keypoints[i].y, bitmap.Height());
-        EXPECT_GT(keypoints[i].ComputeScale(), 0);
-        EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-        EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-      }
-
-      EXPECT_GE(descriptors.data.rows(), 12);
-      EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-      for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-        EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512),
-                  1);
-      }
+      body();
     }
     OpenGLContextManager opengl_context_;
   };
 
   TestThread thread;
+  thread.body = std::move(test_body);
   RunThreadWithOpenGLContext(&thread);
+}
+
+struct SiftCpuExtractionParams {
+  std::string name;
+  bool estimate_affine_shape;
+  bool domain_size_pooling;
+  bool force_covariant_extractor;
+  bool upright;
+  size_t expected_keypoints;
+};
+
+class SiftCpuExtractionTest
+    : public ::testing::TestWithParam<SiftCpuExtractionParams> {};
+
+TEST_P(SiftCpuExtractionTest, Nominal) {
+  const auto& p = GetParam();
+  const Bitmap bitmap = CreateImageWithSquare(256);
+
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  options.sift->estimate_affine_shape = p.estimate_affine_shape;
+  options.sift->domain_size_pooling = p.domain_size_pooling;
+  options.sift->force_covariant_extractor = p.force_covariant_extractor;
+  options.sift->upright = p.upright;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
+  EXPECT_EQ(keypoints.size(), p.expected_keypoints);
+  ValidateKeypoints(keypoints, bitmap);
+  EXPECT_EQ(descriptors.data.rows(), p.expected_keypoints);
+  ValidateDescriptorNorms(descriptors);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SiftCpuExtraction,
+    SiftCpuExtractionTest,
+    ::testing::Values(
+        SiftCpuExtractionParams{"Sift", false, false, false, false, 22},
+        SiftCpuExtractionParams{"CovariantSift", false, false, true, false, 22},
+        SiftCpuExtractionParams{
+            "CovariantAffineSift", true, false, false, false, 22},
+        SiftCpuExtractionParams{
+            "CovariantAffineSiftUpright", true, false, false, true, 10},
+        SiftCpuExtractionParams{
+            "CovariantDSPSift", false, true, false, false, 22},
+        SiftCpuExtractionParams{
+            "CovariantAffineDSPSift", true, true, false, false, 22}),
+    [](const auto& info) { return info.param.name; });
+
+TEST(ExtractSiftFeaturesGPU, Nominal) {
+  RunGpuTest([] {
+    const Bitmap bitmap = CreateImageWithSquare(256);
+
+    FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+    options.use_gpu = true;
+    options.sift->estimate_affine_shape = false;
+    options.sift->domain_size_pooling = false;
+    options.sift->force_covariant_extractor = false;
+    auto extractor = CreateSiftFeatureExtractor(options);
+
+    FeatureKeypoints keypoints;
+    FeatureDescriptors descriptors;
+    EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
+    EXPECT_GE(keypoints.size(), 12);
+    ValidateKeypoints(keypoints, bitmap);
+    EXPECT_GE(descriptors.data.rows(), 12);
+    ValidateDescriptorNorms(descriptors);
+  });
 }
 
 FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
@@ -336,25 +234,12 @@ void CheckEqualMatches(const FeatureMatches& matches1,
 }
 
 TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
-  char app_name[] = "Test";
-  int argc = 1;
-  char* argv[] = {app_name};
-  QApplication app(argc, argv);
-
-  class TestThread : public Thread {
-   private:
-    void Run() {
-      opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
-      options.use_gpu = true;
-      options.max_num_matches = 1000;
-      EXPECT_NE(CreateSiftFeatureMatcher(options), nullptr);
-    }
-    OpenGLContextManager opengl_context_;
-  };
-
-  TestThread thread;
-  RunThreadWithOpenGLContext(&thread);
+  RunGpuTest([] {
+    FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+    options.use_gpu = true;
+    options.max_num_matches = 1000;
+    EXPECT_NE(CreateSiftFeatureMatcher(options), nullptr);
+  });
 }
 
 TEST(CreateSiftGPUMatcherCUDA, Nominal) {
@@ -419,18 +304,10 @@ TEST(SiftCPUFeatureMatcher, Nominal) {
 
   FeatureMatches matches;
   matcher->Match(image1, image2, &matches);
-  EXPECT_EQ(matches.size(), 2);
-  EXPECT_EQ(matches[0].point2D_idx1, 0);
-  EXPECT_EQ(matches[0].point2D_idx2, 1);
-  EXPECT_EQ(matches[1].point2D_idx1, 1);
-  EXPECT_EQ(matches[1].point2D_idx2, 0);
+  ExpectReversedMatches(matches);
 
   matcher->Match(image1, image2, &matches);
-  EXPECT_EQ(matches.size(), 2);
-  EXPECT_EQ(matches[0].point2D_idx1, 0);
-  EXPECT_EQ(matches[0].point2D_idx2, 1);
-  EXPECT_EQ(matches[1].point2D_idx1, 1);
-  EXPECT_EQ(matches[1].point2D_idx2, 0);
+  ExpectReversedMatches(matches);
 
   matcher->Match(image0, image2, &matches);
   EXPECT_EQ(matches.size(), 0);
@@ -505,9 +382,7 @@ TEST(MatchGuidedSiftFeaturesCPU, TypeMismatch) {
   options.sift->cpu_brute_force_matcher = true;
   auto matcher = CreateSiftFeatureMatcher(options);
 
-  TwoViewGeometry two_view_geometry;
-  two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
-  two_view_geometry.H = Eigen::Matrix3d::Identity();
+  TwoViewGeometry two_view_geometry = CreatePlanarTwoViewGeometry();
 
   EXPECT_THROW(matcher->MatchGuided(
                    1.0, image_sift, image_undefined, &two_view_geometry),
@@ -515,97 +390,69 @@ TEST(MatchGuidedSiftFeaturesCPU, TypeMismatch) {
 }
 
 TEST(MatchSiftFeaturesGPU, TypeMismatch) {
-  char app_name[] = "Test";
-  int argc = 1;
-  char* argv[] = {app_name};
-  QApplication app(argc, argv);
+  RunGpuTest([] {
+    FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+    options.use_gpu = true;
+    options.max_num_matches = 1000;
+    auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
-  class TestThread : public Thread {
-   private:
-    void Run() {
-      opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
-      options.use_gpu = true;
-      options.max_num_matches = 1000;
-      auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+    const Camera camera = Camera::CreateFromModelId(
+        1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
 
-      const Camera camera = Camera::CreateFromModelId(
-          1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+    FeatureDescriptors sift_desc = CreateRandomFeatureDescriptors(2);
+    FeatureDescriptors undefined_desc = CreateRandomFeatureDescriptors(2);
+    undefined_desc.type = FeatureExtractorType::UNDEFINED;
 
-      FeatureDescriptors sift_desc = CreateRandomFeatureDescriptors(2);
-      FeatureDescriptors undefined_desc = CreateRandomFeatureDescriptors(2);
-      undefined_desc.type = FeatureExtractorType::UNDEFINED;
+    const FeatureMatcher::Image image_sift = {
+        /*image_id=*/1,
+        /*camera=*/&camera,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(sift_desc)};
+    const FeatureMatcher::Image image_undefined = {
+        /*image_id=*/2,
+        /*camera=*/&camera,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(undefined_desc)};
 
-      const FeatureMatcher::Image image_sift = {
-          /*image_id=*/1,
-          /*camera=*/&camera,
-          /*keypoints=*/nullptr,
-          std::make_shared<FeatureDescriptors>(sift_desc)};
-      const FeatureMatcher::Image image_undefined = {
-          /*image_id=*/2,
-          /*camera=*/&camera,
-          /*keypoints=*/nullptr,
-          std::make_shared<FeatureDescriptors>(undefined_desc)};
-
-      FeatureMatches matches;
-      EXPECT_THROW(matcher->Match(image_sift, image_undefined, &matches),
-                   std::invalid_argument);
-    }
-    OpenGLContextManager opengl_context_;
-  };
-
-  TestThread thread;
-  RunThreadWithOpenGLContext(&thread);
+    FeatureMatches matches;
+    EXPECT_THROW(matcher->Match(image_sift, image_undefined, &matches),
+                 std::invalid_argument);
+  });
 }
 
 TEST(MatchGuidedSiftFeaturesGPU, TypeMismatch) {
-  char app_name[] = "Test";
-  int argc = 1;
-  char* argv[] = {app_name};
-  QApplication app(argc, argv);
+  RunGpuTest([] {
+    FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+    options.use_gpu = true;
+    options.max_num_matches = 1000;
+    auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
-  class TestThread : public Thread {
-   private:
-    void Run() {
-      opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
-      options.use_gpu = true;
-      options.max_num_matches = 1000;
-      auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+    Camera camera = Camera::CreateFromModelId(
+        1, CameraModelId::kSimpleRadial, 100.0, 100, 200);
 
-      Camera camera = Camera::CreateFromModelId(
-          1, CameraModelId::kSimpleRadial, 100.0, 100, 200);
+    FeatureDescriptors sift_desc = CreateRandomFeatureDescriptors(2);
+    FeatureDescriptors undefined_desc = CreateRandomFeatureDescriptors(2);
+    undefined_desc.type = FeatureExtractorType::UNDEFINED;
 
-      FeatureDescriptors sift_desc = CreateRandomFeatureDescriptors(2);
-      FeatureDescriptors undefined_desc = CreateRandomFeatureDescriptors(2);
-      undefined_desc.type = FeatureExtractorType::UNDEFINED;
+    const FeatureMatcher::Image image_sift = {
+        /*image_id=*/1,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(
+            std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+        std::make_shared<FeatureDescriptors>(sift_desc)};
+    const FeatureMatcher::Image image_undefined = {
+        /*image_id=*/2,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(
+            std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+        std::make_shared<FeatureDescriptors>(undefined_desc)};
 
-      const FeatureMatcher::Image image_sift = {
-          /*image_id=*/1,
-          /*camera=*/&camera,
-          std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
-          std::make_shared<FeatureDescriptors>(sift_desc)};
-      const FeatureMatcher::Image image_undefined = {
-          /*image_id=*/2,
-          /*camera=*/&camera,
-          std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
-          std::make_shared<FeatureDescriptors>(undefined_desc)};
+    TwoViewGeometry two_view_geometry = CreatePlanarTwoViewGeometry();
 
-      TwoViewGeometry two_view_geometry;
-      two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
-      two_view_geometry.H = Eigen::Matrix3d::Identity();
-
-      EXPECT_THROW(matcher->MatchGuided(
-                       1.0, image_sift, image_undefined, &two_view_geometry),
-                   std::invalid_argument);
-    }
-    OpenGLContextManager opengl_context_;
-  };
-
-  TestThread thread;
-  RunThreadWithOpenGLContext(&thread);
+    EXPECT_THROW(matcher->MatchGuided(
+                     1.0, image_sift, image_undefined, &two_view_geometry),
+                 std::invalid_argument);
+  });
 }
 
 TEST(SiftCPUFeatureMatcherFaissVsBruteForce, Nominal) {
@@ -770,9 +617,7 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image0, image1, image2, image3});
 
-  TwoViewGeometry two_view_geometry;
-  two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
-  two_view_geometry.H = Eigen::Matrix3d::Identity();
+  TwoViewGeometry two_view_geometry = CreatePlanarTwoViewGeometry();
 
   FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = false;
@@ -782,11 +627,7 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   constexpr double kMaxError = 1.0;
 
   matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
-  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
-  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
-  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
-  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
-  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
+  ExpectReversedInlierMatches(two_view_geometry);
 
   matcher->MatchGuided(kMaxError, image3, image2, &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 1);
@@ -868,11 +709,7 @@ void TestGuidedMatchingWithCameraDistortion(
   // coordinates and matches are expected to be found.
   two_view_geometry.config = TwoViewGeometry::CALIBRATED;
   matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
-  ASSERT_EQ(two_view_geometry.inlier_matches.size(), 2);
-  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
-  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
-  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
-  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
+  ExpectReversedInlierMatches(two_view_geometry);
 
   two_view_geometry.config = TwoViewGeometry::CALIBRATED;
   matcher->MatchGuided(kMaxError, image0, image2, &two_view_geometry);
@@ -894,20 +731,54 @@ TEST(MatchGuidedSiftFeaturesCPU, EssentialMatrix) {
 }
 
 TEST(MatchSiftFeaturesGPU, Nominal) {
-  char app_name[] = "Test";
-  int argc = 1;
-  char* argv[] = {app_name};
-  QApplication app(argc, argv);
+  RunGpuTest([] {
+    FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+    options.use_gpu = true;
+    options.max_num_matches = 1000;
+    auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
-  class TestThread : public Thread {
-   private:
-    void Run() {
-      opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
-      options.use_gpu = true;
-      options.max_num_matches = 1000;
-      auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+    const Camera camera = Camera::CreateFromModelId(
+        1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+    const FeatureMatcher::Image image0 = {
+        /*image_id=*/0,
+        /*camera=*/&camera,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
+    const FeatureMatcher::Image image1 = {
+        /*image_id=*/1,
+        /*camera=*/&camera,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(
+            CreateRandomFeatureDescriptors(2))};
+    const FeatureMatcher::Image image2 = {
+        /*image_id=*/2,
+        /*camera=*/&camera,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(
+            CreateReversedDescriptors(*image1.descriptors))};
 
+    FeatureMatches matches;
+
+    matcher->Match(image1, image2, &matches);
+    ExpectReversedMatches(matches);
+
+    matcher->Match(image1, image2, &matches);
+    ExpectReversedMatches(matches);
+
+    matcher->Match(image0, image2, &matches);
+    EXPECT_EQ(matches.size(), 0);
+    matcher->Match(image1, image0, &matches);
+    EXPECT_EQ(matches.size(), 0);
+    matcher->Match(image0, image0, &matches);
+    EXPECT_EQ(matches.size(), 0);
+  });
+}
+
+TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
+  RunGpuTest([] {
+    auto TestCPUvsGPU = [](const FeatureMatchingOptions& options,
+                           const FeatureDescriptors& descriptors1,
+                           const FeatureDescriptors& descriptors2) {
       const Camera camera = Camera::CreateFromModelId(
           1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
       const FeatureMatcher::Image image0 = {
@@ -919,299 +790,194 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
           /*image_id=*/1,
           /*camera=*/&camera,
           /*keypoints=*/nullptr,
-          std::make_shared<FeatureDescriptors>(
-              CreateRandomFeatureDescriptors(2))};
+          std::make_shared<FeatureDescriptors>(descriptors1)};
       const FeatureMatcher::Image image2 = {
           /*image_id=*/2,
           /*camera=*/&camera,
           /*keypoints=*/nullptr,
-          std::make_shared<FeatureDescriptors>(
-              CreateReversedDescriptors(*image1.descriptors))};
+          std::make_shared<FeatureDescriptors>(descriptors2)};
 
-      FeatureMatches matches;
+      FeatureDescriptorIndexCacheHelper index_cache_helper(
+          {image0, image1, image2});
 
-      matcher->Match(image1, image2, &matches);
-      EXPECT_EQ(matches.size(), 2);
-      EXPECT_EQ(matches[0].point2D_idx1, 0);
-      EXPECT_EQ(matches[0].point2D_idx2, 1);
-      EXPECT_EQ(matches[1].point2D_idx1, 1);
-      EXPECT_EQ(matches[1].point2D_idx2, 0);
+      FeatureMatchingOptions custom_options = options;
+      custom_options.use_gpu = true;
+      custom_options.max_num_matches = 1000;
+      auto gpu_matcher =
+          THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(custom_options));
+      custom_options.use_gpu = false;
+      custom_options.sift->cpu_descriptor_index_cache =
+          &index_cache_helper.index_cache;
+      auto cpu_matcher = CreateSiftFeatureMatcher(custom_options);
 
-      matcher->Match(image1, image2, &matches);
-      EXPECT_EQ(matches.size(), 2);
-      EXPECT_EQ(matches[0].point2D_idx1, 0);
-      EXPECT_EQ(matches[0].point2D_idx2, 1);
-      EXPECT_EQ(matches[1].point2D_idx1, 1);
-      EXPECT_EQ(matches[1].point2D_idx2, 0);
+      FeatureMatches matches_cpu;
+      FeatureMatches matches_gpu;
 
-      matcher->Match(image0, image2, &matches);
-      EXPECT_EQ(matches.size(), 0);
-      matcher->Match(image1, image0, &matches);
-      EXPECT_EQ(matches.size(), 0);
-      matcher->Match(image0, image0, &matches);
-      EXPECT_EQ(matches.size(), 0);
+      cpu_matcher->Match(image1, image2, &matches_cpu);
+      gpu_matcher->Match(image1, image2, &matches_gpu);
+      CheckEqualMatches(matches_cpu, matches_gpu);
+
+      const size_t num_matches = matches_cpu.size();
+
+      cpu_matcher->Match(image0, image2, &matches_cpu);
+      gpu_matcher->Match(image0, image2, &matches_gpu);
+      CheckEqualMatches(matches_cpu, matches_gpu);
+
+      cpu_matcher->Match(image1, image0, &matches_cpu);
+      gpu_matcher->Match(image1, image0, &matches_gpu);
+      CheckEqualMatches(matches_cpu, matches_gpu);
+
+      cpu_matcher->Match(image0, image0, &matches_cpu);
+      gpu_matcher->Match(image0, image0, &matches_gpu);
+      CheckEqualMatches(matches_cpu, matches_gpu);
+
+      return num_matches;
+    };
+
+    {
+      const FeatureDescriptors descriptors1 =
+          CreateRandomFeatureDescriptors(50);
+      const FeatureDescriptors descriptors2 =
+          CreateRandomFeatureDescriptors(50);
+      FeatureMatchingOptions match_options;
+      TestCPUvsGPU(match_options, descriptors1, descriptors2);
     }
-    OpenGLContextManager opengl_context_;
-  };
 
-  TestThread thread;
-  RunThreadWithOpenGLContext(&thread);
-}
-
-TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
-  char app_name[] = "Test";
-  int argc = 1;
-  char* argv[] = {app_name};
-  QApplication app(argc, argv);
-
-  class TestThread : public Thread {
-   private:
-    void Run() {
-      opengl_context_.MakeCurrent();
-
-      auto TestCPUvsGPU = [](const FeatureMatchingOptions& options,
-                             const FeatureDescriptors& descriptors1,
-                             const FeatureDescriptors& descriptors2) {
-        const Camera camera = Camera::CreateFromModelId(
-            1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-        const FeatureMatcher::Image image0 = {
-            /*image_id=*/0,
-            /*camera=*/&camera,
-            /*keypoints=*/nullptr,
-            std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
-        const FeatureMatcher::Image image1 = {
-            /*image_id=*/1,
-            /*camera=*/&camera,
-            /*keypoints=*/nullptr,
-            std::make_shared<FeatureDescriptors>(descriptors1)};
-        const FeatureMatcher::Image image2 = {
-            /*image_id=*/2,
-            /*camera=*/&camera,
-            /*keypoints=*/nullptr,
-            std::make_shared<FeatureDescriptors>(descriptors2)};
-
-        FeatureDescriptorIndexCacheHelper index_cache_helper(
-            {image0, image1, image2});
-
-        FeatureMatchingOptions custom_options = options;
-        custom_options.use_gpu = true;
-        custom_options.max_num_matches = 1000;
-        auto gpu_matcher =
-            THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(custom_options));
-        custom_options.use_gpu = false;
-        custom_options.sift->cpu_descriptor_index_cache =
-            &index_cache_helper.index_cache;
-        auto cpu_matcher = CreateSiftFeatureMatcher(custom_options);
-
-        FeatureMatches matches_cpu;
-        FeatureMatches matches_gpu;
-
-        cpu_matcher->Match(image1, image2, &matches_cpu);
-        gpu_matcher->Match(image1, image2, &matches_gpu);
-        CheckEqualMatches(matches_cpu, matches_gpu);
-
-        const size_t num_matches = matches_cpu.size();
-
-        cpu_matcher->Match(image0, image2, &matches_cpu);
-        gpu_matcher->Match(image0, image2, &matches_gpu);
-        CheckEqualMatches(matches_cpu, matches_gpu);
-
-        cpu_matcher->Match(image1, image0, &matches_cpu);
-        gpu_matcher->Match(image1, image0, &matches_gpu);
-        CheckEqualMatches(matches_cpu, matches_gpu);
-
-        cpu_matcher->Match(image0, image0, &matches_cpu);
-        gpu_matcher->Match(image0, image0, &matches_gpu);
-        CheckEqualMatches(matches_cpu, matches_gpu);
-
-        return num_matches;
-      };
-
-      {
-        const FeatureDescriptors descriptors1 =
-            CreateRandomFeatureDescriptors(50);
-        const FeatureDescriptors descriptors2 =
-            CreateRandomFeatureDescriptors(50);
-        FeatureMatchingOptions match_options;
-        TestCPUvsGPU(match_options, descriptors1, descriptors2);
-      }
-
-      {
-        const FeatureDescriptors descriptors1 =
-            CreateRandomFeatureDescriptors(50);
-        FeatureDescriptors descriptors2;
-        descriptors2.data = descriptors1.data.colwise().reverse();
-        descriptors2.type = descriptors1.type;
-        FeatureMatchingOptions match_options;
-        const size_t num_matches =
-            TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        EXPECT_EQ(num_matches, 50);
-      }
-
-      // Check the ratio test.
-      {
-        FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
-        FeatureDescriptors descriptors2 = descriptors1;
-
-        FeatureMatchingOptions match_options;
-        const size_t num_matches1 =
-            TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        EXPECT_EQ(num_matches1, 50);
-
-        descriptors2.data.row(49) = descriptors2.data.row(0);
-        descriptors2.data(0, 0) += 50;
-        descriptors2.data.row(0) = FeatureDescriptorsToUnsignedByte(
-            descriptors2.data.row(0).cast<float>().normalized());
-        descriptors2.data(49, 0) += 100;
-        descriptors2.data.row(49) = FeatureDescriptorsToUnsignedByte(
-            descriptors2.data.row(49).cast<float>().normalized());
-
-        match_options.sift->max_ratio = 0.4;
-        FeatureDescriptors descriptors1_top49;
-        descriptors1_top49.data = descriptors1.data.topRows(49);
-        descriptors1_top49.type = descriptors1.type;
-        const size_t num_matches2 =
-            TestCPUvsGPU(match_options, descriptors1_top49, descriptors2);
-        EXPECT_EQ(num_matches2, 48);
-
-        match_options.sift->max_ratio = 0.6;
-        const size_t num_matches3 =
-            TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        EXPECT_EQ(num_matches3, 49);
-      }
-
-      // Check the cross check.
-      {
-        FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
-        FeatureDescriptors descriptors2 = descriptors1;
-        descriptors1.data.row(0) = descriptors1.data.row(1);
-
-        FeatureMatchingOptions match_options;
-
-        match_options.sift->cross_check = false;
-        const size_t num_matches1 =
-            TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        EXPECT_EQ(num_matches1, 50);
-
-        match_options.sift->cross_check = true;
-        const size_t num_matches2 =
-            TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        EXPECT_EQ(num_matches2, 48);
-      }
+    {
+      const FeatureDescriptors descriptors1 =
+          CreateRandomFeatureDescriptors(50);
+      FeatureDescriptors descriptors2;
+      descriptors2.data = descriptors1.data.colwise().reverse();
+      descriptors2.type = descriptors1.type;
+      FeatureMatchingOptions match_options;
+      const size_t num_matches =
+          TestCPUvsGPU(match_options, descriptors1, descriptors2);
+      EXPECT_EQ(num_matches, 50);
     }
-    OpenGLContextManager opengl_context_;
-  };
 
-  TestThread thread;
-  RunThreadWithOpenGLContext(&thread);
+    // Check the ratio test.
+    {
+      FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
+      FeatureDescriptors descriptors2 = descriptors1;
+
+      FeatureMatchingOptions match_options;
+      const size_t num_matches1 =
+          TestCPUvsGPU(match_options, descriptors1, descriptors2);
+      EXPECT_EQ(num_matches1, 50);
+
+      descriptors2.data.row(49) = descriptors2.data.row(0);
+      descriptors2.data(0, 0) += 50;
+      descriptors2.data.row(0) = FeatureDescriptorsToUnsignedByte(
+          descriptors2.data.row(0).cast<float>().normalized());
+      descriptors2.data(49, 0) += 100;
+      descriptors2.data.row(49) = FeatureDescriptorsToUnsignedByte(
+          descriptors2.data.row(49).cast<float>().normalized());
+
+      match_options.sift->max_ratio = 0.4;
+      FeatureDescriptors descriptors1_top49;
+      descriptors1_top49.data = descriptors1.data.topRows(49);
+      descriptors1_top49.type = descriptors1.type;
+      const size_t num_matches2 =
+          TestCPUvsGPU(match_options, descriptors1_top49, descriptors2);
+      EXPECT_EQ(num_matches2, 48);
+
+      match_options.sift->max_ratio = 0.6;
+      const size_t num_matches3 =
+          TestCPUvsGPU(match_options, descriptors1, descriptors2);
+      EXPECT_EQ(num_matches3, 49);
+    }
+
+    // Check the cross check.
+    {
+      FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
+      FeatureDescriptors descriptors2 = descriptors1;
+      descriptors1.data.row(0) = descriptors1.data.row(1);
+
+      FeatureMatchingOptions match_options;
+
+      match_options.sift->cross_check = false;
+      const size_t num_matches1 =
+          TestCPUvsGPU(match_options, descriptors1, descriptors2);
+      EXPECT_EQ(num_matches1, 50);
+
+      match_options.sift->cross_check = true;
+      const size_t num_matches2 =
+          TestCPUvsGPU(match_options, descriptors1, descriptors2);
+      EXPECT_EQ(num_matches2, 48);
+    }
+  });
 }
 
 TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
-  char app_name[] = "Test";
-  int argc = 1;
-  char* argv[] = {app_name};
-  QApplication app(argc, argv);
+  RunGpuTest([] {
+    Camera camera = Camera::CreateFromModelId(
+        1, CameraModelId::kSimpleRadial, 100.0, 100, 200);
+    const FeatureMatcher::Image image0 = {
+        /*image_id=*/0,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(0),
+        std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
+    const FeatureMatcher::Image image1 = {
+        /*image_id=*/1,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(
+            std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+        std::make_shared<FeatureDescriptors>(
+            CreateRandomFeatureDescriptors(2))};
+    const FeatureMatcher::Image image2 = {
+        /*image_id=*/2,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(
+            std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+        std::make_shared<FeatureDescriptors>(
+            CreateReversedDescriptors(*image1.descriptors))};
+    const FeatureMatcher::Image image3 = {
+        /*image_id=*/3,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(
+            std::vector<FeatureKeypoint>{{100, 0}, {1, 0}}),
+        std::make_shared<FeatureDescriptors>(
+            CreateRandomFeatureDescriptors(2))};
 
-  class TestThread : public Thread {
-   private:
-    void Run() {
-      Camera camera = Camera::CreateFromModelId(
-          1, CameraModelId::kSimpleRadial, 100.0, 100, 200);
-      const FeatureMatcher::Image image0 = {
-          /*image_id=*/0,
-          /*camera=*/&camera,
-          std::make_shared<FeatureKeypoints>(0),
-          std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
-      const FeatureMatcher::Image image1 = {
-          /*image_id=*/1,
-          /*camera=*/&camera,
-          std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
-          std::make_shared<FeatureDescriptors>(
-              CreateRandomFeatureDescriptors(2))};
-      const FeatureMatcher::Image image2 = {
-          /*image_id=*/2,
-          /*camera=*/&camera,
-          std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
-          std::make_shared<FeatureDescriptors>(
-              CreateReversedDescriptors(*image1.descriptors))};
-      const FeatureMatcher::Image image3 = {
-          /*image_id=*/3,
-          /*camera=*/&camera,
-          std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{100, 0}, {1, 0}}),
-          std::make_shared<FeatureDescriptors>(
-              CreateRandomFeatureDescriptors(2))};
+    FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+    options.use_gpu = true;
+    options.max_num_matches = 1000;
+    auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
-      opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
-      options.use_gpu = true;
-      options.max_num_matches = 1000;
-      auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+    TwoViewGeometry two_view_geometry = CreatePlanarTwoViewGeometry();
 
-      TwoViewGeometry two_view_geometry;
-      two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
-      two_view_geometry.H = Eigen::Matrix3d::Identity();
+    constexpr double kMaxError = 4.0;
 
-      constexpr double kMaxError = 4.0;
+    matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+    ExpectReversedInlierMatches(two_view_geometry);
 
-      matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
-      EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
-      EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
-      EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
-      EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
-      EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
+    matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+    ExpectReversedInlierMatches(two_view_geometry);
 
-      matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
-      EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
-      EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
-      EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
-      EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
-      EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
+    matcher->MatchGuided(kMaxError, image3, image2, &two_view_geometry);
+    EXPECT_EQ(two_view_geometry.inlier_matches.size(), 1);
+    EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
+    EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
 
-      matcher->MatchGuided(kMaxError, image3, image2, &two_view_geometry);
-      EXPECT_EQ(two_view_geometry.inlier_matches.size(), 1);
-      EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
-      EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
-
-      matcher->MatchGuided(kMaxError, image0, image2, &two_view_geometry);
-      EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-      matcher->MatchGuided(kMaxError, image1, image0, &two_view_geometry);
-      EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-      matcher->MatchGuided(kMaxError, image0, image0, &two_view_geometry);
-      EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-    }
-    OpenGLContextManager opengl_context_;
-  };
-
-  TestThread thread;
-  RunThreadWithOpenGLContext(&thread);
+    matcher->MatchGuided(kMaxError, image0, image2, &two_view_geometry);
+    EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+    matcher->MatchGuided(kMaxError, image1, image0, &two_view_geometry);
+    EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+    matcher->MatchGuided(kMaxError, image0, image0, &two_view_geometry);
+    EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+  });
 }
 
 TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
-  char app_name[] = "Test";
-  int argc = 1;
-  char* argv[] = {app_name};
-  QApplication app(argc, argv);
-
-  class TestThread : public Thread {
-   private:
-    void Run() {
-      opengl_context_.MakeCurrent();
-      TestGuidedMatchingWithCameraDistortion(
-          [](const std::vector<FeatureMatcher::Image>& images) {
-            FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
-            options.use_gpu = true;
-            options.max_num_matches = 1000;
-            return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
-          });
-    }
-    OpenGLContextManager opengl_context_;
-  };
-
-  TestThread thread;
-  RunThreadWithOpenGLContext(&thread);
+  RunGpuTest([] {
+    TestGuidedMatchingWithCameraDistortion(
+        [](const std::vector<FeatureMatcher::Image>& images) {
+          FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+          options.use_gpu = true;
+          options.max_num_matches = 1000;
+          return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+        });
+  });
 }
 
 }  // namespace

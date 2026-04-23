@@ -54,6 +54,10 @@ class HierarchicalPipeline : public BaseController {
     // The maximum number of trials to initialize a cluster.
     int init_num_trials = 10;
 
+    // The total number of threads for the hierarchical pipeline. This budget
+    // is divided across workers to avoid thread oversubscription.
+    int num_threads = -1;
+
     // The number of workers used to reconstruct clusters in parallel.
     int num_workers = -1;
 

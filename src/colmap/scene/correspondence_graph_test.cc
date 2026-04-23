@@ -72,7 +72,10 @@ TEST(CorrespondenceGraph, Print) {
             "CorrespondenceGraph(num_images=2, num_image_pairs=1)");
 }
 
-TEST(CorrespondenceGraph, TwoView) {
+class CorrespondenceGraphFinalizeTest : public testing::TestWithParam<bool> {};
+
+TEST_P(CorrespondenceGraphFinalizeTest, TwoView) {
+  const bool finalize = GetParam();
   CorrespondenceGraph correspondence_graph;
   correspondence_graph.AddImage(0, 10);
   correspondence_graph.AddImage(1, 10);
@@ -90,7 +93,9 @@ TEST(CorrespondenceGraph, TwoView) {
       {4, 8},
   };
   correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry01);
-  correspondence_graph.Finalize();
+  if (finalize) {
+    correspondence_graph.Finalize();
+  }
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 4);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
   const image_pair_t pair_id = ImagePairToPairId(0, 1);
@@ -211,7 +216,8 @@ TEST(CorrespondenceGraph, TwoView) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
 }
 
-TEST(CorrespondenceGraph, ThreeView) {
+TEST_P(CorrespondenceGraphFinalizeTest, ThreeView) {
+  const bool finalize = GetParam();
   CorrespondenceGraph correspondence_graph;
   correspondence_graph.AddImage(0, 10);
   correspondence_graph.AddImage(1, 10);
@@ -225,7 +231,9 @@ TEST(CorrespondenceGraph, ThreeView) {
   TwoViewGeometry two_view_geometry12;
   two_view_geometry12.inlier_matches = {{0, 0}, {5, 5}};
   correspondence_graph.AddTwoViewGeometry(1, 2, two_view_geometry12);
-  correspondence_graph.Finalize();
+  if (finalize) {
+    correspondence_graph.Finalize();
+  }
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(0), 1);
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(1), 2);
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(2), 2);
@@ -287,6 +295,13 @@ TEST(CorrespondenceGraph, ThreeView) {
   EXPECT_EQ(CountNumTransitiveCorrespondences(correspondence_graph, 2, 0, 3),
             2);
 }
+
+INSTANTIATE_TEST_SUITE_P(CorrespondenceGraph,
+                         CorrespondenceGraphFinalizeTest,
+                         testing::Bool(),
+                         [](const auto& info) {
+                           return info.param ? "Finalized" : "NotFinalized";
+                         });
 
 TEST(CorrespondenceGraph, OutOfBounds) {
   CorrespondenceGraph correspondence_graph;

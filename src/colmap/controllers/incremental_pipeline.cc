@@ -772,7 +772,8 @@ void IncrementalPipeline::TriangulateReconstruction(
   reconstruction->UpdatePoint3DErrors();
 
   LOG(INFO) << "Extracting colors";
-  reconstruction->ExtractColorsForAllImages(options_->image_path);
+  reconstruction->ExtractColorsForAllImages(options_->image_path,
+                                            options_->num_threads);
 }
 
 void IncrementalPipeline::RegisterCallbacks() {

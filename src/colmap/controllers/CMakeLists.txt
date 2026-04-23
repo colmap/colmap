@@ -61,18 +61,19 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         colmap_image
         colmap_math
-        colmap_mvs
         colmap_sfm
         Ceres::ceres
         Boost::boost
         faiss
 )
+if(MVS_ENABLED)
+    target_link_libraries(colmap_controllers PRIVATE colmap_mvs)
+endif()
 if(CUDA_ENABLED)
-    target_link_libraries(colmap_controllers
-        PRIVATE
-            colmap_util_cuda
-            colmap_mvs_cuda
-    )
+    target_link_libraries(colmap_controllers PRIVATE colmap_util_cuda)
+    if(MVS_ENABLED)
+        target_link_libraries(colmap_controllers PRIVATE colmap_mvs_cuda)
+    endif()
 endif()
 
 COLMAP_ADD_TEST(
@@ -108,6 +109,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME feature_matching_test
     SRCS feature_matching_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME feature_matching_utils_test
+    SRCS feature_matching_utils_test.cc
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
