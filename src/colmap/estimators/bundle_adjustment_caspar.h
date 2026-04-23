@@ -44,24 +44,23 @@ typedef double StorageType;
 typedef float StorageType;
 #endif
 
-// All 2^4-1 = 15 non-fully-fixed variants are generated and dispatched.
-#define CASPAR_NUM_VARIANTS 15
+#define CASPAR_NUM_VARIANTS 15  // 2^4 - 1: all combinations with at least one variable param.
 enum class FactorVariant {
   // r=0
   BASE,
-  // r=1 (single fixed)
+  // r=1
   FIXED_POSE,
   FIXED_FOCAL_AND_EXTRA,
   FIXED_PRINCIPAL_POINT,
   FIXED_POINT,
-  // r=2 (pairs fixed)
+  // r=2
   FIXED_POSE_FIXED_FOCAL_AND_EXTRA,
   FIXED_POSE_FIXED_PRINCIPAL_POINT,
   FIXED_POSE_FIXED_POINT,
   FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,   // calibrated camera
   FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
   FIXED_PRINCIPAL_POINT_FIXED_POINT,
-  // r=3 (triples fixed)
+  // r=3
   FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,
   FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
   FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT,
@@ -69,20 +68,17 @@ enum class FactorVariant {
 };
 
 struct VariantData {
-  // Indices into shared tunable node arrays (empty when param is fixed)
   std::vector<unsigned int> pose_indices;
   std::vector<unsigned int> focal_and_extra_indices;
   std::vector<unsigned int> principal_point_indices;
   std::vector<unsigned int> point_indices;
 
-  // Inline constant data (empty when param is tunable)
-  std::vector<StorageType> const_poses;             // 7 entries per factor
+  std::vector<StorageType> const_poses;             // 7 floats per factor
   std::vector<StorageType> const_focal_and_extra;   // FocalAndExtraSize() per factor
   std::vector<StorageType> const_principal_point;   // PrincipalPointSize() per factor
-  std::vector<StorageType> const_points;            // 3 entries per factor
+  std::vector<StorageType> const_points;            // 3 floats per factor
 
-  // Always present
-  std::vector<StorageType> pixels;  // 2 entries per factor
+  std::vector<StorageType> pixels;  // 2 floats per factor
   size_t num_factors = 0;
 };
 

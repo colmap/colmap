@@ -119,15 +119,16 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void CreatePoseNodes() {
-    std::vector<frame_t> sorted_frame_ids;
-    for (const image_t image_id : config_.Images())
-      sorted_frame_ids.push_back(reconstruction_.Image(image_id).FrameId());
-    std::sort(sorted_frame_ids.begin(), sorted_frame_ids.end());
-    sorted_frame_ids.erase(
-        std::unique(sorted_frame_ids.begin(), sorted_frame_ids.end()),
-        sorted_frame_ids.end());
-
-    for (const frame_t frame_id : sorted_frame_ids) GetOrCreatePose(frame_id);
+    // Build a sorted, deduplicated list of (frame_id, model_id) pairs.
+    // Each frame has one camera model (single camera per rig assumed).
+    std::map<frame_t, CameraModelId> frame_to_model;
+    for (const image_t image_id : config_.Images()) {
+      const Image& image = reconstruction_.Image(image_id);
+      const Camera& camera = reconstruction_.Camera(image.CameraId());
+      frame_to_model.emplace(image.FrameId(), camera.model_id);
+    }
+    for (const auto& [frame_id, model_id] : frame_to_model)
+      GetOrCreatePose(frame_id, model_id);
   }
 
   void CreatePointNodes() {
@@ -196,9 +197,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
                      << camera.ModelName();
         continue;
       }
+      // Mark frame and camera as external BEFORE AddFactorForObservation so
+      // that IsPoseVariable and IsFocalAndExtraVariable correctly return false
+      // for all external observations (not just after the first per-camera).
+      frames_from_outside_config_.insert(image.FrameId());
+      cameras_from_outside_config_.insert(camera.camera_id);
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
       AddFactorForObservation(image, camera, point2D, point3D);
-      cameras_from_outside_config_.insert(camera.camera_id);
     }
   }
 
@@ -293,11 +298,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VariantData& vd = md.variants[static_cast<int>(v)];
 
     if (effective_pose_var)
-      vd.pose_indices.push_back(GetOrCreatePose(image.FrameId()));
+      vd.pose_indices.push_back(GetOrCreatePose(image.FrameId(), camera.model_id));
     else
       // Use CamFromWorld() which correctly computes CamFromRig * RigFromWorld
       // for non-ref cameras, and equals RigFromWorld for ref cameras.
-      AppendPose(vd.const_poses, image.CamFromWorld());
+      // Debug test
+      AppendPose(vd.const_poses, reconstruction_.Frame(image.FrameId()).RigFromWorld());
 
     if (focal_and_extra_var) {
       vd.focal_and_extra_indices.push_back(calib_idx);
@@ -355,20 +361,22 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return it->second;
   }
 
-  size_t GetOrCreatePose(const frame_t frame_id) {
+  size_t GetOrCreatePose(const frame_t frame_id, const CameraModelId model_id) {
+    size_t& n = num_poses_per_model_[model_id];
     auto [it, inserted] =
-        frame_to_pose_index_.try_emplace(frame_id, num_poses_);
+        frame_to_pose_index_per_model_[model_id].try_emplace(frame_id, n);
     if (inserted) {
-      pose_index_to_frame_[num_poses_] = frame_id;
+      pose_index_to_frame_per_model_[model_id][n] = frame_id;
       const Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
-      pose_data_.push_back(pose.rotation().x());
-      pose_data_.push_back(pose.rotation().y());
-      pose_data_.push_back(pose.rotation().z());
-      pose_data_.push_back(pose.rotation().w());
-      pose_data_.push_back(pose.translation().x());
-      pose_data_.push_back(pose.translation().y());
-      pose_data_.push_back(pose.translation().z());
-      num_poses_++;
+      auto& data = pose_data_per_model_[model_id];
+      data.push_back(pose.rotation().x());
+      data.push_back(pose.rotation().y());
+      data.push_back(pose.rotation().z());
+      data.push_back(pose.rotation().w());
+      data.push_back(pose.translation().x());
+      data.push_back(pose.translation().y());
+      data.push_back(pose.translation().z());
+      n++;
     }
     return it->second;
   }
@@ -395,6 +403,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   bool IsPoseVariable(const frame_t frame_id) const {
     if (!options_.refine_rig_from_world) return false;
     if (config_.HasConstantRigFromWorldPose(frame_id)) return false;
+    if (frames_from_outside_config_.count(frame_id)) return false;
     return true;
   }
 
@@ -432,17 +441,23 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void SetupSolverData(caspar::GraphSolver& solver) {
     VLOG(2) << "=== CASPAR SOLVER SETUP ===";
     VLOG(2) << "  Points: " << num_points_;
-    VLOG(2) << "  Poses:  " << num_poses_;
 
     if (num_points_ > 0)
       solver.set_Point_nodes_from_stacked_host(
           point_data_.data(), 0, num_points_);
-    if (num_poses_ > 0)
-      solver.set_Pose_nodes_from_stacked_host(pose_data_.data(), 0, num_poses_);
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       const ModelData& md = model_data_per_model_.at(model_id);
       const size_t n_calib = calib_num_per_model_.at(model_id);
+      const size_t n_poses = num_poses_per_model_.count(model_id)
+                                 ? num_poses_per_model_.at(model_id)
+                                 : 0;
+
+      VLOG(2) << "  Poses (" << static_cast<int>(model_id) << "): " << n_poses;
+
+      if (n_poses > 0)
+        adapter_ptr->SetPoseNodes(
+            solver, pose_data_per_model_.at(model_id).data(), n_poses);
 
       if (n_calib > 0) {
         adapter_ptr->SetFocalAndExtraNodes(
@@ -453,6 +468,35 @@ class CasparBundleAdjuster : public BundleAdjuster {
             solver,
             const_cast<StorageType*>(md.principal_point_data.data()),
             n_calib);
+
+        // Set merged Calib nodes when both intrinsic groups are tunable.
+        const bool has_merged =
+            md.variants[static_cast<int>(FactorVariant::BASE)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POSE)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POINT)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POSE_FIXED_POINT)]
+                    .num_factors > 0;
+        if (has_merged) {
+          const size_t fae_size = adapter_ptr->FocalAndExtraSize();
+          const size_t pp_size  = adapter_ptr->PrincipalPointSize();
+          const size_t cal_size = adapter_ptr->CalibSize();
+          std::vector<StorageType> calib_data(n_calib * cal_size);
+          for (size_t i = 0; i < n_calib; ++i) {
+            for (size_t j = 0; j < fae_size; ++j)
+              calib_data[i * cal_size + j] =
+                  md.focal_and_extra_data[i * fae_size + j];
+            for (size_t j = 0; j < pp_size; ++j)
+              calib_data[i * cal_size + fae_size + j] =
+                  md.principal_point_data[i * pp_size + j];
+          }
+          if (n_calib > 0) {
+            VLOG(2) << "  SetCalibNodes [cam 0, model "
+                    << static_cast<int>(model_id) << "]: ["
+                    << calib_data[0] << ", " << calib_data[1] << ", "
+                    << calib_data[2] << ", " << calib_data[3] << "]";
+          }
+          adapter_ptr->SetCalibNodes(solver, calib_data.data(), n_calib);
+        }
       }
       for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
         if (md.variants[v].num_factors > 0)
@@ -467,8 +511,15 @@ class CasparBundleAdjuster : public BundleAdjuster {
     if (num_points_ > 0)
       solver.get_Point_nodes_to_stacked_host(
           point_data_.data(), 0, num_points_);
-    if (num_poses_ > 0)
-      solver.get_Pose_nodes_to_stacked_host(pose_data_.data(), 0, num_poses_);
+
+    for (const auto& [model_id, adapter_ptr] : adapters_) {
+      const size_t n_poses = num_poses_per_model_.count(model_id)
+                                 ? num_poses_per_model_.at(model_id)
+                                 : 0;
+      if (n_poses > 0)
+        adapter_ptr->GetPoseNodes(
+            solver, pose_data_per_model_.at(model_id).data(), n_poses);
+    }
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       ModelData& md = model_data_per_model_.at(model_id);
@@ -478,6 +529,44 @@ class CasparBundleAdjuster : public BundleAdjuster {
             solver, md.focal_and_extra_data.data(), n_calib);
         adapter_ptr->GetPrincipalPointNodes(
             solver, md.principal_point_data.data(), n_calib);
+
+        // If merged variants were active, split the merged Calib node back into
+        // focal_and_extra_data and principal_point_data (overwrites the stale
+        // split-pool values read above).
+        const bool has_merged =
+            md.variants[static_cast<int>(FactorVariant::BASE)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POSE)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POINT)].num_factors > 0 ||
+            md.variants[static_cast<int>(FactorVariant::FIXED_POSE_FIXED_POINT)]
+                    .num_factors > 0;
+        if (has_merged) {
+          const size_t fae_size = adapter_ptr->FocalAndExtraSize();
+          const size_t pp_size  = adapter_ptr->PrincipalPointSize();
+          const size_t cal_size = adapter_ptr->CalibSize();
+          std::vector<StorageType> calib_data(n_calib * cal_size);
+          adapter_ptr->GetCalibNodes(solver, calib_data.data(), n_calib);
+          if (n_calib > 0) {
+            VLOG(2) << "  GetCalibNodes [cam 0, model "
+                    << static_cast<int>(model_id) << "]: ["
+                    << calib_data[0] << ", " << calib_data[1] << ", "
+                    << calib_data[2] << ", " << calib_data[3] << "]";
+          }
+          for (size_t i = 0; i < n_calib; ++i) {
+            for (size_t j = 0; j < fae_size; ++j)
+              md.focal_and_extra_data[i * fae_size + j] =
+                  calib_data[i * cal_size + j];
+            for (size_t j = 0; j < pp_size; ++j)
+              md.principal_point_data[i * pp_size + j] =
+                  calib_data[i * cal_size + fae_size + j];
+          }
+          if (n_calib > 0) {
+            VLOG(2) << "  After split-back [cam 0]: fae=["
+                    << md.focal_and_extra_data[0] << ", "
+                    << md.focal_and_extra_data[1] << "] pp=["
+                    << md.principal_point_data[0] << ", "
+                    << md.principal_point_data[1] << "]";
+          }
+        }
       }
     }
   }
@@ -511,17 +600,20 @@ class CasparBundleAdjuster : public BundleAdjuster {
       point.xyz.z() = point_data_[idx * 3 + 2];
     }
 
-    for (const auto& [idx, frame_id] : pose_index_to_frame_) {
-      if (!IsPoseVariable(frame_id)) continue;
-      Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
-      pose.rotation().x() = pose_data_[idx * 7 + 0];
-      pose.rotation().y() = pose_data_[idx * 7 + 1];
-      pose.rotation().z() = pose_data_[idx * 7 + 2];
-      pose.rotation().w() = pose_data_[idx * 7 + 3];
-      pose.translation().x() = pose_data_[idx * 7 + 4];
-      pose.translation().y() = pose_data_[idx * 7 + 5];
-      pose.translation().z() = pose_data_[idx * 7 + 6];
-      pose.rotation().normalize();
+    for (const auto& [model_id, idx_to_frame] : pose_index_to_frame_per_model_) {
+      const auto& data = pose_data_per_model_.at(model_id);
+      for (const auto& [idx, frame_id] : idx_to_frame) {
+        if (!IsPoseVariable(frame_id)) continue;
+        Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
+        pose.rotation().x() = data[idx * 7 + 0];
+        pose.rotation().y() = data[idx * 7 + 1];
+        pose.rotation().z() = data[idx * 7 + 2];
+        pose.rotation().w() = data[idx * 7 + 3];
+        pose.translation().x() = data[idx * 7 + 4];
+        pose.translation().y() = data[idx * 7 + 5];
+        pose.translation().z() = data[idx * 7 + 6];
+        pose.rotation().normalize();
+      }
     }
 
     WriteCalibsToReconstruction();
@@ -539,8 +631,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   CasparSolverSizing BuildSizing() const {
     CasparSolverSizing sz;
-    sz.num_poses = num_poses_;
     sz.num_points = num_points_;
+    if (auto it = num_poses_per_model_.find(CameraModelId::kSimpleRadial);
+        it != num_poses_per_model_.end())
+      sz.num_simple_radial_poses = it->second;
+    if (auto it = num_poses_per_model_.find(CameraModelId::kPinhole);
+        it != num_poses_per_model_.end())
+      sz.num_pinhole_poses = it->second;
 
     auto get_md = [&](CameraModelId id) -> const ModelData* {
       auto it = model_data_per_model_.find(id);
@@ -564,8 +661,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return sz;
   }
 
+  size_t TotalPoses() const {
+    size_t n = 0;
+    for (const auto& [_, count] : num_poses_per_model_) n += count;
+    return n;
+  }
+
   bool ValidateData() const {
-    if (num_points_ == 0 && num_poses_ == 0) {
+    if (num_points_ == 0 && TotalPoses() == 0) {
       LOG(WARNING) << "No data to optimize";
       return false;
     }
@@ -614,15 +717,21 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   Reconstruction& reconstruction_;
   size_t num_points_ = 0;
-  size_t num_poses_ = 0;
   std::vector<StorageType> point_data_;
-  std::vector<StorageType> pose_data_;
+
+  // Pose pools are per-model so that SimpleRadial and Pinhole factors are
+  // never batched into the same Caspar block (reducing shared memory use).
+  std::unordered_map<CameraModelId, size_t> num_poses_per_model_;
+  std::unordered_map<CameraModelId, std::vector<StorageType>> pose_data_per_model_;
+  std::unordered_map<CameraModelId, std::unordered_map<frame_t, size_t>>
+      frame_to_pose_index_per_model_;
+  std::unordered_map<CameraModelId, std::unordered_map<size_t, frame_t>>
+      pose_index_to_frame_per_model_;
 
   std::unordered_map<point3D_t, size_t> point_id_to_index_;
   std::unordered_map<size_t, point3D_t> index_to_point_id_;
-  std::unordered_map<frame_t, size_t> frame_to_pose_index_;
-  std::unordered_map<size_t, frame_t> pose_index_to_frame_;
 
+  std::unordered_set<frame_t> frames_from_outside_config_;
   std::unordered_set<camera_t> cameras_from_outside_config_;
   std::unordered_map<std::pair<camera_t, frame_t>,
                      std::vector<image_t>,

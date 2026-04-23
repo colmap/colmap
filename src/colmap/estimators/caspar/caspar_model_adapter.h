@@ -13,20 +13,24 @@
 namespace colmap {
 
 struct CasparSolverSizing {
-  size_t num_poses = 0;
+  // Pose pools are per-model to prevent cross-model factor batching.
+  size_t num_simple_radial_poses = 0;
+  size_t num_pinhole_poses = 0;
   size_t num_points = 0;
 
-  // SimpleRadial — num_calibs counts both focal_and_extra and principal_point
-  // nodes (1:1).  All 15 non-fully-fixed variants are dispatched.
+  // SimpleRadial — num_calibs is shared by the merged Calib pool and the split
+  // FocalAndExtra / PrincipalPoint pools (all sized 1:1 with cameras).
+  // Merged variants (both intrinsic groups tunable): 4 counts below.
+  // Split variants (at least one group fixed): 11 counts below.
   size_t num_simple_radial_calibs = 0;
-  size_t num_simple_radial = 0;
-  size_t num_simple_radial_fixed_pose = 0;
+  size_t num_simple_radial_merged = 0;
+  size_t num_simple_radial_merged_fixed_pose = 0;
+  size_t num_simple_radial_merged_fixed_point = 0;
+  size_t num_simple_radial_merged_fixed_pose_fixed_point = 0;
   size_t num_simple_radial_fixed_focal_and_extra = 0;
   size_t num_simple_radial_fixed_principal_point = 0;
-  size_t num_simple_radial_fixed_point = 0;
   size_t num_simple_radial_fixed_pose_fixed_focal_and_extra = 0;
   size_t num_simple_radial_fixed_pose_fixed_principal_point = 0;
-  size_t num_simple_radial_fixed_pose_fixed_point = 0;
   size_t num_simple_radial_fixed_focal_and_extra_fixed_principal_point = 0;
   size_t num_simple_radial_fixed_focal_and_extra_fixed_point = 0;
   size_t num_simple_radial_fixed_principal_point_fixed_point = 0;
@@ -37,14 +41,14 @@ struct CasparSolverSizing {
 
   // Pinhole — same layout as SimpleRadial above.
   size_t num_pinhole_calibs = 0;
-  size_t num_pinhole = 0;
-  size_t num_pinhole_fixed_pose = 0;
+  size_t num_pinhole_merged = 0;
+  size_t num_pinhole_merged_fixed_pose = 0;
+  size_t num_pinhole_merged_fixed_point = 0;
+  size_t num_pinhole_merged_fixed_pose_fixed_point = 0;
   size_t num_pinhole_fixed_focal_and_extra = 0;
   size_t num_pinhole_fixed_principal_point = 0;
-  size_t num_pinhole_fixed_point = 0;
   size_t num_pinhole_fixed_pose_fixed_focal_and_extra = 0;
   size_t num_pinhole_fixed_pose_fixed_principal_point = 0;
-  size_t num_pinhole_fixed_pose_fixed_point = 0;
   size_t num_pinhole_fixed_focal_and_extra_fixed_principal_point = 0;
   size_t num_pinhole_fixed_focal_and_extra_fixed_point = 0;
   size_t num_pinhole_fixed_principal_point_fixed_point = 0;
@@ -66,6 +70,16 @@ class ICasparModelAdapter {
   // per camera.
   virtual size_t FocalAndExtraSize() const = 0;
   virtual size_t PrincipalPointSize() const = 0;
+  // Number of floats in the merged Calib node per camera
+  // (= FocalAndExtraSize() + PrincipalPointSize()).
+  virtual size_t CalibSize() const = 0;
+
+  virtual void SetCalibNodes(caspar::GraphSolver& solver,
+                             StorageType* data,
+                             size_t n) const = 0;
+  virtual void GetCalibNodes(caspar::GraphSolver& solver,
+                             StorageType* data,
+                             size_t n) const = 0;
 
   virtual void FillSizing(CasparSolverSizing& sz,
                           const ModelData& md,
@@ -86,6 +100,13 @@ class ICasparModelAdapter {
   virtual void WritePrincipalPoint(Camera& camera,
                                    const StorageType* principal_point_data,
                                    size_t idx) const = 0;
+
+  virtual void SetPoseNodes(caspar::GraphSolver& solver,
+                            StorageType* data,
+                            size_t n) const = 0;
+  virtual void GetPoseNodes(caspar::GraphSolver& solver,
+                            StorageType* data,
+                            size_t n) const = 0;
 
   virtual void SetFocalAndExtraNodes(caspar::GraphSolver& solver,
                                      StorageType* data,
@@ -115,8 +136,10 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   // SimpleRadial: params = [f, cx, cy, k]
   // focal_and_extra = [f, k]  (non-contiguous in params array)
   // principal_point = [cx, cy]
+  // merged calib    = [f, k, cx, cy]
   size_t FocalAndExtraSize() const override { return 2; }
   size_t PrincipalPointSize() const override { return 2; }
+  size_t CalibSize() const override { return FocalAndExtraSize() + PrincipalPointSize(); }
 
   void FillSizing(CasparSolverSizing& sz,
                   const ModelData& md,
@@ -125,22 +148,24 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
     for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
       const size_t n = md.variants[v].num_factors;
       switch (static_cast<FactorVariant>(v)) {
+        // Merged variants: both focal_and_extra and principal_point are tunable.
         case FactorVariant::BASE:
-          sz.num_simple_radial = n; break;
+          sz.num_simple_radial_merged = n; break;
         case FactorVariant::FIXED_POSE:
-          sz.num_simple_radial_fixed_pose = n; break;
+          sz.num_simple_radial_merged_fixed_pose = n; break;
+        case FactorVariant::FIXED_POINT:
+          sz.num_simple_radial_merged_fixed_point = n; break;
+        case FactorVariant::FIXED_POSE_FIXED_POINT:
+          sz.num_simple_radial_merged_fixed_pose_fixed_point = n; break;
+        // Split variants: at least one intrinsic group is fixed.
         case FactorVariant::FIXED_FOCAL_AND_EXTRA:
           sz.num_simple_radial_fixed_focal_and_extra = n; break;
         case FactorVariant::FIXED_PRINCIPAL_POINT:
           sz.num_simple_radial_fixed_principal_point = n; break;
-        case FactorVariant::FIXED_POINT:
-          sz.num_simple_radial_fixed_point = n; break;
         case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
           sz.num_simple_radial_fixed_pose_fixed_focal_and_extra = n; break;
         case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
           sz.num_simple_radial_fixed_pose_fixed_principal_point = n; break;
-        case FactorVariant::FIXED_POSE_FIXED_POINT:
-          sz.num_simple_radial_fixed_pose_fixed_point = n; break;
         case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
           sz.num_simple_radial_fixed_focal_and_extra_fixed_principal_point = n;
           break;
@@ -194,6 +219,18 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         static_cast<double>(data[idx * PrincipalPointSize() + 1]);  // cy
   }
 
+  void SetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.set_SimpleRadialPose_nodes_from_stacked_host(data, 0, n);
+  }
+
+  void GetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.get_SimpleRadialPose_nodes_to_stacked_host(data, 0, n);
+  }
+
   void SetFocalAndExtraNodes(caspar::GraphSolver& s,
                              StorageType* data,
                              size_t n) const override {
@@ -218,33 +255,45 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
     s.get_SimpleRadialPrincipalPoint_nodes_to_stacked_host(data, 0, n);
   }
 
+  void SetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.set_SimpleRadialCalib_nodes_from_stacked_host(data, 0, n);
+  }
+
+  void GetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.get_SimpleRadialCalib_nodes_to_stacked_host(data, 0, n);
+  }
+
   void SetVariantFactors(caspar::GraphSolver& s,
                          FactorVariant variant,
                          const VariantData& d) const override {
     const size_t n = d.num_factors;
     switch (variant) {
+      // Merged variants: calib indices reuse focal_and_extra_indices
+      // (same camera index value — no VariantData changes needed).
       case FactorVariant::BASE:
-        s.set_simple_radial_num(n);
-        s.set_simple_radial_pose_indices_from_host(d.pose_indices.data(), n);
-        s.set_simple_radial_focal_and_extra_indices_from_host(
+        s.set_simple_radial_merged_num(n);
+        s.set_simple_radial_merged_pose_indices_from_host(
+            d.pose_indices.data(), n);
+        s.set_simple_radial_merged_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_simple_radial_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_simple_radial_point_indices_from_host(d.point_indices.data(), n);
-        s.set_simple_radial_pixel_data_from_stacked_host(d.pixels.data(), 0,
-                                                         n);
+        s.set_simple_radial_merged_point_indices_from_host(
+            d.point_indices.data(), n);
+        s.set_simple_radial_merged_pixel_data_from_stacked_host(
+            d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POSE:
-        s.set_simple_radial_fixed_pose_num(n);
-        s.set_simple_radial_fixed_pose_focal_and_extra_indices_from_host(
+        s.set_simple_radial_merged_fixed_pose_num(n);
+        s.set_simple_radial_merged_fixed_pose_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_simple_radial_fixed_pose_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_simple_radial_fixed_pose_point_indices_from_host(
+        s.set_simple_radial_merged_fixed_pose_point_indices_from_host(
             d.point_indices.data(), n);
-        s.set_simple_radial_fixed_pose_pose_data_from_stacked_host(
+        s.set_simple_radial_merged_fixed_pose_pose_data_from_stacked_host(
             d.const_poses.data(), 0, n);
-        s.set_simple_radial_fixed_pose_pixel_data_from_stacked_host(
+        s.set_simple_radial_merged_fixed_pose_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_FOCAL_AND_EXTRA:
@@ -274,16 +323,14 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POINT:
-        s.set_simple_radial_fixed_point_num(n);
-        s.set_simple_radial_fixed_point_pose_indices_from_host(
+        s.set_simple_radial_merged_fixed_point_num(n);
+        s.set_simple_radial_merged_fixed_point_pose_indices_from_host(
             d.pose_indices.data(), n);
-        s.set_simple_radial_fixed_point_focal_and_extra_indices_from_host(
+        s.set_simple_radial_merged_fixed_point_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_simple_radial_fixed_point_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_simple_radial_fixed_point_point_data_from_stacked_host(
+        s.set_simple_radial_merged_fixed_point_point_data_from_stacked_host(
             d.const_points.data(), 0, n);
-        s.set_simple_radial_fixed_point_pixel_data_from_stacked_host(
+        s.set_simple_radial_merged_fixed_point_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
@@ -313,16 +360,14 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POSE_FIXED_POINT:
-        s.set_simple_radial_fixed_pose_fixed_point_num(n);
-        s.set_simple_radial_fixed_pose_fixed_point_focal_and_extra_indices_from_host(
+        s.set_simple_radial_merged_fixed_pose_fixed_point_num(n);
+        s.set_simple_radial_merged_fixed_pose_fixed_point_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_simple_radial_fixed_pose_fixed_point_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_simple_radial_fixed_pose_fixed_point_pose_data_from_stacked_host(
+        s.set_simple_radial_merged_fixed_pose_fixed_point_pose_data_from_stacked_host(
             d.const_poses.data(), 0, n);
-        s.set_simple_radial_fixed_pose_fixed_point_point_data_from_stacked_host(
+        s.set_simple_radial_merged_fixed_pose_fixed_point_point_data_from_stacked_host(
             d.const_points.data(), 0, n);
-        s.set_simple_radial_fixed_pose_fixed_point_pixel_data_from_stacked_host(
+        s.set_simple_radial_merged_fixed_pose_fixed_point_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
@@ -428,8 +473,10 @@ class PinholeAdapter : public ICasparModelAdapter {
   // Pinhole: params = [fx, fy, cx, cy]
   // focal_and_extra = [fx, fy]
   // principal_point = [cx, cy]
+  // merged calib    = [fx, fy, cx, cy]
   size_t FocalAndExtraSize() const override { return 2; }
   size_t PrincipalPointSize() const override { return 2; }
+  size_t CalibSize() const override { return FocalAndExtraSize() + PrincipalPointSize(); }
 
   void FillSizing(CasparSolverSizing& sz,
                   const ModelData& md,
@@ -438,22 +485,24 @@ class PinholeAdapter : public ICasparModelAdapter {
     for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
       const size_t n = md.variants[v].num_factors;
       switch (static_cast<FactorVariant>(v)) {
+        // Merged variants: both focal_and_extra and principal_point are tunable.
         case FactorVariant::BASE:
-          sz.num_pinhole = n; break;
+          sz.num_pinhole_merged = n; break;
         case FactorVariant::FIXED_POSE:
-          sz.num_pinhole_fixed_pose = n; break;
+          sz.num_pinhole_merged_fixed_pose = n; break;
+        case FactorVariant::FIXED_POINT:
+          sz.num_pinhole_merged_fixed_point = n; break;
+        case FactorVariant::FIXED_POSE_FIXED_POINT:
+          sz.num_pinhole_merged_fixed_pose_fixed_point = n; break;
+        // Split variants: at least one intrinsic group is fixed.
         case FactorVariant::FIXED_FOCAL_AND_EXTRA:
           sz.num_pinhole_fixed_focal_and_extra = n; break;
         case FactorVariant::FIXED_PRINCIPAL_POINT:
           sz.num_pinhole_fixed_principal_point = n; break;
-        case FactorVariant::FIXED_POINT:
-          sz.num_pinhole_fixed_point = n; break;
         case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
           sz.num_pinhole_fixed_pose_fixed_focal_and_extra = n; break;
         case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
           sz.num_pinhole_fixed_pose_fixed_principal_point = n; break;
-        case FactorVariant::FIXED_POSE_FIXED_POINT:
-          sz.num_pinhole_fixed_pose_fixed_point = n; break;
         case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
           sz.num_pinhole_fixed_focal_and_extra_fixed_principal_point = n; break;
         case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
@@ -504,6 +553,18 @@ class PinholeAdapter : public ICasparModelAdapter {
         static_cast<double>(data[idx * PrincipalPointSize() + 1]);  // cy
   }
 
+  void SetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.set_PinholePose_nodes_from_stacked_host(data, 0, n);
+  }
+
+  void GetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.get_PinholePose_nodes_to_stacked_host(data, 0, n);
+  }
+
   void SetFocalAndExtraNodes(caspar::GraphSolver& s,
                              StorageType* data,
                              size_t n) const override {
@@ -528,33 +589,44 @@ class PinholeAdapter : public ICasparModelAdapter {
     s.get_PinholePrincipalPoint_nodes_to_stacked_host(data, 0, n);
   }
 
+  void SetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.set_PinholeCalib_nodes_from_stacked_host(data, 0, n);
+  }
+
+  void GetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.get_PinholeCalib_nodes_to_stacked_host(data, 0, n);
+  }
+
   void SetVariantFactors(caspar::GraphSolver& s,
                          FactorVariant variant,
                          const VariantData& d) const override {
     const size_t n = d.num_factors;
     switch (variant) {
+      // Merged variants: calib indices reuse focal_and_extra_indices
+      // (same camera index value — no VariantData changes needed).
       case FactorVariant::BASE:
-        s.set_pinhole_num(n);
-        s.set_pinhole_pose_indices_from_host(d.pose_indices.data(), n);
-        s.set_pinhole_focal_and_extra_indices_from_host(
+        s.set_pinhole_merged_num(n);
+        s.set_pinhole_merged_pose_indices_from_host(d.pose_indices.data(), n);
+        s.set_pinhole_merged_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_pinhole_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_pinhole_point_indices_from_host(d.point_indices.data(), n);
-        s.set_pinhole_pixel_data_from_stacked_host(d.pixels.data(), 0, n);
+        s.set_pinhole_merged_point_indices_from_host(d.point_indices.data(), n);
+        s.set_pinhole_merged_pixel_data_from_stacked_host(d.pixels.data(), 0,
+                                                          n);
         break;
       case FactorVariant::FIXED_POSE:
-        s.set_pinhole_fixed_pose_num(n);
-        s.set_pinhole_fixed_pose_focal_and_extra_indices_from_host(
+        s.set_pinhole_merged_fixed_pose_num(n);
+        s.set_pinhole_merged_fixed_pose_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_pinhole_fixed_pose_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_pinhole_fixed_pose_point_indices_from_host(
+        s.set_pinhole_merged_fixed_pose_point_indices_from_host(
             d.point_indices.data(), n);
-        s.set_pinhole_fixed_pose_pose_data_from_stacked_host(
+        s.set_pinhole_merged_fixed_pose_pose_data_from_stacked_host(
             d.const_poses.data(), 0, n);
-        s.set_pinhole_fixed_pose_pixel_data_from_stacked_host(d.pixels.data(),
-                                                              0, n);
+        s.set_pinhole_merged_fixed_pose_pixel_data_from_stacked_host(
+            d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_FOCAL_AND_EXTRA:
         s.set_pinhole_fixed_focal_and_extra_num(n);
@@ -583,17 +655,15 @@ class PinholeAdapter : public ICasparModelAdapter {
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POINT:
-        s.set_pinhole_fixed_point_num(n);
-        s.set_pinhole_fixed_point_pose_indices_from_host(
+        s.set_pinhole_merged_fixed_point_num(n);
+        s.set_pinhole_merged_fixed_point_pose_indices_from_host(
             d.pose_indices.data(), n);
-        s.set_pinhole_fixed_point_focal_and_extra_indices_from_host(
+        s.set_pinhole_merged_fixed_point_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_pinhole_fixed_point_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_pinhole_fixed_point_point_data_from_stacked_host(
+        s.set_pinhole_merged_fixed_point_point_data_from_stacked_host(
             d.const_points.data(), 0, n);
-        s.set_pinhole_fixed_point_pixel_data_from_stacked_host(d.pixels.data(),
-                                                               0, n);
+        s.set_pinhole_merged_fixed_point_pixel_data_from_stacked_host(
+            d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
         s.set_pinhole_fixed_pose_fixed_focal_and_extra_num(n);
@@ -622,16 +692,14 @@ class PinholeAdapter : public ICasparModelAdapter {
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POSE_FIXED_POINT:
-        s.set_pinhole_fixed_pose_fixed_point_num(n);
-        s.set_pinhole_fixed_pose_fixed_point_focal_and_extra_indices_from_host(
+        s.set_pinhole_merged_fixed_pose_fixed_point_num(n);
+        s.set_pinhole_merged_fixed_pose_fixed_point_calib_indices_from_host(
             d.focal_and_extra_indices.data(), n);
-        s.set_pinhole_fixed_pose_fixed_point_principal_point_indices_from_host(
-            d.principal_point_indices.data(), n);
-        s.set_pinhole_fixed_pose_fixed_point_pose_data_from_stacked_host(
+        s.set_pinhole_merged_fixed_pose_fixed_point_pose_data_from_stacked_host(
             d.const_poses.data(), 0, n);
-        s.set_pinhole_fixed_pose_fixed_point_point_data_from_stacked_host(
+        s.set_pinhole_merged_fixed_pose_fixed_point_point_data_from_stacked_host(
             d.const_points.data(), 0, n);
-        s.set_pinhole_fixed_pose_fixed_point_pixel_data_from_stacked_host(
+        s.set_pinhole_merged_fixed_pose_fixed_point_pixel_data_from_stacked_host(
             d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
@@ -747,50 +815,58 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
 // WARNING: This call is very tedious and bug-prone, and will change in a
 // newer release of Caspar. Argument order:
 //   1. Node type counts — alphabetical by type name
-//   2. Factor counts — in definition order from caspar_generate.py (simple_radial
-//      variants first, then pinhole; within each model, subset order r=0..3)
+//   2. Factor counts — in registration order from caspar_generate.py:
+//        simple_radial_merged (4) → pinhole_merged (4) →
+//        simple_radial split (11) → pinhole split (11)
 inline caspar::GraphSolver CreateSolver(
     const caspar::SolverParams<StorageType>& params,
     const CasparSolverSizing& sz) {
   return caspar::GraphSolver(
       params,
       // Node type counts (alphabetical):
-      //   PinholeFocalAndExtra, PinholePrincipalPoint, Point, Pose,
-      //   SimpleRadialFocalAndExtra, SimpleRadialPrincipalPoint
-      sz.num_pinhole_calibs,          // PinholeFocalAndExtra
-      sz.num_pinhole_calibs,          // PinholePrincipalPoint
+      //   PinholeCalib, PinholeFocalAndExtra, PinholePose,
+      //   PinholePrincipalPoint, Point,
+      //   SimpleRadialCalib, SimpleRadialFocalAndExtra,
+      //   SimpleRadialPose, SimpleRadialPrincipalPoint
+      sz.num_pinhole_calibs,          // PinholeCalib        (merged pool)
+      sz.num_pinhole_calibs,          // PinholeFocalAndExtra (split pool)
+      sz.num_pinhole_poses,           // PinholePose
+      sz.num_pinhole_calibs,          // PinholePrincipalPoint (split pool)
       sz.num_points,                  // Point
-      sz.num_poses,                   // Pose
-      sz.num_simple_radial_calibs,    // SimpleRadialFocalAndExtra
-      sz.num_simple_radial_calibs,    // SimpleRadialPrincipalPoint
-      // simple_radial factor counts (r=0..3 subset order):
-      sz.num_simple_radial,                                              // r=0
-      sz.num_simple_radial_fixed_pose,                                   // r=1 {pose}
-      sz.num_simple_radial_fixed_focal_and_extra,                        // r=1 {focal_and_extra}
-      sz.num_simple_radial_fixed_principal_point,                        // r=1 {principal_point}
-      sz.num_simple_radial_fixed_point,                                  // r=1 {point}
-      sz.num_simple_radial_fixed_pose_fixed_focal_and_extra,             // r=2 {pose,focal_and_extra}
-      sz.num_simple_radial_fixed_pose_fixed_principal_point,             // r=2 {pose,principal_point}
-      sz.num_simple_radial_fixed_pose_fixed_point,                       // r=2 {pose,point}
-      sz.num_simple_radial_fixed_focal_and_extra_fixed_principal_point,  // r=2 {focal_and_extra,principal_point}
-      sz.num_simple_radial_fixed_focal_and_extra_fixed_point,            // r=2 {focal_and_extra,point}
-      sz.num_simple_radial_fixed_principal_point_fixed_point,            // r=2 {principal_point,point}
+      sz.num_simple_radial_calibs,    // SimpleRadialCalib        (merged pool)
+      sz.num_simple_radial_calibs,    // SimpleRadialFocalAndExtra (split pool)
+      sz.num_simple_radial_poses,     // SimpleRadialPose
+      sz.num_simple_radial_calibs,    // SimpleRadialPrincipalPoint (split pool)
+      // simple_radial_merged factor counts (r=0..2 over {pose, point}):
+      sz.num_simple_radial_merged,                          // {}
+      sz.num_simple_radial_merged_fixed_pose,               // {pose}
+      sz.num_simple_radial_merged_fixed_point,              // {point}
+      sz.num_simple_radial_merged_fixed_pose_fixed_point,   // {pose, point}
+      // pinhole_merged factor counts (same order):
+      sz.num_pinhole_merged,                                // {}
+      sz.num_pinhole_merged_fixed_pose,                     // {pose}
+      sz.num_pinhole_merged_fixed_point,                    // {point}
+      sz.num_pinhole_merged_fixed_pose_fixed_point,         // {pose, point}
+      // simple_radial split factor counts (11 variants, must_fix_one_of):
+      sz.num_simple_radial_fixed_focal_and_extra,                               // r=1 {fae}
+      sz.num_simple_radial_fixed_principal_point,                               // r=1 {pp}
+      sz.num_simple_radial_fixed_pose_fixed_focal_and_extra,                    // r=2 {pose,fae}
+      sz.num_simple_radial_fixed_pose_fixed_principal_point,                    // r=2 {pose,pp}
+      sz.num_simple_radial_fixed_focal_and_extra_fixed_principal_point,         // r=2 {fae,pp}
+      sz.num_simple_radial_fixed_focal_and_extra_fixed_point,                   // r=2 {fae,pt}
+      sz.num_simple_radial_fixed_principal_point_fixed_point,                   // r=2 {pp,pt}
       sz.num_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point,  // r=3
       sz.num_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point,            // r=3
       sz.num_simple_radial_fixed_pose_fixed_principal_point_fixed_point,            // r=3
       sz.num_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point, // r=3
-      // pinhole factor counts (same subset order):
-      sz.num_pinhole,                                              // r=0
-      sz.num_pinhole_fixed_pose,                                   // r=1 {pose}
-      sz.num_pinhole_fixed_focal_and_extra,                        // r=1 {focal_and_extra}
-      sz.num_pinhole_fixed_principal_point,                        // r=1 {principal_point}
-      sz.num_pinhole_fixed_point,                                  // r=1 {point}
-      sz.num_pinhole_fixed_pose_fixed_focal_and_extra,             // r=2 {pose,focal_and_extra}
-      sz.num_pinhole_fixed_pose_fixed_principal_point,             // r=2 {pose,principal_point}
-      sz.num_pinhole_fixed_pose_fixed_point,                       // r=2 {pose,point}
-      sz.num_pinhole_fixed_focal_and_extra_fixed_principal_point,  // r=2 {focal_and_extra,principal_point}
-      sz.num_pinhole_fixed_focal_and_extra_fixed_point,            // r=2 {focal_and_extra,point}
-      sz.num_pinhole_fixed_principal_point_fixed_point,            // r=2 {principal_point,point}
+      // pinhole split factor counts (same 11-variant order):
+      sz.num_pinhole_fixed_focal_and_extra,                               // r=1 {fae}
+      sz.num_pinhole_fixed_principal_point,                               // r=1 {pp}
+      sz.num_pinhole_fixed_pose_fixed_focal_and_extra,                    // r=2 {pose,fae}
+      sz.num_pinhole_fixed_pose_fixed_principal_point,                    // r=2 {pose,pp}
+      sz.num_pinhole_fixed_focal_and_extra_fixed_principal_point,         // r=2 {fae,pp}
+      sz.num_pinhole_fixed_focal_and_extra_fixed_point,                   // r=2 {fae,pt}
+      sz.num_pinhole_fixed_principal_point_fixed_point,                   // r=2 {pp,pt}
       sz.num_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point,  // r=3
       sz.num_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point,            // r=3
       sz.num_pinhole_fixed_pose_fixed_principal_point_fixed_point,            // r=3
