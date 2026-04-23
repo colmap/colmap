@@ -245,6 +245,14 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--gpu_index",
+        type=str,
+        default="-1",
+        help="GPU indices to use for reconstruction. "
+        "Use '-1' to auto-detect and use all available GPUs. "
+        "Use comma-separated indices like '0,1,2' to specify exact GPUs.",
+    )
+    parser.add_argument(
         "--feature",
         default="sift",
         choices=["sift", "aliked"],
@@ -385,6 +393,7 @@ def colmap_reconstruction(
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
     colmap_extra_args: list | None = None,
     num_threads: int = 1,
+    gpu_index: str = "-1",
 ) -> None:
     workspace_path.mkdir(parents=True, exist_ok=True)
 
@@ -426,6 +435,8 @@ def colmap_reconstruction(
         workspace_path,
         "--use_gpu",
         "1" if args.use_gpu else "0",
+        "--gpu_index",
+        gpu_index,
         "--num_threads",
         str(num_threads),
         "--feature",
@@ -544,6 +555,7 @@ def process_scene(
     prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
     num_threads: int,
+    gpu_index: str = "-1",
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -569,6 +581,7 @@ def process_scene(
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
+        gpu_index=gpu_index,
     )
 
     # Merge all sub-models into a single reconstruction. Each sub-model will be
@@ -643,6 +656,34 @@ def process_scene(
     )
 
 
+def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
+    if args.gpu_index == "-1":
+        num_devices = pycolmap.get_num_cuda_devices()
+        if num_devices <= 0:
+            return [-1]
+        return list(range(num_devices))
+    indices = [int(idx) for idx in args.gpu_index.split(",") if idx.strip()]
+    return indices if indices else [-1]
+
+
+def _process_scene_with_gpu(
+    scene_info_and_gpu: tuple[SceneInfo, str],
+    args: argparse.Namespace,
+    prepare_scene: Callable[[SceneInfo], None],
+    position_accuracy_gt: float,
+    num_threads: int,
+) -> SceneResult:
+    scene_info, gpu_index = scene_info_and_gpu
+    return process_scene(
+        args=args,
+        scene_info=scene_info,
+        prepare_scene=prepare_scene,
+        position_accuracy_gt=position_accuracy_gt,
+        num_threads=num_threads,
+        gpu_index=gpu_index,
+    )
+
+
 def process_scenes(
     args: argparse.Namespace,
     scene_infos: list[SceneInfo],
@@ -650,6 +691,12 @@ def process_scenes(
     position_accuracy_gt: float,
 ) -> MetricsByCatByScene:
     error_thresholds = get_error_thresholds(args)
+
+    gpu_index = _parse_gpu_index(args)
+    scene_gpu_pairs = [
+        (scene_info, str(gpu_index[i % len(gpu_index)]))
+        for i, scene_info in enumerate(scene_infos)
+    ]
 
     num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
     num_threads_per_scene = max(2, args.num_threads // num_parallel_scenes)
@@ -660,13 +707,13 @@ def process_scenes(
             results = list(
                 p.imap_unordered(
                     functools.partial(
-                        process_scene,
-                        args,
+                        _process_scene_with_gpu,
+                        args=args,
                         prepare_scene=prepare_scene,
                         position_accuracy_gt=position_accuracy_gt,
                         num_threads=num_threads_per_scene,
                     ),
-                    scene_infos,
+                    scene_gpu_pairs,
                     chunksize=1,
                 )
             )
