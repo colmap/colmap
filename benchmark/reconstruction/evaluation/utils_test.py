@@ -28,6 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -36,6 +37,7 @@ import pycolmap
 
 from .utils import (
     Metrics,
+    SceneInfo,
     _parse_gpu_index,
     compute_abs_errors,
     compute_auc,
@@ -43,8 +45,85 @@ from .utils import (
     compute_recall,
     compute_rel_errors,
     diff_metrics,
+    filter_smallest_scenes_per_category,
     get_scores,
 )
+
+
+def _make_scene_info(category: str, scene: str, num_images: int) -> SceneInfo:
+    return SceneInfo(
+        dataset="dummy",
+        category=category,
+        scene=scene,
+        num_images=num_images,
+        workspace_path=Path("/tmp/workspace"),
+        image_path=Path("/tmp/images"),
+        sparse_gt_path=Path("/tmp/sparse_gt"),
+        has_camera_priors=False,
+        colmap_extra_args=[],
+    )
+
+
+class TestFilterSmallestScenesPerCategory:
+    def test_picks_smallest_per_category(self):
+        scenes = [
+            _make_scene_info("a", "a3", 30),
+            _make_scene_info("a", "a1", 10),
+            _make_scene_info("a", "a2", 20),
+            _make_scene_info("b", "b2", 5),
+            _make_scene_info("b", "b1", 1),
+        ]
+        result = filter_smallest_scenes_per_category(scenes, num_scenes=2)
+        names = [(s.category, s.scene) for s in result]
+        assert names == [("a", "a1"), ("a", "a2"), ("b", "b2"), ("b", "b1")]
+
+    def test_preserves_input_order(self):
+        scenes = [
+            _make_scene_info("a", "a3", 30),
+            _make_scene_info("a", "a1", 10),
+            _make_scene_info("a", "a2", 20),
+        ]
+        result = filter_smallest_scenes_per_category(scenes, num_scenes=2)
+        # Smallest are a1 and a2, but the original order (a3, a1, a2) must
+        # be preserved among the kept scenes.
+        assert [s.scene for s in result] == ["a1", "a2"]
+
+    def test_num_scenes_larger_than_category_size(self):
+        scenes = [
+            _make_scene_info("a", "a1", 10),
+            _make_scene_info("a", "a2", 20),
+            _make_scene_info("b", "b1", 5),
+        ]
+        result = filter_smallest_scenes_per_category(scenes, num_scenes=10)
+        # All scenes are kept since each category has fewer than num_scenes.
+        assert [s.scene for s in result] == ["a1", "a2", "b1"]
+
+    def test_num_scenes_one(self):
+        scenes = [
+            _make_scene_info("a", "a1", 10),
+            _make_scene_info("a", "a2", 5),
+            _make_scene_info("b", "b1", 100),
+            _make_scene_info("b", "b2", 50),
+        ]
+        result = filter_smallest_scenes_per_category(scenes, num_scenes=1)
+        assert sorted((s.category, s.scene) for s in result) == [
+            ("a", "a2"),
+            ("b", "b2"),
+        ]
+
+    def test_empty_input(self):
+        assert filter_smallest_scenes_per_category([], num_scenes=3) == []
+
+    def test_ties_broken_stably(self):
+        # When several scenes share the same num_images, sorting must be
+        # stable so we keep the ones that appeared first in the input.
+        scenes = [
+            _make_scene_info("a", "a1", 10),
+            _make_scene_info("a", "a2", 10),
+            _make_scene_info("a", "a3", 10),
+        ]
+        result = filter_smallest_scenes_per_category(scenes, num_scenes=2)
+        assert [s.scene for s in result] == ["a1", "a2"]
 
 
 class TestParseGpuIndex:

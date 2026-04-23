@@ -99,6 +99,8 @@ class SceneInfo:
     category: str
     # Scene name.
     scene: str
+    # Number of input images in the scene.
+    num_images: int
     # Path to the workspace directory in the run directory.
     workspace_path: Path
     # Path to the input images.
@@ -182,6 +184,25 @@ class Dataset(ABC):
         pass
 
 
+def filter_smallest_scenes_per_category(
+    scene_infos: list[SceneInfo], num_scenes: int
+) -> list[SceneInfo]:
+    """Keep only the `num_scenes` smallest scenes (by num_images) per category,
+    preserving the original order."""
+    indices_by_category: dict[str, list[int]] = collections.defaultdict(list)
+    for i, scene_info in enumerate(scene_infos):
+        indices_by_category[scene_info.category].append(i)
+
+    keep: set[int] = set()
+    for indices in indices_by_category.values():
+        smallest = sorted(indices, key=lambda i: scene_infos[i].num_images)[
+            :num_scenes
+        ]
+        keep.update(smallest)
+
+    return [scene_infos[i] for i in sorted(keep)]
+
+
 def parse_args() -> argparse.Namespace:
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -205,6 +226,20 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=[],
         help="Scenes to evaluate, if empty all scenes are evaluated.",
+    )
+    parser.add_argument(
+        "--fast",
+        default=False,
+        action="store_true",
+        help="Fast mode: only evaluate the N smallest scenes per category, "
+        "where N is set by --fast_num_scenes.",
+    )
+    parser.add_argument(
+        "--fast_num_scenes",
+        type=int,
+        default=1,
+        help="Number of smallest scenes per category to evaluate in --fast "
+        "mode.",
     )
     parser.add_argument(
         "--run_path", default=Path(__file__).parent.parent / "runs", type=Path
@@ -335,6 +370,8 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    if args.fast and args.fast_num_scenes <= 0:
+        parser.error("--fast_num_scenes must be > 0 when --fast is set")
     if args.num_threads <= 0:
         args.num_threads = multiprocessing.cpu_count()
     if args.num_parallel_scenes <= 0:
