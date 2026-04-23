@@ -31,10 +31,10 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+
 import pycolmap
 
 from .utils import Dataset, SceneInfo
-
 
 _POINTS3D_FILENAME = "points3D.txt"
 
