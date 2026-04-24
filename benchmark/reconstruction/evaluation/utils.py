@@ -652,7 +652,7 @@ def process_scenes(
     error_thresholds = get_error_thresholds(args)
 
     num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
-    num_threads_per_scene = max(2, args.num_threads // num_parallel_scenes)
+    num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
     with multiprocessing.Pool(
         processes=num_parallel_scenes, initializer=_init_pool_worker
     ) as p:
