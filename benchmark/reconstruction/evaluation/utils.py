@@ -229,7 +229,7 @@ def _run_progress_monitor(
     scenes = Progress(
         SpinnerColumn(),
         TextColumn("{task.description}"),
-        TextColumn("[cyan]{task.fields[phase]:>8}[/cyan]"),
+        TextColumn("[cyan]{task.fields[phase]:>14}[/cyan]"),
         TimeElapsedColumn(),
     )
     overall_task = overall.add_task("scenes", total=total)
@@ -789,7 +789,9 @@ def process_scene(
 
 def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
     if args.gpu_index == "-1":
-        num_devices = pycolmap.get_num_cuda_devices()
+        if not pycolmap.has_cuda:
+            return [-1]
+        num_devices = pycolmap.get_num_cuda_devices()  # type: ignore[attr-defined]
         if num_devices <= 0:
             return [-1]
         return list(range(num_devices))
