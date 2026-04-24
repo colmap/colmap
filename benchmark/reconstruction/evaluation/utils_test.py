@@ -39,6 +39,7 @@ from .utils import (
     Metrics,
     SceneInfo,
     _parse_gpu_index,
+    aggregate_scene_metrics,
     compute_abs_errors,
     compute_auc,
     compute_avg_metrics,
@@ -335,6 +336,92 @@ class TestComputeAvgMetrics:
         # Should only average scene1, not __avg__ or __all__
         np.testing.assert_array_equal(aucs, [10.0, 20.0, 30.0])
         np.testing.assert_array_equal(recalls, [15.0, 25.0, 35.0])
+
+
+class TestAggregateSceneMetrics:
+    @staticmethod
+    def _make_metrics(
+        aucs, recalls, errors, num_images=100, num_reg_images=90
+    ):
+        return Metrics(
+            aucs=np.array(aucs, dtype=float),
+            recalls=np.array(recalls, dtype=float),
+            error_thresholds=np.array([0.5, 1.0, 2.0]),
+            error_type="relative_auc",
+            num_images=num_images,
+            num_reg_images=num_reg_images,
+            num_components=1,
+            largest_component=num_reg_images,
+            errors=np.array(errors, dtype=float),
+            position_accuracy_gt=0.01,
+        )
+
+    def test_avg_and_all(self):
+        scene_metrics = [
+            ("scene1", self._make_metrics([10, 20, 30], [15, 25, 35], [0.1, 0.5])),
+            ("scene2", self._make_metrics([20, 30, 40], [25, 35, 45], [0.2, 1.5])),
+        ]
+        summary = aggregate_scene_metrics(
+            scene_metrics,
+            error_thresholds=np.array([0.5, 1.0, 2.0]),
+            error_type="relative_auc",
+        )
+        np.testing.assert_array_equal(
+            summary["__avg__"].aucs, [15.0, 25.0, 35.0]
+        )
+        np.testing.assert_array_equal(
+            summary["__avg__"].recalls, [20.0, 30.0, 40.0]
+        )
+        assert summary["__avg__"].num_images == 100
+        assert summary["__avg__"].num_reg_images == 90
+        np.testing.assert_array_equal(
+            summary["__all__"].errors, [0.1, 0.5, 0.2, 1.5]
+        )
+        # __all__ aggregates totals (not means).
+        assert summary["__all__"].num_images == 200
+        assert summary["__all__"].num_reg_images == 180
+
+    def test_skips_special_entries(self):
+        real = self._make_metrics([10, 20, 30], [15, 25, 35], [0.1])
+        special = self._make_metrics(
+            [99, 99, 99], [99, 99, 99], [9.0], num_images=999
+        )
+        summary = aggregate_scene_metrics(
+            [("scene1", real), ("__avg__", special), ("__all__", special)],
+            error_thresholds=np.array([0.5, 1.0, 2.0]),
+            error_type="relative_auc",
+        )
+        np.testing.assert_array_equal(
+            summary["__avg__"].aucs, real.aucs
+        )
+        np.testing.assert_array_equal(
+            summary["__all__"].errors, [0.1]
+        )
+
+    def test_empty_input(self):
+        assert (
+            aggregate_scene_metrics(
+                [],
+                error_thresholds=np.array([0.5, 1.0, 2.0]),
+                error_type="relative_auc",
+            )
+            == {}
+        )
+
+    def test_no_errors_omits_all(self):
+        # When no scene carries raw errors (e.g. metrics restored without
+        # the errors field), __all__ cannot be reconstructed.
+        scene_metrics = [
+            ("scene1", self._make_metrics([10, 20, 30], [15, 25, 35], [])),
+            ("scene2", self._make_metrics([20, 30, 40], [25, 35, 45], [])),
+        ]
+        summary = aggregate_scene_metrics(
+            scene_metrics,
+            error_thresholds=np.array([0.5, 1.0, 2.0]),
+            error_type="relative_auc",
+        )
+        assert "__all__" not in summary
+        assert "__avg__" in summary
 
 
 class TestGetScores:
