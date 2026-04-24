@@ -142,7 +142,10 @@ class _DatasetIMC(Dataset):
                 sparse_gt_path = scene_path / "sparse_gt"
 
                 num_images = sum(
-                    1 for p in image_path.iterdir() if p.is_file()
+                    1
+                    for p in image_path.iterdir()
+                    if p.is_file()
+                    and p.suffix.lower() in {".jpg", ".jpeg", ".png"}
                 )
 
                 scene_info = SceneInfo(
