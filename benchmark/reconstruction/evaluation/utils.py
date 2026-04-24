@@ -1275,8 +1275,12 @@ def create_result_table(
     header += "    reg   all  num largest"
     text = [header]
 
-    def render_block(header_text: str, scene_metrics: MetricsByScene) -> None:
-        text.append(f"\n{header_text:=^{size_sep}}")
+    def render_block(
+        header_text: str,
+        scene_metrics: MetricsByScene,
+        header_fill: str = "=",
+    ) -> None:
+        text.append(f"\n{header_text:{header_fill}^{size_sep}}")
         any_scene_row = False
         summary_separator_drawn = False
         for scene, metrics in sorted(
@@ -1325,6 +1329,7 @@ def create_result_table(
                     error_thresholds=first_metrics.error_thresholds,
                     error_type=first_metrics.error_type,
                 ),
+                header_fill="#",
             )
         overall_scene_metrics.extend(dataset_scene_metrics)
 
@@ -1336,6 +1341,7 @@ def create_result_table(
                 error_thresholds=first_metrics.error_thresholds,
                 error_type=first_metrics.error_type,
             ),
+            header_fill="#",
         )
 
     return "\n".join(text)
