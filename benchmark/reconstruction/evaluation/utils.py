@@ -911,7 +911,7 @@ def process_scenes(
             position_accuracy_gt=position_accuracy_gt,
         )
 
-    for category in list(metrics.keys()):
+    for category in metrics:
         metrics[category].update(
             aggregate_scene_metrics(
                 metrics[category].items(),
@@ -1296,11 +1296,7 @@ def create_result_table(
             assert len(scores) == len(thresholds)
             row = ""
             is_summary = scene.startswith("__") and scene.endswith("__")
-            if (
-                is_summary
-                and any_scene_row
-                and not summary_separator_drawn
-            ):
+            if is_summary and any_scene_row and not summary_separator_drawn:
                 row += "-" * size_sep + "\n"
                 summary_separator_drawn = True
             if not is_summary:
