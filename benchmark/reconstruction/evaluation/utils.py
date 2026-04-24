@@ -1277,6 +1277,7 @@ def create_result_table(
 
     def render_block(header_text: str, scene_metrics: MetricsByScene) -> None:
         text.append(f"\n{header_text:=^{size_sep}}")
+        any_scene_row = False
         summary_separator_drawn = False
         for scene, metrics in sorted(
             scene_metrics.items(),
@@ -1289,9 +1290,15 @@ def create_result_table(
             assert len(scores) == len(thresholds)
             row = ""
             is_summary = scene.startswith("__") and scene.endswith("__")
-            if is_summary and not summary_separator_drawn:
+            if (
+                is_summary
+                and any_scene_row
+                and not summary_separator_drawn
+            ):
                 row += "-" * size_sep + "\n"
                 summary_separator_drawn = True
+            if not is_summary:
+                any_scene_row = True
             if scene == "__avg__":
                 scene = "average"
             if scene == "__all__":
