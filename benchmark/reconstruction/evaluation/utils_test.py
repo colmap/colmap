@@ -147,11 +147,17 @@ class TestParseGpuIndex:
         assert _parse_gpu_index(self._make_args(",")) == [-1]
 
     def test_auto_detect(self, monkeypatch):
-        monkeypatch.setattr(pycolmap, "get_num_cuda_devices", lambda: 3)
+        monkeypatch.setattr(pycolmap, "has_cuda", True)
+        monkeypatch.setattr(
+            pycolmap, "get_num_cuda_devices", lambda: 3, raising=False
+        )
         assert _parse_gpu_index(self._make_args("-1")) == [0, 1, 2]
 
     def test_auto_detect_no_devices(self, monkeypatch):
-        monkeypatch.setattr(pycolmap, "get_num_cuda_devices", lambda: 0)
+        monkeypatch.setattr(pycolmap, "has_cuda", True)
+        monkeypatch.setattr(
+            pycolmap, "get_num_cuda_devices", lambda: 0, raising=False
+        )
         assert _parse_gpu_index(self._make_args("-1")) == [-1]
 
 
