@@ -232,7 +232,7 @@ def parse_args() -> argparse.Namespace:
         default=-1,
         help=(
             "Total number of threads to use across all parallel scenes. "
-            "Defaults to the number of logical CPU cores (-1)."
+            "Defaults to 2x the number of logical CPU cores (-1)."
         ),
     )
     parser.add_argument(
@@ -328,7 +328,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
     if args.num_threads <= 0:
-        args.num_threads = multiprocessing.cpu_count()
+        args.num_threads = 2 * multiprocessing.cpu_count()
     if args.num_parallel_scenes <= 0:
         args.num_parallel_scenes = max(1, args.num_threads // 4)
     if args.overwrite_database:
