@@ -229,7 +229,7 @@ def _run_progress_monitor(
     scenes = Progress(
         SpinnerColumn(),
         TextColumn("{task.description}"),
-        TextColumn("[cyan]{task.fields[phase]:>8}[/cyan]"),
+        TextColumn("[cyan]{task.fields[phase]:>14}[/cyan]"),
         TimeElapsedColumn(),
     )
     overall_task = overall.add_task("scenes", total=total)
