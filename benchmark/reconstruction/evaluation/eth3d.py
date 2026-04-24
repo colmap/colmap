@@ -69,7 +69,10 @@ class DatasetETH3D(Dataset):
                     colmap_extra_args.extend(["--data_type", "video"])
 
                 num_images = sum(
-                    1 for p in image_path.rglob("*") if p.is_file()
+                    1
+                    for p in image_path.rglob("*")
+                    if p.is_file()
+                    and p.suffix.lower() in {".jpg", ".jpeg", ".png"}
                 )
 
                 scene_info = SceneInfo(

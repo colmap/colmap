@@ -148,11 +148,17 @@ class TestParseGpuIndex:
         assert _parse_gpu_index(self._make_args(",")) == [-1]
 
     def test_auto_detect(self, monkeypatch):
-        monkeypatch.setattr(pycolmap, "get_num_cuda_devices", lambda: 3)
+        monkeypatch.setattr(pycolmap, "has_cuda", True)
+        monkeypatch.setattr(
+            pycolmap, "get_num_cuda_devices", lambda: 3, raising=False
+        )
         assert _parse_gpu_index(self._make_args("-1")) == [0, 1, 2]
 
     def test_auto_detect_no_devices(self, monkeypatch):
-        monkeypatch.setattr(pycolmap, "get_num_cuda_devices", lambda: 0)
+        monkeypatch.setattr(pycolmap, "has_cuda", True)
+        monkeypatch.setattr(
+            pycolmap, "get_num_cuda_devices", lambda: 0, raising=False
+        )
         assert _parse_gpu_index(self._make_args("-1")) == [-1]
 
 
@@ -334,9 +340,7 @@ class TestComputeAvgMetrics:
 
 class TestAggregateSceneMetrics:
     @staticmethod
-    def _make_metrics(
-        aucs, recalls, errors, num_images=100, num_reg_images=90
-    ):
+    def _make_metrics(aucs, recalls, errors, num_images=100, num_reg_images=90):
         return Metrics(
             aucs=np.array(aucs, dtype=float),
             recalls=np.array(recalls, dtype=float),
@@ -352,8 +356,14 @@ class TestAggregateSceneMetrics:
 
     def test_avg_and_all(self):
         scene_metrics = [
-            ("scene1", self._make_metrics([10, 20, 30], [15, 25, 35], [0.1, 0.5])),
-            ("scene2", self._make_metrics([20, 30, 40], [25, 35, 45], [0.2, 1.5])),
+            (
+                "scene1",
+                self._make_metrics([10, 20, 30], [15, 25, 35], [0.1, 0.5]),
+            ),
+            (
+                "scene2",
+                self._make_metrics([20, 30, 40], [25, 35, 45], [0.2, 1.5]),
+            ),
         ]
         summary = aggregate_scene_metrics(
             scene_metrics,
@@ -385,12 +395,8 @@ class TestAggregateSceneMetrics:
             error_thresholds=np.array([0.5, 1.0, 2.0]),
             error_type="relative_auc",
         )
-        np.testing.assert_array_equal(
-            summary["__avg__"].aucs, real.aucs
-        )
-        np.testing.assert_array_equal(
-            summary["__all__"].errors, [0.1]
-        )
+        np.testing.assert_array_equal(summary["__avg__"].aucs, real.aucs)
+        np.testing.assert_array_equal(summary["__all__"].errors, [0.1])
 
     def test_empty_input(self):
         assert (

@@ -238,7 +238,7 @@ def _run_progress_monitor(
     scenes = Progress(
         SpinnerColumn(),
         TextColumn("{task.description}"),
-        TextColumn("[cyan]{task.fields[phase]:>8}[/cyan]"),
+        TextColumn("[cyan]{task.fields[phase]:>14}[/cyan]"),
         TimeElapsedColumn(),
     )
     overall_task = overall.add_task("scenes", total=total)
@@ -798,7 +798,9 @@ def process_scene(
 
 def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
     if args.gpu_index == "-1":
-        num_devices = pycolmap.get_num_cuda_devices()
+        if not pycolmap.has_cuda:
+            return [-1]
+        num_devices = pycolmap.get_num_cuda_devices()  # type: ignore[attr-defined]
         if num_devices <= 0:
             return [-1]
         return list(range(num_devices))
@@ -909,7 +911,7 @@ def process_scenes(
             position_accuracy_gt=position_accuracy_gt,
         )
 
-    for category in list(metrics.keys()):
+    for category in metrics:
         metrics[category].update(
             aggregate_scene_metrics(
                 metrics[category].items(),
@@ -1294,11 +1296,7 @@ def create_result_table(
             assert len(scores) == len(thresholds)
             row = ""
             is_summary = scene.startswith("__") and scene.endswith("__")
-            if (
-                is_summary
-                and any_scene_row
-                and not summary_separator_drawn
-            ):
+            if is_summary and any_scene_row and not summary_separator_drawn:
                 row += "-" * size_sep + "\n"
                 summary_separator_drawn = True
             if not is_summary:
