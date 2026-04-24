@@ -42,7 +42,7 @@ import subprocess
 import sys
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import numpy as np
@@ -147,6 +147,15 @@ class Metrics:
     num_components: int
     # Number of images in the largest component.
     largest_component: int
+    # Raw errors that produced aucs/recalls. Empty for entries (like __avg__)
+    # where no underlying error pool exists. Retained so higher-level summaries
+    # (per-dataset, overall) can recompute pooled __all__ statistics.
+    errors: npt.NDArray[np.floating] = dataclasses.field(
+        default_factory=lambda: np.array([])
+    )
+    # Ground-truth position accuracy (used as min_error when computing AUC).
+    # Carried so cross-dataset aggregations can pick a sensible value.
+    position_accuracy_gt: float = 0.0
 
 
 MetricsByScene = dict[str, Metrics]
@@ -884,18 +893,7 @@ def process_scenes(
             manager.shutdown()
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
-    errors_by_category: dict[str, list] = collections.defaultdict(list)
-    total_num_images = 0
-    total_num_reg_images = 0
-    total_num_components = 0
-    total_largest_components = 0
-    num_scenes = len(results)
     for result in results:
-        errors_by_category[result.scene_info.category].extend(result.errors)
-        total_num_images += result.num_images
-        total_num_reg_images += result.num_reg_images
-        total_num_components += result.num_components
-        total_largest_components += result.largest_component
         metrics[result.scene_info.category][result.scene_info.scene] = Metrics(
             aucs=compute_auc(
                 result.errors,
@@ -909,37 +907,79 @@ def process_scenes(
             num_reg_images=result.num_reg_images,
             num_components=result.num_components,
             largest_component=result.largest_component,
+            errors=np.asarray(result.errors),
+            position_accuracy_gt=position_accuracy_gt,
         )
 
-    for category, errors in errors_by_category.items():
-        errors_array = np.array(errors)
-        metrics[category]["__all__"] = Metrics(
-            aucs=compute_auc(
-                errors_array,
-                error_thresholds,
-                min_error=position_accuracy_gt,
-            ),
-            recalls=compute_recall(errors_array, error_thresholds),
-            error_thresholds=error_thresholds,
-            error_type=args.error_type,
-            num_images=total_num_images,
-            num_reg_images=total_num_reg_images,
-            num_components=total_num_components,
-            largest_component=total_largest_components,
-        )
-        aucs, recalls = compute_avg_metrics(metrics[category])
-        metrics[category]["__avg__"] = Metrics(
-            aucs=aucs,
-            recalls=recalls,
-            error_thresholds=error_thresholds,
-            error_type=args.error_type,
-            num_images=int(round(total_num_images / num_scenes)),
-            num_reg_images=int(round(total_num_reg_images / num_scenes)),
-            num_components=int(round(total_num_components / num_scenes)),
-            largest_component=int(round(total_largest_components / num_scenes)),
+    for category in metrics:
+        metrics[category].update(
+            aggregate_scene_metrics(
+                metrics[category].items(),
+                error_thresholds=error_thresholds,
+                error_type=args.error_type,
+            )
         )
 
     return metrics
+
+
+def aggregate_scene_metrics(
+    scene_metrics: Iterable[tuple[str, Metrics]],
+    error_thresholds: npt.NDArray[np.floating],
+    error_type: str,
+) -> dict[str, Metrics]:
+    """Compute __avg__ (mean of per-scene metrics) and __all__ (recomputed
+    from the pool of raw errors) summary entries from per-scene Metrics.
+
+    Skips entries whose key starts and ends with "__" so this can be applied
+    iteratively at higher levels (category -> dataset -> overall) without
+    double-counting previously-emitted summaries.
+    """
+    real = [
+        m
+        for k, m in scene_metrics
+        if not (k.startswith("__") and k.endswith("__"))
+    ]
+    if not real:
+        return {}
+
+    n = len(real)
+    sum_num_images = sum(m.num_images for m in real)
+    sum_num_reg_images = sum(m.num_reg_images for m in real)
+    sum_num_components = sum(m.num_components for m in real)
+    sum_largest_component = sum(m.largest_component for m in real)
+    min_pos_acc = min(m.position_accuracy_gt for m in real)
+    pooled_errors = np.concatenate([m.errors for m in real])
+
+    summary = {
+        "__avg__": Metrics(
+            aucs=np.mean([m.aucs for m in real], axis=0),
+            recalls=np.mean([m.recalls for m in real], axis=0),
+            error_thresholds=error_thresholds,
+            error_type=error_type,
+            num_images=int(round(sum_num_images / n)),
+            num_reg_images=int(round(sum_num_reg_images / n)),
+            num_components=int(round(sum_num_components / n)),
+            largest_component=int(round(sum_largest_component / n)),
+            position_accuracy_gt=min_pos_acc,
+        ),
+    }
+    if pooled_errors.size:
+        summary["__all__"] = Metrics(
+            aucs=compute_auc(
+                pooled_errors, error_thresholds, min_error=min_pos_acc
+            ),
+            recalls=compute_recall(pooled_errors, error_thresholds),
+            error_thresholds=error_thresholds,
+            error_type=error_type,
+            num_images=sum_num_images,
+            num_reg_images=sum_num_reg_images,
+            num_components=sum_num_components,
+            largest_component=sum_largest_component,
+            errors=pooled_errors,
+            position_accuracy_gt=min_pos_acc,
+        )
+    return summary
 
 
 def get_error_thresholds(args: argparse.Namespace) -> npt.NDArray[np.floating]:
@@ -1236,30 +1276,70 @@ def create_result_table(
     header += " ".join(f"{str(t).rstrip('.'):^6}" for t in thresholds)
     header += "    reg   all  num largest"
     text = [header]
+
+    def render_block(
+        header_text: str,
+        scene_metrics: MetricsByScene,
+        header_fill: str = "=",
+    ) -> None:
+        text.append(f"\n{header_text:{header_fill}^{size_sep}}")
+        any_scene_row = False
+        summary_separator_drawn = False
+        for scene, metrics in sorted(
+            scene_metrics.items(),
+            key=lambda x: (
+                x[0].startswith("__"),
+                x[0],
+            ),
+        ):
+            scores = get_scores(first_metrics.error_type, metrics)
+            assert len(scores) == len(thresholds)
+            row = ""
+            is_summary = scene.startswith("__") and scene.endswith("__")
+            if is_summary and any_scene_row and not summary_separator_drawn:
+                row += "-" * size_sep + "\n"
+                summary_separator_drawn = True
+            if not is_summary:
+                any_scene_row = True
+            if scene == "__avg__":
+                scene = "average"
+            if scene == "__all__":
+                scene = "overall"
+            row += f"{scene:<{size_scenes}} "
+            row += " ".join(f"{score:>6.2f}" for score in scores)
+            row += f" {metrics.num_reg_images:6d}"
+            row += f"{metrics.num_images:6d}"
+            row += f" {metrics.num_components:4d}"
+            row += f"{metrics.largest_component:8d}"
+            text.append(row)
+
+    overall_scene_metrics: list[tuple[str, Metrics]] = []
     for dataset, category_metrics in dataset_metrics.items():
+        dataset_scene_metrics: list[tuple[str, Metrics]] = []
         for category, scene_metrics in category_metrics.items():
-            text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
-            for scene, metrics in sorted(
-                scene_metrics.items(),
-                key=lambda x: (
-                    x[0].startswith("__"),
-                    x[0],
+            render_block(f"{dataset}={category}", scene_metrics)
+            dataset_scene_metrics.extend(scene_metrics.items())
+        if len(category_metrics) > 1:
+            render_block(
+                dataset,
+                aggregate_scene_metrics(
+                    dataset_scene_metrics,
+                    error_thresholds=first_metrics.error_thresholds,
+                    error_type=first_metrics.error_type,
                 ),
-            ):
-                scores = get_scores(first_metrics.error_type, metrics)
-                assert len(scores) == len(thresholds)
-                row = ""
-                if scene == "__avg__":
-                    scene = "average"
-                    row += "-" * size_sep + "\n"
-                if scene == "__all__":
-                    scene = "overall"
-                    row += "-" * size_sep + "\n"
-                row += f"{scene:<{size_scenes}} "
-                row += " ".join(f"{score:>6.2f}" for score in scores)
-                row += f" {metrics.num_reg_images:6d}"
-                row += f"{metrics.num_images:6d}"
-                row += f" {metrics.num_components:4d}"
-                row += f"{metrics.largest_component:8d}"
-                text.append(row)
+                header_fill="#",
+            )
+        overall_scene_metrics.extend(dataset_scene_metrics)
+
+    if len(dataset_metrics) > 1:
+        render_block(
+            "overall",
+            aggregate_scene_metrics(
+                overall_scene_metrics,
+                error_thresholds=first_metrics.error_thresholds,
+                error_type=first_metrics.error_type,
+            ),
+            header_fill="#",
+        )
+
     return "\n".join(text)
