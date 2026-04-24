@@ -30,11 +30,14 @@
 import argparse
 import collections
 import copy
+import ctypes
 import dataclasses
 import datetime
 import functools
 import multiprocessing
+import platform
 import shutil
+import signal
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -47,6 +50,45 @@ import pycolmap
 
 from .covisibility import filter_covisibility  # noqa: F401
 from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
+
+_PR_SET_PDEATHSIG = 1
+_LIBC = (
+    ctypes.CDLL("libc.so.6", use_errno=True)
+    if platform.system() == "Linux"
+    else None
+)
+
+
+def _set_pdeathsig() -> None:
+    """preexec_fn: ensure child process is killed if parent dies."""
+    if _LIBC is not None:
+        _LIBC.prctl(_PR_SET_PDEATHSIG, signal.SIGTERM)
+
+
+def _init_pool_worker() -> None:
+    """Pool initializer: ignore SIGINT in workers so the main process
+    handles KeyboardInterrupt and terminates the pool cleanly."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _run_with_log(
+    cmd: list, log_path: Path, check: bool = True, **kwargs
+) -> int:
+    """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
+
+    Always uses preexec_fn=_set_pdeathsig so children die with their parent.
+    Raises CalledProcessError on non-zero exit when check=True.
+    """
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "wb") as fh:
+        runner = subprocess.check_call if check else subprocess.call
+        return runner(
+            cmd,
+            stdout=fh,
+            stderr=subprocess.STDOUT,
+            preexec_fn=_set_pdeathsig,
+            **kwargs,
+        )
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -185,10 +227,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
     parser.add_argument(
-        "--parallelism",
+        "--num_threads",
         type=int,
-        default=multiprocessing.cpu_count(),
-        help="Number of processes for parallel reconstruction.",
+        default=-1,
+        help=(
+            "Total number of threads to use across all parallel scenes. "
+            "Defaults to 2x the number of logical CPU cores (-1)."
+        ),
+    )
+    parser.add_argument(
+        "--num_parallel_scenes",
+        type=int,
+        default=-1,
+        help=(
+            "Number of scenes to reconstruct in parallel. "
+            "Defaults to max(1, num_threads // 4) (-1)."
+        ),
     )
     parser.add_argument(
         "--feature",
@@ -273,6 +327,10 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    if args.num_threads <= 0:
+        args.num_threads = 2 * multiprocessing.cpu_count()
+    if args.num_parallel_scenes <= 0:
+        args.num_parallel_scenes = max(1, args.num_threads // 4)
     if args.overwrite_database:
         pycolmap.logging.info(
             "Overwriting database also overwrites reconstruction"
@@ -353,6 +411,7 @@ def colmap_reconstruction(
                 "matches",
             ],
             cwd=workspace_path,
+            preexec_fn=_set_pdeathsig,
         )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead
@@ -377,7 +436,7 @@ def colmap_reconstruction(
         args.quality,
     ]
 
-    subprocess.check_call(
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -390,13 +449,14 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "extraction.log",
         cwd=workspace_path,
     )
 
     if camera_priors_sparse_gt is not None:
         set_camera_priors(database_path, camera_priors_sparse_gt)
 
-    subprocess.check_call(
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -409,6 +469,7 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "matching.log",
         cwd=workspace_path,
     )
 
@@ -426,7 +487,7 @@ def colmap_reconstruction(
     # initialize an OpenGL context and Mac on Apple silicon tends to assign GUI
     # applications to the low efficiency cores but we want to use the
     # performance cores.
-    subprocess.check_call(
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -439,6 +500,7 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "reconstruction.log",
         cwd=workspace_path,
     )
 
@@ -458,7 +520,7 @@ def colmap_alignment(
 
     if sparse_path.exists():
         sparse_aligned_path.mkdir(parents=True, exist_ok=True)
-        subprocess.call(
+        _run_with_log(
             [
                 args.colmap_path,
                 "model_aligner",
@@ -470,7 +532,9 @@ def colmap_alignment(
                 sparse_aligned_path,
                 "--alignment_max_error",
                 str(max_ref_model_error),
-            ]
+            ],
+            sparse_aligned_path.parent / "alignment.log",
+            check=False,
         )
 
 
@@ -587,23 +651,32 @@ def process_scenes(
 ) -> MetricsByCatByScene:
     error_thresholds = get_error_thresholds(args)
 
-    num_threads = min(
-        args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
-    )
-    with multiprocessing.Pool(processes=args.parallelism) as p:
-        results = list(
-            p.imap_unordered(
-                functools.partial(
-                    process_scene,
-                    args,
-                    prepare_scene=prepare_scene,
-                    position_accuracy_gt=position_accuracy_gt,
-                    num_threads=num_threads,
-                ),
-                scene_infos,
-                chunksize=1,
+    num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
+    num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
+    with multiprocessing.Pool(
+        processes=num_parallel_scenes, initializer=_init_pool_worker
+    ) as p:
+        try:
+            results = list(
+                p.imap_unordered(
+                    functools.partial(
+                        process_scene,
+                        args,
+                        prepare_scene=prepare_scene,
+                        position_accuracy_gt=position_accuracy_gt,
+                        num_threads=num_threads_per_scene,
+                    ),
+                    scene_infos,
+                    chunksize=1,
+                )
             )
-        )
+        except KeyboardInterrupt:
+            pycolmap.logging.warning(
+                "Interrupted, terminating workers and child processes..."
+            )
+            p.terminate()
+            p.join()
+            raise
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
     errors_by_category: dict[str, list] = collections.defaultdict(list)
