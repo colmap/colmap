@@ -1279,6 +1279,7 @@ def create_result_table(
 
     def render_block(header_text: str, scene_metrics: MetricsByScene) -> None:
         text.append(f"\n{header_text:=^{size_sep}}")
+        summary_separator_drawn = False
         for scene, metrics in sorted(
             scene_metrics.items(),
             key=lambda x: (
@@ -1289,12 +1290,14 @@ def create_result_table(
             scores = get_scores(first_metrics.error_type, metrics)
             assert len(scores) == len(thresholds)
             row = ""
+            is_summary = scene.startswith("__") and scene.endswith("__")
+            if is_summary and not summary_separator_drawn:
+                row += "-" * size_sep + "\n"
+                summary_separator_drawn = True
             if scene == "__avg__":
                 scene = "average"
-                row += "-" * size_sep + "\n"
             if scene == "__all__":
                 scene = "overall"
-                row += "-" * size_sep + "\n"
             row += f"{scene:<{size_scenes}} "
             row += " ".join(f"{score:>6.2f}" for score in scores)
             row += f" {metrics.num_reg_images:6d}"
