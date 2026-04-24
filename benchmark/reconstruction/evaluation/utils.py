@@ -1311,7 +1311,7 @@ def create_result_table(
             dataset_scene_metrics.extend(scene_metrics.items())
         if len(category_metrics) > 1:
             render_block(
-                f"{dataset}=summary",
+                dataset,
                 aggregate_scene_metrics(
                     dataset_scene_metrics,
                     error_thresholds=first_metrics.error_thresholds,
@@ -1322,7 +1322,7 @@ def create_result_table(
 
     if len(dataset_metrics) > 1:
         render_block(
-            "overall=summary",
+            "overall",
             aggregate_scene_metrics(
                 overall_scene_metrics,
                 error_thresholds=first_metrics.error_thresholds,
