@@ -141,10 +141,18 @@ class _DatasetIMC(Dataset):
                 image_path = scene_path / "images"
                 sparse_gt_path = scene_path / "sparse_gt"
 
+                num_images = sum(
+                    1
+                    for p in image_path.iterdir()
+                    if p.is_file()
+                    and p.suffix.lower() in {".jpg", ".jpeg", ".png"}
+                )
+
                 scene_info = SceneInfo(
                     dataset=f"IMC{self.year}",
                     category=category,
                     scene=scene,
+                    num_images=num_images,
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,

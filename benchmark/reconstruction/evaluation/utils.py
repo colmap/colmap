@@ -99,6 +99,8 @@ class SceneInfo:
     category: str
     # Scene name.
     scene: str
+    # Number of input images in the scene.
+    num_images: int
     # Path to the workspace directory in the run directory.
     workspace_path: Path
     # Path to the input images.
@@ -182,6 +184,25 @@ class Dataset(ABC):
         pass
 
 
+def filter_smallest_scenes_per_category(
+    scene_infos: list[SceneInfo], num_scenes: int
+) -> list[SceneInfo]:
+    """Keep only the `num_scenes` smallest scenes (by num_images) per category,
+    preserving the original order."""
+    indices_by_category: dict[str, list[int]] = collections.defaultdict(list)
+    for i, scene_info in enumerate(scene_infos):
+        indices_by_category[scene_info.category].append(i)
+
+    keep: set[int] = set()
+    for indices in indices_by_category.values():
+        smallest = sorted(indices, key=lambda i: scene_infos[i].num_images)[
+            :num_scenes
+        ]
+        keep.update(smallest)
+
+    return [scene_infos[i] for i in sorted(keep)]
+
+
 def parse_args() -> argparse.Namespace:
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -205,6 +226,20 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=[],
         help="Scenes to evaluate, if empty all scenes are evaluated.",
+    )
+    parser.add_argument(
+        "--fast",
+        default=False,
+        action="store_true",
+        help="Fast mode: only evaluate the N smallest scenes per category, "
+        "where N is set by --fast_num_scenes.",
+    )
+    parser.add_argument(
+        "--fast_num_scenes",
+        type=int,
+        default=1,
+        help="Number of smallest scenes per category to evaluate in --fast "
+        "mode.",
     )
     parser.add_argument(
         "--run_path", default=Path(__file__).parent.parent / "runs", type=Path
@@ -243,6 +278,14 @@ def parse_args() -> argparse.Namespace:
             "Number of scenes to reconstruct in parallel. "
             "Defaults to max(1, num_threads // 4) (-1)."
         ),
+    )
+    parser.add_argument(
+        "--gpu_index",
+        type=str,
+        default="-1",
+        help="GPU indices to use for reconstruction. "
+        "Use '-1' to auto-detect and use all available GPUs. "
+        "Use comma-separated indices like '0,1,2' to specify exact GPUs.",
     )
     parser.add_argument(
         "--feature",
@@ -327,6 +370,8 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    if args.fast and args.fast_num_scenes <= 0:
+        parser.error("--fast_num_scenes must be > 0 when --fast is set")
     if args.num_threads <= 0:
         args.num_threads = 2 * multiprocessing.cpu_count()
     if args.num_parallel_scenes <= 0:
@@ -385,6 +430,7 @@ def colmap_reconstruction(
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
     colmap_extra_args: list | None = None,
     num_threads: int = 1,
+    gpu_index: str = "-1",
 ) -> None:
     workspace_path.mkdir(parents=True, exist_ok=True)
 
@@ -426,6 +472,8 @@ def colmap_reconstruction(
         workspace_path,
         "--use_gpu",
         "1" if args.use_gpu else "0",
+        "--gpu_index",
+        gpu_index,
         "--num_threads",
         str(num_threads),
         "--feature",
@@ -544,6 +592,7 @@ def process_scene(
     prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
     num_threads: int,
+    gpu_index: str = "-1",
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -569,6 +618,7 @@ def process_scene(
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
+        gpu_index=gpu_index,
     )
 
     # Merge all sub-models into a single reconstruction. Each sub-model will be
@@ -643,6 +693,36 @@ def process_scene(
     )
 
 
+def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
+    if args.gpu_index == "-1":
+        if not pycolmap.has_cuda:
+            return [-1]
+        num_devices = pycolmap.get_num_cuda_devices()  # type: ignore[attr-defined]
+        if num_devices <= 0:
+            return [-1]
+        return list(range(num_devices))
+    indices = [int(idx) for idx in args.gpu_index.split(",") if idx.strip()]
+    return indices if indices else [-1]
+
+
+def _process_scene_with_gpu(
+    scene_info_and_gpu: tuple[SceneInfo, str],
+    args: argparse.Namespace,
+    prepare_scene: Callable[[SceneInfo], None],
+    position_accuracy_gt: float,
+    num_threads: int,
+) -> SceneResult:
+    scene_info, gpu_index = scene_info_and_gpu
+    return process_scene(
+        args=args,
+        scene_info=scene_info,
+        prepare_scene=prepare_scene,
+        position_accuracy_gt=position_accuracy_gt,
+        num_threads=num_threads,
+        gpu_index=gpu_index,
+    )
+
+
 def process_scenes(
     args: argparse.Namespace,
     scene_infos: list[SceneInfo],
@@ -650,6 +730,12 @@ def process_scenes(
     position_accuracy_gt: float,
 ) -> MetricsByCatByScene:
     error_thresholds = get_error_thresholds(args)
+
+    gpu_index = _parse_gpu_index(args)
+    scene_gpu_pairs = [
+        (scene_info, str(gpu_index[i % len(gpu_index)]))
+        for i, scene_info in enumerate(scene_infos)
+    ]
 
     num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
     num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
@@ -660,13 +746,13 @@ def process_scenes(
             results = list(
                 p.imap_unordered(
                     functools.partial(
-                        process_scene,
-                        args,
+                        _process_scene_with_gpu,
+                        args=args,
                         prepare_scene=prepare_scene,
                         position_accuracy_gt=position_accuracy_gt,
                         num_threads=num_threads_per_scene,
                     ),
-                    scene_infos,
+                    scene_gpu_pairs,
                     chunksize=1,
                 )
             )
