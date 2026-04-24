@@ -3,3 +3,4 @@ numpy
 requests
 pycolmap
 py7zr
+rich
