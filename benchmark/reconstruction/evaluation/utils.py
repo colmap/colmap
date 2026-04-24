@@ -39,6 +39,8 @@ import platform
 import shutil
 import signal
 import subprocess
+import sys
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
@@ -184,6 +186,76 @@ class Dataset(ABC):
         pass
 
 
+class _PhaseTracker:
+    """Worker-side helper that publishes the current phase for a scene to a
+    shared dict. No-op when status_dict is None."""
+
+    def __init__(self, status_dict=None, scene_key: str = "") -> None:
+        self._dict = status_dict
+        self._key = scene_key
+
+    def set(self, phase: str) -> None:
+        if self._dict is not None:
+            self._dict[self._key] = phase
+
+
+def _scene_key(scene_info: SceneInfo) -> str:
+    return f"{scene_info.dataset}/{scene_info.category}/{scene_info.scene}"
+
+
+def _run_progress_monitor(
+    status_dict, total: int, stop_event: threading.Event
+) -> None:
+    """Render a live progress display of in-flight scenes until stop_event is
+    set. Counts entries marked "done" toward overall completion; everything
+    else is shown as an in-progress task with a spinner and elapsed time."""
+    from rich.console import Group
+    from rich.live import Live
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+
+    overall = Progress(
+        TextColumn("[bold]Scenes[/bold]"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+    )
+    scenes = Progress(
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        TextColumn("[cyan]{task.fields[phase]:>8}[/cyan]"),
+        TimeElapsedColumn(),
+    )
+    overall_task = overall.add_task("scenes", total=total)
+    scene_tasks: dict[str, int] = {}
+
+    def refresh() -> None:
+        snapshot = dict(status_dict)
+        done = sum(1 for v in snapshot.values() if v == "finished")
+        overall.update(overall_task, completed=done)
+        in_progress = {k: v for k, v in snapshot.items() if v != "finished"}
+        for key in list(scene_tasks):
+            if key not in in_progress:
+                scenes.remove_task(scene_tasks.pop(key))
+        for key, phase in in_progress.items():
+            if key in scene_tasks:
+                scenes.update(scene_tasks[key], phase=phase)
+            else:
+                scene_tasks[key] = scenes.add_task(key, total=None, phase=phase)
+
+    with Live(Group(overall, scenes), refresh_per_second=4):
+        while not stop_event.is_set():
+            refresh()
+            stop_event.wait(0.5)
+        refresh()
+
+
 def filter_smallest_scenes_per_category(
     scene_infos: list[SceneInfo], num_scenes: int
 ) -> list[SceneInfo]:
@@ -226,6 +298,13 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=[],
         help="Scenes to evaluate, if empty all scenes are evaluated.",
+    )
+    parser.add_argument(
+        "--progress",
+        default=None,
+        action=argparse.BooleanOptionalAction,
+        help="Show a live progress display of in-flight scenes "
+        "(default: enabled when stdout is a TTY).",
     )
     parser.add_argument(
         "--fast",
@@ -372,6 +451,8 @@ def parse_args() -> argparse.Namespace:
     args.colmap_path = Path(args.colmap_path).resolve()
     if args.fast and args.fast_num_scenes <= 0:
         parser.error("--fast_num_scenes must be > 0 when --fast is set")
+    if args.progress is None:
+        args.progress = sys.stdout.isatty()
     if args.num_threads <= 0:
         args.num_threads = 2 * multiprocessing.cpu_count()
     if args.num_parallel_scenes <= 0:
@@ -431,7 +512,9 @@ def colmap_reconstruction(
     colmap_extra_args: list | None = None,
     num_threads: int = 1,
     gpu_index: str = "-1",
+    phase_tracker: _PhaseTracker | None = None,
 ) -> None:
+    phase_tracker = phase_tracker or _PhaseTracker()
     workspace_path.mkdir(parents=True, exist_ok=True)
 
     database_path = workspace_path / "database.db"
@@ -484,6 +567,7 @@ def colmap_reconstruction(
         args.quality,
     ]
 
+    phase_tracker.set("extraction")
     _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
@@ -504,6 +588,7 @@ def colmap_reconstruction(
     if camera_priors_sparse_gt is not None:
         set_camera_priors(database_path, camera_priors_sparse_gt)
 
+    phase_tracker.set("matching")
     _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
@@ -535,6 +620,7 @@ def colmap_reconstruction(
     # initialize an OpenGL context and Mac on Apple silicon tends to assign GUI
     # applications to the low efficiency cores but we want to use the
     # performance cores.
+    phase_tracker.set("reconstruction")
     _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
@@ -593,6 +679,7 @@ def process_scene(
     position_accuracy_gt: float,
     num_threads: int,
     gpu_index: str = "-1",
+    progress_status=None,
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -600,6 +687,9 @@ def process_scene(
         f"scene={scene_info.scene}"
     )
 
+    tracker = _PhaseTracker(progress_status, _scene_key(scene_info))
+
+    tracker.set("setup")
     prepare_scene(scene_info)
 
     sparse_gt = pycolmap.Reconstruction(str(scene_info.sparse_gt_path))
@@ -619,7 +709,10 @@ def process_scene(
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
         gpu_index=gpu_index,
+        phase_tracker=tracker,
     )
+
+    tracker.set("evaluation")
 
     # Merge all sub-models into a single reconstruction. Each sub-model will be
     # "randomly" aligned to the other sub-models. We then compute the overall
@@ -683,6 +776,7 @@ def process_scene(
     else:
         raise ValueError(f"Invalid error type: {args.error_type}")
 
+    tracker.set("finished")
     return SceneResult(
         scene_info=scene_info,
         errors=errors,
@@ -711,6 +805,7 @@ def _process_scene_with_gpu(
     prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
     num_threads: int,
+    progress_status=None,
 ) -> SceneResult:
     scene_info, gpu_index = scene_info_and_gpu
     return process_scene(
@@ -720,6 +815,7 @@ def _process_scene_with_gpu(
         position_accuracy_gt=position_accuracy_gt,
         num_threads=num_threads,
         gpu_index=gpu_index,
+        progress_status=progress_status,
     )
 
 
@@ -739,30 +835,53 @@ def process_scenes(
 
     num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
     num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
-    with multiprocessing.Pool(
-        processes=num_parallel_scenes, initializer=_init_pool_worker
-    ) as p:
-        try:
-            results = list(
-                p.imap_unordered(
-                    functools.partial(
-                        _process_scene_with_gpu,
-                        args=args,
-                        prepare_scene=prepare_scene,
-                        position_accuracy_gt=position_accuracy_gt,
-                        num_threads=num_threads_per_scene,
-                    ),
-                    scene_gpu_pairs,
-                    chunksize=1,
+
+    manager = None
+    progress_status = None
+    monitor_thread = None
+    stop_event = threading.Event()
+    if args.progress:
+        manager = multiprocessing.Manager()
+        progress_status = manager.dict()
+        monitor_thread = threading.Thread(
+            target=_run_progress_monitor,
+            args=(progress_status, len(scene_infos), stop_event),
+            daemon=True,
+        )
+        monitor_thread.start()
+
+    try:
+        with multiprocessing.Pool(
+            processes=num_parallel_scenes, initializer=_init_pool_worker
+        ) as p:
+            try:
+                results = list(
+                    p.imap_unordered(
+                        functools.partial(
+                            _process_scene_with_gpu,
+                            args=args,
+                            prepare_scene=prepare_scene,
+                            position_accuracy_gt=position_accuracy_gt,
+                            num_threads=num_threads_per_scene,
+                            progress_status=progress_status,
+                        ),
+                        scene_gpu_pairs,
+                        chunksize=1,
+                    )
                 )
-            )
-        except KeyboardInterrupt:
-            pycolmap.logging.warning(
-                "Interrupted, terminating workers and child processes..."
-            )
-            p.terminate()
-            p.join()
-            raise
+            except KeyboardInterrupt:
+                pycolmap.logging.warning(
+                    "Interrupted, terminating workers and child processes..."
+                )
+                p.terminate()
+                p.join()
+                raise
+    finally:
+        stop_event.set()
+        if monitor_thread is not None:
+            monitor_thread.join(timeout=2)
+        if manager is not None:
+            manager.shutdown()
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
     errors_by_category: dict[str, list] = collections.defaultdict(list)
