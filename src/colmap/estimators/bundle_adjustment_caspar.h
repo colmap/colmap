@@ -90,6 +90,26 @@ struct ModelData {
 };
 
 namespace colmap {
+
+// Caspar-specific solver options. Field names and defaults mirror
+// caspar::SolverParams; stored as double so they round-trip through COLMAP's
+// OptionManager regardless of the StorageType (float or double) build.
+struct CasparBundleAdjustmentOptions {
+  int solver_iter_max = 100;
+  int pcg_iter_max = 20;
+  double diag_init = 1.0;
+  double diag_min = 1e-12;
+  double diag_scaling_up = 2.0;
+  double diag_scaling_down = 0.333333;
+  double diag_exit_value = 1e3;
+  double score_exit_value = 0.0;
+  double pcg_rel_error_exit = 1e-4;
+  // Negative value disables the corresponding early-exit criterion.
+  double pcg_rel_score_exit = -1.0;
+  double pcg_rel_decrease_min = -1.0;
+  double solver_rel_decrease_min = 1.0;
+};
+
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,

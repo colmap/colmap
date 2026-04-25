@@ -153,6 +153,12 @@ struct BundleAdjustmentBackendOptions {
   // Ceres-specific options (only used when backend == CERES).
   std::shared_ptr<CeresBundleAdjustmentOptions> ceres;
 
+#ifdef CASPAR_ENABLED
+  // Caspar-specific options (only used when backend == CASPAR).
+  // Type defined in bundle_adjustment_caspar.h.
+  std::shared_ptr<struct CasparBundleAdjustmentOptions> caspar;
+#endif
+
   BundleAdjustmentBackendOptions();
   BundleAdjustmentBackendOptions(const BundleAdjustmentBackendOptions& other);
   BundleAdjustmentBackendOptions& operator=(

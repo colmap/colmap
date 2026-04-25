@@ -29,6 +29,9 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
+#ifdef CASPAR_ENABLED
+#include "colmap/estimators/bundle_adjustment_caspar.h"
+#endif
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 namespace colmap {
@@ -276,13 +279,22 @@ const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 ////////////////////////////////////////////////////////////////////////////////
 
 BundleAdjustmentBackendOptions::BundleAdjustmentBackendOptions()
-    : ceres(std::make_shared<CeresBundleAdjustmentOptions>()) {}
+    : ceres(std::make_shared<CeresBundleAdjustmentOptions>())
+#ifdef CASPAR_ENABLED
+    , caspar(std::make_shared<CasparBundleAdjustmentOptions>())
+#endif
+{}
 
 BundleAdjustmentBackendOptions::BundleAdjustmentBackendOptions(
     const BundleAdjustmentBackendOptions& other) {
   if (other.ceres) {
     ceres = std::make_shared<CeresBundleAdjustmentOptions>(*other.ceres);
   }
+#ifdef CASPAR_ENABLED
+  if (other.caspar) {
+    caspar = std::make_shared<CasparBundleAdjustmentOptions>(*other.caspar);
+  }
+#endif
 }
 
 BundleAdjustmentBackendOptions& BundleAdjustmentBackendOptions::operator=(
@@ -295,6 +307,13 @@ BundleAdjustmentBackendOptions& BundleAdjustmentBackendOptions::operator=(
   } else {
     ceres.reset();
   }
+#ifdef CASPAR_ENABLED
+  if (other.caspar) {
+    caspar = std::make_shared<CasparBundleAdjustmentOptions>(*other.caspar);
+  } else {
+    caspar.reset();
+  }
+#endif
   return *this;
 }
 

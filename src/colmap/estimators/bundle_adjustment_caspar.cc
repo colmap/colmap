@@ -30,6 +30,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     BuildObservationCounts();
     BuildCameraFrameIndex();
+    FixGauge();
     BuildFactors();
   }
 
@@ -404,6 +405,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     if (!options_.refine_rig_from_world) return false;
     if (config_.HasConstantRigFromWorldPose(frame_id)) return false;
     if (frames_from_outside_config_.count(frame_id)) return false;
+    if (gauge_fixed_frames_.count(frame_id)) return false;
     return true;
   }
 
@@ -431,11 +433,93 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   bool IsPointVariable(const point3D_t point3D_id) const {
     if (config_.HasConstantPoint(point3D_id)) return false;
+    if (gauge_fixed_points_.count(point3D_id)) return false;
     auto it = point3D_num_observations_.find(point3D_id);
     if (it == point3D_num_observations_.end()) return false;
     const Point3D& point3D = reconstruction_.Point3D(point3D_id);
     if (point3D.track.Length() > it->second) return false;
     return true;
+  }
+
+  void FixGauge() {
+    switch (config_.FixedGauge()) {
+      case BundleAdjustmentGauge::UNSPECIFIED:
+        break;
+      case BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD:
+        FixGaugeWithOneFrameFromWorld();
+        break;
+      case BundleAdjustmentGauge::THREE_POINTS:
+        FixGaugeWithThreePoints();
+        break;
+      default:
+        LOG(FATAL_THROW) << "Unknown BundleAdjustmentGauge";
+    }
+  }
+
+  // Partial two-view gauge fix: only one pose is fixed. Caspar cannot express
+  // the second camera's single-dimension translation manifold, so we stop at
+  // one fully-fixed frame (leaving scale as the one unfixed gauge DOF).
+  void FixGaugeWithOneFrameFromWorld() {
+    if (!options_.refine_rig_from_world) return;
+
+    // If any frame is already explicitly constant, the gauge is sufficiently
+    // anchored — don't add another fixed frame.
+    for (const image_t image_id : config_.Images()) {
+      const Image& image = reconstruction_.Image(image_id);
+      if (config_.HasConstantRigFromWorldPose(image.FrameId())) return;
+    }
+
+    // Fix the first frame that has a ref-sensor image so that fixing the frame
+    // actually moves factors from variable-pose to fixed-pose variants.
+    for (const image_t image_id : config_.Images()) {
+      const Image& image = reconstruction_.Image(image_id);
+      if (image.IsRefInFrame()) {
+        gauge_fixed_frames_.insert(image.FrameId());
+        return;
+      }
+    }
+
+    LOG(WARNING) << "Caspar TWO_CAMS_FROM_WORLD gauge fix: no ref-sensor "
+                    "frame found, gauge left unfixed.";
+  }
+
+  // Three-point gauge fix: mirrors FixGaugeWithThreePoints in the Ceres BA.
+  // Promotes variable 3D points into gauge_fixed_points_ instead of calling
+  // problem.SetParameterBlockConstant.
+  void FixGaugeWithThreePoints() {
+    Eigen::Index num_fixed = 0;
+    Eigen::Matrix3d fixed_pts = Eigen::Matrix3d::Zero();
+
+    auto maybe_add = [&](const Eigen::Vector3d& xyz) -> bool {
+      if (num_fixed >= 3) return false;
+      fixed_pts.col(num_fixed) = xyz;
+      if (fixed_pts.colPivHouseholderQr().rank() > num_fixed) {
+        ++num_fixed;
+        return true;
+      }
+      fixed_pts.col(num_fixed).setZero();
+      return false;
+    };
+
+    // First pass: count already-constant points.
+    for (const auto& [point3D_id, _] : point3D_num_observations_) {
+      if (!config_.HasConstantPoint(point3D_id)) continue;
+      const Point3D& pt = reconstruction_.Point3D(point3D_id);
+      if (maybe_add(pt.xyz) && num_fixed >= 3) return;
+    }
+
+    // Second pass: promote variable points to gauge-fixed.
+    for (const auto& [point3D_id, _] : point3D_num_observations_) {
+      if (!IsPointVariable(point3D_id)) continue;
+      const Point3D& pt = reconstruction_.Point3D(point3D_id);
+      if (maybe_add(pt.xyz)) {
+        gauge_fixed_points_.insert(point3D_id);
+        if (num_fixed >= 3) return;
+      }
+    }
+
+    LOG(WARNING) << "Caspar THREE_POINTS gauge fix: only " << num_fixed
+                 << " of 3 linearly independent points found.";
   }
 
   void SetupSolverData(caspar::GraphSolver& solver) {
@@ -619,6 +703,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
         pose.translation().x() = data[idx * 7 + 4];
         pose.translation().y() = data[idx * 7 + 5];
         pose.translation().z() = data[idx * 7 + 6];
+        pose.rotation().normalize();
       }
     }
 
@@ -692,13 +777,22 @@ class CasparBundleAdjuster : public BundleAdjuster {
       return summary;
     }
 
-    caspar::SolverParams<StorageType> params;
-
-    params.pcg_iter_max = 50;
-    params.solver_iter_max = 400;
-    params.diag_min = 1e-6;
-    params.solver_rel_decrease_min = 0.999;
-
+    caspar::SolverParams<double> params;
+    if (options_.caspar) {
+      const auto& co = *options_.caspar;
+      params.solver_iter_max = co.solver_iter_max;
+      params.pcg_iter_max = co.pcg_iter_max;
+      params.diag_init = co.diag_init;
+      params.diag_min = co.diag_min;
+      params.diag_scaling_up = co.diag_scaling_up;
+      params.diag_scaling_down = co.diag_scaling_down;
+      params.diag_exit_value = co.diag_exit_value;
+      params.score_exit_value = co.score_exit_value;
+      params.pcg_rel_error_exit = co.pcg_rel_error_exit;
+      params.pcg_rel_score_exit = co.pcg_rel_score_exit;
+      params.pcg_rel_decrease_min = co.pcg_rel_decrease_min;
+      params.solver_rel_decrease_min = co.solver_rel_decrease_min;
+    }
     auto solver = CreateSolver(params, BuildSizing());
     SetupSolverData(solver);
     caspar::SolveResult result = solver.solve(/*print_progress=*/false);
@@ -740,6 +834,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   std::unordered_set<frame_t> frames_from_outside_config_;
   std::unordered_set<camera_t> cameras_from_outside_config_;
+  std::unordered_set<frame_t> gauge_fixed_frames_;
+  std::unordered_set<point3D_t> gauge_fixed_points_;
   std::unordered_map<std::pair<camera_t, frame_t>,
                      std::vector<image_t>,
                      PairHash<camera_t, frame_t>>

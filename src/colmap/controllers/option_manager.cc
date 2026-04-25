@@ -33,6 +33,9 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/pairing.h"
+#ifdef CASPAR_ENABLED
+#include "colmap/estimators/bundle_adjustment_caspar.h"
+#endif
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
@@ -545,6 +548,34 @@ void OptionManager::AddBundleAdjustmentOptions() {
   AddDefaultOption(
       "BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver",
       &bundle_adjustment->ceres->max_num_images_direct_sparse_gpu_solver);
+
+#ifdef CASPAR_ENABLED
+  // Caspar-specific options
+  AddDefaultOption("BundleAdjustmentCaspar.solver_iter_max",
+                   &bundle_adjustment->caspar->solver_iter_max);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_iter_max",
+                   &bundle_adjustment->caspar->pcg_iter_max);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_init",
+                   &bundle_adjustment->caspar->diag_init);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_min",
+                   &bundle_adjustment->caspar->diag_min);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_scaling_up",
+                   &bundle_adjustment->caspar->diag_scaling_up);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_scaling_down",
+                   &bundle_adjustment->caspar->diag_scaling_down);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_exit_value",
+                   &bundle_adjustment->caspar->diag_exit_value);
+  AddDefaultOption("BundleAdjustmentCaspar.score_exit_value",
+                   &bundle_adjustment->caspar->score_exit_value);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_rel_error_exit",
+                   &bundle_adjustment->caspar->pcg_rel_error_exit);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_rel_score_exit",
+                   &bundle_adjustment->caspar->pcg_rel_score_exit);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_rel_decrease_min",
+                   &bundle_adjustment->caspar->pcg_rel_decrease_min);
+  AddDefaultOption("BundleAdjustmentCaspar.solver_rel_decrease_min",
+                   &bundle_adjustment->caspar->solver_rel_decrease_min);
+#endif  // CASPAR_ENABLED
 }
 
 void OptionManager::AddMapperOptions() {
