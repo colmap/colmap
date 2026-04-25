@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -214,7 +215,7 @@ TEST(DefaultBundleAdjuster, TwoView) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement gauge fixing; fix both frames explicitly.
+  // Caspar does not implement complete gauge fixing
   config.SetConstantRigFromWorldPose(1);
   config.SetConstantRigFromWorldPose(2);
 
@@ -261,7 +262,7 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement gauge fixing; fix both frames explicitly.
+  // Caspar does not implement complete gauge fixing
   config.SetConstantRigFromWorldPose(1);
   config.SetConstantRigFromWorldPose(2);
 
@@ -316,7 +317,7 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   config.AddImage(2);
   config.AddConstantPoint(constant_point3D_id1);
   config.AddConstantPoint(constant_point3D_id2);
-  // Caspar does not implement gauge fixing; fix both frames explicitly.
+  // Caspar does not implement complete gauge fixing
   config.SetConstantRigFromWorldPose(1);
   config.SetConstantRigFromWorldPose(2);
 
@@ -365,8 +366,7 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   config.AddImage(1);
   config.AddImage(2);
   config.AddImage(3);
-  // Caspar does not implement gauge fixing; fix two frames explicitly so that
-  // image 3's pose is the only variable one.
+  // Caspar does not implement complete gauge fixing
   config.SetConstantRigFromWorldPose(1);
   config.SetConstantRigFromWorldPose(2);
 
@@ -398,8 +398,6 @@ TEST(DefaultBundleAdjuster, VariableImage) {
 }
 
 TEST(DefaultBundleAdjuster, ConstantFocalLengthAndExtraParams) {
-  // Currentlu, focal length and extra params are bundled together. They must
-  // both be constant or varying.
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -415,7 +413,7 @@ TEST(DefaultBundleAdjuster, ConstantFocalLengthAndExtraParams) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement gauge fixing; fix both frames explicitly.
+  // Caspar does not implement complete gauge fixing
   config.SetConstantRigFromWorldPose(1);
   config.SetConstantRigFromWorldPose(2);
 
@@ -474,7 +472,7 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement gauge fixing; fix both frames explicitly instead.
+  // Caspar does not implement complete gauge fixing
   config.SetConstantRigFromWorldPose(1);
   config.SetConstantRigFromWorldPose(2);
 
@@ -527,9 +525,6 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
     CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
   }
 }
-
-// Tests for the merged-calib path (both focal_and_extra and principal_point
-// are tunable with single V4 Calib node instead of two V2 nodes).
 
 TEST(DefaultBundleAdjuster, MergedCalibConvergence) {
   SetPRNGSeed(0);
@@ -632,69 +627,7 @@ TEST(DefaultBundleAdjuster, MergedCalibFixedPose) {
                             orig_reconstruction.Image(2));
 }
 
-TEST(DefaultBundleAdjuster, MergedCalibFixedPoseFixedPoint) {
-  // Verifies at least one intrinsic changed.
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
-  const Reconstruction orig_reconstruction = reconstruction;
-
-  BundleAdjustmentConfig config;
-  config.AddImage(1);
-  config.AddImage(2);
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
-  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
-    config.AddConstantPoint(point3D_id);
-  }
-
-  BundleAdjustmentOptions options;
-  options.refine_principal_point = true;
-  std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
-  const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type,
-            BundleAdjustmentTerminationType::FAILURE);
-
-  const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
-  const size_t principal_point_idx_x =
-      SimpleRadialCameraModel::principal_point_idxs[0];
-  const size_t principal_point_idx_y =
-      SimpleRadialCameraModel::principal_point_idxs[1];
-  const size_t extra_param_idx = SimpleRadialCameraModel::extra_params_idxs[0];
-
-  // At least one intrinsic must change (the solver sees noisy observations
-  // relative to fixed points and fixed poses, and will adjust calib).
-  bool any_changed = false;
-  for (const camera_t cam_id : {camera_t{1}, camera_t{2}}) {
-    const auto& cam = reconstruction.Camera(cam_id);
-    const auto& orig_cam = orig_reconstruction.Camera(cam_id);
-    if (cam.params[focal_length_idx] != orig_cam.params[focal_length_idx] ||
-        cam.params[extra_param_idx] != orig_cam.params[extra_param_idx] ||
-        cam.params[principal_point_idx_x] !=
-            orig_cam.params[principal_point_idx_x] ||
-        cam.params[principal_point_idx_y] !=
-            orig_cam.params[principal_point_idx_y]) {
-      any_changed = true;
-    }
-  }
-  EXPECT_TRUE(any_changed);
-
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    CheckConstantPoint(point3D, orig_reconstruction.Point3D(point3D_id));
-  }
-}
-
 TEST(DefaultBundleAdjuster, MergedCalibFixedPoint) {
-  // Exercises FIXED_POINT merged variant: all points constant, pose + calib
-  // tunable.
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -768,8 +701,6 @@ TEST(DefaultBundleAdjuster, ExternalImagePoseIsInvariant) {
   opts.num_points2D_without_point3D = 0;
   SynthesizeDataset(opts, &reconstruction);
 
-  // Significant pose noise ensures the solver would detectably move image 3's
-  // pose if it is (incorrectly) treated as variable.
   SyntheticNoiseOptions noise_opts;
   noise_opts.point2D_stddev = 1;
   noise_opts.rig_from_world_rotation_stddev = 0.5;
@@ -793,8 +724,6 @@ TEST(DefaultBundleAdjuster, ExternalImagePoseIsInvariant) {
   ASSERT_NE(summary->termination_type,
             BundleAdjustmentTerminationType::FAILURE);
 
-  // Image 3 is external — its pose must be unchanged regardless of what
-  // the solver computes for the shared 3D points.
   CheckConstantCamFromWorld(reconstruction.Image(3),
                             orig_reconstruction.Image(3));
 }
@@ -830,18 +759,10 @@ TEST(DefaultBundleAdjuster, ExternalCameraIntrinsicsOrderingIsConsistent) {
   ASSERT_NE(summary->termination_type,
             BundleAdjustmentTerminationType::FAILURE);
 
-  // External camera 3's intrinsics must not be written back, regardless of
-  // how many (if any) variable-intrinsic factors were built for it.
   CheckConstantCamera(reconstruction.Camera(3), orig_reconstruction.Camera(3));
 }
 
 TEST(DefaultBundleAdjuster, ExternalImageViaConstantPointsIsInvariant) {
-  // Same regression as ExternalImagePoseIsInvariant but exercises the
-  // ConstantPoints code path: AddExternalFactors iterates both VariablePoints
-  // and ConstantPoints, calling AddFactorsForExternalObservations for each.
-  // Without the fix, external image 3 would receive variable-pose factors
-  // against the constant 3D points and have its pose written back.
-
   Reconstruction reconstruction;
   SyntheticDatasetOptions opts;
   opts.num_rigs = 3;
@@ -879,10 +800,6 @@ TEST(DefaultBundleAdjuster, ExternalImageViaConstantPointsIsInvariant) {
 }
 
 TEST(DefaultBundleAdjuster, MultipleExternalImagesAreInvariant) {
-  // Verifies the fix applies to every external image, not just the first one
-  // encountered. With 4 images and 2 in the config, both external images (3
-  // and 4) must have invariant poses after BA.
-
   Reconstruction reconstruction;
   SyntheticDatasetOptions opts;
   opts.num_rigs = 4;
@@ -919,6 +836,240 @@ TEST(DefaultBundleAdjuster, MultipleExternalImagesAreInvariant) {
                             orig_reconstruction.Image(3));
   CheckConstantCamFromWorld(reconstruction.Image(4),
                             orig_reconstruction.Image(4));
+}
+
+TEST(DefaultBundleAdjuster, MergedCalibMatchesCeres) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.3;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
+
+  BundleAdjustmentOptions options;
+  options.refine_principal_point = true;
+
+  Reconstruction reconstruction_ceres = reconstruction;
+  Reconstruction reconstruction_caspar = reconstruction;
+
+  std::unique_ptr<BundleAdjuster> ceres_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction_ceres);
+  ASSERT_NE(ceres_adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  std::unique_ptr<BundleAdjuster> caspar_adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction_caspar);
+  ASSERT_NE(caspar_adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // Layout bugs in the merged Calib kernel cause 100+ unit errors; float32 vs
+  // double accumulation should be well under these thresholds.
+#ifdef CASPAR_USE_DOUBLE
+  constexpr double kFocalTol = 1.0;
+  constexpr double kPPTol = 1.0;
+  constexpr double kExtraTol = 1e-4;
+#else
+  constexpr double kFocalTol = 20.0;
+  constexpr double kPPTol = 10.0;
+  constexpr double kExtraTol = 5e-3;
+#endif
+
+  const size_t f_idx = SimpleRadialCameraModel::focal_length_idxs[0];
+  const size_t cx_idx = SimpleRadialCameraModel::principal_point_idxs[0];
+  const size_t cy_idx = SimpleRadialCameraModel::principal_point_idxs[1];
+  const size_t k_idx = SimpleRadialCameraModel::extra_params_idxs[0];
+
+  for (const auto& [cam_id, _] : reconstruction.Cameras()) {
+    const auto& cam_ceres = reconstruction_ceres.Camera(cam_id);
+    const auto& cam_caspar = reconstruction_caspar.Camera(cam_id);
+    EXPECT_NEAR(cam_caspar.params[f_idx], cam_ceres.params[f_idx], kFocalTol)
+        << "focal length mismatch for camera " << cam_id;
+    EXPECT_NEAR(cam_caspar.params[cx_idx], cam_ceres.params[cx_idx], kPPTol)
+        << "cx mismatch for camera " << cam_id;
+    EXPECT_NEAR(cam_caspar.params[cy_idx], cam_ceres.params[cy_idx], kPPTol)
+        << "cy mismatch for camera " << cam_id;
+    EXPECT_NEAR(cam_caspar.params[k_idx], cam_ceres.params[k_idx], kExtraTol)
+        << "radial distortion mismatch for camera " << cam_id;
+  }
+}
+
+bool PoseExactlyUnchanged(const Image& a, const Image& b) {
+  return a.CamFromWorld().rotation().coeffs() ==
+             b.CamFromWorld().rotation().coeffs() &&
+         a.CamFromWorld().translation() == b.CamFromWorld().translation();
+}
+
+TEST(DefaultBundleAdjuster, GaugeFixingWithOneFrameFromWorld) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions opts;
+  opts.num_rigs = 2;
+  opts.num_cameras_per_rig = 1;
+  opts.num_frames_per_rig = 1;
+  opts.num_points3D = 100;
+  SynthesizeDataset(opts, &reconstruction);
+  SyntheticNoiseOptions noise_opts;
+  noise_opts.point2D_stddev = 1;
+  noise_opts.point3D_stddev = 0.1;
+  noise_opts.rig_from_world_rotation_stddev = 0.3;
+  noise_opts.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_opts, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  auto adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
+  ASSERT_NE(adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // Exactly one of the two frames must be pinned by gauge fixing.
+  const int n_fixed =
+      static_cast<int>(PoseExactlyUnchanged(reconstruction.Image(1),
+                                            orig_reconstruction.Image(1))) +
+      static_cast<int>(PoseExactlyUnchanged(reconstruction.Image(2),
+                                            orig_reconstruction.Image(2)));
+  EXPECT_EQ(n_fixed, 1);
+}
+
+TEST(DefaultBundleAdjuster,
+     GaugeFixingWithOneFrameFromWorld_SkipsWhenAlreadyFixed) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions opts;
+  opts.num_rigs = 2;
+  opts.num_cameras_per_rig = 1;
+  opts.num_frames_per_rig = 1;
+  opts.num_points3D = 100;
+  SynthesizeDataset(opts, &reconstruction);
+  SyntheticNoiseOptions noise_opts;
+  noise_opts.point2D_stddev = 1;
+  noise_opts.point3D_stddev = 0.1;
+  noise_opts.rig_from_world_rotation_stddev = 0.3;
+  noise_opts.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_opts, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.SetConstantRigFromWorldPose(1);  // frame 1 explicitly constant
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  auto adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
+  ASSERT_NE(adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // Frame 1 is explicitly constant — must be unchanged.
+  CheckConstantCamFromWorld(reconstruction.Image(1),
+                            orig_reconstruction.Image(1));
+  // Frame 2 is not gauge-fixed (gauge fixer saw frame 1 already fixed) — must
+  // change.
+  CheckVariableCamFromWorld(reconstruction.Image(2),
+                            orig_reconstruction.Image(2));
+}
+
+TEST(DefaultBundleAdjuster, GaugeFixingWithThreePoints_PinsExactlyThreePoints) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions opts;
+  opts.num_rigs = 2;
+  opts.num_cameras_per_rig = 1;
+  opts.num_frames_per_rig = 1;
+  opts.num_points3D = 100;
+  SynthesizeDataset(opts, &reconstruction);
+  SyntheticNoiseOptions noise_opts;
+  noise_opts.point2D_stddev = 1;
+  noise_opts.point3D_stddev = 0.1;
+  noise_opts.rig_from_world_rotation_stddev = 0.3;
+  noise_opts.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_opts, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+
+  BundleAdjustmentOptions options;
+  auto adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
+  ASSERT_NE(adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  int n_unchanged = 0;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.xyz == orig_reconstruction.Point3D(point3D_id).xyz) {
+      ++n_unchanged;
+    }
+  }
+  EXPECT_EQ(n_unchanged, 3);
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
+}
+
+TEST(DefaultBundleAdjuster,
+     GaugeFixingWithThreePoints_CountsExistingConstantPoints) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions opts;
+  opts.num_rigs = 2;
+  opts.num_cameras_per_rig = 1;
+  opts.num_frames_per_rig = 1;
+  opts.num_points3D = 100;
+  SynthesizeDataset(opts, &reconstruction);
+  SyntheticNoiseOptions noise_opts;
+  noise_opts.point2D_stddev = 1;
+  noise_opts.point3D_stddev = 0.1;
+  noise_opts.rig_from_world_rotation_stddev = 0.3;
+  noise_opts.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_opts, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddConstantPoint(1);  // 1 existing constant; gauge fixer adds 2 more
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+
+  BundleAdjustmentOptions options;
+  auto adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
+  ASSERT_NE(adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // Total unchanged = 1 config-constant + 2 gauge-fixed = 3.
+  int n_unchanged = 0;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.xyz == orig_reconstruction.Point3D(point3D_id).xyz) {
+      ++n_unchanged;
+    }
+  }
+  EXPECT_EQ(n_unchanged, 3);
+
+  CheckConstantPoint(reconstruction.Point3D(1), orig_reconstruction.Point3D(1));
 }
 
 }  // namespace
