@@ -1312,7 +1312,7 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
                      frame_color,
                      model_origin_,
                      model_scale_,
-                     options_->render->show_camera_up,
+                     options_->render->show_camera_up_arrow,
                      &triangle_data,
                      selection_mode ? nullptr : &line_data);
   }
