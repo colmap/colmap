@@ -315,7 +315,7 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
 
       // Directions on the plane
       const Eigen::Vector3f right_dir = (tr - tl).normalized();
-      const Eigen::Vector3f up_dir = ((0.5f * (tl + tr)) - center).normalized();
+      const Eigen::Vector3f up_dir = (center - (0.5f * (tl + tr))).normalized();
 
       // Size of the arrow
       const float arrow_len = 0.3f * image_extent;
