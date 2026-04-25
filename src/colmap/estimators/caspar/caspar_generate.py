@@ -23,34 +23,25 @@ from symforce.experimental.caspar import CasparLibrary
 from symforce.experimental.caspar import memory as mem
 
 
-# --- Shared geometric nodes ---
-# Point and ConstPoint are shared: the same 3D point can be observed by
-# cameras of different types, so they must live in the same node pool.
+# Point and ConstPoint are shared across camera models so that different
+# camera types can observe the same 3D points in the same node pool.
 class Point(sf.V3):     pass
 class ConstPoint(sf.V3): pass
 class ConstPixel(sf.V2): pass
 
 
-# Calibration node strategy:
+# Calibration node layout:
 #
 # When both focal_and_extra and principal_point are tunable, they are merged
-# into a single shared-memory node (Calib) to reduce per-block node overhead.
-# This saves one shared-memory node slot in the four variants where both
-# intrinsic groups are variable:
-#   BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT
-# (using merged calib node)
+# into a single V4 Calib node to save one shared-memory slot per block.
+# This covers 4 variants: BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT.
 #
-# When either group is fixed it leaves shared memory, so the remaining tunable
-# group keeps its dedicated node.  The 11 split variants cover all cases where
-# at least one of focal_and_extra / principal_point is fixed.
+# When at least one group is fixed, split V2 nodes are used (11 variants).
+# Total: 4 merged + 11 split = 15 variants per camera model.
 #
-# All 4 + 11 = 15 non-fully-fixed subsets are generated and dispatched.
-# Verify the generated kernels stay within the 48 KB GPU shared memory limit
-# per thread block if adding further split groups.
-#
-# Pose and Calib/FocalAndExtra/PrincipalPoint are camera-model-specific so
-# that factors from different camera models are never batched into the same
-# Caspar block, avoiding cross-model shared memory costs.
+# Pose and Calib nodes are camera-model-specific to prevent cross-model batching.
+# Check that generated kernels stay within the 48 KB shared memory limit if
+# adding new parameter groups.
 
 # SimpleRadial: params = [f, cx, cy, k]
 class SimpleRadialPose(sf.Pose3):               pass
@@ -74,7 +65,6 @@ class PinholeFocalAndExtra(sf.V2):              pass  # [fx, fy]  (split: focal 
 class ConstPinholeFocalAndExtra(sf.V2):         pass
 
 
-# --- Registrar ---
 def _make_variant(core_fn, name: str, base_params: list, hints: dict, fixed: dict):
     new_hints = {}
     for p in base_params:
@@ -87,7 +77,8 @@ def _make_variant(core_fn, name: str, base_params: list, hints: dict, fixed: dic
     const_params   = [p for p in base_params if p in fixed]
     ordered = tunable_params + const_params
 
-    # Accept both positional and keyword args, Caspar calls fn(**symbolic_args)
+    # Caspar calls factors as fn(**symbolic_args), so the wrapper accepts both
+    # positional and keyword arguments.
     def wrapper(*args, **kwargs):
         merged = {**dict(zip(ordered, args)), **kwargs}
         return core_fn(*[merged[p] for p in base_params])
@@ -109,22 +100,21 @@ def register_camera_model(caslib, model_name: str, core_fn, fixable_params: dict
     base_params   = list(inspect.signature(core_fn).parameters.keys())
     fixable_items = list(fixable_params.items())
 
-    # Generate all subsets of size 0..N-1, excluding the all-fixed case unless
-    # include_all_fixed=True (used for merged calib where the all-fixed subset
-    # still has a tunable calib node).
+    # include_all_fixed extends the range to N for merged-calib models, where
+    # the "all-fixed" subset still has a tunable Calib node.
     max_r = len(fixable_items) + (1 if include_all_fixed else 0)
     for r in range(max_r):
         for combo in combinations(fixable_items, r):
             fixed = dict(combo)
 
-            # Skip variants where none of the required params are fixed.
-            # Used to exclude merged-calib cases from the split registration.
+            # Skip split variants where both calib groups are tunable, as those
+            # are handled by the merged-calib registration.
             if must_fix_one_of and not any(p in fixed for p in must_fix_one_of):
                 continue
 
             if fixed:
-                # Build suffix in fixable_params definition order for
-                # deterministic naming — must match C++ dispatch order
+                # Suffix order follows fixable_params definition order to
+                # match the C++ dispatch naming.
                 suffix = "_".join(
                     f"fixed_{p}" for p, _ in fixable_items if p in fixed
                 )
@@ -139,10 +129,8 @@ def register_camera_model(caslib, model_name: str, core_fn, fixable_params: dict
 
 # --- Camera models ---
 
-# Merged cores: canonical math used by both merged and split variants.
-# TODO: temporary merged-calib node until shared-memory layout is profiled/tuned.
-# When both focal_and_extra and principal_point are tunable, a single V4 Calib
-# node replaces two V2 nodes, saving one per-block shared-memory slot.
+# Merged cores define the canonical projection math reused by split variants.
+# TODO: profile shared-memory layout before finalising merged vs. split calib.
 
 def simple_radial_merged_core(
     pose:  T.Annotated[SimpleRadialPose,  mem.TunableShared],
@@ -173,9 +161,7 @@ def pinhole_merged_core(
     return sf.V2([fx * p[0] + cx, fy * p[1] + cy]) - pixel
 
 
-# Split cores: delegate to merged cores to avoid math duplication.
-# Used only for variants where at least one of focal_and_extra / principal_point
-# is fixed (must_fix_one_of constraint applied at registration).
+# Split cores delegate to merged cores to avoid duplicating projection math.
 
 def simple_radial_core(
     pose:            T.Annotated[SimpleRadialPose,            mem.TunableShared],
@@ -205,21 +191,21 @@ dtype  = mem.DType.DOUBLE if precision == "f64" else mem.DType.FLOAT
 caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 
 
-# Suffix order here defines the generated variant names and must match the
-# C++ dispatch function that builds variant names from BundleAdjustmentOptions.
+# Suffix order defines generated variant names and must match the C++ dispatch
+# logic that builds names from BundleAdjustmentOptions.
 #
 # COLMAP flag mapping:
-#   refine_rig_from_world                       -> pose
-#   refine_focal_length && refine_extra_params  -> focal_and_extra
-#   refine_principal_point                      -> principal_point
-#   refine_points3D                             -> point
+#   refine_rig_from_world                      -> pose
+#   refine_focal_length && refine_extra_params -> focal_and_extra
+#   refine_principal_point                     -> principal_point
+#   refine_points3D                            -> point
 #
-# Known limitations:
-#   - constant_rig_from_world_rotation not supported (requires splitting
-#     Pose into rotation and translation sub-nodes)
+# Limitations:
+#   - constant_rig_from_world_rotation not supported (needs separate pose
+#     rotation/translation sub-nodes)
 #   - refine_sensor_from_rig not supported (single camera per rig assumed)
 #   - refine_focal_length != refine_extra_params not supported (observations
-#     skipped with a warning; cannot split the merged focal_and_extra block)
+#     skipped with a warning because the merged focal_and_extra node cannot be split)
 
 FIXABLE_SIMPLE_RADIAL_MERGED = {
     'pose':  ConstSimpleRadialPose,
@@ -245,9 +231,7 @@ FIXABLE_PINHOLE = {
     'point':           ConstPoint,
 }
 
-# Merged: 4 variants per model (r=0..2 over {pose, point}, including all-fixed).
-# Covers BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT — the 4 cases
-# where both focal_and_extra and principal_point are tunable.
+# Merged: BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT (4 variants).
 register_camera_model(caslib, "simple_radial_merged",
                       simple_radial_merged_core, FIXABLE_SIMPLE_RADIAL_MERGED,
                       include_all_fixed=True)
@@ -255,8 +239,8 @@ register_camera_model(caslib, "pinhole_merged",
                       pinhole_merged_core, FIXABLE_PINHOLE_MERGED,
                       include_all_fixed=True)
 
-# Split: 11 variants per model — all cases where at least one of
-# {focal_and_extra, principal_point} is fixed.
+# Split: all variants where at least one of {focal_and_extra, principal_point}
+# is fixed (11 variants per model).
 register_camera_model(caslib, "simple_radial", simple_radial_core, FIXABLE_SIMPLE_RADIAL,
                       must_fix_one_of={'focal_and_extra', 'principal_point'})
 register_camera_model(caslib, "pinhole", pinhole_core, FIXABLE_PINHOLE,

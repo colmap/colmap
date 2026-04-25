@@ -1,4 +1,3 @@
-// caspar_model_adapter.h
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
@@ -18,8 +17,8 @@ struct CasparSolverSizing {
   size_t num_pinhole_poses = 0;
   size_t num_points = 0;
 
-  // SimpleRadial — num_calibs is shared by the merged Calib pool and the split
-  // FocalAndExtra / PrincipalPoint pools (all sized 1:1 with cameras).
+  // SimpleRadial: num_calibs is shared by the merged Calib pool and the split
+  // FocalAndExtra / PrincipalPoint pools, one entry per camera.
   // Merged variants (both intrinsic groups tunable): 4 counts below.
   // Split variants (at least one group fixed): 11 counts below.
   size_t num_simple_radial_calibs = 0;
@@ -39,7 +38,7 @@ struct CasparSolverSizing {
   size_t num_simple_radial_fixed_pose_fixed_principal_point_fixed_point = 0;
   size_t num_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point = 0;
 
-  // Pinhole — same layout as SimpleRadial above.
+  // Pinhole: same layout as SimpleRadial above.
   size_t num_pinhole_calibs = 0;
   size_t num_pinhole_merged = 0;
   size_t num_pinhole_merged_fixed_pose = 0;
@@ -58,7 +57,7 @@ struct CasparSolverSizing {
   size_t num_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point = 0;
 };
 
-// Interface — one implementation per camera model.
+// One implementation per camera model.
 
 class ICasparModelAdapter {
  public:
@@ -85,15 +84,13 @@ class ICasparModelAdapter {
                           const ModelData& md,
                           size_t num_calibs) const = 0;
 
-  // Extract focal_and_extra / principal_point params from a camera into a flat
+  // Append focal_and_extra / principal_point params from a camera into a flat
   // output vector.
   virtual void ExtractFocalAndExtra(const Camera& camera,
                                     std::vector<StorageType>& out) const = 0;
   virtual void ExtractPrincipalPoint(const Camera& camera,
                                      std::vector<StorageType>& out) const = 0;
 
-  // Write optimized focal_and_extra / principal_point back into a camera's
-  // params.
   virtual void WriteFocalAndExtra(Camera& camera,
                                   const StorageType* focal_and_extra_data,
                                   size_t idx) const = 0;
@@ -272,8 +269,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
                          const VariantData& d) const override {
     const size_t n = d.num_factors;
     switch (variant) {
-      // Merged variants: calib indices reuse focal_and_extra_indices
-      // (same camera index value — no VariantData changes needed).
+      // Merged variants: the calib index is the same as focal_and_extra_index,
+      // so no VariantData changes are needed for these cases.
       case FactorVariant::BASE:
         s.set_simple_radial_merged_num(n);
         s.set_simple_radial_merged_pose_indices_from_host(
@@ -606,8 +603,8 @@ class PinholeAdapter : public ICasparModelAdapter {
                          const VariantData& d) const override {
     const size_t n = d.num_factors;
     switch (variant) {
-      // Merged variants: calib indices reuse focal_and_extra_indices
-      // (same camera index value — no VariantData changes needed).
+      // Merged variants: the calib index is the same as focal_and_extra_index,
+      // so no VariantData changes are needed for these cases.
       case FactorVariant::BASE:
         s.set_pinhole_merged_num(n);
         s.set_pinhole_merged_pose_indices_from_host(d.pose_indices.data(), n);
@@ -797,7 +794,6 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 };
 
-// Factory
 inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
     const CameraModelId model_id) {
   switch (model_id) {
@@ -810,12 +806,10 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
   }
 }
 
-// Solver factory
-//
-// WARNING: This call is very tedious and bug-prone, and will change in a
-// newer release of Caspar. Argument order:
-//   1. Node type counts — alphabetical by type name
-//   2. Factor counts — in registration order from caspar_generate.py:
+// WARNING: Argument order is opaque and bug-prone and will change in a future
+// Caspar release. Order:
+//   1. Node type counts, alphabetical by type name
+//   2. Factor counts, in registration order from caspar_generate.py:
 //        simple_radial_merged (4) → pinhole_merged (4) →
 //        simple_radial split (11) → pinhole split (11)
 inline caspar::GraphSolver CreateSolver(

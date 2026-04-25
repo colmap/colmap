@@ -35,8 +35,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
  private:
-  // Returns the adapter for a given model ID, creating it if needed.
-  // Returns nullptr for unsupported models.
   ICasparModelAdapter* GetAdapter(const CameraModelId model_id) {
     auto it = adapters_.find(model_id);
     if (it != adapters_.end()) return it->second.get();
@@ -120,8 +118,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void CreatePoseNodes() {
-    // Build a sorted, deduplicated list of (frame_id, model_id) pairs.
-    // Each frame has one camera model (single camera per rig assumed).
+    // Single camera per rig assumed.
     std::map<frame_t, CameraModelId> frame_to_model;
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
@@ -144,8 +141,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void AddFactorsInOptimalOrder() {
-    // Iterate calibration-first for optimal GPU memory access patterns.
-    // Within each calibration, iterate pose then point.
+    // Calibration-first order for optimal GPU memory access.
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       for (size_t calib_idx = 0; calib_idx < calib_num_per_model_.at(model_id);
            ++calib_idx) {
@@ -239,7 +235,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     const bool effective_pose_var = pose_var && image.IsRefInFrame();
 
-    // Skip fully-constant observations — nothing to optimize
+    // Skip fully-constant observations, there's nothing to optimize
     if (!effective_pose_var && !focal_and_extra_var && !principal_point_var &&
         !point_var)
       return;
@@ -247,8 +243,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     const size_t calib_idx = GetOrCreateCalibration(camera.camera_id, camera);
     ModelData& md = model_data_per_model_.at(camera.model_id);
 
-    // Select the variant from the 4-dimensional (pose, focal_and_extra,
-    // principal_point, point) fixed/tunable space.
     FactorVariant v;
     if (effective_pose_var && focal_and_extra_var && principal_point_var &&
         point_var)
@@ -383,8 +377,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   // Calib indices are per-model: index 0 for SimpleRadial is unrelated to
-  // index 0 for Pinhole. The key is (model_id, calib_idx). The same index
-  // addresses both focal_data and extra_calib_data for that model.
+  // index 0 for Pinhole.
   size_t GetOrCreateCalibration(const camera_t camera_id,
                                 const Camera& camera) {
     auto [it, inserted] = camera_to_calib_index_.try_emplace(camera_id, 0);
@@ -410,7 +403,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   // Both focal and extra_params must be refined together (merged block).
-  // If they disagree, observations are skipped — see AddFactorForObservation.
+  // If they disagree, observations are skipped. See AddFactorForObservation.
   bool IsFocalAndExtraVariable(const camera_t camera_id) const {
     if (!options_.refine_focal_length || !options_.refine_extra_params)
       return false;
@@ -456,21 +449,20 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
   }
 
-  // Partial two-view gauge fix: only one pose is fixed. Caspar cannot express
-  // the second camera's single-dimension translation manifold, so we stop at
-  // one fully-fixed frame (leaving scale as the one unfixed gauge DOF).
+  // Partial two-view gauge fix: fixes one pose only. Caspar can express the
+  // second camera's 1-DOF translation manifold, but the gain is minimal and
+  // the extra shared-memory cost is not worth it, so scale is left as the one
+  // unfixed gauge DOF.
   void FixGaugeWithOneFrameFromWorld() {
     if (!options_.refine_rig_from_world) return;
 
-    // If any frame is already explicitly constant, the gauge is sufficiently
-    // anchored — don't add another fixed frame.
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
       if (config_.HasConstantRigFromWorldPose(image.FrameId())) return;
     }
 
-    // Fix the first frame that has a ref-sensor image so that fixing the frame
-    // actually moves factors from variable-pose to fixed-pose variants.
+    // Require a ref-sensor image so fixing the frame moves factors into
+    // fixed-pose variants rather than being silently skipped.
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
       if (image.IsRefInFrame()) {
@@ -483,9 +475,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
                     "frame found, gauge left unfixed.";
   }
 
-  // Three-point gauge fix: mirrors FixGaugeWithThreePoints in the Ceres BA.
-  // Promotes variable 3D points into gauge_fixed_points_ instead of calling
-  // problem.SetParameterBlockConstant.
+  // Three-point gauge fix: mirrors the Ceres BA equivalent but promotes points
+  // into gauge_fixed_points_ instead of calling SetParameterBlockConstant.
   void FixGaugeWithThreePoints() {
     Eigen::Index num_fixed = 0;
     Eigen::Matrix3d fixed_pts = Eigen::Matrix3d::Zero();
@@ -617,9 +608,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
         adapter_ptr->GetPrincipalPointNodes(
             solver, md.principal_point_data.data(), n_calib);
 
-        // If merged variants were active, split the merged Calib node back into
-        // focal_and_extra_data and principal_point_data (overwrites the stale
-        // split-pool values read above).
+        // Split the merged Calib node back into focal_and_extra_data and
+        // principal_point_data, overwriting the stale split-pool values above.
         const bool has_merged =
             md.variants[static_cast<int>(FactorVariant::BASE)].num_factors >
                 0 ||
@@ -680,9 +670,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void WriteResultsToReconstruction() {
     for (const auto& [idx, point_id] : index_to_point_id_) {
       if (config_.HasConstantPoint(point_id)) continue;
-      // Skip points that are not truly variable (e.g. partially contained
-      // tracks with external observations). Their solver nodes hold float
-      // copies of the original double values and must not be written back.
+      // Points with external observations are non-variable but have solver
+      // nodes holding float copies; skip to avoid writing back stale values.
       if (!IsPointVariable(point_id)) continue;
       Point3D& point = reconstruction_.Point3D(point_id);
       point.xyz.x() = point_data_[idx * 3 + 0];
@@ -804,7 +793,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return summary;
   }
 
-  // --- Per-model state ---
   std::unordered_map<CameraModelId, std::unique_ptr<ICasparModelAdapter>>
       adapters_;
   std::unordered_map<CameraModelId, ModelData> model_data_per_model_;
@@ -853,7 +841,7 @@ CasparBundleAdjustmentSummary::Create(
     case caspar::ExitReason::CONVERGED_DIAG_EXIT:
       VLOG(1) << "Caspar: CONVERGED_DIAG_EXIT after "
               << caspar_summary.iteration_count << " iters"
-              << " (diag limit hit — likely premature termination)";
+              << " (diag limit hit -> likely premature termination)";
       summary->termination_type = BundleAdjustmentTerminationType::CONVERGENCE;
       break;
     case caspar::ExitReason::CONVERGED_SCORE_THRESHOLD:

@@ -91,9 +91,8 @@ struct ModelData {
 
 namespace colmap {
 
-// Caspar-specific solver options. Field names and defaults mirror
-// caspar::SolverParams; stored as double so they round-trip through COLMAP's
-// OptionManager regardless of the StorageType (float or double) build.
+// Solver parameters mirroring caspar::SolverParams, stored as double to
+// round-trip through OptionManager regardless of the float/double build.
 struct CasparBundleAdjustmentOptions {
   int solver_iter_max = 100;
   int pcg_iter_max = 20;
