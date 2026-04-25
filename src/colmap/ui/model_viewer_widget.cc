@@ -91,6 +91,7 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
                       const RGBAColor& frame_color,
                       const Eigen::Vector3d& model_origin,
                       const double model_scale,
+                      const bool show_camera_up_arrow,
                       std::vector<TrianglePainter::Data>* triangle_data,
                       std::vector<LinePainter::Data>* line_data) {
   // Updating the reconstruction in the viewer (e.g., deleting an image or a
@@ -306,61 +307,62 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
                                                frame_color(1),
                                                frame_color(2),
                                                frame_color(3)));
+    if (show_camera_up_arrow) {
+      // ---- Up arrow on image plane ----
 
-    // ---- Up arrow on image plane ----
+      // Center of image plane
+      const Eigen::Vector3f center = 0.25f * (tl + tr + br + bl);
 
-    // Center of image plane
-    const Eigen::Vector3f center = 0.25f * (tl + tr + br + bl);
+      // Directions on the plane
+      const Eigen::Vector3f right_dir = (tr - tl).normalized();
+      const Eigen::Vector3f up_dir = ((0.5f * (tl + tr)) - center).normalized();
 
-    // Directions on the plane
-    const Eigen::Vector3f right_dir = (tr - tl).normalized();
-    const Eigen::Vector3f up_dir = ((0.5f * (tl + tr)) - center).normalized();
+      // Size of the arrow
+      const float arrow_len = 0.3f * image_extent;
+      const float head_len  = 0.35f * arrow_len;
+      const float head_width = 0.25f * arrow_len;
 
-    // Size of the arrow
-    const float arrow_len = 0.3f * image_extent;
-    const float head_len  = 0.35f * arrow_len;
-    const float head_width = 0.25f * arrow_len;
+      // Slight offset forward to avoid z-fighting
+      const Eigen::Vector3f forward_dir = (center - pc).normalized();
+      const float offset = 0.01f * image_extent;
 
-    // Slight offset forward to avoid z-fighting
-    const Eigen::Vector3f forward_dir = (center - pc).normalized();
-    const float offset = 0.01f * image_extent;
+      // Points
+      const Eigen::Vector3f base = center - up_dir * (0.5f * arrow_len) + forward_dir * offset;
+      const Eigen::Vector3f tip  = center + up_dir * (0.5f * arrow_len) + forward_dir * offset;
 
-    // Points
-    const Eigen::Vector3f base = center - up_dir * (0.5f * arrow_len) + forward_dir * offset;
-    const Eigen::Vector3f tip  = center + up_dir * (0.5f * arrow_len) + forward_dir * offset;
+      // Arrowhead points
+      const Eigen::Vector3f head_left =
+          tip - up_dir * head_len - right_dir * head_width + forward_dir * offset;
+      const Eigen::Vector3f head_right =
+          tip - up_dir * head_len + right_dir * head_width + forward_dir * offset;
 
-    // Arrowhead points
-    const Eigen::Vector3f head_left =
-        tip - up_dir * head_len - right_dir * head_width + forward_dir * offset;
-    const Eigen::Vector3f head_right =
-        tip - up_dir * head_len + right_dir * head_width + forward_dir * offset;
+      // Shaft
+      line_data->emplace_back(
+          PointPainter::Data(base(0), base(1), base(2),
+                             frame_color(0), frame_color(1),
+                             frame_color(2), frame_color(3)),
+          PointPainter::Data(tip(0), tip(1), tip(2),
+                             frame_color(0), frame_color(1),
+                             frame_color(2), frame_color(3)));
 
-    // Shaft
-    line_data->emplace_back(
-        PointPainter::Data(base(0), base(1), base(2),
-                           frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(tip(0), tip(1), tip(2),
-                           frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+      // Head left
+      line_data->emplace_back(
+          PointPainter::Data(tip(0), tip(1), tip(2),
+                             frame_color(0), frame_color(1),
+                             frame_color(2), frame_color(3)),
+          PointPainter::Data(head_left(0), head_left(1), head_left(2),
+                             frame_color(0), frame_color(1),
+                             frame_color(2), frame_color(3)));
 
-    // Head left
-    line_data->emplace_back(
-        PointPainter::Data(tip(0), tip(1), tip(2),
-                           frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(head_left(0), head_left(1), head_left(2),
-                           frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
-
-    // Head right
-    line_data->emplace_back(
-        PointPainter::Data(tip(0), tip(1), tip(2),
-                           frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(head_right(0), head_right(1), head_right(2),
-                           frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+      // Head right
+      line_data->emplace_back(
+          PointPainter::Data(tip(0), tip(1), tip(2),
+                             frame_color(0), frame_color(1),
+                             frame_color(2), frame_color(3)),
+          PointPainter::Data(head_right(0), head_right(1), head_right(2),
+                             frame_color(0), frame_color(1),
+                             frame_color(2), frame_color(3)));
+    }
   }
 }
 
@@ -1285,6 +1287,7 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
                      frame_color,
                      model_origin_,
                      model_scale_,
+                     options_->render->show_camera_up,
                      &triangle_data,
                      selection_mode ? nullptr : &line_data);
   }
@@ -1433,6 +1436,7 @@ void ModelViewerWidget::UploadMovieGrabberData() {
                        frame_color,
                        /*model_origin=*/Eigen::Vector3d::Zero(),
                        /*model_scale=*/1.,
+                       /*show_arrow=*/false,
                        &triangle_data,
                        &line_data);
     }
