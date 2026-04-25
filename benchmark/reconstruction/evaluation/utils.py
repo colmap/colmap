@@ -30,14 +30,19 @@
 import argparse
 import collections
 import copy
+import ctypes
 import dataclasses
 import datetime
 import functools
 import multiprocessing
+import platform
 import shutil
+import signal
 import subprocess
+import sys
+import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import numpy as np
@@ -48,6 +53,45 @@ import pycolmap
 from .covisibility import filter_covisibility  # noqa: F401
 from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
 
+_PR_SET_PDEATHSIG = 1
+_LIBC = (
+    ctypes.CDLL("libc.so.6", use_errno=True)
+    if platform.system() == "Linux"
+    else None
+)
+
+
+def _set_pdeathsig() -> None:
+    """preexec_fn: ensure child process is killed if parent dies."""
+    if _LIBC is not None:
+        _LIBC.prctl(_PR_SET_PDEATHSIG, signal.SIGTERM)
+
+
+def _init_pool_worker() -> None:
+    """Pool initializer: ignore SIGINT in workers so the main process
+    handles KeyboardInterrupt and terminates the pool cleanly."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _run_with_log(
+    cmd: list, log_path: Path, check: bool = True, **kwargs
+) -> int:
+    """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
+
+    Always uses preexec_fn=_set_pdeathsig so children die with their parent.
+    Raises CalledProcessError on non-zero exit when check=True.
+    """
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "wb") as fh:
+        runner = subprocess.check_call if check else subprocess.call
+        return runner(
+            cmd,
+            stdout=fh,
+            stderr=subprocess.STDOUT,
+            preexec_fn=_set_pdeathsig,
+            **kwargs,
+        )
+
 
 @dataclasses.dataclass(kw_only=True)
 class SceneInfo:
@@ -57,6 +101,8 @@ class SceneInfo:
     category: str
     # Scene name.
     scene: str
+    # Number of input images in the scene.
+    num_images: int
     # Path to the workspace directory in the run directory.
     workspace_path: Path
     # Path to the input images.
@@ -101,6 +147,15 @@ class Metrics:
     num_components: int
     # Number of images in the largest component.
     largest_component: int
+    # Raw errors that produced aucs/recalls. Empty for entries (like __avg__)
+    # where no underlying error pool exists. Retained so higher-level summaries
+    # (per-dataset, overall) can recompute pooled __all__ statistics.
+    errors: npt.NDArray[np.floating] = dataclasses.field(
+        default_factory=lambda: np.array([])
+    )
+    # Ground-truth position accuracy (used as min_error when computing AUC).
+    # Carried so cross-dataset aggregations can pick a sensible value.
+    position_accuracy_gt: float = 0.0
 
 
 MetricsByScene = dict[str, Metrics]
@@ -140,6 +195,95 @@ class Dataset(ABC):
         pass
 
 
+class _PhaseTracker:
+    """Worker-side helper that publishes the current phase for a scene to a
+    shared dict. No-op when status_dict is None."""
+
+    def __init__(self, status_dict=None, scene_key: str = "") -> None:
+        self._dict = status_dict
+        self._key = scene_key
+
+    def set(self, phase: str) -> None:
+        if self._dict is not None:
+            self._dict[self._key] = phase
+
+
+def _scene_key(scene_info: SceneInfo) -> str:
+    return f"{scene_info.dataset}/{scene_info.category}/{scene_info.scene}"
+
+
+def _run_progress_monitor(
+    status_dict, total: int, stop_event: threading.Event
+) -> None:
+    """Render a live progress display of in-flight scenes until stop_event is
+    set. Counts entries marked "done" toward overall completion; everything
+    else is shown as an in-progress task with a spinner and elapsed time."""
+    from rich.console import Group
+    from rich.live import Live
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+
+    overall = Progress(
+        TextColumn("[bold]Scenes[/bold]"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+    )
+    scenes = Progress(
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        TextColumn("[cyan]{task.fields[phase]:>14}[/cyan]"),
+        TimeElapsedColumn(),
+    )
+    overall_task = overall.add_task("scenes", total=total)
+    scene_tasks: dict[str, int] = {}
+
+    def refresh() -> None:
+        snapshot = dict(status_dict)
+        done = sum(1 for v in snapshot.values() if v == "finished")
+        overall.update(overall_task, completed=done)
+        in_progress = {k: v for k, v in snapshot.items() if v != "finished"}
+        for key in list(scene_tasks):
+            if key not in in_progress:
+                scenes.remove_task(scene_tasks.pop(key))
+        for key, phase in in_progress.items():
+            if key in scene_tasks:
+                scenes.update(scene_tasks[key], phase=phase)
+            else:
+                scene_tasks[key] = scenes.add_task(key, total=None, phase=phase)
+
+    with Live(Group(overall, scenes), refresh_per_second=4):
+        while not stop_event.is_set():
+            refresh()
+            stop_event.wait(0.5)
+        refresh()
+
+
+def filter_smallest_scenes_per_category(
+    scene_infos: list[SceneInfo], num_scenes: int
+) -> list[SceneInfo]:
+    """Keep only the `num_scenes` smallest scenes (by num_images) per category,
+    preserving the original order."""
+    indices_by_category: dict[str, list[int]] = collections.defaultdict(list)
+    for i, scene_info in enumerate(scene_infos):
+        indices_by_category[scene_info.category].append(i)
+
+    keep: set[int] = set()
+    for indices in indices_by_category.values():
+        smallest = sorted(indices, key=lambda i: scene_infos[i].num_images)[
+            :num_scenes
+        ]
+        keep.update(smallest)
+
+    return [scene_infos[i] for i in sorted(keep)]
+
+
 def parse_args() -> argparse.Namespace:
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -165,6 +309,27 @@ def parse_args() -> argparse.Namespace:
         help="Scenes to evaluate, if empty all scenes are evaluated.",
     )
     parser.add_argument(
+        "--progress",
+        default=None,
+        action=argparse.BooleanOptionalAction,
+        help="Show a live progress display of in-flight scenes "
+        "(default: enabled when stdout is a TTY).",
+    )
+    parser.add_argument(
+        "--fast",
+        default=False,
+        action="store_true",
+        help="Fast mode: only evaluate the N smallest scenes per category, "
+        "where N is set by --fast_num_scenes.",
+    )
+    parser.add_argument(
+        "--fast_num_scenes",
+        type=int,
+        default=1,
+        help="Number of smallest scenes per category to evaluate in --fast "
+        "mode.",
+    )
+    parser.add_argument(
         "--run_path", default=Path(__file__).parent.parent / "runs", type=Path
     )
     parser.add_argument("--run_name", default=datetime_str)
@@ -185,10 +350,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
     parser.add_argument(
-        "--parallelism",
+        "--num_threads",
         type=int,
-        default=multiprocessing.cpu_count(),
-        help="Number of processes for parallel reconstruction.",
+        default=-1,
+        help=(
+            "Total number of threads to use across all parallel scenes. "
+            "Defaults to 2x the number of logical CPU cores (-1)."
+        ),
+    )
+    parser.add_argument(
+        "--num_parallel_scenes",
+        type=int,
+        default=-1,
+        help=(
+            "Number of scenes to reconstruct in parallel. "
+            "Defaults to max(1, num_threads // 4) (-1)."
+        ),
+    )
+    parser.add_argument(
+        "--gpu_index",
+        type=str,
+        default="-1",
+        help="GPU indices to use for reconstruction. "
+        "Use '-1' to auto-detect and use all available GPUs. "
+        "Use comma-separated indices like '0,1,2' to specify exact GPUs.",
     )
     parser.add_argument(
         "--feature",
@@ -273,6 +458,14 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    if args.fast and args.fast_num_scenes <= 0:
+        parser.error("--fast_num_scenes must be > 0 when --fast is set")
+    if args.progress is None:
+        args.progress = sys.stdout.isatty()
+    if args.num_threads <= 0:
+        args.num_threads = 2 * multiprocessing.cpu_count()
+    if args.num_parallel_scenes <= 0:
+        args.num_parallel_scenes = max(1, args.num_threads // 4)
     if args.overwrite_database:
         pycolmap.logging.info(
             "Overwriting database also overwrites reconstruction"
@@ -327,7 +520,10 @@ def colmap_reconstruction(
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
     colmap_extra_args: list | None = None,
     num_threads: int = 1,
+    gpu_index: str = "-1",
+    phase_tracker: _PhaseTracker | None = None,
 ) -> None:
+    phase_tracker = phase_tracker or _PhaseTracker()
     workspace_path.mkdir(parents=True, exist_ok=True)
 
     database_path = workspace_path / "database.db"
@@ -353,6 +549,7 @@ def colmap_reconstruction(
                 "matches",
             ],
             cwd=workspace_path,
+            preexec_fn=_set_pdeathsig,
         )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead
@@ -367,6 +564,8 @@ def colmap_reconstruction(
         workspace_path,
         "--use_gpu",
         "1" if args.use_gpu else "0",
+        "--gpu_index",
+        gpu_index,
         "--num_threads",
         str(num_threads),
         "--feature",
@@ -377,7 +576,8 @@ def colmap_reconstruction(
         args.quality,
     ]
 
-    subprocess.check_call(
+    phase_tracker.set("extraction")
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -390,13 +590,15 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "extraction.log",
         cwd=workspace_path,
     )
 
     if camera_priors_sparse_gt is not None:
         set_camera_priors(database_path, camera_priors_sparse_gt)
 
-    subprocess.check_call(
+    phase_tracker.set("matching")
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -409,6 +611,7 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "matching.log",
         cwd=workspace_path,
     )
 
@@ -426,7 +629,8 @@ def colmap_reconstruction(
     # initialize an OpenGL context and Mac on Apple silicon tends to assign GUI
     # applications to the low efficiency cores but we want to use the
     # performance cores.
-    subprocess.check_call(
+    phase_tracker.set("reconstruction")
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -439,6 +643,7 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "reconstruction.log",
         cwd=workspace_path,
     )
 
@@ -458,7 +663,7 @@ def colmap_alignment(
 
     if sparse_path.exists():
         sparse_aligned_path.mkdir(parents=True, exist_ok=True)
-        subprocess.call(
+        _run_with_log(
             [
                 args.colmap_path,
                 "model_aligner",
@@ -470,7 +675,9 @@ def colmap_alignment(
                 sparse_aligned_path,
                 "--alignment_max_error",
                 str(max_ref_model_error),
-            ]
+            ],
+            sparse_aligned_path.parent / "alignment.log",
+            check=False,
         )
 
 
@@ -480,6 +687,8 @@ def process_scene(
     prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
     num_threads: int,
+    gpu_index: str = "-1",
+    progress_status=None,
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -487,6 +696,9 @@ def process_scene(
         f"scene={scene_info.scene}"
     )
 
+    tracker = _PhaseTracker(progress_status, _scene_key(scene_info))
+
+    tracker.set("setup")
     prepare_scene(scene_info)
 
     sparse_gt = pycolmap.Reconstruction(str(scene_info.sparse_gt_path))
@@ -505,7 +717,11 @@ def process_scene(
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
+        gpu_index=gpu_index,
+        phase_tracker=tracker,
     )
+
+    tracker.set("evaluation")
 
     # Merge all sub-models into a single reconstruction. Each sub-model will be
     # "randomly" aligned to the other sub-models. We then compute the overall
@@ -569,6 +785,7 @@ def process_scene(
     else:
         raise ValueError(f"Invalid error type: {args.error_type}")
 
+    tracker.set("finished")
     return SceneResult(
         scene_info=scene_info,
         errors=errors,
@@ -576,6 +793,38 @@ def process_scene(
         num_reg_images=sparse_merged.num_images(),
         num_components=num_components,
         largest_component=largest_component,
+    )
+
+
+def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
+    if args.gpu_index == "-1":
+        if not pycolmap.has_cuda:
+            return [-1]
+        num_devices = pycolmap.get_num_cuda_devices()  # type: ignore[attr-defined]
+        if num_devices <= 0:
+            return [-1]
+        return list(range(num_devices))
+    indices = [int(idx) for idx in args.gpu_index.split(",") if idx.strip()]
+    return indices if indices else [-1]
+
+
+def _process_scene_with_gpu(
+    scene_info_and_gpu: tuple[SceneInfo, str],
+    args: argparse.Namespace,
+    prepare_scene: Callable[[SceneInfo], None],
+    position_accuracy_gt: float,
+    num_threads: int,
+    progress_status=None,
+) -> SceneResult:
+    scene_info, gpu_index = scene_info_and_gpu
+    return process_scene(
+        args=args,
+        scene_info=scene_info,
+        prepare_scene=prepare_scene,
+        position_accuracy_gt=position_accuracy_gt,
+        num_threads=num_threads,
+        gpu_index=gpu_index,
+        progress_status=progress_status,
     )
 
 
@@ -587,37 +836,64 @@ def process_scenes(
 ) -> MetricsByCatByScene:
     error_thresholds = get_error_thresholds(args)
 
-    num_threads = min(
-        args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
-    )
-    with multiprocessing.Pool(processes=args.parallelism) as p:
-        results = list(
-            p.imap_unordered(
-                functools.partial(
-                    process_scene,
-                    args,
-                    prepare_scene=prepare_scene,
-                    position_accuracy_gt=position_accuracy_gt,
-                    num_threads=num_threads,
-                ),
-                scene_infos,
-                chunksize=1,
-            )
+    gpu_index = _parse_gpu_index(args)
+    scene_gpu_pairs = [
+        (scene_info, str(gpu_index[i % len(gpu_index)]))
+        for i, scene_info in enumerate(scene_infos)
+    ]
+
+    num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
+    num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
+
+    manager = None
+    progress_status = None
+    monitor_thread = None
+    stop_event = threading.Event()
+    if args.progress:
+        manager = multiprocessing.Manager()
+        progress_status = manager.dict()
+        monitor_thread = threading.Thread(
+            target=_run_progress_monitor,
+            args=(progress_status, len(scene_infos), stop_event),
+            daemon=True,
         )
+        monitor_thread.start()
+
+    try:
+        with multiprocessing.Pool(
+            processes=num_parallel_scenes, initializer=_init_pool_worker
+        ) as p:
+            try:
+                results = list(
+                    p.imap_unordered(
+                        functools.partial(
+                            _process_scene_with_gpu,
+                            args=args,
+                            prepare_scene=prepare_scene,
+                            position_accuracy_gt=position_accuracy_gt,
+                            num_threads=num_threads_per_scene,
+                            progress_status=progress_status,
+                        ),
+                        scene_gpu_pairs,
+                        chunksize=1,
+                    )
+                )
+            except KeyboardInterrupt:
+                pycolmap.logging.warning(
+                    "Interrupted, terminating workers and child processes..."
+                )
+                p.terminate()
+                p.join()
+                raise
+    finally:
+        stop_event.set()
+        if monitor_thread is not None:
+            monitor_thread.join(timeout=2)
+        if manager is not None:
+            manager.shutdown()
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
-    errors_by_category: dict[str, list] = collections.defaultdict(list)
-    total_num_images = 0
-    total_num_reg_images = 0
-    total_num_components = 0
-    total_largest_components = 0
-    num_scenes = len(results)
     for result in results:
-        errors_by_category[result.scene_info.category].extend(result.errors)
-        total_num_images += result.num_images
-        total_num_reg_images += result.num_reg_images
-        total_num_components += result.num_components
-        total_largest_components += result.largest_component
         metrics[result.scene_info.category][result.scene_info.scene] = Metrics(
             aucs=compute_auc(
                 result.errors,
@@ -631,37 +907,79 @@ def process_scenes(
             num_reg_images=result.num_reg_images,
             num_components=result.num_components,
             largest_component=result.largest_component,
+            errors=np.asarray(result.errors),
+            position_accuracy_gt=position_accuracy_gt,
         )
 
-    for category, errors in errors_by_category.items():
-        errors_array = np.array(errors)
-        metrics[category]["__all__"] = Metrics(
-            aucs=compute_auc(
-                errors_array,
-                error_thresholds,
-                min_error=position_accuracy_gt,
-            ),
-            recalls=compute_recall(errors_array, error_thresholds),
-            error_thresholds=error_thresholds,
-            error_type=args.error_type,
-            num_images=total_num_images,
-            num_reg_images=total_num_reg_images,
-            num_components=total_num_components,
-            largest_component=total_largest_components,
-        )
-        aucs, recalls = compute_avg_metrics(metrics[category])
-        metrics[category]["__avg__"] = Metrics(
-            aucs=aucs,
-            recalls=recalls,
-            error_thresholds=error_thresholds,
-            error_type=args.error_type,
-            num_images=int(round(total_num_images / num_scenes)),
-            num_reg_images=int(round(total_num_reg_images / num_scenes)),
-            num_components=int(round(total_num_components / num_scenes)),
-            largest_component=int(round(total_largest_components / num_scenes)),
+    for category in metrics:
+        metrics[category].update(
+            aggregate_scene_metrics(
+                metrics[category].items(),
+                error_thresholds=error_thresholds,
+                error_type=args.error_type,
+            )
         )
 
     return metrics
+
+
+def aggregate_scene_metrics(
+    scene_metrics: Iterable[tuple[str, Metrics]],
+    error_thresholds: npt.NDArray[np.floating],
+    error_type: str,
+) -> dict[str, Metrics]:
+    """Compute __avg__ (mean of per-scene metrics) and __all__ (recomputed
+    from the pool of raw errors) summary entries from per-scene Metrics.
+
+    Skips entries whose key starts and ends with "__" so this can be applied
+    iteratively at higher levels (category -> dataset -> overall) without
+    double-counting previously-emitted summaries.
+    """
+    real = [
+        m
+        for k, m in scene_metrics
+        if not (k.startswith("__") and k.endswith("__"))
+    ]
+    if not real:
+        return {}
+
+    n = len(real)
+    sum_num_images = sum(m.num_images for m in real)
+    sum_num_reg_images = sum(m.num_reg_images for m in real)
+    sum_num_components = sum(m.num_components for m in real)
+    sum_largest_component = sum(m.largest_component for m in real)
+    min_pos_acc = min(m.position_accuracy_gt for m in real)
+    pooled_errors = np.concatenate([m.errors for m in real])
+
+    summary = {
+        "__avg__": Metrics(
+            aucs=np.mean([m.aucs for m in real], axis=0),
+            recalls=np.mean([m.recalls for m in real], axis=0),
+            error_thresholds=error_thresholds,
+            error_type=error_type,
+            num_images=int(round(sum_num_images / n)),
+            num_reg_images=int(round(sum_num_reg_images / n)),
+            num_components=int(round(sum_num_components / n)),
+            largest_component=int(round(sum_largest_component / n)),
+            position_accuracy_gt=min_pos_acc,
+        ),
+    }
+    if pooled_errors.size:
+        summary["__all__"] = Metrics(
+            aucs=compute_auc(
+                pooled_errors, error_thresholds, min_error=min_pos_acc
+            ),
+            recalls=compute_recall(pooled_errors, error_thresholds),
+            error_thresholds=error_thresholds,
+            error_type=error_type,
+            num_images=sum_num_images,
+            num_reg_images=sum_num_reg_images,
+            num_components=sum_num_components,
+            largest_component=sum_largest_component,
+            errors=pooled_errors,
+            position_accuracy_gt=min_pos_acc,
+        )
+    return summary
 
 
 def get_error_thresholds(args: argparse.Namespace) -> npt.NDArray[np.floating]:
@@ -958,30 +1276,70 @@ def create_result_table(
     header += " ".join(f"{str(t).rstrip('.'):^6}" for t in thresholds)
     header += "    reg   all  num largest"
     text = [header]
+
+    def render_block(
+        header_text: str,
+        scene_metrics: MetricsByScene,
+        header_fill: str = "=",
+    ) -> None:
+        text.append(f"\n{header_text:{header_fill}^{size_sep}}")
+        any_scene_row = False
+        summary_separator_drawn = False
+        for scene, metrics in sorted(
+            scene_metrics.items(),
+            key=lambda x: (
+                x[0].startswith("__"),
+                x[0],
+            ),
+        ):
+            scores = get_scores(first_metrics.error_type, metrics)
+            assert len(scores) == len(thresholds)
+            row = ""
+            is_summary = scene.startswith("__") and scene.endswith("__")
+            if is_summary and any_scene_row and not summary_separator_drawn:
+                row += "-" * size_sep + "\n"
+                summary_separator_drawn = True
+            if not is_summary:
+                any_scene_row = True
+            if scene == "__avg__":
+                scene = "average"
+            if scene == "__all__":
+                scene = "overall"
+            row += f"{scene:<{size_scenes}} "
+            row += " ".join(f"{score:>6.2f}" for score in scores)
+            row += f" {metrics.num_reg_images:6d}"
+            row += f"{metrics.num_images:6d}"
+            row += f" {metrics.num_components:4d}"
+            row += f"{metrics.largest_component:8d}"
+            text.append(row)
+
+    overall_scene_metrics: list[tuple[str, Metrics]] = []
     for dataset, category_metrics in dataset_metrics.items():
+        dataset_scene_metrics: list[tuple[str, Metrics]] = []
         for category, scene_metrics in category_metrics.items():
-            text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
-            for scene, metrics in sorted(
-                scene_metrics.items(),
-                key=lambda x: (
-                    x[0].startswith("__"),
-                    x[0],
+            render_block(f"{dataset}={category}", scene_metrics)
+            dataset_scene_metrics.extend(scene_metrics.items())
+        if len(category_metrics) > 1:
+            render_block(
+                dataset,
+                aggregate_scene_metrics(
+                    dataset_scene_metrics,
+                    error_thresholds=first_metrics.error_thresholds,
+                    error_type=first_metrics.error_type,
                 ),
-            ):
-                scores = get_scores(first_metrics.error_type, metrics)
-                assert len(scores) == len(thresholds)
-                row = ""
-                if scene == "__avg__":
-                    scene = "average"
-                    row += "-" * size_sep + "\n"
-                if scene == "__all__":
-                    scene = "overall"
-                    row += "-" * size_sep + "\n"
-                row += f"{scene:<{size_scenes}} "
-                row += " ".join(f"{score:>6.2f}" for score in scores)
-                row += f" {metrics.num_reg_images:6d}"
-                row += f"{metrics.num_images:6d}"
-                row += f" {metrics.num_components:4d}"
-                row += f"{metrics.largest_component:8d}"
-                text.append(row)
+                header_fill="#",
+            )
+        overall_scene_metrics.extend(dataset_scene_metrics)
+
+    if len(dataset_metrics) > 1:
+        render_block(
+            "overall",
+            aggregate_scene_metrics(
+                overall_scene_metrics,
+                error_thresholds=first_metrics.error_thresholds,
+                error_type=first_metrics.error_type,
+            ),
+            header_fill="#",
+        )
+
     return "\n".join(text)
