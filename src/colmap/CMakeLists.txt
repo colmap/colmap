@@ -57,7 +57,6 @@ endif()
 if(CASPAR_ENABLED)
     cmake_policy(SET CMP0094 NEW)
     message(STATUS "Enabling CASPAR support")
-    add_compile_definitions(CASPAR_ENABLED)
 
     find_package(CUDAToolkit REQUIRED)
     include(ExternalProject)

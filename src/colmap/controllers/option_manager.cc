@@ -510,6 +510,10 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->constant_rig_from_world_rotation);
   AddDefaultOption("BundleAdjustment.min_track_length",
                    &bundle_adjustment->min_track_length);
+  AddDefaultEnumOption("BundleAdjustment.backend",
+                       &bundle_adjustment->backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
 
   // Ceres-specific options
   AddDefaultOption(
@@ -639,6 +643,10 @@ void OptionManager::AddMapperOptions() {
                    &mapper->ba_local_max_refinement_change);
   AddDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
   AddDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddDefaultEnumOption("Mapper.ba_backend",
+                       &mapper->ba_backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
   AddDefaultOption("Mapper.ba_min_num_residuals_for_cpu_multi_threading",
                    &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
