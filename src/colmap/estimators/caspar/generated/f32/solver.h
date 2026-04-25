@@ -42,31 +42,42 @@ class GraphSolver {
    * Base constructor.
    *
    * @param params: The params to use for the solver
+   * @param PinholeCalib_num_max the maximum number of PinholeCalibs
    * @param PinholeFocalAndExtra_num_max the maximum number of
    * PinholeFocalAndExtras
+   * @param PinholePose_num_max the maximum number of PinholePoses
    * @param PinholePrincipalPoint_num_max the maximum number of
    * PinholePrincipalPoints
    * @param Point_num_max the maximum number of Points
-   * @param Pose_num_max the maximum number of Poses
+   * @param SimpleRadialCalib_num_max the maximum number of SimpleRadialCalibs
    * @param SimpleRadialFocalAndExtra_num_max the maximum number of
    * SimpleRadialFocalAndExtras
+   * @param SimpleRadialPose_num_max the maximum number of SimpleRadialPoses
    * @param SimpleRadialPrincipalPoint_num_max the maximum number of
    * SimpleRadialPrincipalPoints
-   * @param simple_radial_num_max the maximum number of simple_radials
-   * @param simple_radial_fixed_pose_num_max the maximum number of
-   * simple_radial_fixed_poses
+   * @param simple_radial_merged_num_max the maximum number of
+   * simple_radial_mergeds
+   * @param simple_radial_merged_fixed_pose_num_max the maximum number of
+   * simple_radial_merged_fixed_poses
+   * @param simple_radial_merged_fixed_point_num_max the maximum number of
+   * simple_radial_merged_fixed_points
+   * @param simple_radial_merged_fixed_pose_fixed_point_num_max the maximum
+   * number of simple_radial_merged_fixed_pose_fixed_points
+   * @param pinhole_merged_num_max the maximum number of pinhole_mergeds
+   * @param pinhole_merged_fixed_pose_num_max the maximum number of
+   * pinhole_merged_fixed_poses
+   * @param pinhole_merged_fixed_point_num_max the maximum number of
+   * pinhole_merged_fixed_points
+   * @param pinhole_merged_fixed_pose_fixed_point_num_max the maximum number of
+   * pinhole_merged_fixed_pose_fixed_points
    * @param simple_radial_fixed_focal_and_extra_num_max the maximum number of
    * simple_radial_fixed_focal_and_extras
    * @param simple_radial_fixed_principal_point_num_max the maximum number of
    * simple_radial_fixed_principal_points
-   * @param simple_radial_fixed_point_num_max the maximum number of
-   * simple_radial_fixed_points
    * @param simple_radial_fixed_pose_fixed_focal_and_extra_num_max the maximum
    * number of simple_radial_fixed_pose_fixed_focal_and_extras
    * @param simple_radial_fixed_pose_fixed_principal_point_num_max the maximum
    * number of simple_radial_fixed_pose_fixed_principal_points
-   * @param simple_radial_fixed_pose_fixed_point_num_max the maximum number of
-   * simple_radial_fixed_pose_fixed_points
    * @param simple_radial_fixed_focal_and_extra_fixed_principal_point_num_max
    * the maximum number of
    * simple_radial_fixed_focal_and_extra_fixed_principal_points
@@ -88,20 +99,14 @@ class GraphSolver {
    * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max
    * the maximum number of
    * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_points
-   * @param pinhole_num_max the maximum number of pinholes
-   * @param pinhole_fixed_pose_num_max the maximum number of pinhole_fixed_poses
    * @param pinhole_fixed_focal_and_extra_num_max the maximum number of
    * pinhole_fixed_focal_and_extras
    * @param pinhole_fixed_principal_point_num_max the maximum number of
    * pinhole_fixed_principal_points
-   * @param pinhole_fixed_point_num_max the maximum number of
-   * pinhole_fixed_points
    * @param pinhole_fixed_pose_fixed_focal_and_extra_num_max the maximum number
    * of pinhole_fixed_pose_fixed_focal_and_extras
    * @param pinhole_fixed_pose_fixed_principal_point_num_max the maximum number
    * of pinhole_fixed_pose_fixed_principal_points
-   * @param pinhole_fixed_pose_fixed_point_num_max the maximum number of
-   * pinhole_fixed_pose_fixed_points
    * @param pinhole_fixed_focal_and_extra_fixed_principal_point_num_max the
    * maximum number of pinhole_fixed_focal_and_extra_fixed_principal_points
    * @param pinhole_fixed_focal_and_extra_fixed_point_num_max the maximum number
@@ -123,20 +128,27 @@ class GraphSolver {
    */
   GraphSolver(
       const SolverParams<double>& params,
+      size_t PinholeCalib_num_max,
       size_t PinholeFocalAndExtra_num_max,
+      size_t PinholePose_num_max,
       size_t PinholePrincipalPoint_num_max,
       size_t Point_num_max,
-      size_t Pose_num_max,
+      size_t SimpleRadialCalib_num_max,
       size_t SimpleRadialFocalAndExtra_num_max,
+      size_t SimpleRadialPose_num_max,
       size_t SimpleRadialPrincipalPoint_num_max,
-      size_t simple_radial_num_max,
-      size_t simple_radial_fixed_pose_num_max,
+      size_t simple_radial_merged_num_max,
+      size_t simple_radial_merged_fixed_pose_num_max,
+      size_t simple_radial_merged_fixed_point_num_max,
+      size_t simple_radial_merged_fixed_pose_fixed_point_num_max,
+      size_t pinhole_merged_num_max,
+      size_t pinhole_merged_fixed_pose_num_max,
+      size_t pinhole_merged_fixed_point_num_max,
+      size_t pinhole_merged_fixed_pose_fixed_point_num_max,
       size_t simple_radial_fixed_focal_and_extra_num_max,
       size_t simple_radial_fixed_principal_point_num_max,
-      size_t simple_radial_fixed_point_num_max,
       size_t simple_radial_fixed_pose_fixed_focal_and_extra_num_max,
       size_t simple_radial_fixed_pose_fixed_principal_point_num_max,
-      size_t simple_radial_fixed_pose_fixed_point_num_max,
       size_t simple_radial_fixed_focal_and_extra_fixed_principal_point_num_max,
       size_t simple_radial_fixed_focal_and_extra_fixed_point_num_max,
       size_t simple_radial_fixed_principal_point_fixed_point_num_max,
@@ -146,14 +158,10 @@ class GraphSolver {
       size_t simple_radial_fixed_pose_fixed_principal_point_fixed_point_num_max,
       size_t
           simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max,
-      size_t pinhole_num_max,
-      size_t pinhole_fixed_pose_num_max,
       size_t pinhole_fixed_focal_and_extra_num_max,
       size_t pinhole_fixed_principal_point_num_max,
-      size_t pinhole_fixed_point_num_max,
       size_t pinhole_fixed_pose_fixed_focal_and_extra_num_max,
       size_t pinhole_fixed_pose_fixed_principal_point_num_max,
-      size_t pinhole_fixed_pose_fixed_point_num_max,
       size_t pinhole_fixed_focal_and_extra_fixed_principal_point_num_max,
       size_t pinhole_fixed_focal_and_extra_fixed_point_num_max,
       size_t pinhole_fixed_principal_point_fixed_point_num_max,
@@ -195,6 +203,55 @@ class GraphSolver {
    * Get the number of allocated bytes.
    */
   size_t get_allocation_size();
+
+  /**
+   * Set the current value for the PinholeCalib nodes from the stacked host
+   * data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void set_PinholeCalib_nodes_from_stacked_host(const float* const data,
+                                                size_t offset,
+                                                size_t num);
+
+  /**
+   * Set the current value for the PinholeCalib nodes from the stacked device
+   * data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void set_PinholeCalib_nodes_from_stacked_device(const float* const data,
+                                                  size_t offset,
+                                                  size_t num);
+
+  /**
+   * Read the current value for the PinholeCalib nodes into the stacked output
+   * host data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void get_PinholeCalib_nodes_to_stacked_host(float* const data,
+                                              size_t offset,
+                                              size_t num);
+
+  /**
+   * Read the current value for the PinholeCalib nodes into the stacked output
+   * device data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void get_PinholeCalib_nodes_to_stacked_device(float* const data,
+                                                size_t offset,
+                                                size_t num);
+
+  /**
+   * Set the current number of active nodes of type PinholeCalib.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_PinholeCalib_num(size_t num);
 
   /**
    * Set the current value for the PinholeFocalAndExtra nodes from the stacked
@@ -243,6 +300,54 @@ class GraphSolver {
    * progress and can have performance impacts.
    */
   void set_PinholeFocalAndExtra_num(size_t num);
+
+  /**
+   * Set the current value for the PinholePose nodes from the stacked host data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void set_PinholePose_nodes_from_stacked_host(const float* const data,
+                                               size_t offset,
+                                               size_t num);
+
+  /**
+   * Set the current value for the PinholePose nodes from the stacked device
+   * data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void set_PinholePose_nodes_from_stacked_device(const float* const data,
+                                                 size_t offset,
+                                                 size_t num);
+
+  /**
+   * Read the current value for the PinholePose nodes into the stacked output
+   * host data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void get_PinholePose_nodes_to_stacked_host(float* const data,
+                                             size_t offset,
+                                             size_t num);
+
+  /**
+   * Read the current value for the PinholePose nodes into the stacked output
+   * device data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void get_PinholePose_nodes_to_stacked_device(float* const data,
+                                               size_t offset,
+                                               size_t num);
+
+  /**
+   * Set the current number of active nodes of type PinholePose.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_PinholePose_num(size_t num);
 
   /**
    * Set the current value for the PinholePrincipalPoint nodes from the stacked
@@ -339,51 +444,53 @@ class GraphSolver {
   void set_Point_num(size_t num);
 
   /**
-   * Set the current value for the Pose nodes from the stacked host data.
+   * Set the current value for the SimpleRadialCalib nodes from the stacked host
+   * data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_Pose_nodes_from_stacked_host(const float* const data,
-                                        size_t offset,
-                                        size_t num);
+  void set_SimpleRadialCalib_nodes_from_stacked_host(const float* const data,
+                                                     size_t offset,
+                                                     size_t num);
 
   /**
-   * Set the current value for the Pose nodes from the stacked device data.
+   * Set the current value for the SimpleRadialCalib nodes from the stacked
+   * device data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_Pose_nodes_from_stacked_device(const float* const data,
-                                          size_t offset,
-                                          size_t num);
+  void set_SimpleRadialCalib_nodes_from_stacked_device(const float* const data,
+                                                       size_t offset,
+                                                       size_t num);
 
   /**
-   * Read the current value for the Pose nodes into the stacked output host
-   * data.
+   * Read the current value for the SimpleRadialCalib nodes into the stacked
+   * output host data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_Pose_nodes_to_stacked_host(float* const data,
-                                      size_t offset,
-                                      size_t num);
+  void get_SimpleRadialCalib_nodes_to_stacked_host(float* const data,
+                                                   size_t offset,
+                                                   size_t num);
 
   /**
-   * Read the current value for the Pose nodes into the stacked output device
-   * data.
+   * Read the current value for the SimpleRadialCalib nodes into the stacked
+   * output device data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_Pose_nodes_to_stacked_device(float* const data,
-                                        size_t offset,
-                                        size_t num);
+  void get_SimpleRadialCalib_nodes_to_stacked_device(float* const data,
+                                                     size_t offset,
+                                                     size_t num);
 
   /**
-   * Set the current number of active nodes of type Pose.
+   * Set the current number of active nodes of type SimpleRadialCalib.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_Pose_num(size_t num);
+  void set_SimpleRadialCalib_num(size_t num);
 
   /**
    * Set the current value for the SimpleRadialFocalAndExtra nodes from the
@@ -433,6 +540,55 @@ class GraphSolver {
   void set_SimpleRadialFocalAndExtra_num(size_t num);
 
   /**
+   * Set the current value for the SimpleRadialPose nodes from the stacked host
+   * data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void set_SimpleRadialPose_nodes_from_stacked_host(const float* const data,
+                                                    size_t offset,
+                                                    size_t num);
+
+  /**
+   * Set the current value for the SimpleRadialPose nodes from the stacked
+   * device data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void set_SimpleRadialPose_nodes_from_stacked_device(const float* const data,
+                                                      size_t offset,
+                                                      size_t num);
+
+  /**
+   * Read the current value for the SimpleRadialPose nodes into the stacked
+   * output host data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void get_SimpleRadialPose_nodes_to_stacked_host(float* const data,
+                                                  size_t offset,
+                                                  size_t num);
+
+  /**
+   * Read the current value for the SimpleRadialPose nodes into the stacked
+   * output device data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void get_SimpleRadialPose_nodes_to_stacked_device(float* const data,
+                                                    size_t offset,
+                                                    size_t num);
+
+  /**
+   * Set the current number of active nodes of type SimpleRadialPose.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_SimpleRadialPose_num(size_t num);
+
+  /**
    * Set the current value for the SimpleRadialPrincipalPoint nodes from the
    * stacked host data.
    *
@@ -480,176 +636,600 @@ class GraphSolver {
   void set_SimpleRadialPrincipalPoint_num(size_t num);
 
   /**
-   * Set the indices for the pose argument for the simple_radial factor from
-   * host.
+   * Set the indices for the pose argument for the simple_radial_merged factor
+   * from host.
    */
-  void set_simple_radial_pose_indices_from_host(
+  void set_simple_radial_merged_pose_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the pose argument for the simple_radial factor from
-   * device.
+   * Set the indices for the pose argument for the simple_radial_merged factor
+   * from device.
    */
-  void set_simple_radial_pose_indices_from_device(
+  void set_simple_radial_merged_pose_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_extra argument for the simple_radial
-   * factor from host.
+   * Set the indices for the calib argument for the simple_radial_merged factor
+   * from host.
    */
-  void set_simple_radial_focal_and_extra_indices_from_host(
+  void set_simple_radial_merged_calib_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_extra argument for the simple_radial
-   * factor from device.
+   * Set the indices for the calib argument for the simple_radial_merged factor
+   * from device.
    */
-  void set_simple_radial_focal_and_extra_indices_from_device(
+  void set_simple_radial_merged_calib_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the simple_radial
-   * factor from host.
+   * Set the indices for the point argument for the simple_radial_merged factor
+   * from host.
    */
-  void set_simple_radial_principal_point_indices_from_host(
+  void set_simple_radial_merged_point_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the simple_radial
-   * factor from device.
+   * Set the indices for the point argument for the simple_radial_merged factor
+   * from device.
    */
-  void set_simple_radial_principal_point_indices_from_device(
+  void set_simple_radial_merged_point_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the simple_radial factor from
-   * host.
+   * Set the values for the pixel consts simple_radial_merged factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_point_indices_from_host(
+  void set_simple_radial_merged_pixel_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts simple_radial_merged factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_pixel_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_merged factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_merged_num(size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * simple_radial_merged_fixed_pose factor from host.
+   */
+  void set_simple_radial_merged_fixed_pose_calib_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the simple_radial factor from
-   * device.
+   * Set the indices for the calib argument for the
+   * simple_radial_merged_fixed_pose factor from device.
    */
-  void set_simple_radial_point_indices_from_device(
+  void set_simple_radial_merged_fixed_pose_calib_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial factor from stacked host
+   * Set the indices for the point argument for the
+   * simple_radial_merged_fixed_pose factor from host.
+   */
+  void set_simple_radial_merged_fixed_pose_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * simple_radial_merged_fixed_pose factor from device.
+   */
+  void set_simple_radial_merged_fixed_pose_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts simple_radial_merged_fixed_pose factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_pose_pixel_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts simple_radial_merged_fixed_pose factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_pose_pixel_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts simple_radial_merged_fixed_pose factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_pose_pose_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts simple_radial_merged_fixed_pose factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_pose_pose_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_merged_fixed_pose factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_merged_fixed_pose_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_merged_fixed_point factor from host.
+   */
+  void set_simple_radial_merged_fixed_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * simple_radial_merged_fixed_point factor from device.
+   */
+  void set_simple_radial_merged_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * simple_radial_merged_fixed_point factor from host.
+   */
+  void set_simple_radial_merged_fixed_point_calib_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * simple_radial_merged_fixed_point factor from device.
+   */
+  void set_simple_radial_merged_fixed_point_calib_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts simple_radial_merged_fixed_point factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_point_pixel_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts simple_radial_merged_fixed_point factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_point_pixel_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts simple_radial_merged_fixed_point factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_point_point_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts simple_radial_merged_fixed_point factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_simple_radial_merged_fixed_point_point_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_merged_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_merged_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * simple_radial_merged_fixed_pose_fixed_point factor from host.
+   */
+  void set_simple_radial_merged_fixed_pose_fixed_point_calib_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * simple_radial_merged_fixed_pose_fixed_point factor from device.
+   */
+  void
+  set_simple_radial_merged_fixed_pose_fixed_point_calib_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_merged_fixed_pose_fixed_point factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_merged_fixed_pose_fixed_point_pixel_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * simple_radial_merged_fixed_pose_fixed_point factor from stacked device
    * data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_pixel_data_from_stacked_host(const float* const data,
-                                                      size_t offset,
-                                                      size_t num);
+  void
+  set_simple_radial_merged_fixed_pose_fixed_point_pixel_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial factor from stacked
+   * Set the values for the pose consts
+   * simple_radial_merged_fixed_pose_fixed_point factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_merged_fixed_pose_fixed_point_pose_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * simple_radial_merged_fixed_pose_fixed_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_merged_fixed_pose_fixed_point_pose_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_merged_fixed_pose_fixed_point factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_merged_fixed_pose_fixed_point_point_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * simple_radial_merged_fixed_pose_fixed_point factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  set_simple_radial_merged_fixed_pose_fixed_point_point_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of simple_radial_merged_fixed_pose_fixed_point
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_simple_radial_merged_fixed_pose_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the pinhole_merged factor from
+   * host.
+   */
+  void set_pinhole_merged_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the pinhole_merged factor from
+   * device.
+   */
+  void set_pinhole_merged_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the pinhole_merged factor from
+   * host.
+   */
+  void set_pinhole_merged_calib_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the pinhole_merged factor from
+   * device.
+   */
+  void set_pinhole_merged_calib_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the pinhole_merged factor from
+   * host.
+   */
+  void set_pinhole_merged_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the pinhole_merged factor from
+   * device.
+   */
+  void set_pinhole_merged_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_merged factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_pixel_data_from_stacked_host(const float* const data,
+                                                       size_t offset,
+                                                       size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_merged factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_pixel_data_from_stacked_device(const float* const data,
-                                                        size_t offset,
-                                                        size_t num);
+  void set_pinhole_merged_pixel_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of simple_radial factors.
+   * Set the current number of pinhole_merged factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_simple_radial_num(size_t num);
+  void set_pinhole_merged_num(size_t num);
 
   /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose factor from host.
-   */
-  void set_simple_radial_fixed_pose_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose factor from device.
-   */
-  void set_simple_radial_fixed_pose_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose factor from host.
-   */
-  void set_simple_radial_fixed_pose_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose factor from device.
-   */
-  void set_simple_radial_fixed_pose_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the simple_radial_fixed_pose
+   * Set the indices for the calib argument for the pinhole_merged_fixed_pose
    * factor from host.
    */
-  void set_simple_radial_fixed_pose_point_indices_from_host(
+  void set_pinhole_merged_fixed_pose_calib_indices_from_host(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the simple_radial_fixed_pose
+   * Set the indices for the calib argument for the pinhole_merged_fixed_pose
    * factor from device.
    */
-  void set_simple_radial_fixed_pose_point_indices_from_device(
+  void set_pinhole_merged_fixed_pose_calib_indices_from_device(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial_fixed_pose factor from
+   * Set the indices for the point argument for the pinhole_merged_fixed_pose
+   * factor from host.
+   */
+  void set_pinhole_merged_fixed_pose_point_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the pinhole_merged_fixed_pose
+   * factor from device.
+   */
+  void set_pinhole_merged_fixed_pose_point_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_merged_fixed_pose factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_fixed_pose_pixel_data_from_stacked_host(
+  void set_pinhole_merged_fixed_pose_pixel_data_from_stacked_host(
       const float* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial_fixed_pose factor from
+   * Set the values for the pixel consts pinhole_merged_fixed_pose factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_fixed_pose_pixel_data_from_stacked_device(
+  void set_pinhole_merged_fixed_pose_pixel_data_from_stacked_device(
       const float* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts simple_radial_fixed_pose factor from
+   * Set the values for the pose consts pinhole_merged_fixed_pose factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_fixed_pose_pose_data_from_stacked_host(
+  void set_pinhole_merged_fixed_pose_pose_data_from_stacked_host(
       const float* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts simple_radial_fixed_pose factor from
+   * Set the values for the pose consts pinhole_merged_fixed_pose factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_fixed_pose_pose_data_from_stacked_device(
+  void set_pinhole_merged_fixed_pose_pose_data_from_stacked_device(
       const float* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of simple_radial_fixed_pose factors.
+   * Set the current number of pinhole_merged_fixed_pose factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_simple_radial_fixed_pose_num(size_t num);
+  void set_pinhole_merged_fixed_pose_num(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the pinhole_merged_fixed_point
+   * factor from host.
+   */
+  void set_pinhole_merged_fixed_point_pose_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the pinhole_merged_fixed_point
+   * factor from device.
+   */
+  void set_pinhole_merged_fixed_point_pose_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the pinhole_merged_fixed_point
+   * factor from host.
+   */
+  void set_pinhole_merged_fixed_point_calib_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the pinhole_merged_fixed_point
+   * factor from device.
+   */
+  void set_pinhole_merged_fixed_point_calib_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_merged_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_point_pixel_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_merged_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_point_pixel_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts pinhole_merged_fixed_point factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_point_point_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts pinhole_merged_fixed_point factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_point_point_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of pinhole_merged_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_merged_fixed_point_num(size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * pinhole_merged_fixed_pose_fixed_point factor from host.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_calib_indices_from_host(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * pinhole_merged_fixed_pose_fixed_point factor from device.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_calib_indices_from_device(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_merged_fixed_pose_fixed_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_pixel_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts pinhole_merged_fixed_pose_fixed_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_pixel_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts pinhole_merged_fixed_pose_fixed_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_pose_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts pinhole_merged_fixed_pose_fixed_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_pose_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts pinhole_merged_fixed_pose_fixed_point
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_point_data_from_stacked_host(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts pinhole_merged_fixed_pose_fixed_point
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_point_data_from_stacked_device(
+      const float* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of pinhole_merged_fixed_pose_fixed_point factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void set_pinhole_merged_fixed_pose_fixed_point_num(size_t num);
 
   /**
    * Set the indices for the pose argument for the
@@ -832,93 +1412,6 @@ class GraphSolver {
    * progress and can have performance impacts.
    */
   void set_simple_radial_fixed_principal_point_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the simple_radial_fixed_point
-   * factor from host.
-   */
-  void set_simple_radial_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the simple_radial_fixed_point
-   * factor from device.
-   */
-  void set_simple_radial_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_point factor from host.
-   */
-  void set_simple_radial_fixed_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_point factor from device.
-   */
-  void set_simple_radial_fixed_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_point factor from host.
-   */
-  void set_simple_radial_fixed_point_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_point factor from device.
-   */
-  void set_simple_radial_fixed_point_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_point_pixel_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_point_pixel_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_point_point_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_point_point_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_point_num(size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
@@ -1135,101 +1628,6 @@ class GraphSolver {
    * progress and can have performance impacts.
    */
   void set_simple_radial_fixed_pose_fixed_principal_point_num(size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_point_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_point_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_pose_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_point_pixel_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_pose_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_point_pixel_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts simple_radial_fixed_pose_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_point_pose_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts simple_radial_fixed_pose_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_point_pose_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_fixed_pose_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_point_point_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_fixed_pose_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_pose_fixed_point_point_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_pose_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_pose_fixed_point_num(size_t num);
 
   /**
    * Set the indices for the pose argument for the
@@ -2031,173 +2429,6 @@ class GraphSolver {
       size_t num);
 
   /**
-   * Set the indices for the pose argument for the pinhole factor from host.
-   */
-  void set_pinhole_pose_indices_from_host(const unsigned int* const indices,
-                                          size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole factor from device.
-   */
-  void set_pinhole_pose_indices_from_device(const unsigned int* const indices,
-                                            size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the pinhole factor
-   * from host.
-   */
-  void set_pinhole_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the pinhole factor
-   * from device.
-   */
-  void set_pinhole_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the pinhole factor
-   * from host.
-   */
-  void set_pinhole_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the pinhole factor
-   * from device.
-   */
-  void set_pinhole_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole factor from host.
-   */
-  void set_pinhole_point_indices_from_host(const unsigned int* const indices,
-                                           size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole factor from device.
-   */
-  void set_pinhole_point_indices_from_device(const unsigned int* const indices,
-                                             size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_pixel_data_from_stacked_host(const float* const data,
-                                                size_t offset,
-                                                size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_pixel_data_from_stacked_device(const float* const data,
-                                                  size_t offset,
-                                                  size_t num);
-
-  /**
-   * Set the current number of pinhole factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_num(size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the pinhole_fixed_pose
-   * factor from host.
-   */
-  void set_pinhole_fixed_pose_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the pinhole_fixed_pose
-   * factor from device.
-   */
-  void set_pinhole_fixed_pose_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the pinhole_fixed_pose
-   * factor from host.
-   */
-  void set_pinhole_fixed_pose_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the pinhole_fixed_pose
-   * factor from device.
-   */
-  void set_pinhole_fixed_pose_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole_fixed_pose factor
-   * from host.
-   */
-  void set_pinhole_fixed_pose_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole_fixed_pose factor
-   * from device.
-   */
-  void set_pinhole_fixed_pose_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_pose factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_pixel_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_pose factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_pixel_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_pose_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_pose_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_pose factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_pose_num(size_t num);
-
-  /**
    * Set the indices for the pose argument for the pinhole_fixed_focal_and_extra
    * factor from host.
    */
@@ -2372,93 +2603,6 @@ class GraphSolver {
    * progress and can have performance impacts.
    */
   void set_pinhole_fixed_principal_point_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_fixed_point factor
-   * from host.
-   */
-  void set_pinhole_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_fixed_point factor
-   * from device.
-   */
-  void set_pinhole_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_point_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_point_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_point factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_point_pixel_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_point_pixel_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_point factor from stacked
-   * host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_point_point_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_point factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_point_point_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_point_num(size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
@@ -2655,97 +2799,6 @@ class GraphSolver {
    * progress and can have performance impacts.
    */
   void set_pinhole_fixed_pose_fixed_principal_point_num(size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_pose_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_pose_fixed_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_pose_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_pose_fixed_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_pose_fixed_point factor from host.
-   */
-  void set_pinhole_fixed_pose_fixed_point_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_pose_fixed_point factor from device.
-   */
-  void set_pinhole_fixed_pose_fixed_point_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_pose_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_point_pixel_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_pose_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_point_pixel_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_point_pose_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_point_pose_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_pose_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_point_point_data_from_stacked_host(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts pinhole_fixed_pose_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_point_point_data_from_stacked_device(
-      const float* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_pose_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_pose_fixed_point_num(size_t num);
 
   /**
    * Set the indices for the pose argument for the
@@ -3531,34 +3584,48 @@ class GraphSolver {
   float pcg_r_0_norm2_;
   float pcg_r_kp1_norm2_;
 
+  size_t PinholeCalib_num_;
+  size_t PinholeCalib_num_max_;
   size_t PinholeFocalAndExtra_num_;
   size_t PinholeFocalAndExtra_num_max_;
+  size_t PinholePose_num_;
+  size_t PinholePose_num_max_;
   size_t PinholePrincipalPoint_num_;
   size_t PinholePrincipalPoint_num_max_;
   size_t Point_num_;
   size_t Point_num_max_;
-  size_t Pose_num_;
-  size_t Pose_num_max_;
+  size_t SimpleRadialCalib_num_;
+  size_t SimpleRadialCalib_num_max_;
   size_t SimpleRadialFocalAndExtra_num_;
   size_t SimpleRadialFocalAndExtra_num_max_;
+  size_t SimpleRadialPose_num_;
+  size_t SimpleRadialPose_num_max_;
   size_t SimpleRadialPrincipalPoint_num_;
   size_t SimpleRadialPrincipalPoint_num_max_;
-  size_t simple_radial_num_;
-  size_t simple_radial_num_max_;
-  size_t simple_radial_fixed_pose_num_;
-  size_t simple_radial_fixed_pose_num_max_;
+  size_t simple_radial_merged_num_;
+  size_t simple_radial_merged_num_max_;
+  size_t simple_radial_merged_fixed_pose_num_;
+  size_t simple_radial_merged_fixed_pose_num_max_;
+  size_t simple_radial_merged_fixed_point_num_;
+  size_t simple_radial_merged_fixed_point_num_max_;
+  size_t simple_radial_merged_fixed_pose_fixed_point_num_;
+  size_t simple_radial_merged_fixed_pose_fixed_point_num_max_;
+  size_t pinhole_merged_num_;
+  size_t pinhole_merged_num_max_;
+  size_t pinhole_merged_fixed_pose_num_;
+  size_t pinhole_merged_fixed_pose_num_max_;
+  size_t pinhole_merged_fixed_point_num_;
+  size_t pinhole_merged_fixed_point_num_max_;
+  size_t pinhole_merged_fixed_pose_fixed_point_num_;
+  size_t pinhole_merged_fixed_pose_fixed_point_num_max_;
   size_t simple_radial_fixed_focal_and_extra_num_;
   size_t simple_radial_fixed_focal_and_extra_num_max_;
   size_t simple_radial_fixed_principal_point_num_;
   size_t simple_radial_fixed_principal_point_num_max_;
-  size_t simple_radial_fixed_point_num_;
-  size_t simple_radial_fixed_point_num_max_;
   size_t simple_radial_fixed_pose_fixed_focal_and_extra_num_;
   size_t simple_radial_fixed_pose_fixed_focal_and_extra_num_max_;
   size_t simple_radial_fixed_pose_fixed_principal_point_num_;
   size_t simple_radial_fixed_pose_fixed_principal_point_num_max_;
-  size_t simple_radial_fixed_pose_fixed_point_num_;
-  size_t simple_radial_fixed_pose_fixed_point_num_max_;
   size_t simple_radial_fixed_focal_and_extra_fixed_principal_point_num_;
   size_t simple_radial_fixed_focal_and_extra_fixed_principal_point_num_max_;
   size_t simple_radial_fixed_focal_and_extra_fixed_point_num_;
@@ -3577,22 +3644,14 @@ class GraphSolver {
       simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_;
   size_t
       simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_;
-  size_t pinhole_num_;
-  size_t pinhole_num_max_;
-  size_t pinhole_fixed_pose_num_;
-  size_t pinhole_fixed_pose_num_max_;
   size_t pinhole_fixed_focal_and_extra_num_;
   size_t pinhole_fixed_focal_and_extra_num_max_;
   size_t pinhole_fixed_principal_point_num_;
   size_t pinhole_fixed_principal_point_num_max_;
-  size_t pinhole_fixed_point_num_;
-  size_t pinhole_fixed_point_num_max_;
   size_t pinhole_fixed_pose_fixed_focal_and_extra_num_;
   size_t pinhole_fixed_pose_fixed_focal_and_extra_num_max_;
   size_t pinhole_fixed_pose_fixed_principal_point_num_;
   size_t pinhole_fixed_pose_fixed_principal_point_num_max_;
-  size_t pinhole_fixed_pose_fixed_point_num_;
-  size_t pinhole_fixed_pose_fixed_point_num_max_;
   size_t pinhole_fixed_focal_and_extra_fixed_principal_point_num_;
   size_t pinhole_fixed_focal_and_extra_fixed_principal_point_num_max_;
   size_t pinhole_fixed_focal_and_extra_fixed_point_num_;
@@ -3630,36 +3689,67 @@ class GraphSolver {
   float get_pred_decrease();
 
   float* marker__start_;
+  float* nodes__PinholeCalib__storage_current_;
+  float* nodes__PinholeCalib__storage_check_;
+  float* nodes__PinholeCalib__storage_new_best_;
   float* nodes__PinholeFocalAndExtra__storage_current_;
   float* nodes__PinholeFocalAndExtra__storage_check_;
   float* nodes__PinholeFocalAndExtra__storage_new_best_;
+  float* nodes__PinholePose__storage_current_;
+  float* nodes__PinholePose__storage_check_;
+  float* nodes__PinholePose__storage_new_best_;
   float* nodes__PinholePrincipalPoint__storage_current_;
   float* nodes__PinholePrincipalPoint__storage_check_;
   float* nodes__PinholePrincipalPoint__storage_new_best_;
   float* nodes__Point__storage_current_;
   float* nodes__Point__storage_check_;
   float* nodes__Point__storage_new_best_;
-  float* nodes__Pose__storage_current_;
-  float* nodes__Pose__storage_check_;
-  float* nodes__Pose__storage_new_best_;
+  float* nodes__SimpleRadialCalib__storage_current_;
+  float* nodes__SimpleRadialCalib__storage_check_;
+  float* nodes__SimpleRadialCalib__storage_new_best_;
   float* nodes__SimpleRadialFocalAndExtra__storage_current_;
   float* nodes__SimpleRadialFocalAndExtra__storage_check_;
   float* nodes__SimpleRadialFocalAndExtra__storage_new_best_;
+  float* nodes__SimpleRadialPose__storage_current_;
+  float* nodes__SimpleRadialPose__storage_check_;
+  float* nodes__SimpleRadialPose__storage_new_best_;
   float* nodes__SimpleRadialPrincipalPoint__storage_current_;
   float* nodes__SimpleRadialPrincipalPoint__storage_check_;
   float* nodes__SimpleRadialPrincipalPoint__storage_new_best_;
-  SharedIndex* facs__simple_radial__args__pose__idx_shared_;
-  SharedIndex* facs__simple_radial__args__focal_and_extra__idx_shared_;
-  SharedIndex* facs__simple_radial__args__principal_point__idx_shared_;
-  SharedIndex* facs__simple_radial__args__point__idx_shared_;
-  float* facs__simple_radial__args__pixel__data_;
+  SharedIndex* facs__simple_radial_merged__args__pose__idx_shared_;
+  SharedIndex* facs__simple_radial_merged__args__calib__idx_shared_;
+  SharedIndex* facs__simple_radial_merged__args__point__idx_shared_;
+  float* facs__simple_radial_merged__args__pixel__data_;
+  SharedIndex* facs__simple_radial_merged_fixed_pose__args__calib__idx_shared_;
+  SharedIndex* facs__simple_radial_merged_fixed_pose__args__point__idx_shared_;
+  float* facs__simple_radial_merged_fixed_pose__args__pixel__data_;
+  float* facs__simple_radial_merged_fixed_pose__args__pose__data_;
+  SharedIndex* facs__simple_radial_merged_fixed_point__args__pose__idx_shared_;
+  SharedIndex* facs__simple_radial_merged_fixed_point__args__calib__idx_shared_;
+  float* facs__simple_radial_merged_fixed_point__args__pixel__data_;
+  float* facs__simple_radial_merged_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_pose__args__focal_and_extra__idx_shared_;
+      facs__simple_radial_merged_fixed_pose_fixed_point__args__calib__idx_shared_;
+  float* facs__simple_radial_merged_fixed_pose_fixed_point__args__pixel__data_;
+  float* facs__simple_radial_merged_fixed_pose_fixed_point__args__pose__data_;
+  float* facs__simple_radial_merged_fixed_pose_fixed_point__args__point__data_;
+  SharedIndex* facs__pinhole_merged__args__pose__idx_shared_;
+  SharedIndex* facs__pinhole_merged__args__calib__idx_shared_;
+  SharedIndex* facs__pinhole_merged__args__point__idx_shared_;
+  float* facs__pinhole_merged__args__pixel__data_;
+  SharedIndex* facs__pinhole_merged_fixed_pose__args__calib__idx_shared_;
+  SharedIndex* facs__pinhole_merged_fixed_pose__args__point__idx_shared_;
+  float* facs__pinhole_merged_fixed_pose__args__pixel__data_;
+  float* facs__pinhole_merged_fixed_pose__args__pose__data_;
+  SharedIndex* facs__pinhole_merged_fixed_point__args__pose__idx_shared_;
+  SharedIndex* facs__pinhole_merged_fixed_point__args__calib__idx_shared_;
+  float* facs__pinhole_merged_fixed_point__args__pixel__data_;
+  float* facs__pinhole_merged_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_fixed_pose__args__principal_point__idx_shared_;
-  SharedIndex* facs__simple_radial_fixed_pose__args__point__idx_shared_;
-  float* facs__simple_radial_fixed_pose__args__pixel__data_;
-  float* facs__simple_radial_fixed_pose__args__pose__data_;
+      facs__pinhole_merged_fixed_pose_fixed_point__args__calib__idx_shared_;
+  float* facs__pinhole_merged_fixed_pose_fixed_point__args__pixel__data_;
+  float* facs__pinhole_merged_fixed_pose_fixed_point__args__pose__data_;
+  float* facs__pinhole_merged_fixed_pose_fixed_point__args__point__data_;
   SharedIndex*
       facs__simple_radial_fixed_focal_and_extra__args__pose__idx_shared_;
   SharedIndex*
@@ -3678,13 +3768,6 @@ class GraphSolver {
   float* facs__simple_radial_fixed_principal_point__args__pixel__data_;
   float*
       facs__simple_radial_fixed_principal_point__args__principal_point__data_;
-  SharedIndex* facs__simple_radial_fixed_point__args__pose__idx_shared_;
-  SharedIndex*
-      facs__simple_radial_fixed_point__args__focal_and_extra__idx_shared_;
-  SharedIndex*
-      facs__simple_radial_fixed_point__args__principal_point__idx_shared_;
-  float* facs__simple_radial_fixed_point__args__pixel__data_;
-  float* facs__simple_radial_fixed_point__args__point__data_;
   SharedIndex*
       facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_;
   SharedIndex*
@@ -3705,13 +3788,6 @@ class GraphSolver {
       facs__simple_radial_fixed_pose_fixed_principal_point__args__pose__data_;
   float*
       facs__simple_radial_fixed_pose_fixed_principal_point__args__principal_point__data_;
-  SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_point__args__focal_and_extra__idx_shared_;
-  SharedIndex*
-      facs__simple_radial_fixed_pose_fixed_point__args__principal_point__idx_shared_;
-  float* facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_;
-  float* facs__simple_radial_fixed_pose_fixed_point__args__pose__data_;
-  float* facs__simple_radial_fixed_pose_fixed_point__args__point__data_;
   SharedIndex*
       facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_;
   SharedIndex*
@@ -3782,16 +3858,6 @@ class GraphSolver {
       facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_;
   float*
       facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_;
-  SharedIndex* facs__pinhole__args__pose__idx_shared_;
-  SharedIndex* facs__pinhole__args__focal_and_extra__idx_shared_;
-  SharedIndex* facs__pinhole__args__principal_point__idx_shared_;
-  SharedIndex* facs__pinhole__args__point__idx_shared_;
-  float* facs__pinhole__args__pixel__data_;
-  SharedIndex* facs__pinhole_fixed_pose__args__focal_and_extra__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_pose__args__principal_point__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_pose__args__point__idx_shared_;
-  float* facs__pinhole_fixed_pose__args__pixel__data_;
-  float* facs__pinhole_fixed_pose__args__pose__data_;
   SharedIndex* facs__pinhole_fixed_focal_and_extra__args__pose__idx_shared_;
   SharedIndex*
       facs__pinhole_fixed_focal_and_extra__args__principal_point__idx_shared_;
@@ -3804,11 +3870,6 @@ class GraphSolver {
   SharedIndex* facs__pinhole_fixed_principal_point__args__point__idx_shared_;
   float* facs__pinhole_fixed_principal_point__args__pixel__data_;
   float* facs__pinhole_fixed_principal_point__args__principal_point__data_;
-  SharedIndex* facs__pinhole_fixed_point__args__pose__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_point__args__focal_and_extra__idx_shared_;
-  SharedIndex* facs__pinhole_fixed_point__args__principal_point__idx_shared_;
-  float* facs__pinhole_fixed_point__args__pixel__data_;
-  float* facs__pinhole_fixed_point__args__point__data_;
   SharedIndex*
       facs__pinhole_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_;
   SharedIndex*
@@ -3825,13 +3886,6 @@ class GraphSolver {
   float* facs__pinhole_fixed_pose_fixed_principal_point__args__pose__data_;
   float*
       facs__pinhole_fixed_pose_fixed_principal_point__args__principal_point__data_;
-  SharedIndex*
-      facs__pinhole_fixed_pose_fixed_point__args__focal_and_extra__idx_shared_;
-  SharedIndex*
-      facs__pinhole_fixed_pose_fixed_point__args__principal_point__idx_shared_;
-  float* facs__pinhole_fixed_pose_fixed_point__args__pixel__data_;
-  float* facs__pinhole_fixed_pose_fixed_point__args__pose__data_;
-  float* facs__pinhole_fixed_pose_fixed_point__args__point__data_;
   SharedIndex*
       facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_;
   SharedIndex*
@@ -3899,14 +3953,18 @@ class GraphSolver {
   float*
       facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_;
   float* marker__scratch_inout_;
-  float* facs__simple_radial__res_;
-  float* facs__simple_radial_fixed_pose__res_;
+  float* facs__simple_radial_merged__res_;
+  float* facs__simple_radial_merged_fixed_pose__res_;
+  float* facs__simple_radial_merged_fixed_point__res_;
+  float* facs__simple_radial_merged_fixed_pose_fixed_point__res_;
+  float* facs__pinhole_merged__res_;
+  float* facs__pinhole_merged_fixed_pose__res_;
+  float* facs__pinhole_merged_fixed_point__res_;
+  float* facs__pinhole_merged_fixed_pose_fixed_point__res_;
   float* facs__simple_radial_fixed_focal_and_extra__res_;
   float* facs__simple_radial_fixed_principal_point__res_;
-  float* facs__simple_radial_fixed_point__res_;
   float* facs__simple_radial_fixed_pose_fixed_focal_and_extra__res_;
   float* facs__simple_radial_fixed_pose_fixed_principal_point__res_;
-  float* facs__simple_radial_fixed_pose_fixed_point__res_;
   float* facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__res_;
   float* facs__simple_radial_fixed_focal_and_extra_fixed_point__res_;
   float* facs__simple_radial_fixed_principal_point_fixed_point__res_;
@@ -3916,14 +3974,10 @@ class GraphSolver {
   float* facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__res_;
   float*
       facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_;
-  float* facs__pinhole__res_;
-  float* facs__pinhole_fixed_pose__res_;
   float* facs__pinhole_fixed_focal_and_extra__res_;
   float* facs__pinhole_fixed_principal_point__res_;
-  float* facs__pinhole_fixed_point__res_;
   float* facs__pinhole_fixed_pose_fixed_focal_and_extra__res_;
   float* facs__pinhole_fixed_pose_fixed_principal_point__res_;
-  float* facs__pinhole_fixed_pose_fixed_point__res_;
   float* facs__pinhole_fixed_focal_and_extra_fixed_principal_point__res_;
   float* facs__pinhole_fixed_focal_and_extra_fixed_point__res_;
   float* facs__pinhole_fixed_principal_point_fixed_point__res_;
@@ -3933,22 +3987,28 @@ class GraphSolver {
   float* facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__res_;
   float*
       facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_;
-  float* facs__simple_radial__args__pose__jac_;
-  float* facs__simple_radial__args__focal_and_extra__jac_;
-  float* facs__simple_radial__args__principal_point__jac_;
-  float* facs__simple_radial__args__point__jac_;
-  float* facs__simple_radial_fixed_pose__args__focal_and_extra__jac_;
-  float* facs__simple_radial_fixed_pose__args__principal_point__jac_;
-  float* facs__simple_radial_fixed_pose__args__point__jac_;
+  float* facs__simple_radial_merged__args__pose__jac_;
+  float* facs__simple_radial_merged__args__calib__jac_;
+  float* facs__simple_radial_merged__args__point__jac_;
+  float* facs__simple_radial_merged_fixed_pose__args__calib__jac_;
+  float* facs__simple_radial_merged_fixed_pose__args__point__jac_;
+  float* facs__simple_radial_merged_fixed_point__args__pose__jac_;
+  float* facs__simple_radial_merged_fixed_point__args__calib__jac_;
+  float* facs__simple_radial_merged_fixed_pose_fixed_point__args__calib__jac_;
+  float* facs__pinhole_merged__args__pose__jac_;
+  float* facs__pinhole_merged__args__calib__jac_;
+  float* facs__pinhole_merged__args__point__jac_;
+  float* facs__pinhole_merged_fixed_pose__args__calib__jac_;
+  float* facs__pinhole_merged_fixed_pose__args__point__jac_;
+  float* facs__pinhole_merged_fixed_point__args__pose__jac_;
+  float* facs__pinhole_merged_fixed_point__args__calib__jac_;
+  float* facs__pinhole_merged_fixed_pose_fixed_point__args__calib__jac_;
   float* facs__simple_radial_fixed_focal_and_extra__args__pose__jac_;
   float* facs__simple_radial_fixed_focal_and_extra__args__principal_point__jac_;
   float* facs__simple_radial_fixed_focal_and_extra__args__point__jac_;
   float* facs__simple_radial_fixed_principal_point__args__pose__jac_;
   float* facs__simple_radial_fixed_principal_point__args__focal_and_extra__jac_;
   float* facs__simple_radial_fixed_principal_point__args__point__jac_;
-  float* facs__simple_radial_fixed_point__args__pose__jac_;
-  float* facs__simple_radial_fixed_point__args__focal_and_extra__jac_;
-  float* facs__simple_radial_fixed_point__args__principal_point__jac_;
   float*
       facs__simple_radial_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_;
   float*
@@ -3957,10 +4017,6 @@ class GraphSolver {
       facs__simple_radial_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_;
   float*
       facs__simple_radial_fixed_pose_fixed_principal_point__args__point__jac_;
-  float*
-      facs__simple_radial_fixed_pose_fixed_point__args__focal_and_extra__jac_;
-  float*
-      facs__simple_radial_fixed_pose_fixed_point__args__principal_point__jac_;
   float*
       facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_;
   float*
@@ -3981,30 +4037,18 @@ class GraphSolver {
       facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
   float*
       facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__jac_;
-  float* facs__pinhole__args__pose__jac_;
-  float* facs__pinhole__args__focal_and_extra__jac_;
-  float* facs__pinhole__args__principal_point__jac_;
-  float* facs__pinhole__args__point__jac_;
-  float* facs__pinhole_fixed_pose__args__focal_and_extra__jac_;
-  float* facs__pinhole_fixed_pose__args__principal_point__jac_;
-  float* facs__pinhole_fixed_pose__args__point__jac_;
   float* facs__pinhole_fixed_focal_and_extra__args__pose__jac_;
   float* facs__pinhole_fixed_focal_and_extra__args__principal_point__jac_;
   float* facs__pinhole_fixed_focal_and_extra__args__point__jac_;
   float* facs__pinhole_fixed_principal_point__args__pose__jac_;
   float* facs__pinhole_fixed_principal_point__args__focal_and_extra__jac_;
   float* facs__pinhole_fixed_principal_point__args__point__jac_;
-  float* facs__pinhole_fixed_point__args__pose__jac_;
-  float* facs__pinhole_fixed_point__args__focal_and_extra__jac_;
-  float* facs__pinhole_fixed_point__args__principal_point__jac_;
   float*
       facs__pinhole_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_;
   float* facs__pinhole_fixed_pose_fixed_focal_and_extra__args__point__jac_;
   float*
       facs__pinhole_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_;
   float* facs__pinhole_fixed_pose_fixed_principal_point__args__point__jac_;
-  float* facs__pinhole_fixed_pose_fixed_point__args__focal_and_extra__jac_;
-  float* facs__pinhole_fixed_pose_fixed_point__args__principal_point__jac_;
   float*
       facs__pinhole_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_;
   float*
@@ -4023,97 +4067,137 @@ class GraphSolver {
       facs__pinhole_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
   float*
       facs__pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__jac_;
+  float* nodes__PinholeCalib__z_;
+  float* nodes__PinholeCalib__z_end__;
   float* nodes__PinholeFocalAndExtra__z_;
   float* nodes__PinholeFocalAndExtra__z_end__;
+  float* nodes__PinholePose__z_;
+  float* nodes__PinholePose__z_end__;
   float* nodes__PinholePrincipalPoint__z_;
   float* nodes__PinholePrincipalPoint__z_end__;
   float* nodes__Point__z_;
   float* nodes__Point__z_end__;
-  float* nodes__Pose__z_;
-  float* nodes__Pose__z_end__;
+  float* nodes__SimpleRadialCalib__z_;
+  float* nodes__SimpleRadialCalib__z_end__;
   float* nodes__SimpleRadialFocalAndExtra__z_;
   float* nodes__SimpleRadialFocalAndExtra__z_end__;
+  float* nodes__SimpleRadialPose__z_;
+  float* nodes__SimpleRadialPose__z_end__;
   float* nodes__SimpleRadialPrincipalPoint__z_;
   float* nodes__SimpleRadialPrincipalPoint__z_end__;
+  float* nodes__PinholeCalib__p_;
+  float* nodes__PinholeCalib__p_end__;
   float* nodes__PinholeFocalAndExtra__p_;
   float* nodes__PinholeFocalAndExtra__p_end__;
+  float* nodes__PinholePose__p_;
+  float* nodes__PinholePose__p_end__;
   float* nodes__PinholePrincipalPoint__p_;
   float* nodes__PinholePrincipalPoint__p_end__;
   float* nodes__Point__p_;
   float* nodes__Point__p_end__;
-  float* nodes__Pose__p_;
-  float* nodes__Pose__p_end__;
+  float* nodes__SimpleRadialCalib__p_;
+  float* nodes__SimpleRadialCalib__p_end__;
   float* nodes__SimpleRadialFocalAndExtra__p_;
   float* nodes__SimpleRadialFocalAndExtra__p_end__;
+  float* nodes__SimpleRadialPose__p_;
+  float* nodes__SimpleRadialPose__p_end__;
   float* nodes__SimpleRadialPrincipalPoint__p_;
   float* nodes__SimpleRadialPrincipalPoint__p_end__;
+  float* nodes__PinholeCalib__step_;
+  float* nodes__PinholeCalib__step_end__;
   float* nodes__PinholeFocalAndExtra__step_;
   float* nodes__PinholeFocalAndExtra__step_end__;
+  float* nodes__PinholePose__step_;
+  float* nodes__PinholePose__step_end__;
   float* nodes__PinholePrincipalPoint__step_;
   float* nodes__PinholePrincipalPoint__step_end__;
   float* nodes__Point__step_;
   float* nodes__Point__step_end__;
-  float* nodes__Pose__step_;
-  float* nodes__Pose__step_end__;
+  float* nodes__SimpleRadialCalib__step_;
+  float* nodes__SimpleRadialCalib__step_end__;
   float* nodes__SimpleRadialFocalAndExtra__step_;
   float* nodes__SimpleRadialFocalAndExtra__step_end__;
+  float* nodes__SimpleRadialPose__step_;
+  float* nodes__SimpleRadialPose__step_end__;
   float* nodes__SimpleRadialPrincipalPoint__step_;
   float* nodes__SimpleRadialPrincipalPoint__step_end__;
   float* marker__w_start_;
+  float* nodes__PinholeCalib__w_;
   float* nodes__PinholeFocalAndExtra__w_;
+  float* nodes__PinholePose__w_;
   float* nodes__PinholePrincipalPoint__w_;
   float* nodes__Point__w_;
-  float* nodes__Pose__w_;
+  float* nodes__SimpleRadialCalib__w_;
   float* nodes__SimpleRadialFocalAndExtra__w_;
+  float* nodes__SimpleRadialPose__w_;
   float* nodes__SimpleRadialPrincipalPoint__w_;
   float* marker__w_end_;
   float* marker__r_0_start_;
+  float* nodes__PinholeCalib__r_0_;
   float* nodes__PinholeFocalAndExtra__r_0_;
+  float* nodes__PinholePose__r_0_;
   float* nodes__PinholePrincipalPoint__r_0_;
   float* nodes__Point__r_0_;
-  float* nodes__Pose__r_0_;
+  float* nodes__SimpleRadialCalib__r_0_;
   float* nodes__SimpleRadialFocalAndExtra__r_0_;
+  float* nodes__SimpleRadialPose__r_0_;
   float* nodes__SimpleRadialPrincipalPoint__r_0_;
   float* marker__r_0_end_;
   float* marker__r_k_start_;
+  float* nodes__PinholeCalib__r_k_;
   float* nodes__PinholeFocalAndExtra__r_k_;
+  float* nodes__PinholePose__r_k_;
   float* nodes__PinholePrincipalPoint__r_k_;
   float* nodes__Point__r_k_;
-  float* nodes__Pose__r_k_;
+  float* nodes__SimpleRadialCalib__r_k_;
   float* nodes__SimpleRadialFocalAndExtra__r_k_;
+  float* nodes__SimpleRadialPose__r_k_;
   float* nodes__SimpleRadialPrincipalPoint__r_k_;
   float* marker__r_k_end_;
   float* marker__Mp_start_;
+  float* nodes__PinholeCalib__Mp_;
   float* nodes__PinholeFocalAndExtra__Mp_;
+  float* nodes__PinholePose__Mp_;
   float* nodes__PinholePrincipalPoint__Mp_;
   float* nodes__Point__Mp_;
-  float* nodes__Pose__Mp_;
+  float* nodes__SimpleRadialCalib__Mp_;
   float* nodes__SimpleRadialFocalAndExtra__Mp_;
+  float* nodes__SimpleRadialPose__Mp_;
   float* nodes__SimpleRadialPrincipalPoint__Mp_;
   float* marker__Mp_end_;
   float* marker__precond_start_;
+  float* nodes__PinholeCalib__precond_diag_;
+  float* nodes__PinholeCalib__precond_tril_;
   float* nodes__PinholeFocalAndExtra__precond_diag_;
   float* nodes__PinholeFocalAndExtra__precond_tril_;
+  float* nodes__PinholePose__precond_diag_;
+  float* nodes__PinholePose__precond_tril_;
   float* nodes__PinholePrincipalPoint__precond_diag_;
   float* nodes__PinholePrincipalPoint__precond_tril_;
   float* nodes__Point__precond_diag_;
   float* nodes__Point__precond_tril_;
-  float* nodes__Pose__precond_diag_;
-  float* nodes__Pose__precond_tril_;
+  float* nodes__SimpleRadialCalib__precond_diag_;
+  float* nodes__SimpleRadialCalib__precond_tril_;
   float* nodes__SimpleRadialFocalAndExtra__precond_diag_;
   float* nodes__SimpleRadialFocalAndExtra__precond_tril_;
+  float* nodes__SimpleRadialPose__precond_diag_;
+  float* nodes__SimpleRadialPose__precond_tril_;
   float* nodes__SimpleRadialPrincipalPoint__precond_diag_;
   float* nodes__SimpleRadialPrincipalPoint__precond_tril_;
   float* marker__precond_end_;
   float* marker__jp_start_;
-  float* facs__simple_radial__jp_;
-  float* facs__simple_radial_fixed_pose__jp_;
+  float* facs__simple_radial_merged__jp_;
+  float* facs__simple_radial_merged_fixed_pose__jp_;
+  float* facs__simple_radial_merged_fixed_point__jp_;
+  float* facs__simple_radial_merged_fixed_pose_fixed_point__jp_;
+  float* facs__pinhole_merged__jp_;
+  float* facs__pinhole_merged_fixed_pose__jp_;
+  float* facs__pinhole_merged_fixed_point__jp_;
+  float* facs__pinhole_merged_fixed_pose_fixed_point__jp_;
   float* facs__simple_radial_fixed_focal_and_extra__jp_;
   float* facs__simple_radial_fixed_principal_point__jp_;
-  float* facs__simple_radial_fixed_point__jp_;
   float* facs__simple_radial_fixed_pose_fixed_focal_and_extra__jp_;
   float* facs__simple_radial_fixed_pose_fixed_principal_point__jp_;
-  float* facs__simple_radial_fixed_pose_fixed_point__jp_;
   float* facs__simple_radial_fixed_focal_and_extra_fixed_principal_point__jp_;
   float* facs__simple_radial_fixed_focal_and_extra_fixed_point__jp_;
   float* facs__simple_radial_fixed_principal_point_fixed_point__jp_;
@@ -4123,14 +4207,10 @@ class GraphSolver {
   float* facs__simple_radial_fixed_pose_fixed_principal_point_fixed_point__jp_;
   float*
       facs__simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point__jp_;
-  float* facs__pinhole__jp_;
-  float* facs__pinhole_fixed_pose__jp_;
   float* facs__pinhole_fixed_focal_and_extra__jp_;
   float* facs__pinhole_fixed_principal_point__jp_;
-  float* facs__pinhole_fixed_point__jp_;
   float* facs__pinhole_fixed_pose_fixed_focal_and_extra__jp_;
   float* facs__pinhole_fixed_pose_fixed_principal_point__jp_;
-  float* facs__pinhole_fixed_pose_fixed_point__jp_;
   float* facs__pinhole_fixed_focal_and_extra_fixed_principal_point__jp_;
   float* facs__pinhole_fixed_focal_and_extra_fixed_point__jp_;
   float* facs__pinhole_fixed_principal_point_fixed_point__jp_;
