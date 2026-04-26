@@ -572,6 +572,8 @@ int RunPointTriangulator(int argc, char** argv) {
   std::filesystem::path output_path;
   bool clear_points = true;
   bool refine_intrinsics = false;
+  bool refine_extrinsics = false;
+  bool refine_loop = false;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -588,7 +590,18 @@ int RunPointTriangulator(int argc, char** argv) {
                            &refine_intrinsics,
                            "Whether to refine the intrinsics of the cameras "
                            "(fixing the principal point)");
+  options.AddDefaultOption("refine_extrinsics",
+                           &refine_extrinsics,
+                           "Whether to refine the extrinsics (camera poses) "
+                           "during triangulation");
+  options.AddDefaultOption(
+      "refine_loop",
+      &refine_loop,
+      "Run bundle adjustment loop to refine + complete/merge "
+      "+ filter after triangulation");
+
   options.AddMapperOptions();
+  options.AddBundleAdjustmentOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -614,7 +627,10 @@ int RunPointTriangulator(int argc, char** argv) {
                            output_path,
                            *options.mapper,
                            clear_points,
-                           refine_intrinsics);
+                           refine_intrinsics,
+                           refine_extrinsics,
+                           refine_loop,
+                           *options.bundle_adjustment);
   return EXIT_SUCCESS;
 }
 
@@ -625,9 +641,13 @@ void RunPointTriangulatorImpl(
     const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
     const bool clear_points,
-    const bool refine_intrinsics) {
+    const bool refine_intrinsics,
+    const bool refine_extrinsics,
+    const bool refine_loop,
+    const BundleAdjustmentOptions& ba_options_input) {
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
+
   if (clear_points) {
     reconstruction->DeleteAllPoints2DAndPoints3D();
     reconstruction->TranscribeImageIdsToDatabase(
@@ -637,7 +657,7 @@ void RunPointTriangulatorImpl(
   auto custom_options = std::make_shared<IncrementalPipelineOptions>(options);
   custom_options->image_path = image_path;
   custom_options->load_all_images = true;
-  custom_options->fix_existing_frames = true;
+  custom_options->fix_existing_frames = !refine_extrinsics;
   custom_options->ba_refine_focal_length = refine_intrinsics;
   custom_options->ba_refine_principal_point = false;
   custom_options->ba_refine_extra_params = refine_intrinsics;
@@ -646,6 +666,63 @@ void RunPointTriangulatorImpl(
   IncrementalPipeline mapper(
       custom_options, Database::Open(database_path), reconstruction_manager);
   mapper.TriangulateReconstruction(reconstruction);
+
+  if (refine_loop) {
+    LOG_HEADING1("Refinement loop (BA + complete/merge + filter)");
+
+    auto database = Database::Open(database_path);
+    const size_t min_num_matches = static_cast<size_t>(options.min_num_matches);
+    std::unordered_set<std::string> image_names(options.image_names.begin(),
+                                                options.image_names.end());
+
+    DatabaseCache::Options database_cache_options;
+    database_cache_options.min_num_matches = min_num_matches;
+    database_cache_options.ignore_watermarks = options.ignore_watermarks;
+    database_cache_options.image_names = std::move(image_names);
+
+    auto database_cache = DatabaseCache::Create(*database,
+                                                database_cache_options);
+
+    IncrementalMapper mapper(database_cache);
+    mapper.BeginReconstruction(reconstruction);
+
+    BundleAdjustmentOptions ba = ba_options_input;
+    ba.refine_focal_length = ba.refine_focal_length || refine_intrinsics;
+    ba.refine_extra_params = ba.refine_extra_params || refine_intrinsics;
+
+    IncrementalMapper::Options loop_mapper_options = options.mapper;
+    loop_mapper_options.fix_existing_frames = !refine_extrinsics;
+
+    const int max_refinements = options.ba_global_max_refinements;
+    const double min_change = options.ba_global_max_refinement_change;
+
+    LOG_HEADING1("Bundle adjustment");
+    for (int i = 0; i < max_refinements; ++i) {
+      const size_t num_obs_before = reconstruction->ComputeNumObservations();
+
+      mapper.AdjustGlobalBundle(loop_mapper_options, ba);
+
+      size_t num_changed = 0;
+      num_changed += mapper.CompleteAndMergeTracks(options.triangulation);
+      num_changed += mapper.FilterPoints(options.mapper);
+
+      const double changed_ratio =
+          num_obs_before == 0 ? 0.0
+                              : static_cast<double>(num_changed) /
+                                    static_cast<double>(num_obs_before);
+
+      std::cout << StringPrintf("  => Changed observations: %.6f",
+                                changed_ratio)
+                << std::endl;
+
+      if (changed_ratio < min_change) break;
+    }
+
+    reconstruction->ExtractColorsForAllImages(image_path);
+
+    mapper.EndReconstruction(/*discard=*/false);
+  }
+
   reconstruction->Write(output_path);
 }
 
