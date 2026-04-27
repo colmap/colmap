@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/rigid3.h"
 
@@ -37,16 +38,6 @@
 #include <ceres/rotation.h>
 
 namespace colmap {
-
-template <typename T>
-inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
-                                       T* angle_axis) {
-  const T quaternion[4] = {eigen_quaternion[3],
-                           eigen_quaternion[0],
-                           eigen_quaternion[1],
-                           eigen_quaternion[2]};
-  ceres::QuaternionToAngleAxis(quaternion, angle_axis);
-}
 
 // 6-DoF error on the absolute sensor pose. The residual is the log of the error
 // pose, splitting SE(3) into SO(3) x R^3. The residual is computed in the
