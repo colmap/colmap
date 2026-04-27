@@ -27,7 +27,16 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/mvs/meshing.h"
+#include "colmap/mvs/delaunay_meshing.h"
+
+#include "colmap/math/graph_cut.h"
+#include "colmap/math/math.h"
+#include "colmap/math/random.h"
+#include "colmap/mvs/fusion.h"
+#include "colmap/scene/reconstruction.h"
+#include "colmap/util/endian.h"
+#include "colmap/util/file.h"
+#include "colmap/util/logging.h"
 
 #include <fstream>
 #include <unordered_map>
@@ -39,20 +48,9 @@
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #endif  // COLMAP_CGAL_ENABLED
-
-#include "colmap/math/graph_cut.h"
-#include "colmap/math/math.h"
-#include "colmap/math/random.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/util/endian.h"
-#include "colmap/util/file.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
-
-#include "thirdparty/PoissonRecon/PoissonRecon.h"
-#include "thirdparty/PoissonRecon/SurfaceTrimmer.h"
 
 #if defined(COLMAP_CGAL_ENABLED)
 
@@ -96,15 +94,6 @@ struct hash<const Delaunay::Cell_handle> {
 namespace colmap {
 namespace mvs {
 
-bool PoissonMeshingOptions::Check() const {
-  CHECK_OPTION_GE(point_weight, 0);
-  CHECK_OPTION_GT(depth, 0);
-  CHECK_OPTION_GE(trim, 0);
-  CHECK_OPTION_GE(num_threads, -1);
-  CHECK_OPTION_NE(num_threads, 0);
-  return true;
-}
-
 bool DelaunayMeshingOptions::Check() const {
   CHECK_OPTION_GE(max_proj_dist, 0);
   CHECK_OPTION_GE(max_depth_dist, 0);
@@ -118,103 +107,6 @@ bool DelaunayMeshingOptions::Check() const {
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_NE(num_threads, 0);
   return true;
-}
-
-bool PoissonMeshing(const PoissonMeshingOptions& options,
-                    const std::filesystem::path& input_path,
-                    const std::filesystem::path& output_path) {
-  THROW_CHECK(options.Check());
-  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
-  THROW_CHECK_FILE_EXISTS(input_path);
-  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
-  THROW_CHECK_PATH_OPEN(output_path);
-
-  bool success = true;
-
-#pragma omp parallel num_threads(1)
-  {
-    omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
-#ifdef _MSC_VER
-    omp_set_nested(1);
-#else
-    omp_set_max_active_levels(1);
-#endif
-
-    std::vector<std::string> args;
-
-    args.push_back("./poisson_recon");
-
-    args.push_back("--in");
-    args.push_back(input_path.string());
-
-    args.push_back("--out");
-    args.push_back(output_path.string());
-
-    args.push_back("--pointWeight");
-    args.push_back(std::to_string(options.point_weight));
-
-    args.push_back("--depth");
-    args.push_back(std::to_string(options.depth));
-
-    // Full depth cannot exceed system depth.
-    if (options.depth < 5) {
-      args.push_back("--fullDepth");
-      args.push_back(std::to_string(options.depth));
-    }
-
-    if (options.color) {
-      args.push_back("--colors");
-    }
-
-    if (options.num_threads > 0) {
-      args.push_back("--parallel");
-      args.push_back("0");
-    }
-
-    if (options.trim > 0) {
-      args.push_back("--density");
-    }
-
-    std::vector<const char*> args_cstr;
-    args_cstr.reserve(args.size());
-    for (const auto& arg : args) {
-      args_cstr.push_back(arg.c_str());
-    }
-
-    if (RunPoissonRecon(args_cstr.size(),
-                        const_cast<char**>(args_cstr.data())) != EXIT_SUCCESS) {
-      success = false;
-    }
-
-    if (success && options.trim != 0) {
-      args.clear();
-      args_cstr.clear();
-
-      args.push_back("./surface_trimmer");
-
-      args.push_back("--in");
-      args.push_back(output_path.string());
-
-      args.push_back("--out");
-      args.push_back(output_path.string());
-
-      args.push_back("--trim");
-      args.push_back(std::to_string(options.trim));
-
-      args_cstr.reserve(args.size());
-      for (const auto& arg : args) {
-        args_cstr.push_back(arg.c_str());
-      }
-
-      if (RunSurfaceTrimmer(args_cstr.size(),
-                            const_cast<char**>(args_cstr.data())) !=
-          EXIT_SUCCESS) {
-        success = false;
-      }
-    }
-  }
-
-  return success;
 }
 
 #if defined(COLMAP_CGAL_ENABLED)
@@ -305,24 +197,17 @@ class DelaunayMeshingInput {
     }
 
     const auto& ply_points = ReadPly(path / "fused.ply");
-
-    const auto vis_path = path / "fused.ply.vis";
-    std::fstream vis_file(vis_path, std::ios::in | std::ios::binary);
-    THROW_CHECK_FILE_OPEN(vis_file, vis_path);
-
-    const size_t vis_num_points = ReadBinaryLittleEndian<uint64_t>(&vis_file);
-    THROW_CHECK_EQ(vis_num_points, ply_points.size());
+    const auto visibility =
+        ReadPointsVisibility(path / "fused.ply.vis", ply_points.size());
 
     points.reserve(ply_points.size());
-    for (const auto& ply_point : ply_points) {
-      const int point_idx = points.size();
+    for (size_t point_idx = 0; point_idx < ply_points.size(); ++point_idx) {
+      const auto& ply_point = ply_points[point_idx];
       DelaunayMeshingInput::Point input_point;
       input_point.position =
           Eigen::Vector3f(ply_point.x, ply_point.y, ply_point.z);
-      input_point.num_visible_images =
-          ReadBinaryLittleEndian<uint32_t>(&vis_file);
-      for (uint32_t i = 0; i < input_point.num_visible_images; ++i) {
-        const int image_idx = ReadBinaryLittleEndian<uint32_t>(&vis_file);
+      input_point.num_visible_images = visibility[point_idx].size();
+      for (const int image_idx : visibility[point_idx]) {
         images.at(image_idx).point_idxs.push_back(point_idx);
       }
       points.push_back(input_point);

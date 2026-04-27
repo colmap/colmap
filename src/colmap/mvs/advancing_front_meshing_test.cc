@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/mvs/meshing.h"
+#include "colmap/mvs/advancing_front_meshing.h"
 
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/endian.h"
@@ -43,7 +43,6 @@ namespace colmap {
 namespace mvs {
 namespace {
 
-// Generate random PLY points with upward normals and write to a file.
 void WriteRandomPlyPoints(const std::filesystem::path& path,
                           int num_points = 100) {
   std::vector<PlyPoint> ply_points;
@@ -66,7 +65,6 @@ void WriteRandomPlyPoints(const std::filesystem::path& path,
       path, ply_points, /*write_normal=*/true, /*write_rgb=*/true);
 }
 
-// Create a synthetic reconstruction and write to a sparse directory.
 Reconstruction CreateAndWriteSyntheticReconstruction(
     const std::filesystem::path& sparse_path,
     int num_frames = 5,
@@ -83,89 +81,52 @@ Reconstruction CreateAndWriteSyntheticReconstruction(
   return reconstruction;
 }
 
-TEST(PoissonMeshing, Integration) {
-  const auto test_dir = CreateTestDir();
-  const auto input_path = test_dir / "points.ply";
-  const auto output_path = test_dir / "mesh.ply";
-  WriteRandomPlyPoints(input_path);
-
-  PoissonMeshingOptions options;
-  options.point_weight = 1.0;
-  options.depth = 3;   // Use smaller depth for faster test
-  options.trim = 0.0;  // Disable trimming
-  options.num_threads = 1;
-
-  EXPECT_TRUE(PoissonMeshing(options, input_path, output_path));
-
-  EXPECT_TRUE(ExistsFile(output_path));
-  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
-  EXPECT_GE(mesh_vertices.size(), 3);
-}
-
-TEST(PoissonMeshing, WithTrimming) {
-  const auto test_dir = CreateTestDir();
-  const auto input_path = test_dir / "points.ply";
-  const auto output_path = test_dir / "mesh.ply";
-  WriteRandomPlyPoints(input_path);
-
-  PoissonMeshingOptions options;
-  options.point_weight = 1.0;
-  options.depth = 3;
-  options.trim = 5.0;
-  options.num_threads = 1;
-
-  EXPECT_TRUE(PoissonMeshing(options, input_path, output_path));
-  EXPECT_TRUE(ExistsFile(output_path));
-  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
-  // With random data and trimming, we can't make strong assumptions about
-  // the number of vertices, but reading the file ensures valid PLY format.
-  EXPECT_GE(mesh_vertices.size(), 0);
-}
-
 #if defined(COLMAP_CGAL_ENABLED)
 
-TEST(SparseDelaunayMeshing, Integration) {
+TEST(AdvancingFrontMeshing, NoVisibility) {
   const auto test_dir = CreateTestDir();
-  const auto sparse_path = test_dir / "sparse";
+  const auto fused_path = test_dir / "fused.ply";
   const auto output_path = test_dir / "mesh.ply";
-  CreateAndWriteSyntheticReconstruction(sparse_path);
+  WriteRandomPlyPoints(fused_path, 200);
 
-  DelaunayMeshingOptions options;
+  AdvancingFrontMeshingOptions options;
+  options.visibility_filtering = false;
   options.num_threads = 1;
-  SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  AdvancingFrontMeshing(options, test_dir, output_path);
 
   EXPECT_TRUE(ExistsFile(output_path));
-  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
-  EXPECT_GE(mesh_vertices.size(), 3);
+  const auto mesh = ReadPlyMesh(output_path);
+  EXPECT_GE(mesh.mesh.vertices.size(), 3);
+  EXPECT_GE(mesh.mesh.faces.size(), 1);
 }
 
-TEST(SparseDelaunayMeshing, NonSubsampled) {
+TEST(AdvancingFrontMeshing, WithMaxEdgeLength) {
   const auto test_dir = CreateTestDir();
-  const auto sparse_path = test_dir / "sparse";
+  const auto fused_path = test_dir / "fused.ply";
   const auto output_path = test_dir / "mesh.ply";
-  CreateAndWriteSyntheticReconstruction(sparse_path);
+  WriteRandomPlyPoints(fused_path, 200);
 
-  // Setting max_proj_dist=0 exercises the non-subsampled
-  // CreateDelaunayTriangulation() path instead of
-  // CreateSubSampledDelaunayTriangulation().
-  DelaunayMeshingOptions options;
-  options.max_proj_dist = 0;
+  AdvancingFrontMeshingOptions options;
+  options.visibility_filtering = false;
+  options.max_edge_length = 0.5;
   options.num_threads = 1;
-  SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  AdvancingFrontMeshing(options, test_dir, output_path);
 
   EXPECT_TRUE(ExistsFile(output_path));
-  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
-  EXPECT_GE(mesh_vertices.size(), 3);
+  const auto mesh = ReadPlyMesh(output_path);
+  EXPECT_GE(mesh.mesh.vertices.size(), 3);
 }
 
-TEST(DenseDelaunayMeshing, Integration) {
+TEST(AdvancingFrontMeshing, WithVisibility) {
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
   const auto output_path = test_dir / "mesh.ply";
   const auto reconstruction =
       CreateAndWriteSyntheticReconstruction(sparse_path, 3, 50);
 
-  // Create fused.ply from reconstruction points
+  // Create fused.ply from reconstruction points.
   std::vector<PlyPoint> ply_points;
   ply_points.reserve(reconstruction.NumPoints3D());
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
@@ -186,9 +147,7 @@ TEST(DenseDelaunayMeshing, Integration) {
                        /*write_normal=*/true,
                        /*write_rgb=*/true);
 
-  // Create fused.ply.vis: for each point, list visible image indices.
-  // Each point is visible in all images to give sufficient multi-view
-  // information for the graph-cut optimization.
+  // Create fused.ply.vis.
   const auto vis_path = test_dir / "fused.ply.vis";
   std::fstream vis_file(vis_path, std::ios::out | std::ios::binary);
   THROW_CHECK_FILE_OPEN(vis_file, vis_path);
@@ -204,13 +163,111 @@ TEST(DenseDelaunayMeshing, Integration) {
   }
   vis_file.close();
 
-  DelaunayMeshingOptions options;
-  options.num_threads = 1;
-  DenseDelaunayMeshing(options, test_dir, output_path);
+  // Test with post-filtering.
+  {
+    AdvancingFrontMeshingOptions options;
+    options.visibility_filtering = true;
+    options.visibility_post_filtering = true;
+    options.num_threads = 1;
+
+    AdvancingFrontMeshing(options, test_dir, output_path);
+
+    EXPECT_TRUE(ExistsFile(output_path));
+    const auto mesh = ReadPlyMesh(output_path);
+    EXPECT_GE(mesh.mesh.vertices.size(), 3);
+  }
+
+  // Test with pre-filtering.
+  {
+    const auto output_path2 = test_dir / "mesh2.ply";
+    AdvancingFrontMeshingOptions options;
+    options.visibility_filtering = true;
+    options.visibility_post_filtering = false;
+    options.num_threads = 1;
+
+    AdvancingFrontMeshing(options, test_dir, output_path2);
+
+    EXPECT_TRUE(ExistsFile(output_path2));
+    const auto mesh = ReadPlyMesh(output_path2);
+    EXPECT_GE(mesh.mesh.vertices.size(), 3);
+  }
+}
+
+TEST(AdvancingFrontMeshing, BlockWise) {
+  const auto test_dir = CreateTestDir();
+  const auto fused_path = test_dir / "fused.ply";
+  const auto output_path = test_dir / "mesh.ply";
+  WriteRandomPlyPoints(fused_path, 500);
+
+  AdvancingFrontMeshingOptions options;
+  options.visibility_filtering = false;
+  options.block_size = 1.0;
+  options.block_overlap = 0.2;
+  options.num_threads = 2;
+
+  AdvancingFrontMeshing(options, test_dir, output_path);
 
   EXPECT_TRUE(ExistsFile(output_path));
-  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
-  EXPECT_GE(mesh_vertices.size(), 3);
+  const auto mesh = ReadPlyMesh(output_path);
+  EXPECT_GE(mesh.mesh.vertices.size(), 3);
+  EXPECT_GE(mesh.mesh.faces.size(), 1);
+}
+
+TEST(AdvancingFrontMeshing, BlockWiseWithVisibility) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  const auto reconstruction =
+      CreateAndWriteSyntheticReconstruction(sparse_path, 3, 50);
+
+  std::vector<PlyPoint> ply_points;
+  ply_points.reserve(reconstruction.NumPoints3D());
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    PlyPoint ply_point;
+    ply_point.x = static_cast<float>(point3D.xyz(0));
+    ply_point.y = static_cast<float>(point3D.xyz(1));
+    ply_point.z = static_cast<float>(point3D.xyz(2));
+    ply_point.nx = 0.0f;
+    ply_point.ny = 0.0f;
+    ply_point.nz = 1.0f;
+    ply_point.r = 128;
+    ply_point.g = 128;
+    ply_point.b = 128;
+    ply_points.push_back(ply_point);
+  }
+  WriteBinaryPlyPoints(test_dir / "fused.ply",
+                       ply_points,
+                       /*write_normal=*/true,
+                       /*write_rgb=*/true);
+
+  const auto vis_path = test_dir / "fused.ply.vis";
+  std::fstream vis_file(vis_path, std::ios::out | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(vis_file, vis_path);
+  const uint64_t num_points = ply_points.size();
+  const uint32_t num_visible =
+      static_cast<uint32_t>(reconstruction.NumRegImages());
+  WriteBinaryLittleEndian<uint64_t>(&vis_file, num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    WriteBinaryLittleEndian<uint32_t>(&vis_file, num_visible);
+    for (uint32_t j = 0; j < num_visible; ++j) {
+      WriteBinaryLittleEndian<uint32_t>(&vis_file, j);
+    }
+  }
+  vis_file.close();
+
+  AdvancingFrontMeshingOptions options;
+  options.visibility_filtering = true;
+  options.visibility_post_filtering = true;
+  options.block_size = 5.0;
+  options.block_overlap = 0.2;
+  options.num_threads = 2;
+
+  AdvancingFrontMeshing(options, test_dir, output_path);
+
+  EXPECT_TRUE(ExistsFile(output_path));
+  const auto mesh = ReadPlyMesh(output_path);
+  EXPECT_GE(mesh.mesh.vertices.size(), 3);
+  EXPECT_GE(mesh.mesh.faces.size(), 1);
 }
 
 #endif  // COLMAP_CGAL_ENABLED

@@ -609,22 +609,30 @@ filtering threshold for the photometric consistency cost
 Surface mesh reconstruction
 ---------------------------
 
-COLMAP supports two types of surface reconstruction algorithms. Poisson surface
-reconstruction [kazhdan2013]_ and graph-cut based surface extraction from a
-Delaunay triangulation. Poisson surface reconstruction typically requires an
-almost outlier-free input point cloud and it often produces bad surfaces in the
-presence of outliers or large holes in the input data. The Delaunay
-triangulation based meshing algorithm is more robust to outliers and in general
-more scalable to large datasets than the Poisson algorithm, but it usually
-produces less smooth surfaces. Furthermore, the Delaunay based meshing can be
-applied to sparse and dense reconstruction results. To increase the smoothness
-of the surface as a post-processing step, you could use Laplacian smoothing, as
-e.g. implemented in Meshlab.
+COLMAP supports three surface reconstruction algorithms:
 
-Note that the two algorithms can also be combined by first running the Delaunay
-meshing to robustly filter outliers from the sparse or dense point cloud and
-then, in the second step, performing Poisson surface reconstruction to obtain a
-smooth surface.
+- **Poisson surface reconstruction** [kazhdan2013]_ typically requires an almost
+  outlier-free input point cloud and often produces bad surfaces in the presence
+  of outliers or large holes in the input data.
+
+- **Delaunay triangulation** based meshing is more robust to outliers and in
+  general more scalable to large datasets than the Poisson algorithm, but it
+  usually produces less smooth surfaces. It can be applied to both sparse and
+  dense reconstruction results.
+
+- **Advancing front surface reconstruction** [cohen-steiner2004]_ incrementally
+  grows a surface mesh from a Delaunay triangulation of the input points.
+  It supports visibility-based filtering to remove faces that violate free-space
+  constraints and block-wise parallel processing for large-scale scenes. It uses
+  a float32 CGAL kernel for memory efficiency.
+
+To increase the smoothness of the surface as a post-processing step, you could
+use Laplacian smoothing, as e.g. implemented in Meshlab.
+
+Note that Poisson and Delaunay meshing can also be combined by first running the
+Delaunay meshing to robustly filter outliers from the sparse or dense point
+cloud and then, in the second step, performing Poisson surface reconstruction to
+obtain a smooth surface.
 
 After meshing, the ``mesh_texturer`` command can be used to produce a textured
 mesh with a texture atlas [waechter2014]_. This assigns each mesh face to the
