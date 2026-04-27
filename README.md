@@ -39,6 +39,43 @@ Getting Started
 3. Use the **automatic reconstruction** to easily build models
    with a single click or command.
 
+Building Python Wheels (polybee_colmap)
+---------------------------------------
+
+Use the provided script to build `pycolmap` wheels for Python 3.12 against
+CUDA 13.0 and CUDA 12.8 in a single command:
+
+```bash
+./scripts/shell/build_wheels_python312.sh [CUDA_ARCH]
+```
+
+`CUDA_ARCH` is the numeric CUDA compute capability (default: `89` for
+Ada Lovelace / RTX 40xx). Common values:
+
+| GPU family       | CUDA_ARCH |
+|------------------|-----------|
+| Ada Lovelace (RTX 40xx) | 89 |
+| Ampere (RTX 30xx)       | 86 |
+| Turing (RTX 20xx)       | 75 |
+
+The script expects `nvcc` at:
+- `/usr/local/cuda-13.0/bin/nvcc`
+- `/usr/local/cuda-12.8/bin/nvcc`
+
+A CUDA version is silently skipped if its `nvcc` is not found.
+
+Output wheels are written to `dist/` and named to include the CUDA version:
+
+```
+dist/
+├── pycolmap-4.1.0.dev0-cp312-cp312-linux_x86_64-cuda13.0.whl
+└── pycolmap-4.1.0.dev0-cp312-cp312-linux_x86_64-cuda12.8.whl
+```
+
+Each wheel embeds a fully self-contained COLMAP build for its CUDA version.
+The intermediate C++ build trees are kept under `build/` and `install/` for
+incremental rebuilds.
+
 Documentation
 -------------
 

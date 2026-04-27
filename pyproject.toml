@@ -37,6 +37,7 @@ classifiers = [
 wheel.expand-macos-universal-tags = true
 cmake.source-dir = "python/"
 wheel.packages = ["python/pycolmap"]
+build-dir = "build/scikit-colmap-{wheel_tag}"
 
 [tool.cibuildwheel]
 build = "cp3{10,11,12,13,14}-{macosx,manylinux,win}*"

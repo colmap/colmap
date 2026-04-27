@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
 option(GENERATE_STUBS "Whether to generate stubs" ON)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
