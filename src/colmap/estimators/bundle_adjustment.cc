@@ -379,6 +379,11 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
                                                 config,
                                                 std::move(pose_priors),
                                                 reconstruction);
+#ifdef CASPAR_ENABLED
+    case BundleAdjustmentBackend::CASPAR:
+      LOG(FATAL_THROW) << "Caspar BA backend does not support pose priors";
+      return nullptr;
+#endif
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
                    << static_cast<int>(options.backend);
