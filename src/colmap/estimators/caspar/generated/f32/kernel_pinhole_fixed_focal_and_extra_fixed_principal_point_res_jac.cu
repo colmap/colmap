@@ -1,0 +1,498 @@
+#include "kernel_pinhole_fixed_focal_and_extra_fixed_principal_point_res_jac.h"
+#include "memops.cuh"
+#include <cooperative_groups.h>
+#include <cooperative_groups/details/partitioning.h>
+#include <cooperative_groups/memcpy_async.h>
+#include <cooperative_groups/reduce.h>
+#include <cuda_runtime.h>
+
+namespace cg = cooperative_groups;
+
+namespace caspar {
+
+__global__ void __launch_bounds__(1024, 1)
+    pinhole_fixed_focal_and_extra_fixed_principal_point_res_jac_kernel(
+        float* pose,
+        unsigned int pose_num_alloc,
+        SharedIndex* pose_indices,
+        float* point,
+        unsigned int point_num_alloc,
+        SharedIndex* point_indices,
+        float* pixel,
+        unsigned int pixel_num_alloc,
+        float* focal_and_extra,
+        unsigned int focal_and_extra_num_alloc,
+        float* principal_point,
+        unsigned int principal_point_num_alloc,
+        float* out_res,
+        unsigned int out_res_num_alloc,
+        float* out_pose_jac,
+        unsigned int out_pose_jac_num_alloc,
+        float* const out_pose_njtr,
+        unsigned int out_pose_njtr_num_alloc,
+        float* const out_pose_precond_diag,
+        unsigned int out_pose_precond_diag_num_alloc,
+        float* const out_pose_precond_tril,
+        unsigned int out_pose_precond_tril_num_alloc,
+        float* out_point_jac,
+        unsigned int out_point_jac_num_alloc,
+        float* const out_point_njtr,
+        unsigned int out_point_njtr_num_alloc,
+        float* const out_point_precond_diag,
+        unsigned int out_point_precond_diag_num_alloc,
+        float* const out_point_precond_tril,
+        unsigned int out_point_precond_tril_num_alloc,
+        size_t problem_size) {
+  const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ uint8_t inout_shared[16384];
+
+  __shared__ SharedIndex pose_indices_loc[1024];
+  pose_indices_loc[threadIdx.x] =
+      (global_thread_idx < problem_size
+           ? pose_indices[global_thread_idx]
+           : SharedIndex{0xffffffff, 0xffff, 0xffff});
+  __shared__ SharedIndex point_indices_loc[1024];
+  point_indices_loc[threadIdx.x] =
+      (global_thread_idx < problem_size
+           ? point_indices[global_thread_idx]
+           : SharedIndex{0xffffffff, 0xffff, 0xffff});
+
+  float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
+      r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
+      r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45,
+      r46, r47, r48, r49, r50;
+
+  if (global_thread_idx < problem_size) {
+    read_idx_2<1024, float, float, float2>(principal_point,
+                                           0 * principal_point_num_alloc,
+                                           global_thread_idx,
+                                           r0,
+                                           r1);
+    read_idx_2<1024, float, float, float2>(
+        pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
+    r4 = -1.00000000000000000e+00;
+    r2 = fmaf(r2, r4, r0);
+    r0 = 9.99999999999999955e-07;
+  };
+  load_shared<3, float, float>(
+      pose, 4 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    read_shared_3<float>(
+        (float*)inout_shared, pose_indices_loc[threadIdx.x].target, r5, r6, r7);
+  };
+  __syncthreads();
+  load_shared<3, float, float>(
+      point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    read_shared_3<float>((float*)inout_shared,
+                         point_indices_loc[threadIdx.x].target,
+                         r8,
+                         r9,
+                         r10);
+  };
+  __syncthreads();
+  load_shared<4, float, float>(
+      pose, 0 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    read_shared_4<float>((float*)inout_shared,
+                         pose_indices_loc[threadIdx.x].target,
+                         r11,
+                         r12,
+                         r13,
+                         r14);
+  };
+  __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r15 = r12 * r13;
+    r16 = 2.00000000000000000e+00;
+    r15 = r15 * r16;
+    r17 = r11 * r16;
+    r18 = r14 * r17;
+    r19 = r15 + r18;
+    r7 = fmaf(r9, r19, r7);
+    r20 = r12 * r14;
+    r21 = -2.00000000000000000e+00;
+    r20 = r20 * r21;
+    r22 = r13 * r17;
+    r23 = r20 + r22;
+    r24 = r11 * r11;
+    r24 = r24 * r21;
+    r25 = 1.00000000000000000e+00;
+    r26 = r12 * r12;
+    r27 = fmaf(r21, r26, r25);
+    r28 = r24 + r27;
+    r7 = fmaf(r8, r23, r7);
+    r7 = fmaf(r10, r28, r7);
+    r29 = copysign(1.0, r7);
+    r29 = fmaf(r0, r29, r7);
+    r0 = 1.0 / r29;
+    read_idx_2<1024, float, float, float2>(focal_and_extra,
+                                           0 * focal_and_extra_num_alloc,
+                                           global_thread_idx,
+                                           r7,
+                                           r30);
+    r31 = r13 * r21;
+    r32 = r14 * r31;
+    r17 = r12 * r17;
+    r33 = r32 + r17;
+    r5 = fmaf(r9, r33, r5);
+    r34 = r12 * r14;
+    r34 = r34 * r16;
+    r22 = r34 + r22;
+    r35 = r13 * r31;
+    r27 = r35 + r27;
+    r5 = fmaf(r10, r22, r5);
+    r5 = fmaf(r8, r27, r5);
+    r36 = r7 * r5;
+    r2 = fmaf(r0, r36, r2);
+    r3 = fmaf(r3, r4, r1);
+    r1 = r13 * r14;
+    r1 = r1 * r16;
+    r17 = r1 + r17;
+    r6 = fmaf(r8, r17, r6);
+    r16 = r11 * r14;
+    r16 = r16 * r21;
+    r15 = r15 + r16;
+    r35 = r25 + r35;
+    r35 = r35 + r24;
+    r6 = fmaf(r10, r15, r6);
+    r6 = fmaf(r9, r35, r6);
+    r24 = r30 * r6;
+    r3 = fmaf(r0, r24, r3);
+    write_idx_2<1024, float, float, float2>(
+        out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
+    r25 = r12 * r31;
+    r16 = r16 + r25;
+    r37 = r13 * r13;
+    r38 = r4 * r26;
+    r39 = r37 + r38;
+    r14 = r14 * r14;
+    r40 = r11 * r11;
+    r40 = r40 * r4;
+    r41 = r14 + r40;
+    r42 = r39 + r41;
+    r42 = fmaf(r9, r42, r10 * r16);
+    r16 = r7 * r4;
+    r43 = r29 * r29;
+    r44 = 1.0 / r43;
+    r16 = r16 * r5;
+    r16 = r16 * r44;
+    r12 = r11 * r12;
+    r12 = r12 * r21;
+    r1 = r1 + r12;
+    r1 = fmaf(r9, r22, r10 * r1);
+    r21 = r7 * r1;
+    r21 = fmaf(r0, r21, r42 * r16);
+    r45 = r11 * r11;
+    r46 = r4 * r14;
+    r47 = r45 + r46;
+    r39 = r39 + r47;
+    r39 = fmaf(r10, r39, r9 * r15);
+    r48 = r30 * r39;
+    r49 = r4 * r44;
+    r50 = r42 * r49;
+    r50 = fmaf(r24, r50, r0 * r48);
+    r13 = r13 * r13;
+    r13 = r13 * r4;
+    r48 = r26 + r13;
+    r47 = r47 + r48;
+    r47 = fmaf(r8, r47, r10 * r23);
+    r31 = r11 * r31;
+    r20 = r20 + r31;
+    r14 = r45 + r14;
+    r14 = r14 + r38;
+    r14 = r14 + r13;
+    r14 = fmaf(r10, r14, r8 * r20);
+    r20 = r7 * r14;
+    r20 = fmaf(r0, r20, r47 * r16);
+    r13 = r47 * r49;
+    r25 = r18 + r25;
+    r25 = fmaf(r8, r25, r10 * r17);
+    r10 = r30 * r25;
+    r10 = fmaf(r0, r10, r24 * r13);
+    write_idx_4<1024, float, float, float4>(out_pose_jac,
+                                            0 * out_pose_jac_num_alloc,
+                                            global_thread_idx,
+                                            r21,
+                                            r50,
+                                            r20,
+                                            r10);
+    r13 = r7 * r0;
+    r18 = r30 * r0;
+    r31 = r34 + r31;
+    r31 = fmaf(r9, r31, r8 * r19);
+    r37 = r26 + r37;
+    r37 = r37 + r40;
+    r37 = r37 + r46;
+    r37 = fmaf(r9, r37, r8 * r33);
+    r46 = r7 * r37;
+    r46 = fmaf(r0, r46, r31 * r16);
+    r40 = r31 * r49;
+    r32 = r12 + r32;
+    r48 = r41 + r48;
+    r48 = fmaf(r8, r48, r9 * r32);
+    r8 = r30 * r48;
+    r8 = fmaf(r0, r8, r24 * r40);
+    write_idx_4<1024, float, float, float4>(out_pose_jac,
+                                            4 * out_pose_jac_num_alloc,
+                                            global_thread_idx,
+                                            r46,
+                                            r8,
+                                            r13,
+                                            r18);
+    r18 = r49 * r24;
+    write_idx_2<1024, float, float, float2>(
+        out_pose_jac, 8 * out_pose_jac_num_alloc, global_thread_idx, r16, r18);
+    r18 = r4 * r3;
+    r13 = r4 * r2;
+    r13 = fmaf(r21, r13, r50 * r18);
+    r18 = r4 * r2;
+    r40 = r4 * r3;
+    r40 = fmaf(r10, r40, r20 * r18);
+    r18 = r4 * r2;
+    r32 = r4 * r3;
+    r32 = fmaf(r8, r32, r46 * r18);
+    r18 = r7 * r4;
+    r18 = r18 * r2;
+    r18 = r18 * r0;
+    write_sum_4<float, float>((float*)inout_shared, r13, r40, r32, r18);
+  };
+  flush_sum_shared<4, float>(out_pose_njtr,
+                             0 * out_pose_njtr_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r18 = r30 * r4;
+    r18 = r18 * r3;
+    r18 = r18 * r0;
+    r32 = r3 * r44;
+    r40 = r2 * r44;
+    r40 = fmaf(r36, r40, r24 * r32);
+    write_sum_2<float, float>((float*)inout_shared, r18, r40);
+  };
+  flush_sum_shared<2, float>(out_pose_njtr,
+                             4 * out_pose_njtr_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r40 = r7 * r7;
+    r40 = r40 * r44;
+    r18 = fmaf(r21, r21, r50 * r50);
+    r32 = fmaf(r10, r10, r20 * r20);
+    r13 = fmaf(r46, r46, r8 * r8);
+    write_sum_4<float, float>((float*)inout_shared, r18, r32, r13, r40);
+  };
+  flush_sum_shared<4, float>(out_pose_precond_diag,
+                             0 * out_pose_precond_diag_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r40 = r30 * r30;
+    r40 = r40 * r44;
+    r43 = r29 * r43;
+    r29 = r29 * r43;
+    r29 = 1.0 / r29;
+    r13 = r6 * r29;
+    r32 = r30 * r24;
+    r18 = r7 * r5;
+    r18 = r18 * r29;
+    r18 = fmaf(r36, r18, r32 * r13);
+    write_sum_2<float, float>((float*)inout_shared, r40, r18);
+  };
+  flush_sum_shared<2, float>(out_pose_precond_diag,
+                             4 * out_pose_precond_diag_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r18 = fmaf(r50, r10, r21 * r20);
+    r40 = fmaf(r21, r46, r50 * r8);
+    r13 = r7 * r21;
+    r13 = r13 * r0;
+    r9 = r30 * r50;
+    r9 = r9 * r0;
+    write_sum_4<float, float>((float*)inout_shared, r18, r40, r13, r9);
+  };
+  flush_sum_shared<4, float>(out_pose_precond_tril,
+                             0 * out_pose_precond_tril_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r9 = fmaf(r10, r8, r20 * r46);
+    r13 = r7 * r20;
+    r13 = r13 * r0;
+    r40 = r30 * r10;
+    r40 = r40 * r0;
+    r18 = r50 * r49;
+    r21 = fmaf(r21, r16, r24 * r18);
+    write_sum_4<float, float>((float*)inout_shared, r21, r9, r13, r40);
+  };
+  flush_sum_shared<4, float>(out_pose_precond_tril,
+                             4 * out_pose_precond_tril_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r40 = r7 * r46;
+    r40 = r40 * r0;
+    r13 = r30 * r8;
+    r13 = r13 * r0;
+    r9 = r10 * r49;
+    r20 = fmaf(r20, r16, r24 * r9);
+    r9 = r8 * r49;
+    r9 = fmaf(r24, r9, r46 * r16);
+    write_sum_4<float, float>((float*)inout_shared, r20, r40, r13, r9);
+  };
+  flush_sum_shared<4, float>(out_pose_precond_tril,
+                             8 * out_pose_precond_tril_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r9 = 0.00000000000000000e+00;
+    r36 = r7 * r36;
+    r43 = 1.0 / r43;
+    r43 = r4 * r43;
+    r36 = r36 * r43;
+    r32 = r43 * r32;
+    write_sum_3<float, float>((float*)inout_shared, r9, r36, r32);
+  };
+  flush_sum_shared<3, float>(out_pose_precond_tril,
+                             12 * out_pose_precond_tril_num_alloc,
+                             pose_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r32 = r7 * r27;
+    r32 = fmaf(r0, r32, r23 * r16);
+    r36 = r23 * r49;
+    r9 = r30 * r17;
+    r9 = fmaf(r0, r9, r24 * r36);
+    r36 = r7 * r33;
+    r36 = fmaf(r0, r36, r19 * r16);
+    r43 = r19 * r49;
+    r13 = r30 * r35;
+    r13 = fmaf(r0, r13, r24 * r43);
+    write_idx_4<1024, float, float, float4>(out_point_jac,
+                                            0 * out_point_jac_num_alloc,
+                                            global_thread_idx,
+                                            r32,
+                                            r9,
+                                            r36,
+                                            r13);
+    r43 = r7 * r22;
+    r43 = fmaf(r0, r43, r28 * r16);
+    r16 = r28 * r49;
+    r40 = r30 * r15;
+    r40 = fmaf(r0, r40, r24 * r16);
+    write_idx_2<1024, float, float, float2>(out_point_jac,
+                                            4 * out_point_jac_num_alloc,
+                                            global_thread_idx,
+                                            r43,
+                                            r40);
+    r16 = r4 * r3;
+    r0 = r4 * r2;
+    r0 = fmaf(r32, r0, r9 * r16);
+    r16 = r4 * r2;
+    r24 = r4 * r3;
+    r24 = fmaf(r13, r24, r36 * r16);
+    r16 = r4 * r3;
+    r20 = r4 * r2;
+    r20 = fmaf(r43, r20, r40 * r16);
+    write_sum_3<float, float>((float*)inout_shared, r0, r24, r20);
+  };
+  flush_sum_shared<3, float>(out_point_njtr,
+                             0 * out_point_njtr_num_alloc,
+                             point_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r20 = fmaf(r9, r9, r32 * r32);
+    r24 = fmaf(r13, r13, r36 * r36);
+    r0 = fmaf(r40, r40, r43 * r43);
+    write_sum_3<float, float>((float*)inout_shared, r20, r24, r0);
+  };
+  flush_sum_shared<3, float>(out_point_precond_diag,
+                             0 * out_point_precond_diag_num_alloc,
+                             point_indices_loc,
+                             (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    r0 = fmaf(r9, r13, r32 * r36);
+    r32 = fmaf(r32, r43, r9 * r40);
+    r43 = fmaf(r36, r43, r13 * r40);
+    write_sum_3<float, float>((float*)inout_shared, r0, r32, r43);
+  };
+  flush_sum_shared<3, float>(out_point_precond_tril,
+                             0 * out_point_precond_tril_num_alloc,
+                             point_indices_loc,
+                             (float*)inout_shared);
+}
+
+void pinhole_fixed_focal_and_extra_fixed_principal_point_res_jac(
+    float* pose,
+    unsigned int pose_num_alloc,
+    SharedIndex* pose_indices,
+    float* point,
+    unsigned int point_num_alloc,
+    SharedIndex* point_indices,
+    float* pixel,
+    unsigned int pixel_num_alloc,
+    float* focal_and_extra,
+    unsigned int focal_and_extra_num_alloc,
+    float* principal_point,
+    unsigned int principal_point_num_alloc,
+    float* out_res,
+    unsigned int out_res_num_alloc,
+    float* out_pose_jac,
+    unsigned int out_pose_jac_num_alloc,
+    float* const out_pose_njtr,
+    unsigned int out_pose_njtr_num_alloc,
+    float* const out_pose_precond_diag,
+    unsigned int out_pose_precond_diag_num_alloc,
+    float* const out_pose_precond_tril,
+    unsigned int out_pose_precond_tril_num_alloc,
+    float* out_point_jac,
+    unsigned int out_point_jac_num_alloc,
+    float* const out_point_njtr,
+    unsigned int out_point_njtr_num_alloc,
+    float* const out_point_precond_diag,
+    unsigned int out_point_precond_diag_num_alloc,
+    float* const out_point_precond_tril,
+    unsigned int out_point_precond_tril_num_alloc,
+    size_t problem_size) {
+  if (problem_size == 0) {
+    return;
+  }
+
+  const int n_blocks = (problem_size + 1024 - 1) / 1024;
+  pinhole_fixed_focal_and_extra_fixed_principal_point_res_jac_kernel<<<n_blocks,
+                                                                       1024>>>(
+      pose,
+      pose_num_alloc,
+      pose_indices,
+      point,
+      point_num_alloc,
+      point_indices,
+      pixel,
+      pixel_num_alloc,
+      focal_and_extra,
+      focal_and_extra_num_alloc,
+      principal_point,
+      principal_point_num_alloc,
+      out_res,
+      out_res_num_alloc,
+      out_pose_jac,
+      out_pose_jac_num_alloc,
+      out_pose_njtr,
+      out_pose_njtr_num_alloc,
+      out_pose_precond_diag,
+      out_pose_precond_diag_num_alloc,
+      out_pose_precond_tril,
+      out_pose_precond_tril_num_alloc,
+      out_point_jac,
+      out_point_jac_num_alloc,
+      out_point_njtr,
+      out_point_njtr_num_alloc,
+      out_point_precond_diag,
+      out_point_precond_diag_num_alloc,
+      out_point_precond_tril,
+      out_point_precond_tril_num_alloc,
+      problem_size);
+}
+
+}  // namespace caspar

@@ -30,6 +30,7 @@
 #include "colmap/ui/bundle_adjustment_widget.h"
 
 #include "colmap/controllers/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/ui/main_window.h"
 #include "colmap/util/controller_thread.h"
@@ -82,6 +83,23 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                 "refine_sensor_from_rig");
   AddOptionBool(&options->bundle_adjustment->refine_points3D,
                 "refine_points3D");
+
+#ifdef CASPAR_ENABLED
+  AddSection("Global BA Backend [experimental]");
+  auto* backend_combo = new QComboBox(this);
+  backend_combo->addItem("CERES");  // index 0 == BundleAdjustmentBackend::CERES
+  backend_combo->addItem(
+      "CASPAR");  // index 1 == BundleAdjustmentBackend::CASPAR
+  backend_combo->setCurrentIndex(
+      static_cast<int>(options->bundle_adjustment->backend));
+  connect(backend_combo,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          [options](int idx) {
+            options->bundle_adjustment->backend =
+                static_cast<BundleAdjustmentBackend>(idx);
+          });
+  AddWidgetRow("backend", backend_combo);
+#endif
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
