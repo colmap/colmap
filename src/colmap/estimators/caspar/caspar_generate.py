@@ -19,8 +19,8 @@ symforce.set_epsilon_to_number(1e-15 if precision == "f64" else 1e-6)
 
 import symforce.symbolic as sf
 from symforce import typing as T
-from symforce.experimental.caspar import CasparLibrary
-from symforce.experimental.caspar import memory as mem
+from symforce.caspar import CasparLibrary
+from symforce.caspar import memory as mem
 
 
 # Point and ConstPoint are shared across camera models so that different

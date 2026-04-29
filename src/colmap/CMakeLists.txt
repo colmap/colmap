@@ -79,8 +79,6 @@ if(CASPAR_ENABLED)
             "Re-run generate_caspar.py to regenerate.")
     endif()
 
-    set(CMAKE_POLICY_DEFAULT_CMP0146 OLD)
-
     set(_caspar_build_dir "${CMAKE_CURRENT_BINARY_DIR}/caspar_generated")
     set(_caspar_lib       "${_caspar_build_dir}/libcaspar_lib_core.a")
 
@@ -91,6 +89,7 @@ if(CASPAR_ENABLED)
             -G ${CMAKE_GENERATOR}
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
             -DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}
+            -DCMAKE_CUDA_COMPILER=${CUDAToolkit_NVCC_EXECUTABLE}
         BUILD_BYPRODUCTS ${_caspar_lib}
         # No install step needed — we import the .a directly
         INSTALL_COMMAND ""

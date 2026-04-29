@@ -518,7 +518,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VLOG(2) << "  Points: " << num_points_;
 
     if (num_points_ > 0)
-      solver.set_Point_nodes_from_stacked_host(
+      solver.SetPointNodesFromStackedHost(
           point_data_.data(), 0, num_points_);
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
@@ -587,7 +587,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void ReadSolverResults(caspar::GraphSolver& solver) {
     if (num_points_ > 0)
-      solver.get_Point_nodes_to_stacked_host(
+      solver.GetPointNodesToStackedHost(
           point_data_.data(), 0, num_points_);
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
