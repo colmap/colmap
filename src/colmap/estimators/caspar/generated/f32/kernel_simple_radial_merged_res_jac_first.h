@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void simple_radial_merged_res_jac_first(
+void SimpleRadialMergedResJacFirst(
     float* pose,
     unsigned int pose_num_alloc,
     SharedIndex* pose_indices,

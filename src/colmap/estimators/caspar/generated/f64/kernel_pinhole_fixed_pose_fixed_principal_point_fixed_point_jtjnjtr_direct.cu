@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    pinhole_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct_kernel(
+    PinholeFixedPoseFixedPrincipalPointFixedPointJtjnjtrDirectKernel(
         double* focal_and_extra_njtr,
         unsigned int focal_and_extra_njtr_num_alloc,
         SharedIndex* focal_and_extra_njtr_indices,
@@ -30,7 +30,7 @@ __global__ void __launch_bounds__(1024, 1)
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 }
 
-void pinhole_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct(
+void PinholeFixedPoseFixedPrincipalPointFixedPointJtjnjtrDirect(
     double* focal_and_extra_njtr,
     unsigned int focal_and_extra_njtr_num_alloc,
     SharedIndex* focal_and_extra_njtr_indices,
@@ -44,16 +44,16 @@ void pinhole_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  pinhole_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct_kernel<<<
-      n_blocks,
-      1024>>>(focal_and_extra_njtr,
-              focal_and_extra_njtr_num_alloc,
-              focal_and_extra_njtr_indices,
-              focal_and_extra_jac,
-              focal_and_extra_jac_num_alloc,
-              out_focal_and_extra_njtr,
-              out_focal_and_extra_njtr_num_alloc,
-              problem_size);
+  PinholeFixedPoseFixedPrincipalPointFixedPointJtjnjtrDirectKernel<<<n_blocks,
+                                                                     1024>>>(
+      focal_and_extra_njtr,
+      focal_and_extra_njtr_num_alloc,
+      focal_and_extra_njtr_indices,
+      focal_and_extra_jac,
+      focal_and_extra_jac_num_alloc,
+      out_focal_and_extra_njtr,
+      out_focal_and_extra_njtr_num_alloc,
+      problem_size);
 }
 
 }  // namespace caspar

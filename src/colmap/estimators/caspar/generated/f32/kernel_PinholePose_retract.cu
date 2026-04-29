@@ -11,28 +11,28 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    PinholePose_retract_kernel(float* PinholePose,
-                               unsigned int PinholePose_num_alloc,
-                               float* delta,
-                               unsigned int delta_num_alloc,
-                               float* out_PinholePose_retracted,
-                               unsigned int out_PinholePose_retracted_num_alloc,
-                               size_t problem_size) {
+    PinholePoseRetractKernel(float* PinholePose,
+                             unsigned int PinholePose_num_alloc,
+                             float* delta,
+                             unsigned int delta_num_alloc,
+                             float* out_PinholePose_retracted,
+                             unsigned int out_PinholePose_retracted_num_alloc,
+                             size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
 
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15;
 
   if (global_thread_idx < problem_size) {
-    read_idx_4<1024, float, float, float4>(PinholePose,
-                                           0 * PinholePose_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r1,
-                                           r2,
-                                           r3);
+    ReadIdx4<1024, float, float, float4>(PinholePose,
+                                         0 * PinholePose_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1,
+                                         r2,
+                                         r3);
     r4 = 5.00000000000000000e-01;
     r5 = 9.99999999999999980e-13;
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(
         delta, 0 * delta_num_alloc, global_thread_idx, r6, r7, r8, r9);
     r5 = fmaf(r6, r6, r5);
     r5 = fmaf(r8, r8, r5);
@@ -68,7 +68,7 @@ __global__ void __launch_bounds__(1024, 1)
     r15 = fmaf(r5, r4, r15);
     r6 = r0 * r7;
     r15 = fmaf(r5, r6, r15);
-    write_idx_4<1024, float, float, float4>(
+    WriteIdx4<1024, float, float, float4>(
         out_PinholePose_retracted,
         0 * out_PinholePose_retracted_num_alloc,
         global_thread_idx,
@@ -76,18 +76,18 @@ __global__ void __launch_bounds__(1024, 1)
         r14,
         r15,
         r10);
-    read_idx_3<1024, float, float, float4>(PinholePose,
-                                           4 * PinholePose_num_alloc,
-                                           global_thread_idx,
-                                           r10,
-                                           r15,
-                                           r14);
+    ReadIdx3<1024, float, float, float4>(PinholePose,
+                                         4 * PinholePose_num_alloc,
+                                         global_thread_idx,
+                                         r10,
+                                         r15,
+                                         r14);
     r9 = r10 + r9;
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         delta, 4 * delta_num_alloc, global_thread_idx, r10, r12);
     r10 = r15 + r10;
     r12 = r14 + r12;
-    write_idx_3<1024, float, float, float4>(
+    WriteIdx3<1024, float, float, float4>(
         out_PinholePose_retracted,
         4 * out_PinholePose_retracted_num_alloc,
         global_thread_idx,
@@ -97,19 +97,19 @@ __global__ void __launch_bounds__(1024, 1)
   };
 }
 
-void PinholePose_retract(float* PinholePose,
-                         unsigned int PinholePose_num_alloc,
-                         float* delta,
-                         unsigned int delta_num_alloc,
-                         float* out_PinholePose_retracted,
-                         unsigned int out_PinholePose_retracted_num_alloc,
-                         size_t problem_size) {
+void PinholePoseRetract(float* PinholePose,
+                        unsigned int PinholePose_num_alloc,
+                        float* delta,
+                        unsigned int delta_num_alloc,
+                        float* out_PinholePose_retracted,
+                        unsigned int out_PinholePose_retracted_num_alloc,
+                        size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholePose_retract_kernel<<<n_blocks, 1024>>>(
+  PinholePoseRetractKernel<<<n_blocks, 1024>>>(
       PinholePose,
       PinholePose_num_alloc,
       delta,

@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    pinhole_fixed_pose_fixed_principal_point_fixed_point_score_kernel(
+    PinholeFixedPoseFixedPrincipalPointFixedPointScoreKernel(
         float* focal_and_extra,
         unsigned int focal_and_extra_num_alloc,
         SharedIndex* focal_and_extra_indices,
@@ -40,33 +40,33 @@ __global__ void __launch_bounds__(1024, 1)
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(principal_point,
-                                           0 * principal_point_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r1);
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(principal_point,
+                                         0 * principal_point_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1);
+    ReadIdx2<1024, float, float, float2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r2 = fmaf(r2, r4, r0);
   };
-  load_shared<2, float, float>(focal_and_extra,
-                               0 * focal_and_extra_num_alloc,
-                               focal_and_extra_indices_loc,
-                               (float*)inout_shared);
+  LoadShared<2, float, float>(focal_and_extra,
+                              0 * focal_and_extra_num_alloc,
+                              focal_and_extra_indices_loc,
+                              (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<float>((float*)inout_shared,
-                         focal_and_extra_indices_loc[threadIdx.x].target,
-                         r0,
-                         r5);
+    ReadShared2<float>((float*)inout_shared,
+                       focal_and_extra_indices_loc[threadIdx.x].target,
+                       r0,
+                       r5);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_3<1024, float, float, float4>(
+    ReadIdx3<1024, float, float, float4>(
         pose, 4 * pose_num_alloc, global_thread_idx, r6, r7, r8);
-    read_idx_3<1024, float, float, float4>(
+    ReadIdx3<1024, float, float, float4>(
         point, 0 * point_num_alloc, global_thread_idx, r9, r10, r11);
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(
         pose, 0 * pose_num_alloc, global_thread_idx, r12, r13, r14, r15);
     r16 = -2.00000000000000000e+00;
     r17 = r15 * r16;
@@ -115,15 +115,15 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = fmaf(r25, r23, r4);
     r4 = fmaf(r4, r4, r2 * r2);
   };
-  sum_store<float>(out_rTr_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r4);
-  sum_flush_final<float>(out_rTr_local, out_rTr, 1);
+  SumStore<float>(out_rTr_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r4);
+  SumFlushFinal<float>(out_rTr_local, out_rTr, 1);
 }
 
-void pinhole_fixed_pose_fixed_principal_point_fixed_point_score(
+void PinholeFixedPoseFixedPrincipalPointFixedPointScore(
     float* focal_and_extra,
     unsigned int focal_and_extra_num_alloc,
     SharedIndex* focal_and_extra_indices,
@@ -142,8 +142,7 @@ void pinhole_fixed_pose_fixed_principal_point_fixed_point_score(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  pinhole_fixed_pose_fixed_principal_point_fixed_point_score_kernel<<<n_blocks,
-                                                                      1024>>>(
+  PinholeFixedPoseFixedPrincipalPointFixedPointScoreKernel<<<n_blocks, 1024>>>(
       focal_and_extra,
       focal_and_extra_num_alloc,
       focal_and_extra_indices,

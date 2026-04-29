@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    pinhole_fixed_pose_fixed_principal_point_jtjnjtr_direct_kernel(
+    PinholeFixedPoseFixedPrincipalPointJtjnjtrDirectKernel(
         double* focal_and_extra_njtr,
         unsigned int focal_and_extra_njtr_num_alloc,
         SharedIndex* focal_and_extra_njtr_indices,
@@ -45,62 +45,62 @@ __global__ void __launch_bounds__(1024, 1)
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(focal_and_extra_jac,
-                                              0 * focal_and_extra_jac_num_alloc,
-                                              global_thread_idx,
-                                              r0,
-                                              r1);
+    ReadIdx2<1024, double, double, double2>(focal_and_extra_jac,
+                                            0 * focal_and_extra_jac_num_alloc,
+                                            global_thread_idx,
+                                            r0,
+                                            r1);
   };
-  load_shared<1, double, double>(point_njtr,
-                                 2 * point_njtr_num_alloc,
-                                 point_njtr_indices_loc,
-                                 (double*)inout_shared);
+  LoadShared<1, double, double>(point_njtr,
+                                2 * point_njtr_num_alloc,
+                                point_njtr_indices_loc,
+                                (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<double>(
+    ReadShared1<double>(
         (double*)inout_shared, point_njtr_indices_loc[threadIdx.x].target, r2);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         point_jac, 4 * point_jac_num_alloc, global_thread_idx, r3, r4);
   };
-  load_shared<2, double, double>(point_njtr,
-                                 0 * point_njtr_num_alloc,
-                                 point_njtr_indices_loc,
-                                 (double*)inout_shared);
+  LoadShared<2, double, double>(point_njtr,
+                                0 * point_njtr_num_alloc,
+                                point_njtr_indices_loc,
+                                (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>((double*)inout_shared,
-                          point_njtr_indices_loc[threadIdx.x].target,
-                          r5,
-                          r6);
+    ReadShared2<double>((double*)inout_shared,
+                        point_njtr_indices_loc[threadIdx.x].target,
+                        r5,
+                        r6);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         point_jac, 2 * point_jac_num_alloc, global_thread_idx, r7, r8);
     r9 = fma(r6, r7, r2 * r3);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         point_jac, 0 * point_jac_num_alloc, global_thread_idx, r10, r11);
     r9 = fma(r5, r10, r9);
     r9 = r0 * r9;
     r6 = fma(r6, r8, r2 * r4);
     r6 = fma(r5, r11, r6);
     r6 = r1 * r6;
-    write_sum_2<double, double>((double*)inout_shared, r9, r6);
+    WriteSum2<double, double>((double*)inout_shared, r9, r6);
   };
-  flush_sum_shared<2, double>(out_focal_and_extra_njtr,
-                              0 * out_focal_and_extra_njtr_num_alloc,
-                              focal_and_extra_njtr_indices_loc,
-                              (double*)inout_shared);
-  load_shared<2, double, double>(focal_and_extra_njtr,
-                                 0 * focal_and_extra_njtr_num_alloc,
-                                 focal_and_extra_njtr_indices_loc,
-                                 (double*)inout_shared);
+  FlushSumShared<2, double>(out_focal_and_extra_njtr,
+                            0 * out_focal_and_extra_njtr_num_alloc,
+                            focal_and_extra_njtr_indices_loc,
+                            (double*)inout_shared);
+  LoadShared<2, double, double>(focal_and_extra_njtr,
+                                0 * focal_and_extra_njtr_num_alloc,
+                                focal_and_extra_njtr_indices_loc,
+                                (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>((double*)inout_shared,
-                          focal_and_extra_njtr_indices_loc[threadIdx.x].target,
-                          r6,
-                          r9);
+    ReadShared2<double>((double*)inout_shared,
+                        focal_and_extra_njtr_indices_loc[threadIdx.x].target,
+                        r6,
+                        r9);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -108,23 +108,23 @@ __global__ void __launch_bounds__(1024, 1)
     r1 = r9 * r1;
     r11 = fma(r11, r1, r10 * r0);
     r8 = fma(r8, r1, r7 * r0);
-    write_sum_2<double, double>((double*)inout_shared, r11, r8);
+    WriteSum2<double, double>((double*)inout_shared, r11, r8);
   };
-  flush_sum_shared<2, double>(out_point_njtr,
-                              0 * out_point_njtr_num_alloc,
-                              point_njtr_indices_loc,
-                              (double*)inout_shared);
+  FlushSumShared<2, double>(out_point_njtr,
+                            0 * out_point_njtr_num_alloc,
+                            point_njtr_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r1 = fma(r4, r1, r3 * r0);
-    write_sum_1<double, double>((double*)inout_shared, r1);
+    WriteSum1<double, double>((double*)inout_shared, r1);
   };
-  flush_sum_shared<1, double>(out_point_njtr,
-                              2 * out_point_njtr_num_alloc,
-                              point_njtr_indices_loc,
-                              (double*)inout_shared);
+  FlushSumShared<1, double>(out_point_njtr,
+                            2 * out_point_njtr_num_alloc,
+                            point_njtr_indices_loc,
+                            (double*)inout_shared);
 }
 
-void pinhole_fixed_pose_fixed_principal_point_jtjnjtr_direct(
+void PinholeFixedPoseFixedPrincipalPointJtjnjtrDirect(
     double* focal_and_extra_njtr,
     unsigned int focal_and_extra_njtr_num_alloc,
     SharedIndex* focal_and_extra_njtr_indices,
@@ -145,8 +145,7 @@ void pinhole_fixed_pose_fixed_principal_point_jtjnjtr_direct(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  pinhole_fixed_pose_fixed_principal_point_jtjnjtr_direct_kernel<<<n_blocks,
-                                                                   1024>>>(
+  PinholeFixedPoseFixedPrincipalPointJtjnjtrDirectKernel<<<n_blocks, 1024>>>(
       focal_and_extra_njtr,
       focal_and_extra_njtr_num_alloc,
       focal_and_extra_njtr_indices,

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialCalib_start_w_contribute(
+void SimpleRadialCalibStartWContribute(
     double* SimpleRadialCalib_precond_diag,
     unsigned int SimpleRadialCalib_precond_diag_num_alloc,
     const double* const diag,

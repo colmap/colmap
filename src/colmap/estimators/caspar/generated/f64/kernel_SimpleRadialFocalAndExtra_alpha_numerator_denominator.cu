@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    SimpleRadialFocalAndExtra_alpha_numerator_denominator_kernel(
+    SimpleRadialFocalAndExtraAlphaNumeratorDenominatorKernel(
         double* SimpleRadialFocalAndExtra_p_kp1,
         unsigned int SimpleRadialFocalAndExtra_p_kp1_num_alloc,
         double* SimpleRadialFocalAndExtra_r_k,
@@ -31,13 +31,13 @@ __global__ void __launch_bounds__(1024, 1)
   double r0, r1, r2, r3;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         SimpleRadialFocalAndExtra_p_kp1,
         0 * SimpleRadialFocalAndExtra_p_kp1_num_alloc,
         global_thread_idx,
         r0,
         r1);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         SimpleRadialFocalAndExtra_r_k,
         0 * SimpleRadialFocalAndExtra_r_k_num_alloc,
         global_thread_idx,
@@ -45,13 +45,13 @@ __global__ void __launch_bounds__(1024, 1)
         r3);
     r2 = fma(r0, r2, r1 * r3);
   };
-  sum_store<double>(SimpleRadialFocalAndExtra_total_ag_local,
-                    (double*)inout_shared,
-                    0,
-                    global_thread_idx < problem_size,
-                    r2);
+  SumStore<double>(SimpleRadialFocalAndExtra_total_ag_local,
+                   (double*)inout_shared,
+                   0,
+                   global_thread_idx < problem_size,
+                   r2);
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         SimpleRadialFocalAndExtra_w,
         0 * SimpleRadialFocalAndExtra_w_num_alloc,
         global_thread_idx,
@@ -59,20 +59,20 @@ __global__ void __launch_bounds__(1024, 1)
         r3);
     r3 = fma(r1, r3, r0 * r2);
   };
-  sum_store<double>(SimpleRadialFocalAndExtra_total_ac_local,
-                    (double*)inout_shared,
-                    0,
-                    global_thread_idx < problem_size,
-                    r3);
-  sum_flush_final<double>(SimpleRadialFocalAndExtra_total_ag_local,
-                          SimpleRadialFocalAndExtra_total_ag,
-                          1);
-  sum_flush_final<double>(SimpleRadialFocalAndExtra_total_ac_local,
-                          SimpleRadialFocalAndExtra_total_ac,
-                          1);
+  SumStore<double>(SimpleRadialFocalAndExtra_total_ac_local,
+                   (double*)inout_shared,
+                   0,
+                   global_thread_idx < problem_size,
+                   r3);
+  SumFlushFinal<double>(SimpleRadialFocalAndExtra_total_ag_local,
+                        SimpleRadialFocalAndExtra_total_ag,
+                        1);
+  SumFlushFinal<double>(SimpleRadialFocalAndExtra_total_ac_local,
+                        SimpleRadialFocalAndExtra_total_ac,
+                        1);
 }
 
-void SimpleRadialFocalAndExtra_alpha_numerator_denominator(
+void SimpleRadialFocalAndExtraAlphaNumeratorDenominator(
     double* SimpleRadialFocalAndExtra_p_kp1,
     unsigned int SimpleRadialFocalAndExtra_p_kp1_num_alloc,
     double* SimpleRadialFocalAndExtra_r_k,
@@ -87,8 +87,7 @@ void SimpleRadialFocalAndExtra_alpha_numerator_denominator(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  SimpleRadialFocalAndExtra_alpha_numerator_denominator_kernel<<<n_blocks,
-                                                                 1024>>>(
+  SimpleRadialFocalAndExtraAlphaNumeratorDenominatorKernel<<<n_blocks, 1024>>>(
       SimpleRadialFocalAndExtra_p_kp1,
       SimpleRadialFocalAndExtra_p_kp1_num_alloc,
       SimpleRadialFocalAndExtra_r_k,

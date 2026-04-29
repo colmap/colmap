@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void pinhole_fixed_principal_point_fixed_point_score(
+void PinholeFixedPrincipalPointFixedPointScore(
     double* pose,
     unsigned int pose_num_alloc,
     SharedIndex* pose_indices,

@@ -11,7 +11,7 @@ namespace py = pybind11;
 
 namespace caspar {
 
-py::object get_interface(const py::object& obj) {
+py::object GetInterface(const py::object& obj) {
   if (py::hasattr(obj, "__cuda_array_interface__")) {
     return obj.attr("__cuda_array_interface__");
   } else if (py::hasattr(obj, "__array_interface__")) {
@@ -24,13 +24,13 @@ py::object get_interface(const py::object& obj) {
 }
 
 size_t GetNumRows(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
+  py::object cuda_array_interface = GetInterface(obj);
   py::tuple shape = cuda_array_interface["shape"].cast<py::tuple>();
   return shape[0].cast<size_t>();
 }
 
 size_t GetNumCols(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
+  py::object cuda_array_interface = GetInterface(obj);
   py::tuple shape = cuda_array_interface["shape"].cast<py::tuple>();
   return shape[1].cast<size_t>();
 }
@@ -65,16 +65,16 @@ void AssertNumColsEquals(const py::object& obj, size_t n) {
   }
 }
 
-void assert_contiguous(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
+void AssertContiguous(const py::object& obj) {
+  py::object cuda_array_interface = GetInterface(obj);
   if (!cuda_array_interface["strides"].is_none()) {
     std::string info = py::repr(obj).cast<std::string>();
     throw std::runtime_error("This function only supports contiguous arrays\n" + info);
   }
 }
 
-void assert_1d(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
+void Assert1D(const py::object& obj) {
+  py::object cuda_array_interface = GetInterface(obj);
   if (py::len(cuda_array_interface["shape"]) != 1) {
     std::string info = py::repr(obj).cast<std::string>();
     throw std::runtime_error("Expected 1D array, got " +
@@ -83,9 +83,9 @@ void assert_1d(const py::object& obj) {
   }
 }
 
-void assert_2d(const py::object& obj) {
-  assert_contiguous(obj);
-  py::object cuda_array_interface = get_interface(obj);
+void Assert2D(const py::object& obj) {
+  AssertContiguous(obj);
+  py::object cuda_array_interface = GetInterface(obj);
   if (py::len(cuda_array_interface["shape"]) != 2) {
     std::string info = py::repr(obj).cast<std::string>();
     throw std::runtime_error("Expected 2D array, got " +
@@ -94,9 +94,9 @@ void assert_2d(const py::object& obj) {
   }
 }
 
-void assert_2d_nxk(const py::object& obj, size_t k) {
-  py::object cuda_array_interface = get_interface(obj);
-  assert_2d(obj);
+void Assert2DNxk(const py::object& obj, size_t k) {
+  py::object cuda_array_interface = GetInterface(obj);
+  Assert2D(obj);
   py::tuple shape = cuda_array_interface["shape"].cast<py::tuple>();
   if (shape[1].cast<int>() != 2) {
     std::string info = py::repr(obj).cast<std::string>();
@@ -106,8 +106,8 @@ void assert_2d_nxk(const py::object& obj, size_t k) {
   }
 }
 
-void assert_type(const py::object& obj, const std::vector<std::string>& types) {
-  py::object cuda_array_interface = get_interface(obj);
+void AssertType(const py::object& obj, const std::vector<std::string>& types) {
+  py::object cuda_array_interface = GetInterface(obj);
   std::string obj_type = cuda_array_interface["typestr"].cast<std::string>();
   if (std::find(types.begin(), types.end(), obj_type) == types.end()) {
     std::string types_str = "";
@@ -123,85 +123,85 @@ void assert_type(const py::object& obj, const std::vector<std::string>& types) {
   }
 }
 
-void assert_float(const py::object& obj) {
-  assert_type(obj, {"<f4"});
+void AssertFloat(const py::object& obj) {
+  AssertType(obj, {"<f4"});
 }
 
-void assert_double(const py::object& obj) {
-  assert_type(obj, {"<f8"});
+void AssertDouble(const py::object& obj) {
+  AssertType(obj, {"<f8"});
 }
 
-void assert_uint(const py::object& obj) {
-  assert_type(obj, {"<u4", "<i4"});
+void AssertUint(const py::object& obj) {
+  AssertType(obj, {"<u4", "<i4"});
 }
 
-void assert_char(const py::object& obj) {
-  assert_type(obj, {"|u1", "|i1"});
+void AssertChar(const py::object& obj) {
+  AssertType(obj, {"|u1", "|i1"});
 }
 
-void assert_floatvec(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
-  assert_float(obj);
-  assert_contiguous(obj);
+void AssertFloatVec(const py::object& obj) {
+  py::object cuda_array_interface = GetInterface(obj);
+  AssertFloat(obj);
+  AssertContiguous(obj);
 }
 
-void assert_doublevec(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
-  assert_double(obj);
-  assert_contiguous(obj);
+void AssertDoubleVec(const py::object& obj) {
+  py::object cuda_array_interface = GetInterface(obj);
+  AssertDouble(obj);
+  AssertContiguous(obj);
 }
 
-void assert_uintvec(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
-  assert_uint(obj);
-  assert_contiguous(obj);
+void AssertUintVec(const py::object& obj) {
+  py::object cuda_array_interface = GetInterface(obj);
+  AssertUint(obj);
+  AssertContiguous(obj);
 }
 
-void assert_charvec(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
-  assert_char(obj);
-  assert_contiguous(obj);
+void AssertCharVec(const py::object& obj) {
+  py::object cuda_array_interface = GetInterface(obj);
+  AssertChar(obj);
+  AssertContiguous(obj);
 }
 
-void assert_uint2vec(const py::object& obj) {
-  py::object cuda_array_interface = get_interface(obj);
-  assert_uint(obj);
-  assert_2d_nxk(obj, 2);
+void AssertUint2Vec(const py::object& obj) {
+  py::object cuda_array_interface = GetInterface(obj);
+  AssertUint(obj);
+  Assert2DNxk(obj, 2);
 }
 
 float* AsFloatPtr(const py::object& obj) {
-  assert_floatvec(obj);
-  py::tuple data = get_interface(obj)["data"].cast<py::tuple>();
+  AssertFloatVec(obj);
+  py::tuple data = GetInterface(obj)["data"].cast<py::tuple>();
   return reinterpret_cast<float*>(data[0].cast<size_t>());
 }
 
 double* AsDoublePtr(const py::object& obj) {
-  assert_doublevec(obj);
-  py::tuple data = get_interface(obj)["data"].cast<py::tuple>();
+  AssertDoubleVec(obj);
+  py::tuple data = GetInterface(obj)["data"].cast<py::tuple>();
   return reinterpret_cast<double*>(data[0].cast<size_t>());
 }
 
 int* AsIntPtr(const py::object& obj) {
-  assert_uintvec(obj);
-  py::tuple data = get_interface(obj)["data"].cast<py::tuple>();
+  AssertUintVec(obj);
+  py::tuple data = GetInterface(obj)["data"].cast<py::tuple>();
   return reinterpret_cast<int*>(data[0].cast<size_t>());
 }
 
 uint* AsUintPtr(const py::object& obj) {
-  assert_uintvec(obj);
-  py::tuple data = get_interface(obj)["data"].cast<py::tuple>();
+  AssertUintVec(obj);
+  py::tuple data = GetInterface(obj)["data"].cast<py::tuple>();
   return reinterpret_cast<uint*>(data[0].cast<size_t>());
 }
 
 uint8_t* AsCharPtr(const py::object& obj) {
-  assert_charvec(obj);
-  py::tuple data = get_interface(obj)["data"].cast<py::tuple>();
+  AssertCharVec(obj);
+  py::tuple data = GetInterface(obj)["data"].cast<py::tuple>();
   return reinterpret_cast<uint8_t*>(data[0].cast<size_t>());
 }
 
 uint2* AsUint2Ptr(const py::object& obj) {
-  assert_uint2vec(obj);
-  py::tuple data = get_interface(obj)["data"].cast<py::tuple>();
+  AssertUint2Vec(obj);
+  py::tuple data = GetInterface(obj)["data"].cast<py::tuple>();
   return reinterpret_cast<uint2*>(data[0].cast<size_t>());
 }
 

@@ -20,22 +20,22 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void read_idx_1(const StorageT* const input, const uint offset,
-                                           const uint idx, KernelT& x) {
+__forceinline__ __device__ void ReadIdx1(const StorageT* const input, const uint offset,
+                                         const uint idx, KernelT& x) {
   x = input[offset + idx];
 }
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void read_idx_2(const StorageT* const input, const uint offset,
-                                           const uint idx, KernelT& x, KernelT& y) {
+__forceinline__ __device__ void ReadIdx2(const StorageT* const input, const uint offset,
+                                         const uint idx, KernelT& x, KernelT& y) {
   const VecT tmp = *reinterpret_cast<const VecT*>(&input[offset + idx * 2]);
   x = tmp.x;
   y = tmp.y;
 }
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void read_idx_3(const StorageT* const input, const uint offset,
-                                           const uint idx, KernelT& x, KernelT& y, KernelT& z) {
+__forceinline__ __device__ void ReadIdx3(const StorageT* const input, const uint offset,
+                                         const uint idx, KernelT& x, KernelT& y, KernelT& z) {
   const VecT tmp = *reinterpret_cast<const VecT*>(&input[offset + idx * 4]);
   x = tmp.x;
   y = tmp.y;
@@ -43,9 +43,9 @@ __forceinline__ __device__ void read_idx_3(const StorageT* const input, const ui
 }
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void read_idx_4(const StorageT* const input, const uint offset,
-                                           const uint idx, KernelT& x, KernelT& y, KernelT& z,
-                                           KernelT& w) {
+__forceinline__ __device__ void ReadIdx4(const StorageT* const input, const uint offset,
+                                         const uint idx, KernelT& x, KernelT& y, KernelT& z,
+                                         KernelT& w) {
   const VecT tmp = *reinterpret_cast<const VecT*>(&input[offset + idx * 4]);
   x = tmp.x;
   y = tmp.y;
@@ -55,10 +55,9 @@ __forceinline__ __device__ void read_idx_4(const StorageT* const input, const ui
 // READ INDEXED WITH DEFAULT
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_idx_with_default_1(const StorageT* const input,
-                                                        const uint offset, const uint num_alloc,
-                                                        const int idx, KernelT& x,
-                                                        const KernelT x_default) {
+__forceinline__ __device__ void ReadIdxWithDefault1(const StorageT* const input, const uint offset,
+                                                    const uint num_alloc, const int idx, KernelT& x,
+                                                    const KernelT x_default) {
   if (idx >= 0 && idx < num_alloc) {
     x = input[offset + idx];
   } else {
@@ -68,10 +67,10 @@ __forceinline__ __device__ void read_idx_with_default_1(const StorageT* const in
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_idx_with_default_2(const StorageT* const input,
-                                                        const uint offset, const uint num_alloc,
-                                                        const int idx, KernelT& x, KernelT& y,
-                                                        KernelT x_default, KernelT y_default) {
+__forceinline__ __device__ void ReadIdxWithDefault2(const StorageT* const input, const uint offset,
+                                                    const uint num_alloc, const int idx, KernelT& x,
+                                                    KernelT& y, KernelT x_default,
+                                                    KernelT y_default) {
   VecT tmp;
   if (idx >= 0 && idx < num_alloc) {
     tmp = *reinterpret_cast<const VecT*>(&input[offset + idx * 2]);
@@ -85,11 +84,10 @@ __forceinline__ __device__ void read_idx_with_default_2(const StorageT* const in
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_idx_with_default_3(const StorageT* const input,
-                                                        const uint offset, const uint num_alloc,
-                                                        const int idx, KernelT& x, KernelT& y,
-                                                        KernelT& z, KernelT x_default,
-                                                        KernelT y_default, KernelT z_default) {
+__forceinline__ __device__ void ReadIdxWithDefault3(const StorageT* const input, const uint offset,
+                                                    const uint num_alloc, const int idx, KernelT& x,
+                                                    KernelT& y, KernelT& z, KernelT x_default,
+                                                    KernelT y_default, KernelT z_default) {
   VecT tmp;
   if (idx >= 0 && idx < num_alloc) {
     tmp = *reinterpret_cast<const VecT*>(&input[offset + idx * 4]);
@@ -105,12 +103,11 @@ __forceinline__ __device__ void read_idx_with_default_3(const StorageT* const in
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_idx_with_default_4(const StorageT* const input,
-                                                        const uint offset, const uint num_alloc,
-                                                        const int idx, KernelT& x, KernelT& y,
-                                                        KernelT& z, KernelT& w, KernelT x_default,
-                                                        KernelT y_default, KernelT z_default,
-                                                        KernelT w_default) {
+__forceinline__ __device__ void ReadIdxWithDefault4(const StorageT* const input, const uint offset,
+                                                    const uint num_alloc, const int idx, KernelT& x,
+                                                    KernelT& y, KernelT& z, KernelT& w,
+                                                    KernelT x_default, KernelT y_default,
+                                                    KernelT z_default, KernelT w_default) {
   VecT tmp;
   if (idx >= 0 && idx < num_alloc) {
     tmp = *reinterpret_cast<const VecT*>(&input[offset + idx * 4]);
@@ -130,15 +127,15 @@ __forceinline__ __device__ void read_idx_with_default_4(const StorageT* const in
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void write_idx_1(StorageT* const output, const uint offset,
-                                            const uint idx, const KernelT x) {
+__forceinline__ __device__ void WriteIdx1(StorageT* const output, const uint offset, const uint idx,
+                                          const KernelT x) {
   output[offset + idx] = x;
 }
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void write_idx_2(StorageT* const output, const uint offset,
-                                            const uint idx, const KernelT x, const KernelT y) {
+__forceinline__ __device__ void WriteIdx2(StorageT* const output, const uint offset, const uint idx,
+                                          const KernelT x, const KernelT y) {
   VecT tmp;
   tmp.x = x;
   tmp.y = y;
@@ -147,9 +144,8 @@ __forceinline__ __device__ void write_idx_2(StorageT* const output, const uint o
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void write_idx_3(StorageT* const output, const uint offset,
-                                            const uint idx, const KernelT x, const KernelT y,
-                                            const KernelT z) {
+__forceinline__ __device__ void WriteIdx3(StorageT* const output, const uint offset, const uint idx,
+                                          const KernelT x, const KernelT y, const KernelT z) {
   VecT tmp;
   tmp.x = x;
   tmp.y = y;
@@ -159,9 +155,9 @@ __forceinline__ __device__ void write_idx_3(StorageT* const output, const uint o
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void write_idx_4(StorageT* const output, const uint offset,
-                                            const uint idx, const KernelT x, const KernelT y,
-                                            const KernelT z, const KernelT w) {
+__forceinline__ __device__ void WriteIdx4(StorageT* const output, const uint offset, const uint idx,
+                                          const KernelT x, const KernelT y, const KernelT z,
+                                          const KernelT w) {
   VecT tmp;
   tmp.x = x;
   tmp.y = y;
@@ -173,15 +169,15 @@ __forceinline__ __device__ void write_idx_4(StorageT* const output, const uint o
 // WRITE ADD
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void add_idx_1(StorageT* const output, const uint offset, const uint idx,
-                                          const KernelT x) {
+__forceinline__ __device__ void AddIdx1(StorageT* const output, const uint offset, const uint idx,
+                                        const KernelT x) {
   output[offset + idx] += x;
 }
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void add_idx_2(StorageT* const output, const uint offset, const uint idx,
-                                          const KernelT x, const KernelT y) {
+__forceinline__ __device__ void AddIdx2(StorageT* const output, const uint offset, const uint idx,
+                                        const KernelT x, const KernelT y) {
   const VecT existing = *reinterpret_cast<const VecT*>(&output[offset + idx * 2]);
   VecT tmp;
   tmp.x = x + existing.x;
@@ -191,8 +187,8 @@ __forceinline__ __device__ void add_idx_2(StorageT* const output, const uint off
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void add_idx_3(StorageT* const output, const uint offset, const uint idx,
-                                          const KernelT x, const KernelT y, const KernelT z) {
+__forceinline__ __device__ void AddIdx3(StorageT* const output, const uint offset, const uint idx,
+                                        const KernelT x, const KernelT y, const KernelT z) {
   const VecT existing = *reinterpret_cast<const VecT*>(&output[offset + idx * 4]);
   VecT tmp;
   tmp.x = x + existing.x;
@@ -203,9 +199,9 @@ __forceinline__ __device__ void add_idx_3(StorageT* const output, const uint off
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void add_idx_4(StorageT* const output, const uint offset, const uint idx,
-                                          const KernelT x, const KernelT y, const KernelT z,
-                                          const KernelT w) {
+__forceinline__ __device__ void AddIdx4(StorageT* const output, const uint offset, const uint idx,
+                                        const KernelT x, const KernelT y, const KernelT z,
+                                        const KernelT w) {
   const VecT existing = *reinterpret_cast<const VecT*>(&output[offset + idx * 4]);
   VecT tmp;
   tmp.x = x + existing.x;
@@ -217,33 +213,33 @@ __forceinline__ __device__ void add_idx_4(StorageT* const output, const uint off
 
 // WRITE SUM
 /**
- * The write_sum_x writes data to shared local data.
- * flush_sum or flush_sum_block should be called after all write_sum_x calls to perform reduction
+ * The WriteSumx writes data to shared local data.
+ * flush_sum or FlushSumBlock should be called after all WriteSumx calls to perform reduction
  * and write to the output.
  */
 template <typename KernelT, typename StorageT>
-__forceinline__ __device__ void write_sum_1(StorageT* const inout_shared, const KernelT x) {
+__forceinline__ __device__ void WriteSum1(StorageT* const inout_shared, const KernelT x) {
   inout_shared[threadIdx.x] = x;
 }
 
 template <typename KernelT, typename StorageT>
-__forceinline__ __device__ void write_sum_2(StorageT* const inout_shared, const KernelT x,
-                                            const KernelT y) {
+__forceinline__ __device__ void WriteSum2(StorageT* const inout_shared, const KernelT x,
+                                          const KernelT y) {
   inout_shared[threadIdx.x * 2 + 0] = x;
   inout_shared[threadIdx.x * 2 + 1] = y;
 }
 
 template <typename KernelT, typename StorageT>
-__forceinline__ __device__ void write_sum_3(StorageT* const inout_shared, const KernelT x,
-                                            const KernelT y, const KernelT z) {
+__forceinline__ __device__ void WriteSum3(StorageT* const inout_shared, const KernelT x,
+                                          const KernelT y, const KernelT z) {
   inout_shared[threadIdx.x * 3 + 0] = x;
   inout_shared[threadIdx.x * 3 + 1] = y;
   inout_shared[threadIdx.x * 3 + 2] = z;
 }
 
 template <typename KernelT, typename StorageT>
-__forceinline__ __device__ void write_sum_4(StorageT* const inout_shared, const KernelT x,
-                                            const KernelT y, const KernelT z, const KernelT w) {
+__forceinline__ __device__ void WriteSum4(StorageT* const inout_shared, const KernelT x,
+                                          const KernelT y, const KernelT z, const KernelT w) {
   inout_shared[threadIdx.x * 4 + 0] = x;
   inout_shared[threadIdx.x * 4 + 1] = y;
   inout_shared[threadIdx.x * 4 + 2] = z;
@@ -254,9 +250,9 @@ __forceinline__ __device__ void write_sum_4(StorageT* const inout_shared, const 
  * Function used to perform collaborative reductions. Read more on caspar.argtypes.accessors.Sum.
  */
 template <uint dim_target, typename StorageT>
-__forceinline__ __device__ void flush_sum_shared(StorageT* const output, const uint offset,
-                                                 const SharedIndex* const indices,
-                                                 StorageT* const inout_shared) {
+__forceinline__ __device__ void FlushSumShared(StorageT* const output, const uint offset,
+                                               const SharedIndex* const indices,
+                                               StorageT* const inout_shared) {
   __syncthreads();
 
   const SharedIndex idx = indices[threadIdx.x];
@@ -304,8 +300,8 @@ __forceinline__ __device__ void flush_sum_shared(StorageT* const output, const u
  * Read more on caspar.argtypes.accessors.BlockSum.
  */
 template <uint dim_target, typename StorageT>
-__forceinline__ __device__ void flush_sum_block(StorageT* const output,
-                                                StorageT* const inout_shared, const bool valid) {
+__forceinline__ __device__ void FlushSumBlock(StorageT* const output, StorageT* const inout_shared,
+                                              const bool valid) {
   __syncthreads();
   const cg::coalesced_group group = cg::binary_partition(cg::coalesced_threads(), valid);
   constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
@@ -332,8 +328,8 @@ __forceinline__ __device__ void flush_sum_block(StorageT* const output,
   }
 }
 template <typename StorageT>
-__forceinline__ __device__ void sum_store(StorageT* const shared_tmp, StorageT* const inout_shared,
-                                          const uint offset, const bool valid, StorageT data) {
+__forceinline__ __device__ void SumStore(StorageT* const shared_tmp, StorageT* const inout_shared,
+                                         const uint offset, const bool valid, StorageT data) {
   auto group = cg::tiled_partition<32>(cg::this_thread_block());
 
   __syncthreads();
@@ -351,8 +347,8 @@ __forceinline__ __device__ void sum_store(StorageT* const shared_tmp, StorageT* 
 }
 
 template <typename StorageT>
-__forceinline__ __device__ void sum_flush_final(const StorageT* const shared_tmp,
-                                                StorageT* const output, const uint dim) {
+__forceinline__ __device__ void SumFlushFinal(const StorageT* const shared_tmp,
+                                              StorageT* const output, const uint dim) {
   __syncthreads();
   if (threadIdx.x < dim) {
     atomicAdd(&output[threadIdx.x], shared_tmp[threadIdx.x]);
@@ -365,9 +361,8 @@ __forceinline__ __device__ void sum_flush_final(const StorageT* const shared_tmp
  * Read more on caspar.argtypes.accessors.BlockSumAdd.
  */
 template <uint dim_target, typename StorageT>
-__forceinline__ __device__ void flush_sum_block_add(StorageT* const output,
-                                                    StorageT* const inout_shared,
-                                                    const bool valid) {
+__forceinline__ __device__ void FlushSumBlockAdd(StorageT* const output,
+                                                 StorageT* const inout_shared, const bool valid) {
   __syncthreads();
   const cg::coalesced_group group = cg::binary_partition(cg::coalesced_threads(), valid);
   constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
@@ -400,12 +395,12 @@ __forceinline__ __device__ void flush_sum_block_add(StorageT* const output,
  * Function used to load data from global memory into shared memory.
  *
  * Read more on caspar.argtypes.accessors.Shared.
- * Should be followed by read_shared_x.
+ * Should be followed by ReadSharedx.
  */
 template <uint dim_target, typename KernelT, typename StorageT>
-__forceinline__ __device__ void load_shared(const StorageT* const input, const uint offset,
-                                            const SharedIndex* const indices,
-                                            KernelT* const inout_shared) {
+__forceinline__ __device__ void LoadShared(const StorageT* const input, const uint offset,
+                                           const SharedIndex* const indices,
+                                           KernelT* const inout_shared) {
   __syncthreads();
   constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
 
@@ -428,11 +423,11 @@ __forceinline__ __device__ void load_shared(const StorageT* const input, const u
  * Function used to load data from a unique global element into shared memory.
  *
  * Read more on caspar.argtypes.accessors.Unique.
- * Should be followed by read_shared_x.
+ * Should be followed by ReadSharedx.
  */
 template <uint dim_target, typename KernelT, typename StorageT>
-__forceinline__ __device__ void load_unique(const StorageT* const input, const uint offset,
-                                            KernelT* const inout_shared) {
+__forceinline__ __device__ void LoadUnique(const StorageT* const input, const uint offset,
+                                           KernelT* const inout_shared) {
   __syncthreads();
   if (threadIdx.x < dim_target) {
     inout_shared[threadIdx.x] = input[offset + threadIdx.x];
@@ -442,29 +437,29 @@ __forceinline__ __device__ void load_unique(const StorageT* const input, const u
 
 // READ SHARED
 template <typename KernelT>
-__forceinline__ __device__ void read_shared_1(const KernelT* const inout_shared, const uint target,
-                                              KernelT& x) {
+__forceinline__ __device__ void ReadShared1(const KernelT* const inout_shared, const uint target,
+                                            KernelT& x) {
   x = inout_shared[target];
 }
 
 template <typename KernelT>
-__forceinline__ __device__ void read_shared_2(const KernelT* const inout_shared, const uint target,
-                                              KernelT& x, KernelT& y) {
+__forceinline__ __device__ void ReadShared2(const KernelT* const inout_shared, const uint target,
+                                            KernelT& x, KernelT& y) {
   x = inout_shared[target * 2 + 0];
   y = inout_shared[target * 2 + 1];
 }
 
 template <typename KernelT>
-__forceinline__ __device__ void read_shared_3(const KernelT* const inout_shared, const uint target,
-                                              KernelT& x, KernelT& y, KernelT& z) {
+__forceinline__ __device__ void ReadShared3(const KernelT* const inout_shared, const uint target,
+                                            KernelT& x, KernelT& y, KernelT& z) {
   x = inout_shared[target * 3 + 0];
   y = inout_shared[target * 3 + 1];
   z = inout_shared[target * 3 + 2];
 }
 
 template <typename KernelT>
-__forceinline__ __device__ void read_shared_4(const KernelT* const inout_shared, const uint target,
-                                              KernelT& x, KernelT& y, KernelT& z, KernelT& w) {
+__forceinline__ __device__ void ReadShared4(const KernelT* const inout_shared, const uint target,
+                                            KernelT& x, KernelT& y, KernelT& z, KernelT& w) {
   x = inout_shared[target * 4 + 0];
   y = inout_shared[target * 4 + 1];
   z = inout_shared[target * 4 + 2];
@@ -474,10 +469,10 @@ __forceinline__ __device__ void read_shared_4(const KernelT* const inout_shared,
 // READ OVERLAPPED
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_1(KernelT* const inout_shared,
-                                                   const StorageT* const input, const uint offset,
-                                                   const uint idx, bool is_last, bool should_read,
-                                                   KernelT& x0, KernelT& x1) {
+__forceinline__ __device__ void ReadAndShuffle1(KernelT* const inout_shared,
+                                                const StorageT* const input, const uint offset,
+                                                const uint idx, bool is_last, bool should_read,
+                                                KernelT& x0, KernelT& x1) {
   if (should_read) {
     x0 = input[offset + idx];
     inout_shared[threadIdx.x] = x0;
@@ -493,11 +488,11 @@ __forceinline__ __device__ void read_and_shuffle_1(KernelT* const inout_shared,
 }
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_2(KernelT* const inout_shared,
-                                                   const StorageT* const input, const uint offset,
-                                                   const uint idx, bool is_last, bool should_read,
-                                                   KernelT& x0, KernelT& y0, KernelT& x1,
-                                                   KernelT& y1) {
+__forceinline__ __device__ void ReadAndShuffle2(KernelT* const inout_shared,
+                                                const StorageT* const input, const uint offset,
+                                                const uint idx, bool is_last, bool should_read,
+                                                KernelT& x0, KernelT& y0, KernelT& x1,
+                                                KernelT& y1) {
   VecT tmp;
   if (should_read) {
     tmp = reinterpret_cast<const VecT*>(&input[offset])[idx];
@@ -519,11 +514,11 @@ __forceinline__ __device__ void read_and_shuffle_2(KernelT* const inout_shared,
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_3(KernelT* const inout_shared,
-                                                   const StorageT* const input, const uint offset,
-                                                   const uint idx, bool is_last, bool should_read,
-                                                   KernelT& x0, KernelT& y0, KernelT& z0,
-                                                   KernelT& x1, KernelT& y1, KernelT& z1) {
+__forceinline__ __device__ void ReadAndShuffle3(KernelT* const inout_shared,
+                                                const StorageT* const input, const uint offset,
+                                                const uint idx, bool is_last, bool should_read,
+                                                KernelT& x0, KernelT& y0, KernelT& z0, KernelT& x1,
+                                                KernelT& y1, KernelT& z1) {
   VecT tmp;
   if (should_read) {
     tmp = reinterpret_cast<const VecT*>(&input[offset])[idx];
@@ -547,12 +542,12 @@ __forceinline__ __device__ void read_and_shuffle_3(KernelT* const inout_shared,
 
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_4(KernelT* const inout_shared,
-                                                   const StorageT* const input, const uint offset,
-                                                   const uint idx, bool is_last, bool should_read,
-                                                   KernelT& x0, KernelT& y0, KernelT& z0,
-                                                   KernelT& w0, KernelT& x1, KernelT& y1,
-                                                   KernelT& z1, KernelT& w1) {
+__forceinline__ __device__ void ReadAndShuffle4(KernelT* const inout_shared,
+                                                const StorageT* const input, const uint offset,
+                                                const uint idx, bool is_last, bool should_read,
+                                                KernelT& x0, KernelT& y0, KernelT& z0, KernelT& w0,
+                                                KernelT& x1, KernelT& y1, KernelT& z1,
+                                                KernelT& w1) {
   VecT tmp;
   if (should_read) {
     tmp = reinterpret_cast<const VecT*>(&input[offset])[idx];
@@ -578,7 +573,7 @@ __forceinline__ __device__ void read_and_shuffle_4(KernelT* const inout_shared,
 // READ WITH DEFAULT
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_with_default_1(
+__forceinline__ __device__ void ReadAndShuffleWithDefault1(
     KernelT* const inout_shared, const StorageT* const input, const uint offset, const int idx,
     bool is_last, bool should_read, const uint data_size, int step, KernelT& x0, KernelT& x1,
     KernelT x_default) {
@@ -602,7 +597,7 @@ __forceinline__ __device__ void read_and_shuffle_with_default_1(
 }
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_with_default_2(
+__forceinline__ __device__ void ReadAndShuffleWithDefault2(
     KernelT* const inout_shared, const StorageT* const input, const uint offset, const int idx,
     bool is_last, bool should_read, const uint data_size, int step, KernelT& x0, KernelT& y0,
     KernelT& x1, KernelT& y1, KernelT x_default, KernelT y_default) {
@@ -631,7 +626,7 @@ __forceinline__ __device__ void read_and_shuffle_with_default_2(
 }
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_with_default_3(
+__forceinline__ __device__ void ReadAndShuffleWithDefault3(
     KernelT* const inout_shared, const StorageT* const input, const uint offset, const int idx,
     bool is_last, bool should_read, const uint data_size, int step, KernelT& x0, KernelT& y0,
     KernelT& z0, KernelT& x1, KernelT& y1, KernelT& z1, KernelT x_default, KernelT y_default,
@@ -666,7 +661,7 @@ __forceinline__ __device__ void read_and_shuffle_with_default_3(
 }
 template <uint block_size, typename KernelT, typename StorageT, typename VecT>
 
-__forceinline__ __device__ void read_and_shuffle_with_default_4(
+__forceinline__ __device__ void ReadAndShuffleWithDefault4(
     KernelT* const inout_shared, const StorageT* const input, const uint offset, const int idx,
     bool is_last, bool should_read, const uint data_size, int step, KernelT& x0, KernelT& y0,
     KernelT& z0, KernelT& w0, KernelT& x1, KernelT& y1, KernelT& z1, KernelT& w1, KernelT x_default,
@@ -705,10 +700,10 @@ __forceinline__ __device__ void read_and_shuffle_with_default_4(
 }
 
 template <bool do_add, uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void shuffle_and_write_1(StorageT* const inout_shared,
-                                                    StorageT* const output, const uint offset,
-                                                    const uint gtidx, uint problem_size,
-                                                    const KernelT x0, const KernelT x1) {
+__forceinline__ __device__ void ShuffleAndWrite1(StorageT* const inout_shared,
+                                                 StorageT* const output, const uint offset,
+                                                 const uint gtidx, uint problem_size,
+                                                 const KernelT x0, const KernelT x1) {
   if (gtidx < problem_size) {
     inout_shared[threadIdx.x + 1] = x1;
   }
@@ -762,11 +757,11 @@ __forceinline__ __device__ void shuffle_and_write_1(StorageT* const inout_shared
 }
 
 template <bool do_add, uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void shuffle_and_write_2(StorageT* const inout_shared,
-                                                    StorageT* const output, const uint offset,
-                                                    const uint gtidx, uint problem_size,
-                                                    const KernelT x0, const KernelT y0,
-                                                    const KernelT x1, const KernelT y1) {
+__forceinline__ __device__ void ShuffleAndWrite2(StorageT* const inout_shared,
+                                                 StorageT* const output, const uint offset,
+                                                 const uint gtidx, uint problem_size,
+                                                 const KernelT x0, const KernelT y0,
+                                                 const KernelT x1, const KernelT y1) {
   if (gtidx < problem_size) {
     inout_shared[threadIdx.x + 1] = x1;
     inout_shared[threadIdx.x + 1 + 1025] = y1;
@@ -827,12 +822,12 @@ __forceinline__ __device__ void shuffle_and_write_2(StorageT* const inout_shared
 }
 
 template <bool do_add, uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void shuffle_and_write_3(StorageT* const inout_shared,
-                                                    StorageT* const output, const uint offset,
-                                                    const uint gtidx, uint problem_size,
-                                                    const KernelT x0, const KernelT y0,
-                                                    const KernelT z0, const KernelT x1,
-                                                    const KernelT y1, const KernelT z1) {
+__forceinline__ __device__ void ShuffleAndWrite3(StorageT* const inout_shared,
+                                                 StorageT* const output, const uint offset,
+                                                 const uint gtidx, uint problem_size,
+                                                 const KernelT x0, const KernelT y0,
+                                                 const KernelT z0, const KernelT x1,
+                                                 const KernelT y1, const KernelT z1) {
   if (gtidx < problem_size) {
     inout_shared[threadIdx.x + 1] = x1;
     inout_shared[threadIdx.x + 1 + 1025] = y1;
@@ -899,7 +894,7 @@ __forceinline__ __device__ void shuffle_and_write_3(StorageT* const inout_shared
 }
 
 template <bool do_add, uint block_size, typename KernelT, typename StorageT, typename VecT>
-__forceinline__ __device__ void shuffle_and_write_4(
+__forceinline__ __device__ void ShuffleAndWrite4(
     StorageT* const inout_shared, StorageT* const output, const uint offset, const uint gtidx,
     uint problem_size, const KernelT x0, const KernelT y0, const KernelT z0, const KernelT w0,
     const KernelT x1, const KernelT y1, const KernelT z1, const KernelT w1) {

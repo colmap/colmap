@@ -10,7 +10,7 @@ namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtra_retract_kernel(
+__global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtraRetractKernel(
     double* PinholeFocalAndExtra,
     unsigned int PinholeFocalAndExtra_num_alloc,
     double* delta,
@@ -23,17 +23,16 @@ __global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtra_retract_kernel(
   double r0, r1, r2, r3;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
-        PinholeFocalAndExtra,
-        0 * PinholeFocalAndExtra_num_alloc,
-        global_thread_idx,
-        r0,
-        r1);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(PinholeFocalAndExtra,
+                                            0 * PinholeFocalAndExtra_num_alloc,
+                                            global_thread_idx,
+                                            r0,
+                                            r1);
+    ReadIdx2<1024, double, double, double2>(
         delta, 0 * delta_num_alloc, global_thread_idx, r2, r3);
     r2 = r0 + r2;
     r3 = r1 + r3;
-    write_idx_2<1024, double, double, double2>(
+    WriteIdx2<1024, double, double, double2>(
         out_PinholeFocalAndExtra_retracted,
         0 * out_PinholeFocalAndExtra_retracted_num_alloc,
         global_thread_idx,
@@ -42,7 +41,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtra_retract_kernel(
   };
 }
 
-void PinholeFocalAndExtra_retract(
+void PinholeFocalAndExtraRetract(
     double* PinholeFocalAndExtra,
     unsigned int PinholeFocalAndExtra_num_alloc,
     double* delta,
@@ -55,7 +54,7 @@ void PinholeFocalAndExtra_retract(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeFocalAndExtra_retract_kernel<<<n_blocks, 1024>>>(
+  PinholeFocalAndExtraRetractKernel<<<n_blocks, 1024>>>(
       PinholeFocalAndExtra,
       PinholeFocalAndExtra_num_alloc,
       delta,

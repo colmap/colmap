@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPose_pred_decrease_times_two(
+void SimpleRadialPosePredDecreaseTimesTwo(
     double* SimpleRadialPose_step,
     unsigned int SimpleRadialPose_step_num_alloc,
     double* SimpleRadialPose_precond_diag,

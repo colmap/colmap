@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeCalib_update_step_first(
+void PinholeCalibUpdateStepFirst(
     float* PinholeCalib_p_kp1,
     unsigned int PinholeCalib_p_kp1_num_alloc,
     const float* const alpha,

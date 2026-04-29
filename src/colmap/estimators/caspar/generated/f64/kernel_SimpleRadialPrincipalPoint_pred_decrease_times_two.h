@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPrincipalPoint_pred_decrease_times_two(
+void SimpleRadialPrincipalPointPredDecreaseTimesTwo(
     double* SimpleRadialPrincipalPoint_step,
     unsigned int SimpleRadialPrincipalPoint_step_num_alloc,
     double* SimpleRadialPrincipalPoint_precond_diag,

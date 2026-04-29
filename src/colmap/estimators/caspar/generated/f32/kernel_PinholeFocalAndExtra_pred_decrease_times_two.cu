@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    PinholeFocalAndExtra_pred_decrease_times_two_kernel(
+    PinholeFocalAndExtraPredDecreaseTimesTwoKernel(
         float* PinholeFocalAndExtra_step,
         unsigned int PinholeFocalAndExtra_step_num_alloc,
         float* PinholeFocalAndExtra_precond_diag,
@@ -29,19 +29,19 @@ __global__ void __launch_bounds__(1024, 1)
   float r0, r1, r2, r3, r4, r5, r6, r7;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         PinholeFocalAndExtra_step,
         0 * PinholeFocalAndExtra_step_num_alloc,
         global_thread_idx,
         r0,
         r1);
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         PinholeFocalAndExtra_njtr,
         0 * PinholeFocalAndExtra_njtr_num_alloc,
         global_thread_idx,
         r2,
         r3);
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         PinholeFocalAndExtra_precond_diag,
         0 * PinholeFocalAndExtra_precond_diag_num_alloc,
         global_thread_idx,
@@ -49,9 +49,9 @@ __global__ void __launch_bounds__(1024, 1)
         r5);
     r6 = r0 * r4;
   };
-  load_unique<1, float, float>(diag, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(diag, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<float>((float*)inout_shared, 0, r7);
+    ReadShared1<float>((float*)inout_shared, 0, r7);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -60,17 +60,17 @@ __global__ void __launch_bounds__(1024, 1)
     r2 = fmaf(r7, r2, r3);
     r2 = fmaf(r1, r2, r0 * r6);
   };
-  sum_store<float>(out_PinholeFocalAndExtra_pred_dec_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r2);
-  sum_flush_final<float>(out_PinholeFocalAndExtra_pred_dec_local,
-                         out_PinholeFocalAndExtra_pred_dec,
-                         1);
+  SumStore<float>(out_PinholeFocalAndExtra_pred_dec_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r2);
+  SumFlushFinal<float>(out_PinholeFocalAndExtra_pred_dec_local,
+                       out_PinholeFocalAndExtra_pred_dec,
+                       1);
 }
 
-void PinholeFocalAndExtra_pred_decrease_times_two(
+void PinholeFocalAndExtraPredDecreaseTimesTwo(
     float* PinholeFocalAndExtra_step,
     unsigned int PinholeFocalAndExtra_step_num_alloc,
     float* PinholeFocalAndExtra_precond_diag,
@@ -85,7 +85,7 @@ void PinholeFocalAndExtra_pred_decrease_times_two(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeFocalAndExtra_pred_decrease_times_two_kernel<<<n_blocks, 1024>>>(
+  PinholeFocalAndExtraPredDecreaseTimesTwoKernel<<<n_blocks, 1024>>>(
       PinholeFocalAndExtra_step,
       PinholeFocalAndExtra_step_num_alloc,
       PinholeFocalAndExtra_precond_diag,

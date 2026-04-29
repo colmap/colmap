@@ -10,7 +10,7 @@ namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1) SimpleRadialPose_update_r_kernel(
+__global__ void __launch_bounds__(1024, 1) SimpleRadialPoseUpdateRKernel(
     double* SimpleRadialPose_r_k,
     unsigned int SimpleRadialPose_r_k_num_alloc,
     double* SimpleRadialPose_w,
@@ -28,65 +28,62 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialPose_update_r_kernel(
   double r0, r1, r2, r3, r4, r5, r6, r7, r8;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
-        SimpleRadialPose_r_k,
-        0 * SimpleRadialPose_r_k_num_alloc,
-        global_thread_idx,
-        r0,
-        r1);
-    read_idx_2<1024, double, double, double2>(SimpleRadialPose_w,
-                                              0 * SimpleRadialPose_w_num_alloc,
-                                              global_thread_idx,
-                                              r2,
-                                              r3);
+    ReadIdx2<1024, double, double, double2>(SimpleRadialPose_r_k,
+                                            0 * SimpleRadialPose_r_k_num_alloc,
+                                            global_thread_idx,
+                                            r0,
+                                            r1);
+    ReadIdx2<1024, double, double, double2>(SimpleRadialPose_w,
+                                            0 * SimpleRadialPose_w_num_alloc,
+                                            global_thread_idx,
+                                            r2,
+                                            r3);
   };
-  load_unique<1, double, double>(negalpha, 0, (double*)inout_shared);
+  LoadUnique<1, double, double>(negalpha, 0, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<double>((double*)inout_shared, 0, r4);
+    ReadShared1<double>((double*)inout_shared, 0, r4);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r2 = fma(r2, r4, r0);
     r3 = fma(r3, r4, r1);
-    write_idx_2<1024, double, double, double2>(
+    WriteIdx2<1024, double, double, double2>(
         out_SimpleRadialPose_r_kp1,
         0 * out_SimpleRadialPose_r_kp1_num_alloc,
         global_thread_idx,
         r2,
         r3);
-    read_idx_2<1024, double, double, double2>(
-        SimpleRadialPose_r_k,
-        2 * SimpleRadialPose_r_k_num_alloc,
-        global_thread_idx,
-        r1,
-        r0);
-    read_idx_2<1024, double, double, double2>(SimpleRadialPose_w,
-                                              2 * SimpleRadialPose_w_num_alloc,
-                                              global_thread_idx,
-                                              r5,
-                                              r6);
+    ReadIdx2<1024, double, double, double2>(SimpleRadialPose_r_k,
+                                            2 * SimpleRadialPose_r_k_num_alloc,
+                                            global_thread_idx,
+                                            r1,
+                                            r0);
+    ReadIdx2<1024, double, double, double2>(SimpleRadialPose_w,
+                                            2 * SimpleRadialPose_w_num_alloc,
+                                            global_thread_idx,
+                                            r5,
+                                            r6);
     r5 = fma(r5, r4, r1);
     r6 = fma(r6, r4, r0);
-    write_idx_2<1024, double, double, double2>(
+    WriteIdx2<1024, double, double, double2>(
         out_SimpleRadialPose_r_kp1,
         2 * out_SimpleRadialPose_r_kp1_num_alloc,
         global_thread_idx,
         r5,
         r6);
-    read_idx_2<1024, double, double, double2>(
-        SimpleRadialPose_r_k,
-        4 * SimpleRadialPose_r_k_num_alloc,
-        global_thread_idx,
-        r0,
-        r1);
-    read_idx_2<1024, double, double, double2>(SimpleRadialPose_w,
-                                              4 * SimpleRadialPose_w_num_alloc,
-                                              global_thread_idx,
-                                              r7,
-                                              r8);
+    ReadIdx2<1024, double, double, double2>(SimpleRadialPose_r_k,
+                                            4 * SimpleRadialPose_r_k_num_alloc,
+                                            global_thread_idx,
+                                            r0,
+                                            r1);
+    ReadIdx2<1024, double, double, double2>(SimpleRadialPose_w,
+                                            4 * SimpleRadialPose_w_num_alloc,
+                                            global_thread_idx,
+                                            r7,
+                                            r8);
     r7 = fma(r7, r4, r0);
     r4 = fma(r8, r4, r1);
-    write_idx_2<1024, double, double, double2>(
+    WriteIdx2<1024, double, double, double2>(
         out_SimpleRadialPose_r_kp1,
         4 * out_SimpleRadialPose_r_kp1_num_alloc,
         global_thread_idx,
@@ -98,32 +95,31 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialPose_update_r_kernel(
     r7 = fma(r6, r6, r7);
     r7 = fma(r5, r5, r7);
   };
-  sum_store<double>(out_SimpleRadialPose_r_kp1_norm2_tot_local,
-                    (double*)inout_shared,
-                    0,
-                    global_thread_idx < problem_size,
-                    r7);
-  sum_flush_final<double>(out_SimpleRadialPose_r_kp1_norm2_tot_local,
-                          out_SimpleRadialPose_r_kp1_norm2_tot,
-                          1);
+  SumStore<double>(out_SimpleRadialPose_r_kp1_norm2_tot_local,
+                   (double*)inout_shared,
+                   0,
+                   global_thread_idx < problem_size,
+                   r7);
+  SumFlushFinal<double>(out_SimpleRadialPose_r_kp1_norm2_tot_local,
+                        out_SimpleRadialPose_r_kp1_norm2_tot,
+                        1);
 }
 
-void SimpleRadialPose_update_r(
-    double* SimpleRadialPose_r_k,
-    unsigned int SimpleRadialPose_r_k_num_alloc,
-    double* SimpleRadialPose_w,
-    unsigned int SimpleRadialPose_w_num_alloc,
-    const double* const negalpha,
-    double* out_SimpleRadialPose_r_kp1,
-    unsigned int out_SimpleRadialPose_r_kp1_num_alloc,
-    double* const out_SimpleRadialPose_r_kp1_norm2_tot,
-    size_t problem_size) {
+void SimpleRadialPoseUpdateR(double* SimpleRadialPose_r_k,
+                             unsigned int SimpleRadialPose_r_k_num_alloc,
+                             double* SimpleRadialPose_w,
+                             unsigned int SimpleRadialPose_w_num_alloc,
+                             const double* const negalpha,
+                             double* out_SimpleRadialPose_r_kp1,
+                             unsigned int out_SimpleRadialPose_r_kp1_num_alloc,
+                             double* const out_SimpleRadialPose_r_kp1_norm2_tot,
+                             size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  SimpleRadialPose_update_r_kernel<<<n_blocks, 1024>>>(
+  SimpleRadialPoseUpdateRKernel<<<n_blocks, 1024>>>(
       SimpleRadialPose_r_k,
       SimpleRadialPose_r_k_num_alloc,
       SimpleRadialPose_w,

@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    pinhole_fixed_pose_fixed_focal_and_extra_score_kernel(
+    PinholeFixedPoseFixedFocalAndExtraScoreKernel(
         float* principal_point,
         unsigned int principal_point_num_alloc,
         SharedIndex* principal_point_indices,
@@ -44,42 +44,42 @@ __global__ void __launch_bounds__(1024, 1)
 
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27;
-  load_shared<2, float, float>(principal_point,
-                               0 * principal_point_num_alloc,
-                               principal_point_indices_loc,
-                               (float*)inout_shared);
+  LoadShared<2, float, float>(principal_point,
+                              0 * principal_point_num_alloc,
+                              principal_point_indices_loc,
+                              (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<float>((float*)inout_shared,
-                         principal_point_indices_loc[threadIdx.x].target,
-                         r0,
-                         r1);
+    ReadShared2<float>((float*)inout_shared,
+                       principal_point_indices_loc[threadIdx.x].target,
+                       r0,
+                       r1);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r2 = fmaf(r2, r4, r0);
-    read_idx_2<1024, float, float, float2>(focal_and_extra,
-                                           0 * focal_and_extra_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r5);
-    read_idx_3<1024, float, float, float4>(
+    ReadIdx2<1024, float, float, float2>(focal_and_extra,
+                                         0 * focal_and_extra_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r5);
+    ReadIdx3<1024, float, float, float4>(
         pose, 4 * pose_num_alloc, global_thread_idx, r6, r7, r8);
   };
-  load_shared<3, float, float>(
+  LoadShared<3, float, float>(
       point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_3<float>((float*)inout_shared,
-                         point_indices_loc[threadIdx.x].target,
-                         r9,
-                         r10,
-                         r11);
+    ReadShared3<float>((float*)inout_shared,
+                       point_indices_loc[threadIdx.x].target,
+                       r9,
+                       r10,
+                       r11);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(
         pose, 0 * pose_num_alloc, global_thread_idx, r12, r13, r14, r15);
     r16 = -2.00000000000000000e+00;
     r17 = r15 * r16;
@@ -128,15 +128,15 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = fmaf(r25, r23, r4);
     r4 = fmaf(r4, r4, r2 * r2);
   };
-  sum_store<float>(out_rTr_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r4);
-  sum_flush_final<float>(out_rTr_local, out_rTr, 1);
+  SumStore<float>(out_rTr_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r4);
+  SumFlushFinal<float>(out_rTr_local, out_rTr, 1);
 }
 
-void pinhole_fixed_pose_fixed_focal_and_extra_score(
+void PinholeFixedPoseFixedFocalAndExtraScore(
     float* principal_point,
     unsigned int principal_point_num_alloc,
     SharedIndex* principal_point_indices,
@@ -156,7 +156,7 @@ void pinhole_fixed_pose_fixed_focal_and_extra_score(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  pinhole_fixed_pose_fixed_focal_and_extra_score_kernel<<<n_blocks, 1024>>>(
+  PinholeFixedPoseFixedFocalAndExtraScoreKernel<<<n_blocks, 1024>>>(
       principal_point,
       principal_point_num_alloc,
       principal_point_indices,

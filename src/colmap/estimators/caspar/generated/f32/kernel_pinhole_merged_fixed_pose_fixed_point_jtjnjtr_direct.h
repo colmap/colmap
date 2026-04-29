@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void pinhole_merged_fixed_pose_fixed_point_jtjnjtr_direct(
+void PinholeMergedFixedPoseFixedPointJtjnjtrDirect(
     float* calib_njtr,
     unsigned int calib_njtr_num_alloc,
     SharedIndex* calib_njtr_indices,

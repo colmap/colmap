@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPose_alpha_numerator_denominator(
+void SimpleRadialPoseAlphaNumeratorDenominator(
     double* SimpleRadialPose_p_kp1,
     unsigned int SimpleRadialPose_p_kp1_num_alloc,
     double* SimpleRadialPose_r_k,

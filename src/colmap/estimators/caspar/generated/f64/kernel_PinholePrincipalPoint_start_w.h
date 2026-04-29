@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholePrincipalPoint_start_w(
+void PinholePrincipalPointStartW(
     double* PinholePrincipalPoint_precond_diag,
     unsigned int PinholePrincipalPoint_precond_diag_num_alloc,
     const double* const diag,

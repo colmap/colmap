@@ -10,33 +10,33 @@ namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1) PinholeCalib_retract_kernel(
-    float* PinholeCalib,
-    unsigned int PinholeCalib_num_alloc,
-    float* delta,
-    unsigned int delta_num_alloc,
-    float* out_PinholeCalib_retracted,
-    unsigned int out_PinholeCalib_retracted_num_alloc,
-    size_t problem_size) {
+__global__ void __launch_bounds__(1024, 1)
+    PinholeCalibRetractKernel(float* PinholeCalib,
+                              unsigned int PinholeCalib_num_alloc,
+                              float* delta,
+                              unsigned int delta_num_alloc,
+                              float* out_PinholeCalib_retracted,
+                              unsigned int out_PinholeCalib_retracted_num_alloc,
+                              size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
 
   float r0, r1, r2, r3, r4, r5, r6, r7;
 
   if (global_thread_idx < problem_size) {
-    read_idx_4<1024, float, float, float4>(PinholeCalib,
-                                           0 * PinholeCalib_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r1,
-                                           r2,
-                                           r3);
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(PinholeCalib,
+                                         0 * PinholeCalib_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1,
+                                         r2,
+                                         r3);
+    ReadIdx4<1024, float, float, float4>(
         delta, 0 * delta_num_alloc, global_thread_idx, r4, r5, r6, r7);
     r4 = r0 + r4;
     r5 = r1 + r5;
     r6 = r2 + r6;
     r7 = r3 + r7;
-    write_idx_4<1024, float, float, float4>(
+    WriteIdx4<1024, float, float, float4>(
         out_PinholeCalib_retracted,
         0 * out_PinholeCalib_retracted_num_alloc,
         global_thread_idx,
@@ -47,19 +47,19 @@ __global__ void __launch_bounds__(1024, 1) PinholeCalib_retract_kernel(
   };
 }
 
-void PinholeCalib_retract(float* PinholeCalib,
-                          unsigned int PinholeCalib_num_alloc,
-                          float* delta,
-                          unsigned int delta_num_alloc,
-                          float* out_PinholeCalib_retracted,
-                          unsigned int out_PinholeCalib_retracted_num_alloc,
-                          size_t problem_size) {
+void PinholeCalibRetract(float* PinholeCalib,
+                         unsigned int PinholeCalib_num_alloc,
+                         float* delta,
+                         unsigned int delta_num_alloc,
+                         float* out_PinholeCalib_retracted,
+                         unsigned int out_PinholeCalib_retracted_num_alloc,
+                         size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeCalib_retract_kernel<<<n_blocks, 1024>>>(
+  PinholeCalibRetractKernel<<<n_blocks, 1024>>>(
       PinholeCalib,
       PinholeCalib_num_alloc,
       delta,

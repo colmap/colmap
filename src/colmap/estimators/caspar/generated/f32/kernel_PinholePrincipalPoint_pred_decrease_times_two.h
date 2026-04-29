@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholePrincipalPoint_pred_decrease_times_two(
+void PinholePrincipalPointPredDecreaseTimesTwo(
     float* PinholePrincipalPoint_step,
     unsigned int PinholePrincipalPoint_step_num_alloc,
     float* PinholePrincipalPoint_precond_diag,

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeCalib_pred_decrease_times_two(
+void PinholeCalibPredDecreaseTimesTwo(
     double* PinholeCalib_step,
     unsigned int PinholeCalib_step_num_alloc,
     double* PinholeCalib_precond_diag,

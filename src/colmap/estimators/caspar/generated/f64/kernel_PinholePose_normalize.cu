@@ -11,16 +11,16 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    PinholePose_normalize_kernel(double* precond_diag,
-                                 unsigned int precond_diag_num_alloc,
-                                 double* precond_tril,
-                                 unsigned int precond_tril_num_alloc,
-                                 double* njtr,
-                                 unsigned int njtr_num_alloc,
-                                 const double* const diag,
-                                 double* out_normalized,
-                                 unsigned int out_normalized_num_alloc,
-                                 size_t problem_size) {
+    PinholePoseNormalizeKernel(double* precond_diag,
+                               unsigned int precond_diag_num_alloc,
+                               double* precond_tril,
+                               unsigned int precond_tril_num_alloc,
+                               double* njtr,
+                               unsigned int njtr_num_alloc,
+                               const double* const diag,
+                               double* out_normalized,
+                               unsigned int out_normalized_num_alloc,
+                               size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[8192];
 
@@ -30,18 +30,18 @@ __global__ void __launch_bounds__(1024, 1)
 
   if (global_thread_idx < problem_size) {
     r0 = -1.00000000000000000e+00;
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_tril, 6 * precond_tril_num_alloc, global_thread_idx, r1, r2);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_tril, 2 * precond_tril_num_alloc, global_thread_idx, r3, r4);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_tril, 0 * precond_tril_num_alloc, global_thread_idx, r5, r6);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_diag, 0 * precond_diag_num_alloc, global_thread_idx, r7, r8);
   };
-  load_unique<1, double, double>(diag, 0, (double*)inout_shared);
+  LoadUnique<1, double, double>(diag, 0, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<double>((double*)inout_shared, 0, r9);
+    ReadShared1<double>((double*)inout_shared, 0, r9);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -62,16 +62,16 @@ __global__ void __launch_bounds__(1024, 1)
     r8 = 1.0 / r8;
     r5 = r2 * r8;
     r14 = fma(r1, r5, r7 * r14);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_tril, 8 * precond_tril_num_alloc, global_thread_idx, r15, r16);
     r17 = r6 * r3;
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_tril, 4 * precond_tril_num_alloc, global_thread_idx, r18, r19);
     r19 = fma(r6, r12, r19);
     r20 = r19 * r1;
     r20 = fma(r8, r20, r7 * r17);
     r20 = fma(r0, r20, r16);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_tril, 10 * precond_tril_num_alloc, global_thread_idx, r16, r17);
     r21 = r6 * r4;
     r21 = fma(r19, r5, r7 * r21);
@@ -80,7 +80,7 @@ __global__ void __launch_bounds__(1024, 1)
     r22 = r19 * r19;
     r22 = fma(r8, r22, r7 * r16);
     r22 = fma(r0, r22, r11);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_diag, 2 * precond_diag_num_alloc, global_thread_idx, r16, r23);
     r22 = fma(r16, r10, r22);
     r22 = 1.0 / r22;
@@ -95,7 +95,7 @@ __global__ void __launch_bounds__(1024, 1)
     r23 = fma(r0, r25, r23);
     r23 = 1.0 / r23;
     r25 = r14 * r23;
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_diag, 4 * precond_diag_num_alloc, global_thread_idx, r24, r26);
     r24 = fma(r24, r10, r11);
     r27 = r4 * r4;
@@ -104,14 +104,14 @@ __global__ void __launch_bounds__(1024, 1)
     r21 = fma(r14, r25, r21);
     r24 = fma(r0, r21, r24);
     r24 = 1.0 / r24;
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         njtr, 4 * njtr_num_alloc, global_thread_idx, r21, r14);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         njtr, 0 * njtr_num_alloc, global_thread_idx, r2, r27);
     r27 = fma(r2, r12, r27);
     r28 = r0 * r27;
     r28 = fma(r5, r28, r21);
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         njtr, 2 * njtr_num_alloc, global_thread_idx, r21, r29);
     r30 = r0 * r1;
     r30 = r30 * r27;
@@ -131,10 +131,10 @@ __global__ void __launch_bounds__(1024, 1)
     r29 = r0 * r31;
     r28 = fma(r16, r29, r28);
     r28 = fma(r30, r25, r28);
-    read_idx_1<1024, double, double, double>(
+    ReadIdx1<1024, double, double, double>(
         precond_tril, 14 * precond_tril_num_alloc, global_thread_idx, r29);
     r21 = r4 * r18;
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_tril, 12 * precond_tril_num_alloc, global_thread_idx, r32, r33);
     r32 = r6 * r18;
     r15 = fma(r18, r12, r15);
@@ -208,49 +208,49 @@ __global__ void __launch_bounds__(1024, 1)
     r25 = r18 * r9;
     r12 = fma(r11, r25, r12);
     r12 = fma(r2, r7, r12);
-    write_idx_2<1024, double, double, double2>(out_normalized,
-                                               0 * out_normalized_num_alloc,
-                                               global_thread_idx,
-                                               r12,
-                                               r13);
-    write_idx_2<1024, double, double, double2>(out_normalized,
-                                               2 * out_normalized_num_alloc,
-                                               global_thread_idx,
-                                               r33,
-                                               r24);
-    write_idx_2<1024, double, double, double2>(out_normalized,
-                                               4 * out_normalized_num_alloc,
-                                               global_thread_idx,
-                                               r29,
-                                               r11);
+    WriteIdx2<1024, double, double, double2>(out_normalized,
+                                             0 * out_normalized_num_alloc,
+                                             global_thread_idx,
+                                             r12,
+                                             r13);
+    WriteIdx2<1024, double, double, double2>(out_normalized,
+                                             2 * out_normalized_num_alloc,
+                                             global_thread_idx,
+                                             r33,
+                                             r24);
+    WriteIdx2<1024, double, double, double2>(out_normalized,
+                                             4 * out_normalized_num_alloc,
+                                             global_thread_idx,
+                                             r29,
+                                             r11);
   };
 }
 
-void PinholePose_normalize(double* precond_diag,
-                           unsigned int precond_diag_num_alloc,
-                           double* precond_tril,
-                           unsigned int precond_tril_num_alloc,
-                           double* njtr,
-                           unsigned int njtr_num_alloc,
-                           const double* const diag,
-                           double* out_normalized,
-                           unsigned int out_normalized_num_alloc,
-                           size_t problem_size) {
+void PinholePoseNormalize(double* precond_diag,
+                          unsigned int precond_diag_num_alloc,
+                          double* precond_tril,
+                          unsigned int precond_tril_num_alloc,
+                          double* njtr,
+                          unsigned int njtr_num_alloc,
+                          const double* const diag,
+                          double* out_normalized,
+                          unsigned int out_normalized_num_alloc,
+                          size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholePose_normalize_kernel<<<n_blocks, 1024>>>(precond_diag,
-                                                   precond_diag_num_alloc,
-                                                   precond_tril,
-                                                   precond_tril_num_alloc,
-                                                   njtr,
-                                                   njtr_num_alloc,
-                                                   diag,
-                                                   out_normalized,
-                                                   out_normalized_num_alloc,
-                                                   problem_size);
+  PinholePoseNormalizeKernel<<<n_blocks, 1024>>>(precond_diag,
+                                                 precond_diag_num_alloc,
+                                                 precond_tril,
+                                                 precond_tril_num_alloc,
+                                                 njtr,
+                                                 njtr_num_alloc,
+                                                 diag,
+                                                 out_normalized,
+                                                 out_normalized_num_alloc,
+                                                 problem_size);
 }
 
 }  // namespace caspar

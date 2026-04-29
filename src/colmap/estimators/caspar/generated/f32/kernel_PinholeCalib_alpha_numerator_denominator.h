@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeCalib_alpha_numerator_denominator(
+void PinholeCalibAlphaNumeratorDenominator(
     float* PinholeCalib_p_kp1,
     unsigned int PinholeCalib_p_kp1_num_alloc,
     float* PinholeCalib_r_k,

@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    simple_radial_fixed_pose_fixed_focal_and_extra_res_jac_kernel(
+    SimpleRadialFixedPoseFixedFocalAndExtraResJacKernel(
         float* principal_point,
         unsigned int principal_point_num_alloc,
         SharedIndex* principal_point_indices,
@@ -60,38 +60,38 @@ __global__ void __launch_bounds__(1024, 1)
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
       r31, r32, r33, r34, r35, r36;
-  load_shared<2, float, float>(principal_point,
-                               0 * principal_point_num_alloc,
-                               principal_point_indices_loc,
-                               (float*)inout_shared);
+  LoadShared<2, float, float>(principal_point,
+                              0 * principal_point_num_alloc,
+                              principal_point_indices_loc,
+                              (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<float>((float*)inout_shared,
-                         principal_point_indices_loc[threadIdx.x].target,
-                         r0,
-                         r1);
+    ReadShared2<float>((float*)inout_shared,
+                       principal_point_indices_loc[threadIdx.x].target,
+                       r0,
+                       r1);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r2 = fmaf(r2, r4, r0);
-    read_idx_3<1024, float, float, float4>(
+    ReadIdx3<1024, float, float, float4>(
         pose, 4 * pose_num_alloc, global_thread_idx, r0, r5, r6);
   };
-  load_shared<3, float, float>(
+  LoadShared<3, float, float>(
       point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_3<float>((float*)inout_shared,
-                         point_indices_loc[threadIdx.x].target,
-                         r7,
-                         r8,
-                         r9);
+    ReadShared3<float>((float*)inout_shared,
+                       point_indices_loc[threadIdx.x].target,
+                       r7,
+                       r8,
+                       r9);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r10 = -2.00000000000000000e+00;
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(
         pose, 0 * pose_num_alloc, global_thread_idx, r11, r12, r13, r14);
     r15 = r13 * r14;
     r16 = 2.00000000000000000e+00;
@@ -125,11 +125,11 @@ __global__ void __launch_bounds__(1024, 1)
     r28 = copysign(1.0, r6);
     r28 = fmaf(r26, r28, r6);
     r26 = 1.0 / r28;
-    read_idx_2<1024, float, float, float2>(focal_and_extra,
-                                           0 * focal_and_extra_num_alloc,
-                                           global_thread_idx,
-                                           r6,
-                                           r29);
+    ReadIdx2<1024, float, float, float2>(focal_and_extra,
+                                         0 * focal_and_extra_num_alloc,
+                                         global_thread_idx,
+                                         r6,
+                                         r29);
     r15 = fmaf(r16, r15, r18);
     r7 = fmaf(r7, r15, r5);
     r5 = r11 * r14;
@@ -149,23 +149,23 @@ __global__ void __launch_bounds__(1024, 1)
     r2 = fmaf(r0, r30, r2);
     r3 = fmaf(r3, r4, r1);
     r3 = fmaf(r7, r30, r3);
-    write_idx_2<1024, float, float, float2>(
+    WriteIdx2<1024, float, float, float2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
     r2 = r4 * r2;
     r1 = r4 * r3;
-    write_sum_2<float, float>((float*)inout_shared, r2, r1);
+    WriteSum2<float, float>((float*)inout_shared, r2, r1);
   };
-  flush_sum_shared<2, float>(out_principal_point_njtr,
-                             0 * out_principal_point_njtr_num_alloc,
-                             principal_point_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<2, float>(out_principal_point_njtr,
+                           0 * out_principal_point_njtr_num_alloc,
+                           principal_point_indices_loc,
+                           (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    write_sum_2<float, float>((float*)inout_shared, r23, r23);
+    WriteSum2<float, float>((float*)inout_shared, r23, r23);
   };
-  flush_sum_shared<2, float>(out_principal_point_precond_diag,
-                             0 * out_principal_point_precond_diag_num_alloc,
-                             principal_point_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<2, float>(out_principal_point_precond_diag,
+                           0 * out_principal_point_precond_diag_num_alloc,
+                           principal_point_indices_loc,
+                           (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r23 = r0 * r27;
     r23 = r23 * r4;
@@ -211,13 +211,13 @@ __global__ void __launch_bounds__(1024, 1)
     r32 = r32 * r34;
     r32 = fmaf(r17, r28, r26 * r32);
     r32 = fmaf(r22, r30, r32);
-    write_idx_4<1024, float, float, float4>(out_point_jac,
-                                            0 * out_point_jac_num_alloc,
-                                            global_thread_idx,
-                                            r23,
-                                            r1,
-                                            r31,
-                                            r32);
+    WriteIdx4<1024, float, float, float4>(out_point_jac,
+                                          0 * out_point_jac_num_alloc,
+                                          global_thread_idx,
+                                          r23,
+                                          r1,
+                                          r31,
+                                          r32);
     r34 = r0 * r24;
     r34 = r34 * r4;
     r34 = r34 * r9;
@@ -238,46 +238,46 @@ __global__ void __launch_bounds__(1024, 1)
     r34 = r34 * r36;
     r34 = fmaf(r26, r34, r24 * r28);
     r34 = fmaf(r5, r30, r34);
-    write_idx_2<1024, float, float, float2>(out_point_jac,
-                                            4 * out_point_jac_num_alloc,
-                                            global_thread_idx,
-                                            r33,
-                                            r34);
+    WriteIdx2<1024, float, float, float2>(out_point_jac,
+                                          4 * out_point_jac_num_alloc,
+                                          global_thread_idx,
+                                          r33,
+                                          r34);
     r30 = r4 * r3;
     r30 = fmaf(r23, r2, r1 * r30);
     r28 = r4 * r3;
     r28 = fmaf(r31, r2, r32 * r28);
     r26 = r4 * r3;
     r2 = fmaf(r33, r2, r34 * r26);
-    write_sum_3<float, float>((float*)inout_shared, r30, r28, r2);
+    WriteSum3<float, float>((float*)inout_shared, r30, r28, r2);
   };
-  flush_sum_shared<3, float>(out_point_njtr,
-                             0 * out_point_njtr_num_alloc,
-                             point_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<3, float>(out_point_njtr,
+                           0 * out_point_njtr_num_alloc,
+                           point_indices_loc,
+                           (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r2 = fmaf(r23, r23, r1 * r1);
     r28 = fmaf(r32, r32, r31 * r31);
     r30 = fmaf(r33, r33, r34 * r34);
-    write_sum_3<float, float>((float*)inout_shared, r2, r28, r30);
+    WriteSum3<float, float>((float*)inout_shared, r2, r28, r30);
   };
-  flush_sum_shared<3, float>(out_point_precond_diag,
-                             0 * out_point_precond_diag_num_alloc,
-                             point_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<3, float>(out_point_precond_diag,
+                           0 * out_point_precond_diag_num_alloc,
+                           point_indices_loc,
+                           (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r30 = fmaf(r1, r32, r23 * r31);
     r1 = fmaf(r1, r34, r23 * r33);
     r34 = fmaf(r32, r34, r31 * r33);
-    write_sum_3<float, float>((float*)inout_shared, r30, r1, r34);
+    WriteSum3<float, float>((float*)inout_shared, r30, r1, r34);
   };
-  flush_sum_shared<3, float>(out_point_precond_tril,
-                             0 * out_point_precond_tril_num_alloc,
-                             point_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<3, float>(out_point_precond_tril,
+                           0 * out_point_precond_tril_num_alloc,
+                           point_indices_loc,
+                           (float*)inout_shared);
 }
 
-void simple_radial_fixed_pose_fixed_focal_and_extra_res_jac(
+void SimpleRadialFixedPoseFixedFocalAndExtraResJac(
     float* principal_point,
     unsigned int principal_point_num_alloc,
     SharedIndex* principal_point_indices,
@@ -314,8 +314,7 @@ void simple_radial_fixed_pose_fixed_focal_and_extra_res_jac(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  simple_radial_fixed_pose_fixed_focal_and_extra_res_jac_kernel<<<n_blocks,
-                                                                  1024>>>(
+  SimpleRadialFixedPoseFixedFocalAndExtraResJacKernel<<<n_blocks, 1024>>>(
       principal_point,
       principal_point_num_alloc,
       principal_point_indices,

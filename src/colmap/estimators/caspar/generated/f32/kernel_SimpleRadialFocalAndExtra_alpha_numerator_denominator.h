@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialFocalAndExtra_alpha_numerator_denominator(
+void SimpleRadialFocalAndExtraAlphaNumeratorDenominator(
     float* SimpleRadialFocalAndExtra_p_kp1,
     unsigned int SimpleRadialFocalAndExtra_p_kp1_num_alloc,
     float* SimpleRadialFocalAndExtra_r_k,

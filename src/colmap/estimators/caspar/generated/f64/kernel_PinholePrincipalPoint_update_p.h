@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholePrincipalPoint_update_p(
+void PinholePrincipalPointUpdateP(
     double* PinholePrincipalPoint_z,
     unsigned int PinholePrincipalPoint_z_num_alloc,
     double* PinholePrincipalPoint_p_k,

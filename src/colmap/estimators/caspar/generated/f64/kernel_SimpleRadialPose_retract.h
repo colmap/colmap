@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPose_retract(
+void SimpleRadialPoseRetract(
     double* SimpleRadialPose,
     unsigned int SimpleRadialPose_num_alloc,
     double* delta,

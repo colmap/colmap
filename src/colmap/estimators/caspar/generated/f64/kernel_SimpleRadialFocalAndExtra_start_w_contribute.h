@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialFocalAndExtra_start_w_contribute(
+void SimpleRadialFocalAndExtraStartWContribute(
     double* SimpleRadialFocalAndExtra_precond_diag,
     unsigned int SimpleRadialFocalAndExtra_precond_diag_num_alloc,
     const double* const diag,

@@ -10,7 +10,7 @@ namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1) PinholePrincipalPoint_retract_kernel(
+__global__ void __launch_bounds__(1024, 1) PinholePrincipalPointRetractKernel(
     float* PinholePrincipalPoint,
     unsigned int PinholePrincipalPoint_num_alloc,
     float* delta,
@@ -23,16 +23,16 @@ __global__ void __launch_bounds__(1024, 1) PinholePrincipalPoint_retract_kernel(
   float r0, r1, r2, r3;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(PinholePrincipalPoint,
-                                           0 * PinholePrincipalPoint_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r1);
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(PinholePrincipalPoint,
+                                         0 * PinholePrincipalPoint_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1);
+    ReadIdx2<1024, float, float, float2>(
         delta, 0 * delta_num_alloc, global_thread_idx, r2, r3);
     r2 = r0 + r2;
     r3 = r1 + r3;
-    write_idx_2<1024, float, float, float2>(
+    WriteIdx2<1024, float, float, float2>(
         out_PinholePrincipalPoint_retracted,
         0 * out_PinholePrincipalPoint_retracted_num_alloc,
         global_thread_idx,
@@ -41,7 +41,7 @@ __global__ void __launch_bounds__(1024, 1) PinholePrincipalPoint_retract_kernel(
   };
 }
 
-void PinholePrincipalPoint_retract(
+void PinholePrincipalPointRetract(
     float* PinholePrincipalPoint,
     unsigned int PinholePrincipalPoint_num_alloc,
     float* delta,
@@ -54,7 +54,7 @@ void PinholePrincipalPoint_retract(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholePrincipalPoint_retract_kernel<<<n_blocks, 1024>>>(
+  PinholePrincipalPointRetractKernel<<<n_blocks, 1024>>>(
       PinholePrincipalPoint,
       PinholePrincipalPoint_num_alloc,
       delta,

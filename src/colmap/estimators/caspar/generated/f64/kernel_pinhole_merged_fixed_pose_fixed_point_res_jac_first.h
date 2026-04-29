@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void pinhole_merged_fixed_pose_fixed_point_res_jac_first(
+void PinholeMergedFixedPoseFixedPointResJacFirst(
     double* calib,
     unsigned int calib_num_alloc,
     SharedIndex* calib_indices,

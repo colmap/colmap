@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    simple_radial_merged_fixed_pose_fixed_point_res_jac_first_kernel(
+    SimpleRadialMergedFixedPoseFixedPointResJacFirstKernel(
         float* calib,
         unsigned int calib_num_alloc,
         SharedIndex* calib_indices,
@@ -44,27 +44,27 @@ __global__ void __launch_bounds__(1024, 1)
 
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27;
-  load_shared<4, float, float>(
+  LoadShared<4, float, float>(
       calib, 0 * calib_num_alloc, calib_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_4<float>((float*)inout_shared,
-                         calib_indices_loc[threadIdx.x].target,
-                         r0,
-                         r1,
-                         r2,
-                         r3);
+    ReadShared4<float>((float*)inout_shared,
+                       calib_indices_loc[threadIdx.x].target,
+                       r0,
+                       r1,
+                       r2,
+                       r3);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r4, r5);
     r6 = -1.00000000000000000e+00;
     r4 = fmaf(r4, r6, r2);
-    read_idx_3<1024, float, float, float4>(
+    ReadIdx3<1024, float, float, float4>(
         pose, 4 * pose_num_alloc, global_thread_idx, r2, r7, r8);
-    read_idx_3<1024, float, float, float4>(
+    ReadIdx3<1024, float, float, float4>(
         point, 0 * point_num_alloc, global_thread_idx, r9, r10, r11);
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(
         pose, 0 * pose_num_alloc, global_thread_idx, r12, r13, r14, r15);
     r16 = -2.00000000000000000e+00;
     r17 = r15 * r16;
@@ -118,15 +118,15 @@ __global__ void __launch_bounds__(1024, 1)
     r5 = fmaf(r5, r6, r3);
     r3 = r0 * r19;
     r5 = fmaf(r11, r3, r5);
-    write_idx_2<1024, float, float, float2>(
+    WriteIdx2<1024, float, float, float2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r4, r5);
     r3 = fmaf(r5, r5, r4 * r4);
   };
-  sum_store<float>(out_rTr_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r3);
+  SumStore<float>(out_rTr_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r3);
   if (global_thread_idx < problem_size) {
     r4 = r6 * r4;
     r3 = r6 * r5;
@@ -140,12 +140,12 @@ __global__ void __launch_bounds__(1024, 1)
     r9 = r9 * r5;
     r9 = r9 * r25;
     r9 = fmaf(r12, r9, r26 * r27);
-    write_sum_4<float, float>((float*)inout_shared, r8, r9, r4, r3);
+    WriteSum4<float, float>((float*)inout_shared, r8, r9, r4, r3);
   };
-  flush_sum_shared<4, float>(out_calib_njtr,
-                             0 * out_calib_njtr_num_alloc,
-                             calib_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<4, float>(out_calib_njtr,
+                           0 * out_calib_njtr_num_alloc,
+                           calib_indices_loc,
+                           (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r3 = r1 * r1;
     r3 = r3 * r2;
@@ -154,12 +154,12 @@ __global__ void __launch_bounds__(1024, 1)
     r2 = r2 * r12;
     r17 = r17 * r2;
     r17 = fmaf(r10, r17, r23 * r17);
-    write_sum_4<float, float>((float*)inout_shared, r3, r17, r24, r24);
+    WriteSum4<float, float>((float*)inout_shared, r3, r17, r24, r24);
   };
-  flush_sum_shared<4, float>(out_calib_precond_diag,
-                             0 * out_calib_precond_diag_num_alloc,
-                             calib_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<4, float>(out_calib_precond_diag,
+                           0 * out_calib_precond_diag_num_alloc,
+                           calib_indices_loc,
+                           (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r24 = r21 * r11;
     r11 = r19 * r11;
@@ -168,26 +168,26 @@ __global__ void __launch_bounds__(1024, 1)
     r3 = r1 * r10;
     r4 = r1 * r23;
     r4 = fmaf(r2, r4, r2 * r3);
-    write_sum_4<float, float>((float*)inout_shared, r4, r24, r11, r17);
+    WriteSum4<float, float>((float*)inout_shared, r4, r24, r11, r17);
   };
-  flush_sum_shared<4, float>(out_calib_precond_tril,
-                             0 * out_calib_precond_tril_num_alloc,
-                             calib_indices_loc,
-                             (float*)inout_shared);
+  FlushSumShared<4, float>(out_calib_precond_tril,
+                           0 * out_calib_precond_tril_num_alloc,
+                           calib_indices_loc,
+                           (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r17 = 0.00000000000000000e+00;
     r11 = r19 * r25;
     r11 = r11 * r12;
-    write_sum_2<float, float>((float*)inout_shared, r11, r17);
+    WriteSum2<float, float>((float*)inout_shared, r11, r17);
   };
-  flush_sum_shared<2, float>(out_calib_precond_tril,
-                             4 * out_calib_precond_tril_num_alloc,
-                             calib_indices_loc,
-                             (float*)inout_shared);
-  sum_flush_final<float>(out_rTr_local, out_rTr, 1);
+  FlushSumShared<2, float>(out_calib_precond_tril,
+                           4 * out_calib_precond_tril_num_alloc,
+                           calib_indices_loc,
+                           (float*)inout_shared);
+  SumFlushFinal<float>(out_rTr_local, out_rTr, 1);
 }
 
-void simple_radial_merged_fixed_pose_fixed_point_res_jac_first(
+void SimpleRadialMergedFixedPoseFixedPointResJacFirst(
     float* calib,
     unsigned int calib_num_alloc,
     SharedIndex* calib_indices,
@@ -212,8 +212,7 @@ void simple_radial_merged_fixed_pose_fixed_point_res_jac_first(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  simple_radial_merged_fixed_pose_fixed_point_res_jac_first_kernel<<<n_blocks,
-                                                                     1024>>>(
+  SimpleRadialMergedFixedPoseFixedPointResJacFirstKernel<<<n_blocks, 1024>>>(
       calib,
       calib_num_alloc,
       calib_indices,

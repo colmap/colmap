@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_res_jac(
+void SimpleRadialFixedPoseFixedFocalAndExtraFixedPointResJac(
     double* principal_point,
     unsigned int principal_point_num_alloc,
     SharedIndex* principal_point_indices,

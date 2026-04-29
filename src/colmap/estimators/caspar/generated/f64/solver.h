@@ -210,9 +210,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholeCalib_nodes_from_stacked_host(const double* const data,
-                                                size_t offset,
-                                                size_t num);
+  void SetPinholeCalibNodesFromStackedHost(const double* const data,
+                                           size_t offset,
+                                           size_t num);
 
   /**
    * Set the current value for the PinholeCalib nodes from the stacked device
@@ -220,9 +220,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholeCalib_nodes_from_stacked_device(const double* const data,
-                                                  size_t offset,
-                                                  size_t num);
+  void SetPinholeCalibNodesFromStackedDevice(const double* const data,
+                                             size_t offset,
+                                             size_t num);
 
   /**
    * Read the current value for the PinholeCalib nodes into the stacked output
@@ -230,9 +230,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholeCalib_nodes_to_stacked_host(double* const data,
-                                              size_t offset,
-                                              size_t num);
+  void GetPinholeCalibNodesToStackedHost(double* const data,
+                                         size_t offset,
+                                         size_t num);
 
   /**
    * Read the current value for the PinholeCalib nodes into the stacked output
@@ -240,9 +240,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholeCalib_nodes_to_stacked_device(double* const data,
-                                                size_t offset,
-                                                size_t num);
+  void GetPinholeCalibNodesToStackedDevice(double* const data,
+                                           size_t offset,
+                                           size_t num);
 
   /**
    * Set the current number of active nodes of type PinholeCalib.
@@ -251,7 +251,7 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_PinholeCalib_num(size_t num);
+  void SetPinholeCalibNum(size_t num);
 
   /**
    * Set the current value for the PinholeFocalAndExtra nodes from the stacked
@@ -259,8 +259,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholeFocalAndExtra_nodes_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
+  void SetPinholeFocalAndExtraNodesFromStackedHost(const double* const data,
+                                                   size_t offset,
+                                                   size_t num);
 
   /**
    * Set the current value for the PinholeFocalAndExtra nodes from the stacked
@@ -268,8 +269,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholeFocalAndExtra_nodes_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
+  void SetPinholeFocalAndExtraNodesFromStackedDevice(const double* const data,
+                                                     size_t offset,
+                                                     size_t num);
 
   /**
    * Read the current value for the PinholeFocalAndExtra nodes into the stacked
@@ -277,9 +279,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholeFocalAndExtra_nodes_to_stacked_host(double* const data,
-                                                      size_t offset,
-                                                      size_t num);
+  void GetPinholeFocalAndExtraNodesToStackedHost(double* const data,
+                                                 size_t offset,
+                                                 size_t num);
 
   /**
    * Read the current value for the PinholeFocalAndExtra nodes into the stacked
@@ -287,9 +289,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholeFocalAndExtra_nodes_to_stacked_device(double* const data,
-                                                        size_t offset,
-                                                        size_t num);
+  void GetPinholeFocalAndExtraNodesToStackedDevice(double* const data,
+                                                   size_t offset,
+                                                   size_t num);
 
   /**
    * Set the current number of active nodes of type PinholeFocalAndExtra.
@@ -298,16 +300,16 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_PinholeFocalAndExtra_num(size_t num);
+  void SetPinholeFocalAndExtraNum(size_t num);
 
   /**
    * Set the current value for the PinholePose nodes from the stacked host data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholePose_nodes_from_stacked_host(const double* const data,
-                                               size_t offset,
-                                               size_t num);
+  void SetPinholePoseNodesFromStackedHost(const double* const data,
+                                          size_t offset,
+                                          size_t num);
 
   /**
    * Set the current value for the PinholePose nodes from the stacked device
@@ -315,9 +317,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholePose_nodes_from_stacked_device(const double* const data,
-                                                 size_t offset,
-                                                 size_t num);
+  void SetPinholePoseNodesFromStackedDevice(const double* const data,
+                                            size_t offset,
+                                            size_t num);
 
   /**
    * Read the current value for the PinholePose nodes into the stacked output
@@ -325,9 +327,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholePose_nodes_to_stacked_host(double* const data,
-                                             size_t offset,
-                                             size_t num);
+  void GetPinholePoseNodesToStackedHost(double* const data,
+                                        size_t offset,
+                                        size_t num);
 
   /**
    * Read the current value for the PinholePose nodes into the stacked output
@@ -335,9 +337,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholePose_nodes_to_stacked_device(double* const data,
-                                               size_t offset,
-                                               size_t num);
+  void GetPinholePoseNodesToStackedDevice(double* const data,
+                                          size_t offset,
+                                          size_t num);
 
   /**
    * Set the current number of active nodes of type PinholePose.
@@ -346,7 +348,7 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_PinholePose_num(size_t num);
+  void SetPinholePoseNum(size_t num);
 
   /**
    * Set the current value for the PinholePrincipalPoint nodes from the stacked
@@ -354,8 +356,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholePrincipalPoint_nodes_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
+  void SetPinholePrincipalPointNodesFromStackedHost(const double* const data,
+                                                    size_t offset,
+                                                    size_t num);
 
   /**
    * Set the current value for the PinholePrincipalPoint nodes from the stacked
@@ -363,8 +366,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_PinholePrincipalPoint_nodes_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
+  void SetPinholePrincipalPointNodesFromStackedDevice(const double* const data,
+                                                      size_t offset,
+                                                      size_t num);
 
   /**
    * Read the current value for the PinholePrincipalPoint nodes into the stacked
@@ -372,9 +376,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholePrincipalPoint_nodes_to_stacked_host(double* const data,
-                                                       size_t offset,
-                                                       size_t num);
+  void GetPinholePrincipalPointNodesToStackedHost(double* const data,
+                                                  size_t offset,
+                                                  size_t num);
 
   /**
    * Read the current value for the PinholePrincipalPoint nodes into the stacked
@@ -382,9 +386,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_PinholePrincipalPoint_nodes_to_stacked_device(double* const data,
-                                                         size_t offset,
-                                                         size_t num);
+  void GetPinholePrincipalPointNodesToStackedDevice(double* const data,
+                                                    size_t offset,
+                                                    size_t num);
 
   /**
    * Set the current number of active nodes of type PinholePrincipalPoint.
@@ -393,25 +397,25 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_PinholePrincipalPoint_num(size_t num);
+  void SetPinholePrincipalPointNum(size_t num);
 
   /**
    * Set the current value for the Point nodes from the stacked host data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_Point_nodes_from_stacked_host(const double* const data,
-                                         size_t offset,
-                                         size_t num);
+  void SetPointNodesFromStackedHost(const double* const data,
+                                    size_t offset,
+                                    size_t num);
 
   /**
    * Set the current value for the Point nodes from the stacked device data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_Point_nodes_from_stacked_device(const double* const data,
-                                           size_t offset,
-                                           size_t num);
+  void SetPointNodesFromStackedDevice(const double* const data,
+                                      size_t offset,
+                                      size_t num);
 
   /**
    * Read the current value for the Point nodes into the stacked output host
@@ -419,9 +423,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_Point_nodes_to_stacked_host(double* const data,
-                                       size_t offset,
-                                       size_t num);
+  void GetPointNodesToStackedHost(double* const data,
+                                  size_t offset,
+                                  size_t num);
 
   /**
    * Read the current value for the Point nodes into the stacked output device
@@ -429,9 +433,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_Point_nodes_to_stacked_device(double* const data,
-                                         size_t offset,
-                                         size_t num);
+  void GetPointNodesToStackedDevice(double* const data,
+                                    size_t offset,
+                                    size_t num);
 
   /**
    * Set the current number of active nodes of type Point.
@@ -440,7 +444,7 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_Point_num(size_t num);
+  void SetPointNum(size_t num);
 
   /**
    * Set the current value for the SimpleRadialCalib nodes from the stacked host
@@ -448,9 +452,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialCalib_nodes_from_stacked_host(const double* const data,
-                                                     size_t offset,
-                                                     size_t num);
+  void SetSimpleRadialCalibNodesFromStackedHost(const double* const data,
+                                                size_t offset,
+                                                size_t num);
 
   /**
    * Set the current value for the SimpleRadialCalib nodes from the stacked
@@ -458,9 +462,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialCalib_nodes_from_stacked_device(const double* const data,
-                                                       size_t offset,
-                                                       size_t num);
+  void SetSimpleRadialCalibNodesFromStackedDevice(const double* const data,
+                                                  size_t offset,
+                                                  size_t num);
 
   /**
    * Read the current value for the SimpleRadialCalib nodes into the stacked
@@ -468,9 +472,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialCalib_nodes_to_stacked_host(double* const data,
-                                                   size_t offset,
-                                                   size_t num);
+  void GetSimpleRadialCalibNodesToStackedHost(double* const data,
+                                              size_t offset,
+                                              size_t num);
 
   /**
    * Read the current value for the SimpleRadialCalib nodes into the stacked
@@ -478,9 +482,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialCalib_nodes_to_stacked_device(double* const data,
-                                                     size_t offset,
-                                                     size_t num);
+  void GetSimpleRadialCalibNodesToStackedDevice(double* const data,
+                                                size_t offset,
+                                                size_t num);
 
   /**
    * Set the current number of active nodes of type SimpleRadialCalib.
@@ -489,7 +493,7 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_SimpleRadialCalib_num(size_t num);
+  void SetSimpleRadialCalibNum(size_t num);
 
   /**
    * Set the current value for the SimpleRadialFocalAndExtra nodes from the
@@ -497,7 +501,7 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialFocalAndExtra_nodes_from_stacked_host(
+  void SetSimpleRadialFocalAndExtraNodesFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
@@ -506,7 +510,7 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialFocalAndExtra_nodes_from_stacked_device(
+  void SetSimpleRadialFocalAndExtraNodesFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
@@ -515,9 +519,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialFocalAndExtra_nodes_to_stacked_host(double* const data,
-                                                           size_t offset,
-                                                           size_t num);
+  void GetSimpleRadialFocalAndExtraNodesToStackedHost(double* const data,
+                                                      size_t offset,
+                                                      size_t num);
 
   /**
    * Read the current value for the SimpleRadialFocalAndExtra nodes into the
@@ -525,9 +529,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialFocalAndExtra_nodes_to_stacked_device(double* const data,
-                                                             size_t offset,
-                                                             size_t num);
+  void GetSimpleRadialFocalAndExtraNodesToStackedDevice(double* const data,
+                                                        size_t offset,
+                                                        size_t num);
 
   /**
    * Set the current number of active nodes of type SimpleRadialFocalAndExtra.
@@ -536,7 +540,7 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_SimpleRadialFocalAndExtra_num(size_t num);
+  void SetSimpleRadialFocalAndExtraNum(size_t num);
 
   /**
    * Set the current value for the SimpleRadialPose nodes from the stacked host
@@ -544,9 +548,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialPose_nodes_from_stacked_host(const double* const data,
-                                                    size_t offset,
-                                                    size_t num);
+  void SetSimpleRadialPoseNodesFromStackedHost(const double* const data,
+                                               size_t offset,
+                                               size_t num);
 
   /**
    * Set the current value for the SimpleRadialPose nodes from the stacked
@@ -554,9 +558,9 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialPose_nodes_from_stacked_device(const double* const data,
-                                                      size_t offset,
-                                                      size_t num);
+  void SetSimpleRadialPoseNodesFromStackedDevice(const double* const data,
+                                                 size_t offset,
+                                                 size_t num);
 
   /**
    * Read the current value for the SimpleRadialPose nodes into the stacked
@@ -564,9 +568,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialPose_nodes_to_stacked_host(double* const data,
-                                                  size_t offset,
-                                                  size_t num);
+  void GetSimpleRadialPoseNodesToStackedHost(double* const data,
+                                             size_t offset,
+                                             size_t num);
 
   /**
    * Read the current value for the SimpleRadialPose nodes into the stacked
@@ -574,9 +578,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialPose_nodes_to_stacked_device(double* const data,
-                                                    size_t offset,
-                                                    size_t num);
+  void GetSimpleRadialPoseNodesToStackedDevice(double* const data,
+                                               size_t offset,
+                                               size_t num);
 
   /**
    * Set the current number of active nodes of type SimpleRadialPose.
@@ -585,7 +589,7 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_SimpleRadialPose_num(size_t num);
+  void SetSimpleRadialPoseNum(size_t num);
 
   /**
    * Set the current value for the SimpleRadialPrincipalPoint nodes from the
@@ -593,7 +597,7 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialPrincipalPoint_nodes_from_stacked_host(
+  void SetSimpleRadialPrincipalPointNodesFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
@@ -602,7 +606,7 @@ class GraphSolver {
    *
    * The offset can be used to start writing at a specific index.
    */
-  void set_SimpleRadialPrincipalPoint_nodes_from_stacked_device(
+  void SetSimpleRadialPrincipalPointNodesFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
@@ -611,9 +615,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialPrincipalPoint_nodes_to_stacked_host(double* const data,
-                                                            size_t offset,
-                                                            size_t num);
+  void GetSimpleRadialPrincipalPointNodesToStackedHost(double* const data,
+                                                       size_t offset,
+                                                       size_t num);
 
   /**
    * Read the current value for the SimpleRadialPrincipalPoint nodes into the
@@ -621,8 +625,9 @@ class GraphSolver {
    *
    * The offset can be used to start reading from a specific index.
    */
-  void get_SimpleRadialPrincipalPoint_nodes_to_stacked_device(
-      double* const data, size_t offset, size_t num);
+  void GetSimpleRadialPrincipalPointNodesToStackedDevice(double* const data,
+                                                         size_t offset,
+                                                         size_t num);
 
   /**
    * Set the current number of active nodes of type SimpleRadialPrincipalPoint.
@@ -631,2942 +636,2799 @@ class GraphSolver {
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_SimpleRadialPrincipalPoint_num(size_t num);
+  void SetSimpleRadialPrincipalPointNum(size_t num);
 
   /**
-   * Set the indices for the pose argument for the simple_radial_merged factor
+   * Set the indices for the pose argument for the SimpleRadialMerged factor
    * from host.
    */
-  void set_simple_radial_merged_pose_indices_from_host(
+  void SetSimpleRadialMergedPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the pose argument for the simple_radial_merged factor
+   * Set the indices for the pose argument for the SimpleRadialMerged factor
    * from device.
    */
-  void set_simple_radial_merged_pose_indices_from_device(
+  void SetSimpleRadialMergedPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the calib argument for the simple_radial_merged factor
+   * Set the indices for the calib argument for the SimpleRadialMerged factor
    * from host.
    */
-  void set_simple_radial_merged_calib_indices_from_host(
+  void SetSimpleRadialMergedCalibIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the calib argument for the simple_radial_merged factor
+   * Set the indices for the calib argument for the SimpleRadialMerged factor
    * from device.
    */
-  void set_simple_radial_merged_calib_indices_from_device(
+  void SetSimpleRadialMergedCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the simple_radial_merged factor
+   * Set the indices for the point argument for the SimpleRadialMerged factor
    * from host.
    */
-  void set_simple_radial_merged_point_indices_from_host(
+  void SetSimpleRadialMergedPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the simple_radial_merged factor
+   * Set the indices for the point argument for the SimpleRadialMerged factor
    * from device.
    */
-  void set_simple_radial_merged_point_indices_from_device(
+  void SetSimpleRadialMergedPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial_merged factor from
-   * stacked host data.
+   * Set the values for the pixel consts SimpleRadialMerged factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_merged_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
+  void SetSimpleRadialMergedPixelDataFromStackedHost(const double* const data,
+                                                     size_t offset,
+                                                     size_t num);
 
   /**
-   * Set the values for the pixel consts simple_radial_merged factor from
-   * stacked device data.
+   * Set the values for the pixel consts SimpleRadialMerged factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_simple_radial_merged_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_merged factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_merged_num(size_t num);
-
-  /**
-   * Set the indices for the calib argument for the
-   * simple_radial_merged_fixed_pose factor from host.
-   */
-  void set_simple_radial_merged_fixed_pose_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the calib argument for the
-   * simple_radial_merged_fixed_pose factor from device.
-   */
-  void set_simple_radial_merged_fixed_pose_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_merged_fixed_pose factor from host.
-   */
-  void set_simple_radial_merged_fixed_pose_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_merged_fixed_pose factor from device.
-   */
-  void set_simple_radial_merged_fixed_pose_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_merged_fixed_pose factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_pose_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_merged_fixed_pose factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_pose_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts simple_radial_merged_fixed_pose factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_pose_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts simple_radial_merged_fixed_pose factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_pose_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_merged_fixed_pose factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_merged_fixed_pose_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_merged_fixed_point factor from host.
-   */
-  void set_simple_radial_merged_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_merged_fixed_point factor from device.
-   */
-  void set_simple_radial_merged_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the calib argument for the
-   * simple_radial_merged_fixed_point factor from host.
-   */
-  void set_simple_radial_merged_fixed_point_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the calib argument for the
-   * simple_radial_merged_fixed_point factor from device.
-   */
-  void set_simple_radial_merged_fixed_point_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_merged_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_merged_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_merged_fixed_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts simple_radial_merged_fixed_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_merged_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_merged_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_merged_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the calib argument for the
-   * simple_radial_merged_fixed_pose_fixed_point factor from host.
-   */
-  void set_simple_radial_merged_fixed_pose_fixed_point_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the calib argument for the
-   * simple_radial_merged_fixed_pose_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_merged_fixed_pose_fixed_point_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_merged_fixed_pose_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_merged_fixed_pose_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_merged_fixed_pose_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_merged_fixed_pose_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_merged_fixed_pose_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_merged_fixed_pose_fixed_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_merged_fixed_pose_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_merged_fixed_pose_fixed_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_merged_fixed_pose_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_merged_fixed_pose_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_merged_fixed_pose_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_merged_fixed_pose_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_merged_fixed_pose_fixed_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_merged_fixed_pose_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_merged factor from
-   * host.
-   */
-  void set_pinhole_merged_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_merged factor from
-   * device.
-   */
-  void set_pinhole_merged_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the calib argument for the pinhole_merged factor from
-   * host.
-   */
-  void set_pinhole_merged_calib_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the calib argument for the pinhole_merged factor from
-   * device.
-   */
-  void set_pinhole_merged_calib_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole_merged factor from
-   * host.
-   */
-  void set_pinhole_merged_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the pinhole_merged factor from
-   * device.
-   */
-  void set_pinhole_merged_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_merged factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_merged_pixel_data_from_stacked_host(const double* const data,
+  void SetSimpleRadialMergedPixelDataFromStackedDevice(const double* const data,
                                                        size_t offset,
                                                        size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_merged factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_merged_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_merged factors.
+   * Set the current number of SimpleRadialMerged factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_merged_num(size_t num);
+  void SetSimpleRadialMergedNum(size_t num);
 
   /**
-   * Set the indices for the calib argument for the pinhole_merged_fixed_pose
+   * Set the indices for the calib argument for the SimpleRadialMergedFixedPose
    * factor from host.
    */
-  void set_pinhole_merged_fixed_pose_calib_indices_from_host(
+  void SetSimpleRadialMergedFixedPoseCalibIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the calib argument for the pinhole_merged_fixed_pose
+   * Set the indices for the calib argument for the SimpleRadialMergedFixedPose
    * factor from device.
    */
-  void set_pinhole_merged_fixed_pose_calib_indices_from_device(
+  void SetSimpleRadialMergedFixedPoseCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the pinhole_merged_fixed_pose
+   * Set the indices for the point argument for the SimpleRadialMergedFixedPose
    * factor from host.
    */
-  void set_pinhole_merged_fixed_pose_point_indices_from_host(
+  void SetSimpleRadialMergedFixedPosePointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the pinhole_merged_fixed_pose
+   * Set the indices for the point argument for the SimpleRadialMergedFixedPose
    * factor from device.
    */
-  void set_pinhole_merged_fixed_pose_point_indices_from_device(
+  void SetSimpleRadialMergedFixedPosePointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_merged_fixed_pose factor from
+   * Set the values for the pixel consts SimpleRadialMergedFixedPose factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_pixel_data_from_stacked_host(
+  void SetSimpleRadialMergedFixedPosePixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_merged_fixed_pose factor from
+   * Set the values for the pixel consts SimpleRadialMergedFixedPose factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_pixel_data_from_stacked_device(
+  void SetSimpleRadialMergedFixedPosePixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_merged_fixed_pose factor from
+   * Set the values for the pose consts SimpleRadialMergedFixedPose factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_pose_data_from_stacked_host(
+  void SetSimpleRadialMergedFixedPosePoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_merged_fixed_pose factor from
+   * Set the values for the pose consts SimpleRadialMergedFixedPose factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_pose_data_from_stacked_device(
+  void SetSimpleRadialMergedFixedPosePoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_merged_fixed_pose factors.
+   * Set the current number of SimpleRadialMergedFixedPose factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_merged_fixed_pose_num(size_t num);
+  void SetSimpleRadialMergedFixedPoseNum(size_t num);
 
   /**
-   * Set the indices for the pose argument for the pinhole_merged_fixed_point
+   * Set the indices for the pose argument for the SimpleRadialMergedFixedPoint
    * factor from host.
    */
-  void set_pinhole_merged_fixed_point_pose_indices_from_host(
+  void SetSimpleRadialMergedFixedPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the pose argument for the pinhole_merged_fixed_point
+   * Set the indices for the pose argument for the SimpleRadialMergedFixedPoint
    * factor from device.
    */
-  void set_pinhole_merged_fixed_point_pose_indices_from_device(
+  void SetSimpleRadialMergedFixedPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the calib argument for the pinhole_merged_fixed_point
+   * Set the indices for the calib argument for the SimpleRadialMergedFixedPoint
    * factor from host.
    */
-  void set_pinhole_merged_fixed_point_calib_indices_from_host(
+  void SetSimpleRadialMergedFixedPointCalibIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the calib argument for the pinhole_merged_fixed_point
+   * Set the indices for the calib argument for the SimpleRadialMergedFixedPoint
    * factor from device.
    */
-  void set_pinhole_merged_fixed_point_calib_indices_from_device(
+  void SetSimpleRadialMergedFixedPointCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_merged_fixed_point factor from
-   * stacked host data.
+   * Set the values for the pixel consts SimpleRadialMergedFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_point_pixel_data_from_stacked_host(
+  void SetSimpleRadialMergedFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_merged_fixed_point factor from
-   * stacked device data.
+   * Set the values for the pixel consts SimpleRadialMergedFixedPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_point_pixel_data_from_stacked_device(
+  void SetSimpleRadialMergedFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts pinhole_merged_fixed_point factor from
-   * stacked host data.
+   * Set the values for the point consts SimpleRadialMergedFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_point_point_data_from_stacked_host(
+  void SetSimpleRadialMergedFixedPointPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts pinhole_merged_fixed_point factor from
-   * stacked device data.
+   * Set the values for the point consts SimpleRadialMergedFixedPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_point_point_data_from_stacked_device(
+  void SetSimpleRadialMergedFixedPointPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_merged_fixed_point factors.
+   * Set the current number of SimpleRadialMergedFixedPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_merged_fixed_point_num(size_t num);
+  void SetSimpleRadialMergedFixedPointNum(size_t num);
 
   /**
    * Set the indices for the calib argument for the
-   * pinhole_merged_fixed_pose_fixed_point factor from host.
+   * SimpleRadialMergedFixedPoseFixedPoint factor from host.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_calib_indices_from_host(
+  void SetSimpleRadialMergedFixedPoseFixedPointCalibIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the calib argument for the
-   * pinhole_merged_fixed_pose_fixed_point factor from device.
+   * SimpleRadialMergedFixedPoseFixedPoint factor from device.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_calib_indices_from_device(
+  void SetSimpleRadialMergedFixedPoseFixedPointCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_merged_fixed_pose_fixed_point
+   * Set the values for the pixel consts SimpleRadialMergedFixedPoseFixedPoint
    * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_pixel_data_from_stacked_host(
+  void SetSimpleRadialMergedFixedPoseFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_merged_fixed_pose_fixed_point
+   * Set the values for the pixel consts SimpleRadialMergedFixedPoseFixedPoint
    * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_pixel_data_from_stacked_device(
+  void SetSimpleRadialMergedFixedPoseFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_merged_fixed_pose_fixed_point
+   * Set the values for the pose consts SimpleRadialMergedFixedPoseFixedPoint
    * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_pose_data_from_stacked_host(
+  void SetSimpleRadialMergedFixedPoseFixedPointPoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_merged_fixed_pose_fixed_point
+   * Set the values for the pose consts SimpleRadialMergedFixedPoseFixedPoint
    * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_pose_data_from_stacked_device(
+  void SetSimpleRadialMergedFixedPoseFixedPointPoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts pinhole_merged_fixed_pose_fixed_point
+   * Set the values for the point consts SimpleRadialMergedFixedPoseFixedPoint
    * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_point_data_from_stacked_host(
+  void SetSimpleRadialMergedFixedPoseFixedPointPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts pinhole_merged_fixed_pose_fixed_point
+   * Set the values for the point consts SimpleRadialMergedFixedPoseFixedPoint
    * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_point_data_from_stacked_device(
+  void SetSimpleRadialMergedFixedPoseFixedPointPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_merged_fixed_pose_fixed_point factors.
+   * Set the current number of SimpleRadialMergedFixedPoseFixedPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_merged_fixed_pose_fixed_point_num(size_t num);
+  void SetSimpleRadialMergedFixedPoseFixedPointNum(size_t num);
 
   /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra factor from host.
-   */
-  void set_simple_radial_fixed_focal_and_extra_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra factor from device.
-   */
-  void set_simple_radial_fixed_focal_and_extra_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_focal_and_extra factor from host.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_focal_and_extra factor from device.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_focal_and_extra factor from host.
-   */
-  void set_simple_radial_fixed_focal_and_extra_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_focal_and_extra factor from device.
-   */
-  void set_simple_radial_fixed_focal_and_extra_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_focal_and_extra
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_and_extra_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_focal_and_extra
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_focal_and_extra_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_focal_and_extra factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_focal_and_extra_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_principal_point factor from host.
-   */
-  void set_simple_radial_fixed_principal_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_principal_point factor from device.
-   */
-  void set_simple_radial_fixed_principal_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_principal_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_principal_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_principal_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_principal_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_principal_point factor from host.
-   */
-  void set_simple_radial_fixed_principal_point_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_principal_point factor from device.
-   */
-  void set_simple_radial_fixed_principal_point_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_principal_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_principal_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts simple_radial_fixed_principal_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_simple_radial_fixed_principal_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_principal_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_principal_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_principal_point factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_principal_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_principal_point_num(size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_pose_fixed_focal_and_extra
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_and_extra_num(size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose_fixed_principal_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose_fixed_principal_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_principal_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_principal_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_principal_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_principal_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_principal_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_principal_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_pose_fixed_principal_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_pose_fixed_principal_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_pose_fixed_principal_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_pose_fixed_principal_point_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * device.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * device.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_focal_and_extra_fixed_principal_point_num(
-      size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_focal_and_extra_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_focal_and_extra_fixed_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_focal_and_extra_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_principal_point_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_principal_point_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_principal_point_fixed_point factor from host.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_principal_point_fixed_point factor from device.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_principal_point_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_principal_point_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_principal_point_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_principal_point_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_principal_point_fixed_point factor from stacked host
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_principal_point_fixed_point factor from stacked device
-   * data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_principal_point_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of simple_radial_fixed_principal_point_fixed_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_principal_point_fixed_point_num(size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from host.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from device.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num(
-      size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * Set the indices for the pose argument for the PinholeMerged factor from
    * host.
    */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
+  void SetPinholeMergedPoseIndicesFromHost(const unsigned int* const indices,
+                                           size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
+   * Set the indices for the pose argument for the PinholeMerged factor from
    * device.
    */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
+  void SetPinholeMergedPoseIndicesFromDevice(const unsigned int* const indices,
+                                             size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of
-   * simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_num(
-      size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * Set the indices for the calib argument for the PinholeMerged factor from
    * host.
    */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
+  void SetPinholeMergedCalibIndicesFromHost(const unsigned int* const indices,
+                                            size_t num);
 
   /**
-   * Set the indices for the focal_and_extra argument for the
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
+   * Set the indices for the calib argument for the PinholeMerged factor from
    * device.
    */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
+  void SetPinholeMergedCalibIndicesFromDevice(const unsigned int* const indices,
+                                              size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked host data.
+   * Set the indices for the point argument for the PinholeMerged factor from
+   * host.
+   */
+  void SetPinholeMergedPointIndicesFromHost(const unsigned int* const indices,
+                                            size_t num);
+
+  /**
+   * Set the indices for the point argument for the PinholeMerged factor from
+   * device.
+   */
+  void SetPinholeMergedPointIndicesFromDevice(const unsigned int* const indices,
+                                              size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeMerged factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
+  void SetPinholeMergedPixelDataFromStackedHost(const double* const data,
+                                                size_t offset,
+                                                size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked device data.
+   * Set the values for the pixel consts PinholeMerged factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
+  void SetPinholeMergedPixelDataFromStackedDevice(const double* const data,
+                                                  size_t offset,
+                                                  size_t num);
 
   /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factor from
-   * stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of
-   * simple_radial_fixed_pose_fixed_principal_point_fixed_point factors.
+   * Set the current number of PinholeMerged factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_num(
-      size_t num);
+  void SetPinholeMergedNum(size_t num);
 
   /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * Set the indices for the calib argument for the PinholeMergedFixedPose
    * factor from host.
    */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_host(
+  void SetPinholeMergedFixedPoseCalibIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the pose argument for the
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
+   * Set the indices for the calib argument for the PinholeMergedFixedPose
    * factor from device.
    */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_device(
+  void SetPinholeMergedFixedPoseCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked host data.
+   * Set the indices for the point argument for the PinholeMergedFixedPose
+   * factor from host.
+   */
+  void SetPinholeMergedFixedPosePointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the PinholeMergedFixedPose
+   * factor from device.
+   */
+  void SetPinholeMergedFixedPosePointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeMergedFixedPose factor from
+   * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+  void SetPinholeMergedFixedPosePixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked device data.
+   * Set the values for the pixel consts PinholeMergedFixedPose factor from
+   * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+  void SetPinholeMergedFixedPosePixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked host data.
+   * Set the values for the pose consts PinholeMergedFixedPose factor from
+   * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_host(
+  void SetPinholeMergedFixedPosePoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_extra consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked device data.
+   * Set the values for the pose consts PinholeMergedFixedPose factor from
+   * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_device(
+  void SetPinholeMergedFixedPosePoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of
-   * simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point
-   * factors.
+   * Set the current number of PinholeMergedFixedPose factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void
-  set_simple_radial_fixed_focal_and_extra_fixed_principal_point_fixed_point_num(
-      size_t num);
+  void SetPinholeMergedFixedPoseNum(size_t num);
 
   /**
-   * Set the indices for the pose argument for the pinhole_fixed_focal_and_extra
+   * Set the indices for the pose argument for the PinholeMergedFixedPoint
    * factor from host.
    */
-  void set_pinhole_fixed_focal_and_extra_pose_indices_from_host(
+  void SetPinholeMergedFixedPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the pose argument for the pinhole_fixed_focal_and_extra
+   * Set the indices for the pose argument for the PinholeMergedFixedPoint
    * factor from device.
    */
-  void set_pinhole_fixed_focal_and_extra_pose_indices_from_device(
+  void SetPinholeMergedFixedPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_focal_and_extra factor from host.
+   * Set the indices for the calib argument for the PinholeMergedFixedPoint
+   * factor from host.
    */
-  void set_pinhole_fixed_focal_and_extra_principal_point_indices_from_host(
+  void SetPinholeMergedFixedPointCalibIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_focal_and_extra factor from device.
+   * Set the indices for the calib argument for the PinholeMergedFixedPoint
+   * factor from device.
    */
-  void set_pinhole_fixed_focal_and_extra_principal_point_indices_from_device(
+  void SetPinholeMergedFixedPointCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_focal_and_extra factor from host.
+   * Set the values for the pixel consts PinholeMergedFixedPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_focal_and_extra_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
+  void SetPinholeMergedFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_focal_and_extra factor from device.
+   * Set the values for the pixel consts PinholeMergedFixedPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_focal_and_extra_point_indices_from_device(
+  void SetPinholeMergedFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts PinholeMergedFixedPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeMergedFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts PinholeMergedFixedPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeMergedFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeMergedFixedPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeMergedFixedPointNum(size_t num);
+
+  /**
+   * Set the indices for the calib argument for the
+   * PinholeMergedFixedPoseFixedPoint factor from host.
+   */
+  void SetPinholeMergedFixedPoseFixedPointCalibIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_fixed_focal_and_extra factor
+   * Set the indices for the calib argument for the
+   * PinholeMergedFixedPoseFixedPoint factor from device.
+   */
+  void SetPinholeMergedFixedPoseFixedPointCalibIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeMergedFixedPoseFixedPoint factor
    * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_focal_and_extra_pixel_data_from_stacked_host(
+  void SetPinholeMergedFixedPoseFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_fixed_focal_and_extra factor
+   * Set the values for the pixel consts PinholeMergedFixedPoseFixedPoint factor
    * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_focal_and_extra_pixel_data_from_stacked_device(
+  void SetPinholeMergedFixedPoseFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_extra consts pinhole_fixed_focal_and_extra
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_extra consts pinhole_fixed_focal_and_extra
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of pinhole_fixed_focal_and_extra factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void set_pinhole_fixed_focal_and_extra_num(size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_fixed_principal_point
-   * factor from host.
-   */
-  void set_pinhole_fixed_principal_point_pose_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the pose argument for the pinhole_fixed_principal_point
-   * factor from device.
-   */
-  void set_pinhole_fixed_principal_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_principal_point factor from host.
-   */
-  void set_pinhole_fixed_principal_point_focal_and_extra_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_principal_point factor from device.
-   */
-  void set_pinhole_fixed_principal_point_focal_and_extra_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_principal_point factor from host.
-   */
-  void set_pinhole_fixed_principal_point_point_indices_from_host(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_principal_point factor from device.
-   */
-  void set_pinhole_fixed_principal_point_point_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the pixel consts pinhole_fixed_principal_point factor
+   * Set the values for the pose consts PinholeMergedFixedPoseFixedPoint factor
    * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_principal_point_pixel_data_from_stacked_host(
+  void SetPinholeMergedFixedPoseFixedPointPoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts pinhole_fixed_principal_point factor
+   * Set the values for the pose consts PinholeMergedFixedPoseFixedPoint factor
    * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_principal_point_pixel_data_from_stacked_device(
+  void SetPinholeMergedFixedPoseFixedPointPoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the principal_point consts pinhole_fixed_principal_point
-   * factor from stacked host data.
+   * Set the values for the point consts PinholeMergedFixedPoseFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_principal_point_principal_point_data_from_stacked_host(
+  void SetPinholeMergedFixedPoseFixedPointPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the principal_point consts pinhole_fixed_principal_point
-   * factor from stacked device data.
+   * Set the values for the point consts PinholeMergedFixedPoseFixedPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_principal_point_principal_point_data_from_stacked_device(
+  void SetPinholeMergedFixedPoseFixedPointPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_principal_point factors.
+   * Set the current number of PinholeMergedFixedPoseFixedPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_principal_point_num(size_t num);
+  void SetPinholeMergedFixedPoseFixedPointNum(size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from host.
+   * Set the indices for the pose argument for the
+   * SimpleRadialFixedFocalAndExtra factor from host.
    */
-  void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_host(
+  void SetSimpleRadialFixedFocalAndExtraPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * SimpleRadialFixedFocalAndExtra factor from device.
+   */
+  void SetSimpleRadialFixedFocalAndExtraPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from device.
+   * SimpleRadialFixedFocalAndExtra factor from host.
    */
-  void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_principal_point_indices_from_device(
+  void SetSimpleRadialFixedFocalAndExtraPrincipalPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * SimpleRadialFixedFocalAndExtra factor from device.
+   */
+  void SetSimpleRadialFixedFocalAndExtraPrincipalPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from host.
+   * SimpleRadialFixedFocalAndExtra factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_focal_and_extra_point_indices_from_host(
+  void SetSimpleRadialFixedFocalAndExtraPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from device.
+   * SimpleRadialFixedFocalAndExtra factor from device.
    */
-  void set_pinhole_fixed_pose_fixed_focal_and_extra_point_indices_from_device(
+  void SetSimpleRadialFixedFocalAndExtraPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked host data.
+   * Set the values for the pixel consts SimpleRadialFixedFocalAndExtra factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_host(
+  void SetSimpleRadialFixedFocalAndExtraPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked device data.
+   * Set the values for the pixel consts SimpleRadialFixedFocalAndExtra factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_pixel_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_focal_and_extra
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void set_pinhole_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_host(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_focal_and_extra
-   * factor from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_pose_data_from_stacked_device(
+  void SetSimpleRadialFixedFocalAndExtraPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked host data.
+   * SimpleRadialFixedFocalAndExtra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_host(
+  void SetSimpleRadialFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_pose_fixed_focal_and_extra factor from stacked device data.
+   * SimpleRadialFixedFocalAndExtra factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_focal_and_extra_data_from_stacked_device(
+  void SetSimpleRadialFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_pose_fixed_focal_and_extra factors.
+   * Set the current number of SimpleRadialFixedFocalAndExtra factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_focal_and_extra_num(size_t num);
+  void SetSimpleRadialFixedFocalAndExtraNum(size_t num);
 
   /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_pose_fixed_principal_point factor from host.
+   * Set the indices for the pose argument for the
+   * SimpleRadialFixedPrincipalPoint factor from host.
    */
-  void
-  set_pinhole_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_host(
+  void SetSimpleRadialFixedPrincipalPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * SimpleRadialFixedPrincipalPoint factor from device.
+   */
+  void SetSimpleRadialFixedPrincipalPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_pose_fixed_principal_point factor from device.
+   * SimpleRadialFixedPrincipalPoint factor from host.
    */
-  void
-  set_pinhole_fixed_pose_fixed_principal_point_focal_and_extra_indices_from_device(
+  void SetSimpleRadialFixedPrincipalPointFocalAndExtraIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * SimpleRadialFixedPrincipalPoint factor from device.
+   */
+  void SetSimpleRadialFixedPrincipalPointFocalAndExtraIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_principal_point factor from host.
+   * SimpleRadialFixedPrincipalPoint factor from host.
    */
-  void set_pinhole_fixed_pose_fixed_principal_point_point_indices_from_host(
+  void SetSimpleRadialFixedPrincipalPointPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_principal_point factor from device.
+   * SimpleRadialFixedPrincipalPoint factor from device.
    */
-  void set_pinhole_fixed_pose_fixed_principal_point_point_indices_from_device(
+  void SetSimpleRadialFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_principal_point factor from stacked host data.
+   * Set the values for the pixel consts SimpleRadialFixedPrincipalPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_pose_fixed_principal_point_pixel_data_from_stacked_host(
+  void SetSimpleRadialFixedPrincipalPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_principal_point factor from stacked device data.
+   * Set the values for the pixel consts SimpleRadialFixedPrincipalPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_pose_fixed_principal_point_pixel_data_from_stacked_device(
+  void SetSimpleRadialFixedPrincipalPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_principal_point
+   * Set the values for the principal_point consts
+   * SimpleRadialFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPrincipalPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * SimpleRadialFixedPrincipalPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of SimpleRadialFixedPrincipalPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetSimpleRadialFixedPrincipalPointNum(size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * SimpleRadialFixedPoseFixedFocalAndExtra factor from host.
+   */
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * SimpleRadialFixedPoseFixedFocalAndExtra factor from device.
+   */
+  void
+  SetSimpleRadialFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * SimpleRadialFixedPoseFixedFocalAndExtra factor from host.
+   */
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * SimpleRadialFixedPoseFixedFocalAndExtra factor from device.
+   */
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts SimpleRadialFixedPoseFixedFocalAndExtra
    * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void set_pinhole_fixed_pose_fixed_principal_point_pose_data_from_stacked_host(
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pose consts pinhole_fixed_pose_fixed_principal_point
+   * Set the values for the pixel consts SimpleRadialFixedPoseFixedFocalAndExtra
    * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_pose_fixed_principal_point_pose_data_from_stacked_device(
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the principal_point consts
-   * pinhole_fixed_pose_fixed_principal_point factor from stacked host data.
+   * Set the values for the pose consts SimpleRadialFixedPoseFixedFocalAndExtra
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts SimpleRadialFixedPoseFixedFocalAndExtra
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialFixedPoseFixedFocalAndExtra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the principal_point consts
-   * pinhole_fixed_pose_fixed_principal_point factor from stacked device data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialFixedPoseFixedFocalAndExtra factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_principal_point_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_pose_fixed_principal_point factors.
+   * Set the current number of SimpleRadialFixedPoseFixedFocalAndExtra factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_principal_point_num(size_t num);
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraNum(size_t num);
 
   /**
-   * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from host.
+   * Set the indices for the focal_and_extra argument for the
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from host.
    */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_host(
+  void SetSimpleRadialFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from device.
+   * Set the indices for the focal_and_extra argument for the
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from device.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pose_indices_from_device(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the point argument for the
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from host.
-   */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from device.
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from host.
    */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
+  void SetSimpleRadialFixedPoseFixedPrincipalPointPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from device.
+   */
+  void SetSimpleRadialFixedPoseFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
+  void SetSimpleRadialFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
-   * device data.
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
+  void SetSimpleRadialFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_extra consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
-   * host data.
+   * Set the values for the pose consts SimpleRadialFixedPoseFixedPrincipalPoint
+   * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
+  void SetSimpleRadialFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_extra consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
-   * device data.
+   * Set the values for the pose consts SimpleRadialFixedPoseFixedPrincipalPoint
+   * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
+  void SetSimpleRadialFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factor from stacked
-   * device data.
+   * SimpleRadialFixedPoseFixedPrincipalPoint factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of
-   * pinhole_fixed_focal_and_extra_fixed_principal_point factors.
+   * Set the current number of SimpleRadialFixedPoseFixedPrincipalPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_focal_and_extra_fixed_principal_point_num(size_t num);
+  void SetSimpleRadialFixedPoseFixedPrincipalPointNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_and_extra_fixed_point factor from host.
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from host.
    */
-  void set_pinhole_fixed_focal_and_extra_fixed_point_pose_indices_from_host(
+  void SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_and_extra_fixed_point factor from device.
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from device.
    */
-  void set_pinhole_fixed_focal_and_extra_fixed_point_pose_indices_from_device(
+  void
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_focal_and_extra_fixed_point factor from host.
+   * Set the indices for the point argument for the
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from host.
    */
-  void
-  set_pinhole_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
+  void SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the principal_point argument for the
-   * pinhole_fixed_focal_and_extra_fixed_point factor from device.
+   * Set the indices for the point argument for the
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from device.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked host data.
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked device data.
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked host data.
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked device data.
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts
-   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked host data.
+   * Set the values for the principal_point consts
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts
-   * pinhole_fixed_focal_and_extra_fixed_point factor from stacked device data.
+   * Set the values for the principal_point consts
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_focal_and_extra_fixed_point
+   * Set the current number of SimpleRadialFixedFocalAndExtraFixedPrincipalPoint
    * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_focal_and_extra_fixed_point_num(size_t num);
+  void SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_principal_point_fixed_point factor from host.
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from host.
    */
-  void set_pinhole_fixed_principal_point_fixed_point_pose_indices_from_host(
+  void SetSimpleRadialFixedFocalAndExtraFixedPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_principal_point_fixed_point factor from device.
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from device.
    */
-  void set_pinhole_fixed_principal_point_fixed_point_pose_indices_from_device(
+  void SetSimpleRadialFixedFocalAndExtraFixedPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_principal_point_fixed_point factor from host.
+   * Set the indices for the principal_point argument for the
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from host.
    */
-  void
-  set_pinhole_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
+  void SetSimpleRadialFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_principal_point_fixed_point factor from device.
+   * Set the indices for the principal_point argument for the
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from device.
    */
   void
-  set_pinhole_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_principal_point_fixed_point factor from stacked host data.
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+  void SetSimpleRadialFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_principal_point_fixed_point factor from stacked device data.
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  set_pinhole_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+  void SetSimpleRadialFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the principal_point consts
-   * pinhole_fixed_principal_point_fixed_point factor from stacked host data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the principal_point consts
-   * pinhole_fixed_principal_point_fixed_point factor from stacked device data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * pinhole_fixed_principal_point_fixed_point factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  set_pinhole_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_principal_point_fixed_point factor from stacked device data.
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * SimpleRadialFixedFocalAndExtraFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of SimpleRadialFixedFocalAndExtraFixedPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetSimpleRadialFixedFocalAndExtraFixedPointNum(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from host.
+   */
+  void SetSimpleRadialFixedPrincipalPointFixedPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from device.
+   */
+  void SetSimpleRadialFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from host.
+   */
+  void SetSimpleRadialFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from device.
+   */
+  void
+  SetSimpleRadialFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+  SetSimpleRadialFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of pinhole_fixed_principal_point_fixed_point
+   * Set the values for the principal_point consts
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPrincipalPointFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * SimpleRadialFixedPrincipalPointFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of SimpleRadialFixedPrincipalPointFixedPoint
    * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_principal_point_fixed_point_num(size_t num);
+  void SetSimpleRadialFixedPrincipalPointFixedPointNum(size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * host.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * device.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_point_indices_from_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pixel_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_pose_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_focal_and_extra_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factor from
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_principal_point_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the current number of
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point factors.
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num(
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(
       size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from host.
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from host.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from device.
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from device.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_principal_point_indices_from_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pose_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_focal_and_extra_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_point_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of
-   * pinhole_fixed_pose_fixed_focal_and_extra_fixed_point factors.
+   * Set the current number of SimpleRadialFixedPoseFixedFocalAndExtraFixedPoint
+   * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_num(size_t num);
+  void SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointNum(size_t num);
 
   /**
    * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from host.
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from host.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_host(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the focal_and_extra argument for the
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from device.
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from device.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_focal_and_extra_indices_from_device(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pose_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
-   * host data.
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factor from stacked
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factor from stacked
    * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_pose_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the current number of
-   * pinhole_fixed_pose_fixed_principal_point_fixed_point factors.
+   * SimpleRadialFixedPoseFixedPrincipalPointFixedPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_pose_fixed_principal_point_fixed_point_num(size_t num);
+  void SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * host.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * device.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pose_indices_from_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_pixel_data_from_stacked_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the focal_and_extra consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_focal_and_extra_data_from_stacked_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_principal_point_data_from_stacked_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_host(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factor from
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_point_data_from_stacked_device(
+  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the current number of
-   * pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point factors.
+   * SimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_num(
+  void SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointNum(
       size_t num);
+
+  /**
+   * Set the indices for the pose argument for the PinholeFixedFocalAndExtra
+   * factor from host.
+   */
+  void SetPinholeFixedFocalAndExtraPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the PinholeFixedFocalAndExtra
+   * factor from device.
+   */
+  void SetPinholeFixedFocalAndExtraPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedFocalAndExtra factor from host.
+   */
+  void SetPinholeFixedFocalAndExtraPrincipalPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedFocalAndExtra factor from device.
+   */
+  void SetPinholeFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the PinholeFixedFocalAndExtra
+   * factor from host.
+   */
+  void SetPinholeFixedFocalAndExtraPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the PinholeFixedFocalAndExtra
+   * factor from device.
+   */
+  void SetPinholeFixedFocalAndExtraPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedFocalAndExtra factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedFocalAndExtra factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts PinholeFixedFocalAndExtra
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts PinholeFixedFocalAndExtra
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedFocalAndExtra factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedFocalAndExtraNum(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the PinholeFixedPrincipalPoint
+   * factor from host.
+   */
+  void SetPinholeFixedPrincipalPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the PinholeFixedPrincipalPoint
+   * factor from device.
+   */
+  void SetPinholeFixedPrincipalPointPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPrincipalPoint factor from host.
+   */
+  void SetPinholeFixedPrincipalPointFocalAndExtraIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPrincipalPoint factor from device.
+   */
+  void SetPinholeFixedPrincipalPointFocalAndExtraIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the PinholeFixedPrincipalPoint
+   * factor from host.
+   */
+  void SetPinholeFixedPrincipalPointPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the PinholeFixedPrincipalPoint
+   * factor from device.
+   */
+  void SetPinholeFixedPrincipalPointPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPrincipalPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPrincipalPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts PinholeFixedPrincipalPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts PinholeFixedPrincipalPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedPrincipalPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedPrincipalPointNum(size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedPoseFixedFocalAndExtra factor from host.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedPoseFixedFocalAndExtra factor from device.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedPoseFixedFocalAndExtra factor from host.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedPoseFixedFocalAndExtra factor from device.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPoseFixedFocalAndExtra
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPoseFixedFocalAndExtra
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts PinholeFixedPoseFixedFocalAndExtra
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts PinholeFixedPoseFixedFocalAndExtra
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedPoseFixedFocalAndExtra factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedPoseFixedFocalAndExtra factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedPoseFixedFocalAndExtra factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraNum(size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPoseFixedPrincipalPoint factor from host.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPoseFixedPrincipalPoint factor from device.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedPoseFixedPrincipalPoint factor from host.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedPoseFixedPrincipalPoint factor from device.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPoseFixedPrincipalPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPoseFixedPrincipalPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts PinholeFixedPoseFixedPrincipalPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts PinholeFixedPoseFixedPrincipalPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPoseFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPoseFixedPrincipalPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedPoseFixedPrincipalPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointNum(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from host.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from device.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from host.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from device.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedFocalAndExtraFixedPrincipalPoint
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPrincipalPointNum(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedFocalAndExtraFixedPoint factor from host.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedFocalAndExtraFixedPoint factor from device.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedFocalAndExtraFixedPoint factor from host.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedFocalAndExtraFixedPoint factor from device.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedFocalAndExtraFixedPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedFocalAndExtraFixedPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedFocalAndExtraFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedFocalAndExtraFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts PinholeFixedFocalAndExtraFixedPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts PinholeFixedFocalAndExtraFixedPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedFocalAndExtraFixedPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPointNum(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedPrincipalPointFixedPoint factor from host.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedPrincipalPointFixedPoint factor from device.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPrincipalPointFixedPoint factor from host.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPrincipalPointFixedPoint factor from device.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPrincipalPointFixedPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts PinholeFixedPrincipalPointFixedPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPrincipalPointFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPrincipalPointFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts PinholeFixedPrincipalPointFixedPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts PinholeFixedPrincipalPointFixedPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedPrincipalPointFixedPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedPrincipalPointFixedPointNum(size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from host.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from device.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from host.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the principal_point argument for the
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from device.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * PinholeFixedPoseFixedFocalAndExtraFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedPoseFixedFocalAndExtraFixedPoint
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedPoseFixedFocalAndExtraFixedPointNum(size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from host.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from device.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * PinholeFixedPoseFixedPrincipalPointFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of PinholeFixedPoseFixedPrincipalPointFixedPoint
+   * factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedPoseFixedPrincipalPointFixedPointNum(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from host.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from device.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * PinholeFixedFocalAndExtraFixedPrincipalPointFixedPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointNum(size_t num);
 
  private:
   SolverParams<double> params_;
@@ -3668,23 +3530,23 @@ class GraphSolver {
       pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_;
 
   size_t get_nbytes();
-  double linearize_first();
-  void linearize();
-  double do_res_jac_first();
-  void do_res_jac();
-  void do_normalize();
-  void do_jtjp_direct();
-  void do_alpha_first();
-  void do_alpha();
-  void do_update_step_first();
-  void do_update_step();
-  void do_update_r_first();
-  void do_update_r();
-  double do_retract_score();
-  void do_beta();
-  void do_update_p();
-  void do_update_Mp();
-  double get_pred_decrease();
+  double LinearizeFirst();
+  void Linearize();
+  double DoResJacFirst();
+  void DoResJac();
+  void DoNormalize();
+  void DoJtjpDirect();
+  void DoAlphaFirst();
+  void DoAlpha();
+  void DoUpdateStepFirst();
+  void DoUpdateStep();
+  void DoUpdateRFirst();
+  void DoUpdateR();
+  double DoRetractScore();
+  void DoBeta();
+  void DoUpdateP();
+  void DoUpdateMp();
+  double GetPredDecrease();
 
   double* marker__start_;
   double* nodes__PinholeCalib__storage_current_;
@@ -4225,7 +4087,7 @@ class GraphSolver {
   double* marker__jp_end_;
   double* solver__current_diag_;
   double* solver__alpha_numerator_;
-  double* solver__alpha_denumerator_;
+  double* solver__alpha_denominator_;
   double* solver__alpha_;
   double* solver__neg_alpha_;
   double* solver__beta_numerator_;

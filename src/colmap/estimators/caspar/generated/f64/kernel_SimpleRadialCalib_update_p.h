@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialCalib_update_p(
+void SimpleRadialCalibUpdateP(
     double* SimpleRadialCalib_z,
     unsigned int SimpleRadialCalib_z_num_alloc,
     double* SimpleRadialCalib_p_k,

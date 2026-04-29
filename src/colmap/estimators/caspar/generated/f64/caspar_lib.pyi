@@ -2676,172 +2676,172 @@ class GraphSolver:
         the problem between optimization runs. This is work in progress and can have performance impacts.
         """
 
-def ConstPinholeFocalAndExtra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_pinhole_focal_and_extra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstPinholeFocalAndExtra data to the caspar data format.
     """
 
-def ConstPinholeFocalAndExtra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_pinhole_focal_and_extra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstPinholeFocalAndExtra data to the stacked data format.
     """
 
-def ConstPinholePose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_pinhole_pose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstPinholePose data to the caspar data format.
     """
 
-def ConstPinholePose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_pinhole_pose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstPinholePose data to the stacked data format.
     """
 
-def ConstPinholePrincipalPoint_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_pinhole_principal_point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstPinholePrincipalPoint data to the caspar data format.
     """
 
-def ConstPinholePrincipalPoint_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_pinhole_principal_point_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstPinholePrincipalPoint data to the stacked data format.
     """
 
-def ConstPixel_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_pixel_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstPixel data to the caspar data format.
     """
 
-def ConstPixel_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_pixel_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstPixel data to the stacked data format.
     """
 
-def ConstPoint_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstPoint data to the caspar data format.
     """
 
-def ConstPoint_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_point_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstPoint data to the stacked data format.
     """
 
-def ConstSimpleRadialFocalAndExtra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_simple_radial_focal_and_extra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstSimpleRadialFocalAndExtra data to the caspar data format.
     """
 
-def ConstSimpleRadialFocalAndExtra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_simple_radial_focal_and_extra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstSimpleRadialFocalAndExtra data to the stacked data format.
     """
 
-def ConstSimpleRadialPose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_simple_radial_pose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstSimpleRadialPose data to the caspar data format.
     """
 
-def ConstSimpleRadialPose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_simple_radial_pose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstSimpleRadialPose data to the stacked data format.
     """
 
-def ConstSimpleRadialPrincipalPoint_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def const_simple_radial_principal_point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked ConstSimpleRadialPrincipalPoint data to the caspar data format.
     """
 
-def ConstSimpleRadialPrincipalPoint_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def const_simple_radial_principal_point_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar ConstSimpleRadialPrincipalPoint data to the stacked data format.
     """
 
-def PinholeCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def pinhole_calib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked PinholeCalib data to the caspar data format.
     """
 
-def PinholeCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def pinhole_calib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar PinholeCalib data to the stacked data format.
     """
 
-def PinholeFocalAndExtra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def pinhole_focal_and_extra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked PinholeFocalAndExtra data to the caspar data format.
     """
 
-def PinholeFocalAndExtra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def pinhole_focal_and_extra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar PinholeFocalAndExtra data to the stacked data format.
     """
 
-def PinholePose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def pinhole_pose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked PinholePose data to the caspar data format.
     """
 
-def PinholePose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def pinhole_pose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar PinholePose data to the stacked data format.
     """
 
-def PinholePrincipalPoint_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def pinhole_principal_point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked PinholePrincipalPoint data to the caspar data format.
     """
 
-def PinholePrincipalPoint_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def pinhole_principal_point_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar PinholePrincipalPoint data to the stacked data format.
     """
 
-def Point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked Point data to the caspar data format.
     """
 
-def Point_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def point_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar Point data to the stacked data format.
     """
 
-def SimpleRadialCalib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def simple_radial_calib_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked SimpleRadialCalib data to the caspar data format.
     """
 
-def SimpleRadialCalib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def simple_radial_calib_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar SimpleRadialCalib data to the stacked data format.
     """
 
-def SimpleRadialFocalAndExtra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def simple_radial_focal_and_extra_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked SimpleRadialFocalAndExtra data to the caspar data format.
     """
 
-def SimpleRadialFocalAndExtra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def simple_radial_focal_and_extra_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar SimpleRadialFocalAndExtra data to the stacked data format.
     """
 
-def SimpleRadialPose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def simple_radial_pose_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked SimpleRadialPose data to the caspar data format.
     """
 
-def SimpleRadialPose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def simple_radial_pose_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar SimpleRadialPose data to the stacked data format.
     """
 
-def SimpleRadialPrincipalPoint_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
+def simple_radial_principal_point_stacked_to_caspar(stacked_data: CudaArray, out_cas_data: CudaArray) -> None:
     """
     Convert the stacked SimpleRadialPrincipalPoint data to the caspar data format.
     """
 
-def SimpleRadialPrincipalPoint_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
+def simple_radial_principal_point_caspar_to_stacked(caspar_data: CudaArray, out_stacked_data: CudaArray) -> None:
     """
     Convert the caspar SimpleRadialPrincipalPoint data to the stacked data format.
     """
@@ -4739,7 +4739,7 @@ def PinholeCalib_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def PinholeCalib_alpha_denumerator_or_beta_nummerator(
+def PinholeCalib_alpha_denominator_or_beta_numerator(
     PinholeCalib_p_kp1: CudaArray,
     PinholeCalib_w: CudaArray,
     PinholeCalib_out: CudaArray,
@@ -4847,7 +4847,7 @@ def PinholeFocalAndExtra_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def PinholeFocalAndExtra_alpha_denumerator_or_beta_nummerator(
+def PinholeFocalAndExtra_alpha_denominator_or_beta_numerator(
     PinholeFocalAndExtra_p_kp1: CudaArray,
     PinholeFocalAndExtra_w: CudaArray,
     PinholeFocalAndExtra_out: CudaArray,
@@ -4955,7 +4955,7 @@ def PinholePose_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def PinholePose_alpha_denumerator_or_beta_nummerator(
+def PinholePose_alpha_denominator_or_beta_numerator(
     PinholePose_p_kp1: CudaArray,
     PinholePose_w: CudaArray,
     PinholePose_out: CudaArray,
@@ -5063,7 +5063,7 @@ def PinholePrincipalPoint_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def PinholePrincipalPoint_alpha_denumerator_or_beta_nummerator(
+def PinholePrincipalPoint_alpha_denominator_or_beta_numerator(
     PinholePrincipalPoint_p_kp1: CudaArray,
     PinholePrincipalPoint_w: CudaArray,
     PinholePrincipalPoint_out: CudaArray,
@@ -5171,7 +5171,7 @@ def Point_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def Point_alpha_denumerator_or_beta_nummerator(
+def Point_alpha_denominator_or_beta_numerator(
     Point_p_kp1: CudaArray,
     Point_w: CudaArray,
     Point_out: CudaArray,
@@ -5279,7 +5279,7 @@ def SimpleRadialCalib_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialCalib_alpha_denumerator_or_beta_nummerator(
+def SimpleRadialCalib_alpha_denominator_or_beta_numerator(
     SimpleRadialCalib_p_kp1: CudaArray,
     SimpleRadialCalib_w: CudaArray,
     SimpleRadialCalib_out: CudaArray,
@@ -5387,7 +5387,7 @@ def SimpleRadialFocalAndExtra_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialFocalAndExtra_alpha_denumerator_or_beta_nummerator(
+def SimpleRadialFocalAndExtra_alpha_denominator_or_beta_numerator(
     SimpleRadialFocalAndExtra_p_kp1: CudaArray,
     SimpleRadialFocalAndExtra_w: CudaArray,
     SimpleRadialFocalAndExtra_out: CudaArray,
@@ -5495,7 +5495,7 @@ def SimpleRadialPose_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialPose_alpha_denumerator_or_beta_nummerator(
+def SimpleRadialPose_alpha_denominator_or_beta_numerator(
     SimpleRadialPose_p_kp1: CudaArray,
     SimpleRadialPose_w: CudaArray,
     SimpleRadialPose_out: CudaArray,
@@ -5603,7 +5603,7 @@ def SimpleRadialPrincipalPoint_alpha_numerator_denominator(
     problem_size: int
 ) -> None: ...
 
-def SimpleRadialPrincipalPoint_alpha_denumerator_or_beta_nummerator(
+def SimpleRadialPrincipalPoint_alpha_denominator_or_beta_numerator(
     SimpleRadialPrincipalPoint_p_kp1: CudaArray,
     SimpleRadialPrincipalPoint_w: CudaArray,
     SimpleRadialPrincipalPoint_out: CudaArray,

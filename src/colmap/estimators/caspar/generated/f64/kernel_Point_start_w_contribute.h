@@ -5,13 +5,13 @@
 
 namespace caspar {
 
-void Point_start_w_contribute(double* Point_precond_diag,
-                              unsigned int Point_precond_diag_num_alloc,
-                              const double* const diag,
-                              double* Point_p,
-                              unsigned int Point_p_num_alloc,
-                              double* out_Point_w,
-                              unsigned int out_Point_w_num_alloc,
-                              size_t problem_size);
+void PointStartWContribute(double* Point_precond_diag,
+                           unsigned int Point_precond_diag_num_alloc,
+                           const double* const diag,
+                           double* Point_p,
+                           unsigned int Point_p_num_alloc,
+                           double* out_Point_w,
+                           unsigned int out_Point_w_num_alloc,
+                           size_t problem_size);
 
 }  // namespace caspar

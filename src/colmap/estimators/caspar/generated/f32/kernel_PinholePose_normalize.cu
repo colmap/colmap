@@ -11,65 +11,65 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    PinholePose_normalize_kernel(float* precond_diag,
-                                 unsigned int precond_diag_num_alloc,
-                                 float* precond_tril,
-                                 unsigned int precond_tril_num_alloc,
-                                 float* njtr,
-                                 unsigned int njtr_num_alloc,
-                                 const float* const diag,
-                                 float* out_normalized,
-                                 unsigned int out_normalized_num_alloc,
-                                 size_t problem_size) {
+    PinholePoseNormalizeKernel(float* precond_diag,
+                               unsigned int precond_diag_num_alloc,
+                               float* precond_tril,
+                               unsigned int precond_tril_num_alloc,
+                               float* njtr,
+                               unsigned int njtr_num_alloc,
+                               const float* const diag,
+                               float* out_normalized,
+                               unsigned int out_normalized_num_alloc,
+                               size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[4096];
 
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
       r31, r32, r33;
-  load_unique<1, float, float>(diag, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(diag, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<float>((float*)inout_shared, 0, r0);
+    ReadShared1<float>((float*)inout_shared, 0, r0);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r1 = 9.99999999999999955e-07;
     r1 = r0 * r1;
-    read_idx_4<1024, float, float, float4>(precond_diag,
-                                           0 * precond_diag_num_alloc,
-                                           global_thread_idx,
-                                           r2,
-                                           r3,
-                                           r4,
-                                           r5);
+    ReadIdx4<1024, float, float, float4>(precond_diag,
+                                         0 * precond_diag_num_alloc,
+                                         global_thread_idx,
+                                         r2,
+                                         r3,
+                                         r4,
+                                         r5);
     r6 = 1.00000000000000000e+00;
     r6 = r0 + r6;
     r5 = fmaf(r5, r6, r1);
     r0 = -1.00000000000000000e+00;
-    read_idx_4<1024, float, float, float4>(precond_tril,
-                                           8 * precond_tril_num_alloc,
-                                           global_thread_idx,
-                                           r7,
-                                           r8,
-                                           r9,
-                                           r10);
-    read_idx_4<1024, float, float, float4>(precond_tril,
-                                           0 * precond_tril_num_alloc,
-                                           global_thread_idx,
-                                           r11,
-                                           r12,
-                                           r13,
-                                           r14);
+    ReadIdx4<1024, float, float, float4>(precond_tril,
+                                         8 * precond_tril_num_alloc,
+                                         global_thread_idx,
+                                         r7,
+                                         r8,
+                                         r9,
+                                         r10);
+    ReadIdx4<1024, float, float, float4>(precond_tril,
+                                         0 * precond_tril_num_alloc,
+                                         global_thread_idx,
+                                         r11,
+                                         r12,
+                                         r13,
+                                         r14);
     r15 = r12 * r13;
     r2 = fmaf(r2, r6, r1);
     r2 = 1.0 / r2;
-    read_idx_4<1024, float, float, float4>(precond_tril,
-                                           4 * precond_tril_num_alloc,
-                                           global_thread_idx,
-                                           r16,
-                                           r17,
-                                           r18,
-                                           r19);
+    ReadIdx4<1024, float, float, float4>(precond_tril,
+                                         4 * precond_tril_num_alloc,
+                                         global_thread_idx,
+                                         r16,
+                                         r17,
+                                         r18,
+                                         r19);
     r20 = r0 * r2;
     r21 = r11 * r20;
     r18 = fmaf(r13, r21, r18);
@@ -92,7 +92,7 @@ __global__ void __launch_bounds__(1024, 1)
     r18 = fmaf(r2, r15, r18);
     r5 = fmaf(r0, r18, r5);
     r5 = 1.0 / r5;
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(
         njtr, 0 * njtr_num_alloc, global_thread_idx, r18, r15, r8, r23);
     r15 = fmaf(r18, r21, r15);
     r24 = r0 * r15;
@@ -114,12 +114,12 @@ __global__ void __launch_bounds__(1024, 1)
     r9 = r13 * r14;
     r9 = fmaf(r2, r9, r23 * r22);
     r9 = fmaf(r19, r11, r9);
-    read_idx_3<1024, float, float, float4>(precond_tril,
-                                           12 * precond_tril_num_alloc,
-                                           global_thread_idx,
-                                           r8,
-                                           r26,
-                                           r27);
+    ReadIdx3<1024, float, float, float4>(precond_tril,
+                                         12 * precond_tril_num_alloc,
+                                         global_thread_idx,
+                                         r8,
+                                         r26,
+                                         r27);
     r7 = fmaf(r16, r21, r7);
     r8 = r17 * r7;
     r28 = r12 * r16;
@@ -138,7 +138,7 @@ __global__ void __launch_bounds__(1024, 1)
     r30 = r14 * r16;
     r8 = fmaf(r2, r30, r8);
     r8 = fmaf(r0, r8, r27);
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         precond_diag, 4 * precond_diag_num_alloc, global_thread_idx, r27, r30);
     r27 = fmaf(r27, r6, r1);
     r10 = r9 * r9;
@@ -161,7 +161,7 @@ __global__ void __launch_bounds__(1024, 1)
     r8 = fmaf(r2, r1, r8);
     r6 = fmaf(r0, r8, r6);
     r6 = 1.0 / r6;
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         njtr, 4 * njtr_num_alloc, global_thread_idx, r8, r1);
     r30 = r0 * r28;
     r30 = r30 * r25;
@@ -217,46 +217,46 @@ __global__ void __launch_bounds__(1024, 1)
     r11 = r13 * r31;
     r6 = fmaf(r20, r11, r6);
     r6 = fmaf(r22, r21, r6);
-    write_idx_4<1024, float, float, float4>(out_normalized,
-                                            0 * out_normalized_num_alloc,
-                                            global_thread_idx,
-                                            r6,
-                                            r22,
-                                            r5,
-                                            r31);
-    write_idx_2<1024, float, float, float2>(out_normalized,
-                                            4 * out_normalized_num_alloc,
-                                            global_thread_idx,
-                                            r27,
-                                            r30);
+    WriteIdx4<1024, float, float, float4>(out_normalized,
+                                          0 * out_normalized_num_alloc,
+                                          global_thread_idx,
+                                          r6,
+                                          r22,
+                                          r5,
+                                          r31);
+    WriteIdx2<1024, float, float, float2>(out_normalized,
+                                          4 * out_normalized_num_alloc,
+                                          global_thread_idx,
+                                          r27,
+                                          r30);
   };
 }
 
-void PinholePose_normalize(float* precond_diag,
-                           unsigned int precond_diag_num_alloc,
-                           float* precond_tril,
-                           unsigned int precond_tril_num_alloc,
-                           float* njtr,
-                           unsigned int njtr_num_alloc,
-                           const float* const diag,
-                           float* out_normalized,
-                           unsigned int out_normalized_num_alloc,
-                           size_t problem_size) {
+void PinholePoseNormalize(float* precond_diag,
+                          unsigned int precond_diag_num_alloc,
+                          float* precond_tril,
+                          unsigned int precond_tril_num_alloc,
+                          float* njtr,
+                          unsigned int njtr_num_alloc,
+                          const float* const diag,
+                          float* out_normalized,
+                          unsigned int out_normalized_num_alloc,
+                          size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholePose_normalize_kernel<<<n_blocks, 1024>>>(precond_diag,
-                                                   precond_diag_num_alloc,
-                                                   precond_tril,
-                                                   precond_tril_num_alloc,
-                                                   njtr,
-                                                   njtr_num_alloc,
-                                                   diag,
-                                                   out_normalized,
-                                                   out_normalized_num_alloc,
-                                                   problem_size);
+  PinholePoseNormalizeKernel<<<n_blocks, 1024>>>(precond_diag,
+                                                 precond_diag_num_alloc,
+                                                 precond_tril,
+                                                 precond_tril_num_alloc,
+                                                 njtr,
+                                                 njtr_num_alloc,
+                                                 diag,
+                                                 out_normalized,
+                                                 out_normalized_num_alloc,
+                                                 problem_size);
 }
 
 }  // namespace caspar

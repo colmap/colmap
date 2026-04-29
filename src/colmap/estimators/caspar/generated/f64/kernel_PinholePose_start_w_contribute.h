@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholePose_start_w_contribute(
+void PinholePoseStartWContribute(
     double* PinholePose_precond_diag,
     unsigned int PinholePose_precond_diag_num_alloc,
     const double* const diag,

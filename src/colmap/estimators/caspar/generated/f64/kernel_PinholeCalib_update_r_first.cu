@@ -10,7 +10,7 @@ namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1) PinholeCalib_update_r_first_kernel(
+__global__ void __launch_bounds__(1024, 1) PinholeCalibUpdateRFirstKernel(
     double* PinholeCalib_r_k,
     unsigned int PinholeCalib_r_k_num_alloc,
     double* PinholeCalib_w,
@@ -31,44 +31,44 @@ __global__ void __launch_bounds__(1024, 1) PinholeCalib_update_r_first_kernel(
   double r0, r1, r2, r3, r4, r5, r6, r7, r8;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(PinholeCalib_r_k,
-                                              0 * PinholeCalib_r_k_num_alloc,
-                                              global_thread_idx,
-                                              r0,
-                                              r1);
-    read_idx_2<1024, double, double, double2>(PinholeCalib_w,
-                                              0 * PinholeCalib_w_num_alloc,
-                                              global_thread_idx,
-                                              r2,
-                                              r3);
+    ReadIdx2<1024, double, double, double2>(PinholeCalib_r_k,
+                                            0 * PinholeCalib_r_k_num_alloc,
+                                            global_thread_idx,
+                                            r0,
+                                            r1);
+    ReadIdx2<1024, double, double, double2>(PinholeCalib_w,
+                                            0 * PinholeCalib_w_num_alloc,
+                                            global_thread_idx,
+                                            r2,
+                                            r3);
   };
-  load_unique<1, double, double>(negalpha, 0, (double*)inout_shared);
+  LoadUnique<1, double, double>(negalpha, 0, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<double>((double*)inout_shared, 0, r4);
+    ReadShared1<double>((double*)inout_shared, 0, r4);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r2 = fma(r2, r4, r0);
     r3 = fma(r3, r4, r1);
-    write_idx_2<1024, double, double, double2>(
+    WriteIdx2<1024, double, double, double2>(
         out_PinholeCalib_r_kp1,
         0 * out_PinholeCalib_r_kp1_num_alloc,
         global_thread_idx,
         r2,
         r3);
-    read_idx_2<1024, double, double, double2>(PinholeCalib_r_k,
-                                              2 * PinholeCalib_r_k_num_alloc,
-                                              global_thread_idx,
-                                              r5,
-                                              r6);
-    read_idx_2<1024, double, double, double2>(PinholeCalib_w,
-                                              2 * PinholeCalib_w_num_alloc,
-                                              global_thread_idx,
-                                              r7,
-                                              r8);
+    ReadIdx2<1024, double, double, double2>(PinholeCalib_r_k,
+                                            2 * PinholeCalib_r_k_num_alloc,
+                                            global_thread_idx,
+                                            r5,
+                                            r6);
+    ReadIdx2<1024, double, double, double2>(PinholeCalib_w,
+                                            2 * PinholeCalib_w_num_alloc,
+                                            global_thread_idx,
+                                            r7,
+                                            r8);
     r7 = fma(r7, r4, r5);
     r4 = fma(r8, r4, r6);
-    write_idx_2<1024, double, double, double2>(
+    WriteIdx2<1024, double, double, double2>(
         out_PinholeCalib_r_kp1,
         2 * out_PinholeCalib_r_kp1_num_alloc,
         global_thread_idx,
@@ -78,44 +78,44 @@ __global__ void __launch_bounds__(1024, 1) PinholeCalib_update_r_first_kernel(
     r5 = fma(r1, r1, r5);
     r5 = fma(r0, r0, r5);
   };
-  sum_store<double>(out_PinholeCalib_r_0_norm2_tot_local,
-                    (double*)inout_shared,
-                    0,
-                    global_thread_idx < problem_size,
-                    r5);
+  SumStore<double>(out_PinholeCalib_r_0_norm2_tot_local,
+                   (double*)inout_shared,
+                   0,
+                   global_thread_idx < problem_size,
+                   r5);
   if (global_thread_idx < problem_size) {
     r3 = fma(r3, r3, r2 * r2);
     r3 = fma(r4, r4, r3);
     r3 = fma(r7, r7, r3);
   };
-  sum_store<double>(out_PinholeCalib_r_kp1_norm2_tot_local,
-                    (double*)inout_shared,
-                    0,
-                    global_thread_idx < problem_size,
-                    r3);
-  sum_flush_final<double>(
+  SumStore<double>(out_PinholeCalib_r_kp1_norm2_tot_local,
+                   (double*)inout_shared,
+                   0,
+                   global_thread_idx < problem_size,
+                   r3);
+  SumFlushFinal<double>(
       out_PinholeCalib_r_0_norm2_tot_local, out_PinholeCalib_r_0_norm2_tot, 1);
-  sum_flush_final<double>(out_PinholeCalib_r_kp1_norm2_tot_local,
-                          out_PinholeCalib_r_kp1_norm2_tot,
-                          1);
+  SumFlushFinal<double>(out_PinholeCalib_r_kp1_norm2_tot_local,
+                        out_PinholeCalib_r_kp1_norm2_tot,
+                        1);
 }
 
-void PinholeCalib_update_r_first(double* PinholeCalib_r_k,
-                                 unsigned int PinholeCalib_r_k_num_alloc,
-                                 double* PinholeCalib_w,
-                                 unsigned int PinholeCalib_w_num_alloc,
-                                 const double* const negalpha,
-                                 double* out_PinholeCalib_r_kp1,
-                                 unsigned int out_PinholeCalib_r_kp1_num_alloc,
-                                 double* const out_PinholeCalib_r_0_norm2_tot,
-                                 double* const out_PinholeCalib_r_kp1_norm2_tot,
-                                 size_t problem_size) {
+void PinholeCalibUpdateRFirst(double* PinholeCalib_r_k,
+                              unsigned int PinholeCalib_r_k_num_alloc,
+                              double* PinholeCalib_w,
+                              unsigned int PinholeCalib_w_num_alloc,
+                              const double* const negalpha,
+                              double* out_PinholeCalib_r_kp1,
+                              unsigned int out_PinholeCalib_r_kp1_num_alloc,
+                              double* const out_PinholeCalib_r_0_norm2_tot,
+                              double* const out_PinholeCalib_r_kp1_norm2_tot,
+                              size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeCalib_update_r_first_kernel<<<n_blocks, 1024>>>(
+  PinholeCalibUpdateRFirstKernel<<<n_blocks, 1024>>>(
       PinholeCalib_r_k,
       PinholeCalib_r_k_num_alloc,
       PinholeCalib_w,

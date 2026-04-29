@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialCalib_pred_decrease_times_two(
+void SimpleRadialCalibPredDecreaseTimesTwo(
     float* SimpleRadialCalib_step,
     unsigned int SimpleRadialCalib_step_num_alloc,
     float* SimpleRadialCalib_precond_diag,

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialCalib_update_r_first(
+void SimpleRadialCalibUpdateRFirst(
     float* SimpleRadialCalib_r_k,
     unsigned int SimpleRadialCalib_r_k_num_alloc,
     float* SimpleRadialCalib_w,

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialCalib_retract(
+void SimpleRadialCalibRetract(
     float* SimpleRadialCalib,
     unsigned int SimpleRadialCalib_num_alloc,
     float* delta,

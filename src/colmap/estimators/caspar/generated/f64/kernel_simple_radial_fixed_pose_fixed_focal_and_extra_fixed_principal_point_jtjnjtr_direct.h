@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void simple_radial_fixed_pose_fixed_focal_and_extra_fixed_principal_point_jtjnjtr_direct(
+void SimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointJtjnjtrDirect(
     double* point_njtr,
     unsigned int point_njtr_num_alloc,
     SharedIndex* point_njtr_indices,

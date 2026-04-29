@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPrincipalPoint_alpha_numerator_denominator(
+void SimpleRadialPrincipalPointAlphaNumeratorDenominator(
     double* SimpleRadialPrincipalPoint_p_kp1,
     unsigned int SimpleRadialPrincipalPoint_p_kp1_num_alloc,
     double* SimpleRadialPrincipalPoint_r_k,

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPrincipalPoint_update_step(
+void SimpleRadialPrincipalPointUpdateStep(
     float* SimpleRadialPrincipalPoint_step_k,
     unsigned int SimpleRadialPrincipalPoint_step_k_num_alloc,
     float* SimpleRadialPrincipalPoint_p_kp1,

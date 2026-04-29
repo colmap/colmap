@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeFocalAndExtra_start_w(
+void PinholeFocalAndExtraStartW(
     double* PinholeFocalAndExtra_precond_diag,
     unsigned int PinholeFocalAndExtra_precond_diag_num_alloc,
     const double* const diag,

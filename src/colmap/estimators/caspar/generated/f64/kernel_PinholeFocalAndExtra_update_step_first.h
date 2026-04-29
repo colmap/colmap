@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeFocalAndExtra_update_step_first(
+void PinholeFocalAndExtraUpdateStepFirst(
     double* PinholeFocalAndExtra_p_kp1,
     unsigned int PinholeFocalAndExtra_p_kp1_num_alloc,
     const double* const alpha,

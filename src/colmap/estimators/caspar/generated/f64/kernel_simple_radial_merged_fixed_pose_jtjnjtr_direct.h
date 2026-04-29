@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void simple_radial_merged_fixed_pose_jtjnjtr_direct(
+void SimpleRadialMergedFixedPoseJtjnjtrDirect(
     double* calib_njtr,
     unsigned int calib_njtr_num_alloc,
     SharedIndex* calib_njtr_indices,

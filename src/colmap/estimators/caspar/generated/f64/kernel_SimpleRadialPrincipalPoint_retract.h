@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPrincipalPoint_retract(
+void SimpleRadialPrincipalPointRetract(
     double* SimpleRadialPrincipalPoint,
     unsigned int SimpleRadialPrincipalPoint_num_alloc,
     double* delta,

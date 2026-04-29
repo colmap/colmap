@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholePrincipalPoint_retract(
+void PinholePrincipalPointRetract(
     float* PinholePrincipalPoint,
     unsigned int PinholePrincipalPoint_num_alloc,
     float* delta,

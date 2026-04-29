@@ -11,18 +11,18 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    simple_radial_merged_fixed_point_score_kernel(double* pose,
-                                                  unsigned int pose_num_alloc,
-                                                  SharedIndex* pose_indices,
-                                                  double* calib,
-                                                  unsigned int calib_num_alloc,
-                                                  SharedIndex* calib_indices,
-                                                  double* pixel,
-                                                  unsigned int pixel_num_alloc,
-                                                  double* point,
-                                                  unsigned int point_num_alloc,
-                                                  double* const out_rTr,
-                                                  size_t problem_size) {
+    SimpleRadialMergedFixedPointScoreKernel(double* pose,
+                                            unsigned int pose_num_alloc,
+                                            SharedIndex* pose_indices,
+                                            double* calib,
+                                            unsigned int calib_num_alloc,
+                                            SharedIndex* calib_indices,
+                                            double* pixel,
+                                            unsigned int pixel_num_alloc,
+                                            double* point,
+                                            unsigned int point_num_alloc,
+                                            double* const out_rTr,
+                                            size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
 
@@ -41,34 +41,34 @@ __global__ void __launch_bounds__(1024, 1)
 
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26;
-  load_shared<2, double, double>(
+  LoadShared<2, double, double>(
       calib, 2 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
+    ReadShared2<double>(
         (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r0, r1);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r2 = fma(r2, r4, r0);
   };
-  load_shared<2, double, double>(
+  LoadShared<2, double, double>(
       pose, 4 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
+    ReadShared2<double>(
         (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r0, r5);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         point, 0 * point_num_alloc, global_thread_idx, r6, r7);
   };
-  load_shared<2, double, double>(
+  LoadShared<2, double, double>(
       pose, 2 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
+    ReadShared2<double>(
         (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r8, r9);
   };
   __syncthreads();
@@ -76,10 +76,10 @@ __global__ void __launch_bounds__(1024, 1)
     r10 = -2.00000000000000000e+00;
     r11 = r9 * r10;
   };
-  load_shared<2, double, double>(
+  LoadShared<2, double, double>(
       pose, 0 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
+    ReadShared2<double>(
         (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r12, r13);
   };
   __syncthreads();
@@ -89,7 +89,7 @@ __global__ void __launch_bounds__(1024, 1)
     r16 = r13 * r15;
     r17 = fma(r8, r11, r16);
     r17 = fma(r7, r17, r0);
-    read_idx_1<1024, double, double, double>(
+    ReadIdx1<1024, double, double, double>(
         point, 2 * point_num_alloc, global_thread_idx, r0);
     r18 = r13 * r9;
     r19 = r8 * r15;
@@ -103,20 +103,20 @@ __global__ void __launch_bounds__(1024, 1)
     r17 = fma(r0, r18, r17);
     r17 = fma(r6, r23, r17);
   };
-  load_shared<2, double, double>(
+  LoadShared<2, double, double>(
       calib, 0 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_2<double>(
+    ReadShared2<double>(
         (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r23, r18);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r24 = 1.00000000000000008e-15;
   };
-  load_shared<1, double, double>(
+  LoadShared<1, double, double>(
       pose, 6 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<double>(
+    ReadShared1<double>(
         (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r25);
   };
   __syncthreads();
@@ -155,44 +155,43 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = fma(r19, r20, r4);
     r4 = fma(r4, r4, r2 * r2);
   };
-  sum_store<double>(out_rTr_local,
-                    (double*)inout_shared,
-                    0,
-                    global_thread_idx < problem_size,
-                    r4);
-  sum_flush_final<double>(out_rTr_local, out_rTr, 1);
+  SumStore<double>(out_rTr_local,
+                   (double*)inout_shared,
+                   0,
+                   global_thread_idx < problem_size,
+                   r4);
+  SumFlushFinal<double>(out_rTr_local, out_rTr, 1);
 }
 
-void simple_radial_merged_fixed_point_score(double* pose,
-                                            unsigned int pose_num_alloc,
-                                            SharedIndex* pose_indices,
-                                            double* calib,
-                                            unsigned int calib_num_alloc,
-                                            SharedIndex* calib_indices,
-                                            double* pixel,
-                                            unsigned int pixel_num_alloc,
-                                            double* point,
-                                            unsigned int point_num_alloc,
-                                            double* const out_rTr,
-                                            size_t problem_size) {
+void SimpleRadialMergedFixedPointScore(double* pose,
+                                       unsigned int pose_num_alloc,
+                                       SharedIndex* pose_indices,
+                                       double* calib,
+                                       unsigned int calib_num_alloc,
+                                       SharedIndex* calib_indices,
+                                       double* pixel,
+                                       unsigned int pixel_num_alloc,
+                                       double* point,
+                                       unsigned int point_num_alloc,
+                                       double* const out_rTr,
+                                       size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  simple_radial_merged_fixed_point_score_kernel<<<n_blocks, 1024>>>(
-      pose,
-      pose_num_alloc,
-      pose_indices,
-      calib,
-      calib_num_alloc,
-      calib_indices,
-      pixel,
-      pixel_num_alloc,
-      point,
-      point_num_alloc,
-      out_rTr,
-      problem_size);
+  SimpleRadialMergedFixedPointScoreKernel<<<n_blocks, 1024>>>(pose,
+                                                              pose_num_alloc,
+                                                              pose_indices,
+                                                              calib,
+                                                              calib_num_alloc,
+                                                              calib_indices,
+                                                              pixel,
+                                                              pixel_num_alloc,
+                                                              point,
+                                                              point_num_alloc,
+                                                              out_rTr,
+                                                              problem_size);
 }
 
 }  // namespace caspar

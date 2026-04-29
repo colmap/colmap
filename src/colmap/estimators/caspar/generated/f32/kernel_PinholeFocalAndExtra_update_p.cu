@@ -10,7 +10,7 @@ namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtra_update_p_kernel(
+__global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtraUpdatePKernel(
     float* PinholeFocalAndExtra_z,
     unsigned int PinholeFocalAndExtra_z_num_alloc,
     float* PinholeFocalAndExtra_p_k,
@@ -25,27 +25,26 @@ __global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtra_update_p_kernel(
   float r0, r1, r2, r3, r4;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(
-        PinholeFocalAndExtra_p_k,
-        0 * PinholeFocalAndExtra_p_k_num_alloc,
-        global_thread_idx,
-        r0,
-        r1);
-    read_idx_2<1024, float, float, float2>(PinholeFocalAndExtra_z,
-                                           0 * PinholeFocalAndExtra_z_num_alloc,
-                                           global_thread_idx,
-                                           r2,
-                                           r3);
+    ReadIdx2<1024, float, float, float2>(PinholeFocalAndExtra_p_k,
+                                         0 * PinholeFocalAndExtra_p_k_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1);
+    ReadIdx2<1024, float, float, float2>(PinholeFocalAndExtra_z,
+                                         0 * PinholeFocalAndExtra_z_num_alloc,
+                                         global_thread_idx,
+                                         r2,
+                                         r3);
   };
-  load_unique<1, float, float>(beta, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(beta, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<float>((float*)inout_shared, 0, r4);
+    ReadShared1<float>((float*)inout_shared, 0, r4);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r0 = fmaf(r0, r4, r2);
     r4 = fmaf(r1, r4, r3);
-    write_idx_2<1024, float, float, float2>(
+    WriteIdx2<1024, float, float, float2>(
         out_PinholeFocalAndExtra_p_kp1,
         0 * out_PinholeFocalAndExtra_p_kp1_num_alloc,
         global_thread_idx,
@@ -54,7 +53,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFocalAndExtra_update_p_kernel(
   };
 }
 
-void PinholeFocalAndExtra_update_p(
+void PinholeFocalAndExtraUpdateP(
     float* PinholeFocalAndExtra_z,
     unsigned int PinholeFocalAndExtra_z_num_alloc,
     float* PinholeFocalAndExtra_p_k,
@@ -68,7 +67,7 @@ void PinholeFocalAndExtra_update_p(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeFocalAndExtra_update_p_kernel<<<n_blocks, 1024>>>(
+  PinholeFocalAndExtraUpdatePKernel<<<n_blocks, 1024>>>(
       PinholeFocalAndExtra_z,
       PinholeFocalAndExtra_z_num_alloc,
       PinholeFocalAndExtra_p_k,

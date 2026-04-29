@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    PinholeCalib_pred_decrease_times_two_kernel(
+    PinholeCalibPredDecreaseTimesTwoKernel(
         float* PinholeCalib_step,
         unsigned int PinholeCalib_step_num_alloc,
         float* PinholeCalib_precond_diag,
@@ -29,21 +29,21 @@ __global__ void __launch_bounds__(1024, 1)
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13;
 
   if (global_thread_idx < problem_size) {
-    read_idx_4<1024, float, float, float4>(PinholeCalib_step,
-                                           0 * PinholeCalib_step_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r1,
-                                           r2,
-                                           r3);
-    read_idx_4<1024, float, float, float4>(PinholeCalib_njtr,
-                                           0 * PinholeCalib_njtr_num_alloc,
-                                           global_thread_idx,
-                                           r4,
-                                           r5,
-                                           r6,
-                                           r7);
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(PinholeCalib_step,
+                                         0 * PinholeCalib_step_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1,
+                                         r2,
+                                         r3);
+    ReadIdx4<1024, float, float, float4>(PinholeCalib_njtr,
+                                         0 * PinholeCalib_njtr_num_alloc,
+                                         global_thread_idx,
+                                         r4,
+                                         r5,
+                                         r6,
+                                         r7);
+    ReadIdx4<1024, float, float, float4>(
         PinholeCalib_precond_diag,
         0 * PinholeCalib_precond_diag_num_alloc,
         global_thread_idx,
@@ -53,9 +53,9 @@ __global__ void __launch_bounds__(1024, 1)
         r11);
     r12 = r3 * r11;
   };
-  load_unique<1, float, float>(diag, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(diag, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<float>((float*)inout_shared, 0, r13);
+    ReadShared1<float>((float*)inout_shared, 0, r13);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -70,16 +70,16 @@ __global__ void __launch_bounds__(1024, 1)
     r7 = fmaf(r0, r12, r7);
     r7 = fmaf(r1, r4, r7);
   };
-  sum_store<float>(out_PinholeCalib_pred_dec_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r7);
-  sum_flush_final<float>(
+  SumStore<float>(out_PinholeCalib_pred_dec_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r7);
+  SumFlushFinal<float>(
       out_PinholeCalib_pred_dec_local, out_PinholeCalib_pred_dec, 1);
 }
 
-void PinholeCalib_pred_decrease_times_two(
+void PinholeCalibPredDecreaseTimesTwo(
     float* PinholeCalib_step,
     unsigned int PinholeCalib_step_num_alloc,
     float* PinholeCalib_precond_diag,
@@ -94,7 +94,7 @@ void PinholeCalib_pred_decrease_times_two(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeCalib_pred_decrease_times_two_kernel<<<n_blocks, 1024>>>(
+  PinholeCalibPredDecreaseTimesTwoKernel<<<n_blocks, 1024>>>(
       PinholeCalib_step,
       PinholeCalib_step_num_alloc,
       PinholeCalib_precond_diag,

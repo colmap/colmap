@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialPose_start_w(
+void SimpleRadialPoseStartW(
     float* SimpleRadialPose_precond_diag,
     unsigned int SimpleRadialPose_precond_diag_num_alloc,
     const float* const diag,

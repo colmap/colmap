@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    SimpleRadialCalib_pred_decrease_times_two_kernel(
+    SimpleRadialCalibPredDecreaseTimesTwoKernel(
         float* SimpleRadialCalib_step,
         unsigned int SimpleRadialCalib_step_num_alloc,
         float* SimpleRadialCalib_precond_diag,
@@ -29,21 +29,21 @@ __global__ void __launch_bounds__(1024, 1)
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13;
 
   if (global_thread_idx < problem_size) {
-    read_idx_4<1024, float, float, float4>(SimpleRadialCalib_step,
-                                           0 * SimpleRadialCalib_step_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r1,
-                                           r2,
-                                           r3);
-    read_idx_4<1024, float, float, float4>(SimpleRadialCalib_njtr,
-                                           0 * SimpleRadialCalib_njtr_num_alloc,
-                                           global_thread_idx,
-                                           r4,
-                                           r5,
-                                           r6,
-                                           r7);
-    read_idx_4<1024, float, float, float4>(
+    ReadIdx4<1024, float, float, float4>(SimpleRadialCalib_step,
+                                         0 * SimpleRadialCalib_step_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1,
+                                         r2,
+                                         r3);
+    ReadIdx4<1024, float, float, float4>(SimpleRadialCalib_njtr,
+                                         0 * SimpleRadialCalib_njtr_num_alloc,
+                                         global_thread_idx,
+                                         r4,
+                                         r5,
+                                         r6,
+                                         r7);
+    ReadIdx4<1024, float, float, float4>(
         SimpleRadialCalib_precond_diag,
         0 * SimpleRadialCalib_precond_diag_num_alloc,
         global_thread_idx,
@@ -53,9 +53,9 @@ __global__ void __launch_bounds__(1024, 1)
         r11);
     r12 = r1 * r9;
   };
-  load_unique<1, float, float>(diag, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(diag, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<float>((float*)inout_shared, 0, r13);
+    ReadShared1<float>((float*)inout_shared, 0, r13);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -70,16 +70,16 @@ __global__ void __launch_bounds__(1024, 1)
     r5 = fmaf(r2, r12, r5);
     r5 = fmaf(r3, r6, r5);
   };
-  sum_store<float>(out_SimpleRadialCalib_pred_dec_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r5);
-  sum_flush_final<float>(
+  SumStore<float>(out_SimpleRadialCalib_pred_dec_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r5);
+  SumFlushFinal<float>(
       out_SimpleRadialCalib_pred_dec_local, out_SimpleRadialCalib_pred_dec, 1);
 }
 
-void SimpleRadialCalib_pred_decrease_times_two(
+void SimpleRadialCalibPredDecreaseTimesTwo(
     float* SimpleRadialCalib_step,
     unsigned int SimpleRadialCalib_step_num_alloc,
     float* SimpleRadialCalib_precond_diag,
@@ -94,7 +94,7 @@ void SimpleRadialCalib_pred_decrease_times_two(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  SimpleRadialCalib_pred_decrease_times_two_kernel<<<n_blocks, 1024>>>(
+  SimpleRadialCalibPredDecreaseTimesTwoKernel<<<n_blocks, 1024>>>(
       SimpleRadialCalib_step,
       SimpleRadialCalib_step_num_alloc,
       SimpleRadialCalib_precond_diag,

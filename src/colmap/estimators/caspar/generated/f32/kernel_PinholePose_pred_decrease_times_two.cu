@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    PinholePose_pred_decrease_times_two_kernel(
+    PinholePosePredDecreaseTimesTwoKernel(
         float* PinholePose_step,
         unsigned int PinholePose_step_num_alloc,
         float* PinholePose_precond_diag,
@@ -30,33 +30,32 @@ __global__ void __launch_bounds__(1024, 1)
       r16, r17, r18;
 
   if (global_thread_idx < problem_size) {
-    read_idx_4<1024, float, float, float4>(PinholePose_step,
-                                           0 * PinholePose_step_num_alloc,
-                                           global_thread_idx,
-                                           r0,
-                                           r1,
-                                           r2,
-                                           r3);
-    read_idx_4<1024, float, float, float4>(PinholePose_njtr,
-                                           0 * PinholePose_njtr_num_alloc,
-                                           global_thread_idx,
-                                           r4,
-                                           r5,
-                                           r6,
-                                           r7);
-    read_idx_4<1024, float, float, float4>(
-        PinholePose_precond_diag,
-        0 * PinholePose_precond_diag_num_alloc,
-        global_thread_idx,
-        r8,
-        r9,
-        r10,
-        r11);
+    ReadIdx4<1024, float, float, float4>(PinholePose_step,
+                                         0 * PinholePose_step_num_alloc,
+                                         global_thread_idx,
+                                         r0,
+                                         r1,
+                                         r2,
+                                         r3);
+    ReadIdx4<1024, float, float, float4>(PinholePose_njtr,
+                                         0 * PinholePose_njtr_num_alloc,
+                                         global_thread_idx,
+                                         r4,
+                                         r5,
+                                         r6,
+                                         r7);
+    ReadIdx4<1024, float, float, float4>(PinholePose_precond_diag,
+                                         0 * PinholePose_precond_diag_num_alloc,
+                                         global_thread_idx,
+                                         r8,
+                                         r9,
+                                         r10,
+                                         r11);
     r12 = r2 * r10;
   };
-  load_unique<1, float, float>(diag, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(diag, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<float>((float*)inout_shared, 0, r13);
+    ReadShared1<float>((float*)inout_shared, 0, r13);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -68,22 +67,21 @@ __global__ void __launch_bounds__(1024, 1)
     r12 = fmaf(r13, r12, r5);
     r5 = r3 * r11;
     r5 = fmaf(r13, r5, r7);
-    read_idx_2<1024, float, float, float2>(PinholePose_step,
-                                           4 * PinholePose_step_num_alloc,
-                                           global_thread_idx,
-                                           r7,
-                                           r4);
-    read_idx_2<1024, float, float, float2>(PinholePose_njtr,
-                                           4 * PinholePose_njtr_num_alloc,
-                                           global_thread_idx,
-                                           r14,
-                                           r15);
-    read_idx_2<1024, float, float, float2>(
-        PinholePose_precond_diag,
-        4 * PinholePose_precond_diag_num_alloc,
-        global_thread_idx,
-        r16,
-        r17);
+    ReadIdx2<1024, float, float, float2>(PinholePose_step,
+                                         4 * PinholePose_step_num_alloc,
+                                         global_thread_idx,
+                                         r7,
+                                         r4);
+    ReadIdx2<1024, float, float, float2>(PinholePose_njtr,
+                                         4 * PinholePose_njtr_num_alloc,
+                                         global_thread_idx,
+                                         r14,
+                                         r15);
+    ReadIdx2<1024, float, float, float2>(PinholePose_precond_diag,
+                                         4 * PinholePose_precond_diag_num_alloc,
+                                         global_thread_idx,
+                                         r16,
+                                         r17);
     r18 = r7 * r16;
     r18 = fmaf(r13, r18, r14);
     r14 = r4 * r17;
@@ -93,16 +91,16 @@ __global__ void __launch_bounds__(1024, 1)
     r6 = fmaf(r7, r18, r6);
     r6 = fmaf(r4, r14, r6);
   };
-  sum_store<float>(out_PinholePose_pred_dec_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r6);
-  sum_flush_final<float>(
+  SumStore<float>(out_PinholePose_pred_dec_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r6);
+  SumFlushFinal<float>(
       out_PinholePose_pred_dec_local, out_PinholePose_pred_dec, 1);
 }
 
-void PinholePose_pred_decrease_times_two(
+void PinholePosePredDecreaseTimesTwo(
     float* PinholePose_step,
     unsigned int PinholePose_step_num_alloc,
     float* PinholePose_precond_diag,
@@ -117,7 +115,7 @@ void PinholePose_pred_decrease_times_two(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholePose_pred_decrease_times_two_kernel<<<n_blocks, 1024>>>(
+  PinholePosePredDecreaseTimesTwoKernel<<<n_blocks, 1024>>>(
       PinholePose_step,
       PinholePose_step_num_alloc,
       PinholePose_precond_diag,

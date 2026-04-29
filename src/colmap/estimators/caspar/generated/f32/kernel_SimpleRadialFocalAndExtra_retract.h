@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialFocalAndExtra_retract(
+void SimpleRadialFocalAndExtraRetract(
     float* SimpleRadialFocalAndExtra,
     unsigned int SimpleRadialFocalAndExtra_num_alloc,
     float* delta,

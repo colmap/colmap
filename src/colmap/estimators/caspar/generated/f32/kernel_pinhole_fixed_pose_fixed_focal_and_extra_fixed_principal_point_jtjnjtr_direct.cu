@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_jtjnjtr_direct_kernel(
+    PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointJtjnjtrDirectKernel(
         float* point_njtr,
         unsigned int point_njtr_num_alloc,
         SharedIndex* point_njtr_indices,
@@ -30,7 +30,7 @@ __global__ void __launch_bounds__(1024, 1)
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 }
 
-void pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_jtjnjtr_direct(
+void PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointJtjnjtrDirect(
     float* point_njtr,
     unsigned int point_njtr_num_alloc,
     SharedIndex* point_njtr_indices,
@@ -44,7 +44,7 @@ void pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_jtjnjtr_dire
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_point_jtjnjtr_direct_kernel<<<
+  PinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointJtjnjtrDirectKernel<<<
       n_blocks,
       1024>>>(point_njtr,
               point_njtr_num_alloc,

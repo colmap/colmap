@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    simple_radial_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct_kernel(
+    SimpleRadialFixedPoseFixedPrincipalPointFixedPointJtjnjtrDirectKernel(
         double* focal_and_extra_njtr,
         unsigned int focal_and_extra_njtr_num_alloc,
         SharedIndex* focal_and_extra_njtr_indices,
@@ -30,7 +30,7 @@ __global__ void __launch_bounds__(1024, 1)
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 }
 
-void simple_radial_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct(
+void SimpleRadialFixedPoseFixedPrincipalPointFixedPointJtjnjtrDirect(
     double* focal_and_extra_njtr,
     unsigned int focal_and_extra_njtr_num_alloc,
     SharedIndex* focal_and_extra_njtr_indices,
@@ -44,7 +44,7 @@ void simple_radial_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  simple_radial_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct_kernel<<<
+  SimpleRadialFixedPoseFixedPrincipalPointFixedPointJtjnjtrDirectKernel<<<
       n_blocks,
       1024>>>(focal_and_extra_njtr,
               focal_and_extra_njtr_num_alloc,

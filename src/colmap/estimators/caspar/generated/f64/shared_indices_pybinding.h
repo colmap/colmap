@@ -13,8 +13,8 @@ void shared_indices_pybinding(pybind11::object indices, pybind11::object indices
   AssertNumRowsEquals(indices_out, problem_size);
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
 
-  shared_indices(AsUintPtr(indices), reinterpret_cast<SharedIndex*>(AsUint2Ptr(indices_out)),
-                 problem_size);
+  SharedIndices(AsUintPtr(indices), reinterpret_cast<SharedIndex*>(AsUint2Ptr(indices_out)),
+                problem_size);
 }
 
 }  // namespace caspar

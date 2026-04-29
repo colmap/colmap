@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeFocalAndExtra_pred_decrease_times_two(
+void PinholeFocalAndExtraPredDecreaseTimesTwo(
     float* PinholeFocalAndExtra_step,
     unsigned int PinholeFocalAndExtra_step_num_alloc,
     float* PinholeFocalAndExtra_precond_diag,

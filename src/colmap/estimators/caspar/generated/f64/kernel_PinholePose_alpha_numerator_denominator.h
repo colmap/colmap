@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholePose_alpha_numerator_denominator(
+void PinholePoseAlphaNumeratorDenominator(
     double* PinholePose_p_kp1,
     unsigned int PinholePose_p_kp1_num_alloc,
     double* PinholePose_r_k,

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialFocalAndExtra_update_step(
+void SimpleRadialFocalAndExtraUpdateStep(
     float* SimpleRadialFocalAndExtra_step_k,
     unsigned int SimpleRadialFocalAndExtra_step_k_num_alloc,
     float* SimpleRadialFocalAndExtra_p_kp1,

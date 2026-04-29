@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    PinholeFocalAndExtra_alpha_numerator_denominator_kernel(
+    PinholeFocalAndExtraAlphaNumeratorDenominatorKernel(
         float* PinholeFocalAndExtra_p_kp1,
         unsigned int PinholeFocalAndExtra_p_kp1_num_alloc,
         float* PinholeFocalAndExtra_r_k,
@@ -31,45 +31,44 @@ __global__ void __launch_bounds__(1024, 1)
   float r0, r1, r2, r3;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(
+    ReadIdx2<1024, float, float, float2>(
         PinholeFocalAndExtra_p_kp1,
         0 * PinholeFocalAndExtra_p_kp1_num_alloc,
         global_thread_idx,
         r0,
         r1);
-    read_idx_2<1024, float, float, float2>(
-        PinholeFocalAndExtra_r_k,
-        0 * PinholeFocalAndExtra_r_k_num_alloc,
-        global_thread_idx,
-        r2,
-        r3);
+    ReadIdx2<1024, float, float, float2>(PinholeFocalAndExtra_r_k,
+                                         0 * PinholeFocalAndExtra_r_k_num_alloc,
+                                         global_thread_idx,
+                                         r2,
+                                         r3);
     r2 = fmaf(r0, r2, r1 * r3);
   };
-  sum_store<float>(PinholeFocalAndExtra_total_ag_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r2);
+  SumStore<float>(PinholeFocalAndExtra_total_ag_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r2);
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, float, float, float2>(PinholeFocalAndExtra_w,
-                                           0 * PinholeFocalAndExtra_w_num_alloc,
-                                           global_thread_idx,
-                                           r2,
-                                           r3);
+    ReadIdx2<1024, float, float, float2>(PinholeFocalAndExtra_w,
+                                         0 * PinholeFocalAndExtra_w_num_alloc,
+                                         global_thread_idx,
+                                         r2,
+                                         r3);
     r3 = fmaf(r1, r3, r0 * r2);
   };
-  sum_store<float>(PinholeFocalAndExtra_total_ac_local,
-                   (float*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r3);
-  sum_flush_final<float>(
+  SumStore<float>(PinholeFocalAndExtra_total_ac_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r3);
+  SumFlushFinal<float>(
       PinholeFocalAndExtra_total_ag_local, PinholeFocalAndExtra_total_ag, 1);
-  sum_flush_final<float>(
+  SumFlushFinal<float>(
       PinholeFocalAndExtra_total_ac_local, PinholeFocalAndExtra_total_ac, 1);
 }
 
-void PinholeFocalAndExtra_alpha_numerator_denominator(
+void PinholeFocalAndExtraAlphaNumeratorDenominator(
     float* PinholeFocalAndExtra_p_kp1,
     unsigned int PinholeFocalAndExtra_p_kp1_num_alloc,
     float* PinholeFocalAndExtra_r_k,
@@ -84,7 +83,7 @@ void PinholeFocalAndExtra_alpha_numerator_denominator(
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeFocalAndExtra_alpha_numerator_denominator_kernel<<<n_blocks, 1024>>>(
+  PinholeFocalAndExtraAlphaNumeratorDenominatorKernel<<<n_blocks, 1024>>>(
       PinholeFocalAndExtra_p_kp1,
       PinholeFocalAndExtra_p_kp1_num_alloc,
       PinholeFocalAndExtra_r_k,

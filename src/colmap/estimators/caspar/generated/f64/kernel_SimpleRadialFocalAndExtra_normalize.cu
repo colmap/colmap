@@ -11,7 +11,7 @@ namespace cg = cooperative_groups;
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
-    SimpleRadialFocalAndExtra_normalize_kernel(
+    SimpleRadialFocalAndExtraNormalizeKernel(
         double* precond_diag,
         unsigned int precond_diag_num_alloc,
         double* precond_tril,
@@ -28,18 +28,18 @@ __global__ void __launch_bounds__(1024, 1)
   double r0, r1, r2, r3, r4, r5, r6, r7, r8;
 
   if (global_thread_idx < problem_size) {
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         njtr, 0 * njtr_num_alloc, global_thread_idx, r0, r1);
-    read_idx_1<1024, double, double, double>(
+    ReadIdx1<1024, double, double, double>(
         precond_tril, 0 * precond_tril_num_alloc, global_thread_idx, r2);
     r3 = -1.00000000000000000e+00;
     r3 = r2 * r3;
-    read_idx_2<1024, double, double, double2>(
+    ReadIdx2<1024, double, double, double2>(
         precond_diag, 0 * precond_diag_num_alloc, global_thread_idx, r4, r5);
   };
-  load_unique<1, double, double>(diag, 0, (double*)inout_shared);
+  LoadUnique<1, double, double>(diag, 0, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    read_shared_1<double>((double*)inout_shared, 0, r6);
+    ReadShared1<double>((double*)inout_shared, 0, r6);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -56,30 +56,30 @@ __global__ void __launch_bounds__(1024, 1)
     r7 = 1.0 / r7;
     r7 = r1 * r7;
     r4 = fma(r0, r4, r3 * r7);
-    write_idx_2<1024, double, double, double2>(out_normalized,
-                                               0 * out_normalized_num_alloc,
-                                               global_thread_idx,
-                                               r4,
-                                               r7);
+    WriteIdx2<1024, double, double, double2>(out_normalized,
+                                             0 * out_normalized_num_alloc,
+                                             global_thread_idx,
+                                             r4,
+                                             r7);
   };
 }
 
-void SimpleRadialFocalAndExtra_normalize(double* precond_diag,
-                                         unsigned int precond_diag_num_alloc,
-                                         double* precond_tril,
-                                         unsigned int precond_tril_num_alloc,
-                                         double* njtr,
-                                         unsigned int njtr_num_alloc,
-                                         const double* const diag,
-                                         double* out_normalized,
-                                         unsigned int out_normalized_num_alloc,
-                                         size_t problem_size) {
+void SimpleRadialFocalAndExtraNormalize(double* precond_diag,
+                                        unsigned int precond_diag_num_alloc,
+                                        double* precond_tril,
+                                        unsigned int precond_tril_num_alloc,
+                                        double* njtr,
+                                        unsigned int njtr_num_alloc,
+                                        const double* const diag,
+                                        double* out_normalized,
+                                        unsigned int out_normalized_num_alloc,
+                                        size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  SimpleRadialFocalAndExtra_normalize_kernel<<<n_blocks, 1024>>>(
+  SimpleRadialFocalAndExtraNormalizeKernel<<<n_blocks, 1024>>>(
       precond_diag,
       precond_diag_num_alloc,
       precond_tril,

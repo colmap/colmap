@@ -29,7 +29,7 @@ struct SharedIndex {
   uint16_t argsort;
 };
 
-void shared_indices(const unsigned int* const indices, SharedIndex* const shared_indices_out,
-                    const unsigned int size);
+void SharedIndices(const unsigned int* const indices, SharedIndex* const shared_indices_out,
+                   const unsigned int size);
 
 };  // namespace caspar

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void simple_radial_merged_fixed_pose_res_jac(
+void SimpleRadialMergedFixedPoseResJac(
     double* calib,
     unsigned int calib_num_alloc,
     SharedIndex* calib_indices,

@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialCalib_alpha_numerator_denominator(
+void SimpleRadialCalibAlphaNumeratorDenominator(
     double* SimpleRadialCalib_p_kp1,
     unsigned int SimpleRadialCalib_p_kp1_num_alloc,
     double* SimpleRadialCalib_r_k,

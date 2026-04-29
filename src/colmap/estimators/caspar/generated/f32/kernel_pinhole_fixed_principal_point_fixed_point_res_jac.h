@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void pinhole_fixed_principal_point_fixed_point_res_jac(
+void PinholeFixedPrincipalPointFixedPointResJac(
     float* pose,
     unsigned int pose_num_alloc,
     SharedIndex* pose_indices,

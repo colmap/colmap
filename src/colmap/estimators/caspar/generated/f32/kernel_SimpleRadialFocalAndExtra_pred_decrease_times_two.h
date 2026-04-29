@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void SimpleRadialFocalAndExtra_pred_decrease_times_two(
+void SimpleRadialFocalAndExtraPredDecreaseTimesTwo(
     float* SimpleRadialFocalAndExtra_step,
     unsigned int SimpleRadialFocalAndExtra_step_num_alloc,
     float* SimpleRadialFocalAndExtra_precond_diag,

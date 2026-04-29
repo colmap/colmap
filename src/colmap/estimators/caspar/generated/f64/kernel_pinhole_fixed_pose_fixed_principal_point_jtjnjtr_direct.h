@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void pinhole_fixed_pose_fixed_principal_point_jtjnjtr_direct(
+void PinholeFixedPoseFixedPrincipalPointJtjnjtrDirect(
     double* focal_and_extra_njtr,
     unsigned int focal_and_extra_njtr_num_alloc,
     SharedIndex* focal_and_extra_njtr_indices,

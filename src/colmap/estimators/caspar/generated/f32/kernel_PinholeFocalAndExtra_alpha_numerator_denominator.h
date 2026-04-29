@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeFocalAndExtra_alpha_numerator_denominator(
+void PinholeFocalAndExtraAlphaNumeratorDenominator(
     float* PinholeFocalAndExtra_p_kp1,
     unsigned int PinholeFocalAndExtra_p_kp1_num_alloc,
     float* PinholeFocalAndExtra_r_k,

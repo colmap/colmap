@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeCalib_start_w_contribute(
+void PinholeCalibStartWContribute(
     double* PinholeCalib_precond_diag,
     unsigned int PinholeCalib_precond_diag_num_alloc,
     const double* const diag,

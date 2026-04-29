@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void simple_radial_fixed_principal_point_fixed_point_score(
+void SimpleRadialFixedPrincipalPointFixedPointScore(
     float* pose,
     unsigned int pose_num_alloc,
     SharedIndex* pose_indices,

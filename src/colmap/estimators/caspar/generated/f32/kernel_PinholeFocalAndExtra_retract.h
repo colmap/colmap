@@ -5,7 +5,7 @@
 
 namespace caspar {
 
-void PinholeFocalAndExtra_retract(
+void PinholeFocalAndExtraRetract(
     float* PinholeFocalAndExtra,
     unsigned int PinholeFocalAndExtra_num_alloc,
     float* delta,
