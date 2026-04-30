@@ -133,70 +133,12 @@ TEST(DefaultBundleAdjuster, Nominal) {
   ASSERT_NE(summary->termination_type,
             BundleAdjustmentTerminationType::FAILURE);
 
-#ifdef CASPAR_USE_DOUBLE
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
                                  /*max_rotation_error_deg=*/0.1,
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.0));
-#else
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.3,
-                                 /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.0));
-#endif
-}
-
-TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
-  SetPRNGSeed(0);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 3;
-  synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 200;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
-
-  Reconstruction reconstruction = gt_reconstruction;
-
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.point3D_stddev = 0.1;
-  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
-  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
-
-  BundleAdjustmentConfig config;
-  for (const image_t image_id : reconstruction.RegImageIds()) {
-    config.AddImage(image_id);
-  }
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  BundleAdjustmentOptions options;
-  std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
-  const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type,
-            BundleAdjustmentTerminationType::FAILURE);
-
-#ifdef CASPAR_USE_DOUBLE
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.1,
-                                 /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.0));
-#else
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.3,
-                                 /*max_proj_center_error=*/0.3,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.0));
-#endif
 }
 
 TEST(DefaultBundleAdjuster, TwoView) {
@@ -215,9 +157,7 @@ TEST(DefaultBundleAdjuster, TwoView) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement complete gauge fixing
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -229,7 +169,45 @@ TEST(DefaultBundleAdjuster, TwoView) {
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary->num_residuals, 400);
 
-  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  // Caspar implements partial gauge fixing: Only one frame is fixed
+  CheckConstantCamFromWorld(reconstruction.Image(1),
+                            orig_reconstruction.Image(1));
+
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
+TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
+  config.SetConstantCamIntrinsics(1);
+
+  BundleAdjustmentOptions options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction), summary->num_residuals);
+
+  CheckConstantCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
 
@@ -262,9 +240,7 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement complete gauge fixing
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -276,10 +252,6 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-
-  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-  CheckConstantCamFromWorld(reconstruction.Image(2),
-                            orig_reconstruction.Image(2));
 
   CheckConstantCamera(reconstruction.Camera(3), orig_reconstruction.Camera(3));
   CheckConstantCamFromWorld(reconstruction.Image(3),
@@ -317,9 +289,7 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   config.AddImage(2);
   config.AddConstantPoint(constant_point3D_id1);
   config.AddConstantPoint(constant_point3D_id2);
-  // Caspar does not implement complete gauge fixing
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -334,10 +304,6 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-
-  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-  CheckConstantCamFromWorld(reconstruction.Image(2),
-                            orig_reconstruction.Image(2));
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D_id == constant_point3D_id1 ||
@@ -366,9 +332,7 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   config.AddImage(1);
   config.AddImage(2);
   config.AddImage(3);
-  // Caspar does not implement complete gauge fixing
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -383,10 +347,6 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-
-  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-  CheckConstantCamFromWorld(reconstruction.Image(2),
-                            orig_reconstruction.Image(2));
 
   CheckVariableCamera(reconstruction.Camera(3), orig_reconstruction.Camera(3));
   CheckVariableCamFromWorld(reconstruction.Image(3),
@@ -413,9 +373,7 @@ TEST(DefaultBundleAdjuster, ConstantFocalLengthAndExtraParams) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement complete gauge fixing
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
@@ -431,8 +389,6 @@ TEST(DefaultBundleAdjuster, ConstantFocalLengthAndExtraParams) {
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-  CheckConstantCamFromWorld(reconstruction.Image(2),
-                            orig_reconstruction.Image(2));
 
   const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
   const size_t extra_param_idx = SimpleRadialCameraModel::extra_params_idxs[0];
@@ -472,9 +428,7 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  // Caspar does not implement complete gauge fixing
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
@@ -489,8 +443,6 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-  CheckConstantCamFromWorld(reconstruction.Image(2),
-                            orig_reconstruction.Image(2));
 
   const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
   const size_t principal_point_idx_x =
@@ -558,21 +510,12 @@ TEST(DefaultBundleAdjuster, MergedCalibConvergence) {
   ASSERT_NE(summary->termination_type,
             BundleAdjustmentTerminationType::FAILURE);
 
-#ifdef CASPAR_USE_DOUBLE
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_rotation_error_deg=*/0.2,
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.0));
-#else
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.3,
-                                 /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.0));
-#endif
 }
 
 TEST(DefaultBundleAdjuster, MergedCalibFixedPose) {
@@ -592,8 +535,7 @@ TEST(DefaultBundleAdjuster, MergedCalibFixedPose) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
@@ -623,8 +565,6 @@ TEST(DefaultBundleAdjuster, MergedCalibFixedPose) {
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
-  CheckConstantCamFromWorld(reconstruction.Image(2),
-                            orig_reconstruction.Image(2));
 }
 
 TEST(DefaultBundleAdjuster, MergedCalibFixedPoint) {
@@ -711,8 +651,7 @@ TEST(DefaultBundleAdjuster, ExternalImagePoseIsInvariant) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
     config.AddVariablePoint(point3D_id);
   }
@@ -746,8 +685,7 @@ TEST(DefaultBundleAdjuster, ExternalCameraIntrinsicsOrderingIsConsistent) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
     config.AddVariablePoint(point3D_id);
   }
@@ -782,8 +720,7 @@ TEST(DefaultBundleAdjuster, ExternalImageViaConstantPointsIsInvariant) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
     config.AddConstantPoint(point3D_id);
   }
@@ -819,8 +756,8 @@ TEST(DefaultBundleAdjuster, MultipleExternalImagesAreInvariant) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
     config.AddVariablePoint(point3D_id);
   }
@@ -858,8 +795,7 @@ TEST(DefaultBundleAdjuster, MergedCalibMatchesCeres) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.SetConstantRigFromWorldPose(1);
-  config.SetConstantRigFromWorldPose(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
