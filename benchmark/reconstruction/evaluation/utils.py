@@ -271,6 +271,15 @@ def parse_args() -> argparse.Namespace:
         default=[0.02, 0.05, 0.2, 0.5],
         help="Evaluation thresholds in meters.",
     )
+    parser.add_argument(
+        "--colmap_extra_args",
+        nargs="+",
+        default=[],
+        metavar="ARG",
+        help="Extra arguments forwarded verbatim to the COLMAP binary, e.g. "
+        "--colmap_extra_args --IncrementalPipeline.ba_local_backend CERES "
+        "--IncrementalPipeline.ba_backend CERES",
+    )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
     if args.overwrite_database:
@@ -504,7 +513,7 @@ def process_scene(
             sparse_gt if args.filter_covisibility else None
         ),
         num_threads=num_threads,
-        colmap_extra_args=scene_info.colmap_extra_args,
+        colmap_extra_args=scene_info.colmap_extra_args + args.colmap_extra_args,
     )
 
     # Merge all sub-models into a single reconstruction. Each sub-model will be
