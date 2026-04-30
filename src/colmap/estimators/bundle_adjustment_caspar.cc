@@ -456,14 +456,19 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void FixGaugeWithOneFrameFromWorld() {
     if (!options_.refine_rig_from_world) return;
 
-    for (const image_t image_id : config_.Images()) {
+    // Sort image IDs for deterministic selection (matches Ceres BA behavior).
+    std::vector<image_t> sorted_image_ids(config_.Images().begin(),
+                                          config_.Images().end());
+    std::sort(sorted_image_ids.begin(), sorted_image_ids.end());
+
+    for (const image_t image_id : sorted_image_ids) {
       const Image& image = reconstruction_.Image(image_id);
       if (config_.HasConstantRigFromWorldPose(image.FrameId())) return;
     }
 
     // Require a ref-sensor image so fixing the frame moves factors into
     // fixed-pose variants rather than being silently skipped.
-    for (const image_t image_id : config_.Images()) {
+    for (const image_t image_id : sorted_image_ids) {
       const Image& image = reconstruction_.Image(image_id);
       if (image.IsRefInFrame()) {
         gauge_fixed_frames_.insert(image.FrameId());
