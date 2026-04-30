@@ -463,7 +463,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     for (const image_t image_id : sorted_image_ids) {
       const Image& image = reconstruction_.Image(image_id);
-      if (config_.HasConstantRigFromWorldPose(image.FrameId())) return;
+      if (config_.HasConstantRigFromWorldPose(image.FrameId())) {
+        VLOG(1) << "Gauge fix: frame " << image.FrameId()
+                << " already constant, skipping TWO_CAMS_FROM_WORLD fix";
+        return;
+      }
     }
 
     // Require a ref-sensor image so fixing the frame moves factors into
@@ -472,6 +476,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
       const Image& image = reconstruction_.Image(image_id);
       if (image.IsRefInFrame()) {
         gauge_fixed_frames_.insert(image.FrameId());
+        VLOG(1) << "Gauge fix: fixed frame " << image.FrameId()
+                << " (image " << image_id << ") for TWO_CAMS_FROM_WORLD";
         return;
       }
     }
@@ -501,7 +507,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
     for (const auto& [point3D_id, _] : point3D_num_observations_) {
       if (!config_.HasConstantPoint(point3D_id)) continue;
       const Point3D& pt = reconstruction_.Point3D(point3D_id);
-      if (maybe_add(pt.xyz) && num_fixed >= 3) return;
+      if (maybe_add(pt.xyz) && num_fixed >= 3) {
+        VLOG(1) << "Gauge fix: 3 linearly independent constant points found, "
+                   "THREE_POINTS gauge fixed";
+        return;
+      }
     }
 
     // Second pass: promote variable points to gauge-fixed.
@@ -510,7 +520,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
       const Point3D& pt = reconstruction_.Point3D(point3D_id);
       if (maybe_add(pt.xyz)) {
         gauge_fixed_points_.insert(point3D_id);
-        if (num_fixed >= 3) return;
+        if (num_fixed >= 3) {
+          VLOG(1) << "Gauge fix: fixed " << gauge_fixed_points_.size()
+                  << " points for THREE_POINTS gauge";
+          return;
+        }
       }
     }
 
@@ -662,6 +676,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       Camera& camera = reconstruction_.Camera(camera_id);
       ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
       const ModelData& md = model_data_per_model_.at(camera.model_id);
+      const std::string params_before = camera.ParamsToString();
       if (IsFocalAndExtraVariable(camera_id))
         adapter->WriteFocalAndExtra(
             camera, md.focal_and_extra_data.data(), calib_idx);
@@ -669,6 +684,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
         adapter->WritePrincipalPoint(
             camera, md.principal_point_data.data(), calib_idx);
       THROW_CHECK(camera.VerifyParams());
+      VLOG(1) << "Camera " << camera_id << " (" << camera.ModelName() << ")"
+              << " params: [" << params_before
+              << "] -> [" << camera.ParamsToString() << "]";
     }
   }
 
@@ -702,6 +720,47 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
 
     WriteCalibsToReconstruction();
+  }
+
+  static const char* FactorVariantName(FactorVariant v) {
+    switch (v) {
+      case FactorVariant::BASE: return "BASE";
+      case FactorVariant::FIXED_POSE: return "FIXED_POSE";
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA: return "FIXED_FAE";
+      case FactorVariant::FIXED_PRINCIPAL_POINT: return "FIXED_PP";
+      case FactorVariant::FIXED_POINT: return "FIXED_POINT";
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA: return "FIXED_POSE_FAE";
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT: return "FIXED_POSE_PP";
+      case FactorVariant::FIXED_POSE_FIXED_POINT: return "FIXED_POSE_POINT";
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT: return "FIXED_FAE_PP";
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT: return "FIXED_FAE_POINT";
+      case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT: return "FIXED_PP_POINT";
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT: return "FIXED_POSE_FAE_PP";
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT: return "FIXED_POSE_FAE_POINT";
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT: return "FIXED_POSE_PP_POINT";
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT: return "FIXED_FAE_PP_POINT";
+      default: return "UNKNOWN";
+    }
+  }
+
+  void LogFactorDistribution() const {
+    VLOG(1) << "=== Caspar factor distribution ===";
+    VLOG(1) << "  Points: " << num_points_
+            << "  Frames: " << TotalPoses();
+    for (const auto& [model_id, md] : model_data_per_model_) {
+      for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
+        if (md.variants[v].num_factors == 0) continue;
+        VLOG(1) << "  model=" << static_cast<int>(model_id)
+                << " variant=" << FactorVariantName(static_cast<FactorVariant>(v))
+                << " factors=" << md.variants[v].num_factors;
+      }
+    }
+    VLOG(1) << "  Gauge-fixed frames: " << gauge_fixed_frames_.size()
+            << "  Gauge-fixed points: " << gauge_fixed_points_.size();
+    VLOG(1) << "  refine_focal_length=" << options_.refine_focal_length
+            << " refine_extra_params=" << options_.refine_extra_params
+            << " refine_pp=" << options_.refine_principal_point
+            << " refine_pose=" << options_.refine_rig_from_world;
   }
 
   size_t ComputeTotalResiduals() const {
@@ -787,6 +846,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       params.pcg_rel_decrease_min = co.pcg_rel_decrease_min;
       params.solver_rel_decrease_min = co.solver_rel_decrease_min;
     }
+    LogFactorDistribution();
     auto solver = CreateSolver(params, BuildSizing());
     SetupSolverData(solver);
     caspar::SolveResult result = solver.solve(/*print_progress=*/false);
