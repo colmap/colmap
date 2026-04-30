@@ -139,7 +139,10 @@ struct IncrementalPipelineOptions {
   bool ba_use_gpu = false;
   std::string ba_gpu_index = "-1";
 
-  // Bundle adjustment solver backend.
+  // Bundle adjustment solver backend for local bundle adjustment.
+  BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
+
+  // Bundle adjustment solver backend for global bundle adjustment.
   BundleAdjustmentBackend ba_backend = BundleAdjustmentBackend::CERES;
 
   // Whether to use priors on the camera positions.

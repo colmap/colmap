@@ -643,6 +643,10 @@ void OptionManager::AddMapperOptions() {
                    &mapper->ba_local_max_refinement_change);
   AddDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
   AddDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddDefaultEnumOption("Mapper.ba_local_backend",
+                       &mapper->ba_local_backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
   AddDefaultEnumOption("Mapper.ba_backend",
                        &mapper->ba_backend,
                        BundleAdjustmentBackendToString,
