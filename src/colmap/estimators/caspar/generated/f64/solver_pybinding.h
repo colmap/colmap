@@ -78,61 +78,64 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               py::arg("params"),
               py::kw_only(),
               py::arg("PinholeCalib_num_max") = 0,
-              py::arg("PinholeFocalAndExtra_num_max") = 0,
+              py::arg("PinholeFocal_num_max") = 0,
               py::arg("PinholePose_num_max") = 0,
               py::arg("PinholePrincipalPoint_num_max") = 0,
               py::arg("Point_num_max") = 0,
               py::arg("SimpleRadialCalib_num_max") = 0,
-              py::arg("SimpleRadialFocalAndExtra_num_max") = 0,
+              py::arg("SimpleRadialFocalAndDistortion_num_max") = 0,
               py::arg("SimpleRadialPose_num_max") = 0,
               py::arg("SimpleRadialPrincipalPoint_num_max") = 0,
-              py::arg("simple_radial_merged_num_max") = 0,
-              py::arg("simple_radial_merged_fixed_pose_num_max") = 0,
-              py::arg("simple_radial_merged_fixed_point_num_max") = 0,
-              py::arg("simple_radial_merged_fixed_pose_fixed_point_num_max") =
-                  0,
-              py::arg("pinhole_merged_num_max") = 0,
-              py::arg("pinhole_merged_fixed_pose_num_max") = 0,
-              py::arg("pinhole_merged_fixed_point_num_max") = 0,
-              py::arg("pinhole_merged_fixed_pose_fixed_point_num_max") = 0,
-              py::arg("simple_radial_fixed_focal_and_extra_num_max") = 0,
-              py::arg("simple_radial_fixed_principal_point_num_max") = 0,
+              py::arg("simple_radial_num_max") = 0,
+              py::arg("simple_radial_fixed_pose_num_max") = 0,
+              py::arg("simple_radial_fixed_point_num_max") = 0,
+              py::arg("simple_radial_fixed_pose_fixed_point_num_max") = 0,
+              py::arg("pinhole_num_max") = 0,
+              py::arg("pinhole_fixed_pose_num_max") = 0,
+              py::arg("pinhole_fixed_point_num_max") = 0,
+              py::arg("pinhole_fixed_pose_fixed_point_num_max") = 0,
               py::arg(
-                  "simple_radial_fixed_pose_fixed_focal_and_extra_num_max") = 0,
-              py::arg(
-                  "simple_radial_fixed_pose_fixed_principal_point_num_max") = 0,
-              py::arg("simple_radial_fixed_focal_and_extra_fixed_principal_"
-                      "point_num_max") = 0,
-              py::arg(
-                  "simple_radial_fixed_focal_and_extra_fixed_point_num_max") =
-                  0,
-              py::arg(
-                  "simple_radial_fixed_principal_point_fixed_point_num_max") =
-                  0,
-              py::arg("simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
-                      "principal_point_num_max") = 0,
-              py::arg("simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
-                      "point_num_max") = 0,
-              py::arg("simple_radial_fixed_pose_fixed_principal_point_fixed_"
-                      "point_num_max") = 0,
-              py::arg("simple_radial_fixed_focal_and_extra_fixed_principal_"
-                      "point_fixed_point_num_max") = 0,
-              py::arg("pinhole_fixed_focal_and_extra_num_max") = 0,
-              py::arg("pinhole_fixed_principal_point_num_max") = 0,
-              py::arg("pinhole_fixed_pose_fixed_focal_and_extra_num_max") = 0,
-              py::arg("pinhole_fixed_pose_fixed_principal_point_num_max") = 0,
-              py::arg("pinhole_fixed_focal_and_extra_fixed_principal_point_num_"
-                      "max") = 0,
-              py::arg("pinhole_fixed_focal_and_extra_fixed_point_num_max") = 0,
-              py::arg("pinhole_fixed_principal_point_fixed_point_num_max") = 0,
-              py::arg("pinhole_fixed_pose_fixed_focal_and_extra_fixed_"
-                      "principal_point_num_max") = 0,
-              py::arg("pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_"
+                  "simple_radial_split_fixed_focal_and_distortion_num_max") = 0,
+              py::arg("simple_radial_split_fixed_principal_point_num_max") = 0,
+              py::arg("simple_radial_split_fixed_pose_fixed_focal_and_"
+                      "distortion_num_max") = 0,
+              py::arg("simple_radial_split_fixed_pose_fixed_principal_point_"
                       "num_max") = 0,
-              py::arg("pinhole_fixed_pose_fixed_principal_point_fixed_point_"
+              py::arg("simple_radial_split_fixed_focal_and_distortion_fixed_"
+                      "principal_point_num_max") = 0,
+              py::arg("simple_radial_split_fixed_focal_and_distortion_fixed_"
+                      "point_num_max") = 0,
+              py::arg("simple_radial_split_fixed_principal_point_fixed_point_"
                       "num_max") = 0,
-              py::arg("pinhole_fixed_focal_and_extra_fixed_principal_point_"
-                      "fixed_point_num_max") = 0)
+              py::arg("simple_radial_split_fixed_pose_fixed_focal_and_"
+                      "distortion_fixed_principal_point_num_max") = 0,
+              py::arg("simple_radial_split_fixed_pose_fixed_focal_and_"
+                      "distortion_fixed_point_num_max") = 0,
+              py::arg("simple_radial_split_fixed_pose_fixed_principal_point_"
+                      "fixed_point_num_max") = 0,
+              py::arg("simple_radial_split_fixed_focal_and_distortion_fixed_"
+                      "principal_point_fixed_point_num_max") = 0,
+              py::arg("pinhole_split_fixed_focal_num_max") = 0,
+              py::arg("pinhole_split_fixed_principal_point_num_max") = 0,
+              py::arg("pinhole_split_fixed_pose_fixed_focal_num_max") = 0,
+              py::arg(
+                  "pinhole_split_fixed_pose_fixed_principal_point_num_max") = 0,
+              py::arg(
+                  "pinhole_split_fixed_focal_fixed_principal_point_num_max") =
+                  0,
+              py::arg("pinhole_split_fixed_focal_fixed_point_num_max") = 0,
+              py::arg(
+                  "pinhole_split_fixed_principal_point_fixed_point_num_max") =
+                  0,
+              py::arg("pinhole_split_fixed_pose_fixed_focal_fixed_principal_"
+                      "point_num_max") = 0,
+              py::arg(
+                  "pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max") =
+                  0,
+              py::arg("pinhole_split_fixed_pose_fixed_principal_point_fixed_"
+                      "point_num_max") = 0,
+              py::arg("pinhole_split_fixed_focal_fixed_principal_point_fixed_"
+                      "point_num_max") = 0)
 
           .def("set_params", &GraphSolver::set_params)
           .def("solve",
@@ -197,15 +200,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
 
-          .def("set_PinholeFocalAndExtra_num",
-               &GraphSolver::SetPinholeFocalAndExtraNum)
+          .def("set_PinholeFocal_num", &GraphSolver::SetPinholeFocalNum)
           .def(
-              "set_PinholeFocalAndExtra_nodes_from_stacked_host",
+              "set_PinholeFocal_nodes_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
-                solver.SetPinholeFocalAndExtraNodesFromStackedHost(
+                solver.SetPinholeFocalNodesFromStackedHost(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -213,12 +215,12 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_PinholeFocalAndExtra_nodes_from_stacked_device",
+              "set_PinholeFocal_nodes_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
-                solver.SetPinholeFocalAndExtraNodesFromStackedDevice(
+                solver.SetPinholeFocalNodesFromStackedDevice(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -226,12 +228,12 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
           .def(
-              "get_PinholeFocalAndExtra_nodes_to_stacked_host",
+              "get_PinholeFocal_nodes_to_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
-                solver.GetPinholeFocalAndExtraNodesToStackedHost(
+                solver.GetPinholeFocalNodesToStackedHost(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -239,12 +241,12 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
           .def(
-              "get_PinholeFocalAndExtra_nodes_to_stacked_device",
+              "get_PinholeFocal_nodes_to_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
-                solver.GetPinholeFocalAndExtraNodesToStackedDevice(
+                solver.GetPinholeFocalNodesToStackedDevice(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -466,15 +468,15 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
 
-          .def("set_SimpleRadialFocalAndExtra_num",
-               &GraphSolver::SetSimpleRadialFocalAndExtraNum)
+          .def("set_SimpleRadialFocalAndDistortion_num",
+               &GraphSolver::SetSimpleRadialFocalAndDistortionNum)
           .def(
-              "set_SimpleRadialFocalAndExtra_nodes_from_stacked_host",
+              "set_SimpleRadialFocalAndDistortion_nodes_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
-                solver.SetSimpleRadialFocalAndExtraNodesFromStackedHost(
+                solver.SetSimpleRadialFocalAndDistortionNodesFromStackedHost(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -482,12 +484,12 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_SimpleRadialFocalAndExtra_nodes_from_stacked_device",
+              "set_SimpleRadialFocalAndDistortion_nodes_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
-                solver.SetSimpleRadialFocalAndExtraNodesFromStackedDevice(
+                solver.SetSimpleRadialFocalAndDistortionNodesFromStackedDevice(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -495,12 +497,12 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
           .def(
-              "get_SimpleRadialFocalAndExtra_nodes_to_stacked_host",
+              "get_SimpleRadialFocalAndDistortion_nodes_to_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
-                solver.GetSimpleRadialFocalAndExtraNodesToStackedHost(
+                solver.GetSimpleRadialFocalAndDistortionNodesToStackedHost(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -508,12 +510,12 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
           .def(
-              "get_SimpleRadialFocalAndExtra_nodes_to_stacked_device",
+              "get_SimpleRadialFocalAndDistortion_nodes_to_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
-                solver.GetSimpleRadialFocalAndExtraNodesToStackedDevice(
+                solver.GetSimpleRadialFocalAndDistortionNodesToStackedDevice(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -630,52 +632,51 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_nodes"),
               pybind11::arg("offset") = 0)
 
-          .def("set_simple_radial_merged_num",
-               &GraphSolver::SetSimpleRadialMergedNum)
+          .def("set_simple_radial_num", &GraphSolver::SetSimpleRadialNum)
 
-          .def("set_simple_radial_merged_pose_indices_from_host",
+          .def("set_simple_radial_pose_indices_from_host",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertHostMemory(indices);
-                 solver.SetSimpleRadialMergedPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
+                 solver.SetSimpleRadialPoseIndicesFromHost(AsUintPtr(indices),
+                                                           GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_pose_indices_from_device",
+          .def("set_simple_radial_pose_indices_from_device",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertDeviceMemory(indices);
-                 solver.SetSimpleRadialMergedPoseIndicesFromDevice(
+                 solver.SetSimpleRadialPoseIndicesFromDevice(
                      AsUintPtr(indices), GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_calib_indices_from_host",
+          .def("set_simple_radial_calib_indices_from_host",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertHostMemory(indices);
-                 solver.SetSimpleRadialMergedCalibIndicesFromHost(
+                 solver.SetSimpleRadialCalibIndicesFromHost(
                      AsUintPtr(indices), GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_calib_indices_from_device",
+          .def("set_simple_radial_calib_indices_from_device",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertDeviceMemory(indices);
-                 solver.SetSimpleRadialMergedCalibIndicesFromDevice(
+                 solver.SetSimpleRadialCalibIndicesFromDevice(
                      AsUintPtr(indices), GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_point_indices_from_host",
+          .def("set_simple_radial_point_indices_from_host",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertHostMemory(indices);
-                 solver.SetSimpleRadialMergedPointIndicesFromHost(
+                 solver.SetSimpleRadialPointIndicesFromHost(
                      AsUintPtr(indices), GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_point_indices_from_device",
+          .def("set_simple_radial_point_indices_from_device",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertDeviceMemory(indices);
-                 solver.SetSimpleRadialMergedPointIndicesFromDevice(
+                 solver.SetSimpleRadialPointIndicesFromDevice(
                      AsUintPtr(indices), GetNumRows(indices));
                })
           .def(
-              "set_simple_radial_merged_pixel_data_from_stacked_device",
+              "set_simple_radial_pixel_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
-                solver.SetSimpleRadialMergedPixelDataFromStackedDevice(
+                solver.SetSimpleRadialPixelDataFromStackedDevice(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -683,53 +684,52 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_merged_pixel_data_from_stacked_host",
+              "set_simple_radial_pixel_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
-                solver.SetSimpleRadialMergedPixelDataFromStackedHost(
+                solver.SetSimpleRadialPixelDataFromStackedHost(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
               },
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
-          .def("set_simple_radial_merged_fixed_pose_num",
-               &GraphSolver::SetSimpleRadialMergedFixedPoseNum)
+          .def("set_simple_radial_fixed_pose_num",
+               &GraphSolver::SetSimpleRadialFixedPoseNum)
 
-          .def("set_simple_radial_merged_fixed_pose_calib_indices_from_host",
+          .def("set_simple_radial_fixed_pose_calib_indices_from_host",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertHostMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPoseCalibIndicesFromHost(
+                 solver.SetSimpleRadialFixedPoseCalibIndicesFromHost(
                      AsUintPtr(indices), GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_fixed_pose_calib_indices_from_device",
+          .def("set_simple_radial_fixed_pose_calib_indices_from_device",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertDeviceMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPoseCalibIndicesFromDevice(
+                 solver.SetSimpleRadialFixedPoseCalibIndicesFromDevice(
                      AsUintPtr(indices), GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_fixed_pose_point_indices_from_host",
+          .def("set_simple_radial_fixed_pose_point_indices_from_host",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertHostMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPosePointIndicesFromHost(
+                 solver.SetSimpleRadialFixedPosePointIndicesFromHost(
                      AsUintPtr(indices), GetNumRows(indices));
                })
-          .def("set_simple_radial_merged_fixed_pose_point_indices_from_device",
+          .def("set_simple_radial_fixed_pose_point_indices_from_device",
                [](GraphSolver& solver, pybind11::object indices) {
                  AssertDeviceMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPosePointIndicesFromDevice(
+                 solver.SetSimpleRadialFixedPosePointIndicesFromDevice(
                      AsUintPtr(indices), GetNumRows(indices));
                })
           .def(
-              "set_simple_radial_merged_fixed_pose_pixel_data_from_stacked_"
-              "device",
+              "set_simple_radial_fixed_pose_pixel_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
-                solver.SetSimpleRadialMergedFixedPosePixelDataFromStackedDevice(
+                solver.SetSimpleRadialFixedPosePixelDataFromStackedDevice(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
@@ -737,82 +737,151 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_merged_fixed_pose_pixel_data_from_stacked_"
+              "set_simple_radial_fixed_pose_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetSimpleRadialFixedPosePixelDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_pose_pose_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetSimpleRadialFixedPosePoseDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_pose_pose_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetSimpleRadialFixedPosePoseDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_simple_radial_fixed_point_num",
+               &GraphSolver::SetSimpleRadialFixedPointNum)
+
+          .def("set_simple_radial_fixed_point_pose_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetSimpleRadialFixedPointPoseIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_simple_radial_fixed_point_pose_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetSimpleRadialFixedPointPoseIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_simple_radial_fixed_point_calib_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetSimpleRadialFixedPointCalibIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_simple_radial_fixed_point_calib_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetSimpleRadialFixedPointCalibIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def(
+              "set_simple_radial_fixed_point_pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetSimpleRadialFixedPointPixelDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_point_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetSimpleRadialFixedPointPixelDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_point_point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetSimpleRadialFixedPointPointDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_point_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetSimpleRadialFixedPointPointDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_simple_radial_fixed_pose_fixed_point_num",
+               &GraphSolver::SetSimpleRadialFixedPoseFixedPointNum)
+
+          .def(
+              "set_simple_radial_fixed_pose_fixed_point_calib_indices_from_"
               "host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetSimpleRadialMergedFixedPosePixelDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver.SetSimpleRadialFixedPoseFixedPointCalibIndicesFromHost(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
           .def(
-              "set_simple_radial_merged_fixed_pose_pose_data_from_stacked_"
+              "set_simple_radial_fixed_pose_fixed_point_calib_indices_from_"
               "device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetSimpleRadialMergedFixedPosePoseDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver.SetSimpleRadialFixedPoseFixedPointCalibIndicesFromDevice(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
           .def(
-              "set_simple_radial_merged_fixed_pose_pose_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetSimpleRadialMergedFixedPosePoseDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_simple_radial_merged_fixed_point_num",
-               &GraphSolver::SetSimpleRadialMergedFixedPointNum)
-
-          .def("set_simple_radial_merged_fixed_point_pose_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPointPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_simple_radial_merged_fixed_point_pose_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPointPoseIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_simple_radial_merged_fixed_point_calib_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPointCalibIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_simple_radial_merged_fixed_point_calib_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetSimpleRadialMergedFixedPointCalibIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_simple_radial_merged_fixed_point_pixel_data_from_stacked_"
-              "device",
+              "set_simple_radial_fixed_pose_fixed_point_pixel_data_from_"
+              "stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialMergedFixedPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialFixedPoseFixedPointPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -820,28 +889,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_merged_fixed_point_pixel_data_from_stacked_"
-              "host",
+              "set_simple_radial_fixed_pose_fixed_point_pixel_data_from_"
+              "stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
-                solver.SetSimpleRadialMergedFixedPointPixelDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_merged_fixed_point_point_data_from_stacked_"
-              "device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialMergedFixedPointPointDataFromStackedDevice(
+                    .SetSimpleRadialFixedPoseFixedPointPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -849,730 +904,449 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_merged_fixed_point_point_data_from_stacked_"
+              "set_simple_radial_fixed_pose_fixed_point_pose_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialFixedPoseFixedPointPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_pose_fixed_point_pose_data_from_stacked_"
               "host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
-                solver.SetSimpleRadialMergedFixedPointPointDataFromStackedHost(
+                solver
+                    .SetSimpleRadialFixedPoseFixedPointPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_pose_fixed_point_point_data_from_"
+              "stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialFixedPoseFixedPointPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_fixed_pose_fixed_point_point_data_from_"
+              "stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialFixedPoseFixedPointPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_num", &GraphSolver::SetPinholeNum)
+
+          .def("set_pinhole_pose_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholePoseIndicesFromHost(AsUintPtr(indices),
+                                                      GetNumRows(indices));
+               })
+          .def("set_pinhole_pose_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholePoseIndicesFromDevice(AsUintPtr(indices),
+                                                        GetNumRows(indices));
+               })
+          .def("set_pinhole_calib_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeCalibIndicesFromHost(AsUintPtr(indices),
+                                                       GetNumRows(indices));
+               })
+          .def("set_pinhole_calib_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeCalibIndicesFromDevice(AsUintPtr(indices),
+                                                         GetNumRows(indices));
+               })
+          .def("set_pinhole_point_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholePointIndicesFromHost(AsUintPtr(indices),
+                                                       GetNumRows(indices));
+               })
+          .def("set_pinhole_point_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholePointIndicesFromDevice(AsUintPtr(indices),
+                                                         GetNumRows(indices));
+               })
+          .def(
+              "set_pinhole_pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholePixelDataFromStackedDevice(
                     AsDoublePtr(stacked_data),
                     offset,
                     GetNumRows(stacked_data));
               },
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
-          .def("set_simple_radial_merged_fixed_pose_fixed_point_num",
-               &GraphSolver::SetSimpleRadialMergedFixedPoseFixedPointNum)
+          .def(
+              "set_pinhole_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholePixelDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_fixed_pose_num",
+               &GraphSolver::SetPinholeFixedPoseNum)
+
+          .def("set_pinhole_fixed_pose_calib_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeFixedPoseCalibIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_fixed_pose_calib_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeFixedPoseCalibIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_fixed_pose_point_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeFixedPosePointIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_fixed_pose_point_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeFixedPosePointIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def(
+              "set_pinhole_fixed_pose_pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeFixedPosePixelDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeFixedPosePixelDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_pose_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeFixedPosePoseDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_pose_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeFixedPosePoseDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_fixed_point_num",
+               &GraphSolver::SetPinholeFixedPointNum)
+
+          .def("set_pinhole_fixed_point_pose_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeFixedPointPoseIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_fixed_point_pose_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeFixedPointPoseIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_fixed_point_calib_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeFixedPointCalibIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_fixed_point_calib_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeFixedPointCalibIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def(
+              "set_pinhole_fixed_point_pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeFixedPointPixelDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_point_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeFixedPointPixelDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_point_point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeFixedPointPointDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_point_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeFixedPointPointDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_fixed_pose_fixed_point_num",
+               &GraphSolver::SetPinholeFixedPoseFixedPointNum)
+
+          .def("set_pinhole_fixed_pose_fixed_point_calib_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeFixedPoseFixedPointCalibIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_fixed_pose_fixed_point_calib_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeFixedPoseFixedPointCalibIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def(
+              "set_pinhole_fixed_pose_fixed_point_pixel_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeFixedPoseFixedPointPixelDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_fixed_point_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeFixedPoseFixedPointPixelDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_fixed_point_pose_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeFixedPoseFixedPointPoseDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_fixed_point_pose_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeFixedPoseFixedPointPoseDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_fixed_point_point_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeFixedPoseFixedPointPointDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_fixed_pose_fixed_point_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeFixedPoseFixedPointPointDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_simple_radial_split_fixed_focal_and_distortion_num",
+               &GraphSolver::SetSimpleRadialSplitFixedFocalAndDistortionNum)
 
           .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_calib_indices_"
+              "set_simple_radial_split_fixed_focal_and_distortion_pose_indices_"
               "from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointCalibIndicesFromHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_calib_indices_"
+              "set_simple_radial_split_fixed_focal_and_distortion_pose_indices_"
               "from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointCalibIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_pixel_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_pixel_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_pose_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointPoseDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_pose_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointPoseDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_point_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_merged_fixed_pose_fixed_point_point_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialMergedFixedPoseFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_merged_num", &GraphSolver::SetPinholeMergedNum)
-
-          .def("set_pinhole_merged_pose_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeMergedPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_pose_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeMergedPoseIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_calib_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeMergedCalibIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_calib_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeMergedCalibIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_point_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeMergedPointIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_point_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeMergedPointIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_pinhole_merged_pixel_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetPinholeMergedPixelDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_pixel_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetPinholeMergedPixelDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_merged_fixed_pose_num",
-               &GraphSolver::SetPinholeMergedFixedPoseNum)
-
-          .def("set_pinhole_merged_fixed_pose_calib_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeMergedFixedPoseCalibIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_fixed_pose_calib_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeMergedFixedPoseCalibIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_fixed_pose_point_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeMergedFixedPosePointIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_fixed_pose_point_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeMergedFixedPosePointIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_pinhole_merged_fixed_pose_pixel_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetPinholeMergedFixedPosePixelDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_pixel_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetPinholeMergedFixedPosePixelDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_pose_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetPinholeMergedFixedPosePoseDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_pose_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetPinholeMergedFixedPosePoseDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_merged_fixed_point_num",
-               &GraphSolver::SetPinholeMergedFixedPointNum)
-
-          .def("set_pinhole_merged_fixed_point_pose_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeMergedFixedPointPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_fixed_point_pose_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeMergedFixedPointPoseIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_fixed_point_calib_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeMergedFixedPointCalibIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_merged_fixed_point_calib_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeMergedFixedPointCalibIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_pinhole_merged_fixed_point_pixel_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetPinholeMergedFixedPointPixelDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_point_pixel_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetPinholeMergedFixedPointPixelDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_point_point_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetPinholeMergedFixedPointPointDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_point_point_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetPinholeMergedFixedPointPointDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_merged_fixed_pose_fixed_point_num",
-               &GraphSolver::SetPinholeMergedFixedPoseFixedPointNum)
-
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_calib_indices_from_"
-              "host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver.SetPinholeMergedFixedPoseFixedPointCalibIndicesFromHost(
-                    AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_calib_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeMergedFixedPoseFixedPointCalibIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_pixel_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeMergedFixedPoseFixedPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_pixel_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeMergedFixedPoseFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_pose_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeMergedFixedPoseFixedPointPoseDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_pose_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeMergedFixedPoseFixedPointPoseDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_point_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeMergedFixedPoseFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_merged_fixed_pose_fixed_point_point_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeMergedFixedPoseFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_simple_radial_fixed_focal_and_extra_num",
-               &GraphSolver::SetSimpleRadialFixedFocalAndExtraNum)
-
-          .def("set_simple_radial_fixed_focal_and_extra_pose_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetSimpleRadialFixedFocalAndExtraPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_pose_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver.SetSimpleRadialFixedFocalAndExtraPoseIndicesFromDevice(
-                    AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_principal_point_indices_"
-              "from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraPrincipalPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_principal_point_indices_"
-              "from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraPrincipalPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_point_indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver.SetSimpleRadialFixedFocalAndExtraPointIndicesFromHost(
-                    AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_point_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver.SetSimpleRadialFixedFocalAndExtraPointIndicesFromDevice(
-                    AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_pixel_data_from_stacked_"
-              "device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_pixel_data_from_stacked_"
-              "host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_focal_and_extra_data_"
-              "from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_focal_and_extra_data_"
-              "from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_simple_radial_fixed_principal_point_num",
-               &GraphSolver::SetSimpleRadialFixedPrincipalPointNum)
-
-          .def("set_simple_radial_fixed_principal_point_pose_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetSimpleRadialFixedPrincipalPointPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_simple_radial_fixed_principal_point_pose_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver.SetSimpleRadialFixedPrincipalPointPoseIndicesFromDevice(
-                    AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_focal_and_extra_indices_"
-              "from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFocalAndExtraIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_focal_and_extra_indices_"
-              "from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFocalAndExtraIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_point_indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver.SetSimpleRadialFixedPrincipalPointPointIndicesFromHost(
-                    AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_point_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver.SetSimpleRadialFixedPrincipalPointPointIndicesFromDevice(
-                    AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_pixel_data_from_stacked_"
-              "device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_pixel_data_from_stacked_"
-              "host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_principal_point_data_"
-              "from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_principal_point_data_"
-              "from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_simple_radial_fixed_pose_fixed_focal_and_extra_num",
-               &GraphSolver::SetSimpleRadialFixedPoseFixedFocalAndExtraNum)
-
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_principal_"
+              "set_simple_radial_split_fixed_focal_and_distortion_principal_"
               "point_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_principal_"
+              "set_simple_radial_split_fixed_focal_and_distortion_principal_"
               "point_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_point_"
               "indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPointIndicesFromHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_point_"
               "indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPointIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_pixel_data_"
+              "set_simple_radial_split_fixed_focal_and_distortion_pixel_data_"
               "from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1580,14 +1354,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_pixel_data_"
+              "set_simple_radial_split_fixed_focal_and_distortion_pixel_data_"
               "from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1595,14 +1369,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_pose_data_"
-              "from_stacked_device",
+              "set_simple_radial_split_fixed_focal_and_distortion_focal_and_"
+              "distortion_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPoseDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFocalAndDistortionDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1610,98 +1384,86 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_pose_data_"
-              "from_stacked_host",
+              "set_simple_radial_split_fixed_focal_and_distortion_focal_and_"
+              "distortion_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFocalAndDistortionDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
               },
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_focal_and_"
-              "extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_focal_and_"
-              "extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_simple_radial_fixed_pose_fixed_principal_point_num",
-               &GraphSolver::SetSimpleRadialFixedPoseFixedPrincipalPointNum)
+          .def("set_simple_radial_split_fixed_principal_point_num",
+               &GraphSolver::SetSimpleRadialSplitFixedPrincipalPointNum)
 
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_focal_and_"
-              "extra_indices_from_host",
+              "set_simple_radial_split_fixed_principal_point_pose_indices_from_"
+              "host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_focal_and_"
-              "extra_indices_from_device",
+              "set_simple_radial_split_fixed_principal_point_pose_indices_from_"
+              "device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_point_"
-              "indices_from_host",
+              "set_simple_radial_split_fixed_principal_point_focal_and_"
+              "distortion_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPointIndicesFromHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_point_"
-              "indices_from_device",
+              "set_simple_radial_split_fixed_principal_point_focal_and_"
+              "distortion_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPointIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_pixel_data_"
-              "from_stacked_device",
+              "set_simple_radial_split_fixed_principal_point_point_indices_"
+              "from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_principal_point_point_indices_"
+              "from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_principal_point_pixel_data_from_"
+              "stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1709,14 +1471,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_pixel_data_"
-              "from_stacked_host",
+              "set_simple_radial_split_fixed_principal_point_pixel_data_from_"
+              "stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1724,14 +1486,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_pose_data_"
-              "from_stacked_device",
+              "set_simple_radial_split_fixed_principal_point_principal_point_"
+              "data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointPrincipalPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1739,14 +1501,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_pose_data_"
-              "from_stacked_host",
+              "set_simple_radial_split_fixed_principal_point_principal_point_"
+              "data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointPrincipalPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1754,86 +1516,56 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_principal_"
-              "point_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_principal_"
-              "point_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "num",
               &GraphSolver::
-                  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointNum)
+                  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionNum)
 
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "pose_indices_from_host",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "principal_point_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "pose_indices_from_device",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "principal_point_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "point_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "point_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "pixel_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1841,14 +1573,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "pixel_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1856,14 +1588,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "focal_and_extra_data_from_stacked_device",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "pose_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPoseDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1871,14 +1603,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "focal_and_extra_data_from_stacked_host",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "pose_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPoseDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1886,14 +1618,144 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "focal_and_distortion_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFocalAndDistortionDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "focal_and_distortion_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFocalAndDistortionDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_num",
+              &GraphSolver::SetSimpleRadialSplitFixedPoseFixedPrincipalPointNum)
+
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_focal_"
+              "and_distortion_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_focal_"
+              "and_distortion_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_point_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_point_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_pixel_"
+              "data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_pixel_"
+              "data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_pose_"
+              "data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_pose_"
+              "data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_"
               "principal_point_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1901,68 +1763,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_"
               "principal_point_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_simple_radial_fixed_focal_and_extra_fixed_point_num",
-               &GraphSolver::SetSimpleRadialFixedFocalAndExtraFixedPointNum)
-
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_pose_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPoseIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_pose_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPoseIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_principal_"
-              "point_indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_principal_"
-              "point_indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_pixel_data_"
-              "from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -1970,242 +1778,56 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_pixel_data_"
-              "from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_focal_and_"
-              "extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_focal_and_"
-              "extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_point_data_"
-              "from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_point_point_data_"
-              "from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_simple_radial_fixed_principal_point_fixed_point_num",
-               &GraphSolver::SetSimpleRadialFixedPrincipalPointFixedPointNum)
-
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_pose_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPoseIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_pose_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_focal_and_"
-              "extra_indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_focal_and_"
-              "extra_indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_pixel_data_"
-              "from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_pixel_data_"
-              "from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_principal_"
-              "point_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_principal_"
-              "point_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_point_data_"
-              "from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_principal_point_fixed_point_point_data_"
-              "from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPrincipalPointFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
               "principal_point_num",
               &GraphSolver::
-                  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointNum)
+                  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointNum)
 
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_pose_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_pose_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
               "principal_point_point_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
               "principal_point_point_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
               "principal_point_pixel_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2213,14 +1835,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
               "principal_point_pixel_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2228,14 +1850,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
-              "principal_point_pose_data_from_stacked_device",
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_focal_and_distortion_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2243,14 +1865,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
-              "principal_point_pose_data_from_stacked_host",
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_focal_and_distortion_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2258,44 +1880,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
-              "principal_point_focal_and_extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
-              "principal_point_focal_and_extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
               "principal_point_principal_point_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2303,14 +1895,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
               "principal_point_principal_point_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2318,38 +1910,56 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
               "num",
               &GraphSolver::
-                  SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointNum)
+                  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointNum)
 
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
+              "pose_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
+              "pose_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
               "principal_point_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
               "principal_point_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
               "pixel_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2357,14 +1967,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
               "pixel_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2372,14 +1982,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
-              "pose_data_from_stacked_device",
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
+              "focal_and_distortion_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2387,14 +1997,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
-              "pose_data_from_stacked_host",
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
+              "focal_and_distortion_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2402,44 +2012,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
-              "focal_and_extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
-              "focal_and_extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
               "point_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2447,53 +2027,69 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_focal_and_extra_fixed_point_"
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_point_"
               "point_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
               },
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "num",
-              &GraphSolver::
-                  SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointNum)
+          .def("set_simple_radial_split_fixed_principal_point_fixed_point_num",
+               &GraphSolver::
+                   SetSimpleRadialSplitFixedPrincipalPointFixedPointNum)
 
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "focal_and_extra_indices_from_host",
+              "set_simple_radial_split_fixed_principal_point_fixed_point_pose_"
+              "indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "focal_and_extra_indices_from_device",
+              "set_simple_radial_split_fixed_principal_point_fixed_point_pose_"
+              "indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "pixel_data_from_stacked_device",
+              "set_simple_radial_split_fixed_principal_point_fixed_point_focal_"
+              "and_distortion_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_principal_point_fixed_point_focal_"
+              "and_distortion_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_principal_point_fixed_point_pixel_"
+              "data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2501,14 +2097,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "pixel_data_from_stacked_host",
+              "set_simple_radial_split_fixed_principal_point_fixed_point_pixel_"
+              "data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2516,44 +2112,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "pose_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "pose_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
+              "set_simple_radial_split_fixed_principal_point_fixed_point_"
               "principal_point_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2561,14 +2127,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
+              "set_simple_radial_split_fixed_principal_point_fixed_point_"
               "principal_point_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2576,14 +2142,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "point_data_from_stacked_device",
+              "set_simple_radial_split_fixed_principal_point_fixed_point_point_"
+              "data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2591,14 +2157,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_pose_fixed_principal_point_fixed_point_"
-              "point_data_from_stacked_host",
+              "set_simple_radial_split_fixed_principal_point_fixed_point_point_"
+              "data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPrincipalPointFixedPointPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2606,38 +2172,184 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "fixed_point_num",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_num",
               &GraphSolver::
-                  SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointNum)
+                  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointNum)
 
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "fixed_point_pose_indices_from_host",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_point_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "fixed_point_pose_indices_from_device",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_point_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_pose_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_pose_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_focal_and_distortion_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_focal_and_distortion_data_from_stacked_"
+              "host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_principal_point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_principal_point_principal_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_point_num",
+              &GraphSolver::
+                  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointNum)
+
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_point_principal_point_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_point_principal_point_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "fixed_point_pixel_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2645,14 +2357,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "fixed_point_pixel_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2660,14 +2372,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "fixed_point_focal_and_extra_data_from_stacked_device",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_point_pose_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPoseDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2675,14 +2387,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "fixed_point_focal_and_extra_data_from_stacked_host",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_point_pose_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPoseDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2690,14 +2402,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "fixed_point_principal_point_data_from_stacked_device",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_point_focal_and_distortion_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2705,14 +2417,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
-              "fixed_point_principal_point_data_from_stacked_host",
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
+              "fixed_point_focal_and_distortion_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2720,14 +2432,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "fixed_point_point_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2735,101 +2447,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_simple_radial_fixed_focal_and_extra_fixed_principal_point_"
+              "set_simple_radial_split_fixed_pose_fixed_focal_and_distortion_"
               "fixed_point_point_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetSimpleRadialFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_focal_and_extra_num",
-               &GraphSolver::SetPinholeFixedFocalAndExtraNum)
-
-          .def("set_pinhole_fixed_focal_and_extra_pose_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeFixedFocalAndExtraPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_fixed_focal_and_extra_pose_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeFixedFocalAndExtraPoseIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_principal_point_indices_from_"
-              "host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraPrincipalPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_principal_point_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraPrincipalPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def("set_pinhole_fixed_focal_and_extra_point_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeFixedFocalAndExtraPointIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_fixed_focal_and_extra_point_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeFixedFocalAndExtraPointIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_pixel_data_from_stacked_"
-              "device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetPinholeFixedFocalAndExtraPixelDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_pixel_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetPinholeFixedFocalAndExtraPixelDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_focal_and_extra_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -2837,800 +2462,38 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_focal_and_extra_focal_and_extra_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_principal_point_num",
-               &GraphSolver::SetPinholeFixedPrincipalPointNum)
-
-          .def("set_pinhole_fixed_principal_point_pose_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeFixedPrincipalPointPoseIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_fixed_principal_point_pose_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeFixedPrincipalPointPoseIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_pinhole_fixed_principal_point_focal_and_extra_indices_from_"
-              "host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPrincipalPointFocalAndExtraIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_principal_point_focal_and_extra_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPrincipalPointFocalAndExtraIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def("set_pinhole_fixed_principal_point_point_indices_from_host",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertHostMemory(indices);
-                 solver.SetPinholeFixedPrincipalPointPointIndicesFromHost(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def("set_pinhole_fixed_principal_point_point_indices_from_device",
-               [](GraphSolver& solver, pybind11::object indices) {
-                 AssertDeviceMemory(indices);
-                 solver.SetPinholeFixedPrincipalPointPointIndicesFromDevice(
-                     AsUintPtr(indices), GetNumRows(indices));
-               })
-          .def(
-              "set_pinhole_fixed_principal_point_pixel_data_from_stacked_"
-              "device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver.SetPinholeFixedPrincipalPointPixelDataFromStackedDevice(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_pixel_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver.SetPinholeFixedPrincipalPointPixelDataFromStackedHost(
-                    AsDoublePtr(stacked_data),
-                    offset,
-                    GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_principal_point_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_principal_point_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_pose_fixed_focal_and_extra_num",
-               &GraphSolver::SetPinholeFixedPoseFixedFocalAndExtraNum)
-
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_principal_point_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_principal_point_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_point_indices_from_"
-              "host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_point_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_pixel_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_pixel_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_pose_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPoseDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_pose_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_focal_and_extra_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_focal_and_extra_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_pose_fixed_principal_point_num",
-               &GraphSolver::SetPinholeFixedPoseFixedPrincipalPointNum)
-
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_focal_and_extra_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_focal_and_extra_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_point_indices_from_"
-              "host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_point_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_pixel_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_pixel_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_pose_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_pose_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_principal_point_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_principal_point_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_focal_and_extra_fixed_principal_point_num",
-               &GraphSolver::SetPinholeFixedFocalAndExtraFixedPrincipalPointNum)
-
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_pose_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_pose_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_point_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_point_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_pixel_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_pixel_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_focal_"
-              "and_extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_focal_"
-              "and_extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_"
-              "principal_point_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_"
-              "principal_point_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_focal_and_extra_fixed_point_num",
-               &GraphSolver::SetPinholeFixedFocalAndExtraFixedPointNum)
-
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_pose_indices_from_"
-              "host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPoseIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_pose_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPoseIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_principal_point_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_principal_point_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_pixel_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_pixel_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_focal_and_extra_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_focal_and_extra_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_point_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_point_point_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_principal_point_fixed_point_num",
-               &GraphSolver::SetPinholeFixedPrincipalPointFixedPointNum)
-
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_pose_indices_from_"
-              "host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPoseIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_pose_indices_from_"
-              "device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_focal_and_extra_"
-              "indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_focal_and_extra_"
-              "indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_pixel_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_pixel_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_principal_point_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_principal_point_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_point_data_from_"
-              "stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_principal_point_fixed_point_point_data_from_"
-              "stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPrincipalPointFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_num",
               &GraphSolver::
-                  SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointNum)
+                  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointNum)
 
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
-              "point_point_indices_from_host",
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
+              "point_focal_and_distortion_indices_from_host",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertHostMemory(indices);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
-              "point_point_indices_from_device",
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
+              "point_focal_and_distortion_indices_from_device",
               [](GraphSolver& solver, pybind11::object indices) {
                 AssertDeviceMemory(indices);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
                         AsUintPtr(indices), GetNumRows(indices));
               })
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_pixel_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -3638,14 +2501,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_pixel_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -3653,14 +2516,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_pose_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -3668,14 +2531,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_pose_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -3683,44 +2546,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
-              "point_focal_and_extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
-              "point_focal_and_extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_principal_point_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -3728,50 +2561,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_principal_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_principal_point_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def("set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_num",
-               &GraphSolver::SetPinholeFixedPoseFixedFocalAndExtraFixedPointNum)
-
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_"
-              "principal_point_indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_"
-              "principal_point_indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -3779,375 +2576,14 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pixel_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pose_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_pose_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_focal_"
-              "and_extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_focal_"
-              "and_extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_point_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_focal_and_extra_fixed_point_point_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_num",
-              &GraphSolver::SetPinholeFixedPoseFixedPrincipalPointFixedPointNum)
-
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_focal_"
-              "and_extra_indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_focal_"
-              "and_extra_indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pixel_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pixel_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pose_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_pose_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_"
-              "principal_point_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_"
-              "principal_point_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_point_"
-              "data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_pose_fixed_principal_point_fixed_point_point_"
-              "data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_num",
-              &GraphSolver::
-                  SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointNum)
-
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_pose_indices_from_host",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertHostMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_pose_indices_from_device",
-              [](GraphSolver& solver, pybind11::object indices) {
-                AssertDeviceMemory(indices);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-                        AsUintPtr(indices), GetNumRows(indices));
-              })
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_pixel_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_pixel_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_focal_and_extra_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_focal_and_extra_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_principal_point_data_from_stacked_device",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertDeviceMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
-              "point_principal_point_data_from_stacked_host",
-              [](GraphSolver& solver,
-                 pybind11::object stacked_data,
-                 size_t offset) {
-                AssertHostMemory(stacked_data);
-                solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-                        AsDoublePtr(stacked_data),
-                        offset,
-                        GetNumRows(stacked_data));
-              },
-              pybind11::arg("stacked_data"),
-              pybind11::arg("offset") = 0)
-          .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_point_data_from_stacked_device",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertDeviceMemory(stacked_data);
                 solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));
@@ -4155,14 +2591,1577 @@ inline void add_solver_pybinding(pybind11::module_ module) {
               pybind11::arg("stacked_data"),
               pybind11::arg("offset") = 0)
           .def(
-              "set_pinhole_fixed_focal_and_extra_fixed_principal_point_fixed_"
+              "set_simple_radial_split_fixed_pose_fixed_principal_point_fixed_"
               "point_point_data_from_stacked_host",
               [](GraphSolver& solver,
                  pybind11::object stacked_data,
                  size_t offset) {
                 AssertHostMemory(stacked_data);
                 solver
-                    .SetPinholeFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
+                    .SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_num",
+              &GraphSolver::
+                  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointNum)
+
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_pose_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_pose_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_focal_and_distortion_data_from_"
+              "stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointFocalAndDistortionDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_focal_and_distortion_data_from_"
+              "stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointFocalAndDistortionDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_principal_point_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_principal_point_data_from_stacked_"
+              "host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_simple_radial_split_fixed_focal_and_distortion_fixed_"
+              "principal_point_fixed_point_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_focal_num",
+               &GraphSolver::SetPinholeSplitFixedFocalNum)
+
+          .def("set_pinhole_split_fixed_focal_pose_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeSplitFixedFocalPoseIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_split_fixed_focal_pose_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeSplitFixedFocalPoseIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def(
+              "set_pinhole_split_fixed_focal_principal_point_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver.SetPinholeSplitFixedFocalPrincipalPointIndicesFromHost(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_principal_point_indices_from_"
+              "device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver.SetPinholeSplitFixedFocalPrincipalPointIndicesFromDevice(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def("set_pinhole_split_fixed_focal_point_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeSplitFixedFocalPointIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def("set_pinhole_split_fixed_focal_point_indices_from_device",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertDeviceMemory(indices);
+                 solver.SetPinholeSplitFixedFocalPointIndicesFromDevice(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def(
+              "set_pinhole_split_fixed_focal_pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeSplitFixedFocalPixelDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeSplitFixedFocalPixelDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_focal_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver.SetPinholeSplitFixedFocalFocalDataFromStackedDevice(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_focal_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver.SetPinholeSplitFixedFocalFocalDataFromStackedHost(
+                    AsDoublePtr(stacked_data),
+                    offset,
+                    GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_principal_point_num",
+               &GraphSolver::SetPinholeSplitFixedPrincipalPointNum)
+
+          .def("set_pinhole_split_fixed_principal_point_pose_indices_from_host",
+               [](GraphSolver& solver, pybind11::object indices) {
+                 AssertHostMemory(indices);
+                 solver.SetPinholeSplitFixedPrincipalPointPoseIndicesFromHost(
+                     AsUintPtr(indices), GetNumRows(indices));
+               })
+          .def(
+              "set_pinhole_split_fixed_principal_point_pose_indices_from_"
+              "device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver.SetPinholeSplitFixedPrincipalPointPoseIndicesFromDevice(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_focal_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver.SetPinholeSplitFixedPrincipalPointFocalIndicesFromHost(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_focal_indices_from_"
+              "device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver.SetPinholeSplitFixedPrincipalPointFocalIndicesFromDevice(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_point_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver.SetPinholeSplitFixedPrincipalPointPointIndicesFromHost(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_point_indices_from_"
+              "device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver.SetPinholeSplitFixedPrincipalPointPointIndicesFromDevice(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_pixel_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_pixel_data_from_stacked_"
+              "host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_principal_point_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_principal_point_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_pose_fixed_focal_num",
+               &GraphSolver::SetPinholeSplitFixedPoseFixedFocalNum)
+
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_principal_point_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalPrincipalPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_principal_point_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalPrincipalPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_point_indices_from_"
+              "host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver.SetPinholeSplitFixedPoseFixedFocalPointIndicesFromHost(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_point_indices_from_"
+              "device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver.SetPinholeSplitFixedPoseFixedFocalPointIndicesFromDevice(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_pixel_data_from_"
+              "stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_pixel_data_from_"
+              "stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_pose_data_from_stacked_"
+              "device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_pose_data_from_stacked_"
+              "host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_focal_data_from_"
+              "stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFocalDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_focal_data_from_"
+              "stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFocalDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_pose_fixed_principal_point_num",
+               &GraphSolver::SetPinholeSplitFixedPoseFixedPrincipalPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_focal_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFocalIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_focal_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFocalIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_point_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_point_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_pixel_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_pixel_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_pose_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_pose_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_principal_"
+              "point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_principal_"
+              "point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_focal_fixed_principal_point_num",
+               &GraphSolver::SetPinholeSplitFixedFocalFixedPrincipalPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_pose_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPoseIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_pose_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPoseIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_point_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_point_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_pixel_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_pixel_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_focal_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFocalDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_focal_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFocalDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_principal_"
+              "point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_principal_"
+              "point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_focal_fixed_point_num",
+               &GraphSolver::SetPinholeSplitFixedFocalFixedPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_pose_indices_from_"
+              "host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver.SetPinholeSplitFixedFocalFixedPointPoseIndicesFromHost(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_pose_indices_from_"
+              "device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver.SetPinholeSplitFixedFocalFixedPointPoseIndicesFromDevice(
+                    AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_principal_point_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointPrincipalPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_principal_point_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointPrincipalPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_pixel_data_from_"
+              "stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_pixel_data_from_"
+              "stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_focal_data_from_"
+              "stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointFocalDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_focal_data_from_"
+              "stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointFocalDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_point_data_from_"
+              "stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_point_point_data_from_"
+              "stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPointPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_principal_point_fixed_point_num",
+               &GraphSolver::SetPinholeSplitFixedPrincipalPointFixedPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_pose_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_pose_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_focal_"
+              "indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointFocalIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_focal_"
+              "indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointFocalIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_pixel_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_pixel_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_principal_"
+              "point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_principal_"
+              "point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_point_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_principal_point_fixed_point_point_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPrincipalPointFixedPointPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "num",
+              &GraphSolver::
+                  SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "point_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "point_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "pose_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "pose_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "focal_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointFocalDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "focal_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointFocalDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "principal_point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_"
+              "principal_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def("set_pinhole_split_fixed_pose_fixed_focal_fixed_point_num",
+               &GraphSolver::SetPinholeSplitFixedPoseFixedFocalFixedPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_principal_"
+              "point_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPrincipalPointIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_principal_"
+              "point_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPrincipalPointIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_pixel_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_pixel_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_pose_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_pose_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_focal_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointFocalDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_focal_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointFocalDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_point_data_"
+              "from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_focal_fixed_point_point_data_"
+              "from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedFocalFixedPointPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "num",
+              &GraphSolver::
+                  SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "focal_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointFocalIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "focal_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointFocalIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "pose_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "pose_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "principal_point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "principal_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_pose_fixed_principal_point_fixed_point_"
+              "point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "num",
+              &GraphSolver::
+                  SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointNum)
+
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "pose_indices_from_host",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertHostMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPoseIndicesFromHost(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "pose_indices_from_device",
+              [](GraphSolver& solver, pybind11::object indices) {
+                AssertDeviceMemory(indices);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+                        AsUintPtr(indices), GetNumRows(indices));
+              })
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "pixel_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "pixel_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "focal_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointFocalDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "focal_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointFocalDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "principal_point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "principal_point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "point_data_from_stacked_device",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertDeviceMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+                        AsDoublePtr(stacked_data),
+                        offset,
+                        GetNumRows(stacked_data));
+              },
+              pybind11::arg("stacked_data"),
+              pybind11::arg("offset") = 0)
+          .def(
+              "set_pinhole_split_fixed_focal_fixed_principal_point_fixed_point_"
+              "point_data_from_stacked_host",
+              [](GraphSolver& solver,
+                 pybind11::object stacked_data,
+                 size_t offset) {
+                AssertHostMemory(stacked_data);
+                solver
+                    .SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPointDataFromStackedHost(
                         AsDoublePtr(stacked_data),
                         offset,
                         GetNumRows(stacked_data));

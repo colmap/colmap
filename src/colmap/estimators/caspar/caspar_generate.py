@@ -32,7 +32,7 @@ class ConstPixel(sf.V2): pass
 
 # Calibration node layout:
 #
-# When both focal_and_extra and principal_point are tunable, they are merged
+# When both focal_and_distortion/focal and principal_point are tunable, they are merged
 # into a single V4 Calib node to save one shared-memory slot per block.
 # This covers 4 variants: BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT.
 #
@@ -48,10 +48,10 @@ class SimpleRadialPose(sf.Pose3):               pass
 class ConstSimpleRadialPose(sf.Pose3):          pass
 class SimpleRadialCalib(sf.V4):                 pass  # [f, k, cx, cy]  (merged)
 class ConstSimpleRadialCalib(sf.V4):            pass
-class SimpleRadialPrincipalPoint(sf.V2):        pass  # [cx, cy]  (split: pp tunable)
-class ConstSimpleRadialPrincipalPoint(sf.V2):   pass
-class SimpleRadialFocalAndExtra(sf.V2):         pass  # [f, k]    (split: focal tunable)
-class ConstSimpleRadialFocalAndExtra(sf.V2):    pass
+class SimpleRadialPrincipalPoint(sf.V2):              pass  # [cx, cy]  (split: pp tunable)
+class ConstSimpleRadialPrincipalPoint(sf.V2):         pass
+class SimpleRadialFocalAndDistortion(sf.V2):          pass  # [f, k]    (split: focal tunable)
+class ConstSimpleRadialFocalAndDistortion(sf.V2):     pass
 
 
 # Pinhole: params = [fx, fy, cx, cy]
@@ -61,8 +61,8 @@ class PinholeCalib(sf.V4):                      pass  # [fx, fy, cx, cy]  (merge
 class ConstPinholeCalib(sf.V4):                 pass
 class PinholePrincipalPoint(sf.V2):             pass  # [cx, cy]  (split: pp tunable)
 class ConstPinholePrincipalPoint(sf.V2):        pass
-class PinholeFocalAndExtra(sf.V2):              pass  # [fx, fy]  (split: focal tunable)
-class ConstPinholeFocalAndExtra(sf.V2):         pass
+class PinholeFocal(sf.V2):                      pass  # [fx, fy]  (split: focal tunable)
+class ConstPinholeFocal(sf.V2):                 pass
 
 
 def _make_variant(core_fn, name: str, base_params: list, hints: dict, fixed: dict):
@@ -130,14 +130,18 @@ def register_camera_model(caslib, model_name: str, core_fn, fixable_params: dict
 # --- Camera models ---
 
 # Merged cores define the canonical projection math reused by split variants.
-# TODO: profile shared-memory layout before finalising merged vs. split calib.
 
-def simple_radial_merged_core(
+def simple_radial_core(
     pose:  T.Annotated[SimpleRadialPose,  mem.TunableShared],
     calib: T.Annotated[SimpleRadialCalib, mem.TunableShared],  # [f, k, cx, cy]
     point: T.Annotated[Point,             mem.TunableShared],
     pixel: T.Annotated[ConstPixel,        mem.ConstantSequential],
 ) -> sf.V2:
+    """Reprojection residual for COLMAP's SIMPLE_RADIAL model (sensor/models.h).
+
+    calib = [f, k, cx, cy]: single focal length, one radial distortion coefficient,
+    and principal point.
+    """
     cam_T_world = pose
     f, k, cx, cy = calib
     point_cam = cam_T_world * point
@@ -147,12 +151,17 @@ def simple_radial_merged_core(
     return f * r * p + sf.V2([cx, cy]) - pixel
 
 
-def pinhole_merged_core(
+def pinhole_core(
     pose:  T.Annotated[PinholePose,  mem.TunableShared],
     calib: T.Annotated[PinholeCalib, mem.TunableShared],  # [fx, fy, cx, cy]
     point: T.Annotated[Point,        mem.TunableShared],
     pixel: T.Annotated[ConstPixel,   mem.ConstantSequential],
 ) -> sf.V2:
+    """Reprojection residual for COLMAP's PINHOLE model (sensor/models.h).
+
+    calib = [fx, fy, cx, cy]: two independent focal lengths and principal point,
+    no distortion.
+    """
     cam_T_world = pose
     fx, fy, cx, cy = calib
     point_cam = cam_T_world * point
@@ -163,28 +172,38 @@ def pinhole_merged_core(
 
 # Split cores delegate to merged cores to avoid duplicating projection math.
 
-def simple_radial_core(
-    pose:            T.Annotated[SimpleRadialPose,            mem.TunableShared],
-    focal_and_extra: T.Annotated[SimpleRadialFocalAndExtra,   mem.TunableShared],
-    principal_point: T.Annotated[SimpleRadialPrincipalPoint,  mem.TunableShared],
-    point:           T.Annotated[Point,                       mem.TunableShared],
-    pixel:           T.Annotated[ConstPixel,                  mem.ConstantSequential],
+def simple_radial_split_core(
+    pose:                 T.Annotated[SimpleRadialPose,             mem.TunableShared],
+    focal_and_distortion: T.Annotated[SimpleRadialFocalAndDistortion, mem.TunableShared],
+    principal_point:      T.Annotated[SimpleRadialPrincipalPoint,   mem.TunableShared],
+    point:                T.Annotated[Point,                        mem.TunableShared],
+    pixel:                T.Annotated[ConstPixel,                   mem.ConstantSequential],
 ) -> sf.V2:
-    calib = sf.V4([focal_and_extra[0], focal_and_extra[1],
+    """Split-calib variant of simple_radial_core for COLMAP's SIMPLE_RADIAL model.
+
+    Used when focal/distortion and principal point are tuned independently.
+    focal_and_distortion = [f, k], principal_point = [cx, cy].
+    """
+    calib = sf.V4([focal_and_distortion[0], focal_and_distortion[1],
                    principal_point[0], principal_point[1]])
-    return simple_radial_merged_core(pose, calib, point, pixel)
+    return simple_radial_core(pose, calib, point, pixel)
 
 
-def pinhole_core(
-    pose:            T.Annotated[PinholePose,                 mem.TunableShared],
-    focal_and_extra: T.Annotated[PinholeFocalAndExtra,        mem.TunableShared],
-    principal_point: T.Annotated[PinholePrincipalPoint,       mem.TunableShared],
-    point:           T.Annotated[Point,                       mem.TunableShared],
-    pixel:           T.Annotated[ConstPixel,                  mem.ConstantSequential],
+def pinhole_split_core(
+    pose:            T.Annotated[PinholePose,            mem.TunableShared],
+    focal:           T.Annotated[PinholeFocal,           mem.TunableShared],
+    principal_point: T.Annotated[PinholePrincipalPoint,  mem.TunableShared],
+    point:           T.Annotated[Point,                  mem.TunableShared],
+    pixel:           T.Annotated[ConstPixel,             mem.ConstantSequential],
 ) -> sf.V2:
-    calib = sf.V4([focal_and_extra[0], focal_and_extra[1],
+    """Split-calib variant of pinhole_core for COLMAP's PINHOLE model.
+
+    Used when focal lengths and principal point are tuned independently.
+    focal = [fx, fy], principal_point = [cx, cy].
+    """
+    calib = sf.V4([focal[0], focal[1],
                    principal_point[0], principal_point[1]])
-    return pinhole_merged_core(pose, calib, point, pixel)
+    return pinhole_core(pose, calib, point, pixel)
 
 
 dtype  = mem.DType.DOUBLE if precision == "f64" else mem.DType.FLOAT
@@ -196,55 +215,55 @@ caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 #
 # COLMAP flag mapping:
 #   refine_rig_from_world                      -> pose
-#   refine_focal_length && refine_extra_params -> focal_and_extra
+#   refine_focal_length && refine_extra_params -> focal_and_distortion / focal
 #   refine_principal_point                     -> principal_point
 #   refine_points3D                            -> point
 #
 # Limitations:
 #   - constant_rig_from_world_rotation not supported (needs separate pose
 #     rotation/translation sub-nodes)
-#   - refine_sensor_from_rig not supported (single camera per rig assumed)
+#   - refine_sensor_from_rig not supported (for now) due to high shared memory usage (single camera per rig assumed)
 #   - refine_focal_length != refine_extra_params not supported (observations
-#     skipped with a warning because the merged focal_and_extra node cannot be split)
+#     skipped with a warning because the merged focal_and_distortion node cannot be split)
 
-FIXABLE_SIMPLE_RADIAL_MERGED = {
+FIXABLE_SIMPLE_RADIAL = {
     'pose':  ConstSimpleRadialPose,
     'point': ConstPoint,
 }
 
-FIXABLE_PINHOLE_MERGED = {
+FIXABLE_PINHOLE = {
     'pose':  ConstPinholePose,
     'point': ConstPoint,
 }
 
-FIXABLE_SIMPLE_RADIAL = {
-    'pose':            ConstSimpleRadialPose,
-    'focal_and_extra': ConstSimpleRadialFocalAndExtra,
-    'principal_point': ConstSimpleRadialPrincipalPoint,
-    'point':           ConstPoint,
+FIXABLE_SIMPLE_RADIAL_SPLIT = {
+    'pose':                 ConstSimpleRadialPose,
+    'focal_and_distortion': ConstSimpleRadialFocalAndDistortion,
+    'principal_point':      ConstSimpleRadialPrincipalPoint,
+    'point':                ConstPoint,
 }
 
-FIXABLE_PINHOLE = {
+FIXABLE_PINHOLE_SPLIT = {
     'pose':            ConstPinholePose,
-    'focal_and_extra': ConstPinholeFocalAndExtra,
+    'focal':           ConstPinholeFocal,
     'principal_point': ConstPinholePrincipalPoint,
     'point':           ConstPoint,
 }
 
 # Merged: BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT (4 variants).
-register_camera_model(caslib, "simple_radial_merged",
-                      simple_radial_merged_core, FIXABLE_SIMPLE_RADIAL_MERGED,
+register_camera_model(caslib, "simple_radial",
+                      simple_radial_core, FIXABLE_SIMPLE_RADIAL,
                       include_all_fixed=True)
-register_camera_model(caslib, "pinhole_merged",
-                      pinhole_merged_core, FIXABLE_PINHOLE_MERGED,
+register_camera_model(caslib, "pinhole",
+                      pinhole_core, FIXABLE_PINHOLE,
                       include_all_fixed=True)
 
-# Split: all variants where at least one of {focal_and_extra, principal_point}
+# Split: all variants where at least one of {focal_and_distortion, principal_point}
 # is fixed (11 variants per model).
-register_camera_model(caslib, "simple_radial", simple_radial_core, FIXABLE_SIMPLE_RADIAL,
-                      must_fix_one_of={'focal_and_extra', 'principal_point'})
-register_camera_model(caslib, "pinhole", pinhole_core, FIXABLE_PINHOLE,
-                      must_fix_one_of={'focal_and_extra', 'principal_point'})
+register_camera_model(caslib, "simple_radial_split", simple_radial_split_core, FIXABLE_SIMPLE_RADIAL_SPLIT,
+                      must_fix_one_of={'focal_and_distortion', 'principal_point'})
+register_camera_model(caslib, "pinhole_split", pinhole_split_core, FIXABLE_PINHOLE_SPLIT,
+                      must_fix_one_of={'focal', 'principal_point'})
 
 out_dir = Path(f"{sys.argv[1]}")
 print(f"Generating Caspar kernels with precision {precision}: {out_dir}")
