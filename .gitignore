@@ -2,7 +2,6 @@
 .python-version
 LocalConfig.cmake
 src/colmap/util/version.cc
-src/colmap/estimators/generated
 CMakeUserPresets.json
 .clangd
 compile_commands.json
