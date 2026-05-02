@@ -82,6 +82,9 @@ if(CASPAR_ENABLED)
     set(_caspar_build_dir "${CMAKE_CURRENT_BINARY_DIR}/caspar_generated")
     set(_caspar_lib       "${_caspar_build_dir}/libcaspar_lib_core.a")
 
+    # Resolve symlinks so the child cmake process can locate the CUDA toolkit root.
+    get_filename_component(_caspar_nvcc "${CUDAToolkit_NVCC_EXECUTABLE}" REALPATH)
+
     ExternalProject_Add(caspar_external
         SOURCE_DIR  ${CASPAR_GEN_DIR}
         BINARY_DIR  ${_caspar_build_dir}
@@ -93,7 +96,7 @@ if(CASPAR_ENABLED)
             -DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}
             -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
             -DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}
-            -DCMAKE_CUDA_COMPILER=${CUDAToolkit_NVCC_EXECUTABLE}
+            -DCMAKE_CUDA_COMPILER=${_caspar_nvcc}
             -DCMAKE_CUDA_STANDARD=${CMAKE_CUDA_STANDARD}
             -DCMAKE_CUDA_COMPILER_LAUNCHER=${CMAKE_CUDA_COMPILER_LAUNCHER}
         CMAKE_CACHE_ARGS
