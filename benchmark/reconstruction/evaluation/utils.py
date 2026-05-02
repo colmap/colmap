@@ -726,6 +726,8 @@ def process_scene(
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args + args.colmap_extra_args,
+        gpu_index=gpu_index,
+        phase_tracker=tracker,
     )
 
     tracker.set("evaluation")
@@ -866,57 +868,44 @@ def process_scenes(
         )
         monitor_thread.start()
 
+    p = multiprocessing.Pool(
+        processes=num_parallel_scenes, initializer=_init_pool_worker
+    )
     try:
-        with multiprocessing.Pool(
-            processes=num_parallel_scenes, initializer=_init_pool_worker
-        ) as p:
-            try:
-                results = list(
-                    p.imap_unordered(
-                        functools.partial(
-                            _process_scene_with_gpu,
-                            args=args,
-                            prepare_scene=prepare_scene,
-                            position_accuracy_gt=position_accuracy_gt,
-                            num_threads=num_threads_per_scene,
-                            progress_status=progress_status,
-                        ),
-                        scene_gpu_pairs,
-                        chunksize=1,
-                    )
+        try:
+            results = list(
+                p.imap_unordered(
+                    functools.partial(
+                        _process_scene_with_gpu,
+                        args=args,
+                        prepare_scene=prepare_scene,
+                        position_accuracy_gt=position_accuracy_gt,
+                        num_threads=num_threads_per_scene,
+                        progress_status=progress_status,
+                    ),
+                    scene_gpu_pairs,
+                    chunksize=1,
                 )
-            except KeyboardInterrupt:
-                pycolmap.logging.warning(
-                    "Interrupted, terminating workers and child processes..."
-                )
-                p.terminate()
-                p.join()
-                raise
+            )
+            p.close()
+            p.join()
+        except KeyboardInterrupt:
+            pycolmap.logging.warning(
+                "Interrupted, terminating workers and child processes..."
+            )
+            p.terminate()
+            p.join()
+            raise
+        except Exception:
+            p.terminate()
+            p.join()
+            raise
     finally:
         stop_event.set()
         if monitor_thread is not None:
             monitor_thread.join(timeout=2)
         if manager is not None:
             manager.shutdown()
-    num_threads = min(
-        args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
-    )
-    p = multiprocessing.Pool(processes=args.parallelism)
-    results = list(
-        p.imap_unordered(
-            functools.partial(
-                process_scene,
-                args,
-                prepare_scene=prepare_scene,
-                position_accuracy_gt=position_accuracy_gt,
-                num_threads=num_threads,
-            ),
-            scene_infos,
-            chunksize=1,
-        )
-    )
-    p.close()
-    p.join()
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
     for result in results:
