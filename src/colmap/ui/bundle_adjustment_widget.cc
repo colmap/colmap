@@ -85,7 +85,7 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                 "refine_points3D");
 
 #ifdef CASPAR_ENABLED
-  AddSection("Global BA Backend [experimental]");
+  AddSection("Bundle Adjustment Backend");
   auto* backend_combo = new QComboBox(this);
   backend_combo->addItem("CERES");  // index 0 == BundleAdjustmentBackend::CERES
   backend_combo->addItem(

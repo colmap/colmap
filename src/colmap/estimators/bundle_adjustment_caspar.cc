@@ -221,7 +221,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     if (options_.refine_focal_length != options_.refine_extra_params &&
         !config_.HasConstantCamIntrinsics(camera.camera_id) &&
         !cameras_from_outside_config_.count(camera.camera_id)) {
-      LOG_FIRST_N(WARNING, 1)
+      LOG(WARNING)
           << "Camera " << camera.camera_id
           << ": refine_focal_length != refine_extra_params is not supported "
              "by CASPAR's merged focal_and_extra block. Observations skipped.";
@@ -476,8 +476,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
       const Image& image = reconstruction_.Image(image_id);
       if (image.IsRefInFrame()) {
         gauge_fixed_frames_.insert(image.FrameId());
-        VLOG(1) << "Gauge fix: fixed frame " << image.FrameId()
-                << " (image " << image_id << ") for TWO_CAMS_FROM_WORLD";
+        VLOG(1) << "Gauge fix: fixed frame " << image.FrameId() << " (image "
+                << image_id << ") for TWO_CAMS_FROM_WORLD";
         return;
       }
     }
@@ -537,8 +537,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VLOG(2) << "  Points: " << num_points_;
 
     if (num_points_ > 0)
-      solver.SetPointNodesFromStackedHost(
-          point_data_.data(), 0, num_points_);
+      solver.SetPointNodesFromStackedHost(point_data_.data(), 0, num_points_);
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       const ModelData& md = model_data_per_model_.at(model_id);
@@ -606,8 +605,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void ReadSolverResults(caspar::GraphSolver& solver) {
     if (num_points_ > 0)
-      solver.GetPointNodesToStackedHost(
-          point_data_.data(), 0, num_points_);
+      solver.GetPointNodesToStackedHost(point_data_.data(), 0, num_points_);
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       const size_t n_poses = num_poses_per_model_.count(model_id)
@@ -685,8 +683,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
             camera, md.principal_point_data.data(), calib_idx);
       THROW_CHECK(camera.VerifyParams());
       VLOG(1) << "Camera " << camera_id << " (" << camera.ModelName() << ")"
-              << " params: [" << params_before
-              << "] -> [" << camera.ParamsToString() << "]";
+              << " params: [" << params_before << "] -> ["
+              << camera.ParamsToString() << "]";
     }
   }
 
@@ -724,34 +722,51 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   static const char* FactorVariantName(FactorVariant v) {
     switch (v) {
-      case FactorVariant::BASE: return "BASE";
-      case FactorVariant::FIXED_POSE: return "FIXED_POSE";
-      case FactorVariant::FIXED_FOCAL_AND_EXTRA: return "FIXED_FAE";
-      case FactorVariant::FIXED_PRINCIPAL_POINT: return "FIXED_PP";
-      case FactorVariant::FIXED_POINT: return "FIXED_POINT";
-      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA: return "FIXED_POSE_FAE";
-      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT: return "FIXED_POSE_PP";
-      case FactorVariant::FIXED_POSE_FIXED_POINT: return "FIXED_POSE_POINT";
-      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT: return "FIXED_FAE_PP";
-      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT: return "FIXED_FAE_POINT";
-      case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT: return "FIXED_PP_POINT";
-      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT: return "FIXED_POSE_FAE_PP";
-      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT: return "FIXED_POSE_FAE_POINT";
-      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT: return "FIXED_POSE_PP_POINT";
-      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT: return "FIXED_FAE_PP_POINT";
-      default: return "UNKNOWN";
+      case FactorVariant::BASE:
+        return "BASE";
+      case FactorVariant::FIXED_POSE:
+        return "FIXED_POSE";
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA:
+        return "FIXED_FAE";
+      case FactorVariant::FIXED_PRINCIPAL_POINT:
+        return "FIXED_PP";
+      case FactorVariant::FIXED_POINT:
+        return "FIXED_POINT";
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
+        return "FIXED_POSE_FAE";
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
+        return "FIXED_POSE_PP";
+      case FactorVariant::FIXED_POSE_FIXED_POINT:
+        return "FIXED_POSE_POINT";
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        return "FIXED_FAE_PP";
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+        return "FIXED_FAE_POINT";
+      case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        return "FIXED_PP_POINT";
+      case FactorVariant::
+          FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        return "FIXED_POSE_FAE_PP";
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+        return "FIXED_POSE_FAE_POINT";
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        return "FIXED_POSE_PP_POINT";
+      case FactorVariant::
+          FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        return "FIXED_FAE_PP_POINT";
+      default:
+        return "UNKNOWN";
     }
   }
 
   void LogFactorDistribution() const {
     VLOG(1) << "=== Caspar factor distribution ===";
-    VLOG(1) << "  Points: " << num_points_
-            << "  Frames: " << TotalPoses();
+    VLOG(1) << "  Points: " << num_points_ << "  Frames: " << TotalPoses();
     for (const auto& [model_id, md] : model_data_per_model_) {
       for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
         if (md.variants[v].num_factors == 0) continue;
-        VLOG(1) << "  model=" << static_cast<int>(model_id)
-                << " variant=" << FactorVariantName(static_cast<FactorVariant>(v))
+        VLOG(1) << "  model=" << static_cast<int>(model_id) << " variant="
+                << FactorVariantName(static_cast<FactorVariant>(v))
                 << " factors=" << md.variants[v].num_factors;
       }
     }

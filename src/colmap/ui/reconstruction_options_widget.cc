@@ -174,7 +174,7 @@ class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
     AddSpacer();
 
 #ifdef CASPAR_ENABLED
-    AddSection("Global BA Backend [experimental]");
+    AddSection("Global Bundle Adjustment Backend");
     {
       auto* backend_combo = new QComboBox(this);
       backend_combo->addItem("CERES");

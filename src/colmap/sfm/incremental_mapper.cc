@@ -1131,7 +1131,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
       options.use_prior_position && ba_config.NumImages() > 2;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
-  LOG(INFO) << "Created bundle adjustment unique pointer";
   if (!use_prior_position) {
     // Fixing the gauge with two cameras leads to a more stable optimization
     // with fewer steps as compared to fixing three points.
