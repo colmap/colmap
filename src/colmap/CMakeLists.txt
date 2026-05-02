@@ -91,6 +91,7 @@ if(CASPAR_ENABLED)
             -DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}
             -DCMAKE_CUDA_COMPILER=${CUDAToolkit_NVCC_EXECUTABLE}
         BUILD_BYPRODUCTS ${_caspar_lib}
+        BUILD_TARGET caspar_lib_core
         # No install step needed — we import the .a directly
         INSTALL_COMMAND ""
     )
