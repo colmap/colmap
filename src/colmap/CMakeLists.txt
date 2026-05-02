@@ -54,14 +54,16 @@ if(CUDA_ENABLED)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
 endif()
 
-if(CASPAR_ENABLED)
+if(CASPAR_ENABLED AND NOT CUDA_ENABLED)
+    message(FATAL_ERROR "CASPAR_ENABLED requires CUDA_ENABLED")
+endif()
+
+if(CASPAR_ENABLED AND CUDA_ENABLED)
     cmake_policy(SET CMP0094 NEW)
     message(STATUS "Enabling CASPAR support")
 
-    find_package(CUDAToolkit REQUIRED)
     include(ExternalProject)
 
-    set(CASPAR_USE_DOUBLE OFF CACHE BOOL "Use double precision in Caspar solver")
     if(CASPAR_USE_DOUBLE)
         set(_caspar_precision "f64")
         add_compile_definitions(CASPAR_USE_DOUBLE)
@@ -91,7 +93,6 @@ if(CASPAR_ENABLED)
         CMAKE_ARGS
             -G ${CMAKE_GENERATOR}
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
             -DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}
             -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}

@@ -63,6 +63,8 @@ option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for V
 
 # Experimental
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
+option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
+
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
 endif()
