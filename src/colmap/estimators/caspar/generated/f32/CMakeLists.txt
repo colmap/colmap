@@ -18,6 +18,30 @@ endif()
 find_package(CUDAToolkit REQUIRED)
 
 include(FetchContent)
+
+# Try a system pybind11 first. find_package() doesn't search Python
+# site-packages, so ask Python where its pybind11 cmake dir lives and use
+# that as a hint. This is preferred because pybind11 < 2.14 calls
+# target_compile_features() with named CXX features (cxx_inheriting_constructors,
+# etc.) that CMake 4.x no longer registers for newer GCC versions, breaking
+# the FetchContent fallback.
+# pybind11's NewTools (used by pybind11 >= 2.6 with FindPython mode) calls
+# python3_add_library, which only exists when FindPython3 is loaded with the
+# Development.Module component.
+find_package(Python3 COMPONENTS Interpreter Development.Module QUIET)
+if(Python3_Interpreter_FOUND)
+  execute_process(
+    COMMAND ${Python3_EXECUTABLE} -c "import pybind11; print(pybind11.get_cmake_dir())"
+    OUTPUT_VARIABLE _pybind11_cmake_dir
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _pybind11_query_rc
+    ERROR_QUIET
+  )
+  if(_pybind11_query_rc EQUAL 0 AND IS_DIRECTORY "${_pybind11_cmake_dir}")
+    list(PREPEND CMAKE_PREFIX_PATH "${_pybind11_cmake_dir}")
+  endif()
+endif()
+
 find_package(pybind11 2.13.6 QUIET)
 if(NOT pybind11_FOUND)
   message(STATUS "pybind11 not found, adding with FetchContent")
@@ -29,7 +53,7 @@ if(NOT pybind11_FOUND)
   )
   FetchContent_MakeAvailable(pybind11)
 else()
-  message(STATUS "pybind11 found")
+  message(STATUS "pybind11 found: ${pybind11_VERSION}")
 endif()
 
 file(GLOB CUDA_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.cu" "*.cc")

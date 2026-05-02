@@ -82,6 +82,9 @@ if(CASPAR_ENABLED)
     set(_caspar_build_dir "${CMAKE_CURRENT_BINARY_DIR}/caspar_generated")
     set(_caspar_lib       "${_caspar_build_dir}/libcaspar_lib_core.a")
 
+    # Resolve symlinks.
+    get_filename_component(_caspar_nvcc "${CUDAToolkit_NVCC_EXECUTABLE}" REALPATH)
+
     ExternalProject_Add(caspar_external
         SOURCE_DIR  ${CASPAR_GEN_DIR}
         BINARY_DIR  ${_caspar_build_dir}
@@ -89,7 +92,7 @@ if(CASPAR_ENABLED)
             -G ${CMAKE_GENERATOR}
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
             -DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}
-            -DCMAKE_CUDA_COMPILER=${CUDAToolkit_NVCC_EXECUTABLE}
+            -DCMAKE_CUDA_COMPILER=${_caspar_nvcc}
         BUILD_BYPRODUCTS ${_caspar_lib}
         # No install step needed — we import the .a directly
         INSTALL_COMMAND ""
