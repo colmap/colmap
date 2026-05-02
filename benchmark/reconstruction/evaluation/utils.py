@@ -599,20 +599,22 @@ def process_scenes(
     num_threads = min(
         args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
     )
-    with multiprocessing.Pool(processes=args.parallelism) as p:
-        results = list(
-            p.imap_unordered(
-                functools.partial(
-                    process_scene,
-                    args,
-                    prepare_scene=prepare_scene,
-                    position_accuracy_gt=position_accuracy_gt,
-                    num_threads=num_threads,
-                ),
-                scene_infos,
-                chunksize=1,
-            )
+    p = multiprocessing.Pool(processes=args.parallelism)
+    results = list(
+        p.imap_unordered(
+            functools.partial(
+                process_scene,
+                args,
+                prepare_scene=prepare_scene,
+                position_accuracy_gt=position_accuracy_gt,
+                num_threads=num_threads,
+            ),
+            scene_infos,
+            chunksize=1,
         )
+    )
+    p.close()
+    p.join()
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
     errors_by_category: dict[str, list] = collections.defaultdict(list)
