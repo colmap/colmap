@@ -289,6 +289,7 @@ def filter_covisibility(
         pair_ids, _ = database.read_two_view_geometry_num_inliers()
         total_pairs = len(pair_ids)
         filtered_count = 0
+        missing_gt_image_names: set[str] = set()
 
         for pair_id in pair_ids:
             image_id1, image_id2 = pycolmap.pair_id_to_image_pair(pair_id)
@@ -298,9 +299,16 @@ def filter_covisibility(
             if name1 is None or name2 is None:
                 continue
 
-            if not is_covisible(
-                images_gt_by_name[name1], images_gt_by_name[name2]
-            ):
+            image_gt1 = images_gt_by_name.get(name1)
+            image_gt2 = images_gt_by_name.get(name2)
+            if image_gt1 is None:
+                missing_gt_image_names.add(name1)
+            if image_gt2 is None:
+                missing_gt_image_names.add(name2)
+            if image_gt1 is None or image_gt2 is None:
+                continue
+
+            if not is_covisible(image_gt1, image_gt2):
                 # Only delete the two-view geometry, so it will be ignored
                 # during reconstruction but keep the raw matches, so upon
                 # re-running the pipeline, the matches will be re-computed,
@@ -312,3 +320,8 @@ def filter_covisibility(
             f"Co-visibility filtering: {filtered_count}/{total_pairs} pairs "
             f"removed, {total_pairs - filtered_count} kept"
         )
+        if missing_gt_image_names:
+            pycolmap.logging.warning(
+                f"Skipped pairs involving {len(missing_gt_image_names)} "
+                f"database image(s) without a GT counterpart"
+            )
