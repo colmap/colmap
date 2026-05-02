@@ -37,10 +37,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
  private:
   ICasparModelAdapter* GetAdapter(const CameraModelId model_id) {
     auto it = adapters_.find(model_id);
-    if (it != adapters_.end()) return it->second.get();
+    if (it != adapters_.end()) {
+      return it->second.get();
+    }
 
     auto adapter = CreateCasparAdapter(model_id);
-    if (!adapter) return nullptr;
+    if (!adapter) {
+      return nullptr;
+    }
 
     auto* ptr = adapter.get();
     adapters_[model_id] = std::move(adapter);
@@ -53,7 +57,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
       const Camera& camera = *image.CameraPtr();
-      if (!GetAdapter(camera.model_id)) continue;
+      if (!GetAdapter(camera.model_id)) {
+        continue;
+      }
       auto key = std::make_pair(image.CameraId(), image.FrameId());
       camera_frame_to_images_[key].push_back(image_id);
     }
@@ -70,15 +76,19 @@ class CasparBundleAdjuster : public BundleAdjuster {
         continue;
       }
       for (const Point2D& point2D : image.Points2D()) {
-        if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id))
+        if (!point2D.HasPoint3D() ||
+            config_.IsIgnoredPoint(point2D.point3D_id)) {
           continue;
+        }
         point3D_num_observations_[point2D.point3D_id]++;
       }
     }
-    for (const auto point3D_id : config_.VariablePoints())
+    for (const auto point3D_id : config_.VariablePoints()) {
       CountExternalObservations(point3D_id);
-    for (const auto point3D_id : config_.ConstantPoints())
+    }
+    for (const auto point3D_id : config_.ConstantPoints()) {
       CountExternalObservations(point3D_id);
+    }
   }
 
   void CountExternalObservations(const point3D_t point3D_id) {
@@ -87,8 +97,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
       if (!config_.HasImage(track_el.image_id)) {
         Image& image = reconstruction_.Image(track_el.image_id);
         Camera& camera = *image.CameraPtr();
-        if (GetAdapter(camera.model_id))
+        if (GetAdapter(camera.model_id)) {
           point3D_num_observations_[point3D_id]++;
+        }
       }
     }
   }
@@ -103,8 +114,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void CreateCalibrationNodes() {
     std::vector<camera_t> sorted_camera_ids;
-    for (const image_t image_id : config_.Images())
+    for (const image_t image_id : config_.Images()) {
       sorted_camera_ids.push_back(reconstruction_.Image(image_id).CameraId());
+    }
     std::sort(sorted_camera_ids.begin(), sorted_camera_ids.end());
     sorted_camera_ids.erase(
         std::unique(sorted_camera_ids.begin(), sorted_camera_ids.end()),
@@ -112,7 +124,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     for (const camera_t camera_id : sorted_camera_ids) {
       const Camera& camera = reconstruction_.Camera(camera_id);
-      if (!GetAdapter(camera.model_id)) continue;
+      if (!GetAdapter(camera.model_id)) {
+        continue;
+      }
       GetOrCreateCalibration(camera_id, camera);
     }
   }
@@ -125,19 +139,22 @@ class CasparBundleAdjuster : public BundleAdjuster {
       const Camera& camera = reconstruction_.Camera(image.CameraId());
       frame_to_model.emplace(image.FrameId(), camera.model_id);
     }
-    for (const auto& [frame_id, model_id] : frame_to_model)
+    for (const auto& [frame_id, model_id] : frame_to_model) {
       GetOrCreatePose(frame_id, model_id);
+    }
   }
 
   void CreatePointNodes() {
     std::vector<point3D_t> sorted_point_ids;
     for (const auto& [point_id, _] : reconstruction_.Points3D()) {
-      if (!config_.IsIgnoredPoint(point_id))
+      if (!config_.IsIgnoredPoint(point_id)) {
         sorted_point_ids.push_back(point_id);
+      }
     }
     std::sort(sorted_point_ids.begin(), sorted_point_ids.end());
-    for (const point3D_t point_id : sorted_point_ids)
+    for (const point3D_t point_id : sorted_point_ids) {
       GetOrCreatePoint(point_id, reconstruction_.Point3D(point_id));
+    }
   }
 
   void AddFactorsInOptimalOrder() {
@@ -154,15 +171,16 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void AddFactorsForCalibration(camera_t camera_id, CameraModelId model_id) {
     for (const auto& [key, image_ids] : camera_frame_to_images_) {
-      if (key.first != camera_id) continue;
+      if (key.first != camera_id) {
+        continue;
+      }
       for (const image_t image_id : image_ids) {
         const Image& image = reconstruction_.Image(image_id);
         for (const Point2D& p2d : image.Points2D()) {
-          if (!p2d.HasPoint3D() || config_.IsIgnoredPoint(p2d.point3D_id))
+          if (!p2d.HasPoint3D() || config_.IsIgnoredPoint(p2d.point3D_id) ||
+              !point_id_to_index_.count(p2d.point3D_id)) {
             continue;
-          if (point_id_to_index_.find(p2d.point3D_id) ==
-              point_id_to_index_.end())
-            continue;
+          }
           AddFactorForObservation(image,
                                   *image.CameraPtr(),
                                   p2d,
@@ -173,10 +191,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void AddExternalFactors() {
-    for (const auto point3D_id : config_.VariablePoints())
+    for (const auto point3D_id : config_.VariablePoints()) {
       AddFactorsForExternalObservations(point3D_id);
-    for (const auto point3D_id : config_.ConstantPoints())
+    }
+    for (const auto point3D_id : config_.ConstantPoints()) {
       AddFactorsForExternalObservations(point3D_id);
+    }
   }
 
   void AddFactorsForExternalObservations(const point3D_t point3D_id) {
@@ -185,7 +205,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     GetOrCreatePoint(point3D_id, point3D);
 
     for (const auto& track_el : point3D.track.Elements()) {
-      if (config_.HasImage(track_el.image_id)) continue;
+      if (config_.HasImage(track_el.image_id)) {
+        continue;
+      }
       Image& image = reconstruction_.Image(track_el.image_id);
       Camera& camera = *image.CameraPtr();
       if (!GetAdapter(camera.model_id)) {
@@ -209,7 +231,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
                                const Point2D& point2D,
                                const Point3D& point3D) {
     ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
-    if (!adapter) return;
+    if (!adapter) {
+      return;
+    }
 
     const bool pose_var = IsPoseVariable(image.FrameId());
     const bool focal_and_extra_var = IsFocalAndExtraVariable(camera.camera_id);
@@ -230,98 +254,110 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     // For non-ref cameras with a variable rig pose, Caspar can't express
     // project(CamFromRig * RigFromWorld * point, calib) as a variable-pose
-    // factor.
-    if (!image.IsRefInFrame() && pose_var) return;
+    // factor. See caspar/caspar_generate.py
+    if (!image.IsRefInFrame() && pose_var) {
+      LOG(WARNING) << "Image " << image.ImageId()
+                   << ": non-ref rig camera with variable pose; CASPAR cannot "
+                      "chain CamFromRig * RigFromWorld into a single pose "
+                      "variable. Observations skipped.";
+      return;
+    }
 
     const bool effective_pose_var = pose_var && image.IsRefInFrame();
 
     // Skip fully-constant observations, there's nothing to optimize
     if (!effective_pose_var && !focal_and_extra_var && !principal_point_var &&
-        !point_var)
+        !point_var) {
       return;
+    }
 
     const size_t calib_idx = GetOrCreateCalibration(camera.camera_id, camera);
     ModelData& md = model_data_per_model_.at(camera.model_id);
 
     FactorVariant v;
     if (effective_pose_var && focal_and_extra_var && principal_point_var &&
-        point_var)
+        point_var) {
       v = FactorVariant::BASE;
-    else if (!effective_pose_var && focal_and_extra_var &&
-             principal_point_var && point_var)
+    } else if (!effective_pose_var && focal_and_extra_var &&
+               principal_point_var && point_var) {
       v = FactorVariant::FIXED_POSE;
-    else if (effective_pose_var && !focal_and_extra_var &&
-             principal_point_var && point_var)
+    } else if (effective_pose_var && !focal_and_extra_var &&
+               principal_point_var && point_var) {
       v = FactorVariant::FIXED_FOCAL_AND_EXTRA;
-    else if (effective_pose_var && focal_and_extra_var &&
-             !principal_point_var && point_var)
+    } else if (effective_pose_var && focal_and_extra_var &&
+               !principal_point_var && point_var) {
       v = FactorVariant::FIXED_PRINCIPAL_POINT;
-    else if (effective_pose_var && focal_and_extra_var && principal_point_var &&
-             !point_var)
+    } else if (effective_pose_var && focal_and_extra_var &&
+               principal_point_var && !point_var) {
       v = FactorVariant::FIXED_POINT;
-    else if (!effective_pose_var && !focal_and_extra_var &&
-             principal_point_var && point_var)
+    } else if (!effective_pose_var && !focal_and_extra_var &&
+               principal_point_var && point_var) {
       v = FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA;
-    else if (!effective_pose_var && focal_and_extra_var &&
-             !principal_point_var && point_var)
+    } else if (!effective_pose_var && focal_and_extra_var &&
+               !principal_point_var && point_var) {
       v = FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT;
-    else if (!effective_pose_var && focal_and_extra_var &&
-             principal_point_var && !point_var)
+    } else if (!effective_pose_var && focal_and_extra_var &&
+               principal_point_var && !point_var) {
       v = FactorVariant::FIXED_POSE_FIXED_POINT;
-    else if (effective_pose_var && !focal_and_extra_var &&
-             !principal_point_var && point_var)
+    } else if (effective_pose_var && !focal_and_extra_var &&
+               !principal_point_var && point_var) {
       v = FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT;
-    else if (effective_pose_var && !focal_and_extra_var &&
-             principal_point_var && !point_var)
+    } else if (effective_pose_var && !focal_and_extra_var &&
+               principal_point_var && !point_var) {
       v = FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT;
-    else if (effective_pose_var && focal_and_extra_var &&
-             !principal_point_var && !point_var)
+    } else if (effective_pose_var && focal_and_extra_var &&
+               !principal_point_var && !point_var) {
       v = FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT;
-    else if (!effective_pose_var && !focal_and_extra_var &&
-             !principal_point_var && point_var)
+    } else if (!effective_pose_var && !focal_and_extra_var &&
+               !principal_point_var && point_var) {
       v = FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT;
-    else if (!effective_pose_var && !focal_and_extra_var &&
-             principal_point_var && !point_var)
+    } else if (!effective_pose_var && !focal_and_extra_var &&
+               principal_point_var && !point_var) {
       v = FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT;
-    else if (!effective_pose_var && focal_and_extra_var &&
-             !principal_point_var && !point_var)
+    } else if (!effective_pose_var && focal_and_extra_var &&
+               !principal_point_var && !point_var) {
       v = FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT;
-    else  // pose && !focal_and_extra && !principal_point && !point
+    } else {  // pose && !focal_and_extra && !principal_point && !point
       v = FactorVariant::
           FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT;
+    }
 
     VariantData& vd = md.variants[static_cast<int>(v)];
 
-    if (effective_pose_var)
+    if (effective_pose_var) {
       vd.pose_indices.push_back(
           GetOrCreatePose(image.FrameId(), camera.model_id));
-    else
+    } else {
       // Use CamFromWorld() which correctly computes CamFromRig * RigFromWorld
       // for non-ref cameras, and equals RigFromWorld for ref cameras.
       AppendPose(vd.const_poses, image.CamFromWorld());
+    }
 
     if (focal_and_extra_var) {
       vd.focal_and_extra_indices.push_back(calib_idx);
     } else {
       const size_t fs = adapter->FocalAndExtraSize();
-      for (size_t i = 0; i < fs; ++i)
+      for (size_t i = 0; i < fs; ++i) {
         vd.const_focal_and_extra.push_back(
             md.focal_and_extra_data[calib_idx * fs + i]);
+      }
     }
 
     if (principal_point_var) {
       vd.principal_point_indices.push_back(calib_idx);
     } else {
       const size_t ps = adapter->PrincipalPointSize();
-      for (size_t i = 0; i < ps; ++i)
+      for (size_t i = 0; i < ps; ++i) {
         vd.const_principal_point.push_back(
             md.principal_point_data[calib_idx * ps + i]);
+      }
     }
 
-    if (point_var)
+    if (point_var) {
       vd.point_indices.push_back(GetOrCreatePoint(point2D.point3D_id, point3D));
-    else
+    } else {
       AppendPoint(vd.const_points, point3D);
+    }
 
     vd.pixels.push_back(point2D.xy.x());
     vd.pixels.push_back(point2D.xy.y());
@@ -395,28 +431,24 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   bool IsPoseVariable(const frame_t frame_id) const {
-    if (!options_.refine_rig_from_world) return false;
-    if (config_.HasConstantRigFromWorldPose(frame_id)) return false;
-    if (frames_from_outside_config_.count(frame_id)) return false;
-    if (gauge_fixed_frames_.count(frame_id)) return false;
-    return true;
+    return options_.refine_rig_from_world &&
+           !config_.HasConstantRigFromWorldPose(frame_id) &&
+           !frames_from_outside_config_.count(frame_id) &&
+           !gauge_fixed_frames_.count(frame_id);
   }
 
   // Both focal and extra_params must be refined together (merged block).
   // If they disagree, observations are skipped. See AddFactorForObservation.
   bool IsFocalAndExtraVariable(const camera_t camera_id) const {
-    if (!options_.refine_focal_length || !options_.refine_extra_params)
-      return false;
-    if (config_.HasConstantCamIntrinsics(camera_id)) return false;
-    if (cameras_from_outside_config_.count(camera_id)) return false;
-    return true;
+    return options_.refine_focal_length && options_.refine_extra_params &&
+           !config_.HasConstantCamIntrinsics(camera_id) &&
+           !cameras_from_outside_config_.count(camera_id);
   }
 
   bool IsPrincipalPointVariable(const camera_t camera_id) const {
-    if (!options_.refine_principal_point) return false;
-    if (config_.HasConstantCamIntrinsics(camera_id)) return false;
-    if (cameras_from_outside_config_.count(camera_id)) return false;
-    return true;
+    return options_.refine_principal_point &&
+           !config_.HasConstantCamIntrinsics(camera_id) &&
+           !cameras_from_outside_config_.count(camera_id);
   }
 
   bool AreIntrinsicsVariable(const camera_t camera_id) const {
@@ -425,13 +457,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   bool IsPointVariable(const point3D_t point3D_id) const {
-    if (config_.HasConstantPoint(point3D_id)) return false;
-    if (gauge_fixed_points_.count(point3D_id)) return false;
-    auto it = point3D_num_observations_.find(point3D_id);
-    if (it == point3D_num_observations_.end()) return false;
-    const Point3D& point3D = reconstruction_.Point3D(point3D_id);
-    if (point3D.track.Length() > it->second) return false;
-    return true;
+    if (config_.HasConstantPoint(point3D_id) ||
+        gauge_fixed_points_.count(point3D_id)) {
+      return false;
+    }
+    const auto it = point3D_num_observations_.find(point3D_id);
+    return it != point3D_num_observations_.end() &&
+           reconstruction_.Point3D(point3D_id).track.Length() <= it->second;
   }
 
   void FixGauge() {
@@ -454,7 +486,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
   // the extra shared-memory cost is not worth it, so scale is left as the one
   // unfixed gauge DOF.
   void FixGaugeWithOneFrameFromWorld() {
-    if (!options_.refine_rig_from_world) return;
+    if (!options_.refine_rig_from_world) {
+      return;
+    }
 
     // Sort image IDs for deterministic selection (matches Ceres BA behavior).
     std::vector<image_t> sorted_image_ids(config_.Images().begin(),
@@ -536,8 +570,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VLOG(2) << "=== CASPAR SOLVER SETUP ===";
     VLOG(2) << "  Points: " << num_points_;
 
-    if (num_points_ > 0)
+    if (num_points_ > 0) {
       solver.SetPointNodesFromStackedHost(point_data_.data(), 0, num_points_);
+    }
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       const ModelData& md = model_data_per_model_.at(model_id);
@@ -548,9 +583,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
       VLOG(2) << "  Poses (" << static_cast<int>(model_id) << "): " << n_poses;
 
-      if (n_poses > 0)
+      if (n_poses > 0) {
         adapter_ptr->SetPoseNodes(
             solver, pose_data_per_model_.at(model_id).data(), n_poses);
+      }
 
       if (n_calib > 0) {
         adapter_ptr->SetFocalAndExtraNodes(
@@ -578,12 +614,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
           const size_t cal_size = adapter_ptr->CalibSize();
           std::vector<StorageType> calib_data(n_calib * cal_size);
           for (size_t i = 0; i < n_calib; ++i) {
-            for (size_t j = 0; j < fae_size; ++j)
+            for (size_t j = 0; j < fae_size; ++j) {
               calib_data[i * cal_size + j] =
                   md.focal_and_extra_data[i * fae_size + j];
-            for (size_t j = 0; j < pp_size; ++j)
+            }
+            for (size_t j = 0; j < pp_size; ++j) {
               calib_data[i * cal_size + fae_size + j] =
                   md.principal_point_data[i * pp_size + j];
+            }
           }
           if (n_calib > 0) {
             VLOG(2) << "  SetCalibNodes [cam 0, model "
@@ -595,25 +633,28 @@ class CasparBundleAdjuster : public BundleAdjuster {
         }
       }
       for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
-        if (md.variants[v].num_factors > 0)
+        if (md.variants[v].num_factors > 0) {
           adapter_ptr->SetVariantFactors(
               solver, static_cast<FactorVariant>(v), md.variants[v]);
+        }
       }
     }
     solver.finish_indices();
   }
 
   void ReadSolverResults(caspar::GraphSolver& solver) {
-    if (num_points_ > 0)
+    if (num_points_ > 0) {
       solver.GetPointNodesToStackedHost(point_data_.data(), 0, num_points_);
+    }
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
       const size_t n_poses = num_poses_per_model_.count(model_id)
                                  ? num_poses_per_model_.at(model_id)
                                  : 0;
-      if (n_poses > 0)
+      if (n_poses > 0) {
         adapter_ptr->GetPoseNodes(
             solver, pose_data_per_model_.at(model_id).data(), n_poses);
+      }
     }
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
@@ -649,12 +690,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
                     << calib_data[3] << "]";
           }
           for (size_t i = 0; i < n_calib; ++i) {
-            for (size_t j = 0; j < fae_size; ++j)
+            for (size_t j = 0; j < fae_size; ++j) {
               md.focal_and_extra_data[i * fae_size + j] =
                   calib_data[i * cal_size + j];
-            for (size_t j = 0; j < pp_size; ++j)
+            }
+            for (size_t j = 0; j < pp_size; ++j) {
               md.principal_point_data[i * pp_size + j] =
                   calib_data[i * cal_size + fae_size + j];
+            }
           }
           if (n_calib > 0) {
             VLOG(2) << "  After split-back [cam 0]: fae=["
@@ -670,17 +713,21 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void WriteCalibsToReconstruction() {
     for (const auto& [camera_id, calib_idx] : camera_to_calib_index_) {
-      if (!AreIntrinsicsVariable(camera_id)) continue;
+      if (!AreIntrinsicsVariable(camera_id)) {
+        continue;
+      }
       Camera& camera = reconstruction_.Camera(camera_id);
       ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
       const ModelData& md = model_data_per_model_.at(camera.model_id);
       const std::string params_before = camera.ParamsToString();
-      if (IsFocalAndExtraVariable(camera_id))
+      if (IsFocalAndExtraVariable(camera_id)) {
         adapter->WriteFocalAndExtra(
             camera, md.focal_and_extra_data.data(), calib_idx);
-      if (IsPrincipalPointVariable(camera_id))
+      }
+      if (IsPrincipalPointVariable(camera_id)) {
         adapter->WritePrincipalPoint(
             camera, md.principal_point_data.data(), calib_idx);
+      }
       THROW_CHECK(camera.VerifyParams());
       VLOG(1) << "Camera " << camera_id << " (" << camera.ModelName() << ")"
               << " params: [" << params_before << "] -> ["
@@ -690,10 +737,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void WriteResultsToReconstruction() {
     for (const auto& [idx, point_id] : index_to_point_id_) {
-      if (config_.HasConstantPoint(point_id)) continue;
       // Points with external observations are non-variable but have solver
       // nodes holding float copies; skip to avoid writing back stale values.
-      if (!IsPointVariable(point_id)) continue;
+      if (!IsPointVariable(point_id)) {
+        continue;
+      }
       Point3D& point = reconstruction_.Point3D(point_id);
       point.xyz.x() = point_data_[idx * 3 + 0];
       point.xyz.y() = point_data_[idx * 3 + 1];
@@ -704,7 +752,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
          pose_index_to_frame_per_model_) {
       const auto& data = pose_data_per_model_.at(model_id);
       for (const auto& [idx, frame_id] : idx_to_frame) {
-        if (!IsPoseVariable(frame_id)) continue;
+        if (!IsPoseVariable(frame_id)) {
+          continue;
+        }
         Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
         pose.rotation().x() = data[idx * 7 + 0];
         pose.rotation().y() = data[idx * 7 + 1];
@@ -764,7 +814,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VLOG(1) << "  Points: " << num_points_ << "  Frames: " << TotalPoses();
     for (const auto& [model_id, md] : model_data_per_model_) {
       for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
-        if (md.variants[v].num_factors == 0) continue;
+        if (md.variants[v].num_factors == 0) {
+          continue;
+        }
         VLOG(1) << "  model=" << static_cast<int>(model_id) << " variant="
                 << FactorVariantName(static_cast<FactorVariant>(v))
                 << " factors=" << md.variants[v].num_factors;
@@ -792,11 +844,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
     CasparSolverSizing sz;
     sz.num_points = num_points_;
     if (auto it = num_poses_per_model_.find(CameraModelId::kSimpleRadial);
-        it != num_poses_per_model_.end())
+        it != num_poses_per_model_.end()) {
       sz.num_simple_radial_poses = it->second;
+    }
     if (auto it = num_poses_per_model_.find(CameraModelId::kPinhole);
-        it != num_poses_per_model_.end())
+        it != num_poses_per_model_.end()) {
       sz.num_pinhole_poses = it->second;
+    }
 
     auto get_md = [&](CameraModelId id) -> const ModelData* {
       auto it = model_data_per_model_.find(id);
@@ -822,7 +876,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   size_t TotalPoses() const {
     size_t n = 0;
-    for (const auto& [_, count] : num_poses_per_model_) n += count;
+    for (const auto& [_, count] : num_poses_per_model_) {
+      n += count;
+    }
     return n;
   }
 
