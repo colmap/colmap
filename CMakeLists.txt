@@ -67,6 +67,9 @@ option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
 
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
+    if(CASPAR_USE_DOUBLE)
+        add_compile_definitions(CASPAR_USE_DOUBLE)
+    endif()
 endif()
 
 # Disables default features, as we specify each required feature manually below.
@@ -455,6 +458,9 @@ if(FETCH_POSELIB)
 endif()
 if(FETCH_FAISS)
     list(APPEND COLMAP_EXPORT_LIBS faiss)
+endif()
+if(CASPAR_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS caspar_lib_core)
 endif()
 
 # Add unified interface library target to export.
