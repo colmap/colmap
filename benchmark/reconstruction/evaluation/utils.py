@@ -883,15 +883,18 @@ def process_scenes(
                 "Interrupted, terminating workers and child processes..."
             )
             p.terminate()
-            p.join()
+            raise
+        except BaseException:
+            p.terminate()
             raise
         else:
             p.close()
+        finally:
             p.join()
     finally:
         stop_event.set()
         if monitor_thread is not None:
-            monitor_thread.join(timeout=2)
+            monitor_thread.join()
         if manager is not None:
             manager.shutdown()
 
