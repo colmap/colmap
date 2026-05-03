@@ -66,6 +66,10 @@ struct RotationEstimatorOptions {
   // If > 0, filter image pairs with rotation error exceeding this threshold
   // after solving, then recompute active set.
   double max_rotation_error_deg = 10.0;
+
+  // When false, treat each non-ref sensor's cam_from_rig rotation as a
+  // pre-calibrated constant
+  bool refine_sensor_from_rig = true;
 };
 
 // High-level interface for rotation averaging.
@@ -114,9 +118,12 @@ class RotationEstimator {
 // Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
 // then computes rig_from_world for each frame.
+// When refine_sensor_from_rig is false, the per-sensor cam_from_rig
+// values are left untouched.
 bool InitializeRigRotationsFromImages(
     const std::unordered_map<image_t, Rigid3d>& cams_from_world,
-    Reconstruction& reconstruction);
+    Reconstruction& reconstruction,
+    bool refine_sensor_from_rig = true);
 
 // High-level rotation averaging solver that handles rig expansion.
 // For cameras with unknown cam_from_rig, first estimates their orientations

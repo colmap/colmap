@@ -227,10 +227,16 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
       Rig& rig = reconstruction.Rig(rig_id);
       Rigid3d& cam_from_rig = rig.SensorFromRig(image.CameraPtr()->SensorId());
 
-      if (!cam_from_rig.translation().hasNaN()) {
+      const bool keep_rig_fixed =
+          !cam_from_rig.translation().hasNaN() ||
+          !options_.refine_sensor_from_rig;
+      if (keep_rig_fixed) {
+        Eigen::Vector3d cam_in_rig = cam_from_rig.translation();
+        if (cam_in_rig.hasNaN()) {
+          cam_in_rig.setZero();
+        }
         const Eigen::Vector3d cam_from_rig_dir =
-            image.CamFromWorld().rotation().inverse() *
-            cam_from_rig.translation();
+            image.CamFromWorld().rotation().inverse() * cam_in_rig;
 
         ceres::CostFunction* cost_function =
             RigBATAPairwiseDirectionConstantRigCostFunctor::Create(
@@ -426,17 +432,19 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
     rig_from_world.translation() = rig_from_world.rotation() * -center;
   }
 
-  // Convert optimized cam_in_rig back to sensor_from_rig translations.
-  for (const auto& [sensor_id, center] : cams_in_rig_) {
-    // Find the rig containing this sensor.
-    for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-      if (!rig.HasSensor(sensor_id)) {
-        continue;
+  if (options_.refine_sensor_from_rig) {
+    // Convert optimized cam_in_rig back to sensor_from_rig translations.
+    for (const auto& [sensor_id, center] : cams_in_rig_) {
+      // Find the rig containing this sensor.
+      for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+        if (!rig.HasSensor(sensor_id)) {
+          continue;
+        }
+        Rigid3d& sensor_from_rig =
+            reconstruction.Rig(rig_id).SensorFromRig(sensor_id);
+        sensor_from_rig.translation() = sensor_from_rig.rotation() * -center;
+        break;
       }
-      Rigid3d& sensor_from_rig =
-          reconstruction.Rig(rig_id).SensorFromRig(sensor_id);
-      sensor_from_rig.translation() = sensor_from_rig.rotation() * -center;
-      break;
     }
   }
 }
