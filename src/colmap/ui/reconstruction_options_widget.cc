@@ -167,7 +167,7 @@ class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
                 options->mapper->ba_local_backend =
                     static_cast<BundleAdjustmentBackend>(idx);
               });
-      AddWidgetRow("backend [experimental]", backend_combo);
+      AddWidgetRow("local_backend", backend_combo);
     }
 #endif
 
@@ -180,14 +180,14 @@ class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
       backend_combo->addItem("CERES");
       backend_combo->addItem("CASPAR");
       backend_combo->setCurrentIndex(
-          static_cast<int>(options->mapper->ba_backend));
+          static_cast<int>(options->mapper->ba_global_backend));
       connect(backend_combo,
               QOverload<int>::of(&QComboBox::currentIndexChanged),
               [options](int idx) {
-                options->mapper->ba_backend =
+                options->mapper->ba_global_backend =
                     static_cast<BundleAdjustmentBackend>(idx);
               });
-      AddWidgetRow("backend", backend_combo);
+      AddWidgetRow("global_backend", backend_combo);
     }
 #endif
 

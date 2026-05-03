@@ -143,7 +143,7 @@ struct IncrementalPipelineOptions {
   BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
 
   // Bundle adjustment solver backend for global bundle adjustment.
-  BundleAdjustmentBackend ba_backend = BundleAdjustmentBackend::CERES;
+  BundleAdjustmentBackend ba_global_backend = BundleAdjustmentBackend::CERES;
 
   // Whether to use priors on the camera positions.
   bool use_prior_position = false;

@@ -647,8 +647,8 @@ void OptionManager::AddMapperOptions() {
                        &mapper->ba_local_backend,
                        BundleAdjustmentBackendToString,
                        BundleAdjustmentBackendFromString);
-  AddDefaultEnumOption("Mapper.ba_backend",
-                       &mapper->ba_backend,
+  AddDefaultEnumOption("Mapper.ba_global_backend",
+                       &mapper->ba_global_backend,
                        BundleAdjustmentBackendToString,
                        BundleAdjustmentBackendFromString);
   AddDefaultOption("Mapper.ba_min_num_residuals_for_cpu_multi_threading",
