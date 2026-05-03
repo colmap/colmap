@@ -36,6 +36,9 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 
+#include <map>
+#include <utility>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -370,6 +373,62 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
                         .SensorFromRig(sensor_id)
                         .rotation()),
                 1e-6);
+    }
+  }
+}
+
+TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
+  SetPRNGSeed(1);
+
+  // A non-trivial multi-camera rig so both rotation AND translation are
+  // non-zero
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  // Snapshot the rig BEFORE RA so we can compare element-wise.
+  std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sfr] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sfr.has_value());
+      snapshot[{rig_id, sensor_id}] = *sfr;
+    }
+  }
+  // Sanity check: at least one sensor should have a non-zero translation
+  // so the test would actually catch the old "reset to zero" behaviour.
+  ASSERT_GT(snapshot.size(), 0u);
+
+  // Run RA with refine_sensor_from_rig=false.
+  RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
+  options.refine_sensor_from_rig = false;
+  ASSERT_TRUE(RunRotationAveraging(options,
+                                   data.pose_graph,
+                                   data.reconstruction,
+                                   data.pose_priors));
+
+  // Every sensor_from_rig must match the snapshot exactly.
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sfr_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sfr_after.has_value())
+          << "rig=" << rig_id << " sensor=" << sensor_id.id;
+      const auto& sfr_before = snapshot.at({rig_id, sensor_id});
+      // Rotation: quaternion components match exactly. Use coeffs() for
+      // a single 4-vector compare with EXPECT_EQ semantics.
+      EXPECT_EQ(sfr_after->rotation().coeffs(), sfr_before.rotation().coeffs())
+          << "rig=" << rig_id << " sensor=" << sensor_id.id
+          << ": rotation modified";
+      // Translation: must match exactly (no NaN-poisoning, no zero-reset).
+      EXPECT_EQ(sfr_after->translation(), sfr_before.translation())
+          << "rig=" << rig_id << " sensor=" << sensor_id.id
+          << ": translation modified (was "
+          << sfr_before.translation().transpose() << ", got "
+          << sfr_after->translation().transpose() << ")";
     }
   }
 }
