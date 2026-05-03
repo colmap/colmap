@@ -456,15 +456,6 @@ def parse_args() -> argparse.Namespace:
         default=[0.02, 0.05, 0.2, 0.5],
         help="Evaluation thresholds in meters.",
     )
-    parser.add_argument(
-        "--colmap_extra_args",
-        nargs="+",
-        default=[],
-        metavar="ARG",
-        help="Extra arguments forwarded verbatim to the COLMAP binary, e.g. "
-        "--colmap_extra_args --IncrementalPipeline.ba_local_backend CERES "
-        "--IncrementalPipeline.ba_backend CERES",
-    )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
     if args.fast and args.fast_num_scenes <= 0:
@@ -725,7 +716,7 @@ def process_scene(
             sparse_gt if args.filter_covisibility else None
         ),
         num_threads=num_threads,
-        colmap_extra_args=scene_info.colmap_extra_args + args.colmap_extra_args,
+        colmap_extra_args=scene_info.colmap_extra_args,
         gpu_index=gpu_index,
         phase_tracker=tracker,
     )
@@ -868,38 +859,32 @@ def process_scenes(
         )
         monitor_thread.start()
 
-    p = multiprocessing.Pool(
-        processes=num_parallel_scenes, initializer=_init_pool_worker
-    )
     try:
-        try:
-            results = list(
-                p.imap_unordered(
-                    functools.partial(
-                        _process_scene_with_gpu,
-                        args=args,
-                        prepare_scene=prepare_scene,
-                        position_accuracy_gt=position_accuracy_gt,
-                        num_threads=num_threads_per_scene,
-                        progress_status=progress_status,
-                    ),
-                    scene_gpu_pairs,
-                    chunksize=1,
+        with multiprocessing.Pool(
+            processes=num_parallel_scenes, initializer=_init_pool_worker
+        ) as p:
+            try:
+                results = list(
+                    p.imap_unordered(
+                        functools.partial(
+                            _process_scene_with_gpu,
+                            args=args,
+                            prepare_scene=prepare_scene,
+                            position_accuracy_gt=position_accuracy_gt,
+                            num_threads=num_threads_per_scene,
+                            progress_status=progress_status,
+                        ),
+                        scene_gpu_pairs,
+                        chunksize=1,
+                    )
                 )
-            )
-            p.close()
-            p.join()
-        except KeyboardInterrupt:
-            pycolmap.logging.warning(
-                "Interrupted, terminating workers and child processes..."
-            )
-            p.terminate()
-            p.join()
-            raise
-        except Exception:
-            p.terminate()
-            p.join()
-            raise
+            except KeyboardInterrupt:
+                pycolmap.logging.warning(
+                    "Interrupted, terminating workers and child processes..."
+                )
+                p.terminate()
+                p.join()
+                raise
     finally:
         stop_event.set()
         if monitor_thread is not None:
