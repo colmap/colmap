@@ -35,7 +35,11 @@
 #include <cstddef>
 #include <vector>
 #ifdef CASPAR_ENABLED
-#include <solver.h>
+#ifdef CASPAR_USE_DOUBLE
+#include "thirdparty/Symforce-Caspar/generated/f64/solver.h"
+#else
+#include "thirdparty/Symforce-Caspar/generated/f32/solver.h"
+#endif
 #endif
 
 #ifdef CASPAR_USE_DOUBLE
@@ -44,7 +48,8 @@ typedef double StorageType;
 typedef float StorageType;
 #endif
 
-#define CASPAR_NUM_VARIANTS 15  // 2^4 - 1: all combinations with at least one variable param.
+// 2^4 - 1: all combinations with at least one variable param.
+#define CASPAR_NUM_VARIANTS 15
 enum class FactorVariant {
   // r=0
   BASE,
@@ -57,7 +62,7 @@ enum class FactorVariant {
   FIXED_POSE_FIXED_FOCAL_AND_EXTRA,
   FIXED_POSE_FIXED_PRINCIPAL_POINT,
   FIXED_POSE_FIXED_POINT,
-  FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,   // calibrated camera
+  FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,  // calibrated camera
   FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
   FIXED_PRINCIPAL_POINT_FIXED_POINT,
   // r=3
@@ -73,18 +78,22 @@ struct VariantData {
   std::vector<unsigned int> principal_point_indices;
   std::vector<unsigned int> point_indices;
 
-  std::vector<StorageType> const_poses;             // 7 floats per factor
-  std::vector<StorageType> const_focal_and_extra;   // FocalAndExtraSize() per factor
-  std::vector<StorageType> const_principal_point;   // PrincipalPointSize() per factor
-  std::vector<StorageType> const_points;            // 3 floats per factor
+  std::vector<StorageType> const_poses;  // 7 floats per factor
+  std::vector<StorageType>
+      const_focal_and_extra;  // FocalAndExtraSize() per factor
+  std::vector<StorageType>
+      const_principal_point;              // PrincipalPointSize() per factor
+  std::vector<StorageType> const_points;  // 3 floats per factor
 
   std::vector<StorageType> pixels;  // 2 floats per factor
   size_t num_factors = 0;
 };
 
 struct ModelData {
-  std::vector<StorageType> focal_and_extra_data;   // FocalAndExtraSize() entries per camera
-  std::vector<StorageType> principal_point_data;   // PrincipalPointSize() per camera
+  std::vector<StorageType>
+      focal_and_extra_data;  // FocalAndExtraSize() entries per camera
+  std::vector<StorageType>
+      principal_point_data;  // PrincipalPointSize() per camera
   std::array<VariantData, CASPAR_NUM_VARIANTS>
       variants{};  // Indexed by FactorVariant
 };

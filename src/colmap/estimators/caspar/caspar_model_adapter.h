@@ -7,7 +7,11 @@
 #include <memory>
 #include <vector>
 
-#include <solver.h>
+#ifdef CASPAR_USE_DOUBLE
+#include "thirdparty/Symforce-Caspar/generated/f64/solver.h"
+#else
+#include "thirdparty/Symforce-Caspar/generated/f32/solver.h"
+#endif
 
 namespace colmap {
 

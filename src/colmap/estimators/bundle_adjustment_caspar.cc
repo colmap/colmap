@@ -7,7 +7,6 @@
 #include "colmap/sensor/models.h"
 #ifdef CASPAR_ENABLED
 #include "caspar/caspar_model_adapter.h"
-#include <solver.h>
 #endif
 
 namespace colmap {
