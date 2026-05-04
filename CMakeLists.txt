@@ -506,7 +506,25 @@ install(
 install(
     DIRECTORY src/thirdparty
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/colmap
-    FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
+    FILES_MATCHING
+        REGEX ".*[.]h|.*[.]hpp|.*[.]inl"
+        PATTERN "Symforce-Caspar" EXCLUDE)
+
+# Only ship the active Caspar precision tree (avoids bundling unused kernel
+# headers and the inactive precision when CASPAR_ENABLED is off).
+if(CASPAR_ENABLED)
+    if(CASPAR_USE_DOUBLE)
+        set(_caspar_install_precision "f64")
+    else()
+        set(_caspar_install_precision "f32")
+    endif()
+    install(
+        DIRECTORY
+            src/thirdparty/Symforce-Caspar/generated/${_caspar_install_precision}
+        DESTINATION
+            ${CMAKE_INSTALL_INCLUDEDIR}/colmap/thirdparty/Symforce-Caspar/generated
+        FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
+endif()
 
 # Install find_package scripts for dependencies.
 install(
