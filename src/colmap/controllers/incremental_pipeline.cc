@@ -248,6 +248,10 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(random_seed, -1);
+#ifndef CASPAR_ENABLED
+  CHECK_OPTION_NE(ba_local_backend, BundleAdjustmentBackend::CASPAR);
+  CHECK_OPTION_NE(ba_global_backend, BundleAdjustmentBackend::CASPAR);
+#endif
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
