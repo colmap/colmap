@@ -860,35 +860,41 @@ def process_scenes(
         monitor_thread.start()
 
     try:
-        with multiprocessing.Pool(
+        p = multiprocessing.Pool(
             processes=num_parallel_scenes, initializer=_init_pool_worker
-        ) as p:
-            try:
-                results = list(
-                    p.imap_unordered(
-                        functools.partial(
-                            _process_scene_with_gpu,
-                            args=args,
-                            prepare_scene=prepare_scene,
-                            position_accuracy_gt=position_accuracy_gt,
-                            num_threads=num_threads_per_scene,
-                            progress_status=progress_status,
-                        ),
-                        scene_gpu_pairs,
-                        chunksize=1,
-                    )
+        )
+        try:
+            results = list(
+                p.imap_unordered(
+                    functools.partial(
+                        _process_scene_with_gpu,
+                        args=args,
+                        prepare_scene=prepare_scene,
+                        position_accuracy_gt=position_accuracy_gt,
+                        num_threads=num_threads_per_scene,
+                        progress_status=progress_status,
+                    ),
+                    scene_gpu_pairs,
+                    chunksize=1,
                 )
-            except KeyboardInterrupt:
-                pycolmap.logging.warning(
-                    "Interrupted, terminating workers and child processes..."
-                )
-                p.terminate()
-                p.join()
-                raise
+            )
+        except KeyboardInterrupt:
+            pycolmap.logging.warning(
+                "Interrupted, terminating workers and child processes..."
+            )
+            p.terminate()
+            raise
+        except BaseException:
+            p.terminate()
+            raise
+        else:
+            p.close()
+        finally:
+            p.join()
     finally:
         stop_event.set()
         if monitor_thread is not None:
-            monitor_thread.join(timeout=2)
+            monitor_thread.join()
         if manager is not None:
             manager.shutdown()
 
