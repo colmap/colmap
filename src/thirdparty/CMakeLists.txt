@@ -94,7 +94,7 @@ if(CASPAR_ENABLED AND CUDA_ENABLED)
     endif()
 
     set(CASPAR_GEN_DIR
-        "${CMAKE_SOURCE_DIR}/src/colmap/estimators/caspar/generated/${_caspar_precision}")
+        "${CMAKE_SOURCE_DIR}/src/thirdparty/Symforce-Caspar/generated/${_caspar_precision}")
 
     if(NOT EXISTS "${CASPAR_GEN_DIR}/CMakeLists.txt")
         message(FATAL_ERROR
