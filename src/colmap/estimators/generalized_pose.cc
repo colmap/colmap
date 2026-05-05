@@ -407,6 +407,10 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         }
       }
     }
+    SetManifold(&problem,
+                rig_from_world->params.data(),
+                CreateProductManifold(CreateEigenQuaternionManifold(),
+                                      CreateEuclideanManifold<3>()));
   }
 
   ceres::Solver::Options solver_options;
