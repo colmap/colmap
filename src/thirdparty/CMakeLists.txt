@@ -86,10 +86,12 @@ endif()
 
 if(CASPAR_ENABLED AND CUDA_ENABLED)
 
+    # TODO tordnat: Make Caspar set CASPAR_MIN_ARCH when generating build files
+    set(CASPAR_MIN_ARCH 75)
     foreach(_arch ${CMAKE_CUDA_ARCHITECTURES})
-        if(_arch LESS 75)
-            message(FATAL_ERROR "Caspar requires CUDA architecture >= 75, but ${_arch} was requested. "
-                "Set CMAKE_CUDA_ARCHITECTURES to 75 or higher, or disable Caspar with -DCASPAR_ENABLED=OFF.")
+        if(_arch LESS ${CASPAR_MIN_ARCH})
+            message(FATAL_ERROR "Caspar requires CUDA architecture >= ${CASPAR_MIN_ARCH}, but ${_arch} was requested. "
+                "Set CMAKE_CUDA_ARCHITECTURES to ${CASPAR_MIN_ARCH} or higher, or disable Caspar with -DCASPAR_ENABLED=OFF.")
         endif()
     endforeach()
 
