@@ -85,6 +85,14 @@ if(CASPAR_ENABLED AND NOT CUDA_ENABLED)
 endif()
 
 if(CASPAR_ENABLED AND CUDA_ENABLED)
+
+    foreach(_arch ${CMAKE_CUDA_ARCHITECTURES})
+        if(_arch LESS 75)
+            message(FATAL_ERROR "Caspar requires CUDA architecture >= 75, but ${_arch} was requested. "
+                "Set CMAKE_CUDA_ARCHITECTURES to 75 or higher, or disable Caspar with -DCASPAR_ENABLED=OFF.")
+        endif()
+    endforeach()
+
     message(STATUS "Enabling Caspar support")
 
     if(CASPAR_USE_DOUBLE)
