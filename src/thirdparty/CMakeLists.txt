@@ -86,7 +86,7 @@ endif()
 
 if(CASPAR_ENABLED AND CUDA_ENABLED)
 
-    # TODO tordnat: Make Caspar set CASPAR_MIN_ARCH when generating build files
+    # TODO(tordnat): Make Caspar set CASPAR_MIN_ARCH when generating build files
     set(CASPAR_MIN_ARCH 75)
     foreach(_arch ${CMAKE_CUDA_ARCHITECTURES})
         if(_arch LESS ${CASPAR_MIN_ARCH})
