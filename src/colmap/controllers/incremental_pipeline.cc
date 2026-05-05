@@ -159,6 +159,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
   options.print_summary = false;
+  options.backend = ba_local_backend;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
@@ -191,6 +192,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
   options.print_summary = false;
+  options.backend = ba_global_backend;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
@@ -246,6 +248,10 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(random_seed, -1);
+#ifndef CASPAR_ENABLED
+  CHECK_OPTION(ba_local_backend != BundleAdjustmentBackend::CASPAR);
+  CHECK_OPTION(ba_global_backend != BundleAdjustmentBackend::CASPAR);
+#endif
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;

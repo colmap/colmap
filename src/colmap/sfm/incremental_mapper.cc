@@ -29,6 +29,7 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/pose.h"
@@ -1021,7 +1022,8 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     image_ids = ba_config.Images();
-    std::unique_ptr<BundleAdjuster> bundle_adjuster =
+
+    auto bundle_adjuster =
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
     const auto summary = bundle_adjuster->Solve();
 
@@ -1134,9 +1136,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // with fewer steps as compared to fixing three points.
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
+
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
@@ -1176,8 +1179,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
       }
     }
 
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   }
 
   return bundle_adjuster->Solve()->IsSolutionUsable();
