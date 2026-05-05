@@ -409,10 +409,12 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     }
   }
 
-  SetManifold(&problem,
-              rig_from_world->params.data(),
-              CreateProductManifold(CreateEigenQuaternionManifold(),
-                                    CreateEuclideanManifold<3>()));
+  if (problem.NumResiduals() > 0) {
+    SetManifold(&problem,
+                rig_from_world->params.data(),
+                CreateProductManifold(CreateEigenQuaternionManifold(),
+                                      CreateEuclideanManifold<3>()));
+  }
 
   ceres::Solver::Options solver_options;
   solver_options.gradient_tolerance = options.gradient_tolerance;
