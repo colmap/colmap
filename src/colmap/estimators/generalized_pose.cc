@@ -407,9 +407,6 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         }
       }
     }
-  }
-
-  if (problem.NumResiduals() > 0) {
     SetManifold(&problem,
                 rig_from_world->params.data(),
                 CreateProductManifold(CreateEigenQuaternionManifold(),
