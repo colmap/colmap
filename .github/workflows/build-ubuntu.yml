@@ -216,7 +216,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
-            -DCMAKE_CUDA_ARCHITECTURES=50 \
+            -DCMAKE_CUDA_ARCHITECTURES=75 \
             -DTESTS_ENABLED=ON \
             -DWERROR_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
@@ -239,7 +239,7 @@ jobs:
           export colmap_DIR=${{ github.workspace }}/build/install/share/colmap
           cmake .. \
             -GNinja \
-            -DCMAKE_CUDA_ARCHITECTURES=50
+            -DCMAKE_CUDA_ARCHITECTURES=75
           ninja
           ./hello_world --message "world"
 
