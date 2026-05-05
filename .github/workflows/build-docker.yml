@@ -70,7 +70,7 @@ jobs:
           if [[ "${{ env.IS_RELEASE }}" == "true" ]]; then
             cuda_archs="50;60;70;75;90"
           else
-            cuda_archs="50"
+            cuda_archs="75"
           fi
           mkdir -p build/.ccache build/_deps
           docker_args=(
