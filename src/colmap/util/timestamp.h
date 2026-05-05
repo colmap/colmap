@@ -29,44 +29,25 @@
 
 #pragma once
 
-#include "colmap/estimators/cost_functions/quaternion_utils.h"
-#include "colmap/estimators/cost_functions/utils.h"
-
-#include <Eigen/Core>
-#include <ceres/ceres.h>
+#include "colmap/util/types.h"
 
 namespace colmap {
 
-// Cost function for aligning one 3D point with a reference 3D point with
-// covariance. The Residual is computed in frame b. Coordinate transformation
-// convention is equivalent to Sim3d.
-struct Point3DAlignmentCostFunctor
-    : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 8> {
- public:
-  explicit Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior,
-                                       bool use_log_scale = true)
-      : point_in_b_prior_(point_in_b_prior), use_log_scale_(use_log_scale) {}
+// Convert a nanosecond timestamp to seconds.
+inline double TimestampToSeconds(timestamp_t t) { return t * 1e-9; }
 
-  template <typename T>
-  bool operator()(const T* const point_in_a,
-                  const T* const b_from_a,
-                  T* residuals_ptr) const {
-    // Select whether to exponentiate
-    const T b_from_a_scale =
-        use_log_scale_ ? ceres::exp(b_from_a[7]) : b_from_a[7];
+// Convert seconds to a nanosecond timestamp. Truncates sub-nanosecond values.
+// Intended for small durations (e.g., config values), not large absolute
+// timestamps which should be parsed as int64 directly.
+inline timestamp_t SecondsToTimestamp(double s) {
+  return static_cast<timestamp_t>(s * 1e9);
+}
 
-    const Eigen::Matrix<T, 3, 1> point_in_b =
-        EigenQuaternionMap<T>(b_from_a) * EigenVector3Map<T>(point_in_a) *
-            b_from_a_scale +
-        EigenVector3Map<T>(b_from_a + 4);
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
-    residuals = point_in_b - point_in_b_prior_.cast<T>();
-    return true;
-  }
-
- private:
-  const Eigen::Vector3d point_in_b_prior_;
-  const bool use_log_scale_;
-};
+// Compute the time difference (t1 - t0) in seconds with nanosecond precision.
+// Unlike subtracting two large doubles, differencing int64 timestamps and then
+// converting preserves full precision.
+inline double TimestampDiffSeconds(timestamp_t t1, timestamp_t t0) {
+  return (t1 - t0) * 1e-9;
+}
 
 }  // namespace colmap

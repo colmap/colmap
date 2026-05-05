@@ -234,6 +234,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
+    NAME timestamp_test
+    SRCS timestamp_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME types_test
     SRCS types_test.cc
     LINK_LIBS colmap_util
