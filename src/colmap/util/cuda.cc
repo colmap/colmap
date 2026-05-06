@@ -61,12 +61,15 @@ int FindBestCudaDevice() {
   const int num_devices = GetNumCudaDevices();
   THROW_CHECK_GT(num_devices, 0) << "No CUDA devices available";
   std::vector<cudaDeviceProp> all_devices(num_devices);
+  std::vector<int> indices(num_devices);
   for (int id = 0; id < num_devices; ++id) {
+    indices[id] = id;
     cudaGetDeviceProperties(&all_devices[id], id);
   }
-  std::sort(all_devices.begin(), all_devices.end(), CompareCudaDevice);
-  int selected = -1;
-  CUDA_SAFE_CALL(cudaChooseDevice(&selected, all_devices.data()));
+  std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+    return CompareCudaDevice(all_devices[a], all_devices[b]);
+  });
+  const int selected = indices[0];
   VLOG(2) << "Found " << num_devices << " CUDA device(s), "
           << "selected device " << selected << " with name "
           << all_devices[selected].name;
