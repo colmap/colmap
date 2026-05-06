@@ -579,6 +579,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->caspar->pcg_rel_decrease_min);
   AddDefaultOption("BundleAdjustmentCaspar.solver_rel_decrease_min",
                    &bundle_adjustment->caspar->solver_rel_decrease_min);
+  AddDefaultOption("BundleAdjustmentCaspar.gpu_index",
+                   &bundle_adjustment->caspar->gpu_index);
 #endif  // CASPAR_ENABLED
 }
 
