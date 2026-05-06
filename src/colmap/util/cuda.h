@@ -33,6 +33,8 @@ namespace colmap {
 
 int GetNumCudaDevices();
 
+int FindBestCudaDevice();
+
 void SetBestCudaDevice(int gpu_index);
 
 }  // namespace colmap
