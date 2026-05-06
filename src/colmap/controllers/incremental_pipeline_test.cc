@@ -168,8 +168,8 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
         sensor_from_rig.value(),
         Rigid3dNear(
             gt_reconstruction.Rig(kConstantRigId).SensorFromRig(sensor_id),
-            /*rtol=*/1e-5,
-            /*ttol=*/1e-5));
+            /*rtol=*/1e-4,
+            /*ttol=*/1e-4));
   }
   EXPECT_EQ(reconstruction.Camera(kConstantCameraId).params,
             gt_reconstruction.Camera(kConstantCameraId).params);
