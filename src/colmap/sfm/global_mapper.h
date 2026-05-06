@@ -30,6 +30,20 @@ struct GlobalMapperOptions {
   // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated
   bool refine_sensor_from_rig = true;
 
+  // Use position priors (from the pose_priors table) inside BA. When true,
+  // BA wraps each frame with a position-prior residual instead of fixing
+  // the gauge with TWO_CAMS_FROM_WORLD, GP skips its post-solve Normalize()
+  // call so the prior-anchored absolute frame survives, and IGR runs with
+  // normalize_reconstruction=false for the same reason.
+  bool use_prior_position = false;
+  // Wrap the prior-position residual in a CAUCHY loss instead of TRIVIAL.
+  // Recommended when prior drift is large enough that some frames would
+  // otherwise pull the SfM solution toward bad anchors.
+  bool use_robust_loss_on_prior_position = false;
+  // Loss scale for the prior-position residual. Default = sqrt(chi-square
+  // 95% 3-DoF), matching the incremental mapper.
+  double prior_position_loss_scale = 7.815;
+
   // Options for each component
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
@@ -124,7 +138,8 @@ class GlobalMapper {
   bool GlobalPositioning(const GlobalPositionerOptions& options,
                          double max_angular_reproj_error_deg,
                          double max_normalized_reproj_error,
-                         double min_tri_angle_deg);
+                         double min_tri_angle_deg,
+                         bool use_prior_position = false);
 
   // Run iterative bundle adjustment to refine poses and structure.
   bool IterativeBundleAdjustment(const BundleAdjustmentOptions& options,
@@ -132,14 +147,20 @@ class GlobalMapper {
                                  double min_tri_angle_deg,
                                  int num_iterations,
                                  bool skip_fixed_rotation_stage = false,
-                                 bool skip_joint_optimization_stage = false);
+                                 bool skip_joint_optimization_stage = false,
+                                 bool use_prior_position = false,
+                                 bool use_robust_loss_on_prior_position = false,
+                                 double prior_position_loss_scale = 7.815);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
       const IncrementalTriangulator::Options& options,
       const BundleAdjustmentOptions& ba_options,
       double max_normalized_reproj_error,
-      double min_tri_angle_deg);
+      double min_tri_angle_deg,
+      bool use_prior_position = false,
+      bool use_robust_loss_on_prior_position = false,
+      double prior_position_loss_scale = 7.815);
 
   // Getter functions.
   std::shared_ptr<class Reconstruction> Reconstruction() const;

@@ -10,7 +10,6 @@
 namespace colmap {
 namespace {
 
-// TODO(jsch): Add tests for pose priors.
 
 std::shared_ptr<DatabaseCache> CreateDatabaseCache(const Database& database) {
   DatabaseCache::Options options;
@@ -163,6 +162,83 @@ TEST(GlobalMapperOptions, RefineSensorFromRigPropagatesToSubOptions) {
   EXPECT_FALSE(options.RotationAveraging().refine_sensor_from_rig);
   EXPECT_FALSE(options.GlobalPositioning().refine_sensor_from_rig);
   EXPECT_FALSE(options.BundleAdjustment().refine_sensor_from_rig);
+}
+
+TEST(GlobalMapper, PriorBasedSfMWithoutNoise) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.prior_position_stddev = 0.0;
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
+
+  GlobalMapperOptions options;
+  options.use_prior_position = true;
+  ASSERT_TRUE(global_mapper.Solve(options));
+
+  // Priors anchor the absolute frame, so do not Sim3-align before
+  // comparing.
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction,
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+}
+
+TEST(GlobalMapper, PriorBasedSfMWithNoise) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.prior_position_stddev = 0.05;
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
+
+  GlobalMapperOptions options;
+  options.use_prior_position = true;
+  options.use_robust_loss_on_prior_position = true;
+  ASSERT_TRUE(global_mapper.Solve(options));
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.05,
+                                 /*align=*/false));
 }
 
 }  // namespace
