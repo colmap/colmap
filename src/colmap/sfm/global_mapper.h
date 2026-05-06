@@ -30,18 +30,14 @@ struct GlobalMapperOptions {
   // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated
   bool refine_sensor_from_rig = true;
 
-  // Use position priors (from the pose_priors table) inside BA. When true,
-  // BA wraps each frame with a position-prior residual instead of fixing
-  // the gauge with TWO_CAMS_FROM_WORLD, GP skips its post-solve Normalize()
-  // call so the prior-anchored absolute frame survives, and IGR runs with
-  // normalize_reconstruction=false for the same reason.
+  // Whether to use priors on the camera positions.
   bool use_prior_position = false;
-  // Wrap the prior-position residual in a CAUCHY loss instead of TRIVIAL.
-  // Recommended when prior drift is large enough that some frames would
-  // otherwise pull the SfM solution toward bad anchors.
+
+  // Whether to use a robust loss on prior camera positions.
   bool use_robust_loss_on_prior_position = false;
-  // Loss scale for the prior-position residual. Default = sqrt(chi-square
-  // 95% 3-DoF), matching the incremental mapper.
+
+  // Threshold on the residual for the robust position prior loss
+  // (chi2 for 3DOF at 95% = 7.815).
   double prior_position_loss_scale = 7.815;
 
   // Options for each component

@@ -38,13 +38,8 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
     }
   }
 
-  // The prior-position residual itself anchors the absolute frame; if we
-  // also fixed two cameras the constraints would conflict. Only ask for
-  // pose-prior BA when there are enough frames to triangulate against
-  // (>2 keeps the gauge well-defined even before priors kick in) and
-  // priors are actually present.
-  const bool use_priors = use_prior_position && ba_config.NumImages() > 2 &&
-                          !pose_priors.empty();
+  const bool use_priors =
+      use_prior_position && ba_config.NumImages() > 2 && !pose_priors.empty();
   std::unique_ptr<BundleAdjuster> ba;
   if (use_priors) {
     PosePriorBundleAdjustmentOptions prior_options;
@@ -346,8 +341,8 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
       reconstruction_->Point3DIds(),
       ReprojectionErrorType::NORMALIZED);
 
-  // Normalize the structure for numerical stability — but only when no
-  // priors anchor the absolute frame (they'd be washed out by Normalize).
+  // Normalize the structure for numerical stability if no prior position is
+  // provided.
   if (!use_prior_position) {
     reconstruction_->Normalize();
   }
@@ -365,9 +360,9 @@ bool GlobalMapper::IterativeBundleAdjustment(
     bool use_prior_position,
     bool use_robust_loss_on_prior_position,
     double prior_position_loss_scale) {
-  const std::vector<PosePrior> pose_priors =
-      use_prior_position ? database_cache_->PosePriors()
-                         : std::vector<PosePrior>{};
+  const std::vector<PosePrior> empty_priors;
+  const std::vector<PosePrior>& pose_priors =
+      use_prior_position ? database_cache_->PosePriors() : empty_priors;
   for (int ite = 0; ite < num_iterations; ite++) {
     // Optional fixed-rotation stage: optimize positions only
     if (!skip_fixed_rotation_stage) {
@@ -399,6 +394,8 @@ bool GlobalMapper::IterativeBundleAdjustment(
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
               << num_iterations << " finished";
 
+    // Normalize the structure for numerical stability if no prior position is
+    // provided.
     if (!use_prior_position) {
       reconstruction_->Normalize();
     }
@@ -500,9 +497,9 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
       reconstruction_->Point3DIds(),
       ReprojectionErrorType::NORMALIZED);
 
-  const std::vector<PosePrior> pose_priors =
-      use_prior_position ? database_cache_->PosePriors()
-                         : std::vector<PosePrior>{};
+  const std::vector<PosePrior> empty_priors;
+  const std::vector<PosePrior>& pose_priors =
+      use_prior_position ? database_cache_->PosePriors() : empty_priors;
   if (!RunBundleAdjustment(ba_options,
                            *reconstruction_,
                            use_prior_position,
@@ -512,6 +509,8 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     return false;
   }
 
+  // Normalize the structure for numerical stability if no prior position is
+  // provided.
   if (!use_prior_position) {
     reconstruction_->Normalize();
   }

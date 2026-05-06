@@ -10,7 +10,6 @@
 namespace colmap {
 namespace {
 
-
 std::shared_ptr<DatabaseCache> CreateDatabaseCache(const Database& database) {
   DatabaseCache::Options options;
   return DatabaseCache::Create(database, options);
