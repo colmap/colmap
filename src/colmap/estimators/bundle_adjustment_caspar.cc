@@ -902,9 +902,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
 
     caspar::SolverParams<double> params;
-    const auto& co = *options_.caspar;
-
+    int gpu_index = -1;
     if (options_.caspar) {
+      const auto& co = *options_.caspar;
+      gpu_index = co.gpu_index;
       params.solver_iter_max = co.solver_iter_max;
       params.pcg_iter_max = co.pcg_iter_max;
       params.diag_init = co.diag_init;
