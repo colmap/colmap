@@ -186,27 +186,17 @@ void BindSfM(py::module& m) {
                            "cam_from_rig as a pre-calibrated constant across "
                            "rotation averaging, global positioning and "
                            "bundle adjustment.")
-            .def_readwrite(
-                "use_prior_position",
-                &Opts::use_prior_position,
-                "When True, BA wraps each frame with a position-prior "
-                "residual (from the pose_priors table) instead of fixing "
-                "the gauge with TWO_CAMS_FROM_WORLD; GP and the iterative "
-                "retriangulation skip Normalize() so the prior anchor "
-                "survives.")
-            .def_readwrite(
-                "use_robust_loss_on_prior_position",
-                &Opts::use_robust_loss_on_prior_position,
-                "Wrap the prior-position residual in a CAUCHY loss "
-                "instead of TRIVIAL. Recommended when prior drift is "
-                "large enough that some frames would otherwise pull the "
-                "SfM solution toward bad anchors.")
-            .def_readwrite(
-                "prior_position_loss_scale",
-                &Opts::prior_position_loss_scale,
-                "Loss scale for the prior-position residual. Default "
-                "= sqrt(chi-square 95%% 3-DoF) = 7.815, matching the "
-                "incremental mapper.")
+            .def_readwrite("use_prior_position",
+                           &Opts::use_prior_position,
+                           "Whether to use priors on the camera positions.")
+            .def_readwrite("use_robust_loss_on_prior_position",
+                           &Opts::use_robust_loss_on_prior_position,
+                           "Whether to use a robust loss on prior camera "
+                           "positions.")
+            .def_readwrite("prior_position_loss_scale",
+                           &Opts::prior_position_loss_scale,
+                           "Threshold on the residual for the robust position "
+                           "prior loss (chi2 for 3DOF at 95% = 7.815).")
             .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
             .def_readwrite("global_positioning", &Opts::global_positioning)
             .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)
