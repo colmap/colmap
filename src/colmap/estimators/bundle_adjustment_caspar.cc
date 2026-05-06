@@ -5,6 +5,8 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
+
+#include <optional>
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar/caspar_model_adapter.h"
 #endif
@@ -113,6 +115,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void CreateCalibrationNodes() {
     std::vector<camera_t> sorted_camera_ids;
+    sorted_camera_ids.reserve(reconstruction_.NumImages());
     for (const image_t image_id : config_.Images()) {
       sorted_camera_ids.push_back(reconstruction_.Image(image_id).CameraId());
     }
@@ -144,14 +147,18 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void CreatePointNodes() {
-    std::vector<point3D_t> sorted_point_ids;
+    std::vector<point3D_t> sorted_point3D_ids;
+    sorted_point3D_ids.reserve(reconstruction_.NumPoints3D());
     for (const auto& [point_id, _] : reconstruction_.Points3D()) {
       if (!config_.IsIgnoredPoint(point_id)) {
-        sorted_point_ids.push_back(point_id);
+        sorted_point3D_ids.push_back(point_id);
       }
     }
-    std::sort(sorted_point_ids.begin(), sorted_point_ids.end());
-    for (const point3D_t point_id : sorted_point_ids) {
+    std::sort(sorted_point3D_ids.begin(), sorted_point3D_ids.end());
+    point3D_id_to_idx_.reserve(sorted_point3D_ids.size());
+    point3D_idx_to_id_.reserve(sorted_point3D_ids.size());
+    point3D_data_.reserve(sorted_point3D_ids.size() * 3);
+    for (const point3D_t point_id : sorted_point3D_ids) {
       GetOrCreatePoint(point_id, reconstruction_.Point3D(point_id));
     }
   }
@@ -175,15 +182,16 @@ class CasparBundleAdjuster : public BundleAdjuster {
       }
       for (const image_t image_id : image_ids) {
         const Image& image = reconstruction_.Image(image_id);
-        for (const Point2D& p2d : image.Points2D()) {
-          if (!p2d.HasPoint3D() || config_.IsIgnoredPoint(p2d.point3D_id) ||
-              !point_id_to_index_.count(p2d.point3D_id)) {
+        for (const Point2D& point2D : image.Points2D()) {
+          if (!point2D.HasPoint3D() ||
+              config_.IsIgnoredPoint(point2D.point3D_id) ||
+              !point3D_id_to_idx_.count(point2D.point3D_id)) {
             continue;
           }
           AddFactorForObservation(image,
                                   *image.CameraPtr(),
-                                  p2d,
-                                  reconstruction_.Point3D(p2d.point3D_id));
+                                  point2D,
+                                  reconstruction_.Point3D(point2D.point3D_id));
         }
       }
     }
@@ -380,12 +388,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   size_t GetOrCreatePoint(const point3D_t point_id, const Point3D& point) {
-    auto [it, inserted] = point_id_to_index_.try_emplace(point_id, num_points_);
+    auto [it, inserted] = point3D_id_to_idx_.try_emplace(point_id, num_points_);
     if (inserted) {
-      index_to_point_id_[num_points_] = point_id;
-      point_data_.push_back(point.xyz.x());
-      point_data_.push_back(point.xyz.y());
-      point_data_.push_back(point.xyz.z());
+      point3D_idx_to_id_[num_points_] = point_id;
+      point3D_data_.push_back(point.xyz.x());
+      point3D_data_.push_back(point.xyz.y());
+      point3D_data_.push_back(point.xyz.z());
       num_points_++;
     }
     return it->second;
@@ -570,7 +578,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VLOG(2) << "  Points: " << num_points_;
 
     if (num_points_ > 0) {
-      solver.SetPointNodesFromStackedHost(point_data_.data(), 0, num_points_);
+      solver.SetPointNodesFromStackedHost(point3D_data_.data(), 0, num_points_);
     }
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
@@ -643,7 +651,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void ReadSolverResults(caspar::GraphSolver& solver) {
     if (num_points_ > 0) {
-      solver.GetPointNodesToStackedHost(point_data_.data(), 0, num_points_);
+      solver.GetPointNodesToStackedHost(point3D_data_.data(), 0, num_points_);
     }
 
     for (const auto& [model_id, adapter_ptr] : adapters_) {
@@ -735,16 +743,16 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void WriteResultsToReconstruction() {
-    for (const auto& [idx, point_id] : index_to_point_id_) {
+    for (const auto& [idx, point_id] : point3D_idx_to_id_) {
       // Points with external observations are non-variable but have solver
       // nodes holding float copies; skip to avoid writing back stale values.
       if (!IsPointVariable(point_id)) {
         continue;
       }
       Point3D& point = reconstruction_.Point3D(point_id);
-      point.xyz.x() = point_data_[idx * 3 + 0];
-      point.xyz.y() = point_data_[idx * 3 + 1];
-      point.xyz.z() = point_data_[idx * 3 + 2];
+      point.xyz.x() = point3D_data_[idx * 3 + 0];
+      point.xyz.y() = point3D_data_[idx * 3 + 1];
+      point.xyz.z() = point3D_data_[idx * 3 + 2];
     }
 
     for (const auto& [model_id, idx_to_frame] :
@@ -940,7 +948,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   Reconstruction& reconstruction_;
   size_t num_points_ = 0;
-  std::vector<StorageType> point_data_;
+  std::vector<StorageType> point3D_data_;
 
   // Pose pools are per-model so that SimpleRadial and Pinhole factors are
   // never batched into the same Caspar block (reducing shared memory use).
@@ -952,8 +960,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::unordered_map<CameraModelId, std::unordered_map<size_t, frame_t>>
       pose_index_to_frame_per_model_;
 
-  std::unordered_map<point3D_t, size_t> point_id_to_index_;
-  std::unordered_map<size_t, point3D_t> index_to_point_id_;
+  std::unordered_map<point3D_t, size_t> point3D_id_to_idx_;
+  std::unordered_map<size_t, point3D_t> point3D_idx_to_id_;
 
   std::unordered_set<frame_t> frames_from_outside_config_;
   std::unordered_set<camera_t> cameras_from_outside_config_;
