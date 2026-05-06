@@ -22,7 +22,7 @@ struct GlobalPositionerOptions {
   bool optimize_points = true;
   bool optimize_scales = true;
 
-  // When false, treat sensor_from_rig as a fixed (pre-calibrated)
+  // When false, treat sensor_from_rig as a fixed (pre-calibrated) parameter.
   bool refine_sensor_from_rig = true;
 
   bool use_gpu = true;

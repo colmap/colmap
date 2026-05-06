@@ -788,9 +788,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ba_refine_extra_params",
       &global_mapper->mapper.bundle_adjustment.refine_extra_params);
-  AddDefaultOption(
-      "GlobalMapper.ba_refine_sensor_from_rig",
-      &global_mapper->mapper.bundle_adjustment.refine_sensor_from_rig);
+  AddDefaultOption("GlobalMapper.refine_sensor_from_rig",
+                   &global_mapper->mapper.refine_sensor_from_rig);
   AddDefaultOption(
       "GlobalMapper.ba_refine_rig_from_world",
       &global_mapper->mapper.bundle_adjustment.refine_rig_from_world);

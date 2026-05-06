@@ -407,10 +407,8 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
   // Run RA with refine_sensor_from_rig=false.
   RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
   options.refine_sensor_from_rig = false;
-  ASSERT_TRUE(RunRotationAveraging(options,
-                                   data.pose_graph,
-                                   data.reconstruction,
-                                   data.pose_priors));
+  ASSERT_TRUE(RunRotationAveraging(
+      options, data.pose_graph, data.reconstruction, data.pose_priors));
 
   // Every sensor_from_rig must match the snapshot exactly.
   for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
