@@ -407,6 +407,7 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         }
       }
     }
+
     SetManifold(&problem,
                 rig_from_world->params.data(),
                 CreateProductManifold(CreateEigenQuaternionManifold(),
