@@ -241,12 +241,12 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         }
       }
     }
-  }
 
-  SetManifold(&problem,
-              cam_from_world->params.data(),
-              CreateProductManifold(CreateEigenQuaternionManifold(),
-                                    CreateEuclideanManifold<3>()));
+    SetManifold(&problem,
+                cam_from_world->params.data(),
+                CreateProductManifold(CreateEigenQuaternionManifold(),
+                                      CreateEuclideanManifold<3>()));
+  }
 
   ceres::Solver::Options solver_options;
   solver_options.gradient_tolerance = options.gradient_tolerance;

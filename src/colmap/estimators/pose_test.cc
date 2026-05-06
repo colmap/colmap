@@ -174,6 +174,7 @@ TEST(RefineAbsolutePose, Nominal) {
   EXPECT_THAT(
       cam_from_world,
       Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-6, /*ttol=*/1e-6));
+  EXPECT_NEAR(cam_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_EQ(camera, problem.camera);
   EXPECT_NE(cam_from_world_cov, Eigen::Matrix6d::Zero());
 }
@@ -198,6 +199,7 @@ TEST(RefineAbsolutePose, RefineFocalLength) {
   EXPECT_THAT(
       cam_from_world,
       Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-3, /*ttol=*/1e-3));
+  EXPECT_NEAR(cam_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_NEAR(camera.FocalLength(), problem.camera.FocalLength(), 5);
   camera.SetFocalLength(problem.camera.FocalLength());
   EXPECT_EQ(camera, problem.camera);
@@ -224,6 +226,7 @@ TEST(RefineAbsolutePose, RefineExtraParams) {
   EXPECT_THAT(
       cam_from_world,
       Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-3, /*ttol=*/1e-3));
+  EXPECT_NEAR(cam_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_NEAR(camera.params.at(3), problem.camera.params.at(3), 1e-3);
   camera.params.at(3) = problem.camera.params.at(3);
   EXPECT_EQ(camera, problem.camera);
@@ -256,6 +259,7 @@ TEST(RefineAbsolutePose, PositionPrior) {
                                  &cam_from_world,
                                  &camera));
   EXPECT_LT(compute_position_error(cam_from_world), initial_error);
+  EXPECT_NEAR(cam_from_world.rotation().norm(), 1.0, 1e-6);
 }
 
 TEST(RefineAbsolutePose, PositionPriorCovariance) {
@@ -290,12 +294,14 @@ TEST(RefineAbsolutePose, PositionPriorCovariance) {
                                  problem.points3D,
                                  &weak_prior_cam_from_world,
                                  &weak_prior_camera));
+  EXPECT_NEAR(weak_prior_cam_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_TRUE(RefineAbsolutePose(strong_prior_options,
                                  inlier_mask,
                                  problem.points2D,
                                  problem.points3D,
                                  &strong_prior_cam_from_world,
                                  &strong_prior_camera));
+  EXPECT_NEAR(strong_prior_cam_from_world.rotation().norm(), 1.0, 1e-6);
 
   auto compute_position_error = [&](const Rigid3d& cam_from_world_to_check) {
     return (Inverse(cam_from_world_to_check).translation() -

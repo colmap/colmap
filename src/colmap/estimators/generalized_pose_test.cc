@@ -155,6 +155,7 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
   AbsolutePoseRefinementOptions options;
   options.refine_focal_length = false;
   options.refine_extra_params = false;
+  Eigen::Matrix6d rig_from_world_cov = Eigen::Matrix6d::Zero();
   EXPECT_TRUE(RefineGeneralizedAbsolutePose(options,
                                             gt_inlier_mask,
                                             problem.points2D,
@@ -162,10 +163,13 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
                                             problem.camera_idxs,
                                             problem.cams_from_rig,
                                             &rig_from_world,
-                                            &problem.cameras));
+                                            &problem.cameras,
+                                            &rig_from_world_cov));
   EXPECT_THAT(
       rig_from_world,
       Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
+  EXPECT_NEAR(rig_from_world.rotation().norm(), 1.0, 1e-6);
+  EXPECT_NE(rig_from_world_cov, Eigen::Matrix6d::Zero());
 }
 
 TEST(RefineGeneralizedAbsolutePose, PositionPrior) {
@@ -196,6 +200,7 @@ TEST(RefineGeneralizedAbsolutePose, PositionPrior) {
                                             &rig_from_world,
                                             &problem.cameras));
   EXPECT_LT(compute_position_error(rig_from_world), initial_error);
+  EXPECT_NEAR(rig_from_world.rotation().norm(), 1.0, 1e-6);
 }
 
 TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
@@ -238,6 +243,7 @@ TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
                                             problem.cams_from_rig,
                                             &weak_prior_rig_from_world,
                                             &weak_prior_cameras));
+  EXPECT_NEAR(weak_prior_rig_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_TRUE(RefineGeneralizedAbsolutePose(strong_prior_options,
                                             inlier_mask,
                                             problem.points2D,
@@ -246,6 +252,7 @@ TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
                                             problem.cams_from_rig,
                                             &strong_prior_rig_from_world,
                                             &strong_prior_cameras));
+  EXPECT_NEAR(strong_prior_rig_from_world.rotation().norm(), 1.0, 1e-6);
 
   auto compute_position_error = [&](const Rigid3d& rig_from_world_to_check) {
     return (Inverse(rig_from_world_to_check).translation() -
