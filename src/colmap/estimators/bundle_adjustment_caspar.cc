@@ -259,7 +259,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
           << "Image " << image.ImageId()
           << ": non-ref rig camera with variable pose; CASPAR cannot "
              "chain CamFromRig * RigFromWorld into a single pose "
-             "variable. Observations skipped.";
+             "variable.";
       return;
     }
 
