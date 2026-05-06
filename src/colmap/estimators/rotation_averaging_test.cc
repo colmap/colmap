@@ -377,6 +377,52 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
   }
 }
 
+// When a sensor_from_rig is already fully calibrated (valid rotation AND
+// translation), InitializeRigRotationsFromImages must preserve it rather than
+// resetting the translation to NaN.
+TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
+    if (image.HasPose()) {
+      cams_from_world[image_id] = image.CamFromWorld();
+    }
+  }
+
+  // Snapshot the (already-calibrated) rig BEFORE initialization.
+  std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig.has_value());
+      snapshot[{rig_id, sensor_id}] = *sensor_from_rig;
+    }
+  }
+  ASSERT_GT(snapshot.size(), 0u);
+
+  EXPECT_TRUE(
+      InitializeRigRotationsFromImages(cams_from_world, data.reconstruction));
+
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
+          << "rig=" << rig_id << " sensor=" << sensor_id.id;
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig=" << rig_id << " sensor=" << sensor_id.id;
+    }
+  }
+}
+
 TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
   SetPRNGSeed(1);
 

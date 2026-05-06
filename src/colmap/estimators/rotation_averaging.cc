@@ -531,13 +531,9 @@ bool InitializeRigRotationsFromImages(
       const auto sensor_id = sensor_t(SensorType::CAMERA, camera_id);
       const auto existing =
           reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
-      // If sensor_from_rig rotation is already known (translation is valid),
-      // preserve the known rotation instead of overwriting with MST-derived
-      // approximation. Reset translation to NaN so downstream code (global
-      // positioning) still estimates it using the variable-rig formulation.
+      // If sensor_from_rig is already fully calibrated, preserve it rather
+      // than overwriting with MST-derived approximation.
       if (existing.has_value() && !existing->translation().hasNaN()) {
-        reconstruction.Rig(rig_id).SetSensorFromRig(
-            sensor_id, Rigid3d(existing->rotation(), kUnknownTranslation));
         continue;
       }
       weights.resize(samples.size(), 1.0);
@@ -545,6 +541,17 @@ bool InitializeRigRotationsFromImages(
           AverageQuaternions(samples, weights);
       reconstruction.Rig(rig_id).SetSensorFromRig(
           sensor_id, Rigid3d(cam_from_rig, kUnknownTranslation));
+    }
+  } else {
+    // Check if rotations are valid.
+    for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+      for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+        THROW_CHECK(sensor_from_rig.has_value() &&
+                    !sensor_from_rig->rotation().coeffs().hasNaN())
+            << "sensor_from_rig has NaN rotation but "
+               "refine_sensor_from_rig=false (rig="
+            << rig_id << " sensor=" << sensor_id.id << ")";
+      }
     }
   }
 

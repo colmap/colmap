@@ -115,10 +115,10 @@ size_t RotationAveragingProblem::AllocateParameters(
   std::unordered_map<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
   if (options_.refine_sensor_from_rig) {
     for (const auto& [camera_id, rig_id] : camera_id_to_rig_id_) {
-      sensor_t sensor_id(SensorType::CAMERA, camera_id);
+      const sensor_t sensor_id(SensorType::CAMERA, camera_id);
       if (reconstruction.Rig(rig_id).IsRefSensor(sensor_id)) continue;
 
-      auto cam_from_rig =
+      const auto cam_from_rig =
           reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
       if (!cam_from_rig.has_value() ||
           cam_from_rig.value().translation().hasNaN()) {

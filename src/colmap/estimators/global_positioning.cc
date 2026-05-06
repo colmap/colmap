@@ -246,7 +246,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
         // re-estimated, which requires refine_sensor_from_rig=true.
         THROW_CHECK(options_.refine_sensor_from_rig)
             << "sensor_from_rig has NaN translation but "
-               "refine_sensor_from_rig=false";
+               "refine_sensor_from_rig=false (image_id="
+            << observation.image_id << ")";
         const sensor_t sensor_id = image.CameraPtr()->SensorId();
         if (cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
           // Will be initialized to random values in ParameterizeVariables().

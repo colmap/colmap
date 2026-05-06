@@ -177,9 +177,9 @@ TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {
   // Snapshot the rig BEFORE GP.
   std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    for (const auto& [sensor_id, sfr] : rig.NonRefSensors()) {
-      ASSERT_TRUE(sfr.has_value());
-      snapshot[{rig_id, sensor_id}] = *sfr;
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig.has_value());
+      snapshot[{rig_id, sensor_id}] = *sensor_from_rig;
     }
   }
   ASSERT_GT(snapshot.size(), 0u);
@@ -194,18 +194,12 @@ TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {
 
   // Every sensor_from_rig must match the snapshot exactly.
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    for (const auto& [sensor_id, sfr_after] : rig.NonRefSensors()) {
-      ASSERT_TRUE(sfr_after.has_value())
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
           << "rig=" << rig_id << " sensor=" << sensor_id.id;
-      const auto& sfr_before = snapshot.at({rig_id, sensor_id});
-      EXPECT_EQ(sfr_after->rotation().coeffs(), sfr_before.rotation().coeffs())
-          << "rig=" << rig_id << " sensor=" << sensor_id.id
-          << ": rotation modified";
-      EXPECT_EQ(sfr_after->translation(), sfr_before.translation())
-          << "rig=" << rig_id << " sensor=" << sensor_id.id
-          << ": translation modified (was "
-          << sfr_before.translation().transpose() << ", got "
-          << sfr_after->translation().transpose() << ")";
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig=" << rig_id << " sensor=" << sensor_id.id;
     }
   }
 }
