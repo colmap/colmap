@@ -6,7 +6,6 @@
 #include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
 
-#include <optional>
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar/caspar_model_adapter.h"
 #endif
