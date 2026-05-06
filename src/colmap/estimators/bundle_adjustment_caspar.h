@@ -117,7 +117,7 @@ struct CasparBundleAdjustmentOptions {
   double pcg_rel_score_exit = -1.0;
   double pcg_rel_decrease_min = -1.0;
   double solver_rel_decrease_min = 1.0;
-  int gpu_index = -1;
+  std::string gpu_index = "-1";
 };
 
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(

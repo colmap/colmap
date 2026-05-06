@@ -184,7 +184,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     options.ceres->loss_function_type =
         CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1;
     options.ceres->use_gpu = ba_use_gpu;
-    options.ceres->gpu_index = std::to_string(ba_gpu_index);
+    options.ceres->gpu_index = ba_gpu_index;
   }
   if (options.caspar) {
     options.caspar->gpu_index = ba_gpu_index;
@@ -224,7 +224,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     options.ceres->loss_function_type =
         CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
     options.ceres->use_gpu = ba_use_gpu;
-    options.ceres->gpu_index = std::to_string(ba_gpu_index);
+    options.ceres->gpu_index = ba_gpu_index;
   }
   if (options.caspar) {
     options.caspar->gpu_index = ba_gpu_index;

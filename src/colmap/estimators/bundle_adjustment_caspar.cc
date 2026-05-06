@@ -6,6 +6,7 @@
 #include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/misc.h"
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar/caspar_model_adapter.h"
 #endif
@@ -905,7 +906,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     int gpu_index = -1;
     if (options_.caspar) {
       const auto& co = *options_.caspar;
-      gpu_index = co.gpu_index;
+      const std::vector<int> gpu_indices = CSVToVector<int>(co.gpu_index);
+      THROW_CHECK_GT(gpu_indices.size(), 0);
+      gpu_index = gpu_indices[0];
       params.solver_iter_max = co.solver_iter_max;
       params.pcg_iter_max = co.pcg_iter_max;
       params.diag_init = co.diag_init;
@@ -920,8 +923,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
       params.solver_rel_decrease_min = co.solver_rel_decrease_min;
     }
 
-    const size_t device_id = static_cast<size_t>(
-        gpu_index >= 0 ? gpu_index : FindBestCudaDevice());
+    const size_t device_id =
+        static_cast<size_t>(gpu_index >= 0 ? gpu_index : FindBestCudaDevice());
     LogFactorDistribution();
     auto solver = CreateSolver(params, BuildSizing(), device_id);
     SetupSolverData(solver);

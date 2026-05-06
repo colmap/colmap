@@ -137,10 +137,8 @@ struct IncrementalPipelineOptions {
 
   // Whether to use Ceres' CUDA sparse linear algebra library, if available.
   bool ba_use_gpu = false;
-  // GPU device index for bundle adjustment (-1 = auto-select). Stored as int
-  // rather than a CSV string. Change to std::string if multi-GPU support is
-  // needed for Ceres.
-  int ba_gpu_index = -1;
+  // GPU device index for bundle adjustment (-1 = auto-select).
+  std::string ba_gpu_index = "-1";
 
   // Bundle adjustment solver backend for local bundle adjustment.
   BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
