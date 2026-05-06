@@ -173,7 +173,8 @@ class GraphSolver {
       size_t pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max,
       size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
       size_t
-          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max);
+          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max,
+      int device_id = 0);
 
   // This class is managing cuda memory and cannot be copied.
   GraphSolver(const GraphSolver&) = delete;
@@ -3496,6 +3497,7 @@ class GraphSolver {
 
  private:
   SolverParams<float> params_;
+  int device_id_;
   uint8_t* origin_ptr_;
   size_t scratch_inout_size_;
   size_t allocation_size_;

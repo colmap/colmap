@@ -357,8 +357,4 @@ register_camera_model(
 
 out_dir = Path(f"{sys.argv[1]}")
 print(f"Generating Caspar kernels with precision {precision}: {out_dir}")
-# TODO: Pending change to Symforce
-# (https://github.com/symforce-org/symforce/pull/459), for now we have to
-# manually remove python bindings when regenerating
-# caslib.generate(out_dir, use_symlinks=False, python_bindings=False)
-caslib.generate(out_dir)
+caslib.generate(out_dir, use_symlinks=False, python_bindings=False)
