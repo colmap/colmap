@@ -196,10 +196,10 @@ TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
       ASSERT_TRUE(sensor_from_rig_after.has_value())
-          << "rig=" << rig_id << " sensor=" << sensor_id.id;
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
       const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
       EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
-          << "rig=" << rig_id << " sensor=" << sensor_id.id;
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
     }
   }
 }

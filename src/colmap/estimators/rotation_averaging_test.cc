@@ -415,10 +415,10 @@ TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
   for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
     for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
       ASSERT_TRUE(sensor_from_rig_after.has_value())
-          << "rig=" << rig_id << " sensor=" << sensor_id.id;
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
       const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
       EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
-          << "rig=" << rig_id << " sensor=" << sensor_id.id;
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
     }
   }
 }
@@ -458,21 +458,12 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
 
   // Every sensor_from_rig must match the snapshot exactly.
   for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
-    for (const auto& [sensor_id, sfr_after] : rig.NonRefSensors()) {
-      ASSERT_TRUE(sfr_after.has_value())
-          << "rig=" << rig_id << " sensor=" << sensor_id.id;
-      const auto& sfr_before = snapshot.at({rig_id, sensor_id});
-      // Rotation: quaternion components match exactly. Use coeffs() for
-      // a single 4-vector compare with EXPECT_EQ semantics.
-      EXPECT_EQ(sfr_after->rotation().coeffs(), sfr_before.rotation().coeffs())
-          << "rig=" << rig_id << " sensor=" << sensor_id.id
-          << ": rotation modified";
-      // Translation: must match exactly (no NaN-poisoning, no zero-reset).
-      EXPECT_EQ(sfr_after->translation(), sfr_before.translation())
-          << "rig=" << rig_id << " sensor=" << sensor_id.id
-          << ": translation modified (was "
-          << sfr_before.translation().transpose() << ", got "
-          << sfr_after->translation().transpose() << ")";
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
     }
   }
 }

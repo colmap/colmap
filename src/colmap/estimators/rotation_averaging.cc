@@ -549,8 +549,8 @@ bool InitializeRigRotationsFromImages(
         THROW_CHECK(sensor_from_rig.has_value() &&
                     !sensor_from_rig->rotation().coeffs().hasNaN())
             << "sensor_from_rig has NaN rotation but "
-               "refine_sensor_from_rig=false (rig="
-            << rig_id << " sensor=" << sensor_id.id << ")";
+               "refine_sensor_from_rig=false (rig_id="
+            << rig_id << ", sensor_id=" << sensor_id.id << ")";
       }
     }
   }
