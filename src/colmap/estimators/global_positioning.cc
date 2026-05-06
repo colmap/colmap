@@ -242,8 +242,12 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
                                    frame_centers_[image.FrameId()].data(),
                                    &scale);
       } else {
-        // If the cam_from_rig contains nan values, it needs to be re-estimated.
-        // Initialize cams_in_rig_ if not already done.
+        // NaN translation means the sensor's cam_from_rig must be
+        // re-estimated, which requires refine_sensor_from_rig=true.
+        THROW_CHECK(options_.refine_sensor_from_rig)
+            << "sensor_from_rig has NaN translation but "
+               "refine_sensor_from_rig=false (image_id="
+            << observation.image_id << ")";
         const sensor_t sensor_id = image.CameraPtr()->SensorId();
         if (cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
           // Will be initialized to random values in ParameterizeVariables().
@@ -426,7 +430,6 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
     rig_from_world.translation() = rig_from_world.rotation() * -center;
   }
 
-  // Convert optimized cam_in_rig back to sensor_from_rig translations.
   for (const auto& [sensor_id, center] : cams_in_rig_) {
     // Find the rig containing this sensor.
     for (const auto& [rig_id, rig] : reconstruction.Rigs()) {

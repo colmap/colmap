@@ -123,6 +123,8 @@ void BindCeresTypes(py::module& m) {
                  ceres::SparseLinearAlgebraLibraryType::EIGEN_SPARSE)
           .value("ACCELERATE_SPARSE",
                  ceres::SparseLinearAlgebraLibraryType::ACCELERATE_SPARSE)
+          .value("CUDA_SPARSE",
+                 ceres::SparseLinearAlgebraLibraryType::CUDA_SPARSE)
           .value("NO_SPARSE", ceres::SparseLinearAlgebraLibraryType::NO_SPARSE);
   AddStringToEnumConstructor(slalt);
 

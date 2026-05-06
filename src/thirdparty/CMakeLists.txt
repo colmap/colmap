@@ -125,6 +125,13 @@ if(CASPAR_ENABLED AND CUDA_ENABLED)
     # raw ${CMAKE_CURRENT_SOURCE_DIR} which CMake rejects on exported targets.
     set_target_properties(caspar_lib_core PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES "$<BUILD_INTERFACE:${CASPAR_GEN_DIR}>")
+    # Silence warnings from auto-generated Caspar CUDA sources, matching the
+    # blanket `-w`/`/W0` policy applied to other thirdparty C++ code above.
+    target_compile_options(caspar_lib_core PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:-w>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcudafe=--diag_suppress=550>
+        $<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>>
+    )
     message(STATUS "Configuring Caspar... done")
 
     message(STATUS "Caspar precision:  ${_caspar_precision}")

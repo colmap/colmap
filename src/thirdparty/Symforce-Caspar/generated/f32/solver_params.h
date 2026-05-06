@@ -1,7 +1,8 @@
 /* ----------------------------------------------------------------------------
  * SymForce - Copyright 2025, Skydio, Inc.
  * This source code is under the Apache 2.0 license found in the LICENSE file.
- * ---------------------------------------------------------------------------- */
+ * ----------------------------------------------------------------------------
+ */
 
 #pragma once
 
@@ -38,6 +39,7 @@ struct SolverParams {
         pcg_rel_error_exit(static_cast<T>(other.pcg_rel_error_exit)),
         pcg_rel_score_exit(static_cast<T>(other.pcg_rel_score_exit)),
         pcg_rel_decrease_min(static_cast<T>(other.pcg_rel_decrease_min)),
-        solver_rel_decrease_min(static_cast<T>(other.solver_rel_decrease_min)) {}
+        solver_rel_decrease_min(static_cast<T>(other.solver_rel_decrease_min)) {
+  }
 };
 }  // namespace caspar

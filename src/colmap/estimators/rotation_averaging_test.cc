@@ -36,6 +36,9 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 
+#include <map>
+#include <utility>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -370,6 +373,97 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
                         .SensorFromRig(sensor_id)
                         .rotation()),
                 1e-6);
+    }
+  }
+}
+
+// When a sensor_from_rig is already fully calibrated (valid rotation AND
+// translation), InitializeRigRotationsFromImages must preserve it rather than
+// resetting the translation to NaN.
+TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
+    if (image.HasPose()) {
+      cams_from_world[image_id] = image.CamFromWorld();
+    }
+  }
+
+  // Snapshot the (already-calibrated) rig BEFORE initialization.
+  std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig.has_value());
+      snapshot[{rig_id, sensor_id}] = *sensor_from_rig;
+    }
+  }
+  ASSERT_GT(snapshot.size(), 0u);
+
+  EXPECT_TRUE(
+      InitializeRigRotationsFromImages(cams_from_world, data.reconstruction));
+
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+    }
+  }
+}
+
+TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
+  SetPRNGSeed(1);
+
+  // A non-trivial multi-camera rig so both rotation AND translation are
+  // non-zero
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  // Snapshot the rig BEFORE RA so we can compare element-wise.
+  std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sfr] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sfr.has_value());
+      snapshot[{rig_id, sensor_id}] = *sfr;
+    }
+  }
+  // Sanity check: at least one sensor should have a non-zero translation
+  // so the test would actually catch the old "reset to zero" behaviour.
+  ASSERT_GT(snapshot.size(), 0u);
+
+  // Run RA with refine_sensor_from_rig=false.
+  RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
+  options.refine_sensor_from_rig = false;
+  ASSERT_TRUE(RunRotationAveraging(
+      options, data.pose_graph, data.reconstruction, data.pose_priors));
+
+  // Every sensor_from_rig must match the snapshot exactly.
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
     }
   }
 }
