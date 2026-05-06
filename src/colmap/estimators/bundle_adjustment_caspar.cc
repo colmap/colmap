@@ -257,8 +257,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     if (!image.IsRefInFrame() && pose_var) {
       LOG(FATAL_THROW)
           << "Image " << image.ImageId()
-          << ": non-ref rig camera with variable pose; CASPAR cannot "
-             "chain CamFromRig * RigFromWorld into a single pose "
+          << ": non-ref rig camera with variable pose; CASPAR "
+             "does not currently support "
+             "chaining CamFromRig * RigFromWorld into a single pose "
              "variable.";
       return;
     }
