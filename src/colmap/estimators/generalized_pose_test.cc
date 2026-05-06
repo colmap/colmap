@@ -155,6 +155,7 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
   AbsolutePoseRefinementOptions options;
   options.refine_focal_length = false;
   options.refine_extra_params = false;
+  Eigen::Matrix6d rig_from_world_cov = Eigen::Matrix6d::Zero();
   EXPECT_TRUE(RefineGeneralizedAbsolutePose(options,
                                             gt_inlier_mask,
                                             problem.points2D,
@@ -162,11 +163,13 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
                                             problem.camera_idxs,
                                             problem.cams_from_rig,
                                             &rig_from_world,
-                                            &problem.cameras));
+                                            &problem.cameras,
+                                            &rig_from_world_cov));
   EXPECT_THAT(
       rig_from_world,
       Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
   EXPECT_NEAR(rig_from_world.rotation().norm(), 1.0, 1e-6);
+  EXPECT_NE(rig_from_world_cov, Eigen::Matrix6d::Zero());
 }
 
 TEST(RefineGeneralizedAbsolutePose, PositionPrior) {
