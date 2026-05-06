@@ -921,7 +921,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
 
     const size_t device_id = static_cast<size_t>(
-        co.gpu_index >= 0 ? co.gpu_index : FindBestCudaDevice());
+        gpu_index >= 0 ? gpu_index : FindBestCudaDevice());
     LogFactorDistribution();
     auto solver = CreateSolver(params, BuildSizing(), device_id);
     SetupSolverData(solver);
