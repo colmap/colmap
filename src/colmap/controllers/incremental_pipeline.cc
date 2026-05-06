@@ -30,6 +30,7 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
@@ -184,6 +185,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
         CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1;
     options.ceres->use_gpu = ba_use_gpu;
     options.ceres->gpu_index = ba_gpu_index;
+  }
+  if (options.caspar) {
+    options.caspar->gpu_index = ba_caspar_gpu_index;
   }
   return options;
 }

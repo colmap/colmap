@@ -139,6 +139,9 @@ struct IncrementalPipelineOptions {
   bool ba_use_gpu = false;
   std::string ba_gpu_index = "-1";
 
+  // GPU device index for Caspar bundle adjustment (-1 = auto-select).
+  int ba_caspar_gpu_index = -1;
+
   // Bundle adjustment solver backend for local bundle adjustment.
   BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
 

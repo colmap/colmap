@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/ui/main_window.h"
 #include "colmap/util/controller_thread.h"
@@ -99,6 +100,29 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                 static_cast<BundleAdjustmentBackend>(idx);
           });
   AddWidgetRow("backend", backend_combo);
+
+  AddSection("Caspar Options");
+  AddOptionInt(&options->bundle_adjustment->caspar->gpu_index,
+               "gpu_index (-1 = auto)");
+
+  const bool caspar_active =
+      options->bundle_adjustment->backend == BundleAdjustmentBackend::CASPAR;
+  if (!caspar_active) {
+    HideOption(&options->bundle_adjustment->caspar->gpu_index);
+  }
+
+  connect(backend_combo,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          [this, options](int idx) {
+            const bool is_caspar =
+                static_cast<BundleAdjustmentBackend>(idx) ==
+                BundleAdjustmentBackend::CASPAR;
+            if (is_caspar) {
+              ShowOption(&options->bundle_adjustment->caspar->gpu_index);
+            } else {
+              HideOption(&options->bundle_adjustment->caspar->gpu_index);
+            }
+          });
 #endif
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);

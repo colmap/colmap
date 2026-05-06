@@ -5,6 +5,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar/caspar_model_adapter.h"
 #endif
@@ -901,8 +902,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
 
     caspar::SolverParams<double> params;
+    const auto& co = *options_.caspar;
+
     if (options_.caspar) {
-      const auto& co = *options_.caspar;
       params.solver_iter_max = co.solver_iter_max;
       params.pcg_iter_max = co.pcg_iter_max;
       params.diag_init = co.diag_init;
@@ -916,8 +918,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
       params.pcg_rel_decrease_min = co.pcg_rel_decrease_min;
       params.solver_rel_decrease_min = co.solver_rel_decrease_min;
     }
+
+    const size_t device_id = static_cast<size_t>(
+        co.gpu_index >= 0 ? co.gpu_index : FindBestCudaDevice());
     LogFactorDistribution();
-    auto solver = CreateSolver(params, BuildSizing());
+    auto solver = CreateSolver(params, BuildSizing(), device_id);
     SetupSolverData(solver);
     caspar::SolveResult result = solver.solve(/*print_progress=*/false);
     ReadSolverResults(solver);

@@ -579,6 +579,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->caspar->pcg_rel_decrease_min);
   AddDefaultOption("BundleAdjustmentCaspar.solver_rel_decrease_min",
                    &bundle_adjustment->caspar->solver_rel_decrease_min);
+  AddDefaultOption("BundleAdjustmentCaspar.gpu_index",
+                   &bundle_adjustment->caspar->gpu_index);
 #endif  // CASPAR_ENABLED
 }
 
@@ -643,6 +645,7 @@ void OptionManager::AddMapperOptions() {
                    &mapper->ba_local_max_refinement_change);
   AddDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
   AddDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddDefaultOption("Mapper.ba_caspar_gpu_index", &mapper->ba_caspar_gpu_index);
   AddDefaultEnumOption("Mapper.ba_local_backend",
                        &mapper->ba_local_backend,
                        BundleAdjustmentBackendToString,
