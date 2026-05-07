@@ -42,6 +42,20 @@ cudaError_t ConstPinholePrincipalPointCasparToStacked(
     const unsigned int cas_offset,
     const unsigned int num_objects);
 
+cudaError_t ConstPinholeSensorFromRigStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstPinholeSensorFromRigCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
 cudaError_t ConstPixelStackedToCaspar(const double* stacked_data,
                                       double* cas_data,
                                       const unsigned int cas_stride,
@@ -102,6 +116,20 @@ cudaError_t ConstSimpleRadialPrincipalPointStackedToCaspar(
     const unsigned int num_objects);
 
 cudaError_t ConstSimpleRadialPrincipalPointCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstSimpleRadialSensorFromRigStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstSimpleRadialSensorFromRigCasparToStacked(
     const double* cas_data,
     double* stacked_data,
     const unsigned int cas_stride,

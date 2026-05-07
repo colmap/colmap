@@ -173,7 +173,8 @@ class GraphSolver {
       size_t pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max,
       size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
       size_t
-          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max);
+          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max,
+      int device_id = 0);
 
   // This class is managing cuda memory and cannot be copied.
   GraphSolver(const GraphSolver&) = delete;
@@ -685,6 +686,25 @@ class GraphSolver {
                                              size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts SimpleRadial factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialSensorFromRigDataFromStackedHost(const double* const data,
+                                                       size_t offset,
+                                                       size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SimpleRadial factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts SimpleRadial factor from stacked host
    * data.
    *
@@ -740,6 +760,24 @@ class GraphSolver {
    */
   void SetSimpleRadialFixedPosePointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SimpleRadialFixedPose factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPoseSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SimpleRadialFixedPose factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPoseSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts SimpleRadialFixedPose factor from
@@ -816,6 +854,24 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts SimpleRadialFixedPoint factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SimpleRadialFixedPoint factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts SimpleRadialFixedPoint factor from
    * stacked host data.
    *
@@ -873,6 +929,24 @@ class GraphSolver {
    */
   void SetSimpleRadialFixedPoseFixedPointCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialFixedPoseFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPoseFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialFixedPoseFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialFixedPoseFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts SimpleRadialFixedPoseFixedPoint factor
@@ -974,6 +1048,26 @@ class GraphSolver {
                                         size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts Pinhole factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSensorFromRigDataFromStackedHost(const double* const data,
+                                                  size_t offset,
+                                                  size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts Pinhole factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSensorFromRigDataFromStackedDevice(const double* const data,
+                                                    size_t offset,
+                                                    size_t num);
+
+  /**
    * Set the values for the pixel consts Pinhole factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
@@ -1028,6 +1122,24 @@ class GraphSolver {
    */
   void SetPinholeFixedPosePointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts PinholeFixedPose factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts PinholeFixedPose factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts PinholeFixedPose factor from stacked
@@ -1107,6 +1219,24 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts PinholeFixedPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts PinholeFixedPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts PinholeFixedPoint factor from stacked
    * host data.
    *
@@ -1168,6 +1298,24 @@ class GraphSolver {
    */
   void SetPinholeFixedPoseFixedPointCalibIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts PinholeFixedPoseFixedPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts PinholeFixedPoseFixedPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeFixedPoseFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts PinholeFixedPoseFixedPoint factor from
@@ -1276,6 +1424,26 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * SimpleRadialSplitFixedFocalAndDistortion factor from stacked host data.
    *
@@ -1366,6 +1534,25 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialSplitFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPrincipalPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts SimpleRadialSplitFixedPrincipalPoint
    * factor from stacked host data.
    *
@@ -1441,6 +1628,28 @@ class GraphSolver {
   void
   SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -1547,6 +1756,28 @@ class GraphSolver {
    */
   void SetSimpleRadialSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedPrincipalPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedPrincipalPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -1659,6 +1890,28 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
    * stacked host data.
@@ -1767,6 +2020,28 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked host
    * data.
@@ -1873,6 +2148,28 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPrincipalPointFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * SimpleRadialSplitFixedPrincipalPointFixedPoint factor from stacked host
    * data.
@@ -1965,6 +2262,28 @@ class GraphSolver {
   void
   SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -2086,6 +2405,28 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
    * stacked host data.
@@ -2199,6 +2540,28 @@ class GraphSolver {
   void
   SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -2316,6 +2679,28 @@ class GraphSolver {
   void
   SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
+   * factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
+   * factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -2461,6 +2846,24 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts PinholeSplitFixedFocal factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedFocalSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts PinholeSplitFixedFocal factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedFocalSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts PinholeSplitFixedFocal factor from
    * stacked host data.
    *
@@ -2548,6 +2951,24 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPrincipalPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts PinholeSplitFixedPrincipalPoint factor
    * from stacked host data.
    *
@@ -2619,6 +3040,24 @@ class GraphSolver {
    */
   void SetPinholeSplitFixedPoseFixedFocalPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedFocal factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedPoseFixedFocalSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedFocal factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedPoseFixedFocalSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts PinholeSplitFixedPoseFixedFocal factor
@@ -2712,6 +3151,26 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedPrincipalPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * PinholeSplitFixedPoseFixedPrincipalPoint factor from stacked host data.
    *
@@ -2803,6 +3262,26 @@ class GraphSolver {
    */
   void SetPinholeSplitFixedFocalFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedFocalFixedPrincipalPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedFocalFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedFocalFixedPrincipalPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedFocalFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -2899,6 +3378,24 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedFocalFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedFocalFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedFocalFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetPinholeSplitFixedFocalFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts PinholeSplitFixedFocalFixedPoint factor
    * from stacked host data.
    *
@@ -2990,6 +3487,26 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPrincipalPointFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPrincipalPointFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * PinholeSplitFixedPrincipalPointFixedPoint factor from stacked host data.
    *
@@ -3070,6 +3587,28 @@ class GraphSolver {
   void
   SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedFocalFixedPrincipalPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedFocalFixedPrincipalPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -3186,6 +3725,26 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedFocalFixedPoint factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedFocalFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedFocalFixedPoint factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedFocalFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * PinholeSplitFixedPoseFixedFocalFixedPoint factor from stacked host data.
    *
@@ -3282,6 +3841,28 @@ class GraphSolver {
   void
   SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointFocalIndicesFromDevice(
       const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedPrincipalPointFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedPoseFixedPrincipalPointFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
@@ -3398,6 +3979,28 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedFocalFixedPrincipalPointFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * PinholeSplitFixedFocalFixedPrincipalPointFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
    * Set the values for the pixel consts
    * PinholeSplitFixedFocalFixedPrincipalPointFixedPoint factor from stacked
    * host data.
@@ -3497,6 +4100,7 @@ class GraphSolver {
 
  private:
   SolverParams<double> params_;
+  int device_id_;
   uint8_t* origin_ptr_;
   size_t scratch_inout_size_;
   size_t allocation_size_;
@@ -3645,40 +4249,51 @@ class GraphSolver {
   double* nodes__SimpleRadialPrincipalPoint__storage_check_;
   double* nodes__SimpleRadialPrincipalPoint__storage_new_best_;
   SharedIndex* facs__simple_radial__args__pose__idx_shared_;
+  double* facs__simple_radial__args__sensor_from_rig__data_;
   SharedIndex* facs__simple_radial__args__calib__idx_shared_;
   SharedIndex* facs__simple_radial__args__point__idx_shared_;
   double* facs__simple_radial__args__pixel__data_;
+  double* facs__simple_radial_fixed_pose__args__sensor_from_rig__data_;
   SharedIndex* facs__simple_radial_fixed_pose__args__calib__idx_shared_;
   SharedIndex* facs__simple_radial_fixed_pose__args__point__idx_shared_;
   double* facs__simple_radial_fixed_pose__args__pixel__data_;
   double* facs__simple_radial_fixed_pose__args__pose__data_;
   SharedIndex* facs__simple_radial_fixed_point__args__pose__idx_shared_;
+  double* facs__simple_radial_fixed_point__args__sensor_from_rig__data_;
   SharedIndex* facs__simple_radial_fixed_point__args__calib__idx_shared_;
   double* facs__simple_radial_fixed_point__args__pixel__data_;
   double* facs__simple_radial_fixed_point__args__point__data_;
+  double*
+      facs__simple_radial_fixed_pose_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_fixed_pose_fixed_point__args__calib__idx_shared_;
   double* facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_;
   double* facs__simple_radial_fixed_pose_fixed_point__args__pose__data_;
   double* facs__simple_radial_fixed_pose_fixed_point__args__point__data_;
   SharedIndex* facs__pinhole__args__pose__idx_shared_;
+  double* facs__pinhole__args__sensor_from_rig__data_;
   SharedIndex* facs__pinhole__args__calib__idx_shared_;
   SharedIndex* facs__pinhole__args__point__idx_shared_;
   double* facs__pinhole__args__pixel__data_;
+  double* facs__pinhole_fixed_pose__args__sensor_from_rig__data_;
   SharedIndex* facs__pinhole_fixed_pose__args__calib__idx_shared_;
   SharedIndex* facs__pinhole_fixed_pose__args__point__idx_shared_;
   double* facs__pinhole_fixed_pose__args__pixel__data_;
   double* facs__pinhole_fixed_pose__args__pose__data_;
   SharedIndex* facs__pinhole_fixed_point__args__pose__idx_shared_;
+  double* facs__pinhole_fixed_point__args__sensor_from_rig__data_;
   SharedIndex* facs__pinhole_fixed_point__args__calib__idx_shared_;
   double* facs__pinhole_fixed_point__args__pixel__data_;
   double* facs__pinhole_fixed_point__args__point__data_;
+  double* facs__pinhole_fixed_pose_fixed_point__args__sensor_from_rig__data_;
   SharedIndex* facs__pinhole_fixed_pose_fixed_point__args__calib__idx_shared_;
   double* facs__pinhole_fixed_pose_fixed_point__args__pixel__data_;
   double* facs__pinhole_fixed_pose_fixed_point__args__pose__data_;
   double* facs__pinhole_fixed_pose_fixed_point__args__point__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__idx_shared_;
+  double*
+      facs__simple_radial_split_fixed_focal_and_distortion__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__idx_shared_;
   SharedIndex*
@@ -3689,6 +4304,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_focal_and_distortion__args__focal_and_distortion__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_principal_point__args__pose__idx_shared_;
+  double*
+      facs__simple_radial_split_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__idx_shared_;
   SharedIndex*
@@ -3696,6 +4313,8 @@ class GraphSolver {
   double* facs__simple_radial_split_fixed_principal_point__args__pixel__data_;
   double*
       facs__simple_radial_split_fixed_principal_point__args__principal_point__data_;
+  double*
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__idx_shared_;
   SharedIndex*
@@ -3706,6 +4325,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pose__data_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__focal_and_distortion__data_;
+  double*
+      facs__simple_radial_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__idx_shared_;
   SharedIndex*
@@ -3718,6 +4339,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__idx_shared_;
+  double*
+      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_;
   double*
@@ -3728,6 +4351,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__idx_shared_;
+  double*
+      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__idx_shared_;
   double*
@@ -3738,6 +4363,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__point__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__idx_shared_;
+  double*
+      facs__simple_radial_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__idx_shared_;
   double*
@@ -3746,6 +4373,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__principal_point__data_;
   double*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__point__data_;
+  double*
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_;
   double*
@@ -3756,6 +4385,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_;
+  double*
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__principal_point__idx_shared_;
   double*
@@ -3766,6 +4397,8 @@ class GraphSolver {
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__point__data_;
+  double*
+      facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_distortion__idx_shared_;
   double*
@@ -3779,6 +4412,8 @@ class GraphSolver {
   SharedIndex*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__idx_shared_;
   double*
+      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
+  double*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__focal_and_distortion__data_;
@@ -3787,6 +4422,7 @@ class GraphSolver {
   double*
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex* facs__pinhole_split_fixed_focal__args__pose__idx_shared_;
+  double* facs__pinhole_split_fixed_focal__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_;
   SharedIndex* facs__pinhole_split_fixed_focal__args__point__idx_shared_;
@@ -3794,6 +4430,8 @@ class GraphSolver {
   double* facs__pinhole_split_fixed_focal__args__focal__data_;
   SharedIndex*
       facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_;
+  double*
+      facs__pinhole_split_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_principal_point__args__focal__idx_shared_;
   SharedIndex*
@@ -3801,6 +4439,8 @@ class GraphSolver {
   double* facs__pinhole_split_fixed_principal_point__args__pixel__data_;
   double*
       facs__pinhole_split_fixed_principal_point__args__principal_point__data_;
+  double*
+      facs__pinhole_split_fixed_pose_fixed_focal__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__idx_shared_;
   SharedIndex*
@@ -3808,6 +4448,8 @@ class GraphSolver {
   double* facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_;
   double* facs__pinhole_split_fixed_pose_fixed_focal__args__pose__data_;
   double* facs__pinhole_split_fixed_pose_fixed_focal__args__focal__data_;
+  double*
+      facs__pinhole_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__idx_shared_;
   SharedIndex*
@@ -3820,6 +4462,8 @@ class GraphSolver {
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__idx_shared_;
+  double*
+      facs__pinhole_split_fixed_focal_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__idx_shared_;
   double*
@@ -3830,6 +4474,8 @@ class GraphSolver {
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__idx_shared_;
+  double*
+      facs__pinhole_split_fixed_focal_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_focal_fixed_point__args__principal_point__idx_shared_;
   double* facs__pinhole_split_fixed_focal_fixed_point__args__pixel__data_;
@@ -3837,6 +4483,8 @@ class GraphSolver {
   double* facs__pinhole_split_fixed_focal_fixed_point__args__point__data_;
   SharedIndex*
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__idx_shared_;
+  double*
+      facs__pinhole_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__idx_shared_;
   double*
@@ -3845,6 +4493,8 @@ class GraphSolver {
       facs__pinhole_split_fixed_principal_point_fixed_point__args__principal_point__data_;
   double*
       facs__pinhole_split_fixed_principal_point_fixed_point__args__point__data_;
+  double*
+      facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__point__idx_shared_;
   double*
@@ -3855,6 +4505,8 @@ class GraphSolver {
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__focal__data_;
   double*
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__principal_point__data_;
+  double*
+      facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__principal_point__idx_shared_;
   double*
@@ -3865,6 +4517,8 @@ class GraphSolver {
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__focal__data_;
   double*
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__point__data_;
+  double*
+      facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__focal__idx_shared_;
   double*
@@ -3877,6 +4531,8 @@ class GraphSolver {
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex*
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__idx_shared_;
+  double*
+      facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   double*
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pixel__data_;
   double*

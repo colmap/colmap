@@ -131,7 +131,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void CreatePoseNodes() {
-    // Single camera per rig assumed.
     std::map<frame_t, CameraModelId> frame_to_model;
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
@@ -251,18 +250,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       return;
     }
 
-    // For non-ref cameras with a variable rig pose, Caspar can't express
-    // project(CamFromRig * RigFromWorld * point, calib) as a variable-pose
-    // factor. See caspar/caspar_generate.py
-    if (!image.IsRefInFrame() && pose_var) {
-      LOG(WARNING) << "Image " << image.ImageId()
-                   << ": non-ref rig camera with variable pose; CASPAR cannot "
-                      "chain CamFromRig * RigFromWorld into a single pose "
-                      "variable. Observations skipped.";
-      return;
-    }
-
-    const bool effective_pose_var = pose_var && image.IsRefInFrame();
+    const bool effective_pose_var = pose_var;
 
     // Skip fully-constant observations, there's nothing to optimize
     if (!effective_pose_var && !focal_and_extra_var && !principal_point_var &&
@@ -323,13 +311,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     VariantData& vd = md.variants[static_cast<int>(v)];
 
+    AppendPose(vd.sensor_from_rig_data, GetSensorFromRig(camera.camera_id, image));
+
     if (effective_pose_var) {
       vd.pose_indices.push_back(
           GetOrCreatePose(image.FrameId(), camera.model_id));
     } else {
-      // Use CamFromWorld() which correctly computes CamFromRig * RigFromWorld
-      // for non-ref cameras, and equals RigFromWorld for ref cameras.
-      AppendPose(vd.const_poses, image.CamFromWorld());
+      AppendPose(vd.const_poses,
+                 reconstruction_.Frame(image.FrameId()).RigFromWorld());
     }
 
     if (focal_and_extra_var) {
@@ -407,6 +396,20 @@ class CasparBundleAdjuster : public BundleAdjuster {
       data.push_back(pose.translation().y());
       data.push_back(pose.translation().z());
       n++;
+    }
+    return it->second;
+  }
+
+  // Returns the sensor_from_rig transform for a camera. Identity for ref
+  // sensors and single-camera datasets; actual transform for non-ref rigs.
+  Rigid3d GetSensorFromRig(const camera_t camera_id, const Image& image) {
+    auto [it, inserted] =
+        camera_to_sensor_from_rig_.try_emplace(camera_id, Rigid3d{});
+    if (inserted) {
+      const Frame& frame = *image.FramePtr();
+      if (frame.HasRigPtr() && !image.IsRefInFrame()) {
+        it->second = frame.RigPtr()->SensorFromRig(image.DataId().sensor_id);
+      }
     }
     return it->second;
   }
@@ -850,7 +853,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
         it != num_poses_per_model_.end()) {
       sz.num_pinhole_poses = it->second;
     }
-
     auto get_md = [&](CameraModelId id) -> const ModelData* {
       auto it = model_data_per_model_.find(id);
       return it != model_data_per_model_.end() ? &it->second : nullptr;
@@ -937,6 +939,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::unordered_map<camera_t, size_t> camera_to_calib_index_;
   // (model_id, calib_idx) -> camera_id  (for write-back)
   std::map<std::pair<CameraModelId, size_t>, camera_t> calib_index_to_camera_;
+
+  std::unordered_map<camera_t, Rigid3d> camera_to_sensor_from_rig_;
 
   Reconstruction& reconstruction_;
   size_t num_points_ = 0;

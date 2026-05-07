@@ -6,6 +6,8 @@
 namespace caspar {
 
 void PinholeSplitFixedPoseFixedFocalResJac(
+    float* sensor_from_rig,
+    unsigned int sensor_from_rig_num_alloc,
     float* principal_point,
     unsigned int principal_point_num_alloc,
     SharedIndex* principal_point_indices,

@@ -9,6 +9,8 @@ void SimpleRadialSplitFixedPrincipalPointFixedPointResJac(
     double* pose,
     unsigned int pose_num_alloc,
     SharedIndex* pose_indices,
+    double* sensor_from_rig,
+    unsigned int sensor_from_rig_num_alloc,
     double* focal_and_distortion,
     unsigned int focal_and_distortion_num_alloc,
     SharedIndex* focal_and_distortion_indices,

@@ -134,6 +134,7 @@ class ICasparModelAdapter {
   virtual void SetVariantFactors(caspar::GraphSolver& solver,
                                  FactorVariant variant,
                                  const VariantData& data) const = 0;
+
 };
 
 // SimpleRadial implementation
@@ -308,6 +309,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
       case FactorVariant::BASE:
         s.SetSimpleRadialNum(n);
         s.SetSimpleRadialPoseIndicesFromHost(d.pose_indices.data(), n);
+        s.SetSimpleRadialSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialCalibIndicesFromHost(d.focal_and_extra_indices.data(),
                                               n);
         s.SetSimpleRadialPointIndicesFromHost(d.point_indices.data(), n);
@@ -315,6 +318,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE:
         s.SetSimpleRadialFixedPoseNum(n);
+        s.SetSimpleRadialFixedPoseSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialFixedPoseCalibIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetSimpleRadialFixedPosePointIndicesFromHost(d.point_indices.data(),
@@ -328,6 +333,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialSplitFixedFocalAndDistortionNum(n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetSimpleRadialSplitFixedFocalAndDistortionSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromHost(
@@ -341,6 +348,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialSplitFixedPrincipalPointNum(n);
         s.SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetSimpleRadialSplitFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromHost(
@@ -354,6 +363,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialFixedPointNum(n);
         s.SetSimpleRadialFixedPointPoseIndicesFromHost(d.pose_indices.data(),
                                                        n);
+        s.SetSimpleRadialFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialFixedPointCalibIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetSimpleRadialFixedPointPointDataFromStackedHost(
@@ -363,6 +374,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionNum(n);
+        s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromHost(
@@ -376,6 +389,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
         s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointNum(n);
+        s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
@@ -389,6 +404,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_POINT:
         s.SetSimpleRadialFixedPoseFixedPointNum(n);
+        s.SetSimpleRadialFixedPoseFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialFixedPoseFixedPointCalibIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetSimpleRadialFixedPoseFixedPointPoseDataFromStackedHost(
@@ -402,6 +419,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointNum(n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
             d.point_indices.data(), n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedHost(
@@ -415,6 +434,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPointNum(n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedHost(
@@ -428,6 +449,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialSplitFixedPrincipalPointFixedPointNum(n);
         s.SetSimpleRadialSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetSimpleRadialSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetSimpleRadialSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
@@ -441,6 +464,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
           FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointNum(
             n);
+        s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
             d.point_indices.data(), n);
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPoseDataFromStackedHost(
@@ -454,6 +479,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointNum(n);
+        s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPoseDataFromStackedHost(
@@ -467,6 +494,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
         s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointNum(n);
+        s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
@@ -484,6 +513,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
             n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointFocalAndDistortionDataFromStackedHost(
             d.const_focal_and_extra.data(), 0, n);
         s.SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
@@ -661,12 +692,16 @@ class PinholeAdapter : public ICasparModelAdapter {
       case FactorVariant::BASE:
         s.SetPinholeNum(n);
         s.SetPinholePoseIndicesFromHost(d.pose_indices.data(), n);
+        s.SetPinholeSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeCalibIndicesFromHost(d.focal_and_extra_indices.data(), n);
         s.SetPinholePointIndicesFromHost(d.point_indices.data(), n);
         s.SetPinholePixelDataFromStackedHost(d.pixels.data(), 0, n);
         break;
       case FactorVariant::FIXED_POSE:
         s.SetPinholeFixedPoseNum(n);
+        s.SetPinholeFixedPoseSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeFixedPoseCalibIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetPinholeFixedPosePointIndicesFromHost(d.point_indices.data(), n);
@@ -678,6 +713,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholeSplitFixedFocalNum(n);
         s.SetPinholeSplitFixedFocalPoseIndicesFromHost(d.pose_indices.data(),
                                                        n);
+        s.SetPinholeSplitFixedFocalSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedFocalPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetPinholeSplitFixedFocalPointIndicesFromHost(d.point_indices.data(),
@@ -691,6 +728,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholeSplitFixedPrincipalPointNum(n);
         s.SetPinholeSplitFixedPrincipalPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetPinholeSplitFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedPrincipalPointFocalIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetPinholeSplitFixedPrincipalPointPointIndicesFromHost(
@@ -703,6 +742,8 @@ class PinholeAdapter : public ICasparModelAdapter {
       case FactorVariant::FIXED_POINT:
         s.SetPinholeFixedPointNum(n);
         s.SetPinholeFixedPointPoseIndicesFromHost(d.pose_indices.data(), n);
+        s.SetPinholeFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeFixedPointCalibIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetPinholeFixedPointPointDataFromStackedHost(
@@ -711,6 +752,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
         s.SetPinholeSplitFixedPoseFixedFocalNum(n);
+        s.SetPinholeSplitFixedPoseFixedFocalSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedPoseFixedFocalPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetPinholeSplitFixedPoseFixedFocalPointIndicesFromHost(
@@ -724,6 +767,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
         s.SetPinholeSplitFixedPoseFixedPrincipalPointNum(n);
+        s.SetPinholeSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedPoseFixedPrincipalPointFocalIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetPinholeSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
@@ -737,6 +782,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_POINT:
         s.SetPinholeFixedPoseFixedPointNum(n);
+        s.SetPinholeFixedPoseFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeFixedPoseFixedPointCalibIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetPinholeFixedPoseFixedPointPoseDataFromStackedHost(
@@ -750,6 +797,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholeSplitFixedFocalFixedPrincipalPointNum(n);
         s.SetPinholeSplitFixedFocalFixedPrincipalPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetPinholeSplitFixedFocalFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedFocalFixedPrincipalPointPointIndicesFromHost(
             d.point_indices.data(), n);
         s.SetPinholeSplitFixedFocalFixedPrincipalPointFocalDataFromStackedHost(
@@ -763,6 +812,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholeSplitFixedFocalFixedPointNum(n);
         s.SetPinholeSplitFixedFocalFixedPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetPinholeSplitFixedFocalFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedFocalFixedPointPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetPinholeSplitFixedFocalFixedPointFocalDataFromStackedHost(
@@ -776,6 +827,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholeSplitFixedPrincipalPointFixedPointNum(n);
         s.SetPinholeSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetPinholeSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedPrincipalPointFixedPointFocalIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetPinholeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
@@ -788,6 +841,8 @@ class PinholeAdapter : public ICasparModelAdapter {
       case FactorVariant::
           FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
         s.SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointNum(n);
+        s.SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPointIndicesFromHost(
             d.point_indices.data(), n);
         s.SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPoseDataFromStackedHost(
@@ -801,6 +856,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
         s.SetPinholeSplitFixedPoseFixedFocalFixedPointNum(n);
+        s.SetPinholeSplitFixedPoseFixedFocalFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedPoseFixedFocalFixedPointPrincipalPointIndicesFromHost(
             d.principal_point_indices.data(), n);
         s.SetPinholeSplitFixedPoseFixedFocalFixedPointPoseDataFromStackedHost(
@@ -814,6 +871,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         break;
       case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
         s.SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointNum(n);
+        s.SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointFocalIndicesFromHost(
             d.focal_and_extra_indices.data(), n);
         s.SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
@@ -830,6 +889,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointNum(n);
         s.SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPoseIndicesFromHost(
             d.pose_indices.data(), n);
+        s.SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
         s.SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointFocalDataFromStackedHost(
             d.const_focal_and_extra.data(), 0, n);
         s.SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(

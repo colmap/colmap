@@ -9,6 +9,8 @@ void SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointScore(
     double* pose,
     unsigned int pose_num_alloc,
     SharedIndex* pose_indices,
+    double* sensor_from_rig,
+    unsigned int sensor_from_rig_num_alloc,
     double* pixel,
     unsigned int pixel_num_alloc,
     double* focal_and_distortion,

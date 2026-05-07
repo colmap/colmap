@@ -74,6 +74,7 @@ enum class FactorVariant {
 
 struct VariantData {
   std::vector<unsigned int> pose_indices;
+  std::vector<StorageType> sensor_from_rig_data;  // 7 floats per factor
   std::vector<unsigned int> focal_and_extra_indices;
   std::vector<unsigned int> principal_point_indices;
   std::vector<unsigned int> point_indices;
