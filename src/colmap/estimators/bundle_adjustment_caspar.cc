@@ -243,11 +243,23 @@ class CasparBundleAdjuster : public BundleAdjuster {
     if (options_.refine_focal_length != options_.refine_extra_params &&
         !config_.HasConstantCamIntrinsics(camera.camera_id) &&
         !cameras_from_outside_config_.count(camera.camera_id)) {
-      LOG(WARNING)
+      LOG(FATAL_THROW)
           << "Camera " << camera.camera_id
           << ": refine_focal_length != refine_extra_params is not supported "
-             "by CASPAR's merged focal_and_extra block. Observations skipped.";
+             "by CASPAR's merged focal_and_extra block.";
       return;
+    }
+
+    // CASPAR treats sensor_from_rig as a constant; refinement is unsupported.
+    if (options_.refine_sensor_from_rig) {
+      const Frame& frame = *image.FramePtr();
+      if (frame.HasRigPtr() && !image.IsRefInFrame()) {
+        LOG(FATAL_THROW)
+            << "Camera " << camera.camera_id
+            << ": refine_sensor_from_rig=true is not supported by CASPAR. "
+               "Set refine_sensor_from_rig=false or use the Ceres BA.";
+        return;
+      }
     }
 
     const bool effective_pose_var = pose_var;
@@ -311,7 +323,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     VariantData& vd = md.variants[static_cast<int>(v)];
 
-    AppendPose(vd.sensor_from_rig_data, GetSensorFromRig(camera.camera_id, image));
+    AppendPose(vd.sensor_from_rig_data,
+               GetSensorFromRig(image));
 
     if (effective_pose_var) {
       vd.pose_indices.push_back(
@@ -402,16 +415,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   // Returns the sensor_from_rig transform for a camera. Identity for ref
   // sensors and single-camera datasets; actual transform for non-ref rigs.
-  Rigid3d GetSensorFromRig(const camera_t camera_id, const Image& image) {
-    auto [it, inserted] =
-        camera_to_sensor_from_rig_.try_emplace(camera_id, Rigid3d{});
-    if (inserted) {
-      const Frame& frame = *image.FramePtr();
-      if (frame.HasRigPtr() && !image.IsRefInFrame()) {
-        it->second = frame.RigPtr()->SensorFromRig(image.DataId().sensor_id);
-      }
+  Rigid3d GetSensorFromRig(const Image& image) {
+    const Frame& frame = *image.FramePtr();
+    if (frame.HasRigPtr() && !image.IsRefInFrame()) {
+      return frame.RigPtr()->SensorFromRig(image.DataId().sensor_id);
     }
-    return it->second;
+    return Rigid3d{};
   }
 
   // Calib indices are per-model: index 0 for SimpleRadial is unrelated to
@@ -939,8 +948,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::unordered_map<camera_t, size_t> camera_to_calib_index_;
   // (model_id, calib_idx) -> camera_id  (for write-back)
   std::map<std::pair<CameraModelId, size_t>, camera_t> calib_index_to_camera_;
-
-  std::unordered_map<camera_t, Rigid3d> camera_to_sensor_from_rig_;
 
   Reconstruction& reconstruction_;
   size_t num_points_ = 0;
