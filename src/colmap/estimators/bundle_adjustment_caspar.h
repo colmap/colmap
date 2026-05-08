@@ -105,8 +105,8 @@ namespace colmap {
 // round-trip through OptionManager regardless of the float/double build.
 // Also includes GPU index selection option
 struct CasparBundleAdjustmentOptions {
-  int solver_iter_max = 100;
-  int pcg_iter_max = 20;
+  int solver_iter_max = 200;
+  int pcg_iter_max = 50;
   double diag_init = 1.0;
   double diag_min = 1e-12;
   double diag_scaling_up = 2.0;
@@ -117,7 +117,7 @@ struct CasparBundleAdjustmentOptions {
   // Negative value disables the corresponding early-exit criterion.
   double pcg_rel_score_exit = -1.0;
   double pcg_rel_decrease_min = -1.0;
-  double solver_rel_decrease_min = 1.0;
+  double solver_rel_decrease_min = 0.999;
   std::string gpu_index = "-1";
 };
 
