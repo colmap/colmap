@@ -86,6 +86,7 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
     options_.print_summary = false;
+    options_.refine_sensor_from_rig = false;
   }
 
   void TearDown(::benchmark::State& /*state*/) {
