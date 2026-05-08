@@ -924,7 +924,8 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
 //        simple_radial_split (11) → pinhole_split (11)
 inline caspar::GraphSolver CreateSolver(
     const caspar::SolverParams<StorageType>& params,
-    const CasparSolverSizing& sz) {
+    const CasparSolverSizing& sz,
+    size_t device_id = 0) {
   return caspar::GraphSolver(
       params,
       // Node type counts (alphabetical):
@@ -981,8 +982,8 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point,  // r=3
       sz.num_pinhole_split_fixed_pose_fixed_focal_fixed_point,            // r=3
       sz.num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
-      sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point  // r=3
-  );
+      sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point,  // r=3
+      device_id);
 }
 
 }  // namespace colmap

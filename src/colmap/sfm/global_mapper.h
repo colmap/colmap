@@ -27,12 +27,14 @@ struct GlobalMapperOptions {
   // If not specified, all point colors will be black.
   std::filesystem::path image_path;
 
+  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated
+  bool refine_sensor_from_rig = true;
+
   // Options for each component
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
   BundleAdjustmentOptions bundle_adjustment = [] {
     BundleAdjustmentOptions options;
-    options.refine_sensor_from_rig = false;
     options.min_track_length = 3;
     options.print_summary = false;
     if (options.ceres) {
@@ -93,6 +95,11 @@ struct GlobalMapperOptions {
   bool skip_global_positioning = false;
   bool skip_bundle_adjustment = false;
   bool skip_retriangulation = false;
+
+  RotationEstimatorOptions RotationAveraging() const;
+  GlobalPositionerOptions GlobalPositioning() const;
+  BundleAdjustmentOptions BundleAdjustment() const;
+  IncrementalTriangulator::Options Retriangulation() const;
 };
 
 class GlobalMapper {

@@ -579,6 +579,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->caspar->pcg_rel_decrease_min);
   AddDefaultOption("BundleAdjustmentCaspar.solver_rel_decrease_min",
                    &bundle_adjustment->caspar->solver_rel_decrease_min);
+  AddDefaultOption("BundleAdjustmentCaspar.gpu_index",
+                   &bundle_adjustment->caspar->gpu_index);
 #endif  // CASPAR_ENABLED
 }
 
@@ -788,9 +790,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ba_refine_extra_params",
       &global_mapper->mapper.bundle_adjustment.refine_extra_params);
-  AddDefaultOption(
-      "GlobalMapper.ba_refine_sensor_from_rig",
-      &global_mapper->mapper.bundle_adjustment.refine_sensor_from_rig);
+  AddDefaultOption("GlobalMapper.refine_sensor_from_rig",
+                   &global_mapper->mapper.refine_sensor_from_rig);
   AddDefaultOption(
       "GlobalMapper.ba_refine_rig_from_world",
       &global_mapper->mapper.bundle_adjustment.refine_rig_from_world);
