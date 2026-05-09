@@ -103,6 +103,43 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 30);
 }
 
+TEST(UndistortCamera, MaxCamPointNorm) {
+  // Fisheye camera with off-center principal point: pixels far from (cx, cy)
+  // have theta close to pi/2, so CamFromImg returns very large values
+  // (|cam_point| = tan(theta)) that blow up the output dimensions.
+  Camera distorted_camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimpleFisheye, 130, 200, 100);
+  distorted_camera.SetPrincipalPointX(10);
+  distorted_camera.SetPrincipalPointY(50);
+
+  UndistortCameraOptions options;
+  // Exercise the path driven by extreme samples.
+  options.blank_pixels = 1.0;
+
+  // Default (max_cam_point_norm = -1): the extreme cam_points push the scale
+  // factor against max_scale, so the output is the maximum allowed size.
+  const Camera undistorted_camera_unbounded =
+      UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera_unbounded.width,
+            distorted_camera.width * options.max_scale);
+  EXPECT_EQ(undistorted_camera_unbounded.height,
+            distorted_camera.height * options.max_scale);
+
+  // With a finite threshold, extreme border samples are skipped, yielding
+  // a smaller output that is no longer hitting the max_scale clamp.
+  options.max_cam_point_norm = 2.0;
+  const Camera undistorted_camera_bounded =
+      UndistortCamera(options, distorted_camera);
+  EXPECT_LT(undistorted_camera_bounded.width,
+            undistorted_camera_unbounded.width);
+  EXPECT_LT(undistorted_camera_bounded.height,
+            undistorted_camera_unbounded.height);
+
+  // max_cam_point_norm = 0 is invalid (would skip every sample).
+  options.max_cam_point_norm = 0;
+  EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
+}
+
 TEST(UndistortCamera, BlankPixels) {
   UndistortCameraOptions options;
   options.blank_pixels = 1;
