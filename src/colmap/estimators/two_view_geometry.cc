@@ -925,6 +925,113 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
   return geometry;
 }
 
+namespace {
+
+// Fits the E/F/H matrix matching `geometry->config` from the existing
+// inlier matches when it was not persisted in the database (e.g. databases
+// from older COLMAP versions that stored only the configuration). Returns
+// false if no matrix is needed for the configuration, the relevant matrix
+// is already present, or the fit failed (insufficient inliers / degenerate
+// configuration).
+bool MaybeFitMissingTwoViewGeometryMatrix(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    TwoViewGeometry* geometry) {
+  switch (geometry->config) {
+    case TwoViewGeometry::ConfigurationType::CALIBRATED: {
+      if (geometry->E.has_value()) {
+        return true;
+      }
+      std::vector<Eigen::Vector3d> cam_rays1;
+      std::vector<Eigen::Vector3d> cam_rays2;
+      cam_rays1.reserve(geometry->inlier_matches.size());
+      cam_rays2.reserve(geometry->inlier_matches.size());
+      for (const FeatureMatch& match : geometry->inlier_matches) {
+        const std::optional<Eigen::Vector2d> cam_point1 =
+            camera1.CamFromImg(points1[match.point2D_idx1]);
+        const std::optional<Eigen::Vector2d> cam_point2 =
+            camera2.CamFromImg(points2[match.point2D_idx2]);
+        if (cam_point1 && cam_point2) {
+          cam_rays1.push_back(cam_point1->homogeneous().normalized());
+          cam_rays2.push_back(cam_point2->homogeneous().normalized());
+        }
+      }
+      if (cam_rays1.size() <
+          static_cast<size_t>(
+              EssentialMatrixEightPointEstimator::kMinNumSamples)) {
+        return false;
+      }
+      std::vector<Eigen::Matrix3d> models;
+      EssentialMatrixEightPointEstimator::Estimate(
+          cam_rays1, cam_rays2, &models);
+      if (models.empty()) {
+        return false;
+      }
+      geometry->E = models[0];
+      return true;
+    }
+    case TwoViewGeometry::ConfigurationType::UNCALIBRATED: {
+      if (geometry->F.has_value()) {
+        return true;
+      }
+      std::vector<Eigen::Vector2d> inlier_points1;
+      std::vector<Eigen::Vector2d> inlier_points2;
+      inlier_points1.reserve(geometry->inlier_matches.size());
+      inlier_points2.reserve(geometry->inlier_matches.size());
+      for (const FeatureMatch& match : geometry->inlier_matches) {
+        inlier_points1.push_back(points1[match.point2D_idx1]);
+        inlier_points2.push_back(points2[match.point2D_idx2]);
+      }
+      if (inlier_points1.size() <
+          static_cast<size_t>(
+              FundamentalMatrixEightPointEstimator::kMinNumSamples)) {
+        return false;
+      }
+      std::vector<Eigen::Matrix3d> models;
+      FundamentalMatrixEightPointEstimator::Estimate(
+          inlier_points1, inlier_points2, &models);
+      if (models.empty()) {
+        return false;
+      }
+      geometry->F = models[0];
+      return true;
+    }
+    case TwoViewGeometry::ConfigurationType::PLANAR:
+    case TwoViewGeometry::ConfigurationType::PANORAMIC:
+    case TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC: {
+      if (geometry->H.has_value()) {
+        return true;
+      }
+      std::vector<Eigen::Vector2d> inlier_points1;
+      std::vector<Eigen::Vector2d> inlier_points2;
+      inlier_points1.reserve(geometry->inlier_matches.size());
+      inlier_points2.reserve(geometry->inlier_matches.size());
+      for (const FeatureMatch& match : geometry->inlier_matches) {
+        inlier_points1.push_back(points1[match.point2D_idx1]);
+        inlier_points2.push_back(points2[match.point2D_idx2]);
+      }
+      if (inlier_points1.size() <
+          static_cast<size_t>(HomographyMatrixEstimator::kMinNumSamples)) {
+        return false;
+      }
+      std::vector<Eigen::Matrix3d> models;
+      HomographyMatrixEstimator::Estimate(
+          inlier_points1, inlier_points2, &models);
+      if (models.empty()) {
+        return false;
+      }
+      geometry->H = models[0];
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+}  // namespace
+
 void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
   Timer timer;
   timer.Start();
@@ -975,6 +1082,16 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
     }
 
     decompose_count++;
+
+    // Older COLMAP databases stored the two-view geometry configuration
+    // without persisting the underlying E/F/H matrix. Refit it here from
+    // the inlier matches so EstimateTwoViewGeometryPose can decompose it.
+    if (!MaybeFitMissingTwoViewGeometryMatrix(
+            camera1, points1, camera2, points2, &two_view_geom)) {
+      decompose_failed_count++;
+      continue;
+    }
+
     const bool success = EstimateTwoViewGeometryPose(
         camera1, points1, camera2, points2, &two_view_geom);
 
