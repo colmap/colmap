@@ -903,27 +903,15 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
     return geometry;
   }
 
-  // Extract corresponding points.
-  std::vector<Eigen::Vector3d> matched_cam_rays1(num_matches);
-  std::vector<Eigen::Vector3d> matched_cam_rays2(num_matches);
-  for (size_t i = 0; i < num_matches; ++i) {
-    const point2D_t idx1 = matches[i].point2D_idx1;
-    const point2D_t idx2 = matches[i].point2D_idx2;
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points1[idx1]);
-        cam_point1) {
-      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
-    } else {
-      matched_cam_rays1[i].setZero();
-    }
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2[idx2]);
-        cam_point2) {
-      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
-    } else {
-      matched_cam_rays2[i].setZero();
-    }
-  }
+  std::vector<Eigen::Vector3d> matched_cam_rays1;
+  std::vector<Eigen::Vector3d> matched_cam_rays2;
+  ExtractInlierCamRays(camera1,
+                       points1,
+                       camera2,
+                       points2,
+                       matches,
+                       &matched_cam_rays1,
+                       &matched_cam_rays2);
 
   // For now, we use the average threshold from cameras following the design of
   // EstimateCalibratedTwoViewGeometry.
@@ -954,6 +942,19 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
 }
 
 namespace {
+
+void ExtractInlierImagePoints(const std::vector<Eigen::Vector2d>& points1,
+                              const std::vector<Eigen::Vector2d>& points2,
+                              const FeatureMatches& inlier_matches,
+                              std::vector<Eigen::Vector2d>* inlier_points1,
+                              std::vector<Eigen::Vector2d>* inlier_points2) {
+  inlier_points1->resize(inlier_matches.size());
+  inlier_points2->resize(inlier_matches.size());
+  for (size_t i = 0; i < inlier_matches.size(); ++i) {
+    (*inlier_points1)[i] = points1[inlier_matches[i].point2D_idx1];
+    (*inlier_points2)[i] = points2[inlier_matches[i].point2D_idx2];
+  }
+}
 
 // Fits the E/F/H matrix matching `geometry->config` from the existing
 // inlier matches when it was not persisted in the database (e.g. databases
@@ -1004,12 +1005,11 @@ bool MaybeFitMissingTwoViewGeometryMatrix(
       }
       std::vector<Eigen::Vector2d> inlier_points1;
       std::vector<Eigen::Vector2d> inlier_points2;
-      inlier_points1.reserve(geometry->inlier_matches.size());
-      inlier_points2.reserve(geometry->inlier_matches.size());
-      for (const FeatureMatch& match : geometry->inlier_matches) {
-        inlier_points1.push_back(points1[match.point2D_idx1]);
-        inlier_points2.push_back(points2[match.point2D_idx2]);
-      }
+      ExtractInlierImagePoints(points1,
+                               points2,
+                               geometry->inlier_matches,
+                               &inlier_points1,
+                               &inlier_points2);
       if (inlier_points1.size() <
           static_cast<size_t>(
               FundamentalMatrixEightPointEstimator::kMinNumSamples)) {
@@ -1032,12 +1032,11 @@ bool MaybeFitMissingTwoViewGeometryMatrix(
       }
       std::vector<Eigen::Vector2d> inlier_points1;
       std::vector<Eigen::Vector2d> inlier_points2;
-      inlier_points1.reserve(geometry->inlier_matches.size());
-      inlier_points2.reserve(geometry->inlier_matches.size());
-      for (const FeatureMatch& match : geometry->inlier_matches) {
-        inlier_points1.push_back(points1[match.point2D_idx1]);
-        inlier_points2.push_back(points2[match.point2D_idx2]);
-      }
+      ExtractInlierImagePoints(points1,
+                               points2,
+                               geometry->inlier_matches,
+                               &inlier_points1,
+                               &inlier_points2);
       if (inlier_points1.size() <
           static_cast<size_t>(HomographyMatrixEstimator::kMinNumSamples)) {
         return false;
@@ -1091,6 +1090,12 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
       continue;
     }
 
+    if (two_view_geometry.inlier_matches.empty()) {
+      decompose_count++;
+      decompose_failed_count++;
+      continue;
+    }
+
     const Image& image1 = images.at(image_id1);
     const Image& image2 = images.at(image_id2);
     const Camera& camera1 = cameras.at(image1.CameraId());
@@ -1109,11 +1114,6 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
 
     decompose_count++;
 
-    if (two_view_geometry.inlier_matches.empty()) {
-      decompose_failed_count++;
-      continue;
-    }
-
     std::vector<Eigen::Vector3d> inlier_cam_rays1;
     std::vector<Eigen::Vector3d> inlier_cam_rays2;
     ExtractInlierCamRays(camera1,
@@ -1124,9 +1124,6 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
                          &inlier_cam_rays1,
                          &inlier_cam_rays2);
 
-    // Older COLMAP databases stored the two-view geometry configuration
-    // without persisting the underlying E/F/H matrix. Refit it here from
-    // the inlier matches so EstimateTwoViewGeometryPose can decompose it.
     if (!MaybeFitMissingTwoViewGeometryMatrix(points1,
                                               points2,
                                               inlier_cam_rays1,
