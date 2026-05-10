@@ -480,47 +480,42 @@ EstimateRigTwoViewGeometries(
   return two_view_geometries;
 }
 
-bool EstimateTwoViewGeometryPose(const Camera& camera1,
-                                 const std::vector<Eigen::Vector2d>& points1,
-                                 const Camera& camera2,
-                                 const std::vector<Eigen::Vector2d>& points2,
-                                 TwoViewGeometry* geometry) {
-  // We need a valid epopolar geometry to estimate the relative pose.
-  if (geometry->config != TwoViewGeometry::ConfigurationType::CALIBRATED &&
-      geometry->config != TwoViewGeometry::ConfigurationType::UNCALIBRATED &&
-      geometry->config != TwoViewGeometry::ConfigurationType::PLANAR &&
-      geometry->config != TwoViewGeometry::ConfigurationType::PANORAMIC &&
-      geometry->config !=
-          TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-    return false;
-  }
+namespace {
 
-  // Extract normalized inlier points.
-  const size_t num_inlier_matches = geometry->inlier_matches.size();
-  if (num_inlier_matches == 0) {
-    return false;
-  }
-
-  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inlier_matches);
-  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inlier_matches);
-  for (size_t i = 0; i < num_inlier_matches; ++i) {
-    const FeatureMatch& match = geometry->inlier_matches[i];
+void ExtractInlierCamRays(const Camera& camera1,
+                          const std::vector<Eigen::Vector2d>& points1,
+                          const Camera& camera2,
+                          const std::vector<Eigen::Vector2d>& points2,
+                          const FeatureMatches& inlier_matches,
+                          std::vector<Eigen::Vector3d>* inlier_cam_rays1,
+                          std::vector<Eigen::Vector3d>* inlier_cam_rays2) {
+  inlier_cam_rays1->resize(inlier_matches.size());
+  inlier_cam_rays2->resize(inlier_matches.size());
+  for (size_t i = 0; i < inlier_matches.size(); ++i) {
+    const FeatureMatch& match = inlier_matches[i];
     if (const std::optional<Eigen::Vector2d> cam_point1 =
             camera1.CamFromImg(points1[match.point2D_idx1]);
         cam_point1) {
-      inlier_cam_rays1[i] = cam_point1->homogeneous().normalized();
+      (*inlier_cam_rays1)[i] = cam_point1->homogeneous().normalized();
     } else {
-      inlier_cam_rays1[i].setZero();
+      (*inlier_cam_rays1)[i].setZero();
     }
     if (const std::optional<Eigen::Vector2d> cam_point2 =
             camera2.CamFromImg(points2[match.point2D_idx2]);
         cam_point2) {
-      inlier_cam_rays2[i] = cam_point2->homogeneous().normalized();
+      (*inlier_cam_rays2)[i] = cam_point2->homogeneous().normalized();
     } else {
-      inlier_cam_rays2[i].setZero();
+      (*inlier_cam_rays2)[i].setZero();
     }
   }
+}
 
+bool EstimateTwoViewGeometryPoseFromCamRays(
+    const Camera& camera1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector3d>& inlier_cam_rays1,
+    const std::vector<Eigen::Vector3d>& inlier_cam_rays2,
+    TwoViewGeometry* geometry) {
   std::vector<Eigen::Vector3d> points3D;
 
   Rigid3d cam2_from_cam1;
@@ -590,6 +585,39 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   }
 
   return true;
+}
+
+}  // namespace
+
+bool EstimateTwoViewGeometryPose(const Camera& camera1,
+                                 const std::vector<Eigen::Vector2d>& points1,
+                                 const Camera& camera2,
+                                 const std::vector<Eigen::Vector2d>& points2,
+                                 TwoViewGeometry* geometry) {
+  // We need a valid epipolar geometry to estimate the relative pose.
+  if (geometry->config != TwoViewGeometry::ConfigurationType::CALIBRATED &&
+      geometry->config != TwoViewGeometry::ConfigurationType::UNCALIBRATED &&
+      geometry->config != TwoViewGeometry::ConfigurationType::PLANAR &&
+      geometry->config != TwoViewGeometry::ConfigurationType::PANORAMIC &&
+      geometry->config !=
+          TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+    return false;
+  }
+  if (geometry->inlier_matches.empty()) {
+    return false;
+  }
+
+  std::vector<Eigen::Vector3d> inlier_cam_rays1;
+  std::vector<Eigen::Vector3d> inlier_cam_rays2;
+  ExtractInlierCamRays(camera1,
+                       points1,
+                       camera2,
+                       points2,
+                       geometry->inlier_matches,
+                       &inlier_cam_rays1,
+                       &inlier_cam_rays2);
+  return EstimateTwoViewGeometryPoseFromCamRays(
+      camera1, camera2, inlier_cam_rays1, inlier_cam_rays2, geometry);
 }
 
 TwoViewGeometry EstimateCalibratedTwoViewGeometry(
@@ -929,43 +957,41 @@ namespace {
 
 // Fits the E/F/H matrix matching `geometry->config` from the existing
 // inlier matches when it was not persisted in the database (e.g. databases
-// from older COLMAP versions that stored only the configuration). Returns
-// false if no matrix is needed for the configuration, the relevant matrix
-// is already present, or the fit failed (insufficient inliers / degenerate
-// configuration).
+// from older COLMAP versions that stored only the configuration). The 8-point
+// estimators are used because the inlier matches have already been filtered
+// by RANSAC at storage time (inlier counts are typically well above 8); pairs
+// with fewer inliers would yield unreliable geometry and are returned as a
+// failed fit. Returns false if the relevant matrix is already present, the
+// inlier set is too small, or the fit returned no model.
 bool MaybeFitMissingTwoViewGeometryMatrix(
-    const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
+    const std::vector<Eigen::Vector3d>& inlier_cam_rays1,
+    const std::vector<Eigen::Vector3d>& inlier_cam_rays2,
     TwoViewGeometry* geometry) {
   switch (geometry->config) {
     case TwoViewGeometry::ConfigurationType::CALIBRATED: {
       if (geometry->E.has_value()) {
         return true;
       }
-      std::vector<Eigen::Vector3d> cam_rays1;
-      std::vector<Eigen::Vector3d> cam_rays2;
-      cam_rays1.reserve(geometry->inlier_matches.size());
-      cam_rays2.reserve(geometry->inlier_matches.size());
-      for (const FeatureMatch& match : geometry->inlier_matches) {
-        const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points1[match.point2D_idx1]);
-        const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2[match.point2D_idx2]);
-        if (cam_point1 && cam_point2) {
-          cam_rays1.push_back(cam_point1->homogeneous().normalized());
-          cam_rays2.push_back(cam_point2->homogeneous().normalized());
+      std::vector<Eigen::Vector3d> valid_cam_rays1;
+      std::vector<Eigen::Vector3d> valid_cam_rays2;
+      valid_cam_rays1.reserve(inlier_cam_rays1.size());
+      valid_cam_rays2.reserve(inlier_cam_rays2.size());
+      for (size_t i = 0; i < inlier_cam_rays1.size(); ++i) {
+        if (!inlier_cam_rays1[i].isZero() && !inlier_cam_rays2[i].isZero()) {
+          valid_cam_rays1.push_back(inlier_cam_rays1[i]);
+          valid_cam_rays2.push_back(inlier_cam_rays2[i]);
         }
       }
-      if (cam_rays1.size() <
+      if (valid_cam_rays1.size() <
           static_cast<size_t>(
               EssentialMatrixEightPointEstimator::kMinNumSamples)) {
         return false;
       }
       std::vector<Eigen::Matrix3d> models;
       EssentialMatrixEightPointEstimator::Estimate(
-          cam_rays1, cam_rays2, &models);
+          valid_cam_rays1, valid_cam_rays2, &models);
       if (models.empty()) {
         return false;
       }
@@ -1047,19 +1073,19 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
   for (const image_pair_t pair_id : correspondence_graph->ImagePairs()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
 
-    TwoViewGeometry two_view_geom =
+    TwoViewGeometry two_view_geometry =
         correspondence_graph->ExtractTwoViewGeometry(
             image_id1, image_id2, /*extract_inlier_matches=*/true);
 
-    if (two_view_geom.cam2_from_cam1.has_value()) {
+    if (two_view_geometry.cam2_from_cam1.has_value()) {
       continue;
     }
 
     const bool is_invalid =
-        two_view_geom.config == TwoViewGeometry::UNDEFINED ||
-        two_view_geom.config == TwoViewGeometry::DEGENERATE ||
-        two_view_geom.config == TwoViewGeometry::WATERMARK ||
-        two_view_geom.config == TwoViewGeometry::MULTIPLE;
+        two_view_geometry.config == TwoViewGeometry::UNDEFINED ||
+        two_view_geometry.config == TwoViewGeometry::DEGENERATE ||
+        two_view_geometry.config == TwoViewGeometry::WATERMARK ||
+        two_view_geometry.config == TwoViewGeometry::MULTIPLE;
 
     if (is_invalid) {
       continue;
@@ -1083,25 +1109,48 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
 
     decompose_count++;
 
-    // Older COLMAP databases stored the two-view geometry configuration
-    // without persisting the underlying E/F/H matrix. Refit it here from
-    // the inlier matches so EstimateTwoViewGeometryPose can decompose it.
-    if (!MaybeFitMissingTwoViewGeometryMatrix(
-            camera1, points1, camera2, points2, &two_view_geom)) {
+    if (two_view_geometry.inlier_matches.empty()) {
       decompose_failed_count++;
       continue;
     }
 
-    const bool success = EstimateTwoViewGeometryPose(
-        camera1, points1, camera2, points2, &two_view_geom);
+    std::vector<Eigen::Vector3d> inlier_cam_rays1;
+    std::vector<Eigen::Vector3d> inlier_cam_rays2;
+    ExtractInlierCamRays(camera1,
+                         points1,
+                         camera2,
+                         points2,
+                         two_view_geometry.inlier_matches,
+                         &inlier_cam_rays1,
+                         &inlier_cam_rays2);
 
-    if (success && two_view_geom.cam2_from_cam1.has_value()) {
-      const double norm = two_view_geom.cam2_from_cam1->translation().norm();
+    // Older COLMAP databases stored the two-view geometry configuration
+    // without persisting the underlying E/F/H matrix. Refit it here from
+    // the inlier matches so EstimateTwoViewGeometryPose can decompose it.
+    if (!MaybeFitMissingTwoViewGeometryMatrix(points1,
+                                              points2,
+                                              inlier_cam_rays1,
+                                              inlier_cam_rays2,
+                                              &two_view_geometry)) {
+      decompose_failed_count++;
+      continue;
+    }
+
+    const bool success =
+        EstimateTwoViewGeometryPoseFromCamRays(camera1,
+                                               camera2,
+                                               inlier_cam_rays1,
+                                               inlier_cam_rays2,
+                                               &two_view_geometry);
+
+    if (success && two_view_geometry.cam2_from_cam1.has_value()) {
+      const double norm =
+          two_view_geometry.cam2_from_cam1->translation().norm();
       if (norm > 1e-12) {
-        two_view_geom.cam2_from_cam1->translation() /= norm;
+        two_view_geometry.cam2_from_cam1->translation() /= norm;
       }
       correspondence_graph->UpdateTwoViewGeometry(
-          image_id1, image_id2, two_view_geom);
+          image_id1, image_id2, two_view_geometry);
     } else {
       decompose_failed_count++;
     }
