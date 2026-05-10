@@ -44,15 +44,8 @@ TEST(UndistortCamera, Nominal) {
   Camera distorted_camera;
   Camera undistorted_camera;
 
-  distorted_camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1, 1, 1);
-  undistorted_camera = UndistortCamera(options, distorted_camera);
-  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
-  EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
-  EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
-  EXPECT_EQ(undistorted_camera.width, 1);
-  EXPECT_EQ(undistorted_camera.height, 1);
-
-  distorted_camera = Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 1, 1, 1);
+  distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
@@ -61,7 +54,16 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.height, 1);
 
   distorted_camera =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 1, 1, 1);
+  undistorted_camera = UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
+  EXPECT_EQ(undistorted_camera.width, 1);
+  EXPECT_EQ(undistorted_camera.height, 1);
+
+  distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera.params[3] = 0.5;
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
@@ -146,7 +148,7 @@ TEST(UndistortCamera, BlankPixels) {
 
   Camera distorted_camera;
   distorted_camera =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
   Bitmap distorted_image(100, 100, false);
@@ -189,7 +191,7 @@ TEST(UndistortCamera, NoBlankPixels) {
 
   Camera distorted_camera;
   distorted_camera =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
   Bitmap distorted_image(100, 100, false);
@@ -229,7 +231,7 @@ TEST(UndistortReconstruction, Nominal) {
 
   Reconstruction reconstruction;
 
-  Camera camera = Camera::CreateFromModelName(1, "OPENCV", 1, 1, 1);
+  Camera camera = Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 1, 1, 1);
   camera.params[4] = 1.0;
   reconstruction.AddCamera(camera);
   Rig rig;
@@ -270,10 +272,10 @@ TEST(UndistortReconstruction, Nominal) {
 
 TEST(RectifyStereoCameras, Nominal) {
   Camera camera1;
-  camera1 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
+  camera1 = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
 
   Camera camera2;
-  camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
+  camera2 = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
 
   const Rigid3d cam2_from_cam1(
       Eigen::Quaterniond(EulerAnglesToRotationMatrix(0.1, 0.2, 0.3)),
@@ -306,11 +308,11 @@ TEST(RectifyAndUndistortStereoImages, Nominal) {
 
   // Create two distorted cameras with radial distortion.
   Camera distorted_camera1 =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera1.params[3] = 0.1;  // Add some radial distortion
 
   Camera distorted_camera2 =
-      Camera::CreateFromModelName(2, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(2, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera2.params[3] = 0.1;  // Add some radial distortion
 
   // Create dummy distorted images.
