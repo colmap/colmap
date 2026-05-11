@@ -2,12 +2,12 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
-#include "colmap/scene/pose_prior.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/cuda.h"
