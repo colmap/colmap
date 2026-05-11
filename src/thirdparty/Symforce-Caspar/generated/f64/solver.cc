@@ -5,6 +5,10 @@
 #include <stdexcept>
 
 #include "caspar_mappings.h"
+#include "shared_indices.h"
+#include "solver_tools.h"
+#include "sort_indices.h"
+
 #include "kernel_PinholeCalib_alpha_denominator_or_beta_numerator.h"
 #include "kernel_PinholeCalib_alpha_numerator_denominator.h"
 #include "kernel_PinholeCalib_normalize.h"
@@ -135,6 +139,10 @@
 #include "kernel_pinhole_fixed_pose_res_jac_first.h"
 #include "kernel_pinhole_fixed_pose_score.h"
 #include "kernel_pinhole_jtjnjtr_direct.h"
+#include "kernel_pinhole_pose_prior_core_jtjnjtr_direct.h"
+#include "kernel_pinhole_pose_prior_core_res_jac.h"
+#include "kernel_pinhole_pose_prior_core_res_jac_first.h"
+#include "kernel_pinhole_pose_prior_core_score.h"
 #include "kernel_pinhole_res_jac.h"
 #include "kernel_pinhole_res_jac_first.h"
 #include "kernel_pinhole_score.h"
@@ -195,6 +203,10 @@
 #include "kernel_simple_radial_fixed_pose_res_jac_first.h"
 #include "kernel_simple_radial_fixed_pose_score.h"
 #include "kernel_simple_radial_jtjnjtr_direct.h"
+#include "kernel_simple_radial_pose_prior_core_jtjnjtr_direct.h"
+#include "kernel_simple_radial_pose_prior_core_res_jac.h"
+#include "kernel_simple_radial_pose_prior_core_res_jac_first.h"
+#include "kernel_simple_radial_pose_prior_core_score.h"
 #include "kernel_simple_radial_res_jac.h"
 #include "kernel_simple_radial_res_jac_first.h"
 #include "kernel_simple_radial_score.h"
@@ -242,57 +254,44 @@
 #include "kernel_simple_radial_split_fixed_principal_point_res_jac.h"
 #include "kernel_simple_radial_split_fixed_principal_point_res_jac_first.h"
 #include "kernel_simple_radial_split_fixed_principal_point_score.h"
-#include "shared_indices.h"
-#include "solver_tools.h"
-#include "sort_indices.h"
 
 namespace {
 
-void make_aligned(size_t& offset, size_t alignment_bytes) {
+void make_aligned(size_t &offset, size_t alignment_bytes) {
   offset = ((offset + alignment_bytes - 1) / alignment_bytes) * alignment_bytes;
 }
 
 template <typename T>
-void increment_offset(size_t& offset,
-                      size_t num_elements,
+void increment_offset(size_t &offset, size_t num_elements,
                       size_t alignment_elements) {
   make_aligned(offset, alignment_elements * sizeof(T));
   offset += num_elements * sizeof(T);
 }
 
 template <typename T>
-T* assign_and_increment(uint8_t* origin_ptr,
-                        size_t& offset,
-                        size_t num_elements,
-                        size_t alignment_elements) {
+T *assign_and_increment(uint8_t *origin_ptr, size_t &offset,
+                        size_t num_elements, size_t alignment_elements) {
   make_aligned(offset, alignment_elements * sizeof(T));
   size_t old_offset = offset;
   offset += num_elements * sizeof(T);
-  return reinterpret_cast<T*>(origin_ptr + old_offset);
+  return reinterpret_cast<T *>(origin_ptr + old_offset);
 }
 
-}  // namespace
+} // namespace
 
 namespace caspar {
 
 GraphSolver::GraphSolver(
-    const SolverParams<double>& params,
-    size_t PinholeCalib_num_max,
-    size_t PinholeFocal_num_max,
-    size_t PinholePose_num_max,
-    size_t PinholePrincipalPoint_num_max,
-    size_t Point_num_max,
+    const SolverParams<double> &params, size_t PinholeCalib_num_max,
+    size_t PinholeFocal_num_max, size_t PinholePose_num_max,
+    size_t PinholePrincipalPoint_num_max, size_t Point_num_max,
     size_t SimpleRadialCalib_num_max,
     size_t SimpleRadialFocalAndDistortion_num_max,
-    size_t SimpleRadialPose_num_max,
-    size_t SimpleRadialPrincipalPoint_num_max,
-    size_t simple_radial_num_max,
-    size_t simple_radial_fixed_pose_num_max,
+    size_t SimpleRadialPose_num_max, size_t SimpleRadialPrincipalPoint_num_max,
+    size_t simple_radial_num_max, size_t simple_radial_fixed_pose_num_max,
     size_t simple_radial_fixed_point_num_max,
-    size_t simple_radial_fixed_pose_fixed_point_num_max,
-    size_t pinhole_num_max,
-    size_t pinhole_fixed_pose_num_max,
-    size_t pinhole_fixed_point_num_max,
+    size_t simple_radial_fixed_pose_fixed_point_num_max, size_t pinhole_num_max,
+    size_t pinhole_fixed_pose_num_max, size_t pinhole_fixed_point_num_max,
     size_t pinhole_fixed_pose_fixed_point_num_max,
     size_t simple_radial_split_fixed_focal_and_distortion_num_max,
     size_t simple_radial_split_fixed_principal_point_num_max,
@@ -321,10 +320,9 @@ GraphSolver::GraphSolver(
     size_t pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max,
     size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
     size_t pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max,
-    int device_id)
-    : params_(params),
-      device_id_(device_id),
-      PinholeCalib_num_(PinholeCalib_num_max),
+    size_t simple_radial_pose_prior_core_num_max,
+    size_t pinhole_pose_prior_core_num_max)
+    : params_(params), PinholeCalib_num_(PinholeCalib_num_max),
       PinholeCalib_num_max_(PinholeCalib_num_max),
       PinholeFocal_num_(PinholeFocal_num_max),
       PinholeFocal_num_max_(PinholeFocal_num_max),
@@ -332,8 +330,7 @@ GraphSolver::GraphSolver(
       PinholePose_num_max_(PinholePose_num_max),
       PinholePrincipalPoint_num_(PinholePrincipalPoint_num_max),
       PinholePrincipalPoint_num_max_(PinholePrincipalPoint_num_max),
-      Point_num_(Point_num_max),
-      Point_num_max_(Point_num_max),
+      Point_num_(Point_num_max), Point_num_max_(Point_num_max),
       SimpleRadialCalib_num_(SimpleRadialCalib_num_max),
       SimpleRadialCalib_num_max_(SimpleRadialCalib_num_max),
       SimpleRadialFocalAndDistortion_num_(
@@ -354,8 +351,7 @@ GraphSolver::GraphSolver(
           simple_radial_fixed_pose_fixed_point_num_max),
       simple_radial_fixed_pose_fixed_point_num_max_(
           simple_radial_fixed_pose_fixed_point_num_max),
-      pinhole_num_(pinhole_num_max),
-      pinhole_num_max_(pinhole_num_max),
+      pinhole_num_(pinhole_num_max), pinhole_num_max_(pinhole_num_max),
       pinhole_fixed_pose_num_(pinhole_fixed_pose_num_max),
       pinhole_fixed_pose_num_max_(pinhole_fixed_pose_num_max),
       pinhole_fixed_point_num_(pinhole_fixed_point_num_max),
@@ -449,7 +445,12 @@ GraphSolver::GraphSolver(
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_(
           pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max),
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_(
-          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max) {
+          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max),
+      simple_radial_pose_prior_core_num_(simple_radial_pose_prior_core_num_max),
+      simple_radial_pose_prior_core_num_max_(
+          simple_radial_pose_prior_core_num_max),
+      pinhole_pose_prior_core_num_(pinhole_pose_prior_core_num_max),
+      pinhole_pose_prior_core_num_max_(pinhole_pose_prior_core_num_max) {
   indices_valid_ = false;
   if (params.pcg_rel_error_exit <= 0.0f) {
     throw std::runtime_error("params.pcg_rel_error_exit must be positive");
@@ -458,22 +459,6 @@ GraphSolver::GraphSolver(
     throw std::runtime_error("params.diag_init must be positive");
   }
   allocation_size_ = get_nbytes();
-
-  if (device_id_ < 0) {
-    throw std::runtime_error("Invalid CUDA device id: " +
-                             std::to_string(device_id_));
-  }
-  if (device_id_ != 0) {
-    int deviceCount;
-    cudaGetDeviceCount(&deviceCount);
-    if (deviceCount <= device_id_) {
-      throw std::runtime_error("CUDA detected " + std::to_string(deviceCount) +
-                               " devices, but device " +
-                               std::to_string(device_id_) +
-                               " was requested (0-indexed)");
-    }
-  }
-  cudaSetDevice(device_id_);
   cudaMalloc(&origin_ptr_, allocation_size_);
 
   size_t offset = 0;
@@ -501,8 +486,8 @@ GraphSolver::GraphSolver(
   nodes__PinholePrincipalPoint__storage_check_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * PinholePrincipalPoint_num_, 4);
   nodes__PinholePrincipalPoint__storage_new_best_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * PinholePrincipalPoint_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * PinholePrincipalPoint_num_, 4);
   nodes__Point__storage_current_ =
       assign_and_increment<double>(origin_ptr_, offset, 4 * Point_num_, 4);
   nodes__Point__storage_check_ =
@@ -516,14 +501,14 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialCalib__storage_new_best_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * SimpleRadialCalib_num_, 4);
   nodes__SimpleRadialFocalAndDistortion__storage_current_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialFocalAndDistortion_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialFocalAndDistortion_num_, 4);
   nodes__SimpleRadialFocalAndDistortion__storage_check_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialFocalAndDistortion_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialFocalAndDistortion_num_, 4);
   nodes__SimpleRadialFocalAndDistortion__storage_new_best_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialFocalAndDistortion_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialFocalAndDistortion_num_, 4);
   nodes__SimpleRadialPose__storage_current_ = assign_and_increment<double>(
       origin_ptr_, offset, 8 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPose__storage_check_ = assign_and_increment<double>(
@@ -531,72 +516,64 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialPose__storage_new_best_ = assign_and_increment<double>(
       origin_ptr_, offset, 8 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__storage_current_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__storage_check_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__storage_new_best_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialPrincipalPoint_num_, 4);
   facs__simple_radial__args__pose__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * simple_radial_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * simple_radial_num_, 4);
   facs__simple_radial__args__calib__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * simple_radial_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * simple_radial_num_, 4);
   facs__simple_radial__args__point__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * simple_radial_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * simple_radial_num_, 4);
   facs__simple_radial__args__pixel__data_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * simple_radial_num_, 4);
   facs__simple_radial_fixed_pose__args__calib__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * simple_radial_fixed_pose_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * simple_radial_fixed_pose_num_, 4);
   facs__simple_radial_fixed_pose__args__point__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * simple_radial_fixed_pose_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * simple_radial_fixed_pose_num_, 4);
   facs__simple_radial_fixed_pose__args__pixel__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * simple_radial_fixed_pose_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * simple_radial_fixed_pose_num_, 4);
   facs__simple_radial_fixed_pose__args__pose__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 8 * simple_radial_fixed_pose_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   8 * simple_radial_fixed_pose_num_, 4);
   facs__simple_radial_fixed_point__args__pose__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * simple_radial_fixed_point_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_point__args__calib__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * simple_radial_fixed_point_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_point__args__pixel__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * simple_radial_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_point__args__point__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 4 * simple_radial_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   4 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_pose_fixed_point__args__calib__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_fixed_pose_fixed_point_num_,
+          origin_ptr_, offset, 1 * simple_radial_fixed_pose_fixed_point_num_,
           4);
   facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_fixed_pose_fixed_point_num_,
+          origin_ptr_, offset, 2 * simple_radial_fixed_pose_fixed_point_num_,
           4);
   facs__simple_radial_fixed_pose_fixed_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          8 * simple_radial_fixed_pose_fixed_point_num_,
+          origin_ptr_, offset, 8 * simple_radial_fixed_pose_fixed_point_num_,
           4);
   facs__simple_radial_fixed_pose_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * simple_radial_fixed_pose_fixed_point_num_,
+          origin_ptr_, offset, 4 * simple_radial_fixed_pose_fixed_point_num_,
           4);
   facs__pinhole__args__pose__idx_shared_ = assign_and_increment<SharedIndex>(
       origin_ptr_, offset, 1 * pinhole_num_, 4);
@@ -607,21 +584,21 @@ GraphSolver::GraphSolver(
   facs__pinhole__args__pixel__data_ =
       assign_and_increment<double>(origin_ptr_, offset, 2 * pinhole_num_, 4);
   facs__pinhole_fixed_pose__args__calib__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * pinhole_fixed_pose_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_fixed_pose_num_, 4);
   facs__pinhole_fixed_pose__args__point__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * pinhole_fixed_pose_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_fixed_pose_num_, 4);
   facs__pinhole_fixed_pose__args__pixel__data_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * pinhole_fixed_pose_num_, 4);
   facs__pinhole_fixed_pose__args__pose__data_ = assign_and_increment<double>(
       origin_ptr_, offset, 8 * pinhole_fixed_pose_num_, 4);
   facs__pinhole_fixed_point__args__pose__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * pinhole_fixed_point_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_fixed_point_num_, 4);
   facs__pinhole_fixed_point__args__calib__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * pinhole_fixed_point_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_fixed_point_num_, 4);
   facs__pinhole_fixed_point__args__pixel__data_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * pinhole_fixed_point_num_, 4);
   facs__pinhole_fixed_point__args__point__data_ = assign_and_increment<double>(
@@ -630,359 +607,284 @@ GraphSolver::GraphSolver(
       assign_and_increment<SharedIndex>(
           origin_ptr_, offset, 1 * pinhole_fixed_pose_fixed_point_num_, 4);
   facs__pinhole_fixed_pose_fixed_point__args__pixel__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * pinhole_fixed_pose_fixed_point_num_, 4);
   facs__pinhole_fixed_pose_fixed_point__args__pose__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 8 * pinhole_fixed_pose_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   8 * pinhole_fixed_pose_fixed_point_num_, 4);
   facs__pinhole_fixed_pose_fixed_point__args__point__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 4 * pinhole_fixed_pose_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   4 * pinhole_fixed_pose_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__focal_and_distortion__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           8 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__focal_and_distortion__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          8 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          8 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           4 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          4 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           8 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__principal_point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           8 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           4 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_distortion__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           8 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           4 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__focal_and_distortion__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           4 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal__args__pose__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_focal__args__point__idx_shared_ =
-      assign_and_increment<SharedIndex>(
-          origin_ptr_, offset, 1 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_focal__args__pixel__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_focal__args__focal__data_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
           origin_ptr_, offset, 1 * pinhole_split_fixed_principal_point_num_, 4);
@@ -1000,274 +902,217 @@ GraphSolver::GraphSolver(
           origin_ptr_, offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 1 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 1 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          8 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 8 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal__args__focal__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          8 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          8 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__args__focal__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 1 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_point__args__principal_point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 1 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_point__args__focal__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 4 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_principal_point_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_principal_point_fixed_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_principal_point_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          4 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           8 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__focal__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__principal_point__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
-          1 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          1 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          8 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          8 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__focal__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          4 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__focal__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           8 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           4 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           1 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pixel__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__focal__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__principal_point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__point__data_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           4 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__simple_radial_pose_prior_core__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * simple_radial_pose_prior_core_num_, 4);
+  facs__simple_radial_pose_prior_core__args__prior_position__data_ =
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   4 * simple_radial_pose_prior_core_num_, 4);
+  facs__simple_radial_pose_prior_core__args__sqrt_info__data_ =
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   6 * simple_radial_pose_prior_core_num_, 4);
+  facs__pinhole_pose_prior_core__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(origin_ptr_, offset,
+                                        1 * pinhole_pose_prior_core_num_, 4);
+  facs__pinhole_pose_prior_core__args__prior_position__data_ =
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   4 * pinhole_pose_prior_core_num_, 4);
+  facs__pinhole_pose_prior_core__args__sqrt_info__data_ =
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   6 * pinhole_pose_prior_core_num_, 4);
   marker__scratch_inout_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   facs__simple_radial__res_ = assign_and_increment<double>(
@@ -1278,9 +1123,7 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_pose_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_fixed_pose_fixed_point_num_,
+          origin_ptr_, offset, 2 * simple_radial_fixed_pose_fixed_point_num_,
           4);
   facs__pinhole__res_ =
       assign_and_increment<double>(origin_ptr_, offset, 2 * pinhole_num_, 4);
@@ -1292,68 +1135,53 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_principal_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal__res_ = assign_and_increment<double>(
@@ -1363,58 +1191,47 @@ GraphSolver::GraphSolver(
           origin_ptr_, offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_principal_point_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__res_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__simple_radial_pose_prior_core__res_ = assign_and_increment<double>(
+      origin_ptr_, offset, 4 * simple_radial_pose_prior_core_num_, 4);
+  facs__pinhole_pose_prior_core__res_ = assign_and_increment<double>(
+      origin_ptr_, offset, 4 * pinhole_pose_prior_core_num_, 4);
   facs__simple_radial__args__pose__jac_ = assign_and_increment<double>(
       origin_ptr_, offset, 12 * simple_radial_num_, 4);
   facs__simple_radial__args__calib__jac_ = assign_and_increment<double>(
@@ -1422,22 +1239,20 @@ GraphSolver::GraphSolver(
   facs__simple_radial__args__point__jac_ = assign_and_increment<double>(
       origin_ptr_, offset, 6 * simple_radial_num_, 4);
   facs__simple_radial_fixed_pose__args__calib__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 4 * simple_radial_fixed_pose_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   4 * simple_radial_fixed_pose_num_, 4);
   facs__simple_radial_fixed_pose__args__point__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 6 * simple_radial_fixed_pose_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   6 * simple_radial_fixed_pose_num_, 4);
   facs__simple_radial_fixed_point__args__pose__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 12 * simple_radial_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   12 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_point__args__calib__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 4 * simple_radial_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   4 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_pose_fixed_point__args__calib__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * simple_radial_fixed_pose_fixed_point_num_,
+          origin_ptr_, offset, 4 * simple_radial_fixed_pose_fixed_point_num_,
           4);
   facs__pinhole__args__pose__jac_ =
       assign_and_increment<double>(origin_ptr_, offset, 10 * pinhole_num_, 4);
@@ -1454,144 +1269,112 @@ GraphSolver::GraphSolver(
   facs__pinhole_fixed_point__args__calib__jac_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * pinhole_fixed_point_num_, 4);
   facs__pinhole_fixed_pose_fixed_point__args__calib__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * pinhole_fixed_pose_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          12 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          12 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          0 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          0 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          6 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          6 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          12 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          12 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          4 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          6 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          6 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           0 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           6 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          4 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          6 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          6 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           12 *
               simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           6 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           12 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           0 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          12 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          12 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          4 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          4 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           6 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__principal_point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           0 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_distortion__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           4 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           12 *
               simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal__args__pose__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 10 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   10 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_focal__args__principal_point__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 0 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   0 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_focal__args__point__jac_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 6 * pinhole_split_fixed_focal_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   6 * pinhole_split_fixed_focal_num_, 4);
   facs__pinhole_split_fixed_principal_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          10 * pinhole_split_fixed_principal_point_num_,
+          origin_ptr_, offset, 10 * pinhole_split_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_principal_point__args__focal__jac_ =
       assign_and_increment<double>(
@@ -1601,88 +1384,69 @@ GraphSolver::GraphSolver(
           origin_ptr_, offset, 6 * pinhole_split_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          0 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 0 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          6 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 6 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          6 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          6 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          10 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          10 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          6 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          6 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          10 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 10 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_point__args__principal_point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          0 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 0 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          10 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          10 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           6 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__principal_point__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          0 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          0 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__focal__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__jac_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           10 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__simple_radial_pose_prior_core__args__pose__jac_ =
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   17 * simple_radial_pose_prior_core_num_, 4);
+  facs__pinhole_pose_prior_core__args__pose__jac_ =
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   17 * pinhole_pose_prior_core_num_, 4);
   nodes__PinholeCalib__z_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * PinholeCalib_num_, 4);
   nodes__PinholeCalib__z_end__ =
@@ -1904,21 +1668,21 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialCalib__precond_tril_ = assign_and_increment<double>(
       origin_ptr_, offset, 6 * SimpleRadialCalib_num_, 4);
   nodes__SimpleRadialFocalAndDistortion__precond_diag_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialFocalAndDistortion_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialFocalAndDistortion_num_, 4);
   nodes__SimpleRadialFocalAndDistortion__precond_tril_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 1 * SimpleRadialFocalAndDistortion_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   1 * SimpleRadialFocalAndDistortion_num_, 4);
   nodes__SimpleRadialPose__precond_diag_ = assign_and_increment<double>(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPose__precond_tril_ = assign_and_increment<double>(
       origin_ptr_, offset, 16 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__precond_diag_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__precond_tril_ =
-      assign_and_increment<double>(
-          origin_ptr_, offset, 1 * SimpleRadialPrincipalPoint_num_, 4);
+      assign_and_increment<double>(origin_ptr_, offset,
+                                   1 * SimpleRadialPrincipalPoint_num_, 4);
   marker__precond_end_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   marker__jp_start_ =
@@ -1931,9 +1695,7 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * simple_radial_fixed_point_num_, 4);
   facs__simple_radial_fixed_pose_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_fixed_pose_fixed_point_num_,
+          origin_ptr_, offset, 2 * simple_radial_fixed_pose_fixed_point_num_,
           4);
   facs__pinhole__jp_ =
       assign_and_increment<double>(origin_ptr_, offset, 2 * pinhole_num_, 4);
@@ -1945,68 +1707,53 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_focal_and_distortion_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_focal_and_distortion_num_, 4);
   facs__simple_radial_split_fixed_principal_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_principal_point_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * simple_radial_split_fixed_principal_point_fixed_point_num_, 4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal__jp_ = assign_and_increment<double>(
@@ -2015,58 +1762,47 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_principal_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_principal_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_principal_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   facs__pinhole_split_fixed_focal_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_focal_fixed_point_num_,
+          origin_ptr_, offset, 2 * pinhole_split_fixed_focal_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_principal_point_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_principal_point_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
           4);
   facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
-          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-          4);
+          origin_ptr_, offset,
+          2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
           4);
   facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__jp_ =
       assign_and_increment<double>(
-          origin_ptr_,
-          offset,
+          origin_ptr_, offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__simple_radial_pose_prior_core__jp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 4 * simple_radial_pose_prior_core_num_, 4);
+  facs__pinhole_pose_prior_core__jp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 4 * pinhole_pose_prior_core_num_, 4);
   marker__jp_end_ = assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   solver__current_diag_ =
       assign_and_increment<double>(origin_ptr_, offset, 1 * 1, 1);
@@ -2089,29 +1825,25 @@ GraphSolver::GraphSolver(
   solver__res_tot_ =
       assign_and_increment<double>(origin_ptr_, offset, 1 * 1, 1);
 
-  scratch_inout_size_ = offset;  // sorting, sum,
+  scratch_inout_size_ = offset; // sorting, sum,
 }
 
-GraphSolver::~GraphSolver() {
-  cudaSetDevice(device_id_);
-  cudaFree(origin_ptr_);
-}
+GraphSolver::~GraphSolver() { cudaFree(origin_ptr_); }
 
-void GraphSolver::set_params(const SolverParams<double>& params) {
+void GraphSolver::set_params(const SolverParams<double> &params) {
   this->params_ = params;
 }
 
 size_t GraphSolver::get_allocation_size() { return allocation_size_; }
 
 SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
-  cudaSetDevice(device_id_);
   SolveResult result;
   result.exit_reason = ExitReason::MAX_ITERATIONS;
   double score_best;
   double score_best_pcg;
   double diag = params_.diag_init;
-  cudaMemcpy(
-      solver__current_diag_, &diag, sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy(solver__current_diag_, &diag, sizeof(double),
+             cudaMemcpyHostToDevice);
 
   double up_scale = params_.diag_scaling_up;
   double quality;
@@ -2214,8 +1946,8 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
       double scale = std::max(params_.diag_scaling_down,
                               1.0f - quality_tmp * quality_tmp * quality_tmp);
       diag = std::max(params_.diag_min, diag * scale);
-      cudaMemcpy(
-          solver__current_diag_, &diag, sizeof(double), cudaMemcpyHostToDevice);
+      cudaMemcpy(solver__current_diag_, &diag, sizeof(double),
+                 cudaMemcpyHostToDevice);
       up_scale = params_.diag_scaling_up;
       score_best = score_best_pcg;
       std::swap(nodes__PinholeCalib__storage_current_,
@@ -2244,8 +1976,8 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
         result.exit_reason = ExitReason::CONVERGED_DIAG_EXIT;
         break;
       }
-      cudaMemcpy(
-          solver__current_diag_, &diag, sizeof(double), cudaMemcpyHostToDevice);
+      cudaMemcpy(solver__current_diag_, &diag, sizeof(double),
+                 cudaMemcpyHostToDevice);
       up_scale *= 2;
     }
     const auto t_now = std::chrono::steady_clock::now();
@@ -2295,116 +2027,71 @@ double GraphSolver::DoResJacFirst() {
   Zero(solver__res_tot_, solver__res_tot_ + 1);
   Zero(marker__r_0_start_, marker__precond_end_);
 
-  SimpleRadialResJacFirst(nodes__SimpleRadialPose__storage_current_,
-                          SimpleRadialPose_num_max_,
-                          facs__simple_radial__args__pose__idx_shared_,
-                          nodes__SimpleRadialCalib__storage_current_,
-                          SimpleRadialCalib_num_max_,
-                          facs__simple_radial__args__calib__idx_shared_,
-                          nodes__Point__storage_current_,
-                          Point_num_max_,
-                          facs__simple_radial__args__point__idx_shared_,
-                          facs__simple_radial__args__pixel__data_,
-                          simple_radial_num_max_,
+  SimpleRadialResJacFirst(
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
+      facs__simple_radial__args__pose__idx_shared_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
+      facs__simple_radial__args__calib__idx_shared_,
+      nodes__Point__storage_current_, Point_num_max_,
+      facs__simple_radial__args__point__idx_shared_,
+      facs__simple_radial__args__pixel__data_, simple_radial_num_max_,
 
-                          facs__simple_radial__res_,
-                          simple_radial_num_,
-                          solver__res_tot_,
-                          facs__simple_radial__args__pose__jac_,
-                          simple_radial_num_,
-                          nodes__SimpleRadialPose__r_k_,
-                          SimpleRadialPose_num_,
-                          nodes__SimpleRadialPose__precond_diag_,
-                          SimpleRadialPose_num_,
-                          nodes__SimpleRadialPose__precond_tril_,
-                          SimpleRadialPose_num_,
-                          facs__simple_radial__args__calib__jac_,
-                          simple_radial_num_,
-                          nodes__SimpleRadialCalib__r_k_,
-                          SimpleRadialCalib_num_,
-                          nodes__SimpleRadialCalib__precond_diag_,
-                          SimpleRadialCalib_num_,
-                          nodes__SimpleRadialCalib__precond_tril_,
-                          SimpleRadialCalib_num_,
-                          facs__simple_radial__args__point__jac_,
-                          simple_radial_num_,
-                          nodes__Point__r_k_,
-                          Point_num_,
-                          nodes__Point__precond_diag_,
-                          Point_num_,
-                          nodes__Point__precond_tril_,
-                          Point_num_,
-                          simple_radial_num_);
+      facs__simple_radial__res_, simple_radial_num_, solver__res_tot_,
+      facs__simple_radial__args__pose__jac_, simple_radial_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
+      facs__simple_radial__args__calib__jac_, simple_radial_num_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_diag_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_tril_, SimpleRadialCalib_num_,
+      facs__simple_radial__args__point__jac_, simple_radial_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_, simple_radial_num_);
 
   SimpleRadialFixedPoseResJacFirst(
-      nodes__SimpleRadialCalib__storage_current_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_pose__args__calib__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_fixed_pose__args__point__idx_shared_,
       facs__simple_radial_fixed_pose__args__pixel__data_,
       simple_radial_fixed_pose_num_max_,
       facs__simple_radial_fixed_pose__args__pose__data_,
       simple_radial_fixed_pose_num_max_,
 
-      facs__simple_radial_fixed_pose__res_,
-      simple_radial_fixed_pose_num_,
-      solver__res_tot_,
-      facs__simple_radial_fixed_pose__args__calib__jac_,
-      simple_radial_fixed_pose_num_,
-      nodes__SimpleRadialCalib__r_k_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_diag_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_tril_,
-      SimpleRadialCalib_num_,
-      facs__simple_radial_fixed_pose__args__point__jac_,
-      simple_radial_fixed_pose_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      simple_radial_fixed_pose_num_);
+      facs__simple_radial_fixed_pose__res_, simple_radial_fixed_pose_num_,
+      solver__res_tot_, facs__simple_radial_fixed_pose__args__calib__jac_,
+      simple_radial_fixed_pose_num_, nodes__SimpleRadialCalib__r_k_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_diag_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_tril_,
+      SimpleRadialCalib_num_, facs__simple_radial_fixed_pose__args__point__jac_,
+      simple_radial_fixed_pose_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, simple_radial_fixed_pose_num_);
 
   SimpleRadialFixedPointResJacFirst(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_fixed_point__args__pose__idx_shared_,
-      nodes__SimpleRadialCalib__storage_current_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_point__args__calib__idx_shared_,
       facs__simple_radial_fixed_point__args__pixel__data_,
       simple_radial_fixed_point_num_max_,
       facs__simple_radial_fixed_point__args__point__data_,
       simple_radial_fixed_point_num_max_,
 
-      facs__simple_radial_fixed_point__res_,
-      simple_radial_fixed_point_num_,
-      solver__res_tot_,
-      facs__simple_radial_fixed_point__args__pose__jac_,
-      simple_radial_fixed_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
-      facs__simple_radial_fixed_point__args__calib__jac_,
-      simple_radial_fixed_point_num_,
-      nodes__SimpleRadialCalib__r_k_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_diag_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_tril_,
-      SimpleRadialCalib_num_,
-      simple_radial_fixed_point_num_);
+      facs__simple_radial_fixed_point__res_, simple_radial_fixed_point_num_,
+      solver__res_tot_, facs__simple_radial_fixed_point__args__pose__jac_,
+      simple_radial_fixed_point_num_, nodes__SimpleRadialPose__r_k_,
+      SimpleRadialPose_num_, nodes__SimpleRadialPose__precond_diag_,
+      SimpleRadialPose_num_, nodes__SimpleRadialPose__precond_tril_,
+      SimpleRadialPose_num_, facs__simple_radial_fixed_point__args__calib__jac_,
+      simple_radial_fixed_point_num_, nodes__SimpleRadialCalib__r_k_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_diag_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_tril_,
+      SimpleRadialCalib_num_, simple_radial_fixed_point_num_);
 
   SimpleRadialFixedPoseFixedPointResJacFirst(
-      nodes__SimpleRadialCalib__storage_current_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_pose_fixed_point__args__calib__idx_shared_,
       facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_,
       simple_radial_fixed_pose_fixed_point_num_max_,
@@ -2414,126 +2101,71 @@ double GraphSolver::DoResJacFirst() {
       simple_radial_fixed_pose_fixed_point_num_max_,
 
       facs__simple_radial_fixed_pose_fixed_point__res_,
-      simple_radial_fixed_pose_fixed_point_num_,
-      solver__res_tot_,
-      nodes__SimpleRadialCalib__r_k_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_diag_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_tril_,
-      SimpleRadialCalib_num_,
+      simple_radial_fixed_pose_fixed_point_num_, solver__res_tot_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_diag_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_tril_, SimpleRadialCalib_num_,
       simple_radial_fixed_pose_fixed_point_num_);
 
-  PinholeResJacFirst(nodes__PinholePose__storage_current_,
-                     PinholePose_num_max_,
-                     facs__pinhole__args__pose__idx_shared_,
-                     nodes__PinholeCalib__storage_current_,
-                     PinholeCalib_num_max_,
-                     facs__pinhole__args__calib__idx_shared_,
-                     nodes__Point__storage_current_,
-                     Point_num_max_,
-                     facs__pinhole__args__point__idx_shared_,
-                     facs__pinhole__args__pixel__data_,
-                     pinhole_num_max_,
+  PinholeResJacFirst(
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
+      facs__pinhole__args__pose__idx_shared_,
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
+      facs__pinhole__args__calib__idx_shared_, nodes__Point__storage_current_,
+      Point_num_max_, facs__pinhole__args__point__idx_shared_,
+      facs__pinhole__args__pixel__data_, pinhole_num_max_,
 
-                     facs__pinhole__res_,
-                     pinhole_num_,
-                     solver__res_tot_,
-                     facs__pinhole__args__pose__jac_,
-                     pinhole_num_,
-                     nodes__PinholePose__r_k_,
-                     PinholePose_num_,
-                     nodes__PinholePose__precond_diag_,
-                     PinholePose_num_,
-                     nodes__PinholePose__precond_tril_,
-                     PinholePose_num_,
-                     facs__pinhole__args__calib__jac_,
-                     pinhole_num_,
-                     nodes__PinholeCalib__r_k_,
-                     PinholeCalib_num_,
-                     nodes__PinholeCalib__precond_diag_,
-                     PinholeCalib_num_,
-                     nodes__PinholeCalib__precond_tril_,
-                     PinholeCalib_num_,
-                     facs__pinhole__args__point__jac_,
-                     pinhole_num_,
-                     nodes__Point__r_k_,
-                     Point_num_,
-                     nodes__Point__precond_diag_,
-                     Point_num_,
-                     nodes__Point__precond_tril_,
-                     Point_num_,
-                     pinhole_num_);
+      facs__pinhole__res_, pinhole_num_, solver__res_tot_,
+      facs__pinhole__args__pose__jac_, pinhole_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
+      facs__pinhole__args__calib__jac_, pinhole_num_, nodes__PinholeCalib__r_k_,
+      PinholeCalib_num_, nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
+      facs__pinhole__args__point__jac_, pinhole_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_, pinhole_num_);
 
   PinholeFixedPoseResJacFirst(
-      nodes__PinholeCalib__storage_current_,
-      PinholeCalib_num_max_,
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
       facs__pinhole_fixed_pose__args__calib__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_fixed_pose__args__point__idx_shared_,
-      facs__pinhole_fixed_pose__args__pixel__data_,
-      pinhole_fixed_pose_num_max_,
-      facs__pinhole_fixed_pose__args__pose__data_,
-      pinhole_fixed_pose_num_max_,
+      facs__pinhole_fixed_pose__args__pixel__data_, pinhole_fixed_pose_num_max_,
+      facs__pinhole_fixed_pose__args__pose__data_, pinhole_fixed_pose_num_max_,
 
-      facs__pinhole_fixed_pose__res_,
-      pinhole_fixed_pose_num_,
-      solver__res_tot_,
-      facs__pinhole_fixed_pose__args__calib__jac_,
-      pinhole_fixed_pose_num_,
-      nodes__PinholeCalib__r_k_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_diag_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_tril_,
-      PinholeCalib_num_,
-      facs__pinhole_fixed_pose__args__point__jac_,
-      pinhole_fixed_pose_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      pinhole_fixed_pose_num_);
+      facs__pinhole_fixed_pose__res_, pinhole_fixed_pose_num_, solver__res_tot_,
+      facs__pinhole_fixed_pose__args__calib__jac_, pinhole_fixed_pose_num_,
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
+      facs__pinhole_fixed_pose__args__point__jac_, pinhole_fixed_pose_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_, pinhole_fixed_pose_num_);
 
   PinholeFixedPointResJacFirst(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_fixed_point__args__pose__idx_shared_,
-      nodes__PinholeCalib__storage_current_,
-      PinholeCalib_num_max_,
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
       facs__pinhole_fixed_point__args__calib__idx_shared_,
       facs__pinhole_fixed_point__args__pixel__data_,
       pinhole_fixed_point_num_max_,
       facs__pinhole_fixed_point__args__point__data_,
       pinhole_fixed_point_num_max_,
 
-      facs__pinhole_fixed_point__res_,
-      pinhole_fixed_point_num_,
-      solver__res_tot_,
-      facs__pinhole_fixed_point__args__pose__jac_,
-      pinhole_fixed_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
-      facs__pinhole_fixed_point__args__calib__jac_,
-      pinhole_fixed_point_num_,
-      nodes__PinholeCalib__r_k_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_diag_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_tril_,
-      PinholeCalib_num_,
+      facs__pinhole_fixed_point__res_, pinhole_fixed_point_num_,
+      solver__res_tot_, facs__pinhole_fixed_point__args__pose__jac_,
+      pinhole_fixed_point_num_, nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
+      facs__pinhole_fixed_point__args__calib__jac_, pinhole_fixed_point_num_,
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
       pinhole_fixed_point_num_);
 
   PinholeFixedPoseFixedPointResJacFirst(
-      nodes__PinholeCalib__storage_current_,
-      PinholeCalib_num_max_,
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
       facs__pinhole_fixed_pose_fixed_point__args__calib__idx_shared_,
       facs__pinhole_fixed_pose_fixed_point__args__pixel__data_,
       pinhole_fixed_pose_fixed_point_num_max_,
@@ -2543,25 +2175,19 @@ double GraphSolver::DoResJacFirst() {
       pinhole_fixed_pose_fixed_point_num_max_,
 
       facs__pinhole_fixed_pose_fixed_point__res_,
-      pinhole_fixed_pose_fixed_point_num_,
-      solver__res_tot_,
-      nodes__PinholeCalib__r_k_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_diag_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_tril_,
-      PinholeCalib_num_,
+      pinhole_fixed_pose_fixed_point_num_, solver__res_tot_,
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
       pinhole_fixed_pose_fixed_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionResJacFirst(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__idx_shared_,
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       SimpleRadialPrincipalPoint_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_num_max_,
@@ -2569,43 +2195,32 @@ double GraphSolver::DoResJacFirst() {
       simple_radial_split_fixed_focal_and_distortion_num_max_,
 
       facs__simple_radial_split_fixed_focal_and_distortion__res_,
-      simple_radial_split_fixed_focal_and_distortion_num_,
-      solver__res_tot_,
+      simple_radial_split_fixed_focal_and_distortion_num_, solver__res_tot_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__jac_,
       simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
       SimpleRadialPrincipalPoint_num_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__point__jac_,
-      simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      simple_radial_split_fixed_focal_and_distortion_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_focal_and_distortion_num_);
 
   SimpleRadialSplitFixedPrincipalPointResJacFirst(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__pose__idx_shared_,
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
       SimpleRadialFocalAndDistortion_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_principal_point_num_max_,
@@ -2613,16 +2228,12 @@ double GraphSolver::DoResJacFirst() {
       simple_radial_split_fixed_principal_point_num_max_,
 
       facs__simple_radial_split_fixed_principal_point__res_,
-      simple_radial_split_fixed_principal_point_num_,
-      solver__res_tot_,
+      simple_radial_split_fixed_principal_point_num_, solver__res_tot_,
       facs__simple_radial_split_fixed_principal_point__args__pose__jac_,
       simple_radial_split_fixed_principal_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__jac_,
       simple_radial_split_fixed_principal_point_num_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
@@ -2632,21 +2243,16 @@ double GraphSolver::DoResJacFirst() {
       nodes__SimpleRadialFocalAndDistortion__precond_tril_,
       SimpleRadialFocalAndDistortion_num_,
       facs__simple_radial_split_fixed_principal_point__args__point__jac_,
-      simple_radial_split_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      simple_radial_split_fixed_principal_point_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_principal_point_num_);
 
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionResJacFirst(
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       SimpleRadialPrincipalPoint_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
@@ -2660,28 +2266,22 @@ double GraphSolver::DoResJacFirst() {
       solver__res_tot_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__jac_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
       SimpleRadialPrincipalPoint_num_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__jac_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_);
 
   SimpleRadialSplitFixedPoseFixedPrincipalPointResJacFirst(
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
       SimpleRadialFocalAndDistortion_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
@@ -2703,20 +2303,14 @@ double GraphSolver::DoResJacFirst() {
       SimpleRadialFocalAndDistortion_num_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__jac_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointResJacFirst(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
@@ -2730,25 +2324,17 @@ double GraphSolver::DoResJacFirst() {
       solver__res_tot_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionFixedPointResJacFirst(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__idx_shared_,
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       SimpleRadialPrincipalPoint_num_max_,
@@ -2765,16 +2351,12 @@ double GraphSolver::DoResJacFirst() {
       solver__res_tot_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
@@ -2782,8 +2364,7 @@ double GraphSolver::DoResJacFirst() {
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_);
 
   SimpleRadialSplitFixedPrincipalPointFixedPointResJacFirst(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
       SimpleRadialFocalAndDistortion_num_max_,
@@ -2800,12 +2381,9 @@ double GraphSolver::DoResJacFirst() {
       solver__res_tot_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__jac_,
       simple_radial_split_fixed_principal_point_fixed_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__jac_,
       simple_radial_split_fixed_principal_point_fixed_point_num_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
@@ -2817,8 +2395,7 @@ double GraphSolver::DoResJacFirst() {
       simple_radial_split_fixed_principal_point_fixed_point_num_);
 
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointResJacFirst(
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
@@ -2831,12 +2408,8 @@ double GraphSolver::DoResJacFirst() {
 
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__res_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
-      solver__res_tot_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
+      solver__res_tot_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
       Point_num_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_);
 
@@ -2855,8 +2428,7 @@ double GraphSolver::DoResJacFirst() {
 
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__res_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
-      solver__res_tot_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
+      solver__res_tot_, nodes__SimpleRadialPrincipalPoint__r_k_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
@@ -2879,8 +2451,7 @@ double GraphSolver::DoResJacFirst() {
 
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__res_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      solver__res_tot_,
-      nodes__SimpleRadialFocalAndDistortion__r_k_,
+      solver__res_tot_, nodes__SimpleRadialFocalAndDistortion__r_k_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__precond_diag_,
       SimpleRadialFocalAndDistortion_num_,
@@ -2889,8 +2460,7 @@ double GraphSolver::DoResJacFirst() {
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointResJacFirst(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
@@ -2903,68 +2473,45 @@ double GraphSolver::DoResJacFirst() {
 
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__res_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
-      solver__res_tot_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      solver__res_tot_, nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_);
 
   PinholeSplitFixedFocalResJacFirst(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal__args__pose__idx_shared_,
       nodes__PinholePrincipalPoint__storage_current_,
       PinholePrincipalPoint_num_max_,
       facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal__args__pixel__data_,
       pinhole_split_fixed_focal_num_max_,
       facs__pinhole_split_fixed_focal__args__focal__data_,
       pinhole_split_fixed_focal_num_max_,
 
-      facs__pinhole_split_fixed_focal__res_,
-      pinhole_split_fixed_focal_num_,
-      solver__res_tot_,
-      facs__pinhole_split_fixed_focal__args__pose__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      facs__pinhole_split_fixed_focal__res_, pinhole_split_fixed_focal_num_,
+      solver__res_tot_, facs__pinhole_split_fixed_focal__args__pose__jac_,
+      pinhole_split_fixed_focal_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_focal__args__principal_point__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
+      pinhole_split_fixed_focal_num_, nodes__PinholePrincipalPoint__r_k_,
+      PinholePrincipalPoint_num_, nodes__PinholePrincipalPoint__precond_diag_,
+      PinholePrincipalPoint_num_, nodes__PinholePrincipalPoint__precond_tril_,
       PinholePrincipalPoint_num_,
       facs__pinhole_split_fixed_focal__args__point__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      pinhole_split_fixed_focal_num_);
+      pinhole_split_fixed_focal_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, pinhole_split_fixed_focal_num_);
 
   PinholeSplitFixedPrincipalPointResJacFirst(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_,
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_principal_point__args__focal__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_principal_point_num_max_,
@@ -2972,40 +2519,25 @@ double GraphSolver::DoResJacFirst() {
       pinhole_split_fixed_principal_point_num_max_,
 
       facs__pinhole_split_fixed_principal_point__res_,
-      pinhole_split_fixed_principal_point_num_,
-      solver__res_tot_,
+      pinhole_split_fixed_principal_point_num_, solver__res_tot_,
       facs__pinhole_split_fixed_principal_point__args__pose__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      pinhole_split_fixed_principal_point_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_principal_point__args__focal__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      pinhole_split_fixed_principal_point_num_, nodes__PinholeFocal__r_k_,
+      PinholeFocal_num_, nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       facs__pinhole_split_fixed_principal_point__args__point__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      pinhole_split_fixed_principal_point_num_);
+      pinhole_split_fixed_principal_point_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, pinhole_split_fixed_principal_point_num_);
 
   PinholeSplitFixedPoseFixedFocalResJacFirst(
       nodes__PinholePrincipalPoint__storage_current_,
       PinholePrincipalPoint_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_num_max_,
@@ -3015,32 +2547,21 @@ double GraphSolver::DoResJacFirst() {
       pinhole_split_fixed_pose_fixed_focal_num_max_,
 
       facs__pinhole_split_fixed_pose_fixed_focal__res_,
-      pinhole_split_fixed_pose_fixed_focal_num_,
-      solver__res_tot_,
+      pinhole_split_fixed_pose_fixed_focal_num_, solver__res_tot_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__jac_,
       pinhole_split_fixed_pose_fixed_focal_num_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
-      PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_tril_, PinholePrincipalPoint_num_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__point__jac_,
-      pinhole_split_fixed_pose_fixed_focal_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      pinhole_split_fixed_pose_fixed_focal_num_);
+      pinhole_split_fixed_pose_fixed_focal_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, pinhole_split_fixed_pose_fixed_focal_num_);
 
   PinholeSplitFixedPoseFixedPrincipalPointResJacFirst(
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_num_max_,
@@ -3050,32 +2571,22 @@ double GraphSolver::DoResJacFirst() {
       pinhole_split_fixed_pose_fixed_principal_point_num_max_,
 
       facs__pinhole_split_fixed_pose_fixed_principal_point__res_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_,
-      solver__res_tot_,
+      pinhole_split_fixed_pose_fixed_principal_point_num_, solver__res_tot_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__jac_,
       pinhole_split_fixed_pose_fixed_principal_point_num_,
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__jac_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      pinhole_split_fixed_pose_fixed_principal_point_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       pinhole_split_fixed_pose_fixed_principal_point_num_);
 
   PinholeSplitFixedFocalFixedPrincipalPointResJacFirst(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_num_max_,
@@ -3085,29 +2596,20 @@ double GraphSolver::DoResJacFirst() {
       pinhole_split_fixed_focal_fixed_principal_point_num_max_,
 
       facs__pinhole_split_fixed_focal_fixed_principal_point__res_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_,
-      solver__res_tot_,
+      pinhole_split_fixed_focal_fixed_principal_point_num_, solver__res_tot_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__jac_,
       pinhole_split_fixed_focal_fixed_principal_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__jac_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      pinhole_split_fixed_focal_fixed_principal_point_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       pinhole_split_fixed_focal_fixed_principal_point_num_);
 
   PinholeSplitFixedFocalFixedPointResJacFirst(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__idx_shared_,
       nodes__PinholePrincipalPoint__storage_current_,
       PinholePrincipalPoint_num_max_,
@@ -3120,32 +2622,22 @@ double GraphSolver::DoResJacFirst() {
       pinhole_split_fixed_focal_fixed_point_num_max_,
 
       facs__pinhole_split_fixed_focal_fixed_point__res_,
-      pinhole_split_fixed_focal_fixed_point_num_,
-      solver__res_tot_,
+      pinhole_split_fixed_focal_fixed_point_num_, solver__res_tot_,
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__jac_,
-      pinhole_split_fixed_focal_fixed_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      pinhole_split_fixed_focal_fixed_point_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_focal_fixed_point__args__principal_point__jac_,
       pinhole_split_fixed_focal_fixed_point_num_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
-      PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_tril_, PinholePrincipalPoint_num_,
       pinhole_split_fixed_focal_fixed_point_num_);
 
   PinholeSplitFixedPrincipalPointFixedPointResJacFirst(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_principal_point_fixed_point_num_max_,
@@ -3155,29 +2647,21 @@ double GraphSolver::DoResJacFirst() {
       pinhole_split_fixed_principal_point_fixed_point_num_max_,
 
       facs__pinhole_split_fixed_principal_point_fixed_point__res_,
-      pinhole_split_fixed_principal_point_fixed_point_num_,
-      solver__res_tot_,
+      pinhole_split_fixed_principal_point_fixed_point_num_, solver__res_tot_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__jac_,
       pinhole_split_fixed_principal_point_fixed_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__jac_,
       pinhole_split_fixed_principal_point_fixed_point_num_,
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       pinhole_split_fixed_principal_point_fixed_point_num_);
 
   PinholeSplitFixedPoseFixedFocalFixedPrincipalPointResJacFirst(
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
@@ -3190,12 +2674,8 @@ double GraphSolver::DoResJacFirst() {
 
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__res_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      solver__res_tot_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
+      solver__res_tot_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
       Point_num_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_);
 
@@ -3213,19 +2693,14 @@ double GraphSolver::DoResJacFirst() {
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
 
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__res_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
-      solver__res_tot_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
-      PinholePrincipalPoint_num_,
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, solver__res_tot_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_tril_, PinholePrincipalPoint_num_,
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_);
 
   PinholeSplitFixedPoseFixedPrincipalPointFixedPointResJacFirst(
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
@@ -3238,18 +2713,13 @@ double GraphSolver::DoResJacFirst() {
 
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__res_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      solver__res_tot_,
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      solver__res_tot_, nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_);
 
   PinholeSplitFixedFocalFixedPrincipalPointFixedPointResJacFirst(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
@@ -3262,14 +2732,39 @@ double GraphSolver::DoResJacFirst() {
 
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__res_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      solver__res_tot_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      solver__res_tot_, nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+
+  SimpleRadialPosePriorCoreResJacFirst(
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
+      facs__simple_radial_pose_prior_core__args__pose__idx_shared_,
+      facs__simple_radial_pose_prior_core__args__prior_position__data_,
+      simple_radial_pose_prior_core_num_max_,
+      facs__simple_radial_pose_prior_core__args__sqrt_info__data_,
+      simple_radial_pose_prior_core_num_max_,
+
+      facs__simple_radial_pose_prior_core__res_,
+      simple_radial_pose_prior_core_num_, solver__res_tot_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
+      simple_radial_pose_prior_core_num_);
+
+  PinholePosePriorCoreResJacFirst(
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
+      facs__pinhole_pose_prior_core__args__pose__idx_shared_,
+      facs__pinhole_pose_prior_core__args__prior_position__data_,
+      pinhole_pose_prior_core_num_max_,
+      facs__pinhole_pose_prior_core__args__sqrt_info__data_,
+      pinhole_pose_prior_core_num_max_,
+
+      facs__pinhole_pose_prior_core__res_, pinhole_pose_prior_core_num_,
+      solver__res_tot_, nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
+      pinhole_pose_prior_core_num_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__r_0_start_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__Mp_start_);
   return 0.5 * ReadCuMem(solver__res_tot_);
@@ -3278,116 +2773,74 @@ void GraphSolver::DoResJac() {
   Zero(solver__res_tot_, solver__res_tot_ + 1);
   Zero(marker__r_0_start_, marker__precond_end_);
 
-  SimpleRadialResJac(nodes__SimpleRadialPose__storage_current_,
-                     SimpleRadialPose_num_max_,
-                     facs__simple_radial__args__pose__idx_shared_,
-                     nodes__SimpleRadialCalib__storage_current_,
-                     SimpleRadialCalib_num_max_,
-                     facs__simple_radial__args__calib__idx_shared_,
-                     nodes__Point__storage_current_,
-                     Point_num_max_,
-                     facs__simple_radial__args__point__idx_shared_,
-                     facs__simple_radial__args__pixel__data_,
-                     simple_radial_num_max_,
+  SimpleRadialResJac(
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
+      facs__simple_radial__args__pose__idx_shared_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
+      facs__simple_radial__args__calib__idx_shared_,
+      nodes__Point__storage_current_, Point_num_max_,
+      facs__simple_radial__args__point__idx_shared_,
+      facs__simple_radial__args__pixel__data_, simple_radial_num_max_,
 
-                     facs__simple_radial__res_,
-                     simple_radial_num_,
+      facs__simple_radial__res_, simple_radial_num_,
 
-                     facs__simple_radial__args__pose__jac_,
-                     simple_radial_num_,
-                     nodes__SimpleRadialPose__r_k_,
-                     SimpleRadialPose_num_,
-                     nodes__SimpleRadialPose__precond_diag_,
-                     SimpleRadialPose_num_,
-                     nodes__SimpleRadialPose__precond_tril_,
-                     SimpleRadialPose_num_,
-                     facs__simple_radial__args__calib__jac_,
-                     simple_radial_num_,
-                     nodes__SimpleRadialCalib__r_k_,
-                     SimpleRadialCalib_num_,
-                     nodes__SimpleRadialCalib__precond_diag_,
-                     SimpleRadialCalib_num_,
-                     nodes__SimpleRadialCalib__precond_tril_,
-                     SimpleRadialCalib_num_,
-                     facs__simple_radial__args__point__jac_,
-                     simple_radial_num_,
-                     nodes__Point__r_k_,
-                     Point_num_,
-                     nodes__Point__precond_diag_,
-                     Point_num_,
-                     nodes__Point__precond_tril_,
-                     Point_num_,
-                     simple_radial_num_);
+      facs__simple_radial__args__pose__jac_, simple_radial_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
+      facs__simple_radial__args__calib__jac_, simple_radial_num_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_diag_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_tril_, SimpleRadialCalib_num_,
+      facs__simple_radial__args__point__jac_, simple_radial_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_, simple_radial_num_);
 
   SimpleRadialFixedPoseResJac(
-      nodes__SimpleRadialCalib__storage_current_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_pose__args__calib__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_fixed_pose__args__point__idx_shared_,
       facs__simple_radial_fixed_pose__args__pixel__data_,
       simple_radial_fixed_pose_num_max_,
       facs__simple_radial_fixed_pose__args__pose__data_,
       simple_radial_fixed_pose_num_max_,
 
-      facs__simple_radial_fixed_pose__res_,
-      simple_radial_fixed_pose_num_,
+      facs__simple_radial_fixed_pose__res_, simple_radial_fixed_pose_num_,
 
       facs__simple_radial_fixed_pose__args__calib__jac_,
-      simple_radial_fixed_pose_num_,
-      nodes__SimpleRadialCalib__r_k_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_diag_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_tril_,
-      SimpleRadialCalib_num_,
-      facs__simple_radial_fixed_pose__args__point__jac_,
-      simple_radial_fixed_pose_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      simple_radial_fixed_pose_num_);
+      simple_radial_fixed_pose_num_, nodes__SimpleRadialCalib__r_k_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_diag_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_tril_,
+      SimpleRadialCalib_num_, facs__simple_radial_fixed_pose__args__point__jac_,
+      simple_radial_fixed_pose_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, simple_radial_fixed_pose_num_);
 
   SimpleRadialFixedPointResJac(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_fixed_point__args__pose__idx_shared_,
-      nodes__SimpleRadialCalib__storage_current_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_point__args__calib__idx_shared_,
       facs__simple_radial_fixed_point__args__pixel__data_,
       simple_radial_fixed_point_num_max_,
       facs__simple_radial_fixed_point__args__point__data_,
       simple_radial_fixed_point_num_max_,
 
-      facs__simple_radial_fixed_point__res_,
-      simple_radial_fixed_point_num_,
+      facs__simple_radial_fixed_point__res_, simple_radial_fixed_point_num_,
 
       facs__simple_radial_fixed_point__args__pose__jac_,
-      simple_radial_fixed_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
-      facs__simple_radial_fixed_point__args__calib__jac_,
-      simple_radial_fixed_point_num_,
-      nodes__SimpleRadialCalib__r_k_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_diag_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_tril_,
-      SimpleRadialCalib_num_,
-      simple_radial_fixed_point_num_);
+      simple_radial_fixed_point_num_, nodes__SimpleRadialPose__r_k_,
+      SimpleRadialPose_num_, nodes__SimpleRadialPose__precond_diag_,
+      SimpleRadialPose_num_, nodes__SimpleRadialPose__precond_tril_,
+      SimpleRadialPose_num_, facs__simple_radial_fixed_point__args__calib__jac_,
+      simple_radial_fixed_point_num_, nodes__SimpleRadialCalib__r_k_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_diag_,
+      SimpleRadialCalib_num_, nodes__SimpleRadialCalib__precond_tril_,
+      SimpleRadialCalib_num_, simple_radial_fixed_point_num_);
 
   SimpleRadialFixedPoseFixedPointResJac(
-      nodes__SimpleRadialCalib__storage_current_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_pose_fixed_point__args__calib__idx_shared_,
       facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_,
       simple_radial_fixed_pose_fixed_point_num_max_,
@@ -3399,122 +2852,73 @@ void GraphSolver::DoResJac() {
       facs__simple_radial_fixed_pose_fixed_point__res_,
       simple_radial_fixed_pose_fixed_point_num_,
 
-      nodes__SimpleRadialCalib__r_k_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_diag_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__precond_tril_,
-      SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_diag_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_tril_, SimpleRadialCalib_num_,
       simple_radial_fixed_pose_fixed_point_num_);
 
-  PinholeResJac(nodes__PinholePose__storage_current_,
-                PinholePose_num_max_,
-                facs__pinhole__args__pose__idx_shared_,
-                nodes__PinholeCalib__storage_current_,
-                PinholeCalib_num_max_,
-                facs__pinhole__args__calib__idx_shared_,
-                nodes__Point__storage_current_,
-                Point_num_max_,
-                facs__pinhole__args__point__idx_shared_,
-                facs__pinhole__args__pixel__data_,
-                pinhole_num_max_,
+  PinholeResJac(
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
+      facs__pinhole__args__pose__idx_shared_,
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
+      facs__pinhole__args__calib__idx_shared_, nodes__Point__storage_current_,
+      Point_num_max_, facs__pinhole__args__point__idx_shared_,
+      facs__pinhole__args__pixel__data_, pinhole_num_max_,
 
-                facs__pinhole__res_,
-                pinhole_num_,
+      facs__pinhole__res_, pinhole_num_,
 
-                facs__pinhole__args__pose__jac_,
-                pinhole_num_,
-                nodes__PinholePose__r_k_,
-                PinholePose_num_,
-                nodes__PinholePose__precond_diag_,
-                PinholePose_num_,
-                nodes__PinholePose__precond_tril_,
-                PinholePose_num_,
-                facs__pinhole__args__calib__jac_,
-                pinhole_num_,
-                nodes__PinholeCalib__r_k_,
-                PinholeCalib_num_,
-                nodes__PinholeCalib__precond_diag_,
-                PinholeCalib_num_,
-                nodes__PinholeCalib__precond_tril_,
-                PinholeCalib_num_,
-                facs__pinhole__args__point__jac_,
-                pinhole_num_,
-                nodes__Point__r_k_,
-                Point_num_,
-                nodes__Point__precond_diag_,
-                Point_num_,
-                nodes__Point__precond_tril_,
-                Point_num_,
-                pinhole_num_);
+      facs__pinhole__args__pose__jac_, pinhole_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
+      facs__pinhole__args__calib__jac_, pinhole_num_, nodes__PinholeCalib__r_k_,
+      PinholeCalib_num_, nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
+      facs__pinhole__args__point__jac_, pinhole_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_, pinhole_num_);
 
-  PinholeFixedPoseResJac(nodes__PinholeCalib__storage_current_,
-                         PinholeCalib_num_max_,
-                         facs__pinhole_fixed_pose__args__calib__idx_shared_,
-                         nodes__Point__storage_current_,
-                         Point_num_max_,
-                         facs__pinhole_fixed_pose__args__point__idx_shared_,
-                         facs__pinhole_fixed_pose__args__pixel__data_,
-                         pinhole_fixed_pose_num_max_,
-                         facs__pinhole_fixed_pose__args__pose__data_,
-                         pinhole_fixed_pose_num_max_,
+  PinholeFixedPoseResJac(
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
+      facs__pinhole_fixed_pose__args__calib__idx_shared_,
+      nodes__Point__storage_current_, Point_num_max_,
+      facs__pinhole_fixed_pose__args__point__idx_shared_,
+      facs__pinhole_fixed_pose__args__pixel__data_, pinhole_fixed_pose_num_max_,
+      facs__pinhole_fixed_pose__args__pose__data_, pinhole_fixed_pose_num_max_,
 
-                         facs__pinhole_fixed_pose__res_,
-                         pinhole_fixed_pose_num_,
+      facs__pinhole_fixed_pose__res_, pinhole_fixed_pose_num_,
 
-                         facs__pinhole_fixed_pose__args__calib__jac_,
-                         pinhole_fixed_pose_num_,
-                         nodes__PinholeCalib__r_k_,
-                         PinholeCalib_num_,
-                         nodes__PinholeCalib__precond_diag_,
-                         PinholeCalib_num_,
-                         nodes__PinholeCalib__precond_tril_,
-                         PinholeCalib_num_,
-                         facs__pinhole_fixed_pose__args__point__jac_,
-                         pinhole_fixed_pose_num_,
-                         nodes__Point__r_k_,
-                         Point_num_,
-                         nodes__Point__precond_diag_,
-                         Point_num_,
-                         nodes__Point__precond_tril_,
-                         Point_num_,
-                         pinhole_fixed_pose_num_);
+      facs__pinhole_fixed_pose__args__calib__jac_, pinhole_fixed_pose_num_,
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
+      facs__pinhole_fixed_pose__args__point__jac_, pinhole_fixed_pose_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_, pinhole_fixed_pose_num_);
 
-  PinholeFixedPointResJac(nodes__PinholePose__storage_current_,
-                          PinholePose_num_max_,
-                          facs__pinhole_fixed_point__args__pose__idx_shared_,
-                          nodes__PinholeCalib__storage_current_,
-                          PinholeCalib_num_max_,
-                          facs__pinhole_fixed_point__args__calib__idx_shared_,
-                          facs__pinhole_fixed_point__args__pixel__data_,
-                          pinhole_fixed_point_num_max_,
-                          facs__pinhole_fixed_point__args__point__data_,
-                          pinhole_fixed_point_num_max_,
+  PinholeFixedPointResJac(
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
+      facs__pinhole_fixed_point__args__pose__idx_shared_,
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
+      facs__pinhole_fixed_point__args__calib__idx_shared_,
+      facs__pinhole_fixed_point__args__pixel__data_,
+      pinhole_fixed_point_num_max_,
+      facs__pinhole_fixed_point__args__point__data_,
+      pinhole_fixed_point_num_max_,
 
-                          facs__pinhole_fixed_point__res_,
-                          pinhole_fixed_point_num_,
+      facs__pinhole_fixed_point__res_, pinhole_fixed_point_num_,
 
-                          facs__pinhole_fixed_point__args__pose__jac_,
-                          pinhole_fixed_point_num_,
-                          nodes__PinholePose__r_k_,
-                          PinholePose_num_,
-                          nodes__PinholePose__precond_diag_,
-                          PinholePose_num_,
-                          nodes__PinholePose__precond_tril_,
-                          PinholePose_num_,
-                          facs__pinhole_fixed_point__args__calib__jac_,
-                          pinhole_fixed_point_num_,
-                          nodes__PinholeCalib__r_k_,
-                          PinholeCalib_num_,
-                          nodes__PinholeCalib__precond_diag_,
-                          PinholeCalib_num_,
-                          nodes__PinholeCalib__precond_tril_,
-                          PinholeCalib_num_,
-                          pinhole_fixed_point_num_);
+      facs__pinhole_fixed_point__args__pose__jac_, pinhole_fixed_point_num_,
+      nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
+      facs__pinhole_fixed_point__args__calib__jac_, pinhole_fixed_point_num_,
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
+      pinhole_fixed_point_num_);
 
   PinholeFixedPoseFixedPointResJac(
-      nodes__PinholeCalib__storage_current_,
-      PinholeCalib_num_max_,
+      nodes__PinholeCalib__storage_current_, PinholeCalib_num_max_,
       facs__pinhole_fixed_pose_fixed_point__args__calib__idx_shared_,
       facs__pinhole_fixed_pose_fixed_point__args__pixel__data_,
       pinhole_fixed_pose_fixed_point_num_max_,
@@ -3526,23 +2930,18 @@ void GraphSolver::DoResJac() {
       facs__pinhole_fixed_pose_fixed_point__res_,
       pinhole_fixed_pose_fixed_point_num_,
 
-      nodes__PinholeCalib__r_k_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_diag_,
-      PinholeCalib_num_,
-      nodes__PinholeCalib__precond_tril_,
-      PinholeCalib_num_,
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
       pinhole_fixed_pose_fixed_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionResJac(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__idx_shared_,
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       SimpleRadialPrincipalPoint_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_num_max_,
@@ -3554,39 +2953,29 @@ void GraphSolver::DoResJac() {
 
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__jac_,
       simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
       SimpleRadialPrincipalPoint_num_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__point__jac_,
-      simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      simple_radial_split_fixed_focal_and_distortion_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_focal_and_distortion_num_);
 
   SimpleRadialSplitFixedPrincipalPointResJac(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__pose__idx_shared_,
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
       SimpleRadialFocalAndDistortion_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_principal_point_num_max_,
@@ -3598,12 +2987,9 @@ void GraphSolver::DoResJac() {
 
       facs__simple_radial_split_fixed_principal_point__args__pose__jac_,
       simple_radial_split_fixed_principal_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__jac_,
       simple_radial_split_fixed_principal_point_num_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
@@ -3613,21 +2999,16 @@ void GraphSolver::DoResJac() {
       nodes__SimpleRadialFocalAndDistortion__precond_tril_,
       SimpleRadialFocalAndDistortion_num_,
       facs__simple_radial_split_fixed_principal_point__args__point__jac_,
-      simple_radial_split_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      simple_radial_split_fixed_principal_point_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_principal_point_num_);
 
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionResJac(
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       SimpleRadialPrincipalPoint_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
@@ -3641,28 +3022,22 @@ void GraphSolver::DoResJac() {
 
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__jac_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
       SimpleRadialPrincipalPoint_num_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__jac_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_);
 
   SimpleRadialSplitFixedPoseFixedPrincipalPointResJac(
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
       SimpleRadialFocalAndDistortion_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
@@ -3684,20 +3059,14 @@ void GraphSolver::DoResJac() {
       SimpleRadialFocalAndDistortion_num_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__jac_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointResJac(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
@@ -3711,25 +3080,17 @@ void GraphSolver::DoResJac() {
 
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionFixedPointResJac(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__idx_shared_,
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       SimpleRadialPrincipalPoint_num_max_,
@@ -3746,16 +3107,12 @@ void GraphSolver::DoResJac() {
 
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
@@ -3763,8 +3120,7 @@ void GraphSolver::DoResJac() {
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_);
 
   SimpleRadialSplitFixedPrincipalPointFixedPointResJac(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
       SimpleRadialFocalAndDistortion_num_max_,
@@ -3781,12 +3137,9 @@ void GraphSolver::DoResJac() {
 
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__jac_,
       simple_radial_split_fixed_principal_point_fixed_point_num_,
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__jac_,
       simple_radial_split_fixed_principal_point_fixed_point_num_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
@@ -3798,8 +3151,7 @@ void GraphSolver::DoResJac() {
       simple_radial_split_fixed_principal_point_fixed_point_num_);
 
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointResJac(
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
@@ -3813,12 +3165,8 @@ void GraphSolver::DoResJac() {
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__res_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_,
 
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_);
 
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointResJac(
@@ -3837,8 +3185,7 @@ void GraphSolver::DoResJac() {
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__res_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_,
 
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
@@ -3870,8 +3217,7 @@ void GraphSolver::DoResJac() {
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_);
 
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointResJac(
-      nodes__SimpleRadialPose__storage_current_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
@@ -3885,67 +3231,46 @@ void GraphSolver::DoResJac() {
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__res_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
 
-      nodes__SimpleRadialPose__r_k_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_diag_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPose__precond_tril_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_);
 
   PinholeSplitFixedFocalResJac(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal__args__pose__idx_shared_,
       nodes__PinholePrincipalPoint__storage_current_,
       PinholePrincipalPoint_num_max_,
       facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal__args__pixel__data_,
       pinhole_split_fixed_focal_num_max_,
       facs__pinhole_split_fixed_focal__args__focal__data_,
       pinhole_split_fixed_focal_num_max_,
 
-      facs__pinhole_split_fixed_focal__res_,
-      pinhole_split_fixed_focal_num_,
+      facs__pinhole_split_fixed_focal__res_, pinhole_split_fixed_focal_num_,
 
       facs__pinhole_split_fixed_focal__args__pose__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      pinhole_split_fixed_focal_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_focal__args__principal_point__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
+      pinhole_split_fixed_focal_num_, nodes__PinholePrincipalPoint__r_k_,
+      PinholePrincipalPoint_num_, nodes__PinholePrincipalPoint__precond_diag_,
+      PinholePrincipalPoint_num_, nodes__PinholePrincipalPoint__precond_tril_,
       PinholePrincipalPoint_num_,
       facs__pinhole_split_fixed_focal__args__point__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      pinhole_split_fixed_focal_num_);
+      pinhole_split_fixed_focal_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, pinhole_split_fixed_focal_num_);
 
   PinholeSplitFixedPrincipalPointResJac(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_,
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_principal_point__args__focal__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_principal_point_num_max_,
@@ -3956,37 +3281,23 @@ void GraphSolver::DoResJac() {
       pinhole_split_fixed_principal_point_num_,
 
       facs__pinhole_split_fixed_principal_point__args__pose__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      pinhole_split_fixed_principal_point_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_principal_point__args__focal__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      pinhole_split_fixed_principal_point_num_, nodes__PinholeFocal__r_k_,
+      PinholeFocal_num_, nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       facs__pinhole_split_fixed_principal_point__args__point__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      pinhole_split_fixed_principal_point_num_);
+      pinhole_split_fixed_principal_point_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, pinhole_split_fixed_principal_point_num_);
 
   PinholeSplitFixedPoseFixedFocalResJac(
       nodes__PinholePrincipalPoint__storage_current_,
       PinholePrincipalPoint_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_num_max_,
@@ -4000,28 +3311,18 @@ void GraphSolver::DoResJac() {
 
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__jac_,
       pinhole_split_fixed_pose_fixed_focal_num_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
-      PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_tril_, PinholePrincipalPoint_num_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__point__jac_,
-      pinhole_split_fixed_pose_fixed_focal_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
-      pinhole_split_fixed_pose_fixed_focal_num_);
+      pinhole_split_fixed_pose_fixed_focal_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__precond_diag_, Point_num_, nodes__Point__precond_tril_,
+      Point_num_, pinhole_split_fixed_pose_fixed_focal_num_);
 
   PinholeSplitFixedPoseFixedPrincipalPointResJac(
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_num_max_,
@@ -4035,28 +3336,19 @@ void GraphSolver::DoResJac() {
 
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__jac_,
       pinhole_split_fixed_pose_fixed_principal_point_num_,
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__jac_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      pinhole_split_fixed_pose_fixed_principal_point_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       pinhole_split_fixed_pose_fixed_principal_point_num_);
 
   PinholeSplitFixedFocalFixedPrincipalPointResJac(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__idx_shared_,
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_num_max_,
@@ -4070,25 +3362,17 @@ void GraphSolver::DoResJac() {
 
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__jac_,
       pinhole_split_fixed_focal_fixed_principal_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__jac_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_,
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      pinhole_split_fixed_focal_fixed_principal_point_num_, nodes__Point__r_k_,
+      Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       pinhole_split_fixed_focal_fixed_principal_point_num_);
 
   PinholeSplitFixedFocalFixedPointResJac(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__idx_shared_,
       nodes__PinholePrincipalPoint__storage_current_,
       PinholePrincipalPoint_num_max_,
@@ -4104,29 +3388,20 @@ void GraphSolver::DoResJac() {
       pinhole_split_fixed_focal_fixed_point_num_,
 
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__jac_,
-      pinhole_split_fixed_focal_fixed_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      pinhole_split_fixed_focal_fixed_point_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_focal_fixed_point__args__principal_point__jac_,
       pinhole_split_fixed_focal_fixed_point_num_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
-      PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_tril_, PinholePrincipalPoint_num_,
       pinhole_split_fixed_focal_fixed_point_num_);
 
   PinholeSplitFixedPrincipalPointFixedPointResJac(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_principal_point_fixed_point_num_max_,
@@ -4140,25 +3415,18 @@ void GraphSolver::DoResJac() {
 
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__jac_,
       pinhole_split_fixed_principal_point_fixed_point_num_,
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__jac_,
       pinhole_split_fixed_principal_point_fixed_point_num_,
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       pinhole_split_fixed_principal_point_fixed_point_num_);
 
   PinholeSplitFixedPoseFixedFocalFixedPrincipalPointResJac(
-      nodes__Point__storage_current_,
-      Point_num_max_,
+      nodes__Point__storage_current_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
@@ -4172,12 +3440,8 @@ void GraphSolver::DoResJac() {
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__res_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
 
-      nodes__Point__r_k_,
-      Point_num_,
-      nodes__Point__precond_diag_,
-      Point_num_,
-      nodes__Point__precond_tril_,
-      Point_num_,
+      nodes__Point__r_k_, Point_num_, nodes__Point__precond_diag_, Point_num_,
+      nodes__Point__precond_tril_, Point_num_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_);
 
   PinholeSplitFixedPoseFixedFocalFixedPointResJac(
@@ -4196,17 +3460,13 @@ void GraphSolver::DoResJac() {
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__res_,
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_,
 
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_tril_,
-      PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_tril_, PinholePrincipalPoint_num_,
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_);
 
   PinholeSplitFixedPoseFixedPrincipalPointFixedPointResJac(
-      nodes__PinholeFocal__storage_current_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_current_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
@@ -4220,17 +3480,13 @@ void GraphSolver::DoResJac() {
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__res_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
 
-      nodes__PinholeFocal__r_k_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_diag_,
-      PinholeFocal_num_,
-      nodes__PinholeFocal__precond_tril_,
-      PinholeFocal_num_,
+      nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_);
 
   PinholeSplitFixedFocalFixedPrincipalPointFixedPointResJac(
-      nodes__PinholePose__storage_current_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
@@ -4244,88 +3500,85 @@ void GraphSolver::DoResJac() {
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__res_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
 
-      nodes__PinholePose__r_k_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_diag_,
-      PinholePose_num_,
-      nodes__PinholePose__precond_tril_,
-      PinholePose_num_,
+      nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+
+  SimpleRadialPosePriorCoreResJac(
+      nodes__SimpleRadialPose__storage_current_, SimpleRadialPose_num_max_,
+      facs__simple_radial_pose_prior_core__args__pose__idx_shared_,
+      facs__simple_radial_pose_prior_core__args__prior_position__data_,
+      simple_radial_pose_prior_core_num_max_,
+      facs__simple_radial_pose_prior_core__args__sqrt_info__data_,
+      simple_radial_pose_prior_core_num_max_,
+
+      facs__simple_radial_pose_prior_core__res_,
+      simple_radial_pose_prior_core_num_,
+
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
+      simple_radial_pose_prior_core_num_);
+
+  PinholePosePriorCoreResJac(
+      nodes__PinholePose__storage_current_, PinholePose_num_max_,
+      facs__pinhole_pose_prior_core__args__pose__idx_shared_,
+      facs__pinhole_pose_prior_core__args__prior_position__data_,
+      pinhole_pose_prior_core_num_max_,
+      facs__pinhole_pose_prior_core__args__sqrt_info__data_,
+      pinhole_pose_prior_core_num_max_,
+
+      facs__pinhole_pose_prior_core__res_, pinhole_pose_prior_core_num_,
+
+      nodes__PinholePose__r_k_, PinholePose_num_,
+      nodes__PinholePose__precond_diag_, PinholePose_num_,
+      nodes__PinholePose__precond_tril_, PinholePose_num_,
+      pinhole_pose_prior_core_num_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__r_0_start_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__Mp_start_);
 }
 
 void GraphSolver::DoNormalize() {
-  double* r_k;
-  double* z;
+  double *r_k;
+  double *z;
   z = pcg_iter_ == 0 ? nodes__PinholeCalib__p_ : nodes__PinholeCalib__z_;
-  PinholeCalibNormalize(nodes__PinholeCalib__precond_diag_,
-                        PinholeCalib_num_,
-                        nodes__PinholeCalib__precond_tril_,
-                        PinholeCalib_num_,
-                        nodes__PinholeCalib__r_k_,
-                        PinholeCalib_num_,
-                        solver__current_diag_,
-                        z,
-                        PinholeCalib_num_,
+  PinholeCalibNormalize(nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+                        nodes__PinholeCalib__precond_tril_, PinholeCalib_num_,
+                        nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+                        solver__current_diag_, z, PinholeCalib_num_,
                         PinholeCalib_num_);
   z = pcg_iter_ == 0 ? nodes__PinholeFocal__p_ : nodes__PinholeFocal__z_;
-  PinholeFocalNormalize(nodes__PinholeFocal__precond_diag_,
-                        PinholeFocal_num_,
-                        nodes__PinholeFocal__precond_tril_,
-                        PinholeFocal_num_,
-                        nodes__PinholeFocal__r_k_,
-                        PinholeFocal_num_,
-                        solver__current_diag_,
-                        z,
-                        PinholeFocal_num_,
+  PinholeFocalNormalize(nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+                        nodes__PinholeFocal__precond_tril_, PinholeFocal_num_,
+                        nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+                        solver__current_diag_, z, PinholeFocal_num_,
                         PinholeFocal_num_);
   z = pcg_iter_ == 0 ? nodes__PinholePose__p_ : nodes__PinholePose__z_;
-  PinholePoseNormalize(nodes__PinholePose__precond_diag_,
-                       PinholePose_num_,
-                       nodes__PinholePose__precond_tril_,
-                       PinholePose_num_,
-                       nodes__PinholePose__r_k_,
-                       PinholePose_num_,
-                       solver__current_diag_,
-                       z,
-                       PinholePose_num_,
+  PinholePoseNormalize(nodes__PinholePose__precond_diag_, PinholePose_num_,
+                       nodes__PinholePose__precond_tril_, PinholePose_num_,
+                       nodes__PinholePose__r_k_, PinholePose_num_,
+                       solver__current_diag_, z, PinholePose_num_,
                        PinholePose_num_);
   z = pcg_iter_ == 0 ? nodes__PinholePrincipalPoint__p_
                      : nodes__PinholePrincipalPoint__z_;
-  PinholePrincipalPointNormalize(nodes__PinholePrincipalPoint__precond_diag_,
-                                 PinholePrincipalPoint_num_,
-                                 nodes__PinholePrincipalPoint__precond_tril_,
-                                 PinholePrincipalPoint_num_,
-                                 nodes__PinholePrincipalPoint__r_k_,
-                                 PinholePrincipalPoint_num_,
-                                 solver__current_diag_,
-                                 z,
-                                 PinholePrincipalPoint_num_,
-                                 PinholePrincipalPoint_num_);
+  PinholePrincipalPointNormalize(
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_tril_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      solver__current_diag_, z, PinholePrincipalPoint_num_,
+      PinholePrincipalPoint_num_);
   z = pcg_iter_ == 0 ? nodes__Point__p_ : nodes__Point__z_;
-  PointNormalize(nodes__Point__precond_diag_,
-                 Point_num_,
-                 nodes__Point__precond_tril_,
-                 Point_num_,
-                 nodes__Point__r_k_,
-                 Point_num_,
-                 solver__current_diag_,
-                 z,
-                 Point_num_,
-                 Point_num_);
+  PointNormalize(nodes__Point__precond_diag_, Point_num_,
+                 nodes__Point__precond_tril_, Point_num_, nodes__Point__r_k_,
+                 Point_num_, solver__current_diag_, z, Point_num_, Point_num_);
   z = pcg_iter_ == 0 ? nodes__SimpleRadialCalib__p_
                      : nodes__SimpleRadialCalib__z_;
-  SimpleRadialCalibNormalize(nodes__SimpleRadialCalib__precond_diag_,
-                             SimpleRadialCalib_num_,
-                             nodes__SimpleRadialCalib__precond_tril_,
-                             SimpleRadialCalib_num_,
-                             nodes__SimpleRadialCalib__r_k_,
-                             SimpleRadialCalib_num_,
-                             solver__current_diag_,
-                             z,
-                             SimpleRadialCalib_num_,
-                             SimpleRadialCalib_num_);
+  SimpleRadialCalibNormalize(
+      nodes__SimpleRadialCalib__precond_diag_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_tril_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      solver__current_diag_, z, SimpleRadialCalib_num_, SimpleRadialCalib_num_);
   z = pcg_iter_ == 0 ? nodes__SimpleRadialFocalAndDistortion__p_
                      : nodes__SimpleRadialFocalAndDistortion__z_;
   SimpleRadialFocalAndDistortionNormalize(
@@ -4334,267 +3587,161 @@ void GraphSolver::DoNormalize() {
       nodes__SimpleRadialFocalAndDistortion__precond_tril_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__current_diag_,
-      z,
-      SimpleRadialFocalAndDistortion_num_,
-      SimpleRadialFocalAndDistortion_num_);
+      SimpleRadialFocalAndDistortion_num_, solver__current_diag_, z,
+      SimpleRadialFocalAndDistortion_num_, SimpleRadialFocalAndDistortion_num_);
   z = pcg_iter_ == 0 ? nodes__SimpleRadialPose__p_
                      : nodes__SimpleRadialPose__z_;
-  SimpleRadialPoseNormalize(nodes__SimpleRadialPose__precond_diag_,
-                            SimpleRadialPose_num_,
-                            nodes__SimpleRadialPose__precond_tril_,
-                            SimpleRadialPose_num_,
-                            nodes__SimpleRadialPose__r_k_,
-                            SimpleRadialPose_num_,
-                            solver__current_diag_,
-                            z,
-                            SimpleRadialPose_num_,
-                            SimpleRadialPose_num_);
+  SimpleRadialPoseNormalize(
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_tril_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      solver__current_diag_, z, SimpleRadialPose_num_, SimpleRadialPose_num_);
   z = pcg_iter_ == 0 ? nodes__SimpleRadialPrincipalPoint__p_
                      : nodes__SimpleRadialPrincipalPoint__z_;
   SimpleRadialPrincipalPointNormalize(
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
       SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_tril_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__current_diag_,
-      z,
-      SimpleRadialPrincipalPoint_num_,
-      SimpleRadialPrincipalPoint_num_);
+      SimpleRadialPrincipalPoint_num_, nodes__SimpleRadialPrincipalPoint__r_k_,
+      SimpleRadialPrincipalPoint_num_, solver__current_diag_, z,
+      SimpleRadialPrincipalPoint_num_, SimpleRadialPrincipalPoint_num_);
 }
 
 void GraphSolver::DoUpdateMp() {
-  PinholeCalibUpdateMp(nodes__PinholeCalib__r_k_,
-                       PinholeCalib_num_,
-                       nodes__PinholeCalib__Mp_,
-                       PinholeCalib_num_,
-                       solver__beta_,
-                       nodes__PinholeCalib__Mp_,
-                       PinholeCalib_num_,
-                       nodes__PinholeCalib__w_,
-                       PinholeCalib_num_,
-                       PinholeCalib_num_);
-  PinholeFocalUpdateMp(nodes__PinholeFocal__r_k_,
-                       PinholeFocal_num_,
-                       nodes__PinholeFocal__Mp_,
-                       PinholeFocal_num_,
-                       solver__beta_,
-                       nodes__PinholeFocal__Mp_,
-                       PinholeFocal_num_,
-                       nodes__PinholeFocal__w_,
-                       PinholeFocal_num_,
-                       PinholeFocal_num_);
-  PinholePoseUpdateMp(nodes__PinholePose__r_k_,
-                      PinholePose_num_,
-                      nodes__PinholePose__Mp_,
-                      PinholePose_num_,
-                      solver__beta_,
-                      nodes__PinholePose__Mp_,
-                      PinholePose_num_,
-                      nodes__PinholePose__w_,
-                      PinholePose_num_,
+  PinholeCalibUpdateMp(nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+                       nodes__PinholeCalib__Mp_, PinholeCalib_num_,
+                       solver__beta_, nodes__PinholeCalib__Mp_,
+                       PinholeCalib_num_, nodes__PinholeCalib__w_,
+                       PinholeCalib_num_, PinholeCalib_num_);
+  PinholeFocalUpdateMp(nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+                       nodes__PinholeFocal__Mp_, PinholeFocal_num_,
+                       solver__beta_, nodes__PinholeFocal__Mp_,
+                       PinholeFocal_num_, nodes__PinholeFocal__w_,
+                       PinholeFocal_num_, PinholeFocal_num_);
+  PinholePoseUpdateMp(nodes__PinholePose__r_k_, PinholePose_num_,
+                      nodes__PinholePose__Mp_, PinholePose_num_, solver__beta_,
+                      nodes__PinholePose__Mp_, PinholePose_num_,
+                      nodes__PinholePose__w_, PinholePose_num_,
                       PinholePose_num_);
-  PinholePrincipalPointUpdateMp(nodes__PinholePrincipalPoint__r_k_,
-                                PinholePrincipalPoint_num_,
-                                nodes__PinholePrincipalPoint__Mp_,
-                                PinholePrincipalPoint_num_,
-                                solver__beta_,
-                                nodes__PinholePrincipalPoint__Mp_,
-                                PinholePrincipalPoint_num_,
-                                nodes__PinholePrincipalPoint__w_,
-                                PinholePrincipalPoint_num_,
-                                PinholePrincipalPoint_num_);
-  PointUpdateMp(nodes__Point__r_k_,
-                Point_num_,
-                nodes__Point__Mp_,
-                Point_num_,
-                solver__beta_,
-                nodes__Point__Mp_,
-                Point_num_,
-                nodes__Point__w_,
-                Point_num_,
-                Point_num_);
-  SimpleRadialCalibUpdateMp(nodes__SimpleRadialCalib__r_k_,
-                            SimpleRadialCalib_num_,
-                            nodes__SimpleRadialCalib__Mp_,
-                            SimpleRadialCalib_num_,
-                            solver__beta_,
-                            nodes__SimpleRadialCalib__Mp_,
-                            SimpleRadialCalib_num_,
-                            nodes__SimpleRadialCalib__w_,
-                            SimpleRadialCalib_num_,
-                            SimpleRadialCalib_num_);
+  PinholePrincipalPointUpdateMp(
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__Mp_, PinholePrincipalPoint_num_,
+      solver__beta_, nodes__PinholePrincipalPoint__Mp_,
+      PinholePrincipalPoint_num_, nodes__PinholePrincipalPoint__w_,
+      PinholePrincipalPoint_num_, PinholePrincipalPoint_num_);
+  PointUpdateMp(nodes__Point__r_k_, Point_num_, nodes__Point__Mp_, Point_num_,
+                solver__beta_, nodes__Point__Mp_, Point_num_, nodes__Point__w_,
+                Point_num_, Point_num_);
+  SimpleRadialCalibUpdateMp(
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__Mp_, SimpleRadialCalib_num_, solver__beta_,
+      nodes__SimpleRadialCalib__Mp_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__w_, SimpleRadialCalib_num_,
+      SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionUpdateMp(
       nodes__SimpleRadialFocalAndDistortion__r_k_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__Mp_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__beta_,
+      SimpleRadialFocalAndDistortion_num_, solver__beta_,
       nodes__SimpleRadialFocalAndDistortion__Mp_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
-      SimpleRadialFocalAndDistortion_num_,
-      SimpleRadialFocalAndDistortion_num_);
-  SimpleRadialPoseUpdateMp(nodes__SimpleRadialPose__r_k_,
-                           SimpleRadialPose_num_,
-                           nodes__SimpleRadialPose__Mp_,
-                           SimpleRadialPose_num_,
-                           solver__beta_,
-                           nodes__SimpleRadialPose__Mp_,
-                           SimpleRadialPose_num_,
-                           nodes__SimpleRadialPose__w_,
-                           SimpleRadialPose_num_,
-                           SimpleRadialPose_num_);
-  SimpleRadialPrincipalPointUpdateMp(nodes__SimpleRadialPrincipalPoint__r_k_,
-                                     SimpleRadialPrincipalPoint_num_,
-                                     nodes__SimpleRadialPrincipalPoint__Mp_,
-                                     SimpleRadialPrincipalPoint_num_,
-                                     solver__beta_,
-                                     nodes__SimpleRadialPrincipalPoint__Mp_,
-                                     SimpleRadialPrincipalPoint_num_,
-                                     nodes__SimpleRadialPrincipalPoint__w_,
-                                     SimpleRadialPrincipalPoint_num_,
-                                     SimpleRadialPrincipalPoint_num_);
+      SimpleRadialFocalAndDistortion_num_, SimpleRadialFocalAndDistortion_num_);
+  SimpleRadialPoseUpdateMp(nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+                           nodes__SimpleRadialPose__Mp_, SimpleRadialPose_num_,
+                           solver__beta_, nodes__SimpleRadialPose__Mp_,
+                           SimpleRadialPose_num_, nodes__SimpleRadialPose__w_,
+                           SimpleRadialPose_num_, SimpleRadialPose_num_);
+  SimpleRadialPrincipalPointUpdateMp(
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__Mp_, SimpleRadialPrincipalPoint_num_,
+      solver__beta_, nodes__SimpleRadialPrincipalPoint__Mp_,
+      SimpleRadialPrincipalPoint_num_, nodes__SimpleRadialPrincipalPoint__w_,
+      SimpleRadialPrincipalPoint_num_, SimpleRadialPrincipalPoint_num_);
 }
 
 void GraphSolver::DoJtjpDirect() {
-  SimpleRadialJtjnjtrDirect(nodes__SimpleRadialPose__p_,
-                            SimpleRadialPose_num_,
-                            facs__simple_radial__args__pose__idx_shared_,
-                            facs__simple_radial__args__pose__jac_,
-                            simple_radial_num_,
-                            nodes__SimpleRadialCalib__p_,
-                            SimpleRadialCalib_num_,
-                            facs__simple_radial__args__calib__idx_shared_,
-                            facs__simple_radial__args__calib__jac_,
-                            simple_radial_num_,
-                            nodes__Point__p_,
-                            Point_num_,
-                            facs__simple_radial__args__point__idx_shared_,
-                            facs__simple_radial__args__point__jac_,
-                            simple_radial_num_,
-                            nodes__SimpleRadialPose__w_,
-                            SimpleRadialPose_num_,
-                            nodes__SimpleRadialCalib__w_,
-                            SimpleRadialCalib_num_,
-                            nodes__Point__w_,
-                            Point_num_,
-                            simple_radial_num_);
+  SimpleRadialJtjnjtrDirect(
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
+      facs__simple_radial__args__pose__idx_shared_,
+      facs__simple_radial__args__pose__jac_, simple_radial_num_,
+      nodes__SimpleRadialCalib__p_, SimpleRadialCalib_num_,
+      facs__simple_radial__args__calib__idx_shared_,
+      facs__simple_radial__args__calib__jac_, simple_radial_num_,
+      nodes__Point__p_, Point_num_,
+      facs__simple_radial__args__point__idx_shared_,
+      facs__simple_radial__args__point__jac_, simple_radial_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
+      nodes__SimpleRadialCalib__w_, SimpleRadialCalib_num_, nodes__Point__w_,
+      Point_num_, simple_radial_num_);
   SimpleRadialFixedPoseJtjnjtrDirect(
-      nodes__SimpleRadialCalib__p_,
-      SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__p_, SimpleRadialCalib_num_,
       facs__simple_radial_fixed_pose__args__calib__idx_shared_,
       facs__simple_radial_fixed_pose__args__calib__jac_,
-      simple_radial_fixed_pose_num_,
-      nodes__Point__p_,
-      Point_num_,
+      simple_radial_fixed_pose_num_, nodes__Point__p_, Point_num_,
       facs__simple_radial_fixed_pose__args__point__idx_shared_,
       facs__simple_radial_fixed_pose__args__point__jac_,
-      simple_radial_fixed_pose_num_,
-      nodes__SimpleRadialCalib__w_,
-      SimpleRadialCalib_num_,
-      nodes__Point__w_,
-      Point_num_,
+      simple_radial_fixed_pose_num_, nodes__SimpleRadialCalib__w_,
+      SimpleRadialCalib_num_, nodes__Point__w_, Point_num_,
       simple_radial_fixed_pose_num_);
   SimpleRadialFixedPointJtjnjtrDirect(
-      nodes__SimpleRadialPose__p_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
       facs__simple_radial_fixed_point__args__pose__idx_shared_,
       facs__simple_radial_fixed_point__args__pose__jac_,
-      simple_radial_fixed_point_num_,
-      nodes__SimpleRadialCalib__p_,
+      simple_radial_fixed_point_num_, nodes__SimpleRadialCalib__p_,
       SimpleRadialCalib_num_,
       facs__simple_radial_fixed_point__args__calib__idx_shared_,
       facs__simple_radial_fixed_point__args__calib__jac_,
-      simple_radial_fixed_point_num_,
-      nodes__SimpleRadialPose__w_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialCalib__w_,
-      SimpleRadialCalib_num_,
-      simple_radial_fixed_point_num_);
-  PinholeJtjnjtrDirect(nodes__PinholePose__p_,
-                       PinholePose_num_,
-                       facs__pinhole__args__pose__idx_shared_,
-                       facs__pinhole__args__pose__jac_,
-                       pinhole_num_,
-                       nodes__PinholeCalib__p_,
-                       PinholeCalib_num_,
-                       facs__pinhole__args__calib__idx_shared_,
-                       facs__pinhole__args__calib__jac_,
-                       pinhole_num_,
-                       nodes__Point__p_,
-                       Point_num_,
-                       facs__pinhole__args__point__idx_shared_,
-                       facs__pinhole__args__point__jac_,
-                       pinhole_num_,
-                       nodes__PinholePose__w_,
-                       PinholePose_num_,
-                       nodes__PinholeCalib__w_,
-                       PinholeCalib_num_,
-                       nodes__Point__w_,
-                       Point_num_,
-                       pinhole_num_);
+      simple_radial_fixed_point_num_, nodes__SimpleRadialPose__w_,
+      SimpleRadialPose_num_, nodes__SimpleRadialCalib__w_,
+      SimpleRadialCalib_num_, simple_radial_fixed_point_num_);
+  PinholeJtjnjtrDirect(
+      nodes__PinholePose__p_, PinholePose_num_,
+      facs__pinhole__args__pose__idx_shared_, facs__pinhole__args__pose__jac_,
+      pinhole_num_, nodes__PinholeCalib__p_, PinholeCalib_num_,
+      facs__pinhole__args__calib__idx_shared_, facs__pinhole__args__calib__jac_,
+      pinhole_num_, nodes__Point__p_, Point_num_,
+      facs__pinhole__args__point__idx_shared_, facs__pinhole__args__point__jac_,
+      pinhole_num_, nodes__PinholePose__w_, PinholePose_num_,
+      nodes__PinholeCalib__w_, PinholeCalib_num_, nodes__Point__w_, Point_num_,
+      pinhole_num_);
   PinholeFixedPoseJtjnjtrDirect(
-      nodes__PinholeCalib__p_,
-      PinholeCalib_num_,
+      nodes__PinholeCalib__p_, PinholeCalib_num_,
       facs__pinhole_fixed_pose__args__calib__idx_shared_,
-      facs__pinhole_fixed_pose__args__calib__jac_,
-      pinhole_fixed_pose_num_,
-      nodes__Point__p_,
-      Point_num_,
+      facs__pinhole_fixed_pose__args__calib__jac_, pinhole_fixed_pose_num_,
+      nodes__Point__p_, Point_num_,
       facs__pinhole_fixed_pose__args__point__idx_shared_,
-      facs__pinhole_fixed_pose__args__point__jac_,
-      pinhole_fixed_pose_num_,
-      nodes__PinholeCalib__w_,
-      PinholeCalib_num_,
-      nodes__Point__w_,
-      Point_num_,
+      facs__pinhole_fixed_pose__args__point__jac_, pinhole_fixed_pose_num_,
+      nodes__PinholeCalib__w_, PinholeCalib_num_, nodes__Point__w_, Point_num_,
       pinhole_fixed_pose_num_);
   PinholeFixedPointJtjnjtrDirect(
-      nodes__PinholePose__p_,
-      PinholePose_num_,
+      nodes__PinholePose__p_, PinholePose_num_,
       facs__pinhole_fixed_point__args__pose__idx_shared_,
-      facs__pinhole_fixed_point__args__pose__jac_,
-      pinhole_fixed_point_num_,
-      nodes__PinholeCalib__p_,
-      PinholeCalib_num_,
+      facs__pinhole_fixed_point__args__pose__jac_, pinhole_fixed_point_num_,
+      nodes__PinholeCalib__p_, PinholeCalib_num_,
       facs__pinhole_fixed_point__args__calib__idx_shared_,
-      facs__pinhole_fixed_point__args__calib__jac_,
-      pinhole_fixed_point_num_,
-      nodes__PinholePose__w_,
-      PinholePose_num_,
-      nodes__PinholeCalib__w_,
-      PinholeCalib_num_,
-      pinhole_fixed_point_num_);
+      facs__pinhole_fixed_point__args__calib__jac_, pinhole_fixed_point_num_,
+      nodes__PinholePose__w_, PinholePose_num_, nodes__PinholeCalib__w_,
+      PinholeCalib_num_, pinhole_fixed_point_num_);
   SimpleRadialSplitFixedFocalAndDistortionJtjnjtrDirect(
-      nodes__SimpleRadialPose__p_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPrincipalPoint__p_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__jac_,
-      simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__Point__p_,
+      simple_radial_split_fixed_focal_and_distortion_num_, nodes__Point__p_,
       Point_num_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__point__jac_,
       simple_radial_split_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPose__w_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPrincipalPoint__w_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__Point__w_,
-      Point_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPrincipalPoint__w_, SimpleRadialPrincipalPoint_num_,
+      nodes__Point__w_, Point_num_,
       simple_radial_split_fixed_focal_and_distortion_num_);
   SimpleRadialSplitFixedPrincipalPointJtjnjtrDirect(
-      nodes__SimpleRadialPose__p_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_principal_point__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_principal_point__args__pose__jac_,
       simple_radial_split_fixed_principal_point_num_,
@@ -4602,34 +3749,26 @@ void GraphSolver::DoJtjpDirect() {
       SimpleRadialFocalAndDistortion_num_,
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__idx_shared_,
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__jac_,
-      simple_radial_split_fixed_principal_point_num_,
-      nodes__Point__p_,
+      simple_radial_split_fixed_principal_point_num_, nodes__Point__p_,
       Point_num_,
       facs__simple_radial_split_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_principal_point__args__point__jac_,
       simple_radial_split_fixed_principal_point_num_,
-      nodes__SimpleRadialPose__w_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
-      SimpleRadialFocalAndDistortion_num_,
-      nodes__Point__w_,
-      Point_num_,
+      SimpleRadialFocalAndDistortion_num_, nodes__Point__w_, Point_num_,
       simple_radial_split_fixed_principal_point_num_);
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionJtjnjtrDirect(
-      nodes__SimpleRadialPrincipalPoint__p_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__jac_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      nodes__Point__p_,
-      Point_num_,
+      nodes__Point__p_, Point_num_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__jac_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      nodes__SimpleRadialPrincipalPoint__w_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__Point__w_,
-      Point_num_,
+      nodes__SimpleRadialPrincipalPoint__w_, SimpleRadialPrincipalPoint_num_,
+      nodes__Point__w_, Point_num_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_);
   SimpleRadialSplitFixedPoseFixedPrincipalPointJtjnjtrDirect(
       nodes__SimpleRadialFocalAndDistortion__p_,
@@ -4637,51 +3776,39 @@ void GraphSolver::DoJtjpDirect() {
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__jac_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_,
-      nodes__Point__p_,
-      Point_num_,
+      nodes__Point__p_, Point_num_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__jac_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
-      SimpleRadialFocalAndDistortion_num_,
-      nodes__Point__w_,
-      Point_num_,
+      SimpleRadialFocalAndDistortion_num_, nodes__Point__w_, Point_num_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_);
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointJtjnjtrDirect(
-      nodes__SimpleRadialPose__p_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
-      nodes__Point__p_,
-      Point_num_,
+      nodes__Point__p_, Point_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_,
-      nodes__SimpleRadialPose__w_,
-      SimpleRadialPose_num_,
-      nodes__Point__w_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_, nodes__Point__w_,
       Point_num_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_);
   SimpleRadialSplitFixedFocalAndDistortionFixedPointJtjnjtrDirect(
-      nodes__SimpleRadialPose__p_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      nodes__SimpleRadialPrincipalPoint__p_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__jac_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      nodes__SimpleRadialPose__w_,
-      SimpleRadialPose_num_,
-      nodes__SimpleRadialPrincipalPoint__w_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPrincipalPoint__w_, SimpleRadialPrincipalPoint_num_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_);
   SimpleRadialSplitFixedPrincipalPointFixedPointJtjnjtrDirect(
-      nodes__SimpleRadialPose__p_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__jac_,
       simple_radial_split_fixed_principal_point_fixed_point_num_,
@@ -4690,538 +3817,331 @@ void GraphSolver::DoJtjpDirect() {
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__idx_shared_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__jac_,
       simple_radial_split_fixed_principal_point_fixed_point_num_,
-      nodes__SimpleRadialPose__w_,
-      SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
       SimpleRadialFocalAndDistortion_num_,
       simple_radial_split_fixed_principal_point_fixed_point_num_);
   PinholeSplitFixedFocalJtjnjtrDirect(
-      nodes__PinholePose__p_,
-      PinholePose_num_,
+      nodes__PinholePose__p_, PinholePose_num_,
       facs__pinhole_split_fixed_focal__args__pose__idx_shared_,
       facs__pinhole_split_fixed_focal__args__pose__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__PinholePrincipalPoint__p_,
+      pinhole_split_fixed_focal_num_, nodes__PinholePrincipalPoint__p_,
       PinholePrincipalPoint_num_,
       facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_,
       facs__pinhole_split_fixed_focal__args__principal_point__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__Point__p_,
-      Point_num_,
+      pinhole_split_fixed_focal_num_, nodes__Point__p_, Point_num_,
       facs__pinhole_split_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal__args__point__jac_,
-      pinhole_split_fixed_focal_num_,
-      nodes__PinholePose__w_,
-      PinholePose_num_,
-      nodes__PinholePrincipalPoint__w_,
-      PinholePrincipalPoint_num_,
-      nodes__Point__w_,
-      Point_num_,
-      pinhole_split_fixed_focal_num_);
+      pinhole_split_fixed_focal_num_, nodes__PinholePose__w_, PinholePose_num_,
+      nodes__PinholePrincipalPoint__w_, PinholePrincipalPoint_num_,
+      nodes__Point__w_, Point_num_, pinhole_split_fixed_focal_num_);
   PinholeSplitFixedPrincipalPointJtjnjtrDirect(
-      nodes__PinholePose__p_,
-      PinholePose_num_,
+      nodes__PinholePose__p_, PinholePose_num_,
       facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_,
       facs__pinhole_split_fixed_principal_point__args__pose__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__PinholeFocal__p_,
+      pinhole_split_fixed_principal_point_num_, nodes__PinholeFocal__p_,
       PinholeFocal_num_,
       facs__pinhole_split_fixed_principal_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_principal_point__args__focal__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__Point__p_,
-      Point_num_,
+      pinhole_split_fixed_principal_point_num_, nodes__Point__p_, Point_num_,
       facs__pinhole_split_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_principal_point__args__point__jac_,
-      pinhole_split_fixed_principal_point_num_,
-      nodes__PinholePose__w_,
-      PinholePose_num_,
-      nodes__PinholeFocal__w_,
-      PinholeFocal_num_,
-      nodes__Point__w_,
-      Point_num_,
-      pinhole_split_fixed_principal_point_num_);
+      pinhole_split_fixed_principal_point_num_, nodes__PinholePose__w_,
+      PinholePose_num_, nodes__PinholeFocal__w_, PinholeFocal_num_,
+      nodes__Point__w_, Point_num_, pinhole_split_fixed_principal_point_num_);
   PinholeSplitFixedPoseFixedFocalJtjnjtrDirect(
-      nodes__PinholePrincipalPoint__p_,
-      PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__p_, PinholePrincipalPoint_num_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__jac_,
-      pinhole_split_fixed_pose_fixed_focal_num_,
-      nodes__Point__p_,
-      Point_num_,
+      pinhole_split_fixed_pose_fixed_focal_num_, nodes__Point__p_, Point_num_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__point__jac_,
       pinhole_split_fixed_pose_fixed_focal_num_,
-      nodes__PinholePrincipalPoint__w_,
-      PinholePrincipalPoint_num_,
-      nodes__Point__w_,
-      Point_num_,
-      pinhole_split_fixed_pose_fixed_focal_num_);
+      nodes__PinholePrincipalPoint__w_, PinholePrincipalPoint_num_,
+      nodes__Point__w_, Point_num_, pinhole_split_fixed_pose_fixed_focal_num_);
   PinholeSplitFixedPoseFixedPrincipalPointJtjnjtrDirect(
-      nodes__PinholeFocal__p_,
-      PinholeFocal_num_,
+      nodes__PinholeFocal__p_, PinholeFocal_num_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__jac_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_,
-      nodes__Point__p_,
+      pinhole_split_fixed_pose_fixed_principal_point_num_, nodes__Point__p_,
       Point_num_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__jac_,
       pinhole_split_fixed_pose_fixed_principal_point_num_,
-      nodes__PinholeFocal__w_,
-      PinholeFocal_num_,
-      nodes__Point__w_,
-      Point_num_,
+      nodes__PinholeFocal__w_, PinholeFocal_num_, nodes__Point__w_, Point_num_,
       pinhole_split_fixed_pose_fixed_principal_point_num_);
   PinholeSplitFixedFocalFixedPrincipalPointJtjnjtrDirect(
-      nodes__PinholePose__p_,
-      PinholePose_num_,
+      nodes__PinholePose__p_, PinholePose_num_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__jac_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_,
-      nodes__Point__p_,
+      pinhole_split_fixed_focal_fixed_principal_point_num_, nodes__Point__p_,
       Point_num_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__jac_,
       pinhole_split_fixed_focal_fixed_principal_point_num_,
-      nodes__PinholePose__w_,
-      PinholePose_num_,
-      nodes__Point__w_,
-      Point_num_,
+      nodes__PinholePose__w_, PinholePose_num_, nodes__Point__w_, Point_num_,
       pinhole_split_fixed_focal_fixed_principal_point_num_);
   PinholeSplitFixedFocalFixedPointJtjnjtrDirect(
-      nodes__PinholePose__p_,
-      PinholePose_num_,
+      nodes__PinholePose__p_, PinholePose_num_,
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__jac_,
       pinhole_split_fixed_focal_fixed_point_num_,
-      nodes__PinholePrincipalPoint__p_,
-      PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__p_, PinholePrincipalPoint_num_,
       facs__pinhole_split_fixed_focal_fixed_point__args__principal_point__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_point__args__principal_point__jac_,
-      pinhole_split_fixed_focal_fixed_point_num_,
-      nodes__PinholePose__w_,
-      PinholePose_num_,
-      nodes__PinholePrincipalPoint__w_,
-      PinholePrincipalPoint_num_,
-      pinhole_split_fixed_focal_fixed_point_num_);
+      pinhole_split_fixed_focal_fixed_point_num_, nodes__PinholePose__w_,
+      PinholePose_num_, nodes__PinholePrincipalPoint__w_,
+      PinholePrincipalPoint_num_, pinhole_split_fixed_focal_fixed_point_num_);
   PinholeSplitFixedPrincipalPointFixedPointJtjnjtrDirect(
-      nodes__PinholePose__p_,
-      PinholePose_num_,
+      nodes__PinholePose__p_, PinholePose_num_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__jac_,
       pinhole_split_fixed_principal_point_fixed_point_num_,
-      nodes__PinholeFocal__p_,
-      PinholeFocal_num_,
+      nodes__PinholeFocal__p_, PinholeFocal_num_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__jac_,
       pinhole_split_fixed_principal_point_fixed_point_num_,
-      nodes__PinholePose__w_,
-      PinholePose_num_,
-      nodes__PinholeFocal__w_,
-      PinholeFocal_num_,
-      pinhole_split_fixed_principal_point_fixed_point_num_);
+      nodes__PinholePose__w_, PinholePose_num_, nodes__PinholeFocal__w_,
+      PinholeFocal_num_, pinhole_split_fixed_principal_point_fixed_point_num_);
 }
 
 void GraphSolver::DoAlphaFirst() {
   Zero(solver__alpha_numerator_, solver__alpha_denominator_ + 1);
-  double* p_kp1;
-  double* r_k;
-  PinholeCalibAlphaNumeratorDenominator(nodes__PinholeCalib__p_,
-                                        PinholeCalib_num_,
-                                        nodes__PinholeCalib__r_k_,
-                                        PinholeCalib_num_,
-                                        nodes__PinholeCalib__w_,
-                                        PinholeCalib_num_,
-                                        solver__alpha_numerator_,
-                                        solver__alpha_denominator_,
-                                        PinholeCalib_num_);
-  PinholeFocalAlphaNumeratorDenominator(nodes__PinholeFocal__p_,
-                                        PinholeFocal_num_,
-                                        nodes__PinholeFocal__r_k_,
-                                        PinholeFocal_num_,
-                                        nodes__PinholeFocal__w_,
-                                        PinholeFocal_num_,
-                                        solver__alpha_numerator_,
-                                        solver__alpha_denominator_,
-                                        PinholeFocal_num_);
-  PinholePoseAlphaNumeratorDenominator(nodes__PinholePose__p_,
-                                       PinholePose_num_,
-                                       nodes__PinholePose__r_k_,
-                                       PinholePose_num_,
-                                       nodes__PinholePose__w_,
-                                       PinholePose_num_,
-                                       solver__alpha_numerator_,
-                                       solver__alpha_denominator_,
-                                       PinholePose_num_);
+  double *p_kp1;
+  double *r_k;
+  PinholeCalibAlphaNumeratorDenominator(
+      nodes__PinholeCalib__p_, PinholeCalib_num_, nodes__PinholeCalib__r_k_,
+      PinholeCalib_num_, nodes__PinholeCalib__w_, PinholeCalib_num_,
+      solver__alpha_numerator_, solver__alpha_denominator_, PinholeCalib_num_);
+  PinholeFocalAlphaNumeratorDenominator(
+      nodes__PinholeFocal__p_, PinholeFocal_num_, nodes__PinholeFocal__r_k_,
+      PinholeFocal_num_, nodes__PinholeFocal__w_, PinholeFocal_num_,
+      solver__alpha_numerator_, solver__alpha_denominator_, PinholeFocal_num_);
+  PinholePoseAlphaNumeratorDenominator(
+      nodes__PinholePose__p_, PinholePose_num_, nodes__PinholePose__r_k_,
+      PinholePose_num_, nodes__PinholePose__w_, PinholePose_num_,
+      solver__alpha_numerator_, solver__alpha_denominator_, PinholePose_num_);
   PinholePrincipalPointAlphaNumeratorDenominator(
-      nodes__PinholePrincipalPoint__p_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__w_,
-      PinholePrincipalPoint_num_,
-      solver__alpha_numerator_,
-      solver__alpha_denominator_,
+      nodes__PinholePrincipalPoint__p_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__w_, PinholePrincipalPoint_num_,
+      solver__alpha_numerator_, solver__alpha_denominator_,
       PinholePrincipalPoint_num_);
-  PointAlphaNumeratorDenominator(nodes__Point__p_,
-                                 Point_num_,
-                                 nodes__Point__r_k_,
-                                 Point_num_,
-                                 nodes__Point__w_,
-                                 Point_num_,
-                                 solver__alpha_numerator_,
-                                 solver__alpha_denominator_,
-                                 Point_num_);
-  SimpleRadialCalibAlphaNumeratorDenominator(nodes__SimpleRadialCalib__p_,
-                                             SimpleRadialCalib_num_,
-                                             nodes__SimpleRadialCalib__r_k_,
-                                             SimpleRadialCalib_num_,
-                                             nodes__SimpleRadialCalib__w_,
-                                             SimpleRadialCalib_num_,
-                                             solver__alpha_numerator_,
-                                             solver__alpha_denominator_,
-                                             SimpleRadialCalib_num_);
+  PointAlphaNumeratorDenominator(
+      nodes__Point__p_, Point_num_, nodes__Point__r_k_, Point_num_,
+      nodes__Point__w_, Point_num_, solver__alpha_numerator_,
+      solver__alpha_denominator_, Point_num_);
+  SimpleRadialCalibAlphaNumeratorDenominator(
+      nodes__SimpleRadialCalib__p_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__w_, SimpleRadialCalib_num_,
+      solver__alpha_numerator_, solver__alpha_denominator_,
+      SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionAlphaNumeratorDenominator(
       nodes__SimpleRadialFocalAndDistortion__p_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__alpha_numerator_,
-      solver__alpha_denominator_,
-      SimpleRadialFocalAndDistortion_num_);
-  SimpleRadialPoseAlphaNumeratorDenominator(nodes__SimpleRadialPose__p_,
-                                            SimpleRadialPose_num_,
-                                            nodes__SimpleRadialPose__r_k_,
-                                            SimpleRadialPose_num_,
-                                            nodes__SimpleRadialPose__w_,
-                                            SimpleRadialPose_num_,
-                                            solver__alpha_numerator_,
-                                            solver__alpha_denominator_,
-                                            SimpleRadialPose_num_);
+      SimpleRadialFocalAndDistortion_num_, solver__alpha_numerator_,
+      solver__alpha_denominator_, SimpleRadialFocalAndDistortion_num_);
+  SimpleRadialPoseAlphaNumeratorDenominator(
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
+      solver__alpha_numerator_, solver__alpha_denominator_,
+      SimpleRadialPose_num_);
   SimpleRadialPrincipalPointAlphaNumeratorDenominator(
-      nodes__SimpleRadialPrincipalPoint__p_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__SimpleRadialPrincipalPoint__w_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__alpha_numerator_,
-      solver__alpha_denominator_,
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__w_, SimpleRadialPrincipalPoint_num_,
+      solver__alpha_numerator_, solver__alpha_denominator_,
       SimpleRadialPrincipalPoint_num_);
 
-  AlphaFromNumDenom(solver__alpha_numerator_,
-                    solver__alpha_denominator_,
-                    solver__alpha_,
-                    solver__neg_alpha_);
+  AlphaFromNumDenom(solver__alpha_numerator_, solver__alpha_denominator_,
+                    solver__alpha_, solver__neg_alpha_);
 }
 
 void GraphSolver::DoAlpha() {
   Zero(solver__alpha_denominator_, solver__alpha_denominator_ + 1);
-  PinholeCalibAlphaDenominatorOrBetaNumerator(nodes__PinholeCalib__p_,
-                                              PinholeCalib_num_,
-                                              nodes__PinholeCalib__w_,
-                                              PinholeCalib_num_,
-                                              solver__alpha_denominator_,
-                                              PinholeCalib_num_);
-  PinholeFocalAlphaDenominatorOrBetaNumerator(nodes__PinholeFocal__p_,
-                                              PinholeFocal_num_,
-                                              nodes__PinholeFocal__w_,
-                                              PinholeFocal_num_,
-                                              solver__alpha_denominator_,
-                                              PinholeFocal_num_);
-  PinholePoseAlphaDenominatorOrBetaNumerator(nodes__PinholePose__p_,
-                                             PinholePose_num_,
-                                             nodes__PinholePose__w_,
-                                             PinholePose_num_,
-                                             solver__alpha_denominator_,
-                                             PinholePose_num_);
+  PinholeCalibAlphaDenominatorOrBetaNumerator(
+      nodes__PinholeCalib__p_, PinholeCalib_num_, nodes__PinholeCalib__w_,
+      PinholeCalib_num_, solver__alpha_denominator_, PinholeCalib_num_);
+  PinholeFocalAlphaDenominatorOrBetaNumerator(
+      nodes__PinholeFocal__p_, PinholeFocal_num_, nodes__PinholeFocal__w_,
+      PinholeFocal_num_, solver__alpha_denominator_, PinholeFocal_num_);
+  PinholePoseAlphaDenominatorOrBetaNumerator(
+      nodes__PinholePose__p_, PinholePose_num_, nodes__PinholePose__w_,
+      PinholePose_num_, solver__alpha_denominator_, PinholePose_num_);
   PinholePrincipalPointAlphaDenominatorOrBetaNumerator(
-      nodes__PinholePrincipalPoint__p_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__w_,
-      PinholePrincipalPoint_num_,
-      solver__alpha_denominator_,
-      PinholePrincipalPoint_num_);
-  PointAlphaDenominatorOrBetaNumerator(nodes__Point__p_,
-                                       Point_num_,
-                                       nodes__Point__w_,
-                                       Point_num_,
-                                       solver__alpha_denominator_,
-                                       Point_num_);
-  SimpleRadialCalibAlphaDenominatorOrBetaNumerator(nodes__SimpleRadialCalib__p_,
-                                                   SimpleRadialCalib_num_,
-                                                   nodes__SimpleRadialCalib__w_,
-                                                   SimpleRadialCalib_num_,
-                                                   solver__alpha_denominator_,
-                                                   SimpleRadialCalib_num_);
+      nodes__PinholePrincipalPoint__p_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__w_, PinholePrincipalPoint_num_,
+      solver__alpha_denominator_, PinholePrincipalPoint_num_);
+  PointAlphaDenominatorOrBetaNumerator(nodes__Point__p_, Point_num_,
+                                       nodes__Point__w_, Point_num_,
+                                       solver__alpha_denominator_, Point_num_);
+  SimpleRadialCalibAlphaDenominatorOrBetaNumerator(
+      nodes__SimpleRadialCalib__p_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__w_, SimpleRadialCalib_num_,
+      solver__alpha_denominator_, SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionAlphaDenominatorOrBetaNumerator(
       nodes__SimpleRadialFocalAndDistortion__p_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__alpha_denominator_,
+      SimpleRadialFocalAndDistortion_num_, solver__alpha_denominator_,
       SimpleRadialFocalAndDistortion_num_);
-  SimpleRadialPoseAlphaDenominatorOrBetaNumerator(nodes__SimpleRadialPose__p_,
-                                                  SimpleRadialPose_num_,
-                                                  nodes__SimpleRadialPose__w_,
-                                                  SimpleRadialPose_num_,
-                                                  solver__alpha_denominator_,
-                                                  SimpleRadialPose_num_);
+  SimpleRadialPoseAlphaDenominatorOrBetaNumerator(
+      nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
+      solver__alpha_denominator_, SimpleRadialPose_num_);
   SimpleRadialPrincipalPointAlphaDenominatorOrBetaNumerator(
-      nodes__SimpleRadialPrincipalPoint__p_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__SimpleRadialPrincipalPoint__w_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__alpha_denominator_,
-      SimpleRadialPrincipalPoint_num_);
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__w_, SimpleRadialPrincipalPoint_num_,
+      solver__alpha_denominator_, SimpleRadialPrincipalPoint_num_);
 
-  AlphaFromNumDenom(solver__beta_numerator_,
-                    solver__alpha_denominator_,
-                    solver__alpha_,
-                    solver__neg_alpha_);
+  AlphaFromNumDenom(solver__beta_numerator_, solver__alpha_denominator_,
+                    solver__alpha_, solver__neg_alpha_);
 }
 
 void GraphSolver::DoUpdateStepFirst() {
-  PinholeCalibUpdateStepFirst(nodes__PinholeCalib__p_,
-                              PinholeCalib_num_,
-                              solver__alpha_,
-                              nodes__PinholeCalib__step_,
-                              PinholeCalib_num_,
-                              PinholeCalib_num_);
-  PinholeFocalUpdateStepFirst(nodes__PinholeFocal__p_,
-                              PinholeFocal_num_,
-                              solver__alpha_,
-                              nodes__PinholeFocal__step_,
-                              PinholeFocal_num_,
-                              PinholeFocal_num_);
-  PinholePoseUpdateStepFirst(nodes__PinholePose__p_,
-                             PinholePose_num_,
-                             solver__alpha_,
-                             nodes__PinholePose__step_,
-                             PinholePose_num_,
-                             PinholePose_num_);
-  PinholePrincipalPointUpdateStepFirst(nodes__PinholePrincipalPoint__p_,
-                                       PinholePrincipalPoint_num_,
-                                       solver__alpha_,
-                                       nodes__PinholePrincipalPoint__step_,
-                                       PinholePrincipalPoint_num_,
-                                       PinholePrincipalPoint_num_);
-  PointUpdateStepFirst(nodes__Point__p_,
-                       Point_num_,
-                       solver__alpha_,
-                       nodes__Point__step_,
-                       Point_num_,
-                       Point_num_);
-  SimpleRadialCalibUpdateStepFirst(nodes__SimpleRadialCalib__p_,
-                                   SimpleRadialCalib_num_,
-                                   solver__alpha_,
-                                   nodes__SimpleRadialCalib__step_,
-                                   SimpleRadialCalib_num_,
-                                   SimpleRadialCalib_num_);
+  PinholeCalibUpdateStepFirst(nodes__PinholeCalib__p_, PinholeCalib_num_,
+                              solver__alpha_, nodes__PinholeCalib__step_,
+                              PinholeCalib_num_, PinholeCalib_num_);
+  PinholeFocalUpdateStepFirst(nodes__PinholeFocal__p_, PinholeFocal_num_,
+                              solver__alpha_, nodes__PinholeFocal__step_,
+                              PinholeFocal_num_, PinholeFocal_num_);
+  PinholePoseUpdateStepFirst(nodes__PinholePose__p_, PinholePose_num_,
+                             solver__alpha_, nodes__PinholePose__step_,
+                             PinholePose_num_, PinholePose_num_);
+  PinholePrincipalPointUpdateStepFirst(
+      nodes__PinholePrincipalPoint__p_, PinholePrincipalPoint_num_,
+      solver__alpha_, nodes__PinholePrincipalPoint__step_,
+      PinholePrincipalPoint_num_, PinholePrincipalPoint_num_);
+  PointUpdateStepFirst(nodes__Point__p_, Point_num_, solver__alpha_,
+                       nodes__Point__step_, Point_num_, Point_num_);
+  SimpleRadialCalibUpdateStepFirst(
+      nodes__SimpleRadialCalib__p_, SimpleRadialCalib_num_, solver__alpha_,
+      nodes__SimpleRadialCalib__step_, SimpleRadialCalib_num_,
+      SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionUpdateStepFirst(
       nodes__SimpleRadialFocalAndDistortion__p_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__alpha_,
+      SimpleRadialFocalAndDistortion_num_, solver__alpha_,
       nodes__SimpleRadialFocalAndDistortion__step_,
-      SimpleRadialFocalAndDistortion_num_,
-      SimpleRadialFocalAndDistortion_num_);
+      SimpleRadialFocalAndDistortion_num_, SimpleRadialFocalAndDistortion_num_);
   SimpleRadialPoseUpdateStepFirst(nodes__SimpleRadialPose__p_,
-                                  SimpleRadialPose_num_,
-                                  solver__alpha_,
+                                  SimpleRadialPose_num_, solver__alpha_,
                                   nodes__SimpleRadialPose__step_,
-                                  SimpleRadialPose_num_,
-                                  SimpleRadialPose_num_);
+                                  SimpleRadialPose_num_, SimpleRadialPose_num_);
   SimpleRadialPrincipalPointUpdateStepFirst(
-      nodes__SimpleRadialPrincipalPoint__p_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__alpha_,
-      nodes__SimpleRadialPrincipalPoint__step_,
-      SimpleRadialPrincipalPoint_num_,
-      SimpleRadialPrincipalPoint_num_);
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
+      solver__alpha_, nodes__SimpleRadialPrincipalPoint__step_,
+      SimpleRadialPrincipalPoint_num_, SimpleRadialPrincipalPoint_num_);
 }
 
 void GraphSolver::DoUpdateStep() {
-  PinholeCalibUpdateStep(nodes__PinholeCalib__step_,
-                         PinholeCalib_num_,
-                         nodes__PinholeCalib__p_,
-                         PinholeCalib_num_,
-                         solver__alpha_,
-                         nodes__PinholeCalib__step_,
-                         PinholeCalib_num_,
-                         PinholeCalib_num_);
-  PinholeFocalUpdateStep(nodes__PinholeFocal__step_,
-                         PinholeFocal_num_,
-                         nodes__PinholeFocal__p_,
-                         PinholeFocal_num_,
-                         solver__alpha_,
-                         nodes__PinholeFocal__step_,
-                         PinholeFocal_num_,
-                         PinholeFocal_num_);
-  PinholePoseUpdateStep(nodes__PinholePose__step_,
-                        PinholePose_num_,
-                        nodes__PinholePose__p_,
-                        PinholePose_num_,
-                        solver__alpha_,
-                        nodes__PinholePose__step_,
-                        PinholePose_num_,
-                        PinholePose_num_);
-  PinholePrincipalPointUpdateStep(nodes__PinholePrincipalPoint__step_,
-                                  PinholePrincipalPoint_num_,
-                                  nodes__PinholePrincipalPoint__p_,
-                                  PinholePrincipalPoint_num_,
-                                  solver__alpha_,
-                                  nodes__PinholePrincipalPoint__step_,
-                                  PinholePrincipalPoint_num_,
-                                  PinholePrincipalPoint_num_);
-  PointUpdateStep(nodes__Point__step_,
-                  Point_num_,
-                  nodes__Point__p_,
-                  Point_num_,
-                  solver__alpha_,
-                  nodes__Point__step_,
-                  Point_num_,
-                  Point_num_);
-  SimpleRadialCalibUpdateStep(nodes__SimpleRadialCalib__step_,
-                              SimpleRadialCalib_num_,
-                              nodes__SimpleRadialCalib__p_,
-                              SimpleRadialCalib_num_,
-                              solver__alpha_,
-                              nodes__SimpleRadialCalib__step_,
-                              SimpleRadialCalib_num_,
-                              SimpleRadialCalib_num_);
+  PinholeCalibUpdateStep(nodes__PinholeCalib__step_, PinholeCalib_num_,
+                         nodes__PinholeCalib__p_, PinholeCalib_num_,
+                         solver__alpha_, nodes__PinholeCalib__step_,
+                         PinholeCalib_num_, PinholeCalib_num_);
+  PinholeFocalUpdateStep(nodes__PinholeFocal__step_, PinholeFocal_num_,
+                         nodes__PinholeFocal__p_, PinholeFocal_num_,
+                         solver__alpha_, nodes__PinholeFocal__step_,
+                         PinholeFocal_num_, PinholeFocal_num_);
+  PinholePoseUpdateStep(nodes__PinholePose__step_, PinholePose_num_,
+                        nodes__PinholePose__p_, PinholePose_num_,
+                        solver__alpha_, nodes__PinholePose__step_,
+                        PinholePose_num_, PinholePose_num_);
+  PinholePrincipalPointUpdateStep(
+      nodes__PinholePrincipalPoint__step_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__p_, PinholePrincipalPoint_num_,
+      solver__alpha_, nodes__PinholePrincipalPoint__step_,
+      PinholePrincipalPoint_num_, PinholePrincipalPoint_num_);
+  PointUpdateStep(nodes__Point__step_, Point_num_, nodes__Point__p_, Point_num_,
+                  solver__alpha_, nodes__Point__step_, Point_num_, Point_num_);
+  SimpleRadialCalibUpdateStep(
+      nodes__SimpleRadialCalib__step_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__p_, SimpleRadialCalib_num_, solver__alpha_,
+      nodes__SimpleRadialCalib__step_, SimpleRadialCalib_num_,
+      SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionUpdateStep(
       nodes__SimpleRadialFocalAndDistortion__step_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__p_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__alpha_,
+      SimpleRadialFocalAndDistortion_num_, solver__alpha_,
       nodes__SimpleRadialFocalAndDistortion__step_,
-      SimpleRadialFocalAndDistortion_num_,
-      SimpleRadialFocalAndDistortion_num_);
+      SimpleRadialFocalAndDistortion_num_, SimpleRadialFocalAndDistortion_num_);
   SimpleRadialPoseUpdateStep(nodes__SimpleRadialPose__step_,
-                             SimpleRadialPose_num_,
-                             nodes__SimpleRadialPose__p_,
-                             SimpleRadialPose_num_,
-                             solver__alpha_,
+                             SimpleRadialPose_num_, nodes__SimpleRadialPose__p_,
+                             SimpleRadialPose_num_, solver__alpha_,
                              nodes__SimpleRadialPose__step_,
-                             SimpleRadialPose_num_,
-                             SimpleRadialPose_num_);
-  SimpleRadialPrincipalPointUpdateStep(nodes__SimpleRadialPrincipalPoint__step_,
-                                       SimpleRadialPrincipalPoint_num_,
-                                       nodes__SimpleRadialPrincipalPoint__p_,
-                                       SimpleRadialPrincipalPoint_num_,
-                                       solver__alpha_,
-                                       nodes__SimpleRadialPrincipalPoint__step_,
-                                       SimpleRadialPrincipalPoint_num_,
-                                       SimpleRadialPrincipalPoint_num_);
+                             SimpleRadialPose_num_, SimpleRadialPose_num_);
+  SimpleRadialPrincipalPointUpdateStep(
+      nodes__SimpleRadialPrincipalPoint__step_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
+      solver__alpha_, nodes__SimpleRadialPrincipalPoint__step_,
+      SimpleRadialPrincipalPoint_num_, SimpleRadialPrincipalPoint_num_);
 }
 
 void GraphSolver::DoUpdateRFirst() {
   Zero(solver__r_0_norm2_tot_, solver__r_0_norm2_tot_ + 1);
 
-  PinholeCalibUpdateRFirst(nodes__PinholeCalib__r_k_,
-                           PinholeCalib_num_,
-                           nodes__PinholeCalib__w_,
-                           PinholeCalib_num_,
-                           solver__neg_alpha_,
-                           nodes__PinholeCalib__r_k_,
-                           PinholeCalib_num_,
-                           solver__r_0_norm2_tot_,
-                           solver__r_kp1_norm2_tot_,
-                           PinholeCalib_num_);
+  PinholeCalibUpdateRFirst(nodes__PinholeCalib__r_k_, PinholeCalib_num_,
+                           nodes__PinholeCalib__w_, PinholeCalib_num_,
+                           solver__neg_alpha_, nodes__PinholeCalib__r_k_,
+                           PinholeCalib_num_, solver__r_0_norm2_tot_,
+                           solver__r_kp1_norm2_tot_, PinholeCalib_num_);
 
-  PinholeFocalUpdateRFirst(nodes__PinholeFocal__r_k_,
-                           PinholeFocal_num_,
-                           nodes__PinholeFocal__w_,
-                           PinholeFocal_num_,
-                           solver__neg_alpha_,
-                           nodes__PinholeFocal__r_k_,
-                           PinholeFocal_num_,
-                           solver__r_0_norm2_tot_,
-                           solver__r_kp1_norm2_tot_,
-                           PinholeFocal_num_);
+  PinholeFocalUpdateRFirst(nodes__PinholeFocal__r_k_, PinholeFocal_num_,
+                           nodes__PinholeFocal__w_, PinholeFocal_num_,
+                           solver__neg_alpha_, nodes__PinholeFocal__r_k_,
+                           PinholeFocal_num_, solver__r_0_norm2_tot_,
+                           solver__r_kp1_norm2_tot_, PinholeFocal_num_);
 
-  PinholePoseUpdateRFirst(nodes__PinholePose__r_k_,
-                          PinholePose_num_,
-                          nodes__PinholePose__w_,
-                          PinholePose_num_,
-                          solver__neg_alpha_,
-                          nodes__PinholePose__r_k_,
-                          PinholePose_num_,
-                          solver__r_0_norm2_tot_,
-                          solver__r_kp1_norm2_tot_,
-                          PinholePose_num_);
+  PinholePoseUpdateRFirst(nodes__PinholePose__r_k_, PinholePose_num_,
+                          nodes__PinholePose__w_, PinholePose_num_,
+                          solver__neg_alpha_, nodes__PinholePose__r_k_,
+                          PinholePose_num_, solver__r_0_norm2_tot_,
+                          solver__r_kp1_norm2_tot_, PinholePose_num_);
 
-  PinholePrincipalPointUpdateRFirst(nodes__PinholePrincipalPoint__r_k_,
-                                    PinholePrincipalPoint_num_,
-                                    nodes__PinholePrincipalPoint__w_,
-                                    PinholePrincipalPoint_num_,
-                                    solver__neg_alpha_,
-                                    nodes__PinholePrincipalPoint__r_k_,
-                                    PinholePrincipalPoint_num_,
-                                    solver__r_0_norm2_tot_,
-                                    solver__r_kp1_norm2_tot_,
-                                    PinholePrincipalPoint_num_);
+  PinholePrincipalPointUpdateRFirst(
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__w_, PinholePrincipalPoint_num_,
+      solver__neg_alpha_, nodes__PinholePrincipalPoint__r_k_,
+      PinholePrincipalPoint_num_, solver__r_0_norm2_tot_,
+      solver__r_kp1_norm2_tot_, PinholePrincipalPoint_num_);
 
-  PointUpdateRFirst(nodes__Point__r_k_,
-                    Point_num_,
-                    nodes__Point__w_,
-                    Point_num_,
-                    solver__neg_alpha_,
-                    nodes__Point__r_k_,
-                    Point_num_,
-                    solver__r_0_norm2_tot_,
-                    solver__r_kp1_norm2_tot_,
-                    Point_num_);
+  PointUpdateRFirst(nodes__Point__r_k_, Point_num_, nodes__Point__w_,
+                    Point_num_, solver__neg_alpha_, nodes__Point__r_k_,
+                    Point_num_, solver__r_0_norm2_tot_,
+                    solver__r_kp1_norm2_tot_, Point_num_);
 
-  SimpleRadialCalibUpdateRFirst(nodes__SimpleRadialCalib__r_k_,
-                                SimpleRadialCalib_num_,
-                                nodes__SimpleRadialCalib__w_,
-                                SimpleRadialCalib_num_,
-                                solver__neg_alpha_,
-                                nodes__SimpleRadialCalib__r_k_,
-                                SimpleRadialCalib_num_,
-                                solver__r_0_norm2_tot_,
-                                solver__r_kp1_norm2_tot_,
-                                SimpleRadialCalib_num_);
+  SimpleRadialCalibUpdateRFirst(
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__w_, SimpleRadialCalib_num_, solver__neg_alpha_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      solver__r_0_norm2_tot_, solver__r_kp1_norm2_tot_, SimpleRadialCalib_num_);
 
   SimpleRadialFocalAndDistortionUpdateRFirst(
       nodes__SimpleRadialFocalAndDistortion__r_k_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__neg_alpha_,
+      SimpleRadialFocalAndDistortion_num_, solver__neg_alpha_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__r_0_norm2_tot_,
-      solver__r_kp1_norm2_tot_,
-      SimpleRadialFocalAndDistortion_num_);
+      SimpleRadialFocalAndDistortion_num_, solver__r_0_norm2_tot_,
+      solver__r_kp1_norm2_tot_, SimpleRadialFocalAndDistortion_num_);
 
-  SimpleRadialPoseUpdateRFirst(nodes__SimpleRadialPose__r_k_,
-                               SimpleRadialPose_num_,
-                               nodes__SimpleRadialPose__w_,
-                               SimpleRadialPose_num_,
-                               solver__neg_alpha_,
-                               nodes__SimpleRadialPose__r_k_,
-                               SimpleRadialPose_num_,
-                               solver__r_0_norm2_tot_,
-                               solver__r_kp1_norm2_tot_,
-                               SimpleRadialPose_num_);
+  SimpleRadialPoseUpdateRFirst(
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__w_, SimpleRadialPose_num_, solver__neg_alpha_,
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      solver__r_0_norm2_tot_, solver__r_kp1_norm2_tot_, SimpleRadialPose_num_);
 
   SimpleRadialPrincipalPointUpdateRFirst(
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__SimpleRadialPrincipalPoint__w_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__neg_alpha_,
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__r_0_norm2_tot_,
-      solver__r_kp1_norm2_tot_,
-      SimpleRadialPrincipalPoint_num_);
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__w_, SimpleRadialPrincipalPoint_num_,
+      solver__neg_alpha_, nodes__SimpleRadialPrincipalPoint__r_k_,
+      SimpleRadialPrincipalPoint_num_, solver__r_0_norm2_tot_,
+      solver__r_kp1_norm2_tot_, SimpleRadialPrincipalPoint_num_);
 
   pcg_r_0_norm2_ = ReadCuMem(solver__r_0_norm2_tot_);
   pcg_r_kp1_norm2_ = ReadCuMem(solver__r_kp1_norm2_tot_);
@@ -5230,134 +4150,80 @@ void GraphSolver::DoUpdateRFirst() {
 void GraphSolver::DoUpdateR() {
   Zero(solver__r_kp1_norm2_tot_, solver__r_kp1_norm2_tot_ + 1);
 
-  PinholeCalibUpdateR(nodes__PinholeCalib__r_k_,
-                      PinholeCalib_num_,
-                      nodes__PinholeCalib__w_,
-                      PinholeCalib_num_,
-                      solver__neg_alpha_,
-                      nodes__PinholeCalib__r_k_,
-                      PinholeCalib_num_,
-                      solver__r_kp1_norm2_tot_,
-                      PinholeCalib_num_);
-  PinholeFocalUpdateR(nodes__PinholeFocal__r_k_,
-                      PinholeFocal_num_,
-                      nodes__PinholeFocal__w_,
-                      PinholeFocal_num_,
-                      solver__neg_alpha_,
-                      nodes__PinholeFocal__r_k_,
-                      PinholeFocal_num_,
-                      solver__r_kp1_norm2_tot_,
-                      PinholeFocal_num_);
-  PinholePoseUpdateR(nodes__PinholePose__r_k_,
-                     PinholePose_num_,
-                     nodes__PinholePose__w_,
-                     PinholePose_num_,
-                     solver__neg_alpha_,
-                     nodes__PinholePose__r_k_,
-                     PinholePose_num_,
-                     solver__r_kp1_norm2_tot_,
-                     PinholePose_num_);
-  PinholePrincipalPointUpdateR(nodes__PinholePrincipalPoint__r_k_,
-                               PinholePrincipalPoint_num_,
-                               nodes__PinholePrincipalPoint__w_,
-                               PinholePrincipalPoint_num_,
-                               solver__neg_alpha_,
-                               nodes__PinholePrincipalPoint__r_k_,
-                               PinholePrincipalPoint_num_,
-                               solver__r_kp1_norm2_tot_,
-                               PinholePrincipalPoint_num_);
-  PointUpdateR(nodes__Point__r_k_,
-               Point_num_,
-               nodes__Point__w_,
-               Point_num_,
-               solver__neg_alpha_,
-               nodes__Point__r_k_,
-               Point_num_,
-               solver__r_kp1_norm2_tot_,
-               Point_num_);
-  SimpleRadialCalibUpdateR(nodes__SimpleRadialCalib__r_k_,
-                           SimpleRadialCalib_num_,
-                           nodes__SimpleRadialCalib__w_,
-                           SimpleRadialCalib_num_,
-                           solver__neg_alpha_,
-                           nodes__SimpleRadialCalib__r_k_,
-                           SimpleRadialCalib_num_,
-                           solver__r_kp1_norm2_tot_,
-                           SimpleRadialCalib_num_);
+  PinholeCalibUpdateR(
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_, nodes__PinholeCalib__w_,
+      PinholeCalib_num_, solver__neg_alpha_, nodes__PinholeCalib__r_k_,
+      PinholeCalib_num_, solver__r_kp1_norm2_tot_, PinholeCalib_num_);
+  PinholeFocalUpdateR(
+      nodes__PinholeFocal__r_k_, PinholeFocal_num_, nodes__PinholeFocal__w_,
+      PinholeFocal_num_, solver__neg_alpha_, nodes__PinholeFocal__r_k_,
+      PinholeFocal_num_, solver__r_kp1_norm2_tot_, PinholeFocal_num_);
+  PinholePoseUpdateR(
+      nodes__PinholePose__r_k_, PinholePose_num_, nodes__PinholePose__w_,
+      PinholePose_num_, solver__neg_alpha_, nodes__PinholePose__r_k_,
+      PinholePose_num_, solver__r_kp1_norm2_tot_, PinholePose_num_);
+  PinholePrincipalPointUpdateR(
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__w_, PinholePrincipalPoint_num_,
+      solver__neg_alpha_, nodes__PinholePrincipalPoint__r_k_,
+      PinholePrincipalPoint_num_, solver__r_kp1_norm2_tot_,
+      PinholePrincipalPoint_num_);
+  PointUpdateR(nodes__Point__r_k_, Point_num_, nodes__Point__w_, Point_num_,
+               solver__neg_alpha_, nodes__Point__r_k_, Point_num_,
+               solver__r_kp1_norm2_tot_, Point_num_);
+  SimpleRadialCalibUpdateR(
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__w_, SimpleRadialCalib_num_, solver__neg_alpha_,
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      solver__r_kp1_norm2_tot_, SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionUpdateR(
       nodes__SimpleRadialFocalAndDistortion__r_k_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__w_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__neg_alpha_,
+      SimpleRadialFocalAndDistortion_num_, solver__neg_alpha_,
       nodes__SimpleRadialFocalAndDistortion__r_k_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__r_kp1_norm2_tot_,
+      SimpleRadialFocalAndDistortion_num_, solver__r_kp1_norm2_tot_,
       SimpleRadialFocalAndDistortion_num_);
-  SimpleRadialPoseUpdateR(nodes__SimpleRadialPose__r_k_,
-                          SimpleRadialPose_num_,
-                          nodes__SimpleRadialPose__w_,
-                          SimpleRadialPose_num_,
-                          solver__neg_alpha_,
-                          nodes__SimpleRadialPose__r_k_,
-                          SimpleRadialPose_num_,
-                          solver__r_kp1_norm2_tot_,
+  SimpleRadialPoseUpdateR(nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+                          nodes__SimpleRadialPose__w_, SimpleRadialPose_num_,
+                          solver__neg_alpha_, nodes__SimpleRadialPose__r_k_,
+                          SimpleRadialPose_num_, solver__r_kp1_norm2_tot_,
                           SimpleRadialPose_num_);
-  SimpleRadialPrincipalPointUpdateR(nodes__SimpleRadialPrincipalPoint__r_k_,
-                                    SimpleRadialPrincipalPoint_num_,
-                                    nodes__SimpleRadialPrincipalPoint__w_,
-                                    SimpleRadialPrincipalPoint_num_,
-                                    solver__neg_alpha_,
-                                    nodes__SimpleRadialPrincipalPoint__r_k_,
-                                    SimpleRadialPrincipalPoint_num_,
-                                    solver__r_kp1_norm2_tot_,
-                                    SimpleRadialPrincipalPoint_num_);
+  SimpleRadialPrincipalPointUpdateR(
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__w_, SimpleRadialPrincipalPoint_num_,
+      solver__neg_alpha_, nodes__SimpleRadialPrincipalPoint__r_k_,
+      SimpleRadialPrincipalPoint_num_, solver__r_kp1_norm2_tot_,
+      SimpleRadialPrincipalPoint_num_);
   pcg_r_kp1_norm2_ = ReadCuMem(solver__r_kp1_norm2_tot_);
 }
 
 double GraphSolver::DoRetractScore() {
   PinholeCalibRetract(nodes__PinholeCalib__storage_current_,
-                      PinholeCalib_num_max_,
-                      nodes__PinholeCalib__step_,
-                      PinholeCalib_num_,
-                      nodes__PinholeCalib__storage_check_,
-                      PinholeCalib_num_max_,
-                      PinholeCalib_num_);
+                      PinholeCalib_num_max_, nodes__PinholeCalib__step_,
+                      PinholeCalib_num_, nodes__PinholeCalib__storage_check_,
+                      PinholeCalib_num_max_, PinholeCalib_num_);
   PinholeFocalRetract(nodes__PinholeFocal__storage_current_,
-                      PinholeFocal_num_max_,
-                      nodes__PinholeFocal__step_,
-                      PinholeFocal_num_,
-                      nodes__PinholeFocal__storage_check_,
-                      PinholeFocal_num_max_,
-                      PinholeFocal_num_);
-  PinholePoseRetract(nodes__PinholePose__storage_current_,
-                     PinholePose_num_max_,
-                     nodes__PinholePose__step_,
-                     PinholePose_num_,
-                     nodes__PinholePose__storage_check_,
-                     PinholePose_num_max_,
+                      PinholeFocal_num_max_, nodes__PinholeFocal__step_,
+                      PinholeFocal_num_, nodes__PinholeFocal__storage_check_,
+                      PinholeFocal_num_max_, PinholeFocal_num_);
+  PinholePoseRetract(nodes__PinholePose__storage_current_, PinholePose_num_max_,
+                     nodes__PinholePose__step_, PinholePose_num_,
+                     nodes__PinholePose__storage_check_, PinholePose_num_max_,
                      PinholePose_num_);
-  PinholePrincipalPointRetract(nodes__PinholePrincipalPoint__storage_current_,
-                               PinholePrincipalPoint_num_max_,
-                               nodes__PinholePrincipalPoint__step_,
-                               PinholePrincipalPoint_num_,
-                               nodes__PinholePrincipalPoint__storage_check_,
-                               PinholePrincipalPoint_num_max_,
-                               PinholePrincipalPoint_num_);
-  PointRetract(nodes__Point__storage_current_,
-               Point_num_max_,
-               nodes__Point__step_,
-               Point_num_,
-               nodes__Point__storage_check_,
-               Point_num_max_,
-               Point_num_);
-  SimpleRadialCalibRetract(nodes__SimpleRadialCalib__storage_current_,
-                           SimpleRadialCalib_num_max_,
-                           nodes__SimpleRadialCalib__step_,
-                           SimpleRadialCalib_num_,
-                           nodes__SimpleRadialCalib__storage_check_,
-                           SimpleRadialCalib_num_max_,
-                           SimpleRadialCalib_num_);
+  PinholePrincipalPointRetract(
+      nodes__PinholePrincipalPoint__storage_current_,
+      PinholePrincipalPoint_num_max_, nodes__PinholePrincipalPoint__step_,
+      PinholePrincipalPoint_num_, nodes__PinholePrincipalPoint__storage_check_,
+      PinholePrincipalPoint_num_max_, PinholePrincipalPoint_num_);
+  PointRetract(nodes__Point__storage_current_, Point_num_max_,
+               nodes__Point__step_, Point_num_, nodes__Point__storage_check_,
+               Point_num_max_, Point_num_);
+  SimpleRadialCalibRetract(
+      nodes__SimpleRadialCalib__storage_current_, SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__step_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__storage_check_, SimpleRadialCalib_num_max_,
+      SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionRetract(
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
       SimpleRadialFocalAndDistortion_num_max_,
@@ -5368,158 +4234,121 @@ double GraphSolver::DoRetractScore() {
       SimpleRadialFocalAndDistortion_num_);
   SimpleRadialPoseRetract(nodes__SimpleRadialPose__storage_current_,
                           SimpleRadialPose_num_max_,
-                          nodes__SimpleRadialPose__step_,
-                          SimpleRadialPose_num_,
+                          nodes__SimpleRadialPose__step_, SimpleRadialPose_num_,
                           nodes__SimpleRadialPose__storage_check_,
-                          SimpleRadialPose_num_max_,
-                          SimpleRadialPose_num_);
+                          SimpleRadialPose_num_max_, SimpleRadialPose_num_);
   SimpleRadialPrincipalPointRetract(
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       SimpleRadialPrincipalPoint_num_max_,
-      nodes__SimpleRadialPrincipalPoint__step_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__step_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__storage_check_,
-      SimpleRadialPrincipalPoint_num_max_,
-      SimpleRadialPrincipalPoint_num_);
+      SimpleRadialPrincipalPoint_num_max_, SimpleRadialPrincipalPoint_num_);
   Zero(solver__res_tot_, solver__res_tot_ + 1);
-  SimpleRadialScore(nodes__SimpleRadialPose__storage_check_,
-                    SimpleRadialPose_num_max_,
-                    facs__simple_radial__args__pose__idx_shared_,
-                    nodes__SimpleRadialCalib__storage_check_,
-                    SimpleRadialCalib_num_max_,
-                    facs__simple_radial__args__calib__idx_shared_,
-                    nodes__Point__storage_check_,
-                    Point_num_max_,
-                    facs__simple_radial__args__point__idx_shared_,
-                    facs__simple_radial__args__pixel__data_,
-                    simple_radial_num_max_,
-                    solver__res_tot_,
-                    simple_radial_num_);
+  SimpleRadialScore(
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
+      facs__simple_radial__args__pose__idx_shared_,
+      nodes__SimpleRadialCalib__storage_check_, SimpleRadialCalib_num_max_,
+      facs__simple_radial__args__calib__idx_shared_,
+      nodes__Point__storage_check_, Point_num_max_,
+      facs__simple_radial__args__point__idx_shared_,
+      facs__simple_radial__args__pixel__data_, simple_radial_num_max_,
+      solver__res_tot_, simple_radial_num_);
   SimpleRadialFixedPoseScore(
-      nodes__SimpleRadialCalib__storage_check_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_check_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_pose__args__calib__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__simple_radial_fixed_pose__args__point__idx_shared_,
       facs__simple_radial_fixed_pose__args__pixel__data_,
       simple_radial_fixed_pose_num_max_,
       facs__simple_radial_fixed_pose__args__pose__data_,
-      simple_radial_fixed_pose_num_max_,
-      solver__res_tot_,
+      simple_radial_fixed_pose_num_max_, solver__res_tot_,
       simple_radial_fixed_pose_num_);
   SimpleRadialFixedPointScore(
-      nodes__SimpleRadialPose__storage_check_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
       facs__simple_radial_fixed_point__args__pose__idx_shared_,
-      nodes__SimpleRadialCalib__storage_check_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_check_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_point__args__calib__idx_shared_,
       facs__simple_radial_fixed_point__args__pixel__data_,
       simple_radial_fixed_point_num_max_,
       facs__simple_radial_fixed_point__args__point__data_,
-      simple_radial_fixed_point_num_max_,
-      solver__res_tot_,
+      simple_radial_fixed_point_num_max_, solver__res_tot_,
       simple_radial_fixed_point_num_);
   SimpleRadialFixedPoseFixedPointScore(
-      nodes__SimpleRadialCalib__storage_check_,
-      SimpleRadialCalib_num_max_,
+      nodes__SimpleRadialCalib__storage_check_, SimpleRadialCalib_num_max_,
       facs__simple_radial_fixed_pose_fixed_point__args__calib__idx_shared_,
       facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_,
       simple_radial_fixed_pose_fixed_point_num_max_,
       facs__simple_radial_fixed_pose_fixed_point__args__pose__data_,
       simple_radial_fixed_pose_fixed_point_num_max_,
       facs__simple_radial_fixed_pose_fixed_point__args__point__data_,
-      simple_radial_fixed_pose_fixed_point_num_max_,
-      solver__res_tot_,
+      simple_radial_fixed_pose_fixed_point_num_max_, solver__res_tot_,
       simple_radial_fixed_pose_fixed_point_num_);
-  PinholeScore(nodes__PinholePose__storage_check_,
-               PinholePose_num_max_,
+  PinholeScore(nodes__PinholePose__storage_check_, PinholePose_num_max_,
                facs__pinhole__args__pose__idx_shared_,
-               nodes__PinholeCalib__storage_check_,
-               PinholeCalib_num_max_,
+               nodes__PinholeCalib__storage_check_, PinholeCalib_num_max_,
                facs__pinhole__args__calib__idx_shared_,
-               nodes__Point__storage_check_,
-               Point_num_max_,
+               nodes__Point__storage_check_, Point_num_max_,
                facs__pinhole__args__point__idx_shared_,
-               facs__pinhole__args__pixel__data_,
-               pinhole_num_max_,
-               solver__res_tot_,
-               pinhole_num_);
-  PinholeFixedPoseScore(nodes__PinholeCalib__storage_check_,
-                        PinholeCalib_num_max_,
-                        facs__pinhole_fixed_pose__args__calib__idx_shared_,
-                        nodes__Point__storage_check_,
-                        Point_num_max_,
-                        facs__pinhole_fixed_pose__args__point__idx_shared_,
-                        facs__pinhole_fixed_pose__args__pixel__data_,
-                        pinhole_fixed_pose_num_max_,
-                        facs__pinhole_fixed_pose__args__pose__data_,
-                        pinhole_fixed_pose_num_max_,
-                        solver__res_tot_,
-                        pinhole_fixed_pose_num_);
-  PinholeFixedPointScore(nodes__PinholePose__storage_check_,
-                         PinholePose_num_max_,
-                         facs__pinhole_fixed_point__args__pose__idx_shared_,
-                         nodes__PinholeCalib__storage_check_,
-                         PinholeCalib_num_max_,
-                         facs__pinhole_fixed_point__args__calib__idx_shared_,
-                         facs__pinhole_fixed_point__args__pixel__data_,
-                         pinhole_fixed_point_num_max_,
-                         facs__pinhole_fixed_point__args__point__data_,
-                         pinhole_fixed_point_num_max_,
-                         solver__res_tot_,
-                         pinhole_fixed_point_num_);
+               facs__pinhole__args__pixel__data_, pinhole_num_max_,
+               solver__res_tot_, pinhole_num_);
+  PinholeFixedPoseScore(
+      nodes__PinholeCalib__storage_check_, PinholeCalib_num_max_,
+      facs__pinhole_fixed_pose__args__calib__idx_shared_,
+      nodes__Point__storage_check_, Point_num_max_,
+      facs__pinhole_fixed_pose__args__point__idx_shared_,
+      facs__pinhole_fixed_pose__args__pixel__data_, pinhole_fixed_pose_num_max_,
+      facs__pinhole_fixed_pose__args__pose__data_, pinhole_fixed_pose_num_max_,
+      solver__res_tot_, pinhole_fixed_pose_num_);
+  PinholeFixedPointScore(
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
+      facs__pinhole_fixed_point__args__pose__idx_shared_,
+      nodes__PinholeCalib__storage_check_, PinholeCalib_num_max_,
+      facs__pinhole_fixed_point__args__calib__idx_shared_,
+      facs__pinhole_fixed_point__args__pixel__data_,
+      pinhole_fixed_point_num_max_,
+      facs__pinhole_fixed_point__args__point__data_,
+      pinhole_fixed_point_num_max_, solver__res_tot_, pinhole_fixed_point_num_);
   PinholeFixedPoseFixedPointScore(
-      nodes__PinholeCalib__storage_check_,
-      PinholeCalib_num_max_,
+      nodes__PinholeCalib__storage_check_, PinholeCalib_num_max_,
       facs__pinhole_fixed_pose_fixed_point__args__calib__idx_shared_,
       facs__pinhole_fixed_pose_fixed_point__args__pixel__data_,
       pinhole_fixed_pose_fixed_point_num_max_,
       facs__pinhole_fixed_pose_fixed_point__args__pose__data_,
       pinhole_fixed_pose_fixed_point_num_max_,
       facs__pinhole_fixed_pose_fixed_point__args__point__data_,
-      pinhole_fixed_pose_fixed_point_num_max_,
-      solver__res_tot_,
+      pinhole_fixed_pose_fixed_point_num_max_, solver__res_tot_,
       pinhole_fixed_pose_fixed_point_num_);
   SimpleRadialSplitFixedFocalAndDistortionScore(
-      nodes__SimpleRadialPose__storage_check_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pose__idx_shared_,
       nodes__SimpleRadialPrincipalPoint__storage_check_,
       SimpleRadialPrincipalPoint_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__focal_and_distortion__data_,
-      simple_radial_split_fixed_focal_and_distortion_num_max_,
-      solver__res_tot_,
+      simple_radial_split_fixed_focal_and_distortion_num_max_, solver__res_tot_,
       simple_radial_split_fixed_focal_and_distortion_num_);
   SimpleRadialSplitFixedPrincipalPointScore(
-      nodes__SimpleRadialPose__storage_check_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__pose__idx_shared_,
       nodes__SimpleRadialFocalAndDistortion__storage_check_,
       SimpleRadialFocalAndDistortion_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_principal_point_num_max_,
       facs__simple_radial_split_fixed_principal_point__args__principal_point__data_,
-      simple_radial_split_fixed_principal_point_num_max_,
-      solver__res_tot_,
+      simple_radial_split_fixed_principal_point_num_max_, solver__res_tot_,
       simple_radial_split_fixed_principal_point_num_);
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionScore(
       nodes__SimpleRadialPrincipalPoint__storage_check_,
       SimpleRadialPrincipalPoint_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
@@ -5533,8 +4362,7 @@ double GraphSolver::DoRetractScore() {
       nodes__SimpleRadialFocalAndDistortion__storage_check_,
       SimpleRadialFocalAndDistortion_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
@@ -5545,11 +4373,9 @@ double GraphSolver::DoRetractScore() {
       solver__res_tot_,
       simple_radial_split_fixed_pose_fixed_principal_point_num_);
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointScore(
-      nodes__SimpleRadialPose__storage_check_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
@@ -5560,8 +4386,7 @@ double GraphSolver::DoRetractScore() {
       solver__res_tot_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_);
   SimpleRadialSplitFixedFocalAndDistortionFixedPointScore(
-      nodes__SimpleRadialPose__storage_check_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__idx_shared_,
       nodes__SimpleRadialPrincipalPoint__storage_check_,
       SimpleRadialPrincipalPoint_num_max_,
@@ -5575,8 +4400,7 @@ double GraphSolver::DoRetractScore() {
       solver__res_tot_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_);
   SimpleRadialSplitFixedPrincipalPointFixedPointScore(
-      nodes__SimpleRadialPose__storage_check_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       nodes__SimpleRadialFocalAndDistortion__storage_check_,
       SimpleRadialFocalAndDistortion_num_max_,
@@ -5590,8 +4414,7 @@ double GraphSolver::DoRetractScore() {
       solver__res_tot_,
       simple_radial_split_fixed_principal_point_fixed_point_num_);
   SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointScore(
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
@@ -5632,8 +4455,7 @@ double GraphSolver::DoRetractScore() {
       solver__res_tot_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_);
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointScore(
-      nodes__SimpleRadialPose__storage_check_,
-      SimpleRadialPose_num_max_,
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
@@ -5646,73 +4468,59 @@ double GraphSolver::DoRetractScore() {
       solver__res_tot_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_);
   PinholeSplitFixedFocalScore(
-      nodes__PinholePose__storage_check_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal__args__pose__idx_shared_,
       nodes__PinholePrincipalPoint__storage_check_,
       PinholePrincipalPoint_num_max_,
       facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__pinhole_split_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal__args__pixel__data_,
       pinhole_split_fixed_focal_num_max_,
       facs__pinhole_split_fixed_focal__args__focal__data_,
-      pinhole_split_fixed_focal_num_max_,
-      solver__res_tot_,
+      pinhole_split_fixed_focal_num_max_, solver__res_tot_,
       pinhole_split_fixed_focal_num_);
   PinholeSplitFixedPrincipalPointScore(
-      nodes__PinholePose__storage_check_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
       facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_,
-      nodes__PinholeFocal__storage_check_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_check_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_principal_point__args__focal__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__pinhole_split_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_principal_point_num_max_,
       facs__pinhole_split_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_principal_point_num_max_,
-      solver__res_tot_,
+      pinhole_split_fixed_principal_point_num_max_, solver__res_tot_,
       pinhole_split_fixed_principal_point_num_);
   PinholeSplitFixedPoseFixedFocalScore(
       nodes__PinholePrincipalPoint__storage_check_,
       PinholePrincipalPoint_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__principal_point__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__pose__data_,
       pinhole_split_fixed_pose_fixed_focal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__focal__data_,
-      pinhole_split_fixed_pose_fixed_focal_num_max_,
-      solver__res_tot_,
+      pinhole_split_fixed_pose_fixed_focal_num_max_, solver__res_tot_,
       pinhole_split_fixed_pose_fixed_focal_num_);
   PinholeSplitFixedPoseFixedPrincipalPointScore(
-      nodes__PinholeFocal__storage_check_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_check_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__focal__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pose__data_,
       pinhole_split_fixed_pose_fixed_principal_point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_max_,
-      solver__res_tot_,
+      pinhole_split_fixed_pose_fixed_principal_point_num_max_, solver__res_tot_,
       pinhole_split_fixed_pose_fixed_principal_point_num_);
   PinholeSplitFixedFocalFixedPrincipalPointScore(
-      nodes__PinholePose__storage_check_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pose__idx_shared_,
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_num_max_,
@@ -5720,11 +4528,9 @@ double GraphSolver::DoRetractScore() {
       pinhole_split_fixed_focal_fixed_principal_point_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__principal_point__data_,
       pinhole_split_fixed_focal_fixed_principal_point_num_max_,
-      solver__res_tot_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_);
+      solver__res_tot_, pinhole_split_fixed_focal_fixed_principal_point_num_);
   PinholeSplitFixedFocalFixedPointScore(
-      nodes__PinholePose__storage_check_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_point__args__pose__idx_shared_,
       nodes__PinholePrincipalPoint__storage_check_,
       PinholePrincipalPoint_num_max_,
@@ -5734,15 +4540,12 @@ double GraphSolver::DoRetractScore() {
       facs__pinhole_split_fixed_focal_fixed_point__args__focal__data_,
       pinhole_split_fixed_focal_fixed_point_num_max_,
       facs__pinhole_split_fixed_focal_fixed_point__args__point__data_,
-      pinhole_split_fixed_focal_fixed_point_num_max_,
-      solver__res_tot_,
+      pinhole_split_fixed_focal_fixed_point_num_max_, solver__res_tot_,
       pinhole_split_fixed_focal_fixed_point_num_);
   PinholeSplitFixedPrincipalPointFixedPointScore(
-      nodes__PinholePose__storage_check_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
-      nodes__PinholeFocal__storage_check_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_check_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_principal_point_fixed_point_num_max_,
@@ -5750,11 +4553,9 @@ double GraphSolver::DoRetractScore() {
       pinhole_split_fixed_principal_point_fixed_point_num_max_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__point__data_,
       pinhole_split_fixed_principal_point_fixed_point_num_max_,
-      solver__res_tot_,
-      pinhole_split_fixed_principal_point_fixed_point_num_);
+      solver__res_tot_, pinhole_split_fixed_principal_point_fixed_point_num_);
   PinholeSplitFixedPoseFixedFocalFixedPrincipalPointScore(
-      nodes__Point__storage_check_,
-      Point_num_max_,
+      nodes__Point__storage_check_, Point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__point__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
@@ -5778,11 +4579,9 @@ double GraphSolver::DoRetractScore() {
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__point__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      solver__res_tot_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_);
+      solver__res_tot_, pinhole_split_fixed_pose_fixed_focal_fixed_point_num_);
   PinholeSplitFixedPoseFixedPrincipalPointFixedPointScore(
-      nodes__PinholeFocal__storage_check_,
-      PinholeFocal_num_max_,
+      nodes__PinholeFocal__storage_check_, PinholeFocal_num_max_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__focal__idx_shared_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
@@ -5795,8 +4594,7 @@ double GraphSolver::DoRetractScore() {
       solver__res_tot_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_);
   PinholeSplitFixedFocalFixedPrincipalPointFixedPointScore(
-      nodes__PinholePose__storage_check_,
-      PinholePose_num_max_,
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__idx_shared_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
@@ -5808,477 +4606,343 @@ double GraphSolver::DoRetractScore() {
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
       solver__res_tot_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+  SimpleRadialPosePriorCoreScore(
+      nodes__SimpleRadialPose__storage_check_, SimpleRadialPose_num_max_,
+      facs__simple_radial_pose_prior_core__args__pose__idx_shared_,
+      facs__simple_radial_pose_prior_core__args__prior_position__data_,
+      simple_radial_pose_prior_core_num_max_,
+      facs__simple_radial_pose_prior_core__args__sqrt_info__data_,
+      simple_radial_pose_prior_core_num_max_, solver__res_tot_,
+      simple_radial_pose_prior_core_num_);
+  PinholePosePriorCoreScore(
+      nodes__PinholePose__storage_check_, PinholePose_num_max_,
+      facs__pinhole_pose_prior_core__args__pose__idx_shared_,
+      facs__pinhole_pose_prior_core__args__prior_position__data_,
+      pinhole_pose_prior_core_num_max_,
+      facs__pinhole_pose_prior_core__args__sqrt_info__data_,
+      pinhole_pose_prior_core_num_max_, solver__res_tot_,
+      pinhole_pose_prior_core_num_);
   return 0.5 * ReadCuMem(solver__res_tot_);
 }
 
 void GraphSolver::DoBeta() {
   Zero(solver__beta_numerator_, solver__beta_numerator_ + 1);
 
-  PinholeCalibAlphaDenominatorOrBetaNumerator(nodes__PinholeCalib__r_k_,
-                                              PinholeCalib_num_,
-                                              nodes__PinholeCalib__z_,
-                                              PinholeCalib_num_,
-                                              solver__beta_numerator_,
-                                              PinholeCalib_num_);
+  PinholeCalibAlphaDenominatorOrBetaNumerator(
+      nodes__PinholeCalib__r_k_, PinholeCalib_num_, nodes__PinholeCalib__z_,
+      PinholeCalib_num_, solver__beta_numerator_, PinholeCalib_num_);
 
-  PinholeFocalAlphaDenominatorOrBetaNumerator(nodes__PinholeFocal__r_k_,
-                                              PinholeFocal_num_,
-                                              nodes__PinholeFocal__z_,
-                                              PinholeFocal_num_,
-                                              solver__beta_numerator_,
-                                              PinholeFocal_num_);
+  PinholeFocalAlphaDenominatorOrBetaNumerator(
+      nodes__PinholeFocal__r_k_, PinholeFocal_num_, nodes__PinholeFocal__z_,
+      PinholeFocal_num_, solver__beta_numerator_, PinholeFocal_num_);
 
-  PinholePoseAlphaDenominatorOrBetaNumerator(nodes__PinholePose__r_k_,
-                                             PinholePose_num_,
-                                             nodes__PinholePose__z_,
-                                             PinholePose_num_,
-                                             solver__beta_numerator_,
-                                             PinholePose_num_);
+  PinholePoseAlphaDenominatorOrBetaNumerator(
+      nodes__PinholePose__r_k_, PinholePose_num_, nodes__PinholePose__z_,
+      PinholePose_num_, solver__beta_numerator_, PinholePose_num_);
 
   PinholePrincipalPointAlphaDenominatorOrBetaNumerator(
-      nodes__PinholePrincipalPoint__r_k_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__z_,
-      PinholePrincipalPoint_num_,
-      solver__beta_numerator_,
-      PinholePrincipalPoint_num_);
+      nodes__PinholePrincipalPoint__r_k_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__z_, PinholePrincipalPoint_num_,
+      solver__beta_numerator_, PinholePrincipalPoint_num_);
 
-  PointAlphaDenominatorOrBetaNumerator(nodes__Point__r_k_,
-                                       Point_num_,
-                                       nodes__Point__z_,
-                                       Point_num_,
-                                       solver__beta_numerator_,
-                                       Point_num_);
+  PointAlphaDenominatorOrBetaNumerator(nodes__Point__r_k_, Point_num_,
+                                       nodes__Point__z_, Point_num_,
+                                       solver__beta_numerator_, Point_num_);
 
   SimpleRadialCalibAlphaDenominatorOrBetaNumerator(
-      nodes__SimpleRadialCalib__r_k_,
-      SimpleRadialCalib_num_,
-      nodes__SimpleRadialCalib__z_,
-      SimpleRadialCalib_num_,
-      solver__beta_numerator_,
-      SimpleRadialCalib_num_);
+      nodes__SimpleRadialCalib__r_k_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__z_, SimpleRadialCalib_num_,
+      solver__beta_numerator_, SimpleRadialCalib_num_);
 
   SimpleRadialFocalAndDistortionAlphaDenominatorOrBetaNumerator(
       nodes__SimpleRadialFocalAndDistortion__r_k_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__z_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__beta_numerator_,
+      SimpleRadialFocalAndDistortion_num_, solver__beta_numerator_,
       SimpleRadialFocalAndDistortion_num_);
 
-  SimpleRadialPoseAlphaDenominatorOrBetaNumerator(nodes__SimpleRadialPose__r_k_,
-                                                  SimpleRadialPose_num_,
-                                                  nodes__SimpleRadialPose__z_,
-                                                  SimpleRadialPose_num_,
-                                                  solver__beta_numerator_,
-                                                  SimpleRadialPose_num_);
+  SimpleRadialPoseAlphaDenominatorOrBetaNumerator(
+      nodes__SimpleRadialPose__r_k_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__z_, SimpleRadialPose_num_,
+      solver__beta_numerator_, SimpleRadialPose_num_);
 
   SimpleRadialPrincipalPointAlphaDenominatorOrBetaNumerator(
-      nodes__SimpleRadialPrincipalPoint__r_k_,
-      SimpleRadialPrincipalPoint_num_,
-      nodes__SimpleRadialPrincipalPoint__z_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__beta_numerator_,
-      SimpleRadialPrincipalPoint_num_);
-  BetaFromNumDenom(
-      solver__beta_numerator_, solver__alpha_numerator_, solver__beta_);
+      nodes__SimpleRadialPrincipalPoint__r_k_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__z_, SimpleRadialPrincipalPoint_num_,
+      solver__beta_numerator_, SimpleRadialPrincipalPoint_num_);
+  BetaFromNumDenom(solver__beta_numerator_, solver__alpha_numerator_,
+                   solver__beta_);
 }
 
 void GraphSolver::DoUpdateP() {
-  PinholeCalibUpdateP(nodes__PinholeCalib__z_,
-                      PinholeCalib_num_,
-                      nodes__PinholeCalib__p_,
-                      PinholeCalib_num_,
-                      solver__beta_,
-                      nodes__PinholeCalib__p_,
-                      PinholeCalib_num_,
+  PinholeCalibUpdateP(nodes__PinholeCalib__z_, PinholeCalib_num_,
+                      nodes__PinholeCalib__p_, PinholeCalib_num_, solver__beta_,
+                      nodes__PinholeCalib__p_, PinholeCalib_num_,
                       PinholeCalib_num_);
-  PinholeFocalUpdateP(nodes__PinholeFocal__z_,
-                      PinholeFocal_num_,
-                      nodes__PinholeFocal__p_,
-                      PinholeFocal_num_,
-                      solver__beta_,
-                      nodes__PinholeFocal__p_,
-                      PinholeFocal_num_,
+  PinholeFocalUpdateP(nodes__PinholeFocal__z_, PinholeFocal_num_,
+                      nodes__PinholeFocal__p_, PinholeFocal_num_, solver__beta_,
+                      nodes__PinholeFocal__p_, PinholeFocal_num_,
                       PinholeFocal_num_);
-  PinholePoseUpdateP(nodes__PinholePose__z_,
-                     PinholePose_num_,
-                     nodes__PinholePose__p_,
-                     PinholePose_num_,
-                     solver__beta_,
-                     nodes__PinholePose__p_,
-                     PinholePose_num_,
+  PinholePoseUpdateP(nodes__PinholePose__z_, PinholePose_num_,
+                     nodes__PinholePose__p_, PinholePose_num_, solver__beta_,
+                     nodes__PinholePose__p_, PinholePose_num_,
                      PinholePose_num_);
-  PinholePrincipalPointUpdateP(nodes__PinholePrincipalPoint__z_,
-                               PinholePrincipalPoint_num_,
-                               nodes__PinholePrincipalPoint__p_,
-                               PinholePrincipalPoint_num_,
-                               solver__beta_,
-                               nodes__PinholePrincipalPoint__p_,
-                               PinholePrincipalPoint_num_,
-                               PinholePrincipalPoint_num_);
-  PointUpdateP(nodes__Point__z_,
-               Point_num_,
-               nodes__Point__p_,
-               Point_num_,
-               solver__beta_,
-               nodes__Point__p_,
-               Point_num_,
-               Point_num_);
-  SimpleRadialCalibUpdateP(nodes__SimpleRadialCalib__z_,
-                           SimpleRadialCalib_num_,
-                           nodes__SimpleRadialCalib__p_,
-                           SimpleRadialCalib_num_,
-                           solver__beta_,
-                           nodes__SimpleRadialCalib__p_,
-                           SimpleRadialCalib_num_,
-                           SimpleRadialCalib_num_);
+  PinholePrincipalPointUpdateP(
+      nodes__PinholePrincipalPoint__z_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__p_, PinholePrincipalPoint_num_,
+      solver__beta_, nodes__PinholePrincipalPoint__p_,
+      PinholePrincipalPoint_num_, PinholePrincipalPoint_num_);
+  PointUpdateP(nodes__Point__z_, Point_num_, nodes__Point__p_, Point_num_,
+               solver__beta_, nodes__Point__p_, Point_num_, Point_num_);
+  SimpleRadialCalibUpdateP(nodes__SimpleRadialCalib__z_, SimpleRadialCalib_num_,
+                           nodes__SimpleRadialCalib__p_, SimpleRadialCalib_num_,
+                           solver__beta_, nodes__SimpleRadialCalib__p_,
+                           SimpleRadialCalib_num_, SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionUpdateP(
       nodes__SimpleRadialFocalAndDistortion__z_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__p_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__beta_,
+      SimpleRadialFocalAndDistortion_num_, solver__beta_,
       nodes__SimpleRadialFocalAndDistortion__p_,
-      SimpleRadialFocalAndDistortion_num_,
-      SimpleRadialFocalAndDistortion_num_);
-  SimpleRadialPoseUpdateP(nodes__SimpleRadialPose__z_,
-                          SimpleRadialPose_num_,
-                          nodes__SimpleRadialPose__p_,
-                          SimpleRadialPose_num_,
-                          solver__beta_,
-                          nodes__SimpleRadialPose__p_,
-                          SimpleRadialPose_num_,
-                          SimpleRadialPose_num_);
-  SimpleRadialPrincipalPointUpdateP(nodes__SimpleRadialPrincipalPoint__z_,
-                                    SimpleRadialPrincipalPoint_num_,
-                                    nodes__SimpleRadialPrincipalPoint__p_,
-                                    SimpleRadialPrincipalPoint_num_,
-                                    solver__beta_,
-                                    nodes__SimpleRadialPrincipalPoint__p_,
-                                    SimpleRadialPrincipalPoint_num_,
-                                    SimpleRadialPrincipalPoint_num_);
+      SimpleRadialFocalAndDistortion_num_, SimpleRadialFocalAndDistortion_num_);
+  SimpleRadialPoseUpdateP(nodes__SimpleRadialPose__z_, SimpleRadialPose_num_,
+                          nodes__SimpleRadialPose__p_, SimpleRadialPose_num_,
+                          solver__beta_, nodes__SimpleRadialPose__p_,
+                          SimpleRadialPose_num_, SimpleRadialPose_num_);
+  SimpleRadialPrincipalPointUpdateP(
+      nodes__SimpleRadialPrincipalPoint__z_, SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__p_, SimpleRadialPrincipalPoint_num_,
+      solver__beta_, nodes__SimpleRadialPrincipalPoint__p_,
+      SimpleRadialPrincipalPoint_num_, SimpleRadialPrincipalPoint_num_);
 }
 
 double GraphSolver::GetPredDecrease() {
   Zero(solver__pred_decrease_tot_, solver__pred_decrease_tot_ + 1);
-  PinholeCalibPredDecreaseTimesTwo(nodes__PinholeCalib__step_,
-                                   PinholeCalib_num_,
-                                   nodes__PinholeCalib__precond_diag_,
-                                   PinholeCalib_num_,
-                                   solver__current_diag_,
-                                   nodes__PinholeCalib__r_0_,
-                                   PinholeCalib_num_,
-                                   solver__pred_decrease_tot_,
-                                   PinholeCalib_num_);
-  PinholeFocalPredDecreaseTimesTwo(nodes__PinholeFocal__step_,
-                                   PinholeFocal_num_,
-                                   nodes__PinholeFocal__precond_diag_,
-                                   PinholeFocal_num_,
-                                   solver__current_diag_,
-                                   nodes__PinholeFocal__r_0_,
-                                   PinholeFocal_num_,
-                                   solver__pred_decrease_tot_,
-                                   PinholeFocal_num_);
-  PinholePosePredDecreaseTimesTwo(nodes__PinholePose__step_,
-                                  PinholePose_num_,
+  PinholeCalibPredDecreaseTimesTwo(
+      nodes__PinholeCalib__step_, PinholeCalib_num_,
+      nodes__PinholeCalib__precond_diag_, PinholeCalib_num_,
+      solver__current_diag_, nodes__PinholeCalib__r_0_, PinholeCalib_num_,
+      solver__pred_decrease_tot_, PinholeCalib_num_);
+  PinholeFocalPredDecreaseTimesTwo(
+      nodes__PinholeFocal__step_, PinholeFocal_num_,
+      nodes__PinholeFocal__precond_diag_, PinholeFocal_num_,
+      solver__current_diag_, nodes__PinholeFocal__r_0_, PinholeFocal_num_,
+      solver__pred_decrease_tot_, PinholeFocal_num_);
+  PinholePosePredDecreaseTimesTwo(nodes__PinholePose__step_, PinholePose_num_,
                                   nodes__PinholePose__precond_diag_,
-                                  PinholePose_num_,
-                                  solver__current_diag_,
-                                  nodes__PinholePose__r_0_,
-                                  PinholePose_num_,
-                                  solver__pred_decrease_tot_,
-                                  PinholePose_num_);
+                                  PinholePose_num_, solver__current_diag_,
+                                  nodes__PinholePose__r_0_, PinholePose_num_,
+                                  solver__pred_decrease_tot_, PinholePose_num_);
   PinholePrincipalPointPredDecreaseTimesTwo(
-      nodes__PinholePrincipalPoint__step_,
-      PinholePrincipalPoint_num_,
-      nodes__PinholePrincipalPoint__precond_diag_,
-      PinholePrincipalPoint_num_,
-      solver__current_diag_,
-      nodes__PinholePrincipalPoint__r_0_,
-      PinholePrincipalPoint_num_,
-      solver__pred_decrease_tot_,
+      nodes__PinholePrincipalPoint__step_, PinholePrincipalPoint_num_,
+      nodes__PinholePrincipalPoint__precond_diag_, PinholePrincipalPoint_num_,
+      solver__current_diag_, nodes__PinholePrincipalPoint__r_0_,
+      PinholePrincipalPoint_num_, solver__pred_decrease_tot_,
       PinholePrincipalPoint_num_);
-  PointPredDecreaseTimesTwo(nodes__Point__step_,
-                            Point_num_,
-                            nodes__Point__precond_diag_,
-                            Point_num_,
-                            solver__current_diag_,
-                            nodes__Point__r_0_,
-                            Point_num_,
-                            solver__pred_decrease_tot_,
-                            Point_num_);
-  SimpleRadialCalibPredDecreaseTimesTwo(nodes__SimpleRadialCalib__step_,
-                                        SimpleRadialCalib_num_,
-                                        nodes__SimpleRadialCalib__precond_diag_,
-                                        SimpleRadialCalib_num_,
-                                        solver__current_diag_,
-                                        nodes__SimpleRadialCalib__r_0_,
-                                        SimpleRadialCalib_num_,
-                                        solver__pred_decrease_tot_,
-                                        SimpleRadialCalib_num_);
+  PointPredDecreaseTimesTwo(nodes__Point__step_, Point_num_,
+                            nodes__Point__precond_diag_, Point_num_,
+                            solver__current_diag_, nodes__Point__r_0_,
+                            Point_num_, solver__pred_decrease_tot_, Point_num_);
+  SimpleRadialCalibPredDecreaseTimesTwo(
+      nodes__SimpleRadialCalib__step_, SimpleRadialCalib_num_,
+      nodes__SimpleRadialCalib__precond_diag_, SimpleRadialCalib_num_,
+      solver__current_diag_, nodes__SimpleRadialCalib__r_0_,
+      SimpleRadialCalib_num_, solver__pred_decrease_tot_,
+      SimpleRadialCalib_num_);
   SimpleRadialFocalAndDistortionPredDecreaseTimesTwo(
       nodes__SimpleRadialFocalAndDistortion__step_,
       SimpleRadialFocalAndDistortion_num_,
       nodes__SimpleRadialFocalAndDistortion__precond_diag_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__current_diag_,
+      SimpleRadialFocalAndDistortion_num_, solver__current_diag_,
       nodes__SimpleRadialFocalAndDistortion__r_0_,
-      SimpleRadialFocalAndDistortion_num_,
-      solver__pred_decrease_tot_,
+      SimpleRadialFocalAndDistortion_num_, solver__pred_decrease_tot_,
       SimpleRadialFocalAndDistortion_num_);
-  SimpleRadialPosePredDecreaseTimesTwo(nodes__SimpleRadialPose__step_,
-                                       SimpleRadialPose_num_,
-                                       nodes__SimpleRadialPose__precond_diag_,
-                                       SimpleRadialPose_num_,
-                                       solver__current_diag_,
-                                       nodes__SimpleRadialPose__r_0_,
-                                       SimpleRadialPose_num_,
-                                       solver__pred_decrease_tot_,
-                                       SimpleRadialPose_num_);
+  SimpleRadialPosePredDecreaseTimesTwo(
+      nodes__SimpleRadialPose__step_, SimpleRadialPose_num_,
+      nodes__SimpleRadialPose__precond_diag_, SimpleRadialPose_num_,
+      solver__current_diag_, nodes__SimpleRadialPose__r_0_,
+      SimpleRadialPose_num_, solver__pred_decrease_tot_, SimpleRadialPose_num_);
   SimpleRadialPrincipalPointPredDecreaseTimesTwo(
-      nodes__SimpleRadialPrincipalPoint__step_,
-      SimpleRadialPrincipalPoint_num_,
+      nodes__SimpleRadialPrincipalPoint__step_, SimpleRadialPrincipalPoint_num_,
       nodes__SimpleRadialPrincipalPoint__precond_diag_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__current_diag_,
-      nodes__SimpleRadialPrincipalPoint__r_0_,
-      SimpleRadialPrincipalPoint_num_,
-      solver__pred_decrease_tot_,
-      SimpleRadialPrincipalPoint_num_);
+      SimpleRadialPrincipalPoint_num_, solver__current_diag_,
+      nodes__SimpleRadialPrincipalPoint__r_0_, SimpleRadialPrincipalPoint_num_,
+      solver__pred_decrease_tot_, SimpleRadialPrincipalPoint_num_);
   return 0.5 * ReadCuMem(solver__pred_decrease_tot_);
 }
 
 void GraphSolver::finish_indices() { indices_valid_ = true; }
 
 void GraphSolver::SetPinholeCalibNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > PinholeCalib_num_max_) {
     throw std::runtime_error(std::to_string(num) + " > PinholeCalib_num_max_");
   }
   PinholeCalib_num_ = num;
 }
 
-void GraphSolver::SetPinholeCalibNodesFromStackedHost(const double* const data,
+void GraphSolver::SetPinholeCalibNodesFromStackedHost(const double *const data,
                                                       const size_t offset,
                                                       const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholeCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeCalib_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             4 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 4 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   PinholeCalibStackedToCaspar(marker__scratch_inout_,
                               nodes__PinholeCalib__storage_current_,
-                              PinholeCalib_num_max_,
-                              offset,
-                              num);
+                              PinholeCalib_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeCalibNodesFromStackedDevice(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > PinholeCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeCalib_num_");
   }
-  PinholeCalibStackedToCaspar(data,
-                              nodes__PinholeCalib__storage_current_,
-                              PinholeCalib_num_max_,
-                              offset,
-                              num);
+  PinholeCalibStackedToCaspar(data, nodes__PinholeCalib__storage_current_,
+                              PinholeCalib_num_max_, offset, num);
 }
 
-void GraphSolver::GetPinholeCalibNodesToStackedHost(double* const data,
+void GraphSolver::GetPinholeCalibNodesToStackedHost(double *const data,
                                                     const size_t offset,
                                                     const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholeCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeCalib_num_");
   }
   PinholeCalibCasparToStacked(nodes__PinholeCalib__storage_current_,
-                              marker__scratch_inout_,
-                              PinholeCalib_num_max_,
-                              offset,
-                              num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             4 * num * sizeof(double),
+                              marker__scratch_inout_, PinholeCalib_num_max_,
+                              offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 4 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
-void GraphSolver::GetPinholeCalibNodesToStackedDevice(double* const data,
+void GraphSolver::GetPinholeCalibNodesToStackedDevice(double *const data,
                                                       const size_t offset,
                                                       const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholeCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeCalib_num_");
   }
-  PinholeCalibCasparToStacked(nodes__PinholeCalib__storage_current_,
-                              data,
-                              PinholeCalib_num_max_,
-                              offset,
-                              num);
+  PinholeCalibCasparToStacked(nodes__PinholeCalib__storage_current_, data,
+                              PinholeCalib_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFocalNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > PinholeFocal_num_max_) {
     throw std::runtime_error(std::to_string(num) + " > PinholeFocal_num_max_");
   }
   PinholeFocal_num_ = num;
 }
 
-void GraphSolver::SetPinholeFocalNodesFromStackedHost(const double* const data,
+void GraphSolver::SetPinholeFocalNodesFromStackedHost(const double *const data,
                                                       const size_t offset,
                                                       const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholeFocal_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeFocal_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   PinholeFocalStackedToCaspar(marker__scratch_inout_,
                               nodes__PinholeFocal__storage_current_,
-                              PinholeFocal_num_max_,
-                              offset,
-                              num);
+                              PinholeFocal_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFocalNodesFromStackedDevice(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > PinholeFocal_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeFocal_num_");
   }
-  PinholeFocalStackedToCaspar(data,
-                              nodes__PinholeFocal__storage_current_,
-                              PinholeFocal_num_max_,
-                              offset,
-                              num);
+  PinholeFocalStackedToCaspar(data, nodes__PinholeFocal__storage_current_,
+                              PinholeFocal_num_max_, offset, num);
 }
 
-void GraphSolver::GetPinholeFocalNodesToStackedHost(double* const data,
+void GraphSolver::GetPinholeFocalNodesToStackedHost(double *const data,
                                                     const size_t offset,
                                                     const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholeFocal_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeFocal_num_");
   }
   PinholeFocalCasparToStacked(nodes__PinholeFocal__storage_current_,
-                              marker__scratch_inout_,
-                              PinholeFocal_num_max_,
-                              offset,
-                              num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             2 * num * sizeof(double),
+                              marker__scratch_inout_, PinholeFocal_num_max_,
+                              offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 2 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
-void GraphSolver::GetPinholeFocalNodesToStackedDevice(double* const data,
+void GraphSolver::GetPinholeFocalNodesToStackedDevice(double *const data,
                                                       const size_t offset,
                                                       const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholeFocal_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholeFocal_num_");
   }
-  PinholeFocalCasparToStacked(nodes__PinholeFocal__storage_current_,
-                              data,
-                              PinholeFocal_num_max_,
-                              offset,
-                              num);
+  PinholeFocalCasparToStacked(nodes__PinholeFocal__storage_current_, data,
+                              PinholeFocal_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholePoseNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > PinholePose_num_max_) {
     throw std::runtime_error(std::to_string(num) + " > PinholePose_num_max_");
   }
   PinholePose_num_ = num;
 }
 
-void GraphSolver::SetPinholePoseNodesFromStackedHost(const double* const data,
+void GraphSolver::SetPinholePoseNodesFromStackedHost(const double *const data,
                                                      const size_t offset,
                                                      const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholePose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePose_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   PinholePoseStackedToCaspar(marker__scratch_inout_,
                              nodes__PinholePose__storage_current_,
-                             PinholePose_num_max_,
-                             offset,
-                             num);
+                             PinholePose_num_max_, offset, num);
 }
 
-void GraphSolver::SetPinholePoseNodesFromStackedDevice(const double* const data,
+void GraphSolver::SetPinholePoseNodesFromStackedDevice(const double *const data,
                                                        const size_t offset,
                                                        const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholePose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePose_num_");
   }
-  PinholePoseStackedToCaspar(data,
-                             nodes__PinholePose__storage_current_,
-                             PinholePose_num_max_,
-                             offset,
-                             num);
+  PinholePoseStackedToCaspar(data, nodes__PinholePose__storage_current_,
+                             PinholePose_num_max_, offset, num);
 }
 
-void GraphSolver::GetPinholePoseNodesToStackedHost(double* const data,
+void GraphSolver::GetPinholePoseNodesToStackedHost(double *const data,
                                                    const size_t offset,
                                                    const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholePose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePose_num_");
   }
   PinholePoseCasparToStacked(nodes__PinholePose__storage_current_,
-                             marker__scratch_inout_,
-                             PinholePose_num_max_,
-                             offset,
-                             num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             7 * num * sizeof(double),
+                             marker__scratch_inout_, PinholePose_num_max_,
+                             offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 7 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
-void GraphSolver::GetPinholePoseNodesToStackedDevice(double* const data,
+void GraphSolver::GetPinholePoseNodesToStackedDevice(double *const data,
                                                      const size_t offset,
                                                      const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > PinholePose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePose_num_");
   }
-  PinholePoseCasparToStacked(nodes__PinholePose__storage_current_,
-                             data,
-                             PinholePose_num_max_,
-                             offset,
-                             num);
+  PinholePoseCasparToStacked(nodes__PinholePose__storage_current_, data,
+                             PinholePose_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholePrincipalPointNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > PinholePrincipalPoint_num_max_) {
     throw std::runtime_error(std::to_string(num) +
                              " > PinholePrincipalPoint_num_max_");
@@ -6287,141 +4951,105 @@ void GraphSolver::SetPinholePrincipalPointNum(const size_t num) {
 }
 
 void GraphSolver::SetPinholePrincipalPointNodesFromStackedHost(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > PinholePrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePrincipalPoint_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   PinholePrincipalPointStackedToCaspar(
-      marker__scratch_inout_,
-      nodes__PinholePrincipalPoint__storage_current_,
-      PinholePrincipalPoint_num_max_,
-      offset,
-      num);
+      marker__scratch_inout_, nodes__PinholePrincipalPoint__storage_current_,
+      PinholePrincipalPoint_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholePrincipalPointNodesFromStackedDevice(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > PinholePrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePrincipalPoint_num_");
   }
   PinholePrincipalPointStackedToCaspar(
-      data,
-      nodes__PinholePrincipalPoint__storage_current_,
-      PinholePrincipalPoint_num_max_,
-      offset,
-      num);
+      data, nodes__PinholePrincipalPoint__storage_current_,
+      PinholePrincipalPoint_num_max_, offset, num);
 }
 
 void GraphSolver::GetPinholePrincipalPointNodesToStackedHost(
-    double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    double *const data, const size_t offset, const size_t num) {
   if (offset + num > PinholePrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePrincipalPoint_num_");
   }
   PinholePrincipalPointCasparToStacked(
-      nodes__PinholePrincipalPoint__storage_current_,
-      marker__scratch_inout_,
-      PinholePrincipalPoint_num_max_,
-      offset,
-      num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             2 * num * sizeof(double),
+      nodes__PinholePrincipalPoint__storage_current_, marker__scratch_inout_,
+      PinholePrincipalPoint_num_max_, offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 2 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
 void GraphSolver::GetPinholePrincipalPointNodesToStackedDevice(
-    double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    double *const data, const size_t offset, const size_t num) {
   if (offset + num > PinholePrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > PinholePrincipalPoint_num_");
   }
   PinholePrincipalPointCasparToStacked(
-      nodes__PinholePrincipalPoint__storage_current_,
-      data,
-      PinholePrincipalPoint_num_max_,
-      offset,
-      num);
+      nodes__PinholePrincipalPoint__storage_current_, data,
+      PinholePrincipalPoint_num_max_, offset, num);
 }
 
 void GraphSolver::SetPointNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > Point_num_max_) {
     throw std::runtime_error(std::to_string(num) + " > Point_num_max_");
   }
   Point_num_ = num;
 }
 
-void GraphSolver::SetPointNodesFromStackedHost(const double* const data,
+void GraphSolver::SetPointNodesFromStackedHost(const double *const data,
                                                const size_t offset,
                                                const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > Point_num_) {
     throw std::runtime_error(std::to_string(offset + num) + " > Point_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
-  PointStackedToCaspar(marker__scratch_inout_,
-                       nodes__Point__storage_current_,
-                       Point_num_max_,
-                       offset,
-                       num);
+  PointStackedToCaspar(marker__scratch_inout_, nodes__Point__storage_current_,
+                       Point_num_max_, offset, num);
 }
 
-void GraphSolver::SetPointNodesFromStackedDevice(const double* const data,
+void GraphSolver::SetPointNodesFromStackedDevice(const double *const data,
                                                  const size_t offset,
                                                  const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > Point_num_) {
     throw std::runtime_error(std::to_string(offset + num) + " > Point_num_");
   }
-  PointStackedToCaspar(
-      data, nodes__Point__storage_current_, Point_num_max_, offset, num);
+  PointStackedToCaspar(data, nodes__Point__storage_current_, Point_num_max_,
+                       offset, num);
 }
 
-void GraphSolver::GetPointNodesToStackedHost(double* const data,
+void GraphSolver::GetPointNodesToStackedHost(double *const data,
                                              const size_t offset,
                                              const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > Point_num_) {
     throw std::runtime_error(std::to_string(offset + num) + " > Point_num_");
   }
-  PointCasparToStacked(nodes__Point__storage_current_,
-                       marker__scratch_inout_,
-                       Point_num_max_,
-                       offset,
-                       num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             3 * num * sizeof(double),
+  PointCasparToStacked(nodes__Point__storage_current_, marker__scratch_inout_,
+                       Point_num_max_, offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 3 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
-void GraphSolver::GetPointNodesToStackedDevice(double* const data,
+void GraphSolver::GetPointNodesToStackedDevice(double *const data,
                                                const size_t offset,
                                                const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > Point_num_) {
     throw std::runtime_error(std::to_string(offset + num) + " > Point_num_");
   }
-  PointCasparToStacked(
-      nodes__Point__storage_current_, data, Point_num_max_, offset, num);
+  PointCasparToStacked(nodes__Point__storage_current_, data, Point_num_max_,
+                       offset, num);
 }
 
 void GraphSolver::SetSimpleRadialCalibNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > SimpleRadialCalib_num_max_) {
     throw std::runtime_error(std::to_string(num) +
                              " > SimpleRadialCalib_num_max_");
@@ -6430,73 +5058,56 @@ void GraphSolver::SetSimpleRadialCalibNum(const size_t num) {
 }
 
 void GraphSolver::SetSimpleRadialCalibNodesFromStackedHost(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialCalib_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             4 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 4 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   SimpleRadialCalibStackedToCaspar(marker__scratch_inout_,
                                    nodes__SimpleRadialCalib__storage_current_,
-                                   SimpleRadialCalib_num_max_,
-                                   offset,
-                                   num);
+                                   SimpleRadialCalib_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialCalibNodesFromStackedDevice(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialCalib_num_");
   }
   SimpleRadialCalibStackedToCaspar(data,
                                    nodes__SimpleRadialCalib__storage_current_,
-                                   SimpleRadialCalib_num_max_,
-                                   offset,
-                                   num);
+                                   SimpleRadialCalib_num_max_, offset, num);
 }
 
-void GraphSolver::GetSimpleRadialCalibNodesToStackedHost(double* const data,
+void GraphSolver::GetSimpleRadialCalibNodesToStackedHost(double *const data,
                                                          const size_t offset,
                                                          const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > SimpleRadialCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialCalib_num_");
   }
   SimpleRadialCalibCasparToStacked(nodes__SimpleRadialCalib__storage_current_,
                                    marker__scratch_inout_,
-                                   SimpleRadialCalib_num_max_,
-                                   offset,
-                                   num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             4 * num * sizeof(double),
+                                   SimpleRadialCalib_num_max_, offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 4 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
-void GraphSolver::GetSimpleRadialCalibNodesToStackedDevice(double* const data,
+void GraphSolver::GetSimpleRadialCalibNodesToStackedDevice(double *const data,
                                                            const size_t offset,
                                                            const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > SimpleRadialCalib_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialCalib_num_");
   }
   SimpleRadialCalibCasparToStacked(nodes__SimpleRadialCalib__storage_current_,
-                                   data,
-                                   SimpleRadialCalib_num_max_,
-                                   offset,
+                                   data, SimpleRadialCalib_num_max_, offset,
                                    num);
 }
 
 void GraphSolver::SetSimpleRadialFocalAndDistortionNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > SimpleRadialFocalAndDistortion_num_max_) {
     throw std::runtime_error(std::to_string(num) +
                              " > SimpleRadialFocalAndDistortion_num_max_");
@@ -6505,75 +5116,56 @@ void GraphSolver::SetSimpleRadialFocalAndDistortionNum(const size_t num) {
 }
 
 void GraphSolver::SetSimpleRadialFocalAndDistortionNodesFromStackedHost(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialFocalAndDistortion_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialFocalAndDistortion_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   SimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
-      SimpleRadialFocalAndDistortion_num_max_,
-      offset,
-      num);
+      SimpleRadialFocalAndDistortion_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFocalAndDistortionNodesFromStackedDevice(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialFocalAndDistortion_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialFocalAndDistortion_num_");
   }
   SimpleRadialFocalAndDistortionStackedToCaspar(
-      data,
-      nodes__SimpleRadialFocalAndDistortion__storage_current_,
-      SimpleRadialFocalAndDistortion_num_max_,
-      offset,
-      num);
+      data, nodes__SimpleRadialFocalAndDistortion__storage_current_,
+      SimpleRadialFocalAndDistortion_num_max_, offset, num);
 }
 
 void GraphSolver::GetSimpleRadialFocalAndDistortionNodesToStackedHost(
-    double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialFocalAndDistortion_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialFocalAndDistortion_num_");
   }
   SimpleRadialFocalAndDistortionCasparToStacked(
       nodes__SimpleRadialFocalAndDistortion__storage_current_,
-      marker__scratch_inout_,
-      SimpleRadialFocalAndDistortion_num_max_,
-      offset,
+      marker__scratch_inout_, SimpleRadialFocalAndDistortion_num_max_, offset,
       num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             2 * num * sizeof(double),
+  cudaMemcpy(data, marker__scratch_inout_, 2 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
 void GraphSolver::GetSimpleRadialFocalAndDistortionNodesToStackedDevice(
-    double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialFocalAndDistortion_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialFocalAndDistortion_num_");
   }
   SimpleRadialFocalAndDistortionCasparToStacked(
-      nodes__SimpleRadialFocalAndDistortion__storage_current_,
-      data,
-      SimpleRadialFocalAndDistortion_num_max_,
-      offset,
-      num);
+      nodes__SimpleRadialFocalAndDistortion__storage_current_, data,
+      SimpleRadialFocalAndDistortion_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialPoseNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > SimpleRadialPose_num_max_) {
     throw std::runtime_error(std::to_string(num) +
                              " > SimpleRadialPose_num_max_");
@@ -6582,73 +5174,55 @@ void GraphSolver::SetSimpleRadialPoseNum(const size_t num) {
 }
 
 void GraphSolver::SetSimpleRadialPoseNodesFromStackedHost(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialPose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPose_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   SimpleRadialPoseStackedToCaspar(marker__scratch_inout_,
                                   nodes__SimpleRadialPose__storage_current_,
-                                  SimpleRadialPose_num_max_,
-                                  offset,
-                                  num);
+                                  SimpleRadialPose_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialPoseNodesFromStackedDevice(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialPose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPose_num_");
   }
   SimpleRadialPoseStackedToCaspar(data,
                                   nodes__SimpleRadialPose__storage_current_,
-                                  SimpleRadialPose_num_max_,
-                                  offset,
-                                  num);
+                                  SimpleRadialPose_num_max_, offset, num);
 }
 
-void GraphSolver::GetSimpleRadialPoseNodesToStackedHost(double* const data,
+void GraphSolver::GetSimpleRadialPoseNodesToStackedHost(double *const data,
                                                         const size_t offset,
                                                         const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > SimpleRadialPose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPose_num_");
   }
   SimpleRadialPoseCasparToStacked(nodes__SimpleRadialPose__storage_current_,
                                   marker__scratch_inout_,
-                                  SimpleRadialPose_num_max_,
-                                  offset,
-                                  num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             7 * num * sizeof(double),
+                                  SimpleRadialPose_num_max_, offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 7 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
-void GraphSolver::GetSimpleRadialPoseNodesToStackedDevice(double* const data,
+void GraphSolver::GetSimpleRadialPoseNodesToStackedDevice(double *const data,
                                                           const size_t offset,
                                                           const size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > SimpleRadialPose_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPose_num_");
   }
   SimpleRadialPoseCasparToStacked(nodes__SimpleRadialPose__storage_current_,
-                                  data,
-                                  SimpleRadialPose_num_max_,
-                                  offset,
-                                  num);
+                                  data, SimpleRadialPose_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialPrincipalPointNum(const size_t num) {
-  cudaSetDevice(device_id_);
   if (num > SimpleRadialPrincipalPoint_num_max_) {
     throw std::runtime_error(std::to_string(num) +
                              " > SimpleRadialPrincipalPoint_num_max_");
@@ -6657,71 +5231,52 @@ void GraphSolver::SetSimpleRadialPrincipalPointNum(const size_t num) {
 }
 
 void GraphSolver::SetSimpleRadialPrincipalPointNodesFromStackedHost(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialPrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPrincipalPoint_num_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   SimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       nodes__SimpleRadialPrincipalPoint__storage_current_,
-      SimpleRadialPrincipalPoint_num_max_,
-      offset,
-      num);
+      SimpleRadialPrincipalPoint_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialPrincipalPointNodesFromStackedDevice(
-    const double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialPrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPrincipalPoint_num_");
   }
   SimpleRadialPrincipalPointStackedToCaspar(
-      data,
-      nodes__SimpleRadialPrincipalPoint__storage_current_,
-      SimpleRadialPrincipalPoint_num_max_,
-      offset,
-      num);
+      data, nodes__SimpleRadialPrincipalPoint__storage_current_,
+      SimpleRadialPrincipalPoint_num_max_, offset, num);
 }
 
 void GraphSolver::GetSimpleRadialPrincipalPointNodesToStackedHost(
-    double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialPrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPrincipalPoint_num_");
   }
   SimpleRadialPrincipalPointCasparToStacked(
       nodes__SimpleRadialPrincipalPoint__storage_current_,
-      marker__scratch_inout_,
-      SimpleRadialPrincipalPoint_num_max_,
-      offset,
-      num);
-  cudaMemcpy(data,
-             marker__scratch_inout_,
-             2 * num * sizeof(double),
+      marker__scratch_inout_, SimpleRadialPrincipalPoint_num_max_, offset, num);
+  cudaMemcpy(data, marker__scratch_inout_, 2 * num * sizeof(double),
              cudaMemcpyDeviceToHost);
 }
 
 void GraphSolver::GetSimpleRadialPrincipalPointNodesToStackedDevice(
-    double* const data, const size_t offset, const size_t num) {
-  cudaSetDevice(device_id_);
+    double *const data, const size_t offset, const size_t num) {
   if (offset + num > SimpleRadialPrincipalPoint_num_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > SimpleRadialPrincipalPoint_num_");
   }
   SimpleRadialPrincipalPointCasparToStacked(
-      nodes__SimpleRadialPrincipalPoint__storage_current_,
-      data,
-      SimpleRadialPrincipalPoint_num_max_,
-      offset,
-      num);
+      nodes__SimpleRadialPrincipalPoint__storage_current_, data,
+      SimpleRadialPrincipalPoint_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialNum(const size_t num) {
@@ -6731,25 +5286,21 @@ void GraphSolver::SetSimpleRadialNum(const size_t num) {
   simple_radial_num_ = num;
 }
 void GraphSolver::SetSimpleRadialPoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_num_) {
     throw std::runtime_error(std::to_string(num) +
                              " != simple_radial_num_. Use Setsimple_radialNum "
                              "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
-  SetSimpleRadialPoseIndicesFromDevice((unsigned int*)marker__scratch_inout_,
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetSimpleRadialPoseIndicesFromDevice((unsigned int *)marker__scratch_inout_,
                                        num);
 }
 
 void GraphSolver::SetSimpleRadialPoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_num_) {
     throw std::runtime_error(std::to_string(num) +
@@ -6767,25 +5318,21 @@ void GraphSolver::SetSimpleRadialPoseIndicesFromDevice(
   SharedIndices(indices, facs__simple_radial__args__pose__idx_shared_, num);
 }
 void GraphSolver::SetSimpleRadialCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_num_) {
     throw std::runtime_error(std::to_string(num) +
                              " != simple_radial_num_. Use Setsimple_radialNum "
                              "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
-  SetSimpleRadialCalibIndicesFromDevice((unsigned int*)marker__scratch_inout_,
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetSimpleRadialCalibIndicesFromDevice((unsigned int *)marker__scratch_inout_,
                                         num);
 }
 
 void GraphSolver::SetSimpleRadialCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_num_) {
     throw std::runtime_error(std::to_string(num) +
@@ -6803,25 +5350,21 @@ void GraphSolver::SetSimpleRadialCalibIndicesFromDevice(
   SharedIndices(indices, facs__simple_radial__args__calib__idx_shared_, num);
 }
 void GraphSolver::SetSimpleRadialPointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_num_) {
     throw std::runtime_error(std::to_string(num) +
                              " != simple_radial_num_. Use Setsimple_radialNum "
                              "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
-  SetSimpleRadialPointIndicesFromDevice((unsigned int*)marker__scratch_inout_,
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetSimpleRadialPointIndicesFromDevice((unsigned int *)marker__scratch_inout_,
                                         num);
 }
 
 void GraphSolver::SetSimpleRadialPointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_num_) {
     throw std::runtime_error(std::to_string(num) +
@@ -6839,35 +5382,26 @@ void GraphSolver::SetSimpleRadialPointIndicesFromDevice(
   SharedIndices(indices, facs__simple_radial__args__point__idx_shared_, num);
 }
 void GraphSolver::SetSimpleRadialPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(marker__scratch_inout_,
                             facs__simple_radial__args__pixel__data_,
-                            simple_radial_num_max_,
-                            offset,
-                            num);
+                            simple_radial_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_num_max_");
   }
-  ConstPixelStackedToCaspar(data,
-                            facs__simple_radial__args__pixel__data_,
-                            simple_radial_num_max_,
-                            offset,
-                            num);
+  ConstPixelStackedToCaspar(data, facs__simple_radial__args__pixel__data_,
+                            simple_radial_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialFixedPoseNum(const size_t num) {
   if (num > simple_radial_fixed_pose_num_max_) {
@@ -6877,26 +5411,22 @@ void GraphSolver::SetSimpleRadialFixedPoseNum(const size_t num) {
   simple_radial_fixed_pose_num_ = num;
 }
 void GraphSolver::SetSimpleRadialFixedPoseCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_fixed_pose_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != simple_radial_fixed_pose_num_. Use Setsimple_radial_fixed_poseNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialFixedPoseCalibIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPoseCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_fixed_pose_num_) {
     throw std::runtime_error(
@@ -6912,30 +5442,26 @@ void GraphSolver::SetSimpleRadialFixedPoseCalibIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__simple_radial_fixed_pose__args__calib__idx_shared_, num);
+  SharedIndices(indices,
+                facs__simple_radial_fixed_pose__args__calib__idx_shared_, num);
 }
 void GraphSolver::SetSimpleRadialFixedPosePointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_fixed_pose_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != simple_radial_fixed_pose_num_. Use Setsimple_radial_fixed_poseNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialFixedPosePointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPosePointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_fixed_pose_num_) {
     throw std::runtime_error(
@@ -6951,72 +5477,54 @@ void GraphSolver::SetSimpleRadialFixedPosePointIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__simple_radial_fixed_pose__args__point__idx_shared_, num);
+  SharedIndices(indices,
+                facs__simple_radial_fixed_pose__args__point__idx_shared_, num);
 }
 void GraphSolver::SetSimpleRadialFixedPosePixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_pose_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(marker__scratch_inout_,
                             facs__simple_radial_fixed_pose__args__pixel__data_,
-                            simple_radial_fixed_pose_num_max_,
-                            offset,
-                            num);
+                            simple_radial_fixed_pose_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPosePixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_pose_num_max_");
   }
   ConstPixelStackedToCaspar(data,
                             facs__simple_radial_fixed_pose__args__pixel__data_,
-                            simple_radial_fixed_pose_num_max_,
-                            offset,
-                            num);
+                            simple_radial_fixed_pose_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialFixedPosePoseDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_pose_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPoseStackedToCaspar(
-      marker__scratch_inout_,
-      facs__simple_radial_fixed_pose__args__pose__data_,
-      simple_radial_fixed_pose_num_max_,
-      offset,
-      num);
+      marker__scratch_inout_, facs__simple_radial_fixed_pose__args__pose__data_,
+      simple_radial_fixed_pose_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPosePoseDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_pose_num_max_");
   }
   ConstSimpleRadialPoseStackedToCaspar(
-      data,
-      facs__simple_radial_fixed_pose__args__pose__data_,
-      simple_radial_fixed_pose_num_max_,
-      offset,
-      num);
+      data, facs__simple_radial_fixed_pose__args__pose__data_,
+      simple_radial_fixed_pose_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialFixedPointNum(const size_t num) {
   if (num > simple_radial_fixed_point_num_max_) {
@@ -7026,26 +5534,22 @@ void GraphSolver::SetSimpleRadialFixedPointNum(const size_t num) {
   simple_radial_fixed_point_num_ = num;
 }
 void GraphSolver::SetSimpleRadialFixedPointPoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != simple_radial_fixed_point_num_. Use "
         "Setsimple_radial_fixed_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPointPoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_fixed_point_num_) {
     throw std::runtime_error(
@@ -7061,30 +5565,26 @@ void GraphSolver::SetSimpleRadialFixedPointPoseIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__simple_radial_fixed_point__args__pose__idx_shared_, num);
+  SharedIndices(indices,
+                facs__simple_radial_fixed_point__args__pose__idx_shared_, num);
 }
 void GraphSolver::SetSimpleRadialFixedPointCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != simple_radial_fixed_point_num_. Use "
         "Setsimple_radial_fixed_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialFixedPointCalibIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPointCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_fixed_point_num_) {
     throw std::runtime_error(
@@ -7100,70 +5600,54 @@ void GraphSolver::SetSimpleRadialFixedPointCalibIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__simple_radial_fixed_point__args__calib__idx_shared_, num);
+  SharedIndices(indices,
+                facs__simple_radial_fixed_point__args__calib__idx_shared_, num);
 }
 void GraphSolver::SetSimpleRadialFixedPointPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(marker__scratch_inout_,
                             facs__simple_radial_fixed_point__args__pixel__data_,
-                            simple_radial_fixed_point_num_max_,
-                            offset,
-                            num);
+                            simple_radial_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPointPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_point_num_max_");
   }
   ConstPixelStackedToCaspar(data,
                             facs__simple_radial_fixed_point__args__pixel__data_,
-                            simple_radial_fixed_point_num_max_,
-                            offset,
-                            num);
+                            simple_radial_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialFixedPointPointDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(marker__scratch_inout_,
                             facs__simple_radial_fixed_point__args__point__data_,
-                            simple_radial_fixed_point_num_max_,
-                            offset,
-                            num);
+                            simple_radial_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPointPointDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > simple_radial_fixed_point_num_max_");
   }
   ConstPointStackedToCaspar(data,
                             facs__simple_radial_fixed_point__args__point__data_,
-                            simple_radial_fixed_point_num_max_,
-                            offset,
-                            num);
+                            simple_radial_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointNum(const size_t num) {
   if (num > simple_radial_fixed_pose_fixed_point_num_max_) {
@@ -7174,26 +5658,22 @@ void GraphSolver::SetSimpleRadialFixedPoseFixedPointNum(const size_t num) {
   simple_radial_fixed_pose_fixed_point_num_ = num;
 }
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_fixed_pose_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != simple_radial_fixed_pose_fixed_point_num_. Use "
         "Setsimple_radial_fixed_pose_fixed_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialFixedPoseFixedPointCalibIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_fixed_pose_fixed_point_num_) {
     throw std::runtime_error(
@@ -7215,109 +5695,82 @@ void GraphSolver::SetSimpleRadialFixedPoseFixedPointCalibIndicesFromDevice(
       num);
 }
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_fixed_pose_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_,
-      simple_radial_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      simple_radial_fixed_pose_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_fixed_pose_fixed_point_num_max_");
   }
   ConstPixelStackedToCaspar(
-      data,
-      facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_,
-      simple_radial_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__simple_radial_fixed_pose_fixed_point__args__pixel__data_,
+      simple_radial_fixed_pose_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointPoseDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_fixed_pose_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPoseStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_fixed_pose_fixed_point__args__pose__data_,
-      simple_radial_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      simple_radial_fixed_pose_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointPoseDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_fixed_pose_fixed_point_num_max_");
   }
   ConstSimpleRadialPoseStackedToCaspar(
-      data,
-      facs__simple_radial_fixed_pose_fixed_point__args__pose__data_,
-      simple_radial_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__simple_radial_fixed_pose_fixed_point__args__pose__data_,
+      simple_radial_fixed_pose_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointPointDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_fixed_pose_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_fixed_pose_fixed_point__args__point__data_,
-      simple_radial_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      simple_radial_fixed_pose_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetSimpleRadialFixedPoseFixedPointPointDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_fixed_pose_fixed_point_num_max_");
   }
   ConstPointStackedToCaspar(
-      data,
-      facs__simple_radial_fixed_pose_fixed_point__args__point__data_,
-      simple_radial_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__simple_radial_fixed_pose_fixed_point__args__point__data_,
+      simple_radial_fixed_pose_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeNum(const size_t num) {
   if (num > pinhole_num_max_) {
@@ -7326,24 +5779,20 @@ void GraphSolver::SetPinholeNum(const size_t num) {
   pinhole_num_ = num;
 }
 void GraphSolver::SetPinholePoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_num_. Use SetpinholeNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
-  SetPinholePoseIndicesFromDevice((unsigned int*)marker__scratch_inout_, num);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetPinholePoseIndicesFromDevice((unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholePoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_num_) {
     throw std::runtime_error(
@@ -7361,24 +5810,20 @@ void GraphSolver::SetPinholePoseIndicesFromDevice(
   SharedIndices(indices, facs__pinhole__args__pose__idx_shared_, num);
 }
 void GraphSolver::SetPinholeCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_num_. Use SetpinholeNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
-  SetPinholeCalibIndicesFromDevice((unsigned int*)marker__scratch_inout_, num);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetPinholeCalibIndicesFromDevice((unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_num_) {
     throw std::runtime_error(
@@ -7396,24 +5841,20 @@ void GraphSolver::SetPinholeCalibIndicesFromDevice(
   SharedIndices(indices, facs__pinhole__args__calib__idx_shared_, num);
 }
 void GraphSolver::SetPinholePointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_num_. Use SetpinholeNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
-  SetPinholePointIndicesFromDevice((unsigned int*)marker__scratch_inout_, num);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetPinholePointIndicesFromDevice((unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholePointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_num_) {
     throw std::runtime_error(
@@ -7430,35 +5871,29 @@ void GraphSolver::SetPinholePointIndicesFromDevice(
   }
   SharedIndices(indices, facs__pinhole__args__point__idx_shared_, num);
 }
-void GraphSolver::SetPinholePixelDataFromStackedHost(const double* const data,
+void GraphSolver::SetPinholePixelDataFromStackedHost(const double *const data,
                                                      size_t offset,
                                                      size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > pinhole_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(marker__scratch_inout_,
-                            facs__pinhole__args__pixel__data_,
-                            pinhole_num_max_,
-                            offset,
-                            num);
+                            facs__pinhole__args__pixel__data_, pinhole_num_max_,
+                            offset, num);
 }
 
-void GraphSolver::SetPinholePixelDataFromStackedDevice(const double* const data,
+void GraphSolver::SetPinholePixelDataFromStackedDevice(const double *const data,
                                                        size_t offset,
                                                        size_t num) {
-  cudaSetDevice(device_id_);
   if (offset + num > pinhole_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_num_max_");
   }
-  ConstPixelStackedToCaspar(
-      data, facs__pinhole__args__pixel__data_, pinhole_num_max_, offset, num);
+  ConstPixelStackedToCaspar(data, facs__pinhole__args__pixel__data_,
+                            pinhole_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeFixedPoseNum(const size_t num) {
   if (num > pinhole_fixed_pose_num_max_) {
@@ -7468,26 +5903,22 @@ void GraphSolver::SetPinholeFixedPoseNum(const size_t num) {
   pinhole_fixed_pose_num_ = num;
 }
 void GraphSolver::SetPinholeFixedPoseCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_fixed_pose_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_fixed_pose_num_. Use Setpinhole_fixed_poseNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeFixedPoseCalibIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeFixedPoseCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_fixed_pose_num_) {
     throw std::runtime_error(
@@ -7503,30 +5934,26 @@ void GraphSolver::SetPinholeFixedPoseCalibIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__pinhole_fixed_pose__args__calib__idx_shared_, num);
+  SharedIndices(indices, facs__pinhole_fixed_pose__args__calib__idx_shared_,
+                num);
 }
 void GraphSolver::SetPinholeFixedPosePointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_fixed_pose_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_fixed_pose_num_. Use Setpinhole_fixed_poseNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeFixedPosePointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeFixedPosePointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_fixed_pose_num_) {
     throw std::runtime_error(
@@ -7542,70 +5969,53 @@ void GraphSolver::SetPinholeFixedPosePointIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__pinhole_fixed_pose__args__point__idx_shared_, num);
+  SharedIndices(indices, facs__pinhole_fixed_pose__args__point__idx_shared_,
+                num);
 }
 void GraphSolver::SetPinholeFixedPosePixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(marker__scratch_inout_,
                             facs__pinhole_fixed_pose__args__pixel__data_,
-                            pinhole_fixed_pose_num_max_,
-                            offset,
-                            num);
+                            pinhole_fixed_pose_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFixedPosePixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_num_max_");
   }
-  ConstPixelStackedToCaspar(data,
-                            facs__pinhole_fixed_pose__args__pixel__data_,
-                            pinhole_fixed_pose_num_max_,
-                            offset,
-                            num);
+  ConstPixelStackedToCaspar(data, facs__pinhole_fixed_pose__args__pixel__data_,
+                            pinhole_fixed_pose_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeFixedPosePoseDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePoseStackedToCaspar(marker__scratch_inout_,
                                   facs__pinhole_fixed_pose__args__pose__data_,
-                                  pinhole_fixed_pose_num_max_,
-                                  offset,
-                                  num);
+                                  pinhole_fixed_pose_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFixedPosePoseDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_num_max_");
   }
   ConstPinholePoseStackedToCaspar(data,
                                   facs__pinhole_fixed_pose__args__pose__data_,
-                                  pinhole_fixed_pose_num_max_,
-                                  offset,
-                                  num);
+                                  pinhole_fixed_pose_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeFixedPointNum(const size_t num) {
   if (num > pinhole_fixed_point_num_max_) {
@@ -7615,26 +6025,22 @@ void GraphSolver::SetPinholeFixedPointNum(const size_t num) {
   pinhole_fixed_point_num_ = num;
 }
 void GraphSolver::SetPinholeFixedPointPoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_fixed_point_num_. Use Setpinhole_fixed_pointNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeFixedPointPoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_fixed_point_num_) {
     throw std::runtime_error(
@@ -7650,30 +6056,26 @@ void GraphSolver::SetPinholeFixedPointPoseIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__pinhole_fixed_point__args__pose__idx_shared_, num);
+  SharedIndices(indices, facs__pinhole_fixed_point__args__pose__idx_shared_,
+                num);
 }
 void GraphSolver::SetPinholeFixedPointCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_fixed_point_num_. Use Setpinhole_fixed_pointNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeFixedPointCalibIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeFixedPointCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_fixed_point_num_) {
     throw std::runtime_error(
@@ -7689,70 +6091,52 @@ void GraphSolver::SetPinholeFixedPointCalibIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__pinhole_fixed_point__args__calib__idx_shared_, num);
+  SharedIndices(indices, facs__pinhole_fixed_point__args__calib__idx_shared_,
+                num);
 }
 void GraphSolver::SetPinholeFixedPointPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(marker__scratch_inout_,
                             facs__pinhole_fixed_point__args__pixel__data_,
-                            pinhole_fixed_point_num_max_,
-                            offset,
-                            num);
+                            pinhole_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFixedPointPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_point_num_max_");
   }
-  ConstPixelStackedToCaspar(data,
-                            facs__pinhole_fixed_point__args__pixel__data_,
-                            pinhole_fixed_point_num_max_,
-                            offset,
-                            num);
+  ConstPixelStackedToCaspar(data, facs__pinhole_fixed_point__args__pixel__data_,
+                            pinhole_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeFixedPointPointDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(marker__scratch_inout_,
                             facs__pinhole_fixed_point__args__point__data_,
-                            pinhole_fixed_point_num_max_,
-                            offset,
-                            num);
+                            pinhole_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFixedPointPointDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_point_num_max_");
   }
-  ConstPointStackedToCaspar(data,
-                            facs__pinhole_fixed_point__args__point__data_,
-                            pinhole_fixed_point_num_max_,
-                            offset,
-                            num);
+  ConstPointStackedToCaspar(data, facs__pinhole_fixed_point__args__point__data_,
+                            pinhole_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeFixedPoseFixedPointNum(const size_t num) {
   if (num > pinhole_fixed_pose_fixed_point_num_max_) {
@@ -7762,26 +6146,22 @@ void GraphSolver::SetPinholeFixedPoseFixedPointNum(const size_t num) {
   pinhole_fixed_pose_fixed_point_num_ = num;
 }
 void GraphSolver::SetPinholeFixedPoseFixedPointCalibIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_fixed_pose_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_fixed_pose_fixed_point_num_. Use "
         "Setpinhole_fixed_pose_fixed_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeFixedPoseFixedPointCalibIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeFixedPoseFixedPointCalibIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_fixed_pose_fixed_point_num_) {
     throw std::runtime_error(
@@ -7802,103 +6182,76 @@ void GraphSolver::SetPinholeFixedPoseFixedPointCalibIndicesFromDevice(
                 num);
 }
 void GraphSolver::SetPinholeFixedPoseFixedPointPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_fixed_pose_fixed_point__args__pixel__data_,
-      pinhole_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_fixed_pose_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFixedPoseFixedPointPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_fixed_point_num_max_");
   }
   ConstPixelStackedToCaspar(
-      data,
-      facs__pinhole_fixed_pose_fixed_point__args__pixel__data_,
-      pinhole_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_fixed_pose_fixed_point__args__pixel__data_,
+      pinhole_fixed_pose_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeFixedPoseFixedPointPoseDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePoseStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_fixed_pose_fixed_point__args__pose__data_,
-      pinhole_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_fixed_pose_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFixedPoseFixedPointPoseDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_fixed_point_num_max_");
   }
   ConstPinholePoseStackedToCaspar(
-      data,
-      facs__pinhole_fixed_pose_fixed_point__args__pose__data_,
-      pinhole_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_fixed_pose_fixed_point__args__pose__data_,
+      pinhole_fixed_pose_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeFixedPoseFixedPointPointDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_fixed_pose_fixed_point__args__point__data_,
-      pinhole_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_fixed_pose_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeFixedPoseFixedPointPointDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_fixed_pose_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_fixed_pose_fixed_point_num_max_");
   }
   ConstPointStackedToCaspar(
-      data,
-      facs__pinhole_fixed_pose_fixed_point__args__point__data_,
-      pinhole_fixed_pose_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_fixed_pose_fixed_point__args__point__data_,
+      pinhole_fixed_pose_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedFocalAndDistortionNum(
     const size_t num) {
@@ -7911,8 +6264,7 @@ void GraphSolver::SetSimpleRadialSplitFixedFocalAndDistortionNum(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -7920,19 +6272,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_focal_and_distortionNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
@@ -7956,8 +6305,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -7965,19 +6313,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_focal_and_distortionNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
@@ -8001,8 +6346,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8010,19 +6354,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_focal_and_distortionNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
@@ -8046,29 +6387,23 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_focal_and_distortion_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pixel__data_,
-      simple_radial_split_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      simple_radial_split_fixed_focal_and_distortion_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -8077,35 +6412,27 @@ void GraphSolver::
   ConstPixelStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_focal_and_distortion__args__pixel__data_,
-      simple_radial_split_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      simple_radial_split_fixed_focal_and_distortion_num_max_, offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFocalAndDistortionDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_focal_and_distortion_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion__args__focal_and_distortion__data_,
-      simple_radial_split_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      simple_radial_split_fixed_focal_and_distortion_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFocalAndDistortionDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -8114,9 +6441,7 @@ void GraphSolver::
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_focal_and_distortion__args__focal_and_distortion__data_,
-      simple_radial_split_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      simple_radial_split_fixed_focal_and_distortion_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointNum(const size_t num) {
   if (num > simple_radial_split_fixed_principal_point_num_max_) {
@@ -8127,8 +6452,7 @@ void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointNum(const size_t num) {
   simple_radial_split_fixed_principal_point_num_ = num;
 }
 void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8136,18 +6460,15 @@ void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromHost(
         "Setsimple_radial_split_fixed_principal_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -8171,8 +6492,7 @@ void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPoseIndicesFromDevice(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8180,19 +6500,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_principal_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -8215,8 +6532,7 @@ void GraphSolver::
       num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8224,18 +6540,15 @@ void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromHost(
         "Setsimple_radial_split_fixed_principal_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -8259,66 +6572,51 @@ void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointPointIndicesFromDevice(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_principal_point__args__pixel__data_,
-      simple_radial_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      simple_radial_split_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_principal_point_num_max_");
   }
   ConstPixelStackedToCaspar(
-      data,
-      facs__simple_radial_split_fixed_principal_point__args__pixel__data_,
-      simple_radial_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      data, facs__simple_radial_split_fixed_principal_point__args__pixel__data_,
+      simple_radial_split_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_principal_point__args__principal_point__data_,
-      simple_radial_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      simple_radial_split_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > simple_radial_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -8327,9 +6625,7 @@ void GraphSolver::
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_principal_point__args__principal_point__data_,
-      simple_radial_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      simple_radial_split_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionNum(
     const size_t num) {
@@ -8344,8 +6640,7 @@ void GraphSolver::SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionNum(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8353,19 +6648,16 @@ void GraphSolver::
         "Use Setsimple_radial_split_fixed_pose_fixed_focal_and_distortionNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
@@ -8389,8 +6681,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8398,19 +6689,16 @@ void GraphSolver::
         "Use Setsimple_radial_split_fixed_pose_fixed_focal_and_distortionNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_) {
     throw std::runtime_error(
@@ -8434,8 +6722,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
@@ -8443,22 +6730,18 @@ void GraphSolver::
         " > "
         "simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
@@ -8470,13 +6753,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
@@ -8484,22 +6765,18 @@ void GraphSolver::
         " > "
         "simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPoseStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
@@ -8511,13 +6788,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFocalAndDistortionDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
@@ -8525,22 +6800,18 @@ void GraphSolver::
         " > "
         "simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__focal_and_distortion__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFocalAndDistortionDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_) {
     throw std::runtime_error(
@@ -8552,8 +6823,7 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__focal_and_distortion__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedPoseFixedPrincipalPointNum(
     const size_t num) {
@@ -8566,8 +6836,7 @@ void GraphSolver::SetSimpleRadialSplitFixedPoseFixedPrincipalPointNum(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8575,19 +6844,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_pose_fixed_principal_pointNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -8611,8 +6877,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -8620,19 +6885,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_pose_fixed_principal_pointNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -8656,30 +6918,25 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_pose_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pixel__data_,
-      simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
+      simple_radial_split_fixed_pose_fixed_principal_point_num_max_, offset,
       num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -8689,36 +6946,30 @@ void GraphSolver::
   ConstPixelStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pixel__data_,
-      simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
+      simple_radial_split_fixed_pose_fixed_principal_point_num_max_, offset,
       num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_pose_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPoseStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pose__data_,
-      simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
+      simple_radial_split_fixed_pose_fixed_principal_point_num_max_, offset,
       num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -8728,36 +6979,30 @@ void GraphSolver::
   ConstSimpleRadialPoseStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__pose__data_,
-      simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
+      simple_radial_split_fixed_pose_fixed_principal_point_num_max_, offset,
       num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_pose_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
-      simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
+      simple_radial_split_fixed_pose_fixed_principal_point_num_max_, offset,
       num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -8767,8 +7012,7 @@ void GraphSolver::
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
-      simple_radial_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
+      simple_radial_split_fixed_pose_fixed_principal_point_num_max_, offset,
       num);
 }
 void GraphSolver::
@@ -8786,8 +7030,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num !=
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -8798,19 +7041,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_focal_and_distortion_fixed_principal_"
         "pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num !=
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_) {
@@ -8837,8 +7077,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num !=
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -8849,19 +7088,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_focal_and_distortion_fixed_principal_"
         "pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num !=
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_) {
@@ -8888,8 +7124,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -8897,22 +7132,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_focal_and_distortion_"
                              "fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -8924,13 +7155,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -8938,22 +7167,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_focal_and_distortion_"
                              "fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -8965,13 +7190,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -8979,22 +7202,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_focal_and_distortion_"
                              "fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9006,8 +7225,7 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedFocalAndDistortionFixedPointNum(
     const size_t num) {
@@ -9022,8 +7240,7 @@ void GraphSolver::SetSimpleRadialSplitFixedFocalAndDistortionFixedPointNum(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_focal_and_distortion_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -9031,19 +7248,16 @@ void GraphSolver::
         "Use Setsimple_radial_split_fixed_focal_and_distortion_fixed_pointNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_focal_and_distortion_fixed_point_num_) {
     throw std::runtime_error(
@@ -9067,8 +7281,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_focal_and_distortion_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -9076,19 +7289,16 @@ void GraphSolver::
         "Use Setsimple_radial_split_fixed_focal_and_distortion_fixed_pointNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_focal_and_distortion_fixed_point_num_) {
     throw std::runtime_error(
@@ -9112,8 +7322,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9121,22 +7330,18 @@ void GraphSolver::
         " > "
         "simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9148,13 +7353,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9162,22 +7365,18 @@ void GraphSolver::
         " > "
         "simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9189,13 +7388,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9203,22 +7400,18 @@ void GraphSolver::
         " > "
         "simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9230,8 +7423,7 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointFixedPointNum(
     const size_t num) {
@@ -9244,8 +7436,7 @@ void GraphSolver::SetSimpleRadialSplitFixedPrincipalPointFixedPointNum(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -9253,19 +7444,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_principal_point_fixed_pointNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -9289,8 +7477,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != simple_radial_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -9298,19 +7485,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_principal_point_fixed_pointNum before "
         "setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != simple_radial_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -9334,30 +7518,25 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pixel__data_,
-      simple_radial_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
+      simple_radial_split_fixed_principal_point_fixed_point_num_max_, offset,
       num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9367,36 +7546,30 @@ void GraphSolver::
   ConstPixelStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pixel__data_,
-      simple_radial_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
+      simple_radial_split_fixed_principal_point_fixed_point_num_max_, offset,
       num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__principal_point__data_,
-      simple_radial_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
+      simple_radial_split_fixed_principal_point_fixed_point_num_max_, offset,
       num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9406,36 +7579,30 @@ void GraphSolver::
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__principal_point__data_,
-      simple_radial_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
+      simple_radial_split_fixed_principal_point_fixed_point_num_max_, offset,
       num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > simple_radial_split_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__point__data_,
-      simple_radial_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
+      simple_radial_split_fixed_principal_point_fixed_point_num_max_, offset,
       num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -9445,8 +7612,7 @@ void GraphSolver::
   ConstPointStackedToCaspar(
       data,
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__point__data_,
-      simple_radial_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
+      simple_radial_split_fixed_principal_point_fixed_point_num_max_, offset,
       num);
 }
 void GraphSolver::
@@ -9464,8 +7630,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num !=
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -9476,19 +7641,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_"
         "principal_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num !=
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_) {
@@ -9515,8 +7677,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9524,22 +7685,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9551,13 +7708,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9565,22 +7720,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPoseStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9592,13 +7743,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9606,22 +7755,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9633,13 +7778,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9647,22 +7790,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9674,8 +7813,7 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointNum(
@@ -9692,8 +7830,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num !=
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_) {
     throw std::runtime_error(
@@ -9704,19 +7841,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_"
         "pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num !=
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_) {
@@ -9743,8 +7877,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9752,22 +7885,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9779,13 +7908,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9793,22 +7920,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPoseStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9820,13 +7943,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9834,22 +7955,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9861,13 +7978,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9875,22 +7990,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_focal_and_"
                              "distortion_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__point__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9902,8 +8013,7 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__point__data_,
       simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointNum(
     const size_t num) {
@@ -9918,8 +8028,7 @@ void GraphSolver::SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointNum(
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num !=
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -9930,19 +8039,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_pose_fixed_principal_point_fixed_"
         "pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num !=
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_) {
@@ -9969,8 +8075,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -9978,22 +8083,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_principal_"
                              "point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10005,13 +8106,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10019,22 +8118,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_principal_"
                              "point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPoseStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10046,13 +8141,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10060,22 +8153,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_principal_"
                              "point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10087,13 +8176,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10101,22 +8188,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_pose_fixed_principal_"
                              "point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10128,8 +8211,7 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointNum(
@@ -10146,8 +8228,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num !=
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -10158,19 +8239,16 @@ void GraphSolver::
         "Setsimple_radial_split_fixed_focal_and_distortion_fixed_principal_"
         "point_fixed_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num !=
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_) {
@@ -10197,8 +8275,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10206,22 +8283,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_focal_and_distortion_"
                              "fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10233,13 +8306,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointFocalAndDistortionDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10247,22 +8318,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_focal_and_distortion_"
                              "fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialFocalAndDistortionStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointFocalAndDistortionDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10274,13 +8341,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__focal_and_distortion__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10288,22 +8353,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_focal_and_distortion_"
                              "fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstSimpleRadialPrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__principal_point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10315,13 +8376,11 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__principal_point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10329,22 +8388,18 @@ void GraphSolver::
                              "simple_radial_split_fixed_focal_and_distortion_"
                              "fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
@@ -10356,8 +8411,7 @@ void GraphSolver::
       data,
       facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__point__data_,
       simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalNum(const size_t num) {
   if (num > pinhole_split_fixed_focal_num_max_) {
@@ -10367,26 +8421,22 @@ void GraphSolver::SetPinholeSplitFixedFocalNum(const size_t num) {
   pinhole_split_fixed_focal_num_ = num;
 }
 void GraphSolver::SetPinholeSplitFixedFocalPoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_focal_num_. Use "
         "Setpinhole_split_fixed_focalNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalPoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_num_) {
     throw std::runtime_error(
@@ -10402,30 +8452,26 @@ void GraphSolver::SetPinholeSplitFixedFocalPoseIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__pinhole_split_fixed_focal__args__pose__idx_shared_, num);
+  SharedIndices(indices,
+                facs__pinhole_split_fixed_focal__args__pose__idx_shared_, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalPrincipalPointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_focal_num_. Use "
         "Setpinhole_split_fixed_focalNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalPrincipalPointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_num_) {
     throw std::runtime_error(
@@ -10443,30 +8489,25 @@ void GraphSolver::SetPinholeSplitFixedFocalPrincipalPointIndicesFromDevice(
   }
   SharedIndices(
       indices,
-      facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_,
-      num);
+      facs__pinhole_split_fixed_focal__args__principal_point__idx_shared_, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalPointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_focal_num_. Use "
         "Setpinhole_split_fixed_focalNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalPointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_num_) {
     throw std::runtime_error(
@@ -10482,72 +8523,55 @@ void GraphSolver::SetPinholeSplitFixedFocalPointIndicesFromDevice(
         ", num: " + std::to_string(num) +
         ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
   }
-  SharedIndices(
-      indices, facs__pinhole_split_fixed_focal__args__point__idx_shared_, num);
+  SharedIndices(indices,
+                facs__pinhole_split_fixed_focal__args__point__idx_shared_, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_focal_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(marker__scratch_inout_,
                             facs__pinhole_split_fixed_focal__args__pixel__data_,
-                            pinhole_split_fixed_focal_num_max_,
-                            offset,
-                            num);
+                            pinhole_split_fixed_focal_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_focal_num_max_");
   }
   ConstPixelStackedToCaspar(data,
                             facs__pinhole_split_fixed_focal__args__pixel__data_,
-                            pinhole_split_fixed_focal_num_max_,
-                            offset,
-                            num);
+                            pinhole_split_fixed_focal_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalFocalDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_focal_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholeFocalStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal__args__focal__data_,
-      pinhole_split_fixed_focal_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalFocalDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_focal_num_max_");
   }
   ConstPinholeFocalStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_focal__args__focal__data_,
-      pinhole_split_fixed_focal_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_focal__args__focal__data_,
+      pinhole_split_fixed_focal_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPrincipalPointNum(const size_t num) {
   if (num > pinhole_split_fixed_principal_point_num_max_) {
@@ -10557,26 +8581,22 @@ void GraphSolver::SetPinholeSplitFixedPrincipalPointNum(const size_t num) {
   pinhole_split_fixed_principal_point_num_ = num;
 }
 void GraphSolver::SetPinholeSplitFixedPrincipalPointPoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_principal_point_num_. Use "
         "Setpinhole_split_fixed_principal_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPrincipalPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPrincipalPointPoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -10594,30 +8614,25 @@ void GraphSolver::SetPinholeSplitFixedPrincipalPointPoseIndicesFromDevice(
   }
   SharedIndices(
       indices,
-      facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_,
-      num);
+      facs__pinhole_split_fixed_principal_point__args__pose__idx_shared_, num);
 }
 void GraphSolver::SetPinholeSplitFixedPrincipalPointFocalIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_principal_point_num_. Use "
         "Setpinhole_split_fixed_principal_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPrincipalPointFocalIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPrincipalPointFocalIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -10635,30 +8650,25 @@ void GraphSolver::SetPinholeSplitFixedPrincipalPointFocalIndicesFromDevice(
   }
   SharedIndices(
       indices,
-      facs__pinhole_split_fixed_principal_point__args__focal__idx_shared_,
-      num);
+      facs__pinhole_split_fixed_principal_point__args__focal__idx_shared_, num);
 }
 void GraphSolver::SetPinholeSplitFixedPrincipalPointPointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_principal_point_num_. Use "
         "Setpinhole_split_fixed_principal_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPrincipalPointPointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -10676,66 +8686,50 @@ void GraphSolver::SetPinholeSplitFixedPrincipalPointPointIndicesFromDevice(
   }
   SharedIndices(
       indices,
-      facs__pinhole_split_fixed_principal_point__args__point__idx_shared_,
-      num);
+      facs__pinhole_split_fixed_principal_point__args__point__idx_shared_, num);
 }
 void GraphSolver::SetPinholeSplitFixedPrincipalPointPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_principal_point__args__pixel__data_,
-      pinhole_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPrincipalPointPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_principal_point_num_max_");
   }
   ConstPixelStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_principal_point__args__pixel__data_,
-      pinhole_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_principal_point__args__pixel__data_,
+      pinhole_split_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_num_max_) {
     throw std::runtime_error(std::to_string(offset + num) +
                              " > pinhole_split_fixed_principal_point_num_max_");
@@ -10743,9 +8737,7 @@ void GraphSolver::
   ConstPinholePrincipalPointStackedToCaspar(
       data,
       facs__pinhole_split_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalNum(const size_t num) {
   if (num > pinhole_split_fixed_pose_fixed_focal_num_max_) {
@@ -10757,27 +8749,23 @@ void GraphSolver::SetPinholeSplitFixedPoseFixedFocalNum(const size_t num) {
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalPrincipalPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_pose_fixed_focal_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_pose_fixed_focal_num_. Use "
         "Setpinhole_split_fixed_pose_fixed_focalNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPoseFixedFocalPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalPrincipalPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_pose_fixed_focal_num_) {
     throw std::runtime_error(
@@ -10799,26 +8787,22 @@ void GraphSolver::
       num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalPointIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_pose_fixed_focal_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_pose_fixed_focal_num_. Use "
         "Setpinhole_split_fixed_pose_fixed_focalNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPoseFixedFocalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalPointIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_pose_fixed_focal_num_) {
     throw std::runtime_error(
@@ -10840,109 +8824,82 @@ void GraphSolver::SetPinholeSplitFixedPoseFixedFocalPointIndicesFromDevice(
       num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_focal_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_,
-      pinhole_split_fixed_pose_fixed_focal_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_focal_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_num_max_");
   }
   ConstPixelStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_,
-      pinhole_split_fixed_pose_fixed_focal_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_pose_fixed_focal__args__pixel__data_,
+      pinhole_split_fixed_pose_fixed_focal_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalPoseDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_focal_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePoseStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__pose__data_,
-      pinhole_split_fixed_pose_fixed_focal_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalPoseDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_focal_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_num_max_");
   }
   ConstPinholePoseStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_pose_fixed_focal__args__pose__data_,
-      pinhole_split_fixed_pose_fixed_focal_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_pose_fixed_focal__args__pose__data_,
+      pinhole_split_fixed_pose_fixed_focal_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalFocalDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_focal_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholeFocalStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal__args__focal__data_,
-      pinhole_split_fixed_pose_fixed_focal_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalFocalDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_focal_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_num_max_");
   }
   ConstPinholeFocalStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_pose_fixed_focal__args__focal__data_,
-      pinhole_split_fixed_pose_fixed_focal_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_pose_fixed_focal__args__focal__data_,
+      pinhole_split_fixed_pose_fixed_focal_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedPrincipalPointNum(
     const size_t num) {
@@ -10955,8 +8912,7 @@ void GraphSolver::SetPinholeSplitFixedPoseFixedPrincipalPointNum(
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFocalIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -10964,19 +8920,16 @@ void GraphSolver::
         "Setpinhole_split_fixed_pose_fixed_principal_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPoseFixedPrincipalPointFocalIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFocalIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -11000,8 +8953,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -11009,19 +8961,16 @@ void GraphSolver::
         "Setpinhole_split_fixed_pose_fixed_principal_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_pose_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -11045,29 +8994,23 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pixel__data_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11076,35 +9019,27 @@ void GraphSolver::
   ConstPixelStackedToCaspar(
       data,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pixel__data_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePoseStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pose__data_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11113,35 +9048,27 @@ void GraphSolver::
   ConstPinholePoseStackedToCaspar(
       data,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__pose__data_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_pose_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11150,9 +9077,7 @@ void GraphSolver::
   ConstPinholePrincipalPointStackedToCaspar(
       data,
       facs__pinhole_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_pose_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalFixedPrincipalPointNum(
     const size_t num) {
@@ -11165,8 +9090,7 @@ void GraphSolver::SetPinholeSplitFixedFocalFixedPrincipalPointNum(
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -11174,19 +9098,16 @@ void GraphSolver::
         "Setpinhole_split_fixed_focal_fixed_principal_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalFixedPrincipalPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -11210,8 +9131,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -11219,19 +9139,16 @@ void GraphSolver::
         "Setpinhole_split_fixed_focal_fixed_principal_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -11255,29 +9172,23 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pixel__data_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11286,35 +9197,27 @@ void GraphSolver::
   ConstPixelStackedToCaspar(
       data,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__pixel__data_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFocalDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholeFocalStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__focal__data_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFocalDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11323,35 +9226,27 @@ void GraphSolver::
   ConstPinholeFocalStackedToCaspar(
       data,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__focal__data_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_principal_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11360,9 +9255,7 @@ void GraphSolver::
   ConstPinholePrincipalPointStackedToCaspar(
       data,
       facs__pinhole_split_fixed_focal_fixed_principal_point__args__principal_point__data_,
-      pinhole_split_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_principal_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointNum(const size_t num) {
   if (num > pinhole_split_fixed_focal_fixed_point_num_max_) {
@@ -11373,26 +9266,22 @@ void GraphSolver::SetPinholeSplitFixedFocalFixedPointNum(const size_t num) {
   pinhole_split_fixed_focal_fixed_point_num_ = num;
 }
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointPoseIndicesFromHost(
-    const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+    const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_focal_fixed_point_num_. Use "
         "Setpinhole_split_fixed_focal_fixed_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointPoseIndicesFromDevice(
-    const unsigned int* const indices, size_t num) {
+    const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_fixed_point_num_) {
     throw std::runtime_error(
@@ -11415,27 +9304,23 @@ void GraphSolver::SetPinholeSplitFixedFocalFixedPointPoseIndicesFromDevice(
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPointPrincipalPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
         " != pinhole_split_fixed_focal_fixed_point_num_. Use "
         "Setpinhole_split_fixed_focal_fixed_pointNum before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalFixedPointPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPointPrincipalPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_fixed_point_num_) {
     throw std::runtime_error(
@@ -11457,109 +9342,82 @@ void GraphSolver::
       num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointPixelDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_point__args__pixel__data_,
-      pinhole_split_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointPixelDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_point_num_max_");
   }
   ConstPixelStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_focal_fixed_point__args__pixel__data_,
-      pinhole_split_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_focal_fixed_point__args__pixel__data_,
+      pinhole_split_fixed_focal_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointFocalDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholeFocalStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_point__args__focal__data_,
-      pinhole_split_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointFocalDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_point_num_max_");
   }
   ConstPinholeFocalStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_focal_fixed_point__args__focal__data_,
-      pinhole_split_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_focal_fixed_point__args__focal__data_,
+      pinhole_split_fixed_focal_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointPointDataFromStackedHost(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_point__args__point__data_,
-      pinhole_split_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_focal_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::SetPinholeSplitFixedFocalFixedPointPointDataFromStackedDevice(
-    const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+    const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_focal_fixed_point_num_max_");
   }
   ConstPointStackedToCaspar(
-      data,
-      facs__pinhole_split_fixed_focal_fixed_point__args__point__data_,
-      pinhole_split_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      data, facs__pinhole_split_fixed_focal_fixed_point__args__point__data_,
+      pinhole_split_fixed_focal_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPrincipalPointFixedPointNum(
     const size_t num) {
@@ -11572,8 +9430,7 @@ void GraphSolver::SetPinholeSplitFixedPrincipalPointFixedPointNum(
 }
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -11581,19 +9438,16 @@ void GraphSolver::
         "Setpinhole_split_fixed_principal_point_fixed_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -11617,8 +9471,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointFocalIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -11626,19 +9479,16 @@ void GraphSolver::
         "Setpinhole_split_fixed_principal_point_fixed_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPrincipalPointFixedPointFocalIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointFocalIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -11662,29 +9512,23 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pixel__data_,
-      pinhole_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11693,35 +9537,27 @@ void GraphSolver::
   ConstPixelStackedToCaspar(
       data,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__pixel__data_,
-      pinhole_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__principal_point__data_,
-      pinhole_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11730,35 +9566,27 @@ void GraphSolver::
   ConstPinholePrincipalPointStackedToCaspar(
       data,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__principal_point__data_,
-      pinhole_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__point__data_,
-      pinhole_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num > pinhole_split_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
@@ -11767,9 +9595,7 @@ void GraphSolver::
   ConstPointStackedToCaspar(
       data,
       facs__pinhole_split_fixed_principal_point_fixed_point__args__point__data_,
-      pinhole_split_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_principal_point_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointNum(
     const size_t num) {
@@ -11784,8 +9610,7 @@ void GraphSolver::SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointNum(
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -11793,19 +9618,16 @@ void GraphSolver::
         "Use Setpinhole_split_fixed_pose_fixed_focal_fixed_principal_pointNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_) {
     throw std::runtime_error(
@@ -11829,8 +9651,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11838,22 +9659,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11865,13 +9682,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11879,22 +9694,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePoseStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pose__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11906,13 +9717,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__pose__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointFocalDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11920,22 +9729,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholeFocalStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__focal__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointFocalDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11947,13 +9752,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__focal__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11961,22 +9764,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__principal_point__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_) {
     throw std::runtime_error(
@@ -11988,8 +9787,7 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_principal_point__args__principal_point__data_,
       pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedFocalFixedPointNum(
     const size_t num) {
@@ -12002,8 +9800,7 @@ void GraphSolver::SetPinholeSplitFixedPoseFixedFocalFixedPointNum(
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPrincipalPointIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_pose_fixed_focal_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -12011,19 +9808,16 @@ void GraphSolver::
         "Setpinhole_split_fixed_pose_fixed_focal_fixed_pointNum before setting "
         "indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPoseFixedFocalFixedPointPrincipalPointIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPrincipalPointIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_pose_fixed_focal_fixed_point_num_) {
     throw std::runtime_error(
@@ -12047,30 +9841,24 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__pixel__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12080,36 +9868,28 @@ void GraphSolver::
   ConstPixelStackedToCaspar(
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__pixel__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePoseStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__pose__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12119,36 +9899,28 @@ void GraphSolver::
   ConstPinholePoseStackedToCaspar(
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__pose__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointFocalDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholeFocalStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__focal__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointFocalDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12158,36 +9930,28 @@ void GraphSolver::
   ConstPinholeFocalStackedToCaspar(
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__focal__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
         std::to_string(offset + num) +
         " > pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__point__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedFocalFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12197,9 +9961,7 @@ void GraphSolver::
   ConstPointStackedToCaspar(
       data,
       facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__args__point__data_,
-      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_,
-      offset,
-      num);
+      pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max_, offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointNum(
     const size_t num) {
@@ -12214,8 +9976,7 @@ void GraphSolver::SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointNum(
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointFocalIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -12223,19 +9984,16 @@ void GraphSolver::
         "Use Setpinhole_split_fixed_pose_fixed_principal_point_fixed_pointNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointFocalIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointFocalIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -12259,8 +10017,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12268,22 +10025,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12295,13 +10048,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12309,22 +10060,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             7 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 7 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePoseStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12336,13 +10083,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12350,22 +10095,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12377,13 +10118,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12391,22 +10130,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12418,8 +10153,7 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
       pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointNum(
     const size_t num) {
@@ -12434,8 +10168,7 @@ void GraphSolver::SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointNum(
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPoseIndicesFromHost(
-        const unsigned int* const indices, size_t num) {
-  cudaSetDevice(device_id_);
+        const unsigned int *const indices, size_t num) {
   if (num != pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
         std::to_string(num) +
@@ -12443,19 +10176,16 @@ void GraphSolver::
         "Use Setpinhole_split_fixed_focal_fixed_principal_point_fixed_pointNum "
         "before setting indices.");
   }
-  cudaMemcpy((unsigned int*)marker__scratch_inout_,
-             indices,
-             num * sizeof(unsigned int),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
   SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-      (unsigned int*)marker__scratch_inout_, num);
+      (unsigned int *)marker__scratch_inout_, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPoseIndicesFromDevice(
-        const unsigned int* const indices, size_t num) {
+        const unsigned int *const indices, size_t num) {
   indices_valid_ = false;
-  cudaSetDevice(device_id_);
 
   if (num != pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_) {
     throw std::runtime_error(
@@ -12479,8 +10209,7 @@ void GraphSolver::
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPixelDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12488,22 +10217,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPixelStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12515,13 +10240,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pixel__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointFocalDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12529,22 +10252,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholeFocalStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__focal__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointFocalDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12556,13 +10275,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__focal__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12570,22 +10287,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             2 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 2 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPinholePrincipalPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__principal_point__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12597,13 +10310,11 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__principal_point__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPointDataFromStackedHost(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12611,22 +10322,18 @@ void GraphSolver::
         " > "
         "pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_");
   }
-  cudaMemcpy(marker__scratch_inout_,
-             data,
-             3 * num * sizeof(double),
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
              cudaMemcpyHostToDevice);
   ConstPointStackedToCaspar(
       marker__scratch_inout_,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__point__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
 }
 
 void GraphSolver::
     SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointPointDataFromStackedDevice(
-        const double* const data, size_t offset, size_t num) {
-  cudaSetDevice(device_id_);
+        const double *const data, size_t offset, size_t num) {
   if (offset + num >
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_) {
     throw std::runtime_error(
@@ -12638,8 +10345,189 @@ void GraphSolver::
       data,
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__point__data_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
-      offset,
-      num);
+      offset, num);
+}
+void GraphSolver::SetSimpleRadialPosePriorCoreNum(const size_t num) {
+  if (num > simple_radial_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > simple_radial_pose_prior_core_num_max_");
+  }
+  simple_radial_pose_prior_core_num_ = num;
+}
+void GraphSolver::SetSimpleRadialPosePriorCorePoseIndicesFromHost(
+    const unsigned int *const indices, size_t num) {
+  if (num != simple_radial_pose_prior_core_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != simple_radial_pose_prior_core_num_. Use "
+        "Setsimple_radial_pose_prior_coreNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetSimpleRadialPosePriorCorePoseIndicesFromDevice(
+      (unsigned int *)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetSimpleRadialPosePriorCorePoseIndicesFromDevice(
+    const unsigned int *const indices, size_t num) {
+  indices_valid_ = false;
+
+  if (num != simple_radial_pose_prior_core_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != simple_radial_pose_prior_core_num_. Use "
+        "Setsimple_radial_pose_prior_coreNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices,
+                facs__simple_radial_pose_prior_core__args__pose__idx_shared_,
+                num);
+}
+void GraphSolver::SetSimpleRadialPosePriorCorePriorPositionDataFromStackedHost(
+    const double *const data, size_t offset, size_t num) {
+  if (offset + num > simple_radial_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > simple_radial_pose_prior_core_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPriorPositionStackedToCaspar(
+      marker__scratch_inout_,
+      facs__simple_radial_pose_prior_core__args__prior_position__data_,
+      simple_radial_pose_prior_core_num_max_, offset, num);
+}
+
+void GraphSolver::
+    SetSimpleRadialPosePriorCorePriorPositionDataFromStackedDevice(
+        const double *const data, size_t offset, size_t num) {
+  if (offset + num > simple_radial_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > simple_radial_pose_prior_core_num_max_");
+  }
+  ConstPriorPositionStackedToCaspar(
+      data, facs__simple_radial_pose_prior_core__args__prior_position__data_,
+      simple_radial_pose_prior_core_num_max_, offset, num);
+}
+void GraphSolver::SetSimpleRadialPosePriorCoreSqrtInfoDataFromStackedHost(
+    const double *const data, size_t offset, size_t num) {
+  if (offset + num > simple_radial_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > simple_radial_pose_prior_core_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_, data, 6 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPriorSqrtInfoStackedToCaspar(
+      marker__scratch_inout_,
+      facs__simple_radial_pose_prior_core__args__sqrt_info__data_,
+      simple_radial_pose_prior_core_num_max_, offset, num);
+}
+
+void GraphSolver::SetSimpleRadialPosePriorCoreSqrtInfoDataFromStackedDevice(
+    const double *const data, size_t offset, size_t num) {
+  if (offset + num > simple_radial_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > simple_radial_pose_prior_core_num_max_");
+  }
+  ConstPriorSqrtInfoStackedToCaspar(
+      data, facs__simple_radial_pose_prior_core__args__sqrt_info__data_,
+      simple_radial_pose_prior_core_num_max_, offset, num);
+}
+void GraphSolver::SetPinholePosePriorCoreNum(const size_t num) {
+  if (num > pinhole_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > pinhole_pose_prior_core_num_max_");
+  }
+  pinhole_pose_prior_core_num_ = num;
+}
+void GraphSolver::SetPinholePosePriorCorePoseIndicesFromHost(
+    const unsigned int *const indices, size_t num) {
+  if (num != pinhole_pose_prior_core_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != pinhole_pose_prior_core_num_. Use Setpinhole_pose_prior_coreNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int *)marker__scratch_inout_, indices,
+             num * sizeof(unsigned int), cudaMemcpyHostToDevice);
+  SetPinholePosePriorCorePoseIndicesFromDevice(
+      (unsigned int *)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetPinholePosePriorCorePoseIndicesFromDevice(
+    const unsigned int *const indices, size_t num) {
+  indices_valid_ = false;
+
+  if (num != pinhole_pose_prior_core_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != pinhole_pose_prior_core_num_. Use Setpinhole_pose_prior_coreNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices, facs__pinhole_pose_prior_core__args__pose__idx_shared_,
+                num);
+}
+void GraphSolver::SetPinholePosePriorCorePriorPositionDataFromStackedHost(
+    const double *const data, size_t offset, size_t num) {
+  if (offset + num > pinhole_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > pinhole_pose_prior_core_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_, data, 3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPriorPositionStackedToCaspar(
+      marker__scratch_inout_,
+      facs__pinhole_pose_prior_core__args__prior_position__data_,
+      pinhole_pose_prior_core_num_max_, offset, num);
+}
+
+void GraphSolver::SetPinholePosePriorCorePriorPositionDataFromStackedDevice(
+    const double *const data, size_t offset, size_t num) {
+  if (offset + num > pinhole_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > pinhole_pose_prior_core_num_max_");
+  }
+  ConstPriorPositionStackedToCaspar(
+      data, facs__pinhole_pose_prior_core__args__prior_position__data_,
+      pinhole_pose_prior_core_num_max_, offset, num);
+}
+void GraphSolver::SetPinholePosePriorCoreSqrtInfoDataFromStackedHost(
+    const double *const data, size_t offset, size_t num) {
+  if (offset + num > pinhole_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > pinhole_pose_prior_core_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_, data, 6 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPriorSqrtInfoStackedToCaspar(
+      marker__scratch_inout_,
+      facs__pinhole_pose_prior_core__args__sqrt_info__data_,
+      pinhole_pose_prior_core_num_max_, offset, num);
+}
+
+void GraphSolver::SetPinholePosePriorCoreSqrtInfoDataFromStackedDevice(
+    const double *const data, size_t offset, size_t num) {
+  if (offset + num > pinhole_pose_prior_core_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > pinhole_pose_prior_core_num_max_");
+  }
+  ConstPriorSqrtInfoStackedToCaspar(
+      data, facs__pinhole_pose_prior_core__args__sqrt_info__data_,
+      pinhole_pose_prior_core_num_max_, offset, num);
 }
 
 size_t GraphSolver::get_nbytes() {
@@ -12687,12 +10575,12 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 4 * simple_radial_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * simple_radial_fixed_pose_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * simple_radial_fixed_pose_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 8 * simple_radial_fixed_pose_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 4 * simple_radial_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           2 * simple_radial_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           8 * simple_radial_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           4 * simple_radial_fixed_pose_fixed_point_num_, 4);
   increment_offset<SharedIndex>(offset, 1 * pinhole_num_, 4);
   increment_offset<SharedIndex>(offset, 1 * pinhole_num_, 4);
   increment_offset<SharedIndex>(offset, 1 * pinhole_num_, 4);
@@ -12705,8 +10593,8 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<SharedIndex>(offset, 1 * pinhole_fixed_point_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_point_num_, 4);
   increment_offset<double>(offset, 4 * pinhole_fixed_point_num_, 4);
-  increment_offset<SharedIndex>(
-      offset, 1 * pinhole_fixed_pose_fixed_point_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * pinhole_fixed_pose_fixed_point_num_,
+                                4);
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(offset, 8 * pinhole_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(offset, 4 * pinhole_fixed_pose_fixed_point_num_, 4);
@@ -12732,24 +10620,19 @@ size_t GraphSolver::get_nbytes() {
       offset, 2 * simple_radial_split_fixed_principal_point_num_, 4);
   increment_offset<SharedIndex>(
       offset,
-      1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<SharedIndex>(
       offset,
-      1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      1 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<double>(
       offset,
-      8 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      8 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<SharedIndex>(
@@ -12782,43 +10665,33 @@ size_t GraphSolver::get_nbytes() {
       4);
   increment_offset<SharedIndex>(
       offset,
-      1 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      4);
+      1 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset,
-      1 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      4);
+      1 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      4);
+      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      4);
+      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      4 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
+      4 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<SharedIndex>(
-      offset,
-      1 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-      4);
-  increment_offset<SharedIndex>(
-      offset,
-      1 * simple_radial_split_fixed_principal_point_fixed_point_num_,
+      offset, 1 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(
-      offset,
-      2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
+      offset, 2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(
-      offset,
-      2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
+      offset, 2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(
-      offset,
-      4 * simple_radial_split_fixed_principal_point_fixed_point_num_,
+      offset, 4 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<SharedIndex>(
       offset,
@@ -12911,20 +10784,20 @@ size_t GraphSolver::get_nbytes() {
       offset, 1 * pinhole_split_fixed_principal_point_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * pinhole_split_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(offset, 2 * pinhole_split_fixed_principal_point_num_,
+                           4);
+  increment_offset<double>(offset, 2 * pinhole_split_fixed_principal_point_num_,
+                           4);
   increment_offset<SharedIndex>(
       offset, 1 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
-  increment_offset<double>(
-      offset, 8 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
+  increment_offset<double>(offset,
+                           8 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<SharedIndex>(
@@ -12949,12 +10822,12 @@ size_t GraphSolver::get_nbytes() {
       offset, 1 * pinhole_split_fixed_focal_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * pinhole_split_fixed_focal_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 4 * pinhole_split_fixed_focal_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           4 * pinhole_split_fixed_focal_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
@@ -12967,24 +10840,19 @@ size_t GraphSolver::get_nbytes() {
       offset, 4 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset,
-      1 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      1 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset,
-      8 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      8 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   increment_offset<double>(
@@ -12997,62 +10865,57 @@ size_t GraphSolver::get_nbytes() {
       offset, 4 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset,
-      1 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      1 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      8 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      8 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      4 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      4 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset,
-      1 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
+      1 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      4 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
-  at_least =
-      std::max(at_least,
-               offset + std::max({4 * PinholeCalib_num_max_,
-                                  2 * PinholeFocal_num_max_,
-                                  7 * PinholePose_num_max_,
-                                  2 * PinholePrincipalPoint_num_max_,
-                                  3 * Point_num_max_,
-                                  4 * SimpleRadialCalib_num_max_,
-                                  2 * SimpleRadialFocalAndDistortion_num_max_,
-                                  7 * SimpleRadialPose_num_max_,
-                                  2 * SimpleRadialPrincipalPoint_num_max_}) *
-                            sizeof(double));
+      4 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * simple_radial_pose_prior_core_num_,
+                                4);
+  increment_offset<double>(offset, 4 * simple_radial_pose_prior_core_num_, 4);
+  increment_offset<double>(offset, 6 * simple_radial_pose_prior_core_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * pinhole_pose_prior_core_num_, 4);
+  increment_offset<double>(offset, 4 * pinhole_pose_prior_core_num_, 4);
+  increment_offset<double>(offset, 6 * pinhole_pose_prior_core_num_, 4);
+  at_least = std::max(
+      at_least,
+      offset + std::max({4 * PinholeCalib_num_max_, 2 * PinholeFocal_num_max_,
+                         7 * PinholePose_num_max_,
+                         2 * PinholePrincipalPoint_num_max_, 3 * Point_num_max_,
+                         4 * SimpleRadialCalib_num_max_,
+                         2 * SimpleRadialFocalAndDistortion_num_max_,
+                         7 * SimpleRadialPose_num_max_,
+                         2 * SimpleRadialPrincipalPoint_num_max_}) *
+                   sizeof(double));
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * simple_radial_num_, 4);
   increment_offset<double>(offset, 2 * simple_radial_fixed_pose_num_, 4);
   increment_offset<double>(offset, 2 * simple_radial_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * simple_radial_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           2 * simple_radial_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_point_num_, 4);
@@ -13063,8 +10926,7 @@ size_t GraphSolver::get_nbytes() {
       offset, 2 * simple_radial_split_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<double>(
       offset, 2 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<double>(
@@ -13073,11 +10935,9 @@ size_t GraphSolver::get_nbytes() {
       4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      4);
+      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
   increment_offset<double>(
-      offset,
-      2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
+      offset, 2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(
       offset,
@@ -13096,32 +10956,31 @@ size_t GraphSolver::get_nbytes() {
       2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(offset, 2 * pinhole_split_fixed_focal_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
+  increment_offset<double>(offset, 2 * pinhole_split_fixed_principal_point_num_,
+                           4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
+  increment_offset<double>(offset, 4 * simple_radial_pose_prior_core_num_, 4);
+  increment_offset<double>(offset, 4 * pinhole_pose_prior_core_num_, 4);
   increment_offset<double>(offset, 12 * simple_radial_num_, 4);
   increment_offset<double>(offset, 4 * simple_radial_num_, 4);
   increment_offset<double>(offset, 6 * simple_radial_num_, 4);
@@ -13129,8 +10988,8 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 6 * simple_radial_fixed_pose_num_, 4);
   increment_offset<double>(offset, 12 * simple_radial_fixed_point_num_, 4);
   increment_offset<double>(offset, 4 * simple_radial_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 4 * simple_radial_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           4 * simple_radial_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(offset, 10 * pinhole_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_num_, 4);
   increment_offset<double>(offset, 6 * pinhole_num_, 4);
@@ -13153,12 +11012,10 @@ size_t GraphSolver::get_nbytes() {
       offset, 6 * simple_radial_split_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset,
-      0 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      0 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<double>(
       offset,
-      6 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      6 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<double>(
       offset, 4 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<double>(
@@ -13174,19 +11031,15 @@ size_t GraphSolver::get_nbytes() {
       4);
   increment_offset<double>(
       offset,
-      12 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      4);
+      12 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      0 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
+      0 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 12 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(
-      offset,
-      12 * simple_radial_split_fixed_principal_point_fixed_point_num_,
-      4);
-  increment_offset<double>(
-      offset,
-      4 * simple_radial_split_fixed_principal_point_fixed_point_num_,
+      offset, 4 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(
       offset,
@@ -13208,16 +11061,16 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 10 * pinhole_split_fixed_focal_num_, 4);
   increment_offset<double>(offset, 0 * pinhole_split_fixed_focal_num_, 4);
   increment_offset<double>(offset, 6 * pinhole_split_fixed_focal_num_, 4);
-  increment_offset<double>(
-      offset, 10 * pinhole_split_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 6 * pinhole_split_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 0 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
-  increment_offset<double>(
-      offset, 6 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
+  increment_offset<double>(offset,
+                           10 * pinhole_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(offset, 2 * pinhole_split_fixed_principal_point_num_,
+                           4);
+  increment_offset<double>(offset, 6 * pinhole_split_fixed_principal_point_num_,
+                           4);
+  increment_offset<double>(offset,
+                           0 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
+  increment_offset<double>(offset,
+                           6 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<double>(
@@ -13226,28 +11079,27 @@ size_t GraphSolver::get_nbytes() {
       offset, 10 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset, 6 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 10 * pinhole_split_fixed_focal_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 0 * pinhole_split_fixed_focal_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           10 * pinhole_split_fixed_focal_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           0 * pinhole_split_fixed_focal_fixed_point_num_, 4);
   increment_offset<double>(
       offset, 10 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      6 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      6 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset, 0 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      10 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
+      10 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
+  increment_offset<double>(offset, 17 * simple_radial_pose_prior_core_num_, 4);
+  increment_offset<double>(offset, 17 * pinhole_pose_prior_core_num_, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
@@ -13370,8 +11222,8 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * simple_radial_num_, 4);
   increment_offset<double>(offset, 2 * simple_radial_fixed_pose_num_, 4);
   increment_offset<double>(offset, 2 * simple_radial_fixed_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * simple_radial_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           2 * simple_radial_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_point_num_, 4);
@@ -13382,8 +11234,7 @@ size_t GraphSolver::get_nbytes() {
       offset, 2 * simple_radial_split_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_,
-      4);
+      2 * simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_, 4);
   increment_offset<double>(
       offset, 2 * simple_radial_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<double>(
@@ -13392,11 +11243,9 @@ size_t GraphSolver::get_nbytes() {
       4);
   increment_offset<double>(
       offset,
-      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_,
-      4);
+      2 * simple_radial_split_fixed_focal_and_distortion_fixed_point_num_, 4);
   increment_offset<double>(
-      offset,
-      2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
+      offset, 2 * simple_radial_split_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(
       offset,
@@ -13415,32 +11264,31 @@ size_t GraphSolver::get_nbytes() {
       2 * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(offset, 2 * pinhole_split_fixed_focal_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
+  increment_offset<double>(offset, 2 * pinhole_split_fixed_principal_point_num_,
+                           4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_pose_fixed_focal_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_pose_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_focal_fixed_principal_point_num_, 4);
-  increment_offset<double>(
-      offset, 2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
+  increment_offset<double>(offset,
+                           2 * pinhole_split_fixed_focal_fixed_point_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_num_, 4);
   increment_offset<double>(
       offset, 2 * pinhole_split_fixed_pose_fixed_focal_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_, 4);
   increment_offset<double>(
       offset,
-      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
-      4);
+      2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_, 4);
+  increment_offset<double>(offset, 4 * simple_radial_pose_prior_core_num_, 4);
+  increment_offset<double>(offset, 4 * pinhole_pose_prior_core_num_, 4);
   increment_offset<double>(offset, 0 * 0, 1);
   increment_offset<double>(offset, 1 * 1, 1);
   increment_offset<double>(offset, 1 * 1, 1);
@@ -13457,4 +11305,4 @@ size_t GraphSolver::get_nbytes() {
   return std::max(offset, at_least);
 }
 
-}  // namespace caspar
+} // namespace caspar

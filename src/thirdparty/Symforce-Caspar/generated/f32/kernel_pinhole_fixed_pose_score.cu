@@ -1,28 +1,21 @@
-#include "kernel_pinhole_fixed_pose_score.h"
-#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
 
+#include "kernel_pinhole_fixed_pose_score.h"
+#include "memops.cuh"
+
 namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1)
-    PinholeFixedPoseScoreKernel(float* calib,
-                                unsigned int calib_num_alloc,
-                                SharedIndex* calib_indices,
-                                float* point,
-                                unsigned int point_num_alloc,
-                                SharedIndex* point_indices,
-                                float* pixel,
-                                unsigned int pixel_num_alloc,
-                                float* pose,
-                                unsigned int pose_num_alloc,
-                                float* const out_rTr,
-                                size_t problem_size) {
+__global__ void __launch_bounds__(1024, 1) PinholeFixedPoseScoreKernel(
+    float *calib, unsigned int calib_num_alloc, SharedIndex *calib_indices,
+    float *point, unsigned int point_num_alloc, SharedIndex *point_indices,
+    float *pixel, unsigned int pixel_num_alloc, float *pose,
+    unsigned int pose_num_alloc, float *const out_rTr, size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
 
@@ -41,38 +34,31 @@ __global__ void __launch_bounds__(1024, 1)
 
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27;
-  LoadShared<4, float, float>(
-      calib, 0 * calib_num_alloc, calib_indices_loc, (float*)inout_shared);
+  LoadShared<4, float, float>(calib, 0 * calib_num_alloc, calib_indices_loc,
+                              (float *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared4<float>((float*)inout_shared,
-                       calib_indices_loc[threadIdx.x].target,
-                       r0,
-                       r1,
-                       r2,
-                       r3);
+    ReadShared4<float>((float *)inout_shared,
+                       calib_indices_loc[threadIdx.x].target, r0, r1, r2, r3);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    ReadIdx2<1024, float, float, float2>(
-        pixel, 0 * pixel_num_alloc, global_thread_idx, r4, r5);
+    ReadIdx2<1024, float, float, float2>(pixel, 0 * pixel_num_alloc,
+                                         global_thread_idx, r4, r5);
     r6 = -1.00000000000000000e+00;
     r5 = fmaf(r5, r6, r3);
-    ReadIdx3<1024, float, float, float4>(
-        pose, 4 * pose_num_alloc, global_thread_idx, r3, r7, r8);
+    ReadIdx3<1024, float, float, float4>(pose, 4 * pose_num_alloc,
+                                         global_thread_idx, r3, r7, r8);
   };
-  LoadShared<3, float, float>(
-      point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
+  LoadShared<3, float, float>(point, 0 * point_num_alloc, point_indices_loc,
+                              (float *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared3<float>((float*)inout_shared,
-                       point_indices_loc[threadIdx.x].target,
-                       r9,
-                       r10,
-                       r11);
+    ReadShared3<float>((float *)inout_shared,
+                       point_indices_loc[threadIdx.x].target, r9, r10, r11);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    ReadIdx4<1024, float, float, float4>(
-        pose, 0 * pose_num_alloc, global_thread_idx, r12, r13, r14, r15);
+    ReadIdx4<1024, float, float, float4>(pose, 0 * pose_num_alloc,
+                                         global_thread_idx, r12, r13, r14, r15);
     r16 = r12 * r13;
     r17 = 2.00000000000000000e+00;
     r16 = r16 * r17;
@@ -120,43 +106,28 @@ __global__ void __launch_bounds__(1024, 1)
     r6 = fmaf(r25, r23, r6);
     r6 = fmaf(r6, r6, r5 * r5);
   };
-  SumStore<float>(out_rTr_local,
-                  (float*)inout_shared,
-                  0,
-                  global_thread_idx < problem_size,
-                  r6);
+  SumStore<float>(out_rTr_local, (float *)inout_shared, 0,
+                  global_thread_idx < problem_size, r6);
   SumFlushFinal<float>(out_rTr_local, out_rTr, 1);
 }
 
-void PinholeFixedPoseScore(float* calib,
-                           unsigned int calib_num_alloc,
-                           SharedIndex* calib_indices,
-                           float* point,
+void PinholeFixedPoseScore(float *calib, unsigned int calib_num_alloc,
+                           SharedIndex *calib_indices, float *point,
                            unsigned int point_num_alloc,
-                           SharedIndex* point_indices,
-                           float* pixel,
-                           unsigned int pixel_num_alloc,
-                           float* pose,
-                           unsigned int pose_num_alloc,
-                           float* const out_rTr,
+                           SharedIndex *point_indices, float *pixel,
+                           unsigned int pixel_num_alloc, float *pose,
+                           unsigned int pose_num_alloc, float *const out_rTr,
                            size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeFixedPoseScoreKernel<<<n_blocks, 1024>>>(calib,
-                                                  calib_num_alloc,
-                                                  calib_indices,
-                                                  point,
-                                                  point_num_alloc,
-                                                  point_indices,
-                                                  pixel,
-                                                  pixel_num_alloc,
-                                                  pose,
-                                                  pose_num_alloc,
-                                                  out_rTr,
-                                                  problem_size);
+  PinholeFixedPoseScoreKernel<<<n_blocks, 1024>>>(
+      calib, calib_num_alloc, calib_indices, point, point_num_alloc,
+      point_indices, pixel, pixel_num_alloc, pose, pose_num_alloc, out_rTr,
+      problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar

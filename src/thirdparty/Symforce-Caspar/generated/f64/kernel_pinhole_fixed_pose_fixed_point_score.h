@@ -1,20 +1,15 @@
 #pragma once
 
-#include "shared_indices.h"
 #include <cuda_runtime.h>
+
+#include "shared_indices.h"
 
 namespace caspar {
 
-void PinholeFixedPoseFixedPointScore(double* calib,
-                                     unsigned int calib_num_alloc,
-                                     SharedIndex* calib_indices,
-                                     double* pixel,
-                                     unsigned int pixel_num_alloc,
-                                     double* pose,
-                                     unsigned int pose_num_alloc,
-                                     double* point,
-                                     unsigned int point_num_alloc,
-                                     double* const out_rTr,
-                                     size_t problem_size);
+void PinholeFixedPoseFixedPointScore(
+    double *calib, unsigned int calib_num_alloc, SharedIndex *calib_indices,
+    double *pixel, unsigned int pixel_num_alloc, double *pose,
+    unsigned int pose_num_alloc, double *point, unsigned int point_num_alloc,
+    double *const out_rTr, size_t problem_size);
 
-}  // namespace caspar
+} // namespace caspar

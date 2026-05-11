@@ -1,30 +1,21 @@
 #pragma once
 
-#include "shared_indices.h"
 #include <cuda_runtime.h>
+
+#include "shared_indices.h"
 
 namespace caspar {
 
 void PinholeSplitFixedFocalFixedPrincipalPointFixedPointResJac(
-    double* pose,
-    unsigned int pose_num_alloc,
-    SharedIndex* pose_indices,
-    double* pixel,
-    unsigned int pixel_num_alloc,
-    double* focal,
-    unsigned int focal_num_alloc,
-    double* principal_point,
-    unsigned int principal_point_num_alloc,
-    double* point,
-    unsigned int point_num_alloc,
-    double* out_res,
-    unsigned int out_res_num_alloc,
-    double* const out_pose_njtr,
-    unsigned int out_pose_njtr_num_alloc,
-    double* const out_pose_precond_diag,
+    double *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
+    double *pixel, unsigned int pixel_num_alloc, double *focal,
+    unsigned int focal_num_alloc, double *principal_point,
+    unsigned int principal_point_num_alloc, double *point,
+    unsigned int point_num_alloc, double *out_res,
+    unsigned int out_res_num_alloc, double *const out_pose_njtr,
+    unsigned int out_pose_njtr_num_alloc, double *const out_pose_precond_diag,
     unsigned int out_pose_precond_diag_num_alloc,
-    double* const out_pose_precond_tril,
-    unsigned int out_pose_precond_tril_num_alloc,
-    size_t problem_size);
+    double *const out_pose_precond_tril,
+    unsigned int out_pose_precond_tril_num_alloc, size_t problem_size);
 
-}  // namespace caspar
+} // namespace caspar

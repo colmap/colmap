@@ -1,0 +1,15 @@
+#pragma once
+
+#include <cuda_runtime.h>
+
+#include "shared_indices.h"
+
+namespace caspar {
+
+void PinholePosePriorCoreJtjnjtrDirect(
+    double *pose_njtr, unsigned int pose_njtr_num_alloc,
+    SharedIndex *pose_njtr_indices, double *pose_jac,
+    unsigned int pose_jac_num_alloc, double *const out_pose_njtr,
+    unsigned int out_pose_njtr_num_alloc, size_t problem_size);
+
+} // namespace caspar

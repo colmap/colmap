@@ -120,6 +120,18 @@ class ConstPinholeFocal(sf.V2):
     pass
 
 
+# Position-prior factor data: a per-camera RTK/GNSS position anchor plus an
+# upper-triangular 6-vector packing of the 3x3 sqrt(information) matrix, so the
+# residual (sqrt_info * (world_T_cam.t - prior_position)) is a 3-vector in the
+# standard whitened-Gaussian sense.
+class ConstPriorPosition(sf.V3):
+    pass
+
+
+class ConstPriorSqrtInfo(sf.V6):
+    pass  # packed [s00, s01, s02, s11, s12, s22] (upper triangle, row-major)
+
+
 def _make_variant(
     core_fn, name: str, base_params: list, hints: dict, fixed: dict
 ):
@@ -354,6 +366,55 @@ register_camera_model(
     FIXABLE_PINHOLE_SPLIT,
     must_fix_one_of={"focal", "principal_point"},
 )
+
+
+# --- Pose-prior factors ---
+#
+# Anchors a camera centre to an externally-provided world-frame position
+# (typically GNSS/RTK) with covariance-weighted residual. Mirrors the
+# semantics of the Ceres-side AbsolutePosePositionPriorCostFunctor: the
+# residual is the whitened difference between the camera centre and the prior,
+# where the whitening is the upper-triangular sqrt(information) matrix.
+#
+# Only the tunable-pose variant is registered (a fixed pose has nothing to
+# optimize); the factor has no dependence on points or calibration.
+def _pose_prior_residual(world_T_cam_t, prior_position, sqrt_info_packed):
+    """Whitened position-prior residual.
+
+    `sqrt_info_packed` is a 6-vector with the upper triangle of the 3x3
+    sqrt(information) matrix in row-major order: [s00, s01, s02, s11, s12,
+    s22].
+    """
+    s00, s01, s02, s11, s12, s22 = sqrt_info_packed
+    sqrt_info = sf.Matrix33(
+        [[s00, s01, s02], [0, s11, s12], [0, 0, s22]]
+    )
+    return sqrt_info * (world_T_cam_t - prior_position)
+
+
+def simple_radial_pose_prior_core(
+    pose: T.Annotated[SimpleRadialPose, mem.TunableShared],
+    prior_position: T.Annotated[ConstPriorPosition, mem.ConstantSequential],
+    sqrt_info: T.Annotated[ConstPriorSqrtInfo, mem.ConstantSequential],
+) -> sf.V3:
+    """Position-prior residual for SIMPLE_RADIAL cameras."""
+    world_T_cam = pose.inverse()
+    return _pose_prior_residual(world_T_cam.t, prior_position, sqrt_info)
+
+
+def pinhole_pose_prior_core(
+    pose: T.Annotated[PinholePose, mem.TunableShared],
+    prior_position: T.Annotated[ConstPriorPosition, mem.ConstantSequential],
+    sqrt_info: T.Annotated[ConstPriorSqrtInfo, mem.ConstantSequential],
+) -> sf.V3:
+    """Position-prior residual for PINHOLE cameras."""
+    world_T_cam = pose.inverse()
+    return _pose_prior_residual(world_T_cam.t, prior_position, sqrt_info)
+
+
+caslib.add_factor(simple_radial_pose_prior_core)
+caslib.add_factor(pinhole_pose_prior_core)
+
 
 out_dir = Path(f"{sys.argv[1]}")
 print(f"Generating Caspar kernels with precision {precision}: {out_dir}")

@@ -420,7 +420,12 @@ TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
 
 INSTANTIATE_TEST_SUITE_P(PosePriorBundleAdjusterBackends,
                          PosePriorBundleAdjusterBackendTest,
-                         ::testing::Values(BundleAdjustmentBackend::CERES));
+                         ::testing::Values(BundleAdjustmentBackend::CERES
+#ifdef CASPAR_ENABLED
+                                           ,
+                                           BundleAdjustmentBackend::CASPAR
+#endif
+                                           ));
 
 }  // namespace
 }  // namespace colmap

@@ -1,12 +1,19 @@
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/sim3.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
+#include "colmap/scene/pose_prior.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
+
+#include <Eigen/Cholesky>
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar/caspar_model_adapter.h"
 #endif
@@ -26,8 +33,26 @@ class CasparBundleAdjuster : public BundleAdjuster {
   CasparBundleAdjuster(BundleAdjustmentOptions options,
                        BundleAdjustmentConfig config,
                        Reconstruction& reconstruction)
-      : BundleAdjuster(options, config), reconstruction_(reconstruction) {
-    VLOG(1) << "Using Caspar bundle adjuster";
+      : CasparBundleAdjuster(std::move(options),
+                             std::move(config),
+                             reconstruction,
+                             /*pose_priors=*/{}) {}
+
+  // Pose-prior-aware constructor. When ``pose_priors`` is non-empty, every
+  // entry with a valid position and a frame that's part of ``config`` is
+  // added as a position-prior factor against that frame's camera centre.
+  // The caller is responsible for transforming priors into the same frame
+  // as ``reconstruction`` (typically by normalising both together — see
+  // ``CasparPosePriorBundleAdjuster``).
+  CasparBundleAdjuster(BundleAdjustmentOptions options,
+                       BundleAdjustmentConfig config,
+                       Reconstruction& reconstruction,
+                       std::vector<PosePrior> pose_priors)
+      : BundleAdjuster(options, config),
+        reconstruction_(reconstruction),
+        pose_priors_(std::move(pose_priors)) {
+    VLOG(1) << "Using Caspar bundle adjuster"
+            << (pose_priors_.empty() ? "" : " with pose priors");
 
     BuildObservationCounts();
     BuildCameraFrameIndex();
@@ -111,6 +136,98 @@ class CasparBundleAdjuster : public BundleAdjuster {
     CreatePointNodes();
     AddFactorsInOptimalOrder();
     AddExternalFactors();
+    if (!pose_priors_.empty()) {
+      BuildPriorFactors();
+    }
+  }
+
+  // Pack each valid pose prior into the per-model PriorFactorData pool. A
+  // prior is valid if (a) the referenced image is part of this BA config,
+  // (b) the camera model is supported by Caspar, (c) the prior has a
+  // position and the image is the reference frame of its rig (Caspar
+  // currently can't represent a CamFromRig*RigFromWorld chain in a single
+  // pose variable). Each factor binds the frame's pose index to a constant
+  // anchor (3 floats) and a constant whitened-covariance triangle (6
+  // floats: [s00, s01, s02, s11, s12, s22]).
+  void BuildPriorFactors() {
+    constexpr StorageType kPriorFallbackStddev = 1.0;
+    for (const PosePrior& prior : pose_priors_) {
+      if (!prior.HasPosition()) {
+        continue;
+      }
+      if (prior.corr_data_id.sensor_id.type != SensorType::CAMERA) {
+        continue;
+      }
+      const image_t image_id = prior.corr_data_id.id;
+      if (!config_.HasImage(image_id)) {
+        continue;
+      }
+      const Image& image = reconstruction_.Image(image_id);
+      // Caspar's pose pool is per-frame; only the reference image in a
+      // multi-cam rig owns the frame pose. Non-ref images get their priors
+      // dropped here (the Ceres path uses a separate
+      // AbsoluteRigPosePositionPriorCostFunctor for those; not yet ported).
+      if (!image.IsRefInFrame()) {
+        VLOG(2) << "Skipping pose prior for non-ref rig image " << image_id;
+        continue;
+      }
+      const Camera& camera = *image.CameraPtr();
+      ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
+      if (!adapter) {
+        continue;
+      }
+      // Find the pose index for this frame in this camera model's pool.
+      auto& model_index = frame_to_pose_index_per_model_[camera.model_id];
+      auto idx_it = model_index.find(image.FrameId());
+      if (idx_it == model_index.end()) {
+        // BuildFactors hasn't created a pose node for this frame, e.g.
+        // because all reprojection observations were skipped.
+        continue;
+      }
+
+      PriorFactorData& pf = prior_data_per_model_[camera.model_id];
+      pf.pose_indices.push_back(static_cast<unsigned int>(idx_it->second));
+
+      pf.prior_positions.push_back(
+          static_cast<StorageType>(prior.position.x()));
+      pf.prior_positions.push_back(
+          static_cast<StorageType>(prior.position.y()));
+      pf.prior_positions.push_back(
+          static_cast<StorageType>(prior.position.z()));
+
+      // Whiten by the upper Cholesky factor of the inverse covariance:
+      //   residual = R^T \ (x - mu),  with cov = R^T R   (R upper-triangular).
+      Eigen::Matrix3d cov;
+      if (prior.HasPositionCov()) {
+        cov = prior.position_covariance;
+      } else {
+        cov = (kPriorFallbackStddev * kPriorFallbackStddev) *
+              Eigen::Matrix3d::Identity();
+      }
+      const Eigen::LLT<Eigen::Matrix3d> llt(cov);
+      if (llt.info() != Eigen::Success) {
+        LOG(WARNING) << "Pose prior covariance for image " << image_id
+                     << " is not positive definite; dropping prior.";
+        // Roll back the position+pose-index entries we just pushed.
+        pf.pose_indices.pop_back();
+        pf.prior_positions.resize(pf.prior_positions.size() - 3);
+        continue;
+      }
+      // Eigen's matrixU() is the upper-triangular factor such that
+      // cov = U^T * U; sqrt_info = U^{-T} (so sqrt_info^T sqrt_info =
+      // cov^{-1}).
+      const Eigen::Matrix3d U = llt.matrixU();
+      const Eigen::Matrix3d sqrt_info = U.inverse().transpose();
+      // Pack the upper triangle in row-major order.
+      pf.sqrt_info_packed.push_back(static_cast<StorageType>(sqrt_info(0, 0)));
+      pf.sqrt_info_packed.push_back(static_cast<StorageType>(sqrt_info(0, 1)));
+      pf.sqrt_info_packed.push_back(static_cast<StorageType>(sqrt_info(0, 2)));
+      pf.sqrt_info_packed.push_back(static_cast<StorageType>(sqrt_info(1, 1)));
+      pf.sqrt_info_packed.push_back(static_cast<StorageType>(sqrt_info(1, 2)));
+      pf.sqrt_info_packed.push_back(static_cast<StorageType>(sqrt_info(2, 2)));
+
+      ++pf.num_factors;
+    }
   }
 
   void CreateCalibrationNodes() {
@@ -645,6 +762,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
               solver, static_cast<FactorVariant>(v), md.variants[v]);
         }
       }
+      if (auto pit = prior_data_per_model_.find(model_id);
+          pit != prior_data_per_model_.end() && pit->second.num_factors > 0) {
+        adapter_ptr->SetPriorFactors(solver, pit->second);
+      }
     }
     solver.finish_indices();
   }
@@ -878,6 +999,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
       adapters_.at(CameraModelId::kPinhole)
           ->FillSizing(sz, *md, sz.num_pinhole_calibs);
     }
+    if (auto it = prior_data_per_model_.find(CameraModelId::kSimpleRadial);
+        it != prior_data_per_model_.end()) {
+      sz.num_simple_radial_pose_prior_core = it->second.num_factors;
+    }
+    if (auto it = prior_data_per_model_.find(CameraModelId::kPinhole);
+        it != prior_data_per_model_.end()) {
+      sz.num_pinhole_pose_prior_core = it->second.num_factors;
+    }
     return sz;
   }
 
@@ -980,6 +1109,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
       camera_frame_to_images_;
 
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+
+  // Pose-prior state (empty for the default reprojection-only adjuster).
+  std::vector<PosePrior> pose_priors_;
+  std::unordered_map<CameraModelId, PriorFactorData> prior_data_per_model_;
 };
 }  // namespace
 
@@ -1017,6 +1150,147 @@ std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
     Reconstruction& reconstruction) {
   return std::make_unique<CasparBundleAdjuster>(
       options, config, reconstruction);
+}
+
+// Pose-prior-aware wrapper. Mirrors the structure of the Ceres-side
+// PosePriorBundleAdjuster: filter priors -> robustly align reconstruction to
+// priors -> normalise -> run the underlying (Caspar) BA with priors
+// transformed into the normalised frame -> denormalise.
+//
+// The normalisation step is more important here than for the Ceres backend
+// because the default Caspar build operates in float32: raw RTK ENU
+// coordinates (often ~1e6 metres) would otherwise lose all meaningful
+// precision before the solve even started.
+namespace {
+
+class CasparPosePriorBundleAdjuster : public BundleAdjuster {
+ public:
+  CasparPosePriorBundleAdjuster(
+      const BundleAdjustmentOptions& options,
+      const PosePriorBundleAdjustmentOptions& prior_options,
+      const BundleAdjustmentConfig& config,
+      std::vector<PosePrior> pose_priors,
+      Reconstruction& reconstruction)
+      : BundleAdjuster(options, config),
+        prior_options_(prior_options),
+        pose_priors_(std::move(pose_priors)),
+        reconstruction_(reconstruction) {
+    THROW_CHECK(prior_options_.Check());
+
+    // Filter irrelevant priors -- matches the Ceres adjuster's behaviour.
+    pose_priors_.erase(
+        std::remove_if(pose_priors_.begin(),
+                       pose_priors_.end(),
+                       [this](const auto& pose_prior) {
+                         return !pose_prior.HasPosition() ||
+                                pose_prior.corr_data_id.sensor_id.type !=
+                                    SensorType::CAMERA ||
+                                !config_.HasImage(pose_prior.corr_data_id.id);
+                       }),
+        pose_priors_.end());
+
+    use_prior_position_ = AlignReconstruction();
+
+    if (use_prior_position_) {
+      // Normalise the reconstruction (and the priors with it) so the solve
+      // runs near the origin -- critical for the float32 Caspar build.
+      normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
+    } else {
+      config_.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+    }
+  }
+
+  std::shared_ptr<BundleAdjustmentSummary> Solve() override {
+    std::vector<PosePrior> priors_for_ba;
+    if (use_prior_position_) {
+      priors_for_ba.reserve(pose_priors_.size());
+      const Sim3d& T = normalized_from_metric_;
+      const Eigen::Matrix3d sR = T.scale() * T.rotation().toRotationMatrix();
+      for (const auto& prior : pose_priors_) {
+        PosePrior transformed = prior;
+        transformed.position = T * prior.position;
+        if (prior.HasPositionCov()) {
+          transformed.position_covariance =
+              sR * prior.position_covariance * sR.transpose();
+        }
+        priors_for_ba.push_back(std::move(transformed));
+      }
+    }
+
+    CasparBundleAdjuster inner(
+        options_, config_, reconstruction_, std::move(priors_for_ba));
+    auto summary = inner.Solve();
+
+    if (use_prior_position_) {
+      reconstruction_.Transform(Inverse(normalized_from_metric_));
+
+      if (VLOG_IS_ON(2)) {
+        std::vector<double> verr2_wrt_prior;
+        verr2_wrt_prior.reserve(pose_priors_.size());
+        for (const auto& prior : pose_priors_) {
+          const auto& image = reconstruction_.Image(prior.corr_data_id.id);
+          verr2_wrt_prior.push_back(
+              (image.ProjectionCenter() - prior.position).squaredNorm());
+        }
+        if (!verr2_wrt_prior.empty()) {
+          VLOG(2) << "Caspar BA error w.r.t. prior positions:\n"
+                  << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << '\n'
+                  << "  - median: " << std::sqrt(Median(verr2_wrt_prior));
+        }
+      }
+    }
+    return summary;
+  }
+
+ private:
+  bool AlignReconstruction() {
+    RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
+    if (ransac_options.max_error <= 0) {
+      std::vector<double> rms_vars;
+      rms_vars.reserve(pose_priors_.size());
+      for (const auto& pose_prior : pose_priors_) {
+        const double trace = pose_prior.position_covariance.trace();
+        if (trace <= 0.0) {
+          continue;
+        }
+        rms_vars.push_back(trace / 3.0);
+      }
+      if (rms_vars.empty()) {
+        LOG(WARNING) << "No pose priors with valid covariance found.";
+        rms_vars.push_back(prior_options_.prior_position_fallback_stddev *
+                           prior_options_.prior_position_fallback_stddev);
+      }
+      ransac_options.max_error =
+          std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
+    }
+
+    Sim3d metric_from_orig;
+    if (!AlignReconstructionToPosePriors(
+            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
+      LOG(WARNING) << "Alignment w.r.t. prior positions failed";
+      return false;
+    }
+    reconstruction_.Transform(metric_from_orig);
+    return true;
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options_;
+  std::vector<PosePrior> pose_priors_;
+  Reconstruction& reconstruction_;
+  bool use_prior_position_ = false;
+  Sim3d normalized_from_metric_;
+};
+
+}  // namespace
+
+std::unique_ptr<BundleAdjuster> CreatePosePriorCasparBundleAdjuster(
+    const BundleAdjustmentOptions& options,
+    const PosePriorBundleAdjustmentOptions& prior_options,
+    const BundleAdjustmentConfig& config,
+    std::vector<PosePrior> pose_priors,
+    Reconstruction& reconstruction) {
+  return std::make_unique<CasparPosePriorBundleAdjuster>(
+      options, prior_options, config, std::move(pose_priors), reconstruction);
 }
 
 }  // namespace colmap

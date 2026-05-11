@@ -68,6 +68,11 @@ struct CasparSolverSizing {
   size_t num_pinhole_split_fixed_pose_fixed_focal_fixed_point = 0;
   size_t num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point = 0;
   size_t num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point = 0;
+
+  // Position-prior factor pools (one per camera model). A non-zero entry
+  // enables RTK/GNSS-anchored bundle adjustment for that model.
+  size_t num_simple_radial_pose_prior_core = 0;
+  size_t num_pinhole_pose_prior_core = 0;
 };
 
 // One implementation per camera model.
@@ -134,6 +139,13 @@ class ICasparModelAdapter {
   virtual void SetVariantFactors(caspar::GraphSolver& solver,
                                  FactorVariant variant,
                                  const VariantData& data) const = 0;
+
+  // Set the position-prior factor pool for this camera model.
+  // `data.pose_indices` are indices into this model's pose pool;
+  // `prior_positions` / `sqrt_info_packed` hold the per-factor constants laid
+  // out as 3 / 6 floats respectively.
+  virtual void SetPriorFactors(caspar::GraphSolver& solver,
+                               const PriorFactorData& data) const = 0;
 };
 
 // SimpleRadial implementation
@@ -495,6 +507,18 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         break;
     }
   }
+
+  void SetPriorFactors(caspar::GraphSolver& s,
+                       const PriorFactorData& d) const override {
+    const size_t n = d.num_factors;
+    if (n == 0) return;
+    s.SetSimpleRadialPosePriorCoreNum(n);
+    s.SetSimpleRadialPosePriorCorePoseIndicesFromHost(d.pose_indices.data(), n);
+    s.SetSimpleRadialPosePriorCorePriorPositionDataFromStackedHost(
+        d.prior_positions.data(), 0, n);
+    s.SetSimpleRadialPosePriorCoreSqrtInfoDataFromStackedHost(
+        d.sqrt_info_packed.data(), 0, n);
+  }
 };
 
 // Pinhole implementation
@@ -841,6 +865,18 @@ class PinholeAdapter : public ICasparModelAdapter {
         break;
     }
   }
+
+  void SetPriorFactors(caspar::GraphSolver& s,
+                       const PriorFactorData& d) const override {
+    const size_t n = d.num_factors;
+    if (n == 0) return;
+    s.SetPinholePosePriorCoreNum(n);
+    s.SetPinholePosePriorCorePoseIndicesFromHost(d.pose_indices.data(), n);
+    s.SetPinholePosePriorCorePriorPositionDataFromStackedHost(
+        d.prior_positions.data(), 0, n);
+    s.SetPinholePosePriorCoreSqrtInfoDataFromStackedHost(
+        d.sqrt_info_packed.data(), 0, n);
+  }
 };
 
 inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
@@ -922,6 +958,9 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_split_fixed_pose_fixed_focal_fixed_point,            // r=3
       sz.num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
       sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point,  // r=3
+      // Pose-prior factor counts (registered after pinhole_split):
+      sz.num_simple_radial_pose_prior_core,
+      sz.num_pinhole_pose_prior_core,
       device_id);
 }
 

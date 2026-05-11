@@ -1,7 +1,9 @@
-#include "caspar_mappings.h"
+#include <stdio.h>
+
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
-#include <stdio.h>
+
+#include "caspar_mappings.h"
 
 namespace cg = cooperative_groups;
 
@@ -13,11 +15,9 @@ namespace caspar {
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPinholeFocalStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -32,33 +32,33 @@ __launch_bounds__(block_size, 1) void ConstPinholeFocalStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPinholeFocalCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -73,8 +73,8 @@ __launch_bounds__(block_size, 1) void ConstPinholeFocalCasparToStacked_kernel(
   }
 }
 
-cudaError_t ConstPinholeFocalStackedToCaspar(const float* stacked_data,
-                                             float* cas_data,
+cudaError_t ConstPinholeFocalStackedToCaspar(const float *stacked_data,
+                                             float *cas_data,
                                              const unsigned int cas_stride,
                                              const unsigned int cas_offset,
                                              const unsigned int num_objects) {
@@ -86,8 +86,8 @@ cudaError_t ConstPinholeFocalStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t ConstPinholeFocalCasparToStacked(const float* cas_data,
-                                             float* stacked_data,
+cudaError_t ConstPinholeFocalCasparToStacked(const float *cas_data,
+                                             float *stacked_data,
                                              const unsigned int cas_stride,
                                              const unsigned int cas_offset,
                                              const unsigned int num_objects) {
@@ -101,11 +101,9 @@ cudaError_t ConstPinholeFocalCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPinholePoseStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
@@ -120,48 +118,49 @@ __launch_bounds__(block_size, 1) void ConstPinholePoseStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
     data[3] = stacked_local_ptr[3];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
     data[0] = stacked_local_ptr[4];
     data[1] = stacked_local_ptr[5];
     data[2] = stacked_local_ptr[6];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPinholePoseCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
     stacked_local_ptr[3] = data[3];
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[4] = data[0];
     stacked_local_ptr[5] = data[1];
     stacked_local_ptr[6] = data[2];
@@ -177,8 +176,8 @@ __launch_bounds__(block_size, 1) void ConstPinholePoseCasparToStacked_kernel(
   }
 }
 
-cudaError_t ConstPinholePoseStackedToCaspar(const float* stacked_data,
-                                            float* cas_data,
+cudaError_t ConstPinholePoseStackedToCaspar(const float *stacked_data,
+                                            float *cas_data,
                                             const unsigned int cas_stride,
                                             const unsigned int cas_offset,
                                             const unsigned int num_objects) {
@@ -190,8 +189,8 @@ cudaError_t ConstPinholePoseStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t ConstPinholePoseCasparToStacked(const float* cas_data,
-                                            float* stacked_data,
+cudaError_t ConstPinholePoseCasparToStacked(const float *cas_data,
+                                            float *stacked_data,
                                             const unsigned int cas_stride,
                                             const unsigned int cas_offset,
                                             const unsigned int num_objects) {
@@ -205,11 +204,9 @@ cudaError_t ConstPinholePoseCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPinholePrincipalPointStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -224,33 +221,33 @@ __launch_bounds__(block_size, 1) void ConstPinholePrincipalPointStackedToCaspar_
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPinholePrincipalPointCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -266,11 +263,8 @@ __launch_bounds__(block_size, 1) void ConstPinholePrincipalPointCasparToStacked_
 }
 
 cudaError_t ConstPinholePrincipalPointStackedToCaspar(
-    const float* stacked_data,
-    float* cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *stacked_data, float *cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstPinholePrincipalPointStackedToCaspar_kernel<<<num_blocks, block_size>>>(
@@ -280,11 +274,8 @@ cudaError_t ConstPinholePrincipalPointStackedToCaspar(
 }
 
 cudaError_t ConstPinholePrincipalPointCasparToStacked(
-    const float* cas_data,
-    float* stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *cas_data, float *stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstPinholePrincipalPointCasparToStacked_kernel<<<num_blocks, block_size>>>(
@@ -295,11 +286,9 @@ cudaError_t ConstPinholePrincipalPointCasparToStacked(
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPixelStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -314,33 +303,33 @@ __launch_bounds__(block_size, 1) void ConstPixelStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPixelCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -355,8 +344,8 @@ __launch_bounds__(block_size, 1) void ConstPixelCasparToStacked_kernel(
   }
 }
 
-cudaError_t ConstPixelStackedToCaspar(const float* stacked_data,
-                                      float* cas_data,
+cudaError_t ConstPixelStackedToCaspar(const float *stacked_data,
+                                      float *cas_data,
                                       const unsigned int cas_stride,
                                       const unsigned int cas_offset,
                                       const unsigned int num_objects) {
@@ -368,8 +357,8 @@ cudaError_t ConstPixelStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t ConstPixelCasparToStacked(const float* cas_data,
-                                      float* stacked_data,
+cudaError_t ConstPixelCasparToStacked(const float *cas_data,
+                                      float *stacked_data,
                                       const unsigned int cas_stride,
                                       const unsigned int cas_offset,
                                       const unsigned int num_objects) {
@@ -383,11 +372,9 @@ cudaError_t ConstPixelCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPointStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 3];
 
@@ -402,34 +389,34 @@ __launch_bounds__(block_size, 1) void ConstPointStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstPointCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 3];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
@@ -445,8 +432,8 @@ __launch_bounds__(block_size, 1) void ConstPointCasparToStacked_kernel(
   }
 }
 
-cudaError_t ConstPointStackedToCaspar(const float* stacked_data,
-                                      float* cas_data,
+cudaError_t ConstPointStackedToCaspar(const float *stacked_data,
+                                      float *cas_data,
                                       const unsigned int cas_stride,
                                       const unsigned int cas_offset,
                                       const unsigned int num_objects) {
@@ -458,8 +445,8 @@ cudaError_t ConstPointStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t ConstPointCasparToStacked(const float* cas_data,
-                                      float* stacked_data,
+cudaError_t ConstPointCasparToStacked(const float *cas_data,
+                                      float *stacked_data,
                                       const unsigned int cas_stride,
                                       const unsigned int cas_offset,
                                       const unsigned int num_objects) {
@@ -472,12 +459,199 @@ cudaError_t ConstPointCasparToStacked(const float* cas_data,
 }
 
 __global__
+__launch_bounds__(block_size, 1) void ConstPriorPositionStackedToCaspar_kernel(
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 3];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 3 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 3;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 3] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
+    float *out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstPriorPositionCasparToStacked_kernel(
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 3];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
+    const float *in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 3 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 3;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 3];
+  }
+}
+
+cudaError_t ConstPriorPositionStackedToCaspar(const float *stacked_data,
+                                              float *cas_data,
+                                              const unsigned int cas_stride,
+                                              const unsigned int cas_offset,
+                                              const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstPriorPositionStackedToCaspar_kernel<<<num_blocks, block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ConstPriorPositionCasparToStacked(const float *cas_data,
+                                              float *stacked_data,
+                                              const unsigned int cas_stride,
+                                              const unsigned int cas_offset,
+                                              const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstPriorPositionCasparToStacked_kernel<<<num_blocks, block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstPriorSqrtInfoStackedToCaspar_kernel(
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 6];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 6 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 6;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 6] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 6;
+    float *out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+    data[3] = stacked_local_ptr[3];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
+    data[0] = stacked_local_ptr[4];
+    data[1] = stacked_local_ptr[5];
+
+    out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstPriorSqrtInfoCasparToStacked_kernel(
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 6];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 6;
+    const float *in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+    stacked_local_ptr[3] = data[3];
+    in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
+    stacked_local_ptr[4] = data[0];
+    stacked_local_ptr[5] = data[1];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 6 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 6;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 6];
+  }
+}
+
+cudaError_t ConstPriorSqrtInfoStackedToCaspar(const float *stacked_data,
+                                              float *cas_data,
+                                              const unsigned int cas_stride,
+                                              const unsigned int cas_offset,
+                                              const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstPriorSqrtInfoStackedToCaspar_kernel<<<num_blocks, block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ConstPriorSqrtInfoCasparToStacked(const float *cas_data,
+                                              float *stacked_data,
+                                              const unsigned int cas_stride,
+                                              const unsigned int cas_offset,
+                                              const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstPriorSqrtInfoCasparToStacked_kernel<<<num_blocks, block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
 __launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -492,33 +666,33 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionStacked
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -534,11 +708,8 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionCasparT
 }
 
 cudaError_t ConstSimpleRadialFocalAndDistortionStackedToCaspar(
-    const float* stacked_data,
-    float* cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *stacked_data, float *cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstSimpleRadialFocalAndDistortionStackedToCaspar_kernel<<<num_blocks,
@@ -549,11 +720,8 @@ cudaError_t ConstSimpleRadialFocalAndDistortionStackedToCaspar(
 }
 
 cudaError_t ConstSimpleRadialFocalAndDistortionCasparToStacked(
-    const float* cas_data,
-    float* stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *cas_data, float *stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstSimpleRadialFocalAndDistortionCasparToStacked_kernel<<<num_blocks,
@@ -565,11 +733,9 @@ cudaError_t ConstSimpleRadialFocalAndDistortionCasparToStacked(
 
 __global__
 __launch_bounds__(block_size, 1) void ConstSimpleRadialPoseStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
@@ -584,48 +750,49 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialPoseStackedToCaspar_kerne
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
     data[3] = stacked_local_ptr[3];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
     data[0] = stacked_local_ptr[4];
     data[1] = stacked_local_ptr[5];
     data[2] = stacked_local_ptr[6];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstSimpleRadialPoseCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
     stacked_local_ptr[3] = data[3];
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[4] = data[0];
     stacked_local_ptr[5] = data[1];
     stacked_local_ptr[6] = data[2];
@@ -642,11 +809,8 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialPoseCasparToStacked_kerne
 }
 
 cudaError_t ConstSimpleRadialPoseStackedToCaspar(
-    const float* stacked_data,
-    float* cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *stacked_data, float *cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstSimpleRadialPoseStackedToCaspar_kernel<<<num_blocks, block_size>>>(
@@ -656,11 +820,8 @@ cudaError_t ConstSimpleRadialPoseStackedToCaspar(
 }
 
 cudaError_t ConstSimpleRadialPoseCasparToStacked(
-    const float* cas_data,
-    float* stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *cas_data, float *stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstSimpleRadialPoseCasparToStacked_kernel<<<num_blocks, block_size>>>(
@@ -671,11 +832,9 @@ cudaError_t ConstSimpleRadialPoseCasparToStacked(
 
 __global__
 __launch_bounds__(block_size, 1) void ConstSimpleRadialPrincipalPointStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -690,33 +849,33 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialPrincipalPointStackedToCa
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void ConstSimpleRadialPrincipalPointCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -732,11 +891,8 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialPrincipalPointCasparToSta
 }
 
 cudaError_t ConstSimpleRadialPrincipalPointStackedToCaspar(
-    const float* stacked_data,
-    float* cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *stacked_data, float *cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstSimpleRadialPrincipalPointStackedToCaspar_kernel<<<num_blocks,
@@ -747,11 +903,8 @@ cudaError_t ConstSimpleRadialPrincipalPointStackedToCaspar(
 }
 
 cudaError_t ConstSimpleRadialPrincipalPointCasparToStacked(
-    const float* cas_data,
-    float* stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *cas_data, float *stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   ConstSimpleRadialPrincipalPointCasparToStacked_kernel<<<num_blocks,
@@ -763,11 +916,9 @@ cudaError_t ConstSimpleRadialPrincipalPointCasparToStacked(
 
 __global__
 __launch_bounds__(block_size, 1) void PinholeCalibStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 4];
 
@@ -782,35 +933,35 @@ __launch_bounds__(block_size, 1) void PinholeCalibStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
     data[3] = stacked_local_ptr[3];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void PinholeCalibCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 4];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
@@ -827,8 +978,8 @@ __launch_bounds__(block_size, 1) void PinholeCalibCasparToStacked_kernel(
   }
 }
 
-cudaError_t PinholeCalibStackedToCaspar(const float* stacked_data,
-                                        float* cas_data,
+cudaError_t PinholeCalibStackedToCaspar(const float *stacked_data,
+                                        float *cas_data,
                                         const unsigned int cas_stride,
                                         const unsigned int cas_offset,
                                         const unsigned int num_objects) {
@@ -840,8 +991,8 @@ cudaError_t PinholeCalibStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t PinholeCalibCasparToStacked(const float* cas_data,
-                                        float* stacked_data,
+cudaError_t PinholeCalibCasparToStacked(const float *cas_data,
+                                        float *stacked_data,
                                         const unsigned int cas_stride,
                                         const unsigned int cas_offset,
                                         const unsigned int num_objects) {
@@ -855,11 +1006,9 @@ cudaError_t PinholeCalibCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void PinholeFocalStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -874,33 +1023,33 @@ __launch_bounds__(block_size, 1) void PinholeFocalStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void PinholeFocalCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -915,8 +1064,8 @@ __launch_bounds__(block_size, 1) void PinholeFocalCasparToStacked_kernel(
   }
 }
 
-cudaError_t PinholeFocalStackedToCaspar(const float* stacked_data,
-                                        float* cas_data,
+cudaError_t PinholeFocalStackedToCaspar(const float *stacked_data,
+                                        float *cas_data,
                                         const unsigned int cas_stride,
                                         const unsigned int cas_offset,
                                         const unsigned int num_objects) {
@@ -928,8 +1077,8 @@ cudaError_t PinholeFocalStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t PinholeFocalCasparToStacked(const float* cas_data,
-                                        float* stacked_data,
+cudaError_t PinholeFocalCasparToStacked(const float *cas_data,
+                                        float *stacked_data,
                                         const unsigned int cas_stride,
                                         const unsigned int cas_offset,
                                         const unsigned int num_objects) {
@@ -943,11 +1092,9 @@ cudaError_t PinholeFocalCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void PinholePoseStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
@@ -962,48 +1109,49 @@ __launch_bounds__(block_size, 1) void PinholePoseStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
     data[3] = stacked_local_ptr[3];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
     data[0] = stacked_local_ptr[4];
     data[1] = stacked_local_ptr[5];
     data[2] = stacked_local_ptr[6];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void PinholePoseCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
     stacked_local_ptr[3] = data[3];
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[4] = data[0];
     stacked_local_ptr[5] = data[1];
     stacked_local_ptr[6] = data[2];
@@ -1019,8 +1167,8 @@ __launch_bounds__(block_size, 1) void PinholePoseCasparToStacked_kernel(
   }
 }
 
-cudaError_t PinholePoseStackedToCaspar(const float* stacked_data,
-                                       float* cas_data,
+cudaError_t PinholePoseStackedToCaspar(const float *stacked_data,
+                                       float *cas_data,
                                        const unsigned int cas_stride,
                                        const unsigned int cas_offset,
                                        const unsigned int num_objects) {
@@ -1032,8 +1180,8 @@ cudaError_t PinholePoseStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t PinholePoseCasparToStacked(const float* cas_data,
-                                       float* stacked_data,
+cudaError_t PinholePoseCasparToStacked(const float *cas_data,
+                                       float *stacked_data,
                                        const unsigned int cas_stride,
                                        const unsigned int cas_offset,
                                        const unsigned int num_objects) {
@@ -1047,11 +1195,9 @@ cudaError_t PinholePoseCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void PinholePrincipalPointStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -1066,33 +1212,33 @@ __launch_bounds__(block_size, 1) void PinholePrincipalPointStackedToCaspar_kerne
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void PinholePrincipalPointCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -1108,11 +1254,8 @@ __launch_bounds__(block_size, 1) void PinholePrincipalPointCasparToStacked_kerne
 }
 
 cudaError_t PinholePrincipalPointStackedToCaspar(
-    const float* stacked_data,
-    float* cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *stacked_data, float *cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   PinholePrincipalPointStackedToCaspar_kernel<<<num_blocks, block_size>>>(
@@ -1122,11 +1265,8 @@ cudaError_t PinholePrincipalPointStackedToCaspar(
 }
 
 cudaError_t PinholePrincipalPointCasparToStacked(
-    const float* cas_data,
-    float* stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *cas_data, float *stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   PinholePrincipalPointCasparToStacked_kernel<<<num_blocks, block_size>>>(
@@ -1136,11 +1276,9 @@ cudaError_t PinholePrincipalPointCasparToStacked(
 }
 
 __global__ __launch_bounds__(block_size, 1) void PointStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 3];
 
@@ -1155,33 +1293,33 @@ __global__ __launch_bounds__(block_size, 1) void PointStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__ __launch_bounds__(block_size, 1) void PointCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 3];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 3;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
@@ -1197,8 +1335,7 @@ __global__ __launch_bounds__(block_size, 1) void PointCasparToStacked_kernel(
   }
 }
 
-cudaError_t PointStackedToCaspar(const float* stacked_data,
-                                 float* cas_data,
+cudaError_t PointStackedToCaspar(const float *stacked_data, float *cas_data,
                                  const unsigned int cas_stride,
                                  const unsigned int cas_offset,
                                  const unsigned int num_objects) {
@@ -1210,8 +1347,7 @@ cudaError_t PointStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t PointCasparToStacked(const float* cas_data,
-                                 float* stacked_data,
+cudaError_t PointCasparToStacked(const float *cas_data, float *stacked_data,
                                  const unsigned int cas_stride,
                                  const unsigned int cas_offset,
                                  const unsigned int num_objects) {
@@ -1225,11 +1361,9 @@ cudaError_t PointCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialCalibStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 4];
 
@@ -1244,35 +1378,35 @@ __launch_bounds__(block_size, 1) void SimpleRadialCalibStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
     data[3] = stacked_local_ptr[3];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialCalibCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 4];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 4;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
@@ -1289,8 +1423,8 @@ __launch_bounds__(block_size, 1) void SimpleRadialCalibCasparToStacked_kernel(
   }
 }
 
-cudaError_t SimpleRadialCalibStackedToCaspar(const float* stacked_data,
-                                             float* cas_data,
+cudaError_t SimpleRadialCalibStackedToCaspar(const float *stacked_data,
+                                             float *cas_data,
                                              const unsigned int cas_stride,
                                              const unsigned int cas_offset,
                                              const unsigned int num_objects) {
@@ -1302,8 +1436,8 @@ cudaError_t SimpleRadialCalibStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t SimpleRadialCalibCasparToStacked(const float* cas_data,
-                                             float* stacked_data,
+cudaError_t SimpleRadialCalibCasparToStacked(const float *cas_data,
+                                             float *stacked_data,
                                              const unsigned int cas_stride,
                                              const unsigned int cas_offset,
                                              const unsigned int num_objects) {
@@ -1317,11 +1451,9 @@ cudaError_t SimpleRadialCalibCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -1336,33 +1468,33 @@ __launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionStackedToCas
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -1378,11 +1510,8 @@ __launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionCasparToStac
 }
 
 cudaError_t SimpleRadialFocalAndDistortionStackedToCaspar(
-    const float* stacked_data,
-    float* cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *stacked_data, float *cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   SimpleRadialFocalAndDistortionStackedToCaspar_kernel<<<num_blocks,
@@ -1393,11 +1522,8 @@ cudaError_t SimpleRadialFocalAndDistortionStackedToCaspar(
 }
 
 cudaError_t SimpleRadialFocalAndDistortionCasparToStacked(
-    const float* cas_data,
-    float* stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *cas_data, float *stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   SimpleRadialFocalAndDistortionCasparToStacked_kernel<<<num_blocks,
@@ -1409,11 +1535,9 @@ cudaError_t SimpleRadialFocalAndDistortionCasparToStacked(
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialPoseStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
@@ -1428,48 +1552,49 @@ __launch_bounds__(block_size, 1) void SimpleRadialPoseStackedToCaspar_kernel(
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
     data[2] = stacked_local_ptr[2];
     data[3] = stacked_local_ptr[3];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
     data[0] = stacked_local_ptr[4];
     data[1] = stacked_local_ptr[5];
     data[2] = stacked_local_ptr[6];
 
     out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    reinterpret_cast<float4 *>(out_ptr)[0] =
+        reinterpret_cast<float4 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialPoseCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 7];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    const float *in_ptr;
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
     stacked_local_ptr[2] = data[2];
     stacked_local_ptr[3] = data[3];
     in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
-    reinterpret_cast<float4*>(data)[0] =
-        reinterpret_cast<const float4*>(in_ptr)[0];
+    reinterpret_cast<float4 *>(data)[0] =
+        reinterpret_cast<const float4 *>(in_ptr)[0];
     stacked_local_ptr[4] = data[0];
     stacked_local_ptr[5] = data[1];
     stacked_local_ptr[6] = data[2];
@@ -1485,8 +1610,8 @@ __launch_bounds__(block_size, 1) void SimpleRadialPoseCasparToStacked_kernel(
   }
 }
 
-cudaError_t SimpleRadialPoseStackedToCaspar(const float* stacked_data,
-                                            float* cas_data,
+cudaError_t SimpleRadialPoseStackedToCaspar(const float *stacked_data,
+                                            float *cas_data,
                                             const unsigned int cas_stride,
                                             const unsigned int cas_offset,
                                             const unsigned int num_objects) {
@@ -1498,8 +1623,8 @@ cudaError_t SimpleRadialPoseStackedToCaspar(const float* stacked_data,
   return cudaGetLastError();
 }
 
-cudaError_t SimpleRadialPoseCasparToStacked(const float* cas_data,
-                                            float* stacked_data,
+cudaError_t SimpleRadialPoseCasparToStacked(const float *cas_data,
+                                            float *stacked_data,
                                             const unsigned int cas_stride,
                                             const unsigned int cas_offset,
                                             const unsigned int num_objects) {
@@ -1513,11 +1638,9 @@ cudaError_t SimpleRadialPoseCasparToStacked(const float* cas_data,
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialPrincipalPointStackedToCaspar_kernel(
-    const float* const __restrict__ stacked_data,
-    float* const __restrict__ cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ stacked_data,
+    float *const __restrict__ cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
@@ -1532,33 +1655,33 @@ __launch_bounds__(block_size, 1) void SimpleRadialPrincipalPointStackedToCaspar_
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    float* out_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float *out_ptr;
     data[0] = stacked_local_ptr[0];
     data[1] = stacked_local_ptr[1];
 
     out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+    reinterpret_cast<float2 *>(out_ptr)[0] =
+        reinterpret_cast<float2 *>(data)[0];
   }
 }
 
 __global__
 __launch_bounds__(block_size, 1) void SimpleRadialPrincipalPointCasparToStacked_kernel(
-    const float* const __restrict__ cas_data,
-    float* const __restrict__ stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *const __restrict__ cas_data,
+    float *const __restrict__ stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
+
   const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ float stacked_data_local[block_size * 2];
 
   if (global_thread_idx < num_objects) {
     float data[4] = {0, 0, 0, 0};
-    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
-    const float* in_ptr;
+    float *stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float *in_ptr;
     in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
-    reinterpret_cast<float2*>(data)[0] =
-        reinterpret_cast<const float2*>(in_ptr)[0];
+    reinterpret_cast<float2 *>(data)[0] =
+        reinterpret_cast<const float2 *>(in_ptr)[0];
     stacked_local_ptr[0] = data[0];
     stacked_local_ptr[1] = data[1];
   }
@@ -1574,11 +1697,8 @@ __launch_bounds__(block_size, 1) void SimpleRadialPrincipalPointCasparToStacked_
 }
 
 cudaError_t SimpleRadialPrincipalPointStackedToCaspar(
-    const float* stacked_data,
-    float* cas_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *stacked_data, float *cas_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   SimpleRadialPrincipalPointStackedToCaspar_kernel<<<num_blocks, block_size>>>(
@@ -1588,11 +1708,8 @@ cudaError_t SimpleRadialPrincipalPointStackedToCaspar(
 }
 
 cudaError_t SimpleRadialPrincipalPointCasparToStacked(
-    const float* cas_data,
-    float* stacked_data,
-    const unsigned int cas_stride,
-    const unsigned int cas_offset,
-    const unsigned int num_objects) {
+    const float *cas_data, float *stacked_data, const unsigned int cas_stride,
+    const unsigned int cas_offset, const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   SimpleRadialPrincipalPointCasparToStacked_kernel<<<num_blocks, block_size>>>(
@@ -1601,4 +1718,4 @@ cudaError_t SimpleRadialPrincipalPointCasparToStacked(
   return cudaGetLastError();
 }
 
-}  // namespace caspar
+} // namespace caspar

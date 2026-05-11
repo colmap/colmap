@@ -1,16 +1,15 @@
 #pragma once
 
-#include "shared_indices.h"
 #include <cuda_runtime.h>
+
+#include "shared_indices.h"
 
 namespace caspar {
 
 void SimpleRadialPoseAlphaDenominatorOrBetaNumerator(
-    double* SimpleRadialPose_p_kp1,
-    unsigned int SimpleRadialPose_p_kp1_num_alloc,
-    double* SimpleRadialPose_w,
+    double *SimpleRadialPose_p_kp1,
+    unsigned int SimpleRadialPose_p_kp1_num_alloc, double *SimpleRadialPose_w,
     unsigned int SimpleRadialPose_w_num_alloc,
-    double* const SimpleRadialPose_out,
-    size_t problem_size);
+    double *const SimpleRadialPose_out, size_t problem_size);
 
-}  // namespace caspar
+} // namespace caspar

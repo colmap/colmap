@@ -1,10 +1,11 @@
-#include "kernel_SimpleRadialFocalAndDistortion_start_w.h"
-#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
+
+#include "kernel_SimpleRadialFocalAndDistortion_start_w.h"
+#include "memops.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -12,12 +13,11 @@ namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     SimpleRadialFocalAndDistortionStartWKernel(
-        double* SimpleRadialFocalAndDistortion_precond_diag,
+        double *SimpleRadialFocalAndDistortion_precond_diag,
         unsigned int SimpleRadialFocalAndDistortion_precond_diag_num_alloc,
-        const double* const diag,
-        double* SimpleRadialFocalAndDistortion_p,
+        const double *const diag, double *SimpleRadialFocalAndDistortion_p,
         unsigned int SimpleRadialFocalAndDistortion_p_num_alloc,
-        double* out_SimpleRadialFocalAndDistortion_w,
+        double *out_SimpleRadialFocalAndDistortion_w,
         unsigned int out_SimpleRadialFocalAndDistortion_w_num_alloc,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -29,44 +29,38 @@ __global__ void __launch_bounds__(1024, 1)
     ReadIdx2<1024, double, double, double2>(
         SimpleRadialFocalAndDistortion_precond_diag,
         0 * SimpleRadialFocalAndDistortion_precond_diag_num_alloc,
-        global_thread_idx,
-        r0,
-        r1);
+        global_thread_idx, r0, r1);
   };
-  LoadUnique<1, double, double>(diag, 0, (double*)inout_shared);
+  LoadUnique<1, double, double>(diag, 0, (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<double>((double*)inout_shared, 0, r2);
+    ReadShared1<double>((double *)inout_shared, 0, r2);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r0 = r0 * r2;
     ReadIdx2<1024, double, double, double2>(
         SimpleRadialFocalAndDistortion_p,
-        0 * SimpleRadialFocalAndDistortion_p_num_alloc,
-        global_thread_idx,
-        r3,
+        0 * SimpleRadialFocalAndDistortion_p_num_alloc, global_thread_idx, r3,
         r4);
     r0 = r0 * r3;
     r2 = r1 * r2;
     r2 = r2 * r4;
     WriteIdx2<1024, double, double, double2>(
         out_SimpleRadialFocalAndDistortion_w,
-        0 * out_SimpleRadialFocalAndDistortion_w_num_alloc,
-        global_thread_idx,
-        r0,
-        r2);
+        0 * out_SimpleRadialFocalAndDistortion_w_num_alloc, global_thread_idx,
+        r0, r2);
   };
 }
 
 void SimpleRadialFocalAndDistortionStartW(
-    double* SimpleRadialFocalAndDistortion_precond_diag,
+    double *SimpleRadialFocalAndDistortion_precond_diag,
     unsigned int SimpleRadialFocalAndDistortion_precond_diag_num_alloc,
-    const double* const diag,
-    double* SimpleRadialFocalAndDistortion_p,
+    const double *const diag, double *SimpleRadialFocalAndDistortion_p,
     unsigned int SimpleRadialFocalAndDistortion_p_num_alloc,
-    double* out_SimpleRadialFocalAndDistortion_w,
+    double *out_SimpleRadialFocalAndDistortion_w,
     unsigned int out_SimpleRadialFocalAndDistortion_w_num_alloc,
     size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
@@ -74,13 +68,11 @@ void SimpleRadialFocalAndDistortionStartW(
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialFocalAndDistortionStartWKernel<<<n_blocks, 1024>>>(
       SimpleRadialFocalAndDistortion_precond_diag,
-      SimpleRadialFocalAndDistortion_precond_diag_num_alloc,
-      diag,
+      SimpleRadialFocalAndDistortion_precond_diag_num_alloc, diag,
       SimpleRadialFocalAndDistortion_p,
       SimpleRadialFocalAndDistortion_p_num_alloc,
       out_SimpleRadialFocalAndDistortion_w,
-      out_SimpleRadialFocalAndDistortion_w_num_alloc,
-      problem_size);
+      out_SimpleRadialFocalAndDistortion_w_num_alloc, problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar

@@ -98,6 +98,20 @@ struct ModelData {
       variants{};  // Indexed by FactorVariant
 };
 
+// Per-camera-model position-prior factor pool. Each entry binds a tunable
+// pose in the model's pose pool to a constant world-frame anchor and a
+// whitening matrix (sqrt of the inverse covariance) packed as the upper
+// triangle of a 3x3 symmetric matrix [s00, s01, s02, s11, s12, s22].
+//
+// Used by the pose-prior-aware Caspar adjuster to inject GNSS/RTK
+// constraints alongside the existing reprojection residuals.
+struct PriorFactorData {
+  std::vector<unsigned int> pose_indices;     // 1 per factor
+  std::vector<StorageType> prior_positions;   // 3 per factor (x, y, z)
+  std::vector<StorageType> sqrt_info_packed;  // 6 per factor (upper tri)
+  size_t num_factors = 0;
+};
+
 namespace colmap {
 
 // Solver parameters mirroring caspar::SolverParams, stored as double to
@@ -123,6 +137,21 @@ struct CasparBundleAdjustmentOptions {
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
+    Reconstruction& reconstruction);
+
+// Pose-prior-aware Caspar adjuster: anchors each registered camera centre to
+// an externally provided world-frame position (typically GNSS/RTK) with
+// covariance-weighted residual, mirroring the semantics of
+// CreatePosePriorCeresBundleAdjuster but running on the cuDSS GPU backend.
+//
+// The reconstruction is robustly aligned to the priors and normalised to a
+// canonical frame before the solve to keep the float32 Caspar build numerically
+// stable; the transformation is reverted after Solve() returns.
+std::unique_ptr<BundleAdjuster> CreatePosePriorCasparBundleAdjuster(
+    const BundleAdjustmentOptions& options,
+    const PosePriorBundleAdjustmentOptions& prior_options,
+    const BundleAdjustmentConfig& config,
+    std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction);
 
 #ifdef CASPAR_ENABLED
