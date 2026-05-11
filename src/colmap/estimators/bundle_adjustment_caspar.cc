@@ -1030,6 +1030,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return true;
   }
 
+ public:
   std::shared_ptr<BundleAdjustmentSummary> Solve() override {
     if (!ValidateData()) {
       auto summary = std::make_shared<BundleAdjustmentSummary>();

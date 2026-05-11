@@ -3,6 +3,9 @@
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
+
+#include <cuda_runtime.h>
 
 #include <memory>
 #include <vector>
@@ -901,6 +904,9 @@ inline caspar::GraphSolver CreateSolver(
     const caspar::SolverParams<StorageType>& params,
     const CasparSolverSizing& sz,
     size_t device_id = 0) {
+  // Newer Symforce-Caspar no longer accepts device_id in the constructor;
+  // the active CUDA device is set externally before construction.
+  CUDA_SAFE_CALL(cudaSetDevice(static_cast<int>(device_id)));
   return caspar::GraphSolver(
       params,
       // Node type counts (alphabetical):
@@ -960,8 +966,7 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point,  // r=3
       // Pose-prior factor counts (registered after pinhole_split):
       sz.num_simple_radial_pose_prior_core,
-      sz.num_pinhole_pose_prior_core,
-      device_id);
+      sz.num_pinhole_pose_prior_core);
 }
 
 }  // namespace colmap
