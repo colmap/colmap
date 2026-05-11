@@ -1,37 +1,51 @@
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "shared_indices.h"
+#include <cuda_runtime.h>
 
 namespace caspar {
 
 void SimpleRadialSplitFixedPrincipalPointResJacFirst(
-    float *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
-    float *focal_and_distortion, unsigned int focal_and_distortion_num_alloc,
-    SharedIndex *focal_and_distortion_indices, float *point,
-    unsigned int point_num_alloc, SharedIndex *point_indices, float *pixel,
-    unsigned int pixel_num_alloc, float *principal_point,
-    unsigned int principal_point_num_alloc, float *out_res,
-    unsigned int out_res_num_alloc, float *const out_rTr, float *out_pose_jac,
-    unsigned int out_pose_jac_num_alloc, float *const out_pose_njtr,
-    unsigned int out_pose_njtr_num_alloc, float *const out_pose_precond_diag,
+    float* pose,
+    unsigned int pose_num_alloc,
+    SharedIndex* pose_indices,
+    float* focal_and_distortion,
+    unsigned int focal_and_distortion_num_alloc,
+    SharedIndex* focal_and_distortion_indices,
+    float* point,
+    unsigned int point_num_alloc,
+    SharedIndex* point_indices,
+    float* pixel,
+    unsigned int pixel_num_alloc,
+    float* principal_point,
+    unsigned int principal_point_num_alloc,
+    float* out_res,
+    unsigned int out_res_num_alloc,
+    float* const out_rTr,
+    float* out_pose_jac,
+    unsigned int out_pose_jac_num_alloc,
+    float* const out_pose_njtr,
+    unsigned int out_pose_njtr_num_alloc,
+    float* const out_pose_precond_diag,
     unsigned int out_pose_precond_diag_num_alloc,
-    float *const out_pose_precond_tril,
+    float* const out_pose_precond_tril,
     unsigned int out_pose_precond_tril_num_alloc,
-    float *out_focal_and_distortion_jac,
+    float* out_focal_and_distortion_jac,
     unsigned int out_focal_and_distortion_jac_num_alloc,
-    float *const out_focal_and_distortion_njtr,
+    float* const out_focal_and_distortion_njtr,
     unsigned int out_focal_and_distortion_njtr_num_alloc,
-    float *const out_focal_and_distortion_precond_diag,
+    float* const out_focal_and_distortion_precond_diag,
     unsigned int out_focal_and_distortion_precond_diag_num_alloc,
-    float *const out_focal_and_distortion_precond_tril,
+    float* const out_focal_and_distortion_precond_tril,
     unsigned int out_focal_and_distortion_precond_tril_num_alloc,
-    float *out_point_jac, unsigned int out_point_jac_num_alloc,
-    float *const out_point_njtr, unsigned int out_point_njtr_num_alloc,
-    float *const out_point_precond_diag,
+    float* out_point_jac,
+    unsigned int out_point_jac_num_alloc,
+    float* const out_point_njtr,
+    unsigned int out_point_njtr_num_alloc,
+    float* const out_point_precond_diag,
     unsigned int out_point_precond_diag_num_alloc,
-    float *const out_point_precond_tril,
-    unsigned int out_point_precond_tril_num_alloc, size_t problem_size);
+    float* const out_point_precond_tril,
+    unsigned int out_point_precond_tril_num_alloc,
+    size_t problem_size);
 
-} // namespace caspar
+}  // namespace caspar

@@ -1,19 +1,19 @@
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "shared_indices.h"
+#include <cuda_runtime.h>
 
 namespace caspar {
 
 void PinholePrincipalPointAlphaNumeratorDenominator(
-    double *PinholePrincipalPoint_p_kp1,
+    double* PinholePrincipalPoint_p_kp1,
     unsigned int PinholePrincipalPoint_p_kp1_num_alloc,
-    double *PinholePrincipalPoint_r_k,
+    double* PinholePrincipalPoint_r_k,
     unsigned int PinholePrincipalPoint_r_k_num_alloc,
-    double *PinholePrincipalPoint_w,
+    double* PinholePrincipalPoint_w,
     unsigned int PinholePrincipalPoint_w_num_alloc,
-    double *const PinholePrincipalPoint_total_ag,
-    double *const PinholePrincipalPoint_total_ac, size_t problem_size);
+    double* const PinholePrincipalPoint_total_ag,
+    double* const PinholePrincipalPoint_total_ac,
+    size_t problem_size);
 
-} // namespace caspar
+}  // namespace caspar

@@ -1,18 +1,25 @@
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "shared_indices.h"
+#include <cuda_runtime.h>
 
 namespace caspar {
 
 void SimpleRadialSplitFixedFocalAndDistortionScore(
-    double *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
-    double *principal_point, unsigned int principal_point_num_alloc,
-    SharedIndex *principal_point_indices, double *point,
-    unsigned int point_num_alloc, SharedIndex *point_indices, double *pixel,
-    unsigned int pixel_num_alloc, double *focal_and_distortion,
-    unsigned int focal_and_distortion_num_alloc, double *const out_rTr,
+    double* pose,
+    unsigned int pose_num_alloc,
+    SharedIndex* pose_indices,
+    double* principal_point,
+    unsigned int principal_point_num_alloc,
+    SharedIndex* principal_point_indices,
+    double* point,
+    unsigned int point_num_alloc,
+    SharedIndex* point_indices,
+    double* pixel,
+    unsigned int pixel_num_alloc,
+    double* focal_and_distortion,
+    unsigned int focal_and_distortion_num_alloc,
+    double* const out_rTr,
     size_t problem_size);
 
-} // namespace caspar
+}  // namespace caspar

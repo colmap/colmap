@@ -1,18 +1,19 @@
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "shared_indices.h"
+#include <cuda_runtime.h>
 
 namespace caspar {
 
 void SimpleRadialCalibPredDecreaseTimesTwo(
-    float *SimpleRadialCalib_step,
+    float* SimpleRadialCalib_step,
     unsigned int SimpleRadialCalib_step_num_alloc,
-    float *SimpleRadialCalib_precond_diag,
+    float* SimpleRadialCalib_precond_diag,
     unsigned int SimpleRadialCalib_precond_diag_num_alloc,
-    const float *const diag, float *SimpleRadialCalib_njtr,
+    const float* const diag,
+    float* SimpleRadialCalib_njtr,
     unsigned int SimpleRadialCalib_njtr_num_alloc,
-    float *const out_SimpleRadialCalib_pred_dec, size_t problem_size);
+    float* const out_SimpleRadialCalib_pred_dec,
+    size_t problem_size);
 
-} // namespace caspar
+}  // namespace caspar

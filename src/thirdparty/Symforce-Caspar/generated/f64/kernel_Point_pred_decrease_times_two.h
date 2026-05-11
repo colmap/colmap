@@ -1,18 +1,18 @@
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "shared_indices.h"
+#include <cuda_runtime.h>
 
 namespace caspar {
 
-void PointPredDecreaseTimesTwo(double *Point_step,
+void PointPredDecreaseTimesTwo(double* Point_step,
                                unsigned int Point_step_num_alloc,
-                               double *Point_precond_diag,
+                               double* Point_precond_diag,
                                unsigned int Point_precond_diag_num_alloc,
-                               const double *const diag, double *Point_njtr,
+                               const double* const diag,
+                               double* Point_njtr,
                                unsigned int Point_njtr_num_alloc,
-                               double *const out_Point_pred_dec,
+                               double* const out_Point_pred_dec,
                                size_t problem_size);
 
-} // namespace caspar
+}  // namespace caspar

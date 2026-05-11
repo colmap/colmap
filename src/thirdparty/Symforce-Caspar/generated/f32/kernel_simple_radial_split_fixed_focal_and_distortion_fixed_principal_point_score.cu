@@ -1,11 +1,10 @@
+#include "kernel_simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_score.h"
+#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
-
-#include "kernel_simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_score.h"
-#include "memops.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -13,11 +12,19 @@ namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointScoreKernel(
-        float *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
-        float *point, unsigned int point_num_alloc, SharedIndex *point_indices,
-        float *pixel, unsigned int pixel_num_alloc, float *focal_and_distortion,
-        unsigned int focal_and_distortion_num_alloc, float *principal_point,
-        unsigned int principal_point_num_alloc, float *const out_rTr,
+        float* pose,
+        unsigned int pose_num_alloc,
+        SharedIndex* pose_indices,
+        float* point,
+        unsigned int point_num_alloc,
+        SharedIndex* point_indices,
+        float* pixel,
+        unsigned int pixel_num_alloc,
+        float* focal_and_distortion,
+        unsigned int focal_and_distortion_num_alloc,
+        float* principal_point,
+        unsigned int principal_point_num_alloc,
+        float* const out_rTr,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
@@ -41,31 +48,39 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, float, float, float2>(principal_point,
                                          0 * principal_point_num_alloc,
-                                         global_thread_idx, r0, r1);
-    ReadIdx2<1024, float, float, float2>(pixel, 0 * pixel_num_alloc,
-                                         global_thread_idx, r2, r3);
+                                         global_thread_idx,
+                                         r0,
+                                         r1);
+    ReadIdx2<1024, float, float, float2>(
+        pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r2 = fmaf(r2, r4, r0);
   };
-  LoadShared<3, float, float>(pose, 4 * pose_num_alloc, pose_indices_loc,
-                              (float *)inout_shared);
+  LoadShared<3, float, float>(
+      pose, 4 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared3<float>((float *)inout_shared,
-                       pose_indices_loc[threadIdx.x].target, r0, r5, r6);
+    ReadShared3<float>(
+        (float*)inout_shared, pose_indices_loc[threadIdx.x].target, r0, r5, r6);
   };
   __syncthreads();
-  LoadShared<3, float, float>(point, 0 * point_num_alloc, point_indices_loc,
-                              (float *)inout_shared);
+  LoadShared<3, float, float>(
+      point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared3<float>((float *)inout_shared,
-                       point_indices_loc[threadIdx.x].target, r7, r8, r9);
+    ReadShared3<float>((float*)inout_shared,
+                       point_indices_loc[threadIdx.x].target,
+                       r7,
+                       r8,
+                       r9);
   };
   __syncthreads();
-  LoadShared<4, float, float>(pose, 0 * pose_num_alloc, pose_indices_loc,
-                              (float *)inout_shared);
+  LoadShared<4, float, float>(
+      pose, 0 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared4<float>((float *)inout_shared,
-                       pose_indices_loc[threadIdx.x].target, r10, r11, r12,
+    ReadShared4<float>((float*)inout_shared,
+                       pose_indices_loc[threadIdx.x].target,
+                       r10,
+                       r11,
+                       r12,
                        r13);
   };
   __syncthreads();
@@ -90,7 +105,9 @@ __global__ void __launch_bounds__(1024, 1)
     r19 = fmaf(r7, r24, r19);
     ReadIdx2<1024, float, float, float2>(focal_and_distortion,
                                          0 * focal_and_distortion_num_alloc,
-                                         global_thread_idx, r24, r0);
+                                         global_thread_idx,
+                                         r24,
+                                         r0);
     r25 = 9.99999999999999955e-07;
     r26 = r11 * r12;
     r26 = r26 * r16;
@@ -126,30 +143,50 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = fmaf(r17, r8, r4);
     r4 = fmaf(r4, r4, r2 * r2);
   };
-  SumStore<float>(out_rTr_local, (float *)inout_shared, 0,
-                  global_thread_idx < problem_size, r4);
+  SumStore<float>(out_rTr_local,
+                  (float*)inout_shared,
+                  0,
+                  global_thread_idx < problem_size,
+                  r4);
   SumFlushFinal<float>(out_rTr_local, out_rTr, 1);
 }
 
 void SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointScore(
-    float *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
-    float *point, unsigned int point_num_alloc, SharedIndex *point_indices,
-    float *pixel, unsigned int pixel_num_alloc, float *focal_and_distortion,
-    unsigned int focal_and_distortion_num_alloc, float *principal_point,
-    unsigned int principal_point_num_alloc, float *const out_rTr,
+    float* pose,
+    unsigned int pose_num_alloc,
+    SharedIndex* pose_indices,
+    float* point,
+    unsigned int point_num_alloc,
+    SharedIndex* point_indices,
+    float* pixel,
+    unsigned int pixel_num_alloc,
+    float* focal_and_distortion,
+    unsigned int focal_and_distortion_num_alloc,
+    float* principal_point,
+    unsigned int principal_point_num_alloc,
+    float* const out_rTr,
     size_t problem_size) {
-
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointScoreKernel<<<
-      n_blocks, 1024>>>(pose, pose_num_alloc, pose_indices, point,
-                        point_num_alloc, point_indices, pixel, pixel_num_alloc,
-                        focal_and_distortion, focal_and_distortion_num_alloc,
-                        principal_point, principal_point_num_alloc, out_rTr,
-                        problem_size);
+      n_blocks,
+      1024>>>(pose,
+              pose_num_alloc,
+              pose_indices,
+              point,
+              point_num_alloc,
+              point_indices,
+              pixel,
+              pixel_num_alloc,
+              focal_and_distortion,
+              focal_and_distortion_num_alloc,
+              principal_point,
+              principal_point_num_alloc,
+              out_rTr,
+              problem_size);
 }
 
-} // namespace caspar
+}  // namespace caspar

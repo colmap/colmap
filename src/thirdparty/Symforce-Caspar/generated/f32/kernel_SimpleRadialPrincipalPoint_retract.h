@@ -1,17 +1,17 @@
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "shared_indices.h"
+#include <cuda_runtime.h>
 
 namespace caspar {
 
 void SimpleRadialPrincipalPointRetract(
-    float *SimpleRadialPrincipalPoint,
-    unsigned int SimpleRadialPrincipalPoint_num_alloc, float *delta,
+    float* SimpleRadialPrincipalPoint,
+    unsigned int SimpleRadialPrincipalPoint_num_alloc,
+    float* delta,
     unsigned int delta_num_alloc,
-    float *out_SimpleRadialPrincipalPoint_retracted,
+    float* out_SimpleRadialPrincipalPoint_retracted,
     unsigned int out_SimpleRadialPrincipalPoint_retracted_num_alloc,
     size_t problem_size);
 
-} // namespace caspar
+}  // namespace caspar

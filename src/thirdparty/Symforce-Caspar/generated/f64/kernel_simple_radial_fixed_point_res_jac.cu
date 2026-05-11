@@ -1,32 +1,45 @@
+#include "kernel_simple_radial_fixed_point_res_jac.h"
+#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
 
-#include "kernel_simple_radial_fixed_point_res_jac.h"
-#include "memops.cuh"
-
 namespace cg = cooperative_groups;
 
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
-    double *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
-    double *calib, unsigned int calib_num_alloc, SharedIndex *calib_indices,
-    double *pixel, unsigned int pixel_num_alloc, double *point,
-    unsigned int point_num_alloc, double *out_res,
-    unsigned int out_res_num_alloc, double *out_pose_jac,
-    unsigned int out_pose_jac_num_alloc, double *const out_pose_njtr,
-    unsigned int out_pose_njtr_num_alloc, double *const out_pose_precond_diag,
+    double* pose,
+    unsigned int pose_num_alloc,
+    SharedIndex* pose_indices,
+    double* calib,
+    unsigned int calib_num_alloc,
+    SharedIndex* calib_indices,
+    double* pixel,
+    unsigned int pixel_num_alloc,
+    double* point,
+    unsigned int point_num_alloc,
+    double* out_res,
+    unsigned int out_res_num_alloc,
+    double* out_pose_jac,
+    unsigned int out_pose_jac_num_alloc,
+    double* const out_pose_njtr,
+    unsigned int out_pose_njtr_num_alloc,
+    double* const out_pose_precond_diag,
     unsigned int out_pose_precond_diag_num_alloc,
-    double *const out_pose_precond_tril,
-    unsigned int out_pose_precond_tril_num_alloc, double *out_calib_jac,
-    unsigned int out_calib_jac_num_alloc, double *const out_calib_njtr,
-    unsigned int out_calib_njtr_num_alloc, double *const out_calib_precond_diag,
+    double* const out_pose_precond_tril,
+    unsigned int out_pose_precond_tril_num_alloc,
+    double* out_calib_jac,
+    unsigned int out_calib_jac_num_alloc,
+    double* const out_calib_njtr,
+    unsigned int out_calib_njtr_num_alloc,
+    double* const out_calib_precond_diag,
     unsigned int out_calib_precond_diag_num_alloc,
-    double *const out_calib_precond_tril,
-    unsigned int out_calib_precond_tril_num_alloc, size_t problem_size) {
+    double* const out_calib_precond_tril,
+    unsigned int out_calib_precond_tril_num_alloc,
+    size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
 
@@ -45,42 +58,42 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
       r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45,
       r46, r47, r48, r49, r50, r51, r52;
-  LoadShared<2, double, double>(calib, 2 * calib_num_alloc, calib_indices_loc,
-                                (double *)inout_shared);
+  LoadShared<2, double, double>(
+      calib, 2 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>((double *)inout_shared,
-                        calib_indices_loc[threadIdx.x].target, r0, r1);
+    ReadShared2<double>(
+        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r0, r1);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    ReadIdx2<1024, double, double, double2>(pixel, 0 * pixel_num_alloc,
-                                            global_thread_idx, r2, r3);
+    ReadIdx2<1024, double, double, double2>(
+        pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r2 = fma(r2, r4, r0);
   };
-  LoadShared<2, double, double>(calib, 0 * calib_num_alloc, calib_indices_loc,
-                                (double *)inout_shared);
+  LoadShared<2, double, double>(
+      calib, 0 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>((double *)inout_shared,
-                        calib_indices_loc[threadIdx.x].target, r0, r5);
+    ReadShared2<double>(
+        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r0, r5);
   };
   __syncthreads();
-  LoadShared<2, double, double>(pose, 4 * pose_num_alloc, pose_indices_loc,
-                                (double *)inout_shared);
+  LoadShared<2, double, double>(
+      pose, 4 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>((double *)inout_shared,
-                        pose_indices_loc[threadIdx.x].target, r6, r7);
+    ReadShared2<double>(
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r6, r7);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    ReadIdx2<1024, double, double, double2>(point, 0 * point_num_alloc,
-                                            global_thread_idx, r8, r9);
+    ReadIdx2<1024, double, double, double2>(
+        point, 0 * point_num_alloc, global_thread_idx, r8, r9);
   };
-  LoadShared<2, double, double>(pose, 0 * pose_num_alloc, pose_indices_loc,
-                                (double *)inout_shared);
+  LoadShared<2, double, double>(
+      pose, 0 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>((double *)inout_shared,
-                        pose_indices_loc[threadIdx.x].target, r10, r11);
+    ReadShared2<double>(
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r10, r11);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -88,11 +101,11 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r13 = 2.00000000000000000e+00;
     r12 = r12 * r13;
   };
-  LoadShared<2, double, double>(pose, 2 * pose_num_alloc, pose_indices_loc,
-                                (double *)inout_shared);
+  LoadShared<2, double, double>(
+      pose, 2 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>((double *)inout_shared,
-                        pose_indices_loc[threadIdx.x].target, r14, r15);
+    ReadShared2<double>(
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r14, r15);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -101,8 +114,8 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r18 = r15 * r17;
     r19 = r12 + r18;
     r6 = fma(r9, r19, r6);
-    ReadIdx1<1024, double, double, double>(point, 2 * point_num_alloc,
-                                           global_thread_idx, r20);
+    ReadIdx1<1024, double, double, double>(
+        point, 2 * point_num_alloc, global_thread_idx, r20);
     r21 = r10 * r14;
     r21 = r21 * r13;
     r22 = r11 * r15;
@@ -119,11 +132,11 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r29 = r6 * r6;
     r30 = 1.00000000000000008e-15;
   };
-  LoadShared<1, double, double>(pose, 6 * pose_num_alloc, pose_indices_loc,
-                                (double *)inout_shared);
+  LoadShared<1, double, double>(
+      pose, 6 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<double>((double *)inout_shared,
-                        pose_indices_loc[threadIdx.x].target, r31);
+    ReadShared1<double>(
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r31);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -166,8 +179,8 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r1 = r0 * r29;
     r1 = r1 * r37;
     r3 = fma(r7, r1, r3);
-    WriteIdx2<1024, double, double, double2>(out_res, 0 * out_res_num_alloc,
-                                             global_thread_idx, r2, r3);
+    WriteIdx2<1024, double, double, double2>(
+        out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
     r41 = r11 * r17;
     r39 = r39 + r41;
     r42 = r14 * r14;
@@ -325,10 +338,12 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r23 = r4 * r2;
     r45 = r4 * r3;
     r45 = fma(r41, r45, r39 * r23);
-    WriteSum2<double, double>((double *)inout_shared, r27, r45);
+    WriteSum2<double, double>((double*)inout_shared, r27, r45);
   };
-  FlushSumShared<2, double>(out_pose_njtr, 0 * out_pose_njtr_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+  FlushSumShared<2, double>(out_pose_njtr,
+                            0 * out_pose_njtr_num_alloc,
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r45 = r4 * r3;
     r27 = r4 * r2;
@@ -337,10 +352,12 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r23 = r16 * r3;
     r26 = r49 * r34;
     r23 = fma(r26, r23, r9 * r45);
-    WriteSum2<double, double>((double *)inout_shared, r27, r23);
+    WriteSum2<double, double>((double*)inout_shared, r27, r23);
   };
-  FlushSumShared<2, double>(out_pose_njtr, 2 * out_pose_njtr_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+  FlushSumShared<2, double>(out_pose_njtr,
+                            2 * out_pose_njtr_num_alloc,
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r23 = r4 * r3;
     r27 = r4 * r2;
@@ -348,18 +365,21 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r23 = r4 * r3;
     r45 = r16 * r2;
     r45 = fma(r26, r45, r8 * r23);
-    WriteSum2<double, double>((double *)inout_shared, r45, r27);
+    WriteSum2<double, double>((double*)inout_shared, r45, r27);
   };
-  FlushSumShared<2, double>(out_pose_njtr, 4 * out_pose_njtr_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+  FlushSumShared<2, double>(out_pose_njtr,
+                            4 * out_pose_njtr_num_alloc,
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r27 = fma(r32, r32, r44 * r44);
     r45 = fma(r41, r41, r39 * r39);
-    WriteSum2<double, double>((double *)inout_shared, r27, r45);
+    WriteSum2<double, double>((double*)inout_shared, r27, r45);
   };
   FlushSumShared<2, double>(out_pose_precond_diag,
                             0 * out_pose_precond_diag_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r45 = fma(r15, r15, r38 * r38);
     r27 = 4.00000000000000000e+00;
@@ -372,82 +392,92 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r30 = r30 * r19;
     r30 = r30 * r27;
     r19 = fma(r9, r9, r30);
-    WriteSum2<double, double>((double *)inout_shared, r45, r19);
+    WriteSum2<double, double>((double*)inout_shared, r45, r19);
   };
   FlushSumShared<2, double>(out_pose_precond_diag,
                             2 * out_pose_precond_diag_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r30 = fma(r8, r8, r30);
     r19 = fma(r48, r48, r1 * r1);
-    WriteSum2<double, double>((double *)inout_shared, r30, r19);
+    WriteSum2<double, double>((double*)inout_shared, r30, r19);
   };
   FlushSumShared<2, double>(out_pose_precond_diag,
                             4 * out_pose_precond_diag_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r19 = fma(r32, r39, r44 * r41);
     r30 = fma(r32, r15, r44 * r38);
-    WriteSum2<double, double>((double *)inout_shared, r19, r30);
+    WriteSum2<double, double>((double*)inout_shared, r19, r30);
   };
   FlushSumShared<2, double>(out_pose_precond_tril,
                             0 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r30 = fma(r44, r42, r32 * r9);
     r19 = fma(r32, r42, r44 * r8);
-    WriteSum2<double, double>((double *)inout_shared, r30, r19);
+    WriteSum2<double, double>((double*)inout_shared, r30, r19);
   };
   FlushSumShared<2, double>(out_pose_precond_tril,
                             2 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r44 = fma(r44, r48, r32 * r1);
     r32 = fma(r39, r15, r41 * r38);
-    WriteSum2<double, double>((double *)inout_shared, r44, r32);
+    WriteSum2<double, double>((double*)inout_shared, r44, r32);
   };
   FlushSumShared<2, double>(out_pose_precond_tril,
                             4 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r32 = fma(r41, r42, r39 * r9);
     r44 = fma(r39, r42, r41 * r8);
-    WriteSum2<double, double>((double *)inout_shared, r32, r44);
+    WriteSum2<double, double>((double*)inout_shared, r32, r44);
   };
   FlushSumShared<2, double>(out_pose_precond_tril,
                             6 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r41 = fma(r41, r48, r39 * r1);
     r39 = fma(r38, r42, r15 * r9);
-    WriteSum2<double, double>((double *)inout_shared, r41, r39);
+    WriteSum2<double, double>((double*)inout_shared, r41, r39);
   };
   FlushSumShared<2, double>(out_pose_precond_tril,
                             8 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r39 = fma(r38, r48, r15 * r1);
     r15 = fma(r15, r42, r38 * r8);
-    WriteSum2<double, double>((double *)inout_shared, r15, r39);
+    WriteSum2<double, double>((double*)inout_shared, r15, r39);
   };
   FlushSumShared<2, double>(out_pose_precond_tril,
                             10 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r39 = fma(r9, r42, r8 * r42);
     r9 = fma(r48, r42, r9 * r1);
-    WriteSum2<double, double>((double *)inout_shared, r39, r9);
+    WriteSum2<double, double>((double*)inout_shared, r39, r9);
   };
   FlushSumShared<2, double>(out_pose_precond_tril,
                             12 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r42 = fma(r1, r42, r8 * r48);
-    WriteSum1<double, double>((double *)inout_shared, r42);
+    WriteSum1<double, double>((double*)inout_shared, r42);
   };
   FlushSumShared<1, double>(out_pose_precond_tril,
                             14 * out_pose_precond_tril_num_alloc,
-                            pose_indices_loc, (double *)inout_shared);
+                            pose_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r42 = r6 * r40;
     r1 = r7 * r40;
@@ -473,17 +503,21 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r40 = r40 * r4;
     r40 = r40 * r3;
     r40 = fma(r37, r40, r28 * r9);
-    WriteSum2<double, double>((double *)inout_shared, r39, r40);
+    WriteSum2<double, double>((double*)inout_shared, r39, r40);
   };
-  FlushSumShared<2, double>(out_calib_njtr, 0 * out_calib_njtr_num_alloc,
-                            calib_indices_loc, (double *)inout_shared);
+  FlushSumShared<2, double>(out_calib_njtr,
+                            0 * out_calib_njtr_num_alloc,
+                            calib_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r40 = r4 * r2;
     r39 = r4 * r3;
-    WriteSum2<double, double>((double *)inout_shared, r40, r39);
+    WriteSum2<double, double>((double*)inout_shared, r40, r39);
   };
-  FlushSumShared<2, double>(out_calib_njtr, 2 * out_calib_njtr_num_alloc,
-                            calib_indices_loc, (double *)inout_shared);
+  FlushSumShared<2, double>(out_calib_njtr,
+                            2 * out_calib_njtr_num_alloc,
+                            calib_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r39 = r7 * r7;
     r39 = r39 * r29;
@@ -498,17 +532,19 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r9 = r7 * r39;
     r37 = r6 * r28;
     r37 = fma(r39, r37, r27 * r9);
-    WriteSum2<double, double>((double *)inout_shared, r40, r37);
+    WriteSum2<double, double>((double*)inout_shared, r40, r37);
   };
   FlushSumShared<2, double>(out_calib_precond_diag,
                             0 * out_calib_precond_diag_num_alloc,
-                            calib_indices_loc, (double *)inout_shared);
+                            calib_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    WriteSum2<double, double>((double *)inout_shared, r25, r25);
+    WriteSum2<double, double>((double*)inout_shared, r25, r25);
   };
   FlushSumShared<2, double>(out_calib_precond_diag,
                             2 * out_calib_precond_diag_num_alloc,
-                            calib_indices_loc, (double *)inout_shared);
+                            calib_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r25 = r6 * r24;
     r25 = r25 * r29;
@@ -518,58 +554,93 @@ __global__ void __launch_bounds__(1024, 1) SimpleRadialFixedPointResJacKernel(
     r37 = r37 * r24;
     r37 = r37 * r29;
     r37 = fma(r31, r37, r28 * r25);
-    WriteSum2<double, double>((double *)inout_shared, r37, r42);
+    WriteSum2<double, double>((double*)inout_shared, r37, r42);
   };
   FlushSumShared<2, double>(out_calib_precond_tril,
                             0 * out_calib_precond_tril_num_alloc,
-                            calib_indices_loc, (double *)inout_shared);
+                            calib_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    WriteSum2<double, double>((double *)inout_shared, r1, r48);
+    WriteSum2<double, double>((double*)inout_shared, r1, r48);
   };
   FlushSumShared<2, double>(out_calib_precond_tril,
                             2 * out_calib_precond_tril_num_alloc,
-                            calib_indices_loc, (double *)inout_shared);
+                            calib_indices_loc,
+                            (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r48 = 0.00000000000000000e+00;
-    WriteSum2<double, double>((double *)inout_shared, r8, r48);
+    WriteSum2<double, double>((double*)inout_shared, r8, r48);
   };
   FlushSumShared<2, double>(out_calib_precond_tril,
                             4 * out_calib_precond_tril_num_alloc,
-                            calib_indices_loc, (double *)inout_shared);
+                            calib_indices_loc,
+                            (double*)inout_shared);
 }
 
-void SimpleRadialFixedPointResJac(
-    double *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
-    double *calib, unsigned int calib_num_alloc, SharedIndex *calib_indices,
-    double *pixel, unsigned int pixel_num_alloc, double *point,
-    unsigned int point_num_alloc, double *out_res,
-    unsigned int out_res_num_alloc, double *out_pose_jac,
-    unsigned int out_pose_jac_num_alloc, double *const out_pose_njtr,
-    unsigned int out_pose_njtr_num_alloc, double *const out_pose_precond_diag,
-    unsigned int out_pose_precond_diag_num_alloc,
-    double *const out_pose_precond_tril,
-    unsigned int out_pose_precond_tril_num_alloc, double *out_calib_jac,
-    unsigned int out_calib_jac_num_alloc, double *const out_calib_njtr,
-    unsigned int out_calib_njtr_num_alloc, double *const out_calib_precond_diag,
-    unsigned int out_calib_precond_diag_num_alloc,
-    double *const out_calib_precond_tril,
-    unsigned int out_calib_precond_tril_num_alloc, size_t problem_size) {
-
+void SimpleRadialFixedPointResJac(double* pose,
+                                  unsigned int pose_num_alloc,
+                                  SharedIndex* pose_indices,
+                                  double* calib,
+                                  unsigned int calib_num_alloc,
+                                  SharedIndex* calib_indices,
+                                  double* pixel,
+                                  unsigned int pixel_num_alloc,
+                                  double* point,
+                                  unsigned int point_num_alloc,
+                                  double* out_res,
+                                  unsigned int out_res_num_alloc,
+                                  double* out_pose_jac,
+                                  unsigned int out_pose_jac_num_alloc,
+                                  double* const out_pose_njtr,
+                                  unsigned int out_pose_njtr_num_alloc,
+                                  double* const out_pose_precond_diag,
+                                  unsigned int out_pose_precond_diag_num_alloc,
+                                  double* const out_pose_precond_tril,
+                                  unsigned int out_pose_precond_tril_num_alloc,
+                                  double* out_calib_jac,
+                                  unsigned int out_calib_jac_num_alloc,
+                                  double* const out_calib_njtr,
+                                  unsigned int out_calib_njtr_num_alloc,
+                                  double* const out_calib_precond_diag,
+                                  unsigned int out_calib_precond_diag_num_alloc,
+                                  double* const out_calib_precond_tril,
+                                  unsigned int out_calib_precond_tril_num_alloc,
+                                  size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialFixedPointResJacKernel<<<n_blocks, 1024>>>(
-      pose, pose_num_alloc, pose_indices, calib, calib_num_alloc, calib_indices,
-      pixel, pixel_num_alloc, point, point_num_alloc, out_res,
-      out_res_num_alloc, out_pose_jac, out_pose_jac_num_alloc, out_pose_njtr,
-      out_pose_njtr_num_alloc, out_pose_precond_diag,
-      out_pose_precond_diag_num_alloc, out_pose_precond_tril,
-      out_pose_precond_tril_num_alloc, out_calib_jac, out_calib_jac_num_alloc,
-      out_calib_njtr, out_calib_njtr_num_alloc, out_calib_precond_diag,
-      out_calib_precond_diag_num_alloc, out_calib_precond_tril,
-      out_calib_precond_tril_num_alloc, problem_size);
+      pose,
+      pose_num_alloc,
+      pose_indices,
+      calib,
+      calib_num_alloc,
+      calib_indices,
+      pixel,
+      pixel_num_alloc,
+      point,
+      point_num_alloc,
+      out_res,
+      out_res_num_alloc,
+      out_pose_jac,
+      out_pose_jac_num_alloc,
+      out_pose_njtr,
+      out_pose_njtr_num_alloc,
+      out_pose_precond_diag,
+      out_pose_precond_diag_num_alloc,
+      out_pose_precond_tril,
+      out_pose_precond_tril_num_alloc,
+      out_calib_jac,
+      out_calib_jac_num_alloc,
+      out_calib_njtr,
+      out_calib_njtr_num_alloc,
+      out_calib_precond_diag,
+      out_calib_precond_diag_num_alloc,
+      out_calib_precond_tril,
+      out_calib_precond_tril_num_alloc,
+      problem_size);
 }
 
-} // namespace caspar
+}  // namespace caspar

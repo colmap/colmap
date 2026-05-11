@@ -1,11 +1,10 @@
+#include "kernel_SimpleRadialCalib_start_w_contribute.h"
+#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
-
-#include "kernel_SimpleRadialCalib_start_w_contribute.h"
-#include "memops.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -13,12 +12,14 @@ namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     SimpleRadialCalibStartWContributeKernel(
-        double *SimpleRadialCalib_precond_diag,
+        double* SimpleRadialCalib_precond_diag,
         unsigned int SimpleRadialCalib_precond_diag_num_alloc,
-        const double *const diag, double *SimpleRadialCalib_p,
+        const double* const diag,
+        double* SimpleRadialCalib_p,
         unsigned int SimpleRadialCalib_p_num_alloc,
-        double *out_SimpleRadialCalib_w,
-        unsigned int out_SimpleRadialCalib_w_num_alloc, size_t problem_size) {
+        double* out_SimpleRadialCalib_w,
+        unsigned int out_SimpleRadialCalib_w_num_alloc,
+        size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[8192];
 
@@ -27,58 +28,79 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(
         SimpleRadialCalib_precond_diag,
-        0 * SimpleRadialCalib_precond_diag_num_alloc, global_thread_idx, r0,
+        0 * SimpleRadialCalib_precond_diag_num_alloc,
+        global_thread_idx,
+        r0,
         r1);
   };
-  LoadUnique<1, double, double>(diag, 0, (double *)inout_shared);
+  LoadUnique<1, double, double>(diag, 0, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<double>((double *)inout_shared, 0, r2);
+    ReadShared1<double>((double*)inout_shared, 0, r2);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     r0 = r0 * r2;
     ReadIdx2<1024, double, double, double2>(SimpleRadialCalib_p,
                                             0 * SimpleRadialCalib_p_num_alloc,
-                                            global_thread_idx, r3, r4);
+                                            global_thread_idx,
+                                            r3,
+                                            r4);
     r0 = r0 * r3;
     r1 = r1 * r2;
     r1 = r1 * r4;
     AddIdx2<1024, double, double, double2>(
-        out_SimpleRadialCalib_w, 0 * out_SimpleRadialCalib_w_num_alloc,
-        global_thread_idx, r0, r1);
+        out_SimpleRadialCalib_w,
+        0 * out_SimpleRadialCalib_w_num_alloc,
+        global_thread_idx,
+        r0,
+        r1);
     ReadIdx2<1024, double, double, double2>(
         SimpleRadialCalib_precond_diag,
-        2 * SimpleRadialCalib_precond_diag_num_alloc, global_thread_idx, r1,
+        2 * SimpleRadialCalib_precond_diag_num_alloc,
+        global_thread_idx,
+        r1,
         r0);
     r1 = r1 * r2;
     ReadIdx2<1024, double, double, double2>(SimpleRadialCalib_p,
                                             2 * SimpleRadialCalib_p_num_alloc,
-                                            global_thread_idx, r4, r3);
+                                            global_thread_idx,
+                                            r4,
+                                            r3);
     r1 = r1 * r4;
     r2 = r0 * r2;
     r2 = r2 * r3;
     AddIdx2<1024, double, double, double2>(
-        out_SimpleRadialCalib_w, 2 * out_SimpleRadialCalib_w_num_alloc,
-        global_thread_idx, r1, r2);
+        out_SimpleRadialCalib_w,
+        2 * out_SimpleRadialCalib_w_num_alloc,
+        global_thread_idx,
+        r1,
+        r2);
   };
 }
 
 void SimpleRadialCalibStartWContribute(
-    double *SimpleRadialCalib_precond_diag,
+    double* SimpleRadialCalib_precond_diag,
     unsigned int SimpleRadialCalib_precond_diag_num_alloc,
-    const double *const diag, double *SimpleRadialCalib_p,
-    unsigned int SimpleRadialCalib_p_num_alloc, double *out_SimpleRadialCalib_w,
-    unsigned int out_SimpleRadialCalib_w_num_alloc, size_t problem_size) {
-
+    const double* const diag,
+    double* SimpleRadialCalib_p,
+    unsigned int SimpleRadialCalib_p_num_alloc,
+    double* out_SimpleRadialCalib_w,
+    unsigned int out_SimpleRadialCalib_w_num_alloc,
+    size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialCalibStartWContributeKernel<<<n_blocks, 1024>>>(
-      SimpleRadialCalib_precond_diag, SimpleRadialCalib_precond_diag_num_alloc,
-      diag, SimpleRadialCalib_p, SimpleRadialCalib_p_num_alloc,
-      out_SimpleRadialCalib_w, out_SimpleRadialCalib_w_num_alloc, problem_size);
+      SimpleRadialCalib_precond_diag,
+      SimpleRadialCalib_precond_diag_num_alloc,
+      diag,
+      SimpleRadialCalib_p,
+      SimpleRadialCalib_p_num_alloc,
+      out_SimpleRadialCalib_w,
+      out_SimpleRadialCalib_w_num_alloc,
+      problem_size);
 }
 
-} // namespace caspar
+}  // namespace caspar

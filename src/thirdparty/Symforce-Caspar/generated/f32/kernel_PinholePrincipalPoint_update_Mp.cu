@@ -1,25 +1,26 @@
+#include "kernel_PinholePrincipalPoint_update_Mp.h"
+#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
 
-#include "kernel_PinholePrincipalPoint_update_Mp.h"
-#include "memops.cuh"
-
 namespace cg = cooperative_groups;
 
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1) PinholePrincipalPointUpdateMpKernel(
-    float *PinholePrincipalPoint_r_k,
+    float* PinholePrincipalPoint_r_k,
     unsigned int PinholePrincipalPoint_r_k_num_alloc,
-    float *PinholePrincipalPoint_Mp,
-    unsigned int PinholePrincipalPoint_Mp_num_alloc, const float *const beta,
-    float *out_PinholePrincipalPoint_Mp_kp1,
+    float* PinholePrincipalPoint_Mp,
+    unsigned int PinholePrincipalPoint_Mp_num_alloc,
+    const float* const beta,
+    float* out_PinholePrincipalPoint_Mp_kp1,
     unsigned int out_PinholePrincipalPoint_Mp_kp1_num_alloc,
-    float *out_PinholePrincipalPoint_w,
-    unsigned int out_PinholePrincipalPoint_w_num_alloc, size_t problem_size) {
+    float* out_PinholePrincipalPoint_w,
+    unsigned int out_PinholePrincipalPoint_w_num_alloc,
+    size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[4096];
 
@@ -28,14 +29,19 @@ __global__ void __launch_bounds__(1024, 1) PinholePrincipalPointUpdateMpKernel(
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, float, float, float2>(PinholePrincipalPoint_Mp,
                                          0 * PinholePrincipalPoint_Mp_num_alloc,
-                                         global_thread_idx, r0, r1);
+                                         global_thread_idx,
+                                         r0,
+                                         r1);
     ReadIdx2<1024, float, float, float2>(
-        PinholePrincipalPoint_r_k, 0 * PinholePrincipalPoint_r_k_num_alloc,
-        global_thread_idx, r2, r3);
+        PinholePrincipalPoint_r_k,
+        0 * PinholePrincipalPoint_r_k_num_alloc,
+        global_thread_idx,
+        r2,
+        r3);
   };
-  LoadUnique<1, float, float>(beta, 0, (float *)inout_shared);
+  LoadUnique<1, float, float>(beta, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<float>((float *)inout_shared, 0, r4);
+    ReadShared1<float>((float*)inout_shared, 0, r4);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -43,35 +49,46 @@ __global__ void __launch_bounds__(1024, 1) PinholePrincipalPointUpdateMpKernel(
     r4 = fmaf(r1, r4, r3);
     WriteIdx2<1024, float, float, float2>(
         out_PinholePrincipalPoint_Mp_kp1,
-        0 * out_PinholePrincipalPoint_Mp_kp1_num_alloc, global_thread_idx, r0,
+        0 * out_PinholePrincipalPoint_Mp_kp1_num_alloc,
+        global_thread_idx,
+        r0,
         r4);
     WriteIdx2<1024, float, float, float2>(
-        out_PinholePrincipalPoint_w, 0 * out_PinholePrincipalPoint_w_num_alloc,
-        global_thread_idx, r0, r4);
+        out_PinholePrincipalPoint_w,
+        0 * out_PinholePrincipalPoint_w_num_alloc,
+        global_thread_idx,
+        r0,
+        r4);
   };
 }
 
 void PinholePrincipalPointUpdateMp(
-    float *PinholePrincipalPoint_r_k,
+    float* PinholePrincipalPoint_r_k,
     unsigned int PinholePrincipalPoint_r_k_num_alloc,
-    float *PinholePrincipalPoint_Mp,
-    unsigned int PinholePrincipalPoint_Mp_num_alloc, const float *const beta,
-    float *out_PinholePrincipalPoint_Mp_kp1,
+    float* PinholePrincipalPoint_Mp,
+    unsigned int PinholePrincipalPoint_Mp_num_alloc,
+    const float* const beta,
+    float* out_PinholePrincipalPoint_Mp_kp1,
     unsigned int out_PinholePrincipalPoint_Mp_kp1_num_alloc,
-    float *out_PinholePrincipalPoint_w,
-    unsigned int out_PinholePrincipalPoint_w_num_alloc, size_t problem_size) {
-
+    float* out_PinholePrincipalPoint_w,
+    unsigned int out_PinholePrincipalPoint_w_num_alloc,
+    size_t problem_size) {
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   PinholePrincipalPointUpdateMpKernel<<<n_blocks, 1024>>>(
-      PinholePrincipalPoint_r_k, PinholePrincipalPoint_r_k_num_alloc,
-      PinholePrincipalPoint_Mp, PinholePrincipalPoint_Mp_num_alloc, beta,
+      PinholePrincipalPoint_r_k,
+      PinholePrincipalPoint_r_k_num_alloc,
+      PinholePrincipalPoint_Mp,
+      PinholePrincipalPoint_Mp_num_alloc,
+      beta,
       out_PinholePrincipalPoint_Mp_kp1,
-      out_PinholePrincipalPoint_Mp_kp1_num_alloc, out_PinholePrincipalPoint_w,
-      out_PinholePrincipalPoint_w_num_alloc, problem_size);
+      out_PinholePrincipalPoint_Mp_kp1_num_alloc,
+      out_PinholePrincipalPoint_w,
+      out_PinholePrincipalPoint_w_num_alloc,
+      problem_size);
 }
 
-} // namespace caspar
+}  // namespace caspar

@@ -1,11 +1,10 @@
+#include "kernel_SimpleRadialPrincipalPoint_update_p.h"
+#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
-
-#include "kernel_SimpleRadialPrincipalPoint_update_p.h"
-#include "memops.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -13,11 +12,12 @@ namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     SimpleRadialPrincipalPointUpdatePKernel(
-        float *SimpleRadialPrincipalPoint_z,
+        float* SimpleRadialPrincipalPoint_z,
         unsigned int SimpleRadialPrincipalPoint_z_num_alloc,
-        float *SimpleRadialPrincipalPoint_p_k,
+        float* SimpleRadialPrincipalPoint_p_k,
         unsigned int SimpleRadialPrincipalPoint_p_k_num_alloc,
-        const float *const beta, float *out_SimpleRadialPrincipalPoint_p_kp1,
+        const float* const beta,
+        float* out_SimpleRadialPrincipalPoint_p_kp1,
         unsigned int out_SimpleRadialPrincipalPoint_p_kp1_num_alloc,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -28,15 +28,20 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, float, float, float2>(
         SimpleRadialPrincipalPoint_p_k,
-        0 * SimpleRadialPrincipalPoint_p_k_num_alloc, global_thread_idx, r0,
+        0 * SimpleRadialPrincipalPoint_p_k_num_alloc,
+        global_thread_idx,
+        r0,
         r1);
     ReadIdx2<1024, float, float, float2>(
         SimpleRadialPrincipalPoint_z,
-        0 * SimpleRadialPrincipalPoint_z_num_alloc, global_thread_idx, r2, r3);
+        0 * SimpleRadialPrincipalPoint_z_num_alloc,
+        global_thread_idx,
+        r2,
+        r3);
   };
-  LoadUnique<1, float, float>(beta, 0, (float *)inout_shared);
+  LoadUnique<1, float, float>(beta, 0, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<float>((float *)inout_shared, 0, r4);
+    ReadShared1<float>((float*)inout_shared, 0, r4);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -44,30 +49,36 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = fmaf(r1, r4, r3);
     WriteIdx2<1024, float, float, float2>(
         out_SimpleRadialPrincipalPoint_p_kp1,
-        0 * out_SimpleRadialPrincipalPoint_p_kp1_num_alloc, global_thread_idx,
-        r0, r4);
+        0 * out_SimpleRadialPrincipalPoint_p_kp1_num_alloc,
+        global_thread_idx,
+        r0,
+        r4);
   };
 }
 
 void SimpleRadialPrincipalPointUpdateP(
-    float *SimpleRadialPrincipalPoint_z,
+    float* SimpleRadialPrincipalPoint_z,
     unsigned int SimpleRadialPrincipalPoint_z_num_alloc,
-    float *SimpleRadialPrincipalPoint_p_k,
+    float* SimpleRadialPrincipalPoint_p_k,
     unsigned int SimpleRadialPrincipalPoint_p_k_num_alloc,
-    const float *const beta, float *out_SimpleRadialPrincipalPoint_p_kp1,
+    const float* const beta,
+    float* out_SimpleRadialPrincipalPoint_p_kp1,
     unsigned int out_SimpleRadialPrincipalPoint_p_kp1_num_alloc,
     size_t problem_size) {
-
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialPrincipalPointUpdatePKernel<<<n_blocks, 1024>>>(
-      SimpleRadialPrincipalPoint_z, SimpleRadialPrincipalPoint_z_num_alloc,
-      SimpleRadialPrincipalPoint_p_k, SimpleRadialPrincipalPoint_p_k_num_alloc,
-      beta, out_SimpleRadialPrincipalPoint_p_kp1,
-      out_SimpleRadialPrincipalPoint_p_kp1_num_alloc, problem_size);
+      SimpleRadialPrincipalPoint_z,
+      SimpleRadialPrincipalPoint_z_num_alloc,
+      SimpleRadialPrincipalPoint_p_k,
+      SimpleRadialPrincipalPoint_p_k_num_alloc,
+      beta,
+      out_SimpleRadialPrincipalPoint_p_kp1,
+      out_SimpleRadialPrincipalPoint_p_kp1_num_alloc,
+      problem_size);
 }
 
-} // namespace caspar
+}  // namespace caspar

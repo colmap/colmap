@@ -1,17 +1,17 @@
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "shared_indices.h"
+#include <cuda_runtime.h>
 
 namespace caspar {
 
-void PinholeCalibStartW(float *PinholeCalib_precond_diag,
+void PinholeCalibStartW(float* PinholeCalib_precond_diag,
                         unsigned int PinholeCalib_precond_diag_num_alloc,
-                        const float *const diag, float *PinholeCalib_p,
+                        const float* const diag,
+                        float* PinholeCalib_p,
                         unsigned int PinholeCalib_p_num_alloc,
-                        float *out_PinholeCalib_w,
+                        float* out_PinholeCalib_w,
                         unsigned int out_PinholeCalib_w_num_alloc,
                         size_t problem_size);
 
-} // namespace caspar
+}  // namespace caspar
