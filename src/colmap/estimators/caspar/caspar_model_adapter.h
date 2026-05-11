@@ -906,7 +906,7 @@ inline caspar::GraphSolver CreateSolver(
     size_t device_id = 0) {
   // Newer Symforce-Caspar no longer accepts device_id in the constructor;
   // the active CUDA device is set externally before construction.
-  CUDA_SAFE_CALL(cudaSetDevice(static_cast<int>(device_id)));
+  cudaSetDevice(static_cast<int>(device_id));
   return caspar::GraphSolver(
       params,
       // Node type counts (alphabetical):
