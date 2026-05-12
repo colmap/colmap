@@ -62,8 +62,8 @@ std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
       const std::string abs_temp_dir =
           std::filesystem::absolute(temp_dir).string();
       if (abs_path.find(abs_temp_dir) != 0) {
-        std::random_device rd;
-        std::mt19937 gen(rd());
+        static std::random_device rd;
+        thread_local std::mt19937 gen(rd());
         std::uniform_int_distribution<uint64_t> dis;
         local_path =
             temp_dir / (path.filename().string() + "." +
