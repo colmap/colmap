@@ -416,10 +416,8 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
   // Do not use iterative solvers, for its suboptimal performance.
   if (reconstruction.NumPoints3D() > 0) {
     options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-    options_.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
   } else {
     options_.solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    options_.solver_options.preconditioner_type = ceres::JACOBI;
   }
 }
 
