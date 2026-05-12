@@ -236,7 +236,7 @@ struct OcclusionTester {
     const Eigen::Vector3f dir = vertex - camera_center;
     const float dist = dir.norm();
     if (dist < kEps) return false;
-    const Eigen::Vector3f target_offset = vertex - dir.normalized() * kEps;
+    const Eigen::Vector3f target_offset = vertex - (kEps / dist) * dir;
 
     const CGALPoint origin(
         camera_center.x(), camera_center.y(), camera_center.z());
