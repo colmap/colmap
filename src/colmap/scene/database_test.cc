@@ -34,6 +34,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <thread>
 
@@ -886,6 +887,58 @@ TEST(LoadRandomDatabaseDescriptorsTest, LoadExactTotal) {
   const auto result = LoadRandomDatabaseDescriptors(*database, 20);
   EXPECT_EQ(result.data.rows(), 20);
   EXPECT_EQ(result.data.cols(), 128);
+}
+
+TEST(DatabaseShadowingTest, Success) {
+  const auto database_path =
+      std::filesystem::current_path() / "database_shadowing_test.db";
+  if (std::filesystem::exists(database_path)) {
+    std::filesystem::remove(database_path);
+  }
+
+  // Create a database and add some content.
+  {
+    auto database = Database::Open(database_path);
+    Camera camera;
+    camera.camera_id = database->WriteCamera(camera);
+  }
+
+  const auto original_size = std::filesystem::file_size(database_path);
+
+  // Set environment variable to enable shadowing.
+#ifdef _WIN32
+  _putenv_s("COLMAP_USE_LOCAL_DATABASE", "1");
+#else
+  setenv("COLMAP_USE_LOCAL_DATABASE", "1", 1);
+#endif
+
+  // Open the database with shadowing, modify it, and close it.
+  {
+    auto database = Database::Open(database_path);
+    // Add many cameras to ensure file size changes.
+    for (int i = 0; i < 10000; ++i) {
+      Camera camera;
+      database->WriteCamera(camera);
+    }
+  }
+
+  // Unset environment variable.
+#ifdef _WIN32
+  _putenv_s("COLMAP_USE_LOCAL_DATABASE", "");
+#else
+  unsetenv("COLMAP_USE_LOCAL_DATABASE");
+#endif
+
+  // Check that the original file was updated (it should be larger now).
+  EXPECT_GT(std::filesystem::file_size(database_path), original_size);
+
+  // Verify the content.
+  {
+    auto database = Database::Open(database_path);
+    EXPECT_EQ(database->NumCameras(), 10001);
+  }
+
+  std::filesystem::remove(database_path);
 }
 
 }  // namespace

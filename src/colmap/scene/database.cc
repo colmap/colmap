@@ -32,7 +32,9 @@
 #include "colmap/optim/random_sampler.h"
 #include "colmap/scene/database_sqlite.h"
 
+#include <cstdlib>
 #include <numeric>
+#include <random>
 
 namespace colmap {
 
@@ -45,16 +47,83 @@ void Database::Register(Factory factory) {
 Database::~Database() = default;
 
 std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
+  const char* use_local_db_env = std::getenv("COLMAP_USE_LOCAL_DATABASE");
+  const bool use_local_db =
+      use_local_db_env != nullptr && std::string(use_local_db_env) == "1";
+
+  std::filesystem::path actual_path = path;
+  std::filesystem::path local_path;
+
+  if (use_local_db && path != ":memory:") {
+    try {
+      const std::filesystem::path temp_dir =
+          std::filesystem::temp_directory_path();
+      const std::string abs_path = std::filesystem::absolute(path).string();
+      const std::string abs_temp_dir =
+          std::filesystem::absolute(temp_dir).string();
+      if (abs_path.find(abs_temp_dir) != 0) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
+        local_path =
+            temp_dir / (path.filename().string() + "." +
+                        std::to_string(dis(gen)) + ".shadow.db");
+        if (std::filesystem::exists(path)) {
+          std::filesystem::copy_file(
+              path, local_path, std::filesystem::copy_options::overwrite_existing);
+        }
+        actual_path = local_path;
+        LOG(INFO) << "Using local shadow database at " << local_path;
+      }
+    } catch (const std::exception& e) {
+      LOG(ERROR) << "Failed to initialize local shadow database: " << e.what()
+                 << ". Falling back to original path.";
+      actual_path = path;
+      local_path.clear();
+    }
+  }
+
+  std::shared_ptr<Database> database;
   for (auto it = factories_.rbegin(); it != factories_.rend(); ++it) {
     try {
-      return (*it)(path);
+      database = (*it)(actual_path);
+      if (database) {
+        break;
+      }
     } catch (const std::exception& e) {
       LOG(WARNING)
           << "Failed to open database with registered factory, because: "
           << e.what() << ". Trying next registered factory.";
     }
   }
-  throw std::runtime_error("No registered database factory succeeded.");
+
+  if (!database) {
+    if (!local_path.empty()) {
+      std::filesystem::remove(local_path);
+    }
+    throw std::runtime_error("No registered database factory succeeded.");
+  }
+
+  if (!local_path.empty()) {
+    // Return a wrapped shared_ptr that syncs back to the remote path on
+    // destruction. We use a custom deleter to manage the synchronization and
+    // cleanup.
+    return std::shared_ptr<Database>(
+        database.get(), [database, path, local_path](Database*) mutable {
+          database->Close();
+          try {
+            LOG(INFO) << "Synchronizing shadow database back to " << path;
+            std::filesystem::copy_file(
+                local_path, path, std::filesystem::copy_options::overwrite_existing);
+            std::filesystem::remove(local_path);
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to synchronize shadow database: " << e.what();
+          }
+          database.reset();
+        });
+  }
+
+  return database;
 }
 
 void Database::Merge(const Database& database1,
