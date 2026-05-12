@@ -58,10 +58,11 @@ std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
     try {
       const std::filesystem::path temp_dir =
           std::filesystem::temp_directory_path();
-      const std::string abs_path = std::filesystem::absolute(path).string();
-      const std::string abs_temp_dir =
-          std::filesystem::absolute(temp_dir).string();
-      if (abs_path.find(abs_temp_dir) != 0) {
+      const std::filesystem::path abs_path = std::filesystem::absolute(path);
+      const std::filesystem::path abs_temp_dir = std::filesystem::absolute(temp_dir);
+      auto [it_path, it_temp] = std::mismatch(
+          abs_path.begin(), abs_path.end(), abs_temp_dir.begin(), abs_temp_dir.end());
+      if (it_temp != abs_temp_dir.end()) {
         static std::random_device rd;
         thread_local std::mt19937 gen(rd());
         std::uniform_int_distribution<uint64_t> dis;
