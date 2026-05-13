@@ -47,6 +47,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <chrono>
 
 using namespace colmap;
 
@@ -119,59 +120,164 @@ int main(int argc, char** argv) {
             << "\n";
 
   std::cout << "solver,iteration,time_ms,mse_px2\n";
-
   // Ceres
   {
     Reconstruction copy = reconstruction;
     BundleAdjustmentOptions opts = options;
     opts.backend = BundleAdjustmentBackend::CERES;
+
+    // Measure setup/build time.
+    const auto t_setup_start = std::chrono::steady_clock::now();
     auto ba = CreateDefaultBundleAdjuster(opts, config, copy);
+    const auto t_setup_end = std::chrono::steady_clock::now();
+
+    const double setup_time_ms =
+        std::chrono::duration<double, std::milli>(
+            t_setup_end - t_setup_start)
+            .count();
+
+    // Measure total Solve() wall time.
+    const auto t_solve_start = std::chrono::steady_clock::now();
     const auto summary = ba->Solve();
-    const auto* s = dynamic_cast<const CeresBundleAdjustmentSummary*>(summary.get());
+    const auto t_solve_end = std::chrono::steady_clock::now();
+
+    const double solve_wall_ms =
+        std::chrono::duration<double, std::milli>(
+            t_solve_end - t_solve_start)
+            .count();
+
+    const auto* s =
+        dynamic_cast<const CeresBundleAdjustmentSummary*>(summary.get());
     if (!s) {
       std::cerr << "ERROR: unexpected Ceres summary type\n";
       return 1;
     }
+
     const double n = static_cast<double>(s->num_residuals);
-    const double t0_s = s->ceres_summary.iterations.empty()
-                            ? 0.0
-                            : s->ceres_summary.iterations[0].cumulative_time_in_seconds;
+
+    // Ceres cumulative iteration time reported internally.
+    const double iter_total_ms =
+        s->ceres_summary.iterations.empty()
+            ? 0.0
+            : s->ceres_summary.iterations.back()
+                  .cumulative_time_in_seconds * 1000.0;
+
+    // Solve() wall time not accounted for by iteration timing.
+    const double solve_overhead_ms =
+        std::max(0.0, solve_wall_ms - iter_total_ms);
+
+    // Normalize iteration timestamps to start at zero.
+    const double t0_s =
+        s->ceres_summary.iterations.empty()
+            ? 0.0
+            : s->ceres_summary.iterations.front()
+                  .cumulative_time_in_seconds;
+
     for (const auto& iter : s->ceres_summary.iterations) {
       const double mse = iter.cost / n;
-      const double time_ms = (iter.cumulative_time_in_seconds - t0_s) * 1000.0;
-      std::cout << "ceres," << iter.iteration << "," << time_ms << "," << mse << "\n";
-    }
-    std::cerr << "Ceres: " << s->ceres_summary.iterations.size()
-              << " iterations, final mse="
-              << s->ceres_summary.final_cost / n << " px^2\n";
-  }
 
+      const double iter_ms =
+          (iter.cumulative_time_in_seconds - t0_s) * 1000.0;
+
+      // Include:
+      //   setup time
+      // + Solve() dispatch/overhead
+      // + cumulative iteration time
+      const double time_ms =
+          setup_time_ms +
+          solve_overhead_ms +
+          iter_ms;
+
+      std::cout << "ceres,"
+                << iter.iteration << ","
+                << time_ms << ","
+                << mse << "\n";
+    }
+
+    std::cerr << "Ceres: "
+              << s->ceres_summary.iterations.size()
+              << " iterations, final mse="
+              << s->ceres_summary.final_cost / n
+              << " px^2"
+              << ", setup_ms=" << setup_time_ms
+              << ", solve_overhead_ms=" << solve_overhead_ms
+              << ", iter_ms=" << iter_total_ms
+              << ", solve_wall_ms=" << solve_wall_ms
+              << "\n";
+  }
 #ifdef CASPAR_ENABLED
   // Caspar
   {
     Reconstruction copy = reconstruction;
     BundleAdjustmentOptions opts = options;
     opts.backend = BundleAdjustmentBackend::CASPAR;
+
+    // Measure setup/build time.
+    const auto t_setup_start = std::chrono::steady_clock::now();
     auto ba = CreateDefaultBundleAdjuster(opts, config, copy);
+    const auto t_setup_end = std::chrono::steady_clock::now();
+
+    const double setup_time_ms =
+        std::chrono::duration<double, std::milli>(t_setup_end - t_setup_start).count();
+
+    // Measure total Solve() wall time.
+    const auto t_solve_start = std::chrono::steady_clock::now();
     const auto summary = ba->Solve();
-    const auto* s = dynamic_cast<const CasparBundleAdjustmentSummary*>(summary.get());
+    const auto t_solve_end = std::chrono::steady_clock::now();
+
+    const double solve_wall_ms =
+        std::chrono::duration<double, std::milli>(t_solve_end - t_solve_start).count();
+
+    const auto* s =
+        dynamic_cast<const CasparBundleAdjustmentSummary*>(summary.get());
     if (!s) {
       std::cerr << "ERROR: unexpected Caspar summary type\n";
       return 1;
     }
+
     const double n = static_cast<double>(s->num_residuals);
+
+    // Caspar internal measured iteration time.
+    const double iter_total_ms =
+        s->iterations.empty()
+            ? 0.0
+            : s->iterations.back().dt_tot * 1000.0;
+
+    // Everything inside Solve() that is NOT accounted for by iteration timing.
+    const double solve_overhead_ms =
+        std::max(0.0, solve_wall_ms - iter_total_ms);
+
     // Emit initial state (iteration -1) at t=0
     std::cout << "caspar,-1,0," << (s->initial_score / n) << "\n";
+
     for (const auto& iter : s->iterations) {
       const double mse = iter.score_best / n;
-      const double time_ms = iter.dt_tot * 1000.0;
-      std::cout << "caspar," << iter.solver_iter << "," << time_ms << "," << mse << "\n";
+
+      // Include:
+      //   setup time
+      // + Solve() dispatch/overhead
+      // + cumulative iteration time
+      const double time_ms =
+          setup_time_ms +
+          solve_overhead_ms +
+          iter.dt_tot * 1000.0;
+
+      std::cout << "caspar," << iter.solver_iter << ","
+                << time_ms << "," << mse << "\n";
     }
+
     const double final_mse = s->iterations.empty()
                                  ? s->initial_score / n
                                  : s->iterations.back().score_best / n;
-    std::cerr << "Caspar: " << s->iteration_count << " iterations, final mse="
-              << final_mse << " px^2\n";
+
+    std::cerr << "Caspar: " << s->iteration_count
+              << " iterations, final mse=" << final_mse
+              << " px^2"
+              << ", setup_ms=" << setup_time_ms
+              << ", solve_overhead_ms=" << solve_overhead_ms
+              << ", iter_ms=" << iter_total_ms
+              << ", solve_wall_ms=" << solve_wall_ms
+              << "\n";
   }
 #endif
 
