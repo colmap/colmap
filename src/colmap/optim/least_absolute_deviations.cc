@@ -53,10 +53,25 @@ Eigen::VectorXd Shrinkage(const Eigen::VectorXd& a, const double kappa) {
   return a_plus_kappa.cwiseMin(0) + a_minus_kappa.cwiseMax(0);
 }
 
+Eigen::SparseMatrix<double> NormalEquations(
+    const Eigen::SparseMatrix<double>& A, double ridge_regularization) {
+  Eigen::SparseMatrix<double> AtA = A.transpose() * A;
+  if (ridge_regularization > 0) {
+    Eigen::SparseMatrix<double> ridge(AtA.cols(), AtA.cols());
+    ridge.setIdentity();
+    ridge *= ridge_regularization;
+    AtA += ridge;
+  }
+  return AtA;
+}
+
 struct SimplicialLLTLinearSolver
     : public LeastAbsoluteDeviationLinearSolverImpl {
+  explicit SimplicialLLTLinearSolver(double ridge_regularization)
+      : ridge_regularization_(ridge_regularization) {}
+
   bool Compute(const Eigen::SparseMatrix<double>& A) override {
-    linear_solver_.compute(A.transpose() * A);
+    linear_solver_.compute(NormalEquations(A, ridge_regularization_));
     return linear_solver_.info() == Eigen::Success;
   }
 
@@ -67,12 +82,16 @@ struct SimplicialLLTLinearSolver
 
  private:
   Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> linear_solver_;
+  const double ridge_regularization_;
 };
 
 struct SupernodalCholmodLLTLinearSolver
     : public LeastAbsoluteDeviationLinearSolverImpl {
+  explicit SupernodalCholmodLLTLinearSolver(double ridge_regularization)
+      : ridge_regularization_(ridge_regularization) {}
+
   bool Compute(const Eigen::SparseMatrix<double>& A) override {
-    linear_solver_.compute(A.transpose() * A);
+    linear_solver_.compute(NormalEquations(A, ridge_regularization_));
     return linear_solver_.info() == Eigen::Success;
   }
 
@@ -83,18 +102,21 @@ struct SupernodalCholmodLLTLinearSolver
 
  private:
   Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> linear_solver_;
+  const double ridge_regularization_;
 };
 
 std::shared_ptr<LeastAbsoluteDeviationLinearSolverImpl> CreateLinearSolver(
-    const LeastAbsoluteDeviationSolver::Options::SolverType& solver_type,
+    const LeastAbsoluteDeviationSolver::Options& options,
     const Eigen::SparseMatrix<double>& A) {
-  switch (solver_type) {
+  switch (options.solver_type) {
     case LeastAbsoluteDeviationSolver::Options::SolverType::SimplicialLLT:
-      return std::make_shared<SimplicialLLTLinearSolver>();
+      return std::make_shared<SimplicialLLTLinearSolver>(
+          options.ridge_regularization);
       break;
     case LeastAbsoluteDeviationSolver::Options::SolverType::
         SupernodalCholmodLLT:
-      return std::make_shared<SupernodalCholmodLLTLinearSolver>();
+      return std::make_shared<SupernodalCholmodLLTLinearSolver>(
+          options.ridge_regularization);
       break;
     default:
       throw std::runtime_error("Unknown linear solver type");
@@ -107,7 +129,8 @@ LeastAbsoluteDeviationSolver::LeastAbsoluteDeviationSolver(
     const Options& options, const Eigen::SparseMatrix<double>& A)
     : options_(options),
       A_(A),
-      linear_solver_(CreateLinearSolver(options_.solver_type, A)) {
+      linear_solver_(CreateLinearSolver(options_, A)) {
+  THROW_CHECK_GE(options_.ridge_regularization, 0);
   THROW_CHECK_GT(options_.rho, 0);
   THROW_CHECK_GT(options_.alpha, 0);
   THROW_CHECK_GT(options_.max_num_iterations, 0);
@@ -117,12 +140,20 @@ LeastAbsoluteDeviationSolver::LeastAbsoluteDeviationSolver(
     throw std::runtime_error("Underdetermined systems not supported.");
   }
 
-  linear_solver_->Compute(A_);
+  valid_ = linear_solver_->Compute(A_);
+  if (!valid_) {
+    LOG(WARNING) << "LeastAbsoluteDeviationSolver: factorization of A^T A "
+                    "failed; system is rank deficient or not positive "
+                    "definite. Solve() will return false.";
+  }
 }
 
 bool LeastAbsoluteDeviationSolver::Solve(const Eigen::VectorXd& b,
                                          Eigen::VectorXd* x) const {
   THROW_CHECK_NOTNULL(x);
+  if (!valid_) {
+    return false;
+  }
 
   Eigen::VectorXd z = Eigen::VectorXd::Zero(A_.rows());
   Eigen::VectorXd z_old(A_.rows());

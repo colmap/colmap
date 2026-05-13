@@ -282,6 +282,52 @@ TEST(RotationAveraging, DeterministicRandomSeed) {
       reconstruction1, reconstruction2, /*max_rotation_error_deg=*/0);
 }
 
+TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
+  SetPRNGSeed(1);
+
+  // Use a noisy multi-rig setup to make the solution non-trivial and the
+  // regularization's effect non-degenerate.
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.prior_gravity_stddev = 3e-1;
+  auto data =
+      CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
+
+  RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
+  options.random_seed = 42;
+
+  // Run once with no regularization.
+  Reconstruction reconstruction_no_ridge = data.reconstruction;
+  PoseGraph pose_graph_no_ridge = data.pose_graph;
+  options.ridge_regularization = 0;
+  ASSERT_TRUE(RunRotationAveraging(options,
+                                   pose_graph_no_ridge,
+                                   reconstruction_no_ridge,
+                                   data.pose_priors));
+
+  // Run again with the same default ridge that the global mapper uses. The
+  // option must flow through L1 and IRLS without biasing the solution.
+  Reconstruction reconstruction_ridge = data.reconstruction;
+  PoseGraph pose_graph_ridge = data.pose_graph;
+  options.ridge_regularization = 1e-9;
+  ASSERT_TRUE(RunRotationAveraging(
+      options, pose_graph_ridge, reconstruction_ridge, data.pose_priors));
+
+  // The two solutions should be effectively identical since 1e-9 is far below
+  // any meaningful residual scale in the optimization.
+  ExpectEqualRotations(reconstruction_no_ridge,
+                       reconstruction_ridge,
+                       /*max_rotation_error_deg=*/1e-12);
+}
+
 TEST(RotationAveraging, EmptyPoseGraph) {
   SetPRNGSeed(1);
 

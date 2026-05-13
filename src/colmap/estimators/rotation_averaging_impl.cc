@@ -659,9 +659,15 @@ bool RotationAveragingSolver::SolveL1Regression(
   l1_solver_options.max_num_iterations = 10;
   l1_solver_options.solver_type =
       LeastAbsoluteDeviationSolver::Options::SolverType::SupernodalCholmodLLT;
+  l1_solver_options.ridge_regularization = options_.ridge_regularization;
 
   LeastAbsoluteDeviationSolver l1_solver(l1_solver_options,
                                          problem.ConstraintMatrix());
+  if (!l1_solver.Valid()) {
+    LOG(ERROR) << "L1 regression linear solver factorization failed";
+    return false;
+  }
+
   double prev_norm = 0;
   double curr_norm = 0;
 
@@ -677,9 +683,10 @@ bool RotationAveragingSolver::SolveL1Regression(
     prev_norm = curr_norm;
 
     step.setZero();
-    l1_solver.Solve(problem.Residuals(), &step);
-    if (step.array().isNaN().any()) {
-      LOG(ERROR) << "nan error";
+    if (!l1_solver.Solve(problem.Residuals(), &step) ||
+        step.array().isNaN().any()) {
+      LOG(ERROR) << "L1 regression solve failed (iteration " << iteration
+                 << ")";
       return false;
     }
 
@@ -769,6 +776,16 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
 bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> llt;
 
+  // Optional Tikhonov ridge to stabilize poorly conditioned but mathematically
+  // PD systems where supernodal Cholesky reports "matrix not positive
+  // definite". When zero (default), no regularization is added.
+  Eigen::SparseMatrix<double> ridge;
+  if (options_.ridge_regularization > 0) {
+    ridge.resize(problem.NumParameters(), problem.NumParameters());
+    ridge.setIdentity();
+    ridge *= options_.ridge_regularization;
+  }
+
   llt.analyzePattern(problem.ConstraintMatrix().transpose() *
                      problem.ConstraintMatrix());
 
@@ -791,12 +808,24 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     // Update the factorization for the weighted values.
     at_weight =
         problem.ConstraintMatrix().transpose() * weights_irls->asDiagonal();
-
-    llt.factorize(at_weight * problem.ConstraintMatrix());
+    if (options_.ridge_regularization > 0) {
+      llt.factorize(at_weight * problem.ConstraintMatrix() + ridge);
+    } else {
+      llt.factorize(at_weight * problem.ConstraintMatrix());
+    }
+    if (llt.info() != Eigen::Success) {
+      LOG(ERROR) << "IRLS Cholesky factorization failed (iteration "
+                 << iteration << ")";
+      return false;
+    }
 
     // Solve the least squares problem.
     step.setZero();
     step = llt.solve(at_weight * problem.Residuals());
+    if (llt.info() != Eigen::Success || step.array().isNaN().any()) {
+      LOG(ERROR) << "IRLS solve failed (iteration " << iteration << ")";
+      return false;
+    }
     problem.UpdateState(step);
 
     const double avg_step = problem.AverageStepSize(step);
