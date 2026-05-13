@@ -57,10 +57,11 @@ Eigen::SparseMatrix<double> NormalEquations(
     const Eigen::SparseMatrix<double>& A, double ridge_regularization) {
   Eigen::SparseMatrix<double> AtA = A.transpose() * A;
   if (ridge_regularization > 0) {
-    Eigen::SparseMatrix<double> ridge(AtA.cols(), AtA.cols());
-    ridge.setIdentity();
-    ridge *= ridge_regularization;
-    AtA += ridge;
+    // The diagonal of A^T A is populated whenever the corresponding column of
+    // A has any non-zero entry, so coeffRef is cheap (no insertion).
+    for (int i = 0; i < AtA.cols(); ++i) {
+      AtA.coeffRef(i, i) += ridge_regularization;
+    }
   }
   return AtA;
 }

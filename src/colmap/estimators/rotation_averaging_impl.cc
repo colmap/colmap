@@ -776,22 +776,13 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
 bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> llt;
 
-  // Optional Tikhonov ridge to stabilize poorly conditioned but mathematically
-  // PD systems where supernodal Cholesky reports "matrix not positive
-  // definite". When zero (default), no regularization is added.
-  Eigen::SparseMatrix<double> ridge;
-  if (options_.ridge_regularization > 0) {
-    ridge.resize(problem.NumParameters(), problem.NumParameters());
-    ridge.setIdentity();
-    ridge *= options_.ridge_regularization;
-  }
-
   llt.analyzePattern(problem.ConstraintMatrix().transpose() *
                      problem.ConstraintMatrix());
 
   const double sigma = DegToRad(options_.irls_loss_parameter_sigma);
 
   Eigen::SparseMatrix<double> at_weight;
+  Eigen::SparseMatrix<double> at_weight_a;
   Eigen::VectorXd step(problem.NumParameters());
 
   int iteration = 0;
@@ -805,14 +796,19 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
       return false;
     }
 
-    // Update the factorization for the weighted values.
+    // Update the factorization for the weighted values. Optionally add a
+    // small Tikhonov ridge to the diagonal to stabilize poorly conditioned
+    // but mathematically PD systems where supernodal Cholesky reports "matrix
+    // not positive definite". When zero (default), no regularization is added.
     at_weight =
         problem.ConstraintMatrix().transpose() * weights_irls->asDiagonal();
+    at_weight_a = at_weight * problem.ConstraintMatrix();
     if (options_.ridge_regularization > 0) {
-      llt.factorize(at_weight * problem.ConstraintMatrix() + ridge);
-    } else {
-      llt.factorize(at_weight * problem.ConstraintMatrix());
+      for (int i = 0; i < at_weight_a.cols(); ++i) {
+        at_weight_a.coeffRef(i, i) += options_.ridge_regularization;
+      }
     }
+    llt.factorize(at_weight_a);
     if (llt.info() != Eigen::Success) {
       LOG(ERROR) << "IRLS Cholesky factorization failed (iteration "
                  << iteration << ")";

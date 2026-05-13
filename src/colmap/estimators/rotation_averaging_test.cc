@@ -308,10 +308,8 @@ TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
   Reconstruction reconstruction_no_ridge = data.reconstruction;
   PoseGraph pose_graph_no_ridge = data.pose_graph;
   options.ridge_regularization = 0;
-  ASSERT_TRUE(RunRotationAveraging(options,
-                                   pose_graph_no_ridge,
-                                   reconstruction_no_ridge,
-                                   data.pose_priors));
+  ASSERT_TRUE(RunRotationAveraging(
+      options, pose_graph_no_ridge, reconstruction_no_ridge, data.pose_priors));
 
   // Run again with the same default ridge that the global mapper uses. The
   // option must flow through L1 and IRLS without biasing the solution.
