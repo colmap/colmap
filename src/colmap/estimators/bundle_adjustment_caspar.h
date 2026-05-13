@@ -119,6 +119,7 @@ struct CasparBundleAdjustmentOptions {
   double pcg_rel_decrease_min = -1.0;
   double solver_rel_decrease_min = 0.999;
   std::string gpu_index = "-1";
+  bool collect_iteration_data = false;
 };
 
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
@@ -130,6 +131,9 @@ std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
 struct CasparBundleAdjustmentSummary : public BundleAdjustmentSummary {
   static std::shared_ptr<CasparBundleAdjustmentSummary> Create(
       const caspar::SolveResult& caspar_summary);
+  int iteration_count = 0;
+  double initial_score = 0.0;
+  std::vector<caspar::IterationData> iterations;
 };
 #endif
 }  // namespace colmap

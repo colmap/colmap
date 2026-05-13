@@ -2272,6 +2272,7 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
       std::chrono::steady_clock::now();
   std::chrono::time_point<std::chrono::steady_clock> t_prev = t0;
   score_best = DoResJacFirst();
+  result.initial_score = score_best;
   if (print_progress) {
     printf("                                 score_init: % .6e\n", score_best);
   }

@@ -23,7 +23,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     VLOG(1) << "Using Caspar bundle adjuster";
 
     BuildObservationCounts();
-    BuildCameraFrameIndex();
     FixGauge();
     BuildFactors();
   }
@@ -45,18 +44,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     model_data_per_model_.emplace(model_id, ModelData{});
     calib_num_per_model_[model_id] = 0;
     return ptr;
-  }
-
-  void BuildCameraFrameIndex() {
-    for (const image_t image_id : config_.Images()) {
-      const Image& image = reconstruction_.Image(image_id);
-      const Camera& camera = *image.CameraPtr();
-      if (!GetAdapter(camera.model_id)) {
-        continue;
-      }
-      camera_frame_to_images_[image.CameraId()][image.FrameId()].push_back(
-          image_id);
-    }
   }
 
   void BuildObservationCounts() {
@@ -102,7 +89,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     CreateCalibrationNodes();
     CreatePoseNodes();
     CreatePointNodes();
-    AddFactorsInOptimalOrder();
+    AddFactors();
     AddExternalFactors();
   }
 
@@ -155,67 +142,66 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
   }
 
-  void AddFactorsInOptimalOrder() {
-    // Calibration-first order for optimal GPU memory access.
-    for (const auto& [model_id, adapter_ptr] : adapters_) {
-      for (size_t calib_idx = 0; calib_idx < calib_num_per_model_.at(model_id);
-           ++calib_idx) {
-        const camera_t camera_id =
-            calib_index_to_camera_.at({model_id, calib_idx});
-        AddFactorsForCalibration(camera_id, model_id);
+  void AddFactors() {
+    std::vector<image_t> sorted_image_ids;
+    sorted_image_ids.reserve(config_.Images().size());
+    for (const image_t image_id : config_.Images()) {
+      sorted_image_ids.push_back(image_id);
+    }
+    // Sort camera-first so all factors for the same calibration are contiguous.
+    // This improves float32 numerical quality in the GPU gradient summation.
+    std::sort(sorted_image_ids.begin(),
+              sorted_image_ids.end(),
+              [&](image_t a, image_t b) {
+                const camera_t cam_a = reconstruction_.Image(a).CameraId();
+                const camera_t cam_b = reconstruction_.Image(b).CameraId();
+                return cam_a != cam_b ? cam_a < cam_b : a < b;
+              });
+
+    for (const image_t image_id : sorted_image_ids) {
+      const Image& image = reconstruction_.Image(image_id);
+      const Camera& camera = reconstruction_.Camera(image.CameraId());
+      ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
+      if (!adapter) continue;
+
+      if (options_.refine_focal_length != options_.refine_extra_params &&
+          !config_.HasConstantCamIntrinsics(camera.camera_id) &&
+          !cameras_from_outside_config_.count(camera.camera_id)) {
+        LOG(FATAL_THROW)
+            << "Camera " << camera.camera_id
+            << ": refine_focal_length != refine_extra_params is not supported "
+               "by CASPAR's merged focal_and_extra block.";
       }
-    }
-  }
+      const bool focal_and_extra_var = IsFocalAndExtraVariable(camera.camera_id);
+      const bool principal_point_var = IsPrincipalPointVariable(camera.camera_id);
+      const bool pose_var = IsPoseVariable(image.FrameId());
+      const size_t calib_idx = GetOrCreateCalibration(camera.camera_id, camera);
 
-  void AddFactorsForCalibration(camera_t camera_id, CameraModelId model_id) {
-    const auto cam_it = camera_frame_to_images_.find(camera_id);
-    if (cam_it == camera_frame_to_images_.end()) return;
-
-    const Camera& camera = reconstruction_.Camera(camera_id);
-    ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
-    if (!adapter) return;
-
-    if (options_.refine_focal_length != options_.refine_extra_params &&
-        !config_.HasConstantCamIntrinsics(camera_id) &&
-        !cameras_from_outside_config_.count(camera_id)) {
-      LOG(FATAL_THROW)
-          << "Camera " << camera_id
-          << ": refine_focal_length != refine_extra_params is not supported "
-             "by CASPAR's merged focal_and_extra block.";
-    }
-    const bool focal_and_extra_var = IsFocalAndExtraVariable(camera_id);
-    const bool principal_point_var = IsPrincipalPointVariable(camera_id);
-    const size_t calib_idx = GetOrCreateCalibration(camera_id, camera);
-
-    for (const auto& [frame_id, image_ids] : cam_it->second) {
-      const bool pose_var = IsPoseVariable(frame_id);
-      for (const image_t image_id : image_ids) {
-        const Image& image = reconstruction_.Image(image_id);
-        if (options_.refine_sensor_from_rig) {
-          const Frame& frame = *image.FramePtr();
-          if (frame.HasRigPtr() && !image.IsRefInFrame()) {
-            LOG(FATAL_THROW)
-                << "Camera " << camera_id
-                << ": refine_sensor_from_rig=true is not supported by CASPAR. "
-                   "Set refine_sensor_from_rig=false or use the Ceres BA.";
-          }
+      if (options_.refine_sensor_from_rig) {
+        const Frame& frame = *image.FramePtr();
+        if (frame.HasRigPtr() && !image.IsRefInFrame()) {
+          LOG(FATAL_THROW)
+              << "Camera " << camera.camera_id
+              << ": refine_sensor_from_rig=true is not supported by CASPAR. "
+                 "Set refine_sensor_from_rig=false or use the Ceres BA.";
         }
-        for (const Point2D& point2D : image.Points2D()) {
-          if (!point2D.HasPoint3D() ||
-              config_.IsIgnoredPoint(point2D.point3D_id) ||
-              !point3D_id_to_idx_.count(point2D.point3D_id)) {
-            continue;
-          }
-          AddFactorCore(image,
-                        camera,
-                        point2D,
-                        reconstruction_.Point3D(point2D.point3D_id),
-                        pose_var,
-                        focal_and_extra_var,
-                        principal_point_var,
-                        calib_idx,
-                        *adapter);
+      }
+
+      for (const Point2D& point2D : image.Points2D()) {
+        if (!point2D.HasPoint3D() ||
+            config_.IsIgnoredPoint(point2D.point3D_id) ||
+            !point3D_id_to_idx_.count(point2D.point3D_id)) {
+          continue;
         }
+        AddFactorCore(image,
+                      camera,
+                      point2D,
+                      reconstruction_.Point3D(point2D.point3D_id),
+                      pose_var,
+                      focal_and_extra_var,
+                      principal_point_var,
+                      calib_idx,
+                      *adapter);
       }
     }
   }
@@ -955,7 +941,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     auto solver = CreateSolver(params, BuildSizing(), device_id);
     SetupSolverData(solver);
-    caspar::SolveResult result = solver.solve(/*print_progress=*/false);
+    const bool collect_iters =
+        options_.caspar && options_.caspar->collect_iteration_data;
+    caspar::SolveResult result =
+        solver.solve(/*print_progress=*/false, /*verbose_logging=*/collect_iters);
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
 
@@ -995,10 +984,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::unordered_set<camera_t> cameras_from_outside_config_;
   std::unordered_set<frame_t> gauge_fixed_frames_;
   std::unordered_set<point3D_t> gauge_fixed_points_;
-  std::unordered_map<camera_t,
-                     std::unordered_map<frame_t, std::vector<image_t>>>
-      camera_frame_to_images_;
-
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 };
 }  // namespace
@@ -1007,6 +992,9 @@ std::shared_ptr<CasparBundleAdjustmentSummary>
 CasparBundleAdjustmentSummary::Create(
     const caspar::SolveResult& caspar_summary) {
   auto summary = std::make_shared<CasparBundleAdjustmentSummary>();
+  summary->iteration_count = caspar_summary.iteration_count;
+  summary->initial_score = caspar_summary.initial_score;
+  summary->iterations = caspar_summary.iterations;
   switch (caspar_summary.exit_reason) {
     case caspar::ExitReason::CONVERGED_DIAG_EXIT:
       VLOG(1) << "Caspar: CONVERGED_DIAG_EXIT after "
