@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/rotation_averaging.h"
 
-#include "colmap/estimators/rotation_averaging_impl.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
@@ -40,13 +39,6 @@
 #include <map>
 #include <utility>
 
-#include <algorithm>
-#include <array>
-#include <numeric>
-#include <set>
-
-#include <Eigen/Geometry>
-#include <ceres/rotation.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -54,17 +46,16 @@ namespace {
 
 void LoadReconstructionAndPoseGraph(const Database& database,
                                     Reconstruction* reconstruction,
-                                    PoseGraph* pose_graph,
-                                    DatabaseCache* database_cache) {
+                                    PoseGraph* pose_graph) {
+  DatabaseCache database_cache;
   DatabaseCache::Options options;
-  database_cache->Load(database, options);
-  reconstruction->Load(*database_cache);
-  pose_graph->Load(*database_cache->CorrespondenceGraph());
+  database_cache.Load(database, options);
+  reconstruction->Load(database_cache);
+  pose_graph->Load(*database_cache.CorrespondenceGraph());
 }
 
 struct TestData {
   std::shared_ptr<Database> database;
-  DatabaseCache database_cache;
   Reconstruction gt_reconstruction;
   Reconstruction reconstruction;
   PoseGraph pose_graph;
@@ -81,10 +72,8 @@ TestData CreateTestData(const SyntheticDatasetOptions& dataset_options,
     SynthesizeNoise(
         *noise_options, &data.gt_reconstruction, data.database.get());
   }
-  LoadReconstructionAndPoseGraph(*data.database,
-                                 &data.reconstruction,
-                                 &data.pose_graph,
-                                 &data.database_cache);
+  LoadReconstructionAndPoseGraph(
+      *data.database, &data.reconstruction, &data.pose_graph);
   data.pose_priors = data.database->ReadAllPosePriors();
   return data;
 }
@@ -417,233 +406,6 @@ TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
                                            data.reconstruction));
 }
 
-TEST(RotationAveraging, SkipRiskyLcPairsWithUnknownRigUsesCorrespondenceGraph) {
-  SetPRNGSeed(1);
-
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 2;
-  synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
-
-  ResetSensorsFromRig(data.reconstruction);
-
-  RotationEstimatorOptions options = CreateRATestOptions();
-  options.skip_risky_lc_pairs = true;
-
-  EXPECT_TRUE(
-      RunRotationAveraging(options,
-                           data.pose_graph,
-                           data.reconstruction,
-                           data.pose_priors,
-                           nullptr,
-                           data.database_cache.CorrespondenceGraph().get()));
-}
-
-TEST(RotationAveraging,
-     SkipRiskyLcPairsWithStratifiedGravityUsesCorrespondenceGraph) {
-  SetPRNGSeed(1);
-
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  auto data = CreateTestData(synthetic_dataset_options);
-
-  // Remove one gravity prior so the stratified subset path is used.
-  data.pose_priors.pop_back();
-
-  RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
-  options.skip_risky_lc_pairs = true;
-  options.use_stratified = true;
-
-  EXPECT_TRUE(
-      RunRotationAveraging(options,
-                           data.pose_graph,
-                           data.reconstruction,
-                           data.pose_priors,
-                           nullptr,
-                           data.database_cache.CorrespondenceGraph().get()));
-}
-
-// LC-penalty branch inside ComputeMaximumPoseGraphSpanningTree.
-//
-// With ``prioritize_tracking=false`` the MST runs vanilla maximum-weight
-// Kruskal. With ``prioritize_tracking=true`` it subtracts
-// ``kLCPenalty=1e9`` from edges whose ``are_lc`` true count exceeds non-LC
-// inliers, routing the tree away from LC-dominated pairs.
-//
-// We construct a minimal three-image graph where the highest-weight edge is
-// LC-dominated and verify the parent map flips between the two modes.
-
-namespace {
-
-// Build a minimal PoseGraph with three valid edges:
-//   1-2: weight 100 (LC-dominated when correspondence_graph is annotated)
-//   1-3: weight 10
-//   2-3: weight 10
-// With prioritize_tracking=false the MST picks 1-2 plus one of {1-3, 2-3}.
-// With prioritize_tracking=true and the LC annotation below, the 1-2 edge
-// has its weight reduced by kLCPenalty=1e9 so the MST picks 1-3 and 2-3.
-struct LcMstFixture {
-  PoseGraph pose_graph;
-  CorrespondenceGraph correspondence_graph;
-  std::unordered_set<image_t> image_ids;
-};
-
-LcMstFixture BuildLcMstFixture() {
-  LcMstFixture data;
-  for (image_t image_id : {static_cast<image_t>(1),
-                           static_cast<image_t>(2),
-                           static_cast<image_t>(3)}) {
-    data.image_ids.insert(image_id);
-    // The CG ``AddImage`` only requires per-image num_points2D; pose-graph
-    // edges below carry the actual weights.
-    data.correspondence_graph.AddImage(image_id, /*num_points=*/0);
-  }
-
-  auto AddEdge = [&](image_t a, image_t b, int num_matches) {
-    PoseGraph::Edge edge;
-    edge.cam2_from_cam1 = Rigid3d();
-    edge.num_matches = num_matches;
-    edge.valid = true;
-    data.pose_graph.AddEdge(a, b, std::move(edge));
-  };
-
-  AddEdge(1, 2, /*num_matches=*/100);
-  AddEdge(1, 3, /*num_matches=*/10);
-  AddEdge(2, 3, /*num_matches=*/10);
-
-  // Mark the 1-2 pair as LC-dominated: more than half of its inliers carry
-  // are_lc=true. The MST helper inspects ImagePairsMap() entries indexed by
-  // pair_id, and (when a CG is plumbed through) reads the edge weight from
-  // ``inliers.size()`` rather than ``edge.num_matches``. Size each inliers
-  // vector to match the corresponding pose-graph edge so the two weight
-  // sources agree.
-  const image_pair_t pair_12 = ImagePairToPairId(1, 2);
-  auto& cg_pair = data.correspondence_graph.MutableImagePairs()[pair_12];
-  cg_pair.image_id1 = 1;
-  cg_pair.image_id2 = 2;
-  cg_pair.pair_id = pair_12;
-  cg_pair.inliers.resize(100);
-  std::iota(cg_pair.inliers.begin(), cg_pair.inliers.end(), 0);
-  // 80 of 100 inliers are LC -> dominated.
-  cg_pair.are_lc.assign(100, true);
-  std::fill(cg_pair.are_lc.begin() + 80, cg_pair.are_lc.end(), false);
-
-  // The other two pairs are tracking-dominated, weight 10 each.
-  const std::array<std::pair<image_t, image_t>, 2> tracking_pairs = {
-      {{1, 3}, {2, 3}}};
-  for (const auto& pair : tracking_pairs) {
-    const image_t a = pair.first;
-    const image_t b = pair.second;
-    const image_pair_t pair_id = ImagePairToPairId(a, b);
-    auto& other = data.correspondence_graph.MutableImagePairs()[pair_id];
-    other.image_id1 = a;
-    other.image_id2 = b;
-    other.pair_id = pair_id;
-    other.inliers.resize(10);
-    std::iota(other.inliers.begin(), other.inliers.end(), 0);
-    other.are_lc.assign(10, false);
-  }
-  return data;
-}
-
-}  // namespace
-
-// Returns the set of (child, parent) edges in the spanning tree, excluding
-// the root self-loop (``parents[root] == root``).
-std::set<std::pair<image_t, image_t>> CollectTreeEdges(
-    const std::unordered_map<image_t, image_t>& parents, image_t root) {
-  std::set<std::pair<image_t, image_t>> edges;
-  for (const auto& [child, parent] : parents) {
-    if (child == root) continue;  // root's self-loop is not a tree edge
-    // Canonicalise (a, b) so we can compare regardless of orientation.
-    edges.emplace(std::min(child, parent), std::max(child, parent));
-  }
-  return edges;
-}
-
-TEST(RotationAveraging, Gate_LcPenaltyMst_Off_KeepsLcDominantEdge) {
-  LcMstFixture data = BuildLcMstFixture();
-
-  std::unordered_map<image_t, image_t> parents;
-  const image_t root =
-      ComputeMaximumPoseGraphSpanningTree(data.pose_graph,
-                                          data.image_ids,
-                                          parents,
-                                          /*prioritize_tracking=*/false,
-                                          &data.correspondence_graph);
-
-  // 3 nodes -> 3 entries in the parent map (one is the root self-loop).
-  EXPECT_EQ(parents.size(), 3u);
-
-  // The 1-2 edge (weight 100) is the heaviest, so it must appear in the
-  // tree regardless of LC status when the gate is OFF.
-  const auto tree_edges = CollectTreeEdges(parents, root);
-  EXPECT_EQ(tree_edges.size(), 2u);
-  EXPECT_GT(tree_edges.count({1, 2}), 0u)
-      << "Expected the 1-2 edge in the MST when prioritize_tracking=false";
-
-  EXPECT_TRUE(root == 1 || root == 2 || root == 3);
-}
-
-TEST(RotationAveraging, Gate_LcPenaltyMst_On_RoutesAroundLcEdge) {
-  LcMstFixture data = BuildLcMstFixture();
-
-  std::unordered_map<image_t, image_t> parents;
-  const image_t root =
-      ComputeMaximumPoseGraphSpanningTree(data.pose_graph,
-                                          data.image_ids,
-                                          parents,
-                                          /*prioritize_tracking=*/true,
-                                          &data.correspondence_graph);
-
-  // With the LC penalty active, the 1-2 edge's effective weight is
-  // 100 - kLCPenalty (=1e9), so the MST must pick the 1-3 + 2-3 path.
-  EXPECT_EQ(parents.size(), 3u);
-  const auto tree_edges = CollectTreeEdges(parents, root);
-  EXPECT_EQ(tree_edges.size(), 2u);
-  EXPECT_EQ(tree_edges.count({1, 2}), 0u)
-      << "Expected the 1-2 edge to be skipped when prioritize_tracking=true";
-  EXPECT_GT(tree_edges.count({1, 3}), 0u)
-      << "Expected the 1-3 edge in the LC-penalty MST";
-  EXPECT_GT(tree_edges.count({2, 3}), 0u)
-      << "Expected the 2-3 edge in the LC-penalty MST";
-
-  EXPECT_TRUE(root == 1 || root == 2 || root == 3);
-}
-
-TEST(RotationAveraging, Gate_LcPenaltyMst_OnWithoutCgFallsBackToVanilla) {
-  // With the gate ON but no correspondence graph, the helper should ignore
-  // the LC penalty entirely (the second guard in the ``cg_map_ptr`` ternary).
-  // Verifies that the gate alone — without a CG — does not silently change
-  // behaviour relative to the OFF branch.
-  LcMstFixture data = BuildLcMstFixture();
-
-  std::unordered_map<image_t, image_t> parents_on;
-  ComputeMaximumPoseGraphSpanningTree(data.pose_graph,
-                                      data.image_ids,
-                                      parents_on,
-                                      /*prioritize_tracking=*/true,
-                                      /*correspondence_graph=*/nullptr);
-
-  std::unordered_map<image_t, image_t> parents_off;
-  ComputeMaximumPoseGraphSpanningTree(data.pose_graph,
-                                      data.image_ids,
-                                      parents_off,
-                                      /*prioritize_tracking=*/false,
-                                      /*correspondence_graph=*/nullptr);
-
-  EXPECT_EQ(parents_on, parents_off);
-}
-
 // Covers: InitializeRigRotationsFromImages standalone (lines 465-564) with
 // multi-camera rig to exercise cam_from_rig estimation and rig_from_world
 // averaging.
@@ -771,110 +533,6 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
       EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
           << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
     }
-  }
-}
-
-// RelativeRotationError functor tests (video-aware Ceres path).
-
-namespace {
-
-// Convert a rotation matrix to a 3-DOF angle-axis vector.
-Eigen::Vector3d RotationMatrixToAngleAxisVec(const Eigen::Matrix3d& R) {
-  Eigen::Vector3d aa;
-  ceres::RotationMatrixToAngleAxis(R.data(), aa.data());
-  return aa;
-}
-
-// Convert a quaternion to a 3-DOF angle-axis vector.
-Eigen::Vector3d QuaternionToAngleAxisVec(const Eigen::Quaterniond& q) {
-  return RotationMatrixToAngleAxisVec(q.toRotationMatrix());
-}
-
-}  // namespace
-
-TEST(RelativeRotationError, ZeroResidualWhenRotationsConsistent) {
-  // Construct a consistent triple (R1, R2, R_rel) such that
-  // R2 = R_rel * R1. The residual should vanish.
-  for (int trial = 0; trial < 16; ++trial) {
-    const Eigen::Quaterniond q1 = Eigen::Quaterniond::UnitRandom();
-    const Eigen::Quaterniond q_rel = Eigen::Quaterniond::UnitRandom();
-    const Eigen::Matrix3d R1 = q1.toRotationMatrix();
-    const Eigen::Matrix3d R_rel = q_rel.toRotationMatrix();
-    const Eigen::Matrix3d R2 = R_rel * R1;
-
-    const Eigen::Vector3d aa1 = RotationMatrixToAngleAxisVec(R1);
-    const Eigen::Vector3d aa2 = RotationMatrixToAngleAxisVec(R2);
-    const Eigen::Vector3d rel_aa = RotationMatrixToAngleAxisVec(R_rel);
-
-    RelativeRotationError functor(rel_aa);
-    Eigen::Vector3d residual;
-    ASSERT_TRUE(functor(aa1.data(), aa2.data(), residual.data()));
-    EXPECT_LT(residual.norm(), 1e-9) << "trial=" << trial;
-  }
-}
-
-TEST(RelativeRotationError, NonZeroResidualWhenInconsistent) {
-  // Inject a known angular discrepancy R_err on top of an otherwise
-  // consistent triple, so the functor's residual norm should match
-  // the discrepancy angle.
-  for (int trial = 0; trial < 16; ++trial) {
-    const Eigen::Quaterniond q1 = Eigen::Quaterniond::UnitRandom();
-    const Eigen::Quaterniond q_rel = Eigen::Quaterniond::UnitRandom();
-
-    // Build a known small-angle perturbation about a random axis.
-    const double err_angle = 0.05 + 0.1 * trial / 16.0;  // 0.05..0.15 rad
-    Eigen::Vector3d axis = Eigen::Vector3d::Random().normalized();
-    const Eigen::AngleAxisd q_err(err_angle, axis);
-
-    const Eigen::Matrix3d R1 = q1.toRotationMatrix();
-    const Eigen::Matrix3d R_rel = q_rel.toRotationMatrix();
-    // R2 deliberately rotated *off* the consistent value by R_err. The
-    // residual ends up being the inverse-transformed perturbation:
-    //   R_residual = R2^T * R_rel * R1
-    //              = (R_err * R_rel * R1)^T * R_rel * R1
-    //              = R1^T * R_rel^T * R_err^T * R_rel * R1.
-    // That is a similarity transform of R_err^T, so its rotation angle
-    // equals err_angle exactly.
-    const Eigen::Matrix3d R2 = q_err.toRotationMatrix() * R_rel * R1;
-
-    const Eigen::Vector3d aa1 = RotationMatrixToAngleAxisVec(R1);
-    const Eigen::Vector3d aa2 = RotationMatrixToAngleAxisVec(R2);
-    const Eigen::Vector3d rel_aa = RotationMatrixToAngleAxisVec(R_rel);
-
-    RelativeRotationError functor(rel_aa);
-    Eigen::Vector3d residual;
-    ASSERT_TRUE(functor(aa1.data(), aa2.data(), residual.data()));
-    EXPECT_NEAR(residual.norm(), err_angle, 1e-9) << "trial=" << trial;
-  }
-}
-
-TEST(RelativeRotationError, SymmetryUnderSwapAndInvert) {
-  // Swapping (R1, R2) and inverting R_rel must give a residual of equal
-  // magnitude (sign flips because angle-axis of inverse is negated).
-  for (int trial = 0; trial < 16; ++trial) {
-    const Eigen::Quaterniond q1 = Eigen::Quaterniond::UnitRandom();
-    const Eigen::Quaterniond q2 = Eigen::Quaterniond::UnitRandom();
-    const Eigen::Quaterniond q_rel = Eigen::Quaterniond::UnitRandom();
-
-    const Eigen::Vector3d aa1 = QuaternionToAngleAxisVec(q1);
-    const Eigen::Vector3d aa2 = QuaternionToAngleAxisVec(q2);
-    const Eigen::Vector3d rel_aa = QuaternionToAngleAxisVec(q_rel);
-    const Eigen::Vector3d rel_aa_inv =
-        QuaternionToAngleAxisVec(q_rel.conjugate());
-
-    RelativeRotationError functor_orig(rel_aa);
-    RelativeRotationError functor_swap(rel_aa_inv);
-    Eigen::Vector3d residual_orig, residual_swap;
-    ASSERT_TRUE(functor_orig(aa1.data(), aa2.data(), residual_orig.data()));
-    ASSERT_TRUE(functor_swap(aa2.data(), aa1.data(), residual_swap.data()));
-
-    // Norms must agree to high precision.
-    EXPECT_NEAR(residual_orig.norm(), residual_swap.norm(), 1e-9)
-        << "trial=" << trial;
-    // The two residuals are angle-axis vectors of mutually inverse
-    // rotations, hence sum to zero.
-    EXPECT_LT((residual_orig + residual_swap).norm(), 1e-9)
-        << "trial=" << trial;
   }
 }
 
