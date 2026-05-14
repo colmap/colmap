@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #ifdef _MSC_VER
 // Caspar uses 'uint' which is not defined in MSVC.
