@@ -711,7 +711,6 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
     const std::vector<frame_t> reg_frame_ids_snapshot =
         reconstruction.RegFrameIds();
     for (const frame_t frame_id : reg_frame_ids_snapshot) {
-      const frame_t frame_id = reconstruction.Image(image_id).FrameId();
       THROW_CHECK(reconstruction.Frame(frame_id).HasPose());
       if (!active_frame_ids.count(frame_id)) {
         reconstruction.DeRegisterFrame(frame_id);
