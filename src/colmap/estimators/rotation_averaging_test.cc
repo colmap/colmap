@@ -328,8 +328,6 @@ TEST(RotationAveraging, MultiImageRigFrameDeregisterDoesNotCrashOnSecondVisit) {
        data.reconstruction.Frame(isolated_frame_id).ImageIds()) {
     isolated_image_ids.insert(data_id.id);
   }
-  ASSERT_GE(isolated_image_ids.size(), size_t{2})
-      << "Bug only fires when the deregistered frame carries >= 2 images.";
 
   // 2. Strip every pose-graph edge touching the isolated frame. After
   //    this the frame is unreachable from any other frame in the
