@@ -132,6 +132,13 @@ if(CASPAR_ENABLED AND CUDA_ENABLED)
         $<$<COMPILE_LANGUAGE:CUDA>:-Xcudafe=--diag_suppress=550>
         $<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>>
     )
+    if(IS_MSVC)
+        set(_MSVC_COMPACT_HEADER "${CASPAR_GEN_DIR}/../../msvc_compact.h")
+        target_compile_options(caspar_lib_core PRIVATE
+            $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:/FI"${_MSVC_COMPACT_HEADER}">
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler /FI"${_MSVC_COMPACT_HEADER}">
+        )
+    endif()
     message(STATUS "Configuring Caspar... done")
 
     message(STATUS "Caspar precision:  ${_caspar_precision}")

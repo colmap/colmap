@@ -303,6 +303,72 @@ TEST(RotationAveraging, EmptyPoseGraph) {
       options, data.pose_graph, data.reconstruction, data.pose_priors));
 }
 
+TEST(RotationAveraging, MultiImageRigFrameDeregisterDoesNotCrashOnSecondVisit) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  std::vector<frame_t> frame_ids;
+  for (const auto& [fid, _] : data.reconstruction.Frames()) {
+    frame_ids.push_back(fid);
+  }
+  std::sort(frame_ids.begin(), frame_ids.end());
+  ASSERT_EQ(frame_ids.size(), 4);
+  const frame_t isolated_frame_id = frame_ids.back();
+
+  // 1. Collect every image_id that belongs to the isolated frame.
+  std::unordered_set<image_t> isolated_image_ids;
+  for (const auto& data_id :
+       data.reconstruction.Frame(isolated_frame_id).ImageIds()) {
+    isolated_image_ids.insert(data_id.id);
+  }
+
+  // 2. Strip every pose-graph edge touching the isolated frame. After
+  //    this the frame is unreachable from any other frame in the
+  //    pose-graph CC.
+  std::vector<std::pair<image_t, image_t>> edges_to_remove;
+  for (const auto& [pair_id, edge] : data.pose_graph.Edges()) {
+    const auto [id1, id2] = PairIdToImagePair(pair_id);
+    if (isolated_image_ids.count(id1) || isolated_image_ids.count(id2)) {
+      edges_to_remove.emplace_back(id1, id2);
+    }
+  }
+  ASSERT_FALSE(edges_to_remove.empty());
+  for (const auto& [id1, id2] : edges_to_remove) {
+    data.pose_graph.DeleteEdge(id1, id2);
+  }
+
+  // 3. Pre-register the isolated frame with its GT pose. This puts it
+  //    into reg_frame_ids_ even though no edges touch it.
+  ASSERT_TRUE(data.gt_reconstruction.Frame(isolated_frame_id).HasPose());
+  data.reconstruction.Frame(isolated_frame_id)
+      .SetRigFromWorld(
+          data.gt_reconstruction.Frame(isolated_frame_id).RigFromWorld());
+  data.reconstruction.RegisterFrame(isolated_frame_id);
+
+  RotationEstimatorOptions options = CreateRATestOptions();
+  options.max_rotation_error_deg = 1.0;
+
+  EXPECT_TRUE(RunRotationAveraging(
+      options, data.pose_graph, data.reconstruction, data.pose_priors));
+
+  // Post-condition: the isolated frame was deregistered cleanly.
+  // The other frames remain registered with poses recovered by RA.
+  EXPECT_FALSE(data.reconstruction.Frame(isolated_frame_id).HasPose());
+  for (size_t i = 0; i + 1 < frame_ids.size(); ++i) {
+    EXPECT_TRUE(data.reconstruction.Frame(frame_ids[i]).HasPose())
+        << "Frame " << frame_ids[i]
+        << " should remain registered after deregistration of the "
+        << "isolated frame.";
+  }
+}
+
 TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
   SetPRNGSeed(1);
 
