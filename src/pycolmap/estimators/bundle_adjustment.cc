@@ -97,8 +97,7 @@ void BindBundleAdjuster(py::module& m) {
 #ifdef CASPAR_ENABLED
   using CasparBASummary = CasparBundleAdjustmentSummary;
   auto PyCasparBundleAdjustmentSummary =
-      py::classh<CasparBASummary, BASummary>(m,
-                                             "CasparBundleAdjustmentSummary")
+      py::classh<CasparBASummary, BASummary>(m, "CasparBundleAdjustmentSummary")
           .def(py::init<>());
   MakeDataclass(PyCasparBundleAdjustmentSummary);
 #endif
