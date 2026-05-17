@@ -1,5 +1,6 @@
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "pycolmap/helpers.h"
@@ -93,6 +94,14 @@ void BindBundleAdjuster(py::module& m) {
                          "Full Ceres solver summary.");
   MakeDataclass(PyCeresBundleAdjustmentSummary);
 
+#ifdef CASPAR_ENABLED
+  using CasparBASummary = CasparBundleAdjustmentSummary;
+  auto PyCasparBundleAdjustmentSummary =
+      py::classh<CasparBASummary, BASummary>(m, "CasparBundleAdjustmentSummary")
+          .def(py::init<>());
+  MakeDataclass(PyCasparBundleAdjustmentSummary);
+#endif
+
   auto PyBundleAdjustmentGauge =
       py::enum_<BundleAdjustmentGauge>(m, "BundleAdjustmentGauge")
           .value("UNSPECIFIED", BundleAdjustmentGauge::UNSPECIFIED)
@@ -103,7 +112,8 @@ void BindBundleAdjuster(py::module& m) {
 
   auto PyBundleAdjustmentBackend =
       py::enum_<BundleAdjustmentBackend>(m, "BundleAdjustmentBackend")
-          .value("CERES", BundleAdjustmentBackend::CERES);
+          .value("CERES", BundleAdjustmentBackend::CERES)
+          .value("CASPAR", BundleAdjustmentBackend::CASPAR);
   AddStringToEnumConstructor(PyBundleAdjustmentBackend);
 
   using BACfg = BundleAdjustmentConfig;
@@ -239,6 +249,52 @@ void BindBundleAdjuster(py::module& m) {
           .def("check", &CeresBAOpts::Check);
   MakeDataclass(PyCeresBundleAdjustmentOptions);
 
+  // Caspar-specific bundle adjustment options
+  using CasparBAOpts = CasparBundleAdjustmentOptions;
+  auto PyCasparBundleAdjustmentOptions =
+      py::classh<CasparBAOpts>(m, "CasparBundleAdjustmentOptions")
+          .def(py::init<>())
+          .def_readwrite("solver_iter_max",
+                         &CasparBAOpts::solver_iter_max,
+                         "Maximum number of Caspar solver iterations.")
+          .def_readwrite("pcg_iter_max",
+                         &CasparBAOpts::pcg_iter_max,
+                         "Maximum number of PCG iterations per solver step.")
+          .def_readwrite("diag_init",
+                         &CasparBAOpts::diag_init,
+                         "Initial diagonal damping value.")
+          .def_readwrite("diag_min",
+                         &CasparBAOpts::diag_min,
+                         "Minimum diagonal damping value.")
+          .def_readwrite("diag_scaling_up",
+                         &CasparBAOpts::diag_scaling_up,
+                         "Diagonal damping increase factor.")
+          .def_readwrite("diag_scaling_down",
+                         &CasparBAOpts::diag_scaling_down,
+                         "Diagonal damping decrease factor.")
+          .def_readwrite("diag_exit_value",
+                         &CasparBAOpts::diag_exit_value,
+                         "Diagonal damping value that triggers termination.")
+          .def_readwrite("score_exit_value",
+                         &CasparBAOpts::score_exit_value,
+                         "Score threshold that triggers termination.")
+          .def_readwrite("pcg_rel_error_exit",
+                         &CasparBAOpts::pcg_rel_error_exit,
+                         "Relative PCG error threshold that triggers exit.")
+          .def_readwrite("pcg_rel_score_exit",
+                         &CasparBAOpts::pcg_rel_score_exit,
+                         "Relative PCG score threshold that triggers exit.")
+          .def_readwrite("pcg_rel_decrease_min",
+                         &CasparBAOpts::pcg_rel_decrease_min,
+                         "Minimum relative PCG decrease.")
+          .def_readwrite("solver_rel_decrease_min",
+                         &CasparBAOpts::solver_rel_decrease_min,
+                         "Minimum relative solver decrease.")
+          .def_readwrite("gpu_index",
+                         &CasparBAOpts::gpu_index,
+                         "Which GPU to use for solving the problem.");
+  MakeDataclass(PyCasparBundleAdjustmentOptions);
+
   // Solver-agnostic bundle adjustment options
   using BAOpts = BundleAdjustmentOptions;
   auto PyBundleAdjustmentOptions =
@@ -282,6 +338,9 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("ceres",
                          &BAOpts::ceres,
                          "Ceres-specific bundle adjustment options.")
+          .def_readwrite("caspar",
+                         &BAOpts::caspar,
+                         "Caspar-specific bundle adjustment options.")
           .def("check", &BAOpts::Check);
   MakeDataclass(PyBundleAdjustmentOptions);
 
