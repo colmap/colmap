@@ -321,6 +321,11 @@ void IncrementalPipeline::Run() {
     return;
   }
 
+  LOG(INFO) << "Bundle adjustment backend: local=" << options_->ba_local_backend
+            << " global=" << options_->ba_global_backend
+            << " ba_use_gpu=" << options_->ba_use_gpu
+            << " ba_gpu_index=" << options_->ba_gpu_index;
+
   // Is there a sub-reconstruction before we start the reconstruction? I.e. the
   // user has imported an existing reconstruction.
   const bool continue_reconstruction = reconstruction_manager_->Size() > 0;

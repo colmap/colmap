@@ -30,7 +30,12 @@ def test_bundle_adjustment_backend_enum():
         for k, v in pycolmap.BundleAdjustmentBackend.__members__.items()
     } == {
         "CERES": 0,
+        "CASPAR": 1,
     }
+    assert (
+        pycolmap.BundleAdjustmentBackend("CASPAR")
+        == pycolmap.BundleAdjustmentBackend.CASPAR
+    )
 
 
 def test_loss_function_type_enum():
@@ -110,6 +115,23 @@ def test_ceres_ba_options_check():
     assert isinstance(result, bool)
 
 
+def test_caspar_ba_options_default_init():
+    options = pycolmap.CasparBundleAdjustmentOptions()
+    assert options is not None
+
+
+def test_caspar_ba_options_readwrite():
+    options = pycolmap.CasparBundleAdjustmentOptions()
+    options.solver_iter_max = 17
+    options.pcg_iter_max = 11
+    options.diag_init = 2.0
+    options.gpu_index = "0"
+    assert options.solver_iter_max == 17
+    assert options.pcg_iter_max == 11
+    assert options.diag_init == 2.0
+    assert options.gpu_index == "0"
+
+
 def test_ba_options_default_init():
     options = pycolmap.BundleAdjustmentOptions()
     assert options is not None
@@ -166,12 +188,20 @@ def test_ba_options_backend_readwrite():
     options = pycolmap.BundleAdjustmentOptions()
     options.backend = pycolmap.BundleAdjustmentBackend.CERES
     assert options.backend == pycolmap.BundleAdjustmentBackend.CERES
+    options.backend = pycolmap.BundleAdjustmentBackend.CASPAR
+    assert options.backend == pycolmap.BundleAdjustmentBackend.CASPAR
 
 
 def test_ba_options_ceres_property():
     options = pycolmap.BundleAdjustmentOptions()
     ceres = options.ceres
     assert isinstance(ceres, pycolmap.CeresBundleAdjustmentOptions)
+
+
+def test_ba_options_caspar_property():
+    options = pycolmap.BundleAdjustmentOptions()
+    caspar = options.caspar
+    assert isinstance(caspar, pycolmap.CasparBundleAdjustmentOptions)
 
 
 def test_ba_options_check():
