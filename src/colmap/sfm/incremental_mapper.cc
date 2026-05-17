@@ -618,7 +618,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                                        const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
-  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
+  if (reconstruction_->NumRegImages() < 2) {
+    VLOG(2) << "Structure-less registration requires at least 2 registered "
+               "images; only "
+            << reconstruction_->NumRegImages() << " available";
+    return false;
+  }
 
   THROW_CHECK(options.Check());
 
