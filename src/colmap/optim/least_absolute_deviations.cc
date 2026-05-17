@@ -29,12 +29,12 @@
 
 #include "colmap/optim/least_absolute_deviations.h"
 
+#include "colmap/optim/sparse_cholesky.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <memory>
 
-#include <Eigen/CholmodSupport>
 #include <Eigen/SparseCholesky>
 
 namespace colmap {
@@ -92,17 +92,15 @@ struct SupernodalCholmodLLTLinearSolver
       : ridge_regularization_(ridge_regularization) {}
 
   bool Compute(const Eigen::SparseMatrix<double>& A) override {
-    linear_solver_.compute(NormalEquations(A, ridge_regularization_));
-    return linear_solver_.info() == Eigen::Success;
+    return solver_.Compute(NormalEquations(A, ridge_regularization_));
   }
 
   bool Solve(const Eigen::VectorXd& b, Eigen::VectorXd* x) override {
-    x->noalias() = linear_solver_.solve(b);
-    return linear_solver_.info() == Eigen::Success;
+    return solver_.Solve(b, x);
   }
 
  private:
-  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> linear_solver_;
+  SparseCholeskyWithFallbackSolver solver_;
   const double ridge_regularization_;
 };
 

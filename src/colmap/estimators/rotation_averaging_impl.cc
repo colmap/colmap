@@ -4,10 +4,9 @@
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/least_absolute_deviations.h"
+#include "colmap/optim/sparse_cholesky.h"
 
 #include <limits>
-
-#include <Eigen/CholmodSupport>
 
 namespace colmap {
 namespace {
@@ -774,10 +773,8 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
 }
 
 bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
-  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> llt;
-
-  llt.analyzePattern(problem.ConstraintMatrix().transpose() *
-                     problem.ConstraintMatrix());
+  SparseCholeskyWithFallbackSolver solver;
+  bool pattern_analyzed = false;
 
   const double sigma = DegToRad(options_.irls_loss_parameter_sigma);
 
@@ -790,16 +787,14 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
        iteration++) {
     problem.ComputeResiduals();
 
-    // Compute the weights for IRLS.
     auto weights_irls = ComputeIRLSWeights(problem, sigma);
     if (!weights_irls) {
       return false;
     }
 
-    // Update the factorization for the weighted values. Optionally add a
-    // small Tikhonov ridge to the diagonal to stabilize poorly conditioned
-    // but mathematically PD systems where supernodal Cholesky reports "matrix
-    // not positive definite". When zero (default), no regularization is added.
+    // Optionally add a small Tikhonov ridge to stabilize poorly conditioned
+    // but mathematically PD systems. When zero (default), no regularization
+    // is added.
     at_weight =
         problem.ConstraintMatrix().transpose() * weights_irls->asDiagonal();
     at_weight_a = at_weight * problem.ConstraintMatrix();
@@ -808,17 +803,19 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
         at_weight_a.coeffRef(i, i) += options_.ridge_regularization;
       }
     }
-    llt.factorize(at_weight_a);
-    if (llt.info() != Eigen::Success) {
+
+    if (!pattern_analyzed) {
+      solver.AnalyzePattern(at_weight_a);
+      pattern_analyzed = true;
+    }
+    if (!solver.Factorize(at_weight_a)) {
       LOG(ERROR) << "IRLS Cholesky factorization failed (iteration "
                  << iteration << ")";
       return false;
     }
 
-    // Solve the least squares problem.
-    step.setZero();
-    step = llt.solve(at_weight * problem.Residuals());
-    if (llt.info() != Eigen::Success || step.array().isNaN().any()) {
+    if (!solver.Solve(at_weight * problem.Residuals(), &step) ||
+        step.array().isNaN().any()) {
       LOG(ERROR) << "IRLS solve failed (iteration " << iteration << ")";
       return false;
     }
@@ -827,7 +824,6 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     const double avg_step = problem.AverageStepSize(step);
     VLOG(2) << "IRLS iteration " << iteration << ", average step: " << avg_step;
 
-    // Check convergence.
     if (avg_step < options_.irls_step_convergence_threshold) {
       iteration++;
       break;
