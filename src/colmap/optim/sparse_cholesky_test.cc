@@ -89,7 +89,8 @@ TEST(SparseCholeskyWithFallbackSolver, ComputeAndSolveChain) {
   EXPECT_THAT(A * x, EigenMatrixNear(b, 1e-9));
 }
 
-TEST(SparseCholeskyWithFallbackSolver, AnalyzeAndFactorizeReusedAcrossMatrices) {
+TEST(SparseCholeskyWithFallbackSolver,
+     AnalyzeAndFactorizeReusedAcrossMatrices) {
   // Same sparsity, different numeric values — mirrors IRLS reuse pattern.
   const Eigen::SparseMatrix<double> A1 = ChainLaplacianGaugeFixed(8);
   Eigen::SparseMatrix<double> A2 = A1;
