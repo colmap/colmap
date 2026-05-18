@@ -22,14 +22,14 @@ jobs:
       matrix:
         config: [
           {
-            os: windows-2025,
+            os: windows-2025-vs2026,
             cmakeBuildType: Release,
             cudaEnabled: true,
             testsEnabled: true,
             exportPackage: true,
           },
           {
-            os: windows-2025,
+            os: windows-2025-vs2026,
             cmakeBuildType: Release,
             cudaEnabled: false,
             testsEnabled: true,
