@@ -57,9 +57,9 @@ Image::Image(const std::filesystem::path& path,
 }
 
 void Image::SetBitmap(Bitmap bitmap) {
+  THROW_CHECK_EQ(width_, bitmap.Width());
+  THROW_CHECK_EQ(height_, bitmap.Height());
   bitmap_ = std::move(bitmap);
-  THROW_CHECK_EQ(width_, bitmap_.Width());
-  THROW_CHECK_EQ(height_, bitmap_.Height());
 }
 
 void Image::Rescale(const float factor) { Rescale(factor, factor); }
