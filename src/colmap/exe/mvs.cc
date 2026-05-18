@@ -29,8 +29,6 @@
 
 #include "colmap/exe/mvs.h"
 
-#include <utility>
-
 #include "colmap/controllers/option_manager.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/mesh_simplification.h"
@@ -42,6 +40,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
+
+#include <utility>
 
 namespace colmap {
 
