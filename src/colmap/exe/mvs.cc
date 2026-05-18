@@ -29,6 +29,8 @@
 
 #include "colmap/exe/mvs.h"
 
+#include <utility>
+
 #include "colmap/controllers/option_manager.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/mesh_simplification.h"
@@ -158,7 +160,7 @@ int RunMeshTexturer(int argc, char** argv) {
       bitmap.Rescale(static_cast<int>(image.GetWidth()),
                      static_cast<int>(image.GetHeight()));
     }
-    image.SetBitmap(bitmap);
+    image.SetBitmap(std::move(bitmap));
   }
 
   LOG(INFO) << "Reading input mesh from " << input_path << "...";

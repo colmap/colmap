@@ -32,6 +32,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <utility>
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
@@ -54,8 +56,8 @@ Image::Image(const std::filesystem::path& path,
   ComposeInverseProjectionMatrix(K_, R_, T_, inv_P_);
 }
 
-void Image::SetBitmap(const Bitmap& bitmap) {
-  bitmap_ = bitmap;
+void Image::SetBitmap(Bitmap bitmap) {
+  bitmap_ = std::move(bitmap);
   THROW_CHECK_EQ(width_, bitmap_.Width());
   THROW_CHECK_EQ(height_, bitmap_.Height());
 }
