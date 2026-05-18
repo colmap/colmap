@@ -183,24 +183,24 @@ PlyMesh MakeCubeMesh() {
       PlyMeshVertex(0, 1, 1),
   };
   mesh.faces = {
-      // Front (Z=0): 0,1,2 and 0,2,3
-      PlyMeshFace(0, 1, 2),
-      PlyMeshFace(0, 2, 3),
-      // Back (Z=1): 4,6,5 and 4,7,6
-      PlyMeshFace(4, 6, 5),
-      PlyMeshFace(4, 7, 6),
-      // Left (X=0): 0,3,7 and 0,7,4
-      PlyMeshFace(0, 3, 7),
-      PlyMeshFace(0, 7, 4),
-      // Right (X=1): 1,5,6 and 1,6,2
-      PlyMeshFace(1, 5, 6),
-      PlyMeshFace(1, 6, 2),
-      // Bottom (Y=0): 0,4,5 and 0,5,1
-      PlyMeshFace(0, 4, 5),
-      PlyMeshFace(0, 5, 1),
-      // Top (Y=1): 3,2,6 and 3,6,7
-      PlyMeshFace(3, 2, 6),
-      PlyMeshFace(3, 6, 7),
+      // Front (Z=0): 0,2,1 and 0,3,2
+      PlyMeshFace(0, 2, 1),
+      PlyMeshFace(0, 3, 2),
+      // Back (Z=1): 4,5,6 and 4,6,7
+      PlyMeshFace(4, 5, 6),
+      PlyMeshFace(4, 6, 7),
+      // Left (X=0): 0,7,3 and 0,4,7
+      PlyMeshFace(0, 7, 3),
+      PlyMeshFace(0, 4, 7),
+      // Right (X=1): 1,6,5 and 1,2,6
+      PlyMeshFace(1, 6, 5),
+      PlyMeshFace(1, 2, 6),
+      // Bottom (Y=0): 0,5,4 and 0,1,5
+      PlyMeshFace(0, 5, 4),
+      PlyMeshFace(0, 1, 5),
+      // Top (Y=1): 3,6,2 and 3,7,6
+      PlyMeshFace(3, 6, 2),
+      PlyMeshFace(3, 7, 6),
   };
   return mesh;
 }
