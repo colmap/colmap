@@ -34,7 +34,7 @@ struct RotationEstimatorOptions {
   double irls_step_convergence_threshold = 0.001;
 
   // Gravity direction.
-  Eigen::Vector3d gravity_dir = Eigen::Vector3d(0, 1, 0);
+  Eigen::Vector3d gravity_dir = Eigen::Vector3d::UnitY();
 
   // The point where the Huber-like cost function switches from L1 to L2.
   double irls_loss_parameter_sigma = 5.0;  // in degrees
@@ -45,9 +45,8 @@ struct RotationEstimatorOptions {
   // positive definite, but supernodal Cholesky may still report "matrix not
   // positive definite" on poorly conditioned graphs (e.g., long sequential
   // video chains). Set to a small positive value (e.g., 1e-9) to stabilize
-  // such systems. Default 0 disables regularization (no computational
-  // overhead).
-  double ridge_regularization = 0;
+  // such systems. Zero disables regularization (no computational overhead).
+  double ridge_regularization = 1e-9;
 
   enum WeightType {
     // Geman-McClure weight from "Efficient and robust large-scale rotation

@@ -27,20 +27,11 @@ struct GlobalMapperOptions {
   // If not specified, all point colors will be black.
   std::filesystem::path image_path;
 
-  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated
+  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated.
   bool refine_sensor_from_rig = true;
 
-  // Options for each component
-  RotationEstimatorOptions rotation_averaging = [] {
-    RotationEstimatorOptions options;
-    // The global mapper feeds rotation averaging with raw two-view geometries
-    // that can produce poorly conditioned but mathematically PD normal
-    // equations (e.g., long sequential video chains from a single camera).
-    // The regularization is small enough not to bias the solution but
-    // guarantees positive definiteness for the supernodal Cholesky.
-    options.ridge_regularization = 1e-9;
-    return options;
-  }();
+  // Options for each component.
+  RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
   BundleAdjustmentOptions bundle_adjustment = [] {
     BundleAdjustmentOptions options;
