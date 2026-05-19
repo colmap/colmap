@@ -186,6 +186,17 @@ void BindSfM(py::module& m) {
                            "cam_from_rig as a pre-calibrated constant across "
                            "rotation averaging, global positioning and "
                            "bundle adjustment.")
+            .def_readwrite("use_prior_position",
+                           &Opts::use_prior_position,
+                           "Whether to use priors on the camera positions.")
+            .def_readwrite("use_robust_loss_on_prior_position",
+                           &Opts::use_robust_loss_on_prior_position,
+                           "Whether to use a robust loss on prior camera "
+                           "positions.")
+            .def_readwrite("prior_position_loss_scale",
+                           &Opts::prior_position_loss_scale,
+                           "Threshold on the residual for the robust position "
+                           "prior loss (chi2 for 3DOF at 95% = 7.815).")
             .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
             .def_readwrite("global_positioning", &Opts::global_positioning)
             .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)
