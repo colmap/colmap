@@ -2399,9 +2399,17 @@ bool EUCMCameraModel::ImgFromCam(
   const T alpha = params[4];
   const T beta = params[5];
 
-  T rho = ceres::sqrt(beta*(u * u + v * v) + w * w);
-  *x = u/(alpha*rho+(1.0-alpha)* w);
-  *y = v/(alpha*rho+(1.0-alpha)* w);
+  const T rho2 = beta * (u * u + v * v) + w * w;
+  if (rho2 < T(0)) {
+    return false;
+  }
+  const T rho = ceres::sqrt(rho2);
+  const T den = alpha * rho + (1.0 - alpha) * w;
+  if (den < T(std::numeric_limits<double>::epsilon())) {
+    return false;
+  }
+  *x = u / den;
+  *y = v / den;
 
   // Transform to image coordinates
   *x = f1 * *x + c1;
@@ -2424,13 +2432,23 @@ bool EUCMCameraModel::CamFromImg(
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
 
-  double r2 = *u * *u + *v * *v;
-  double gamma = 1.0-alpha;
+  const double r2 = *u * *u + *v * *v;
+  const double gamma = 1.0 - alpha;
+  const double radicand = 1.0 - (alpha - gamma) * beta * r2;
+  if (radicand < 0) {
+    return false;
+  }
+  const double helper_den = alpha * std::sqrt(radicand) + gamma;
+  if (helper_den < std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+  const double helper = (1.0 - alpha * alpha * beta * r2) / helper_den;
+  if (std::abs(helper) < std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
 
-  double helper = (1.0-alpha*alpha*beta*r2)/(alpha*ceres::sqrt(1.0-(alpha-gamma)*beta*r2)+gamma);
-
-  *u = *u/helper;
-  *v = *v/helper;
+  *u /= helper;
+  *v /= helper;
 
   return true;
 }
