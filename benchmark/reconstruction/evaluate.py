@@ -35,6 +35,7 @@ from evaluation.imc import DatasetIMC2023, DatasetIMC2024
 from evaluation.utils import (
     Dataset,
     create_result_table,
+    filter_smallest_scenes_per_category,
     parse_args,
     process_scenes,
 )
@@ -69,6 +70,11 @@ def main() -> None:
         )
 
         scene_infos = dataset.list_scenes()
+
+        if args.fast:
+            scene_infos = filter_smallest_scenes_per_category(
+                scene_infos, args.fast_num_scenes
+            )
 
         if not scene_infos:
             pycolmap.logging.warning("No scenes found")

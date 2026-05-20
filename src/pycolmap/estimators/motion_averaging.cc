@@ -35,6 +35,11 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("optimize_scales",
                          &GlobalPositionerOptions::optimize_scales,
                          "Whether to optimize scales.")
+          .def_readwrite(
+              "refine_sensor_from_rig",
+              &GlobalPositionerOptions::refine_sensor_from_rig,
+              "When False, treat sensor_from_rig as a fixed pre-calibrated "
+              "parameter.")
           .def_readwrite("use_gpu",
                          &GlobalPositionerOptions::use_gpu,
                          "Whether to use GPU for optimization.")
@@ -144,6 +149,13 @@ void BindRotationEstimator(py::module& m) {
               "irls_loss_parameter_sigma",
               &RotationEstimatorOptions::irls_loss_parameter_sigma,
               "Point where Huber-like cost switches from L1 to L2 (degrees).")
+          .def_readwrite(
+              "ridge_regularization",
+              &RotationEstimatorOptions::ridge_regularization,
+              "Tikhonov ridge added to the diagonal of the normal equations "
+              "before each Cholesky factorization in the L1 and IRLS phases. "
+              "Set to a small positive value (e.g., 1e-9) to stabilize poorly "
+              "conditioned systems. Zero disables regularization.")
           .def_readwrite("weight_type",
                          &RotationEstimatorOptions::weight_type,
                          "Weight type for IRLS: GEMAN_MCCLURE or HALF_NORM.")
@@ -165,7 +177,12 @@ void BindRotationEstimator(py::module& m) {
               "max_rotation_error_deg",
               &RotationEstimatorOptions::max_rotation_error_deg,
               "Filter pairs with rotation error exceeding this threshold "
-              "(degrees).");
+              "(degrees).")
+          .def_readwrite(
+              "refine_sensor_from_rig",
+              &RotationEstimatorOptions::refine_sensor_from_rig,
+              "When False, treat each non-ref sensor's cam_from_rig as a "
+              "pre-calibrated constant.");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(

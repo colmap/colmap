@@ -57,7 +57,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentTerminationType,
                                 USER_FAILURE);
 
 // Backend for bundle adjustment solver.
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentBackend, 0, CERES);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentBackend, 0, CERES, CASPAR);
 
 // Summary of bundle adjustment results, independent of solver backend.
 struct BundleAdjustmentSummary {
@@ -108,8 +108,7 @@ class BundleAdjustmentConfig {
   void SetVariableCamIntrinsics(camera_t camera_id);
   bool HasConstantCamIntrinsics(camera_t camera_id) const;
 
-  // Set the pose of added images as constant. The pose is defined as the
-  // rotational and translational part of the projection matrix.
+  // Set the sensor-from-rig extrinsic pose as constant or variable.
   void SetConstantSensorFromRigPose(sensor_t sensor_id);
   void SetVariableSensorFromRigPose(sensor_t sensor_id);
   bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
@@ -150,9 +149,15 @@ class BundleAdjustmentConfig {
   std::unordered_set<frame_t> constant_rig_from_world_poses_;
 };
 
+struct CasparBundleAdjustmentOptions;
+
 struct BundleAdjustmentBackendOptions {
   // Ceres-specific options (only used when backend == CERES).
   std::shared_ptr<CeresBundleAdjustmentOptions> ceres;
+
+  // Caspar-specific options (only used when backend == CASPAR).
+  // Type defined in bundle_adjustment_caspar.h.
+  std::shared_ptr<CasparBundleAdjustmentOptions> caspar;
 
   BundleAdjustmentBackendOptions();
   BundleAdjustmentBackendOptions(const BundleAdjustmentBackendOptions& other);

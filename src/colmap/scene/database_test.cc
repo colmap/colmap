@@ -170,8 +170,8 @@ TEST_P(ParameterizedDatabaseTests, Rig) {
 TEST_P(ParameterizedDatabaseTests, Camera) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
   EXPECT_EQ(database->NumCameras(), 0);
-  Camera camera = Camera::CreateFromModelName(
-      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera.camera_id = database->WriteCamera(camera);
   EXPECT_EQ(database->NumCameras(), 1);
   EXPECT_TRUE(database->ExistsCamera(camera.camera_id));
@@ -239,8 +239,8 @@ TEST_P(ParameterizedDatabaseTests, Frame) {
 
 TEST_P(ParameterizedDatabaseTests, Image) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
-  Camera camera = Camera::CreateFromModelName(
-      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera.camera_id = database->WriteCamera(camera);
   Rig rig;
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
@@ -619,20 +619,20 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   // rigs/frames/images/cameras which then require remapping of the IDs. This is
   // to ensure that the database can handle this case.
 
-  Camera camera1 = Camera::CreateFromModelName(
-      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera1 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera1.camera_id = 50;
   database1->WriteCamera(camera1, /*use_camera_id=*/true);
-  Camera camera2 = Camera::CreateFromModelName(
-      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera2 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera2.camera_id = 60;
   database1->WriteCamera(camera2, /*use_camera_id=*/true);
-  Camera camera3 = Camera::CreateFromModelName(
-      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera3 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera3.camera_id = 55;
   database2->WriteCamera(camera3, /*use_camera_id=*/true);
-  Camera camera4 = Camera::CreateFromModelName(
-      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera4 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera4.camera_id = 60;
   database2->WriteCamera(camera4, /*use_camera_id=*/true);
 

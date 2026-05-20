@@ -79,7 +79,8 @@
             "description": "Build with GUI support.",
             "dependencies": [
                 "glew",
-                "qtbase"
+                "qtbase",
+                "qtsvg"
             ]
         },
         "cgal": {

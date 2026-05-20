@@ -41,6 +41,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
+#include <utility>
+
 namespace colmap {
 
 int RunDelaunayMesher(int argc, char** argv) {
@@ -158,7 +160,7 @@ int RunMeshTexturer(int argc, char** argv) {
       bitmap.Rescale(static_cast<int>(image.GetWidth()),
                      static_cast<int>(image.GetHeight()));
     }
-    image.SetBitmap(bitmap);
+    image.SetBitmap(std::move(bitmap));
   }
 
   LOG(INFO) << "Reading input mesh from " << input_path << "...";

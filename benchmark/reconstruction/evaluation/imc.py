@@ -27,11 +27,72 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import tempfile
 from pathlib import Path
+
+import numpy as np
 
 import pycolmap
 
 from .utils import Dataset, SceneInfo
+
+_POINTS3D_FILENAME = "points3D.txt"
+
+
+def _read_points3D_lenient(
+    path: Path, valid_image_ids: set[int]
+) -> dict[int, pycolmap.Point3D]:
+    """Parse points3D.txt, dropping track elements whose image_id is not in
+    valid_image_ids and skipping any point3D whose track becomes empty."""
+    points3D: dict[int, pycolmap.Point3D] = {}
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            tokens = line.split()
+            point3D_id = int(tokens[0])
+            xyz = [float(v) for v in tokens[1:4]]
+            rgb = [int(v) for v in tokens[4:7]]
+            error = float(tokens[7])
+            elements = []
+            track_tokens = tokens[8:]
+            for i in range(0, len(track_tokens), 2):
+                image_id = int(track_tokens[i])
+                point2D_idx = int(track_tokens[i + 1])
+                if image_id in valid_image_ids:
+                    elements.append(
+                        pycolmap.TrackElement(image_id, point2D_idx)
+                    )
+            if not elements:
+                continue
+            point3D = pycolmap.Point3D()
+            point3D.xyz = np.array(xyz)
+            point3D.color = np.array(rgb, dtype=np.uint8)
+            point3D.error = error
+            point3D.track = pycolmap.Track(elements)
+            points3D[point3D_id] = point3D
+    return points3D
+
+
+def _read_sparse_sfm_without_points3D(
+    sfm_path: Path,
+) -> pycolmap.Reconstruction:
+    """Read an SfM reconstruction's cameras/rigs/frames/images, skipping
+    points3D entirely.
+
+    Some IMC scenes ship with points3D.txt referencing image_ids absent from
+    images.txt, which makes the strict pycolmap reader abort. Callers can
+    parse points3D separately via _read_points3D_lenient if needed.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        for src_file in sfm_path.iterdir():
+            if src_file.name == _POINTS3D_FILENAME:
+                continue
+            (tmp_path / src_file.name).symlink_to(src_file.resolve())
+        (tmp_path / _POINTS3D_FILENAME).touch()
+        return pycolmap.Reconstruction(tmp_path)
 
 
 class _DatasetIMC(Dataset):
@@ -80,10 +141,18 @@ class _DatasetIMC(Dataset):
                 image_path = scene_path / "images"
                 sparse_gt_path = scene_path / "sparse_gt"
 
+                num_images = sum(
+                    1
+                    for p in image_path.iterdir()
+                    if p.is_file()
+                    and p.suffix.lower() in {".jpg", ".jpeg", ".png"}
+                )
+
                 scene_info = SceneInfo(
                     dataset=f"IMC{self.year}",
                     category=category,
                     scene=scene,
+                    num_images=num_images,
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
@@ -102,7 +171,7 @@ class _DatasetIMC(Dataset):
         scene_path = scene_info.image_path.parent
         sfm_path = scene_path / "sfm"
 
-        sparse_sfm = pycolmap.Reconstruction(sfm_path)
+        sparse_sfm = _read_sparse_sfm_without_points3D(sfm_path)
         sparse_gt = pycolmap.Reconstruction()
 
         train_image_ids = set()
@@ -133,6 +202,12 @@ class _DatasetIMC(Dataset):
             image.reset_camera_ptr()
             image.reset_frame_ptr()
             sparse_gt.add_image(image)
+
+        points3D = _read_points3D_lenient(
+            sfm_path / _POINTS3D_FILENAME, train_image_ids
+        )
+        for point3D_id, point3D in points3D.items():
+            sparse_gt.add_point3D_with_id(point3D_id, point3D)
 
         scene_info.sparse_gt_path.mkdir(exist_ok=True)
         sparse_gt.write(scene_info.sparse_gt_path)

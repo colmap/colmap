@@ -29,6 +29,8 @@
 
 #include "colmap/util/string.h"
 
+#include <locale>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -271,6 +273,46 @@ TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtrip) {
 
     EXPECT_EQ(roundtrip, original);
   }
+}
+
+TEST(StringToDouble, Nominal) {
+  EXPECT_DOUBLE_EQ(StringToDouble("0"), 0.0);
+  EXPECT_DOUBLE_EQ(StringToDouble("0.5"), 0.5);
+  EXPECT_DOUBLE_EQ(StringToDouble("-1.23"), -1.23);
+  EXPECT_DOUBLE_EQ(StringToDouble("1.234e10"), 1.234e10);
+  EXPECT_DOUBLE_EQ(StringToDouble("-5.67e-3"), -5.67e-3);
+  EXPECT_DOUBLE_EQ(StringToDouble("100"), 100.0);
+  EXPECT_DOUBLE_EQ(StringToDouble("0.12345678901234567"), 0.12345678901234567);
+}
+
+// Custom numpunct facet that uses comma as decimal separator, for testing
+// locale independence without requiring a specific system locale.
+struct CommaDecimalFacet : std::numpunct<char> {
+ protected:
+  char do_decimal_point() const override { return ','; }
+};
+
+TEST(StringToDouble, LocaleIndependence) {
+  // Install a global locale that uses comma as decimal separator.
+  const std::locale original_locale = std::locale::global(
+      std::locale(std::locale::classic(), new CommaDecimalFacet));
+
+  // Verify that the locale is used correctly.
+  std::stringstream ss;
+  ss << "1,23";
+  double d;
+  ss >> d;
+  EXPECT_DOUBLE_EQ(d, 1.23);
+
+  // StringToDouble must still parse dot-separated decimals correctly.
+  EXPECT_DOUBLE_EQ(StringToDouble("0.5"), 0.5);
+  EXPECT_DOUBLE_EQ(StringToDouble("0.1"), 0.1);
+  EXPECT_DOUBLE_EQ(StringToDouble("0.2"), 0.2);
+  EXPECT_DOUBLE_EQ(StringToDouble("0.3"), 0.3);
+  EXPECT_DOUBLE_EQ(StringToDouble("-1.23e5"), -1.23e5);
+
+  // Restore original locale.
+  std::locale::global(original_locale);
 }
 
 }  // namespace

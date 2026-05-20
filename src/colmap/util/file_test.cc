@@ -150,6 +150,28 @@ TEST(GetNormalizedRelativePath, Nominal) {
   }
 }
 
+TEST(GetNormalizedRelativePath, PreservesSymlinkStructure) {
+  const auto dir = CreateTestDir();
+  const auto target_dir = dir / "folder";
+  const auto file_path = target_dir / "sub-folder" / "file.txt";
+  CreateDirIfNotExists(file_path.parent_path(), /*recursive=*/true);
+  {
+    std::ofstream file(file_path);
+  }
+
+  const auto symlink_dir = dir / "images_link";
+  try {
+    // Might fail on Windows if symlinks are not enabled.
+    std::filesystem::create_directory_symlink(target_dir, symlink_dir);
+  } catch (const std::filesystem::filesystem_error& e) {
+    GTEST_SKIP() << "Could not create symlink: " << e.what();
+  }
+
+  EXPECT_EQ(GetNormalizedRelativePath(file_path, symlink_dir),
+            NormalizePath(std::filesystem::path("..") / "folder" /
+                          "sub-folder" / "file.txt"));
+}
+
 TEST(FileCopy, Nominal) {
   const auto dir = CreateTestDir();
   const auto src_path = dir / "source.txt";

@@ -22,7 +22,9 @@ void BindUndistortion(py::module& m) {
           .def_readwrite("roi_min_x", &UndistortCameraOptions::roi_min_x)
           .def_readwrite("roi_min_y", &UndistortCameraOptions::roi_min_y)
           .def_readwrite("roi_max_x", &UndistortCameraOptions::roi_max_x)
-          .def_readwrite("roi_max_y", &UndistortCameraOptions::roi_max_y);
+          .def_readwrite("roi_max_y", &UndistortCameraOptions::roi_max_y)
+          .def_readwrite("max_cam_point_norm",
+                         &UndistortCameraOptions::max_cam_point_norm);
   MakeDataclass(PyUndistortCameraOptions);
 
   m.def("undistort_camera",

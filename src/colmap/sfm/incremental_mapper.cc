@@ -29,6 +29,7 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/pose.h"
@@ -83,6 +84,7 @@ void IncrementalMapper::BeginReconstruction(
       database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
 
   reg_stats_.num_shared_reg_images = 0;
+  reg_stats_.num_reg_frames_per_rig.clear();
   reg_stats_.num_reg_images_per_camera.clear();
   for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
     RegisterFrameEvent(frame_id);
@@ -105,6 +107,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
     // elements from the underlying vector.
     const std::vector<frame_t> reg_frame_ids = reconstruction_->RegFrameIds();
     for (const frame_t frame_id : reg_frame_ids) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
     }
   }
@@ -176,7 +179,9 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Update Reconstruction
   //////////////////////////////////////////////////////////////////////////////
 
+  obs_manager_->RegisterFrame(image1.FrameId());
   RegisterFrameEvent(image1.FrameId());
+  obs_manager_->RegisterFrame(image2.FrameId());
   RegisterFrameEvent(image2.FrameId());
 }
 
@@ -412,6 +417,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -589,6 +595,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
   frame.SetRigFromWorld(rig_from_world);
 
+  obs_manager_->RegisterFrame(frame.FrameId());
   RegisterFrameEvent(frame.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -611,7 +618,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                                        const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
-  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
+  if (reconstruction_->NumRegImages() < 2) {
+    VLOG(2) << "Structure-less registration requires at least 2 registered "
+               "images; only "
+            << reconstruction_->NumRegImages() << " available";
+    return false;
+  }
 
   THROW_CHECK(options.Check());
 
@@ -776,6 +788,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
@@ -1014,7 +1027,8 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     image_ids = ba_config.Images();
-    std::unique_ptr<BundleAdjuster> bundle_adjuster =
+
+    auto bundle_adjuster =
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
     const auto summary = bundle_adjuster->Solve();
 
@@ -1077,9 +1091,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  THROW_CHECK_GE(ba_config.NumImages(), 2) << "At least two images must be "
-                                              "registered for global "
-                                              "bundle-adjustment";
+  // After filtering, the reconstruction may have fewer than 2 images,
+  // in which case global bundle adjustment is not possible.
+  if (ba_config.NumImages() < 2) {
+    LOG(WARNING) << "At least two images must be registered for global "
+                    "bundle-adjustment";
+    return false;
+  }
 
   // Fix the existing images, if option specified.
   if (options.fix_existing_frames) {
@@ -1123,9 +1141,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // with fewer steps as compared to fixing three points.
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
+
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
@@ -1165,8 +1184,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
       }
     }
 
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   }
 
   return bundle_adjuster->Solve()->IsSolutionUsable();
@@ -1256,22 +1275,26 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
     return {};
   }
 
-  const std::vector<frame_t> frame_ids =
-      obs_manager_->FilterFrames(options.min_focal_length_ratio,
-                                 options.max_focal_length_ratio,
-                                 options.max_extra_param);
+  const std::vector<frame_t> filter_frame_ids =
+      obs_manager_->FindFramesToFilter(
+          /*min_focal_length_ratio=*/options.min_focal_length_ratio,
+          /*max_focal_length_ratio=*/options.max_focal_length_ratio,
+          /*max_extra_param=*/options.max_extra_param,
+          /*min_num_observations=*/1);
 
-  for (const frame_t frame_id : frame_ids) {
+  size_t num_filtered = 0;
+  for (const frame_t frame_id : filter_frame_ids) {
     if (!options.fix_existing_frames ||
         existing_frame_ids_.count(frame_id) == 0) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
       filtered_frames_.insert(frame_id);
+      ++num_filtered;
     }
   }
 
-  const size_t num_filtered_frames = frame_ids.size();
-  VLOG(1) << "=> Filtered frames: " << num_filtered_frames;
-  return num_filtered_frames;
+  VLOG(1) << "=> Filtered frames: " << num_filtered;
+  return num_filtered;
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
@@ -1344,8 +1367,6 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 }
 
 void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
-  obs_manager_->RegisterFrame(frame_id);
-
   const Frame& frame = reconstruction_->Frame(frame_id);
 
   size_t& num_reg_frames_for_rig =
@@ -1393,8 +1414,6 @@ void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
       reg_stats_.num_shared_reg_images -= 1;
     }
   }
-
-  obs_manager_->DeRegisterFrame(frame_id);
 }
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(

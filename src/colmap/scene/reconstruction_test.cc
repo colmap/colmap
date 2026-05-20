@@ -101,7 +101,8 @@ void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
   const size_t kNumPoints2D = 10;
 
-  Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
   reconstruction->AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
@@ -318,35 +319,56 @@ TEST(Reconstruction, AddImageWrongFrameCorrespondence) {
 }
 
 TEST(Reconstruction, AddImage) {
-  Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
-  reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
+  Image image;
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(1);
+  image.SetFrameId(1);
+
+  // Verify that adding an image fails if the frame does not exist.
+  {
+    Reconstruction reconstruction;
+    reconstruction.AddCamera(camera);
+    reconstruction.AddRig(rig);
+    try {
+      reconstruction.AddImage(image);
+    } catch (const std::exception& e) {
+      EXPECT_THAT(e.what(),
+                  testing::HasSubstr("Frame with ID 1 does not exist"));
+    }
+  }
+
+  // Verify that adding an image fails if the frame has no matching data id.
+  {
+    Reconstruction reconstruction;
+    reconstruction.AddCamera(camera);
+    reconstruction.AddRig(rig);
+    Frame frame_without_data;
+    frame_without_data.SetFrameId(1);
+    frame_without_data.SetRigId(rig.RigId());
+    reconstruction.AddFrame(frame_without_data);
+    try {
+      reconstruction.AddImage(image);
+    } catch (const std::exception& e) {
+      EXPECT_THAT(
+          e.what(),
+          testing::HasSubstr("Check failed: frame.HasDataId(image.DataId())"));
+    }
+  }
+
+  // Successfully add the image when the frame has the matching data id.
+  Reconstruction reconstruction;
+  reconstruction.AddCamera(camera);
   reconstruction.AddRig(rig);
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
-  Image image;
-  image.SetCameraId(camera.camera_id);
-  image.SetImageId(1);
-  image.SetFrameId(frame.FrameId());
-  try {
-    reconstruction.AddImage(image);
-  } catch (const std::exception& e) {
-    EXPECT_THAT(e.what(), testing::HasSubstr("Frame with ID 1 does not exist"));
-  }
+  frame.AddDataId(image.DataId());
   reconstruction.AddFrame(frame);
-  try {
-    reconstruction.AddImage(image);
-  } catch (const std::exception& e) {
-    EXPECT_THAT(
-        e.what(),
-        testing::HasSubstr("Check failed: frame.HasDataId(image.DataId())"));
-  }
-  reconstruction.Frame(frame.FrameId()).AddDataId(image.DataId());
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);

@@ -35,6 +35,7 @@
 #include "colmap/util/threading.h"
 
 #include <fstream>
+#include <locale>
 #include <thread>
 
 namespace colmap {
@@ -70,6 +71,7 @@ void WriteProjectionMatrix(const std::filesystem::path& path,
 
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
+  file.imbue(std::locale::classic());
 
   Eigen::Matrix3d calib_matrix = Eigen::Matrix3d::Identity();
   calib_matrix(0, 0) = camera.FocalLengthX();
@@ -797,6 +799,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   const auto Q_path = output_path_ / stereo_pair_name / "Q.txt";
   std::ofstream Q_file(Q_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(Q_file, Q_path);
+  Q_file.imbue(std::locale::classic());
   WriteMatrix(Q, &Q_file);
 }
 
