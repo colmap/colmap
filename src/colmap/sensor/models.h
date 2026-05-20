@@ -98,7 +98,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kSimpleDivision,          // = 12
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
-                                kFisheye                  // = 15
+                                kFisheye,                 // = 15
+                                kEUCM                     // = 16
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -169,7 +170,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(FisheyeCameraModel)
+  CAMERA_MODEL_CASE(FisheyeCameraModel)             \
+  CAMERA_MODEL_CASE(EUCMCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -553,6 +555,22 @@ struct SimpleFisheyeCameraModel
 struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
+};
+
+//EUCM camera model
+//
+//This camera model is described in
+//
+//    "An Enhanced Unified Camera Model",
+//    Bogdan Khomutenko1, Gaetan Garcia, Philippe Martinet,  2018
+//
+// Parameter list is expected in the following order:
+//
+//    fx, fy, cx, cy, alpha, beta
+//
+struct EUCMCameraModel
+    : public BaseCameraModel<EUCMCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kEUCM, "EUCM", 2, 2, 2, false)
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -2334,6 +2352,89 @@ bool FisheyeCameraModel::CamFromImg(
   NormalFromFisheye(uu, vv, u, v);
   return true;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// EUCMCameraModel
+
+std::string EUCMCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy, alpha, beta";
+}
+
+std::array<size_t, 2> EUCMCameraModel::InitializeFocalLengthIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 2>
+EUCMCameraModel::InitializePrincipalPointIdxs() {
+  return {2, 3};
+}
+
+std::array<size_t, 2> EUCMCameraModel::InitializeExtraParamsIdxs() {
+  return {4, 5};
+}
+
+std::vector<double> EUCMCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length,
+          focal_length,
+          width / 2.0,
+          height / 2.0,
+          0,
+          1
+          };
+}
+
+template <typename T>
+bool EUCMCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  if (w < std::numeric_limits<T>::epsilon()) {
+    return false;
+  }
+
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  const T alpha = params[4];
+  const T beta = params[5];
+
+  T rho = ceres::sqrt(beta*(u * u + v * v) + w * w);
+  *x = u/(alpha*rho+(1.0-alpha)* w);
+  *y = v/(alpha*rho+(1.0-alpha)* w);
+
+  // Transform to image coordinates
+  *x = f1 * *x + c1;
+  *y = f2 * *y + c2;
+
+  return true;
+}
+
+bool EUCMCameraModel::CamFromImg(
+    const double* params, const double x, const double y, double* u, double* v) {
+  const double f1 = params[0];
+  const double f2 = params[1];
+  const double c1 = params[2];
+  const double c2 = params[3];
+
+  const double alpha = params[4];
+  const double beta = params[5];
+
+  // Lift points to normalized plane
+  *u = (x - c1) / f1;
+  *v = (y - c2) / f2;
+
+  double r2 = *u * *u + *v * *v;
+  double gamma = 1.0-alpha;
+
+  double helper = (1.0-alpha*alpha*beta*r2)/(alpha*ceres::sqrt(1.0-(alpha-gamma)*beta*r2)+gamma);
+
+  *u = *u/helper;
+  *v = *v/helper;
+
+  return true;
+}
+////////////////////////////////////////////////////////////////////////////////
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     const CameraModelId model_id,

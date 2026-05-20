@@ -380,5 +380,9 @@ TEST(FisheyeCamera, Nominal) {
   TestModel<FisheyeCameraModel>({651.123, 655.123, 386.123, 511.123});
 }
 
+TEST(EUCMCamera, Nominal) {
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.56, 0.87});
+}
+
 }  // namespace
 }  // namespace colmap
