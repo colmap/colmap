@@ -27,10 +27,10 @@ struct GlobalMapperOptions {
   // If not specified, all point colors will be black.
   std::filesystem::path image_path;
 
-  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated
+  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated.
   bool refine_sensor_from_rig = true;
 
-  // Options for each component
+  // Options for each component.
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
   BundleAdjustmentOptions bundle_adjustment = [] {
@@ -42,14 +42,12 @@ struct GlobalMapperOptions {
           CeresBundleAdjustmentOptions::LossFunctionType::HUBER;
       options.ceres->use_gpu = true;
       // TODO: Investigate whether disabling auto solver selection and using
-      // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global
-      // SfM, or if we can just rely on COLMAP's auto selection.
+      // explicit SPARSE_SCHUR is necessary for global SfM, or if we can just
+      // rely on COLMAP's auto selection.
       options.ceres->auto_select_solver_type = false;
       options.ceres->solver_options.function_tolerance = 1e-5;
       options.ceres->solver_options.max_num_iterations = 200;
       options.ceres->solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-      options.ceres->solver_options.preconditioner_type =
-          ceres::CLUSTER_TRIDIAGONAL;
     }
     return options;
   }();

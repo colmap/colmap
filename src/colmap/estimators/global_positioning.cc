@@ -414,13 +414,9 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
 
   // Set up the options for the solver
   // Do not use iterative solvers, for its suboptimal performance.
-  if (reconstruction.NumPoints3D() > 0) {
-    options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-    options_.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
-  } else {
-    options_.solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    options_.solver_options.preconditioner_type = ceres::JACOBI;
-  }
+  // TODO: Investigate whether the direct solver should be chosen
+  // adaptively based on problem scale.
+  options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
 }
 
 void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {

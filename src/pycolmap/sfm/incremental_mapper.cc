@@ -163,6 +163,14 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("ba_gpu_index",
                      &IncrementalPipelineOptions::ba_gpu_index,
                      "Index of CUDA GPU to use for BA, if available.")
+      .def_readwrite("ba_local_backend",
+                     &Opts::ba_local_backend,
+                     "Bundle adjustment solver backend for local bundle "
+                     "adjustment.")
+      .def_readwrite("ba_global_backend",
+                     &Opts::ba_global_backend,
+                     "Bundle adjustment solver backend for global bundle "
+                     "adjustment.")
       .def_readwrite("use_prior_position",
                      &Opts::use_prior_position,
                      "Whether to use priors on the camera positions.")
