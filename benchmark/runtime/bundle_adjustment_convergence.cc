@@ -43,11 +43,12 @@
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/models.h"
 
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <string_view>
-#include <chrono>
 
 using namespace colmap;
 
@@ -58,6 +59,29 @@ int ParseIntFlag(int argc, char** argv, std::string_view prefix, int default_val
     const std::string_view arg(argv[i]);
     if (arg.substr(0, prefix.size()) == prefix) {
       return std::stoi(std::string(arg.substr(prefix.size())));
+    }
+  }
+  return default_val;
+}
+
+std::string ParseStrFlag(int argc, char** argv, std::string_view prefix,
+                         std::string default_val) {
+  for (int i = 1; i < argc; ++i) {
+    const std::string_view arg(argv[i]);
+    if (arg.substr(0, prefix.size()) == prefix) {
+      return std::string(arg.substr(prefix.size()));
+    }
+  }
+  return default_val;
+}
+
+bool ParseBoolFlag(int argc, char** argv, std::string_view prefix,
+                   bool default_val) {
+  for (int i = 1; i < argc; ++i) {
+    const std::string_view arg(argv[i]);
+    if (arg.substr(0, prefix.size()) == prefix) {
+      const auto val = arg.substr(prefix.size());
+      return val == "1" || val == "true";
     }
   }
   return default_val;
@@ -74,15 +98,25 @@ int main(int argc, char** argv) {
   const int track_length = ParseIntFlag(argc, argv, "--track_length=", 20);
   const int num_frames = ParseIntFlag(argc, argv, "--num_frames=", 50);
   const int num_points3D = ParseIntFlag(argc, argv, "--num_points3D=", 5000);
+  const int num_cameras_per_rig =
+      ParseIntFlag(argc, argv, "--num_cameras_per_rig=", 1);
+  const bool refine_focal_length =
+      ParseBoolFlag(argc, argv, "--refine_focal_length=", false);
+  const std::string label =
+      ParseStrFlag(argc, argv, "--label=", "default");
 
   SetPRNGSeed(42);
 
   SyntheticDatasetOptions dataset_options;
   dataset_options.track_length = track_length;
-  dataset_options.num_rigs = 1;
-  dataset_options.num_cameras_per_rig = 1;
-  dataset_options.num_frames_per_rig = num_frames;
+  dataset_options.num_cameras_per_rig = num_cameras_per_rig;
   dataset_options.num_points3D = num_points3D;
+  // Use PINHOLE so fx≠fy refinement is testable without distortion coupling.
+  dataset_options.camera_model_id = PinholeCameraModel::model_id;
+  dataset_options.camera_params = {1280, 1280, 512, 384};
+
+  dataset_options.num_rigs = 1;
+  dataset_options.num_frames_per_rig = num_frames;
 
   Reconstruction reconstruction;
   SynthesizeDataset(dataset_options, &reconstruction);
@@ -102,6 +136,7 @@ int main(int argc, char** argv) {
 
   BundleAdjustmentOptions options;
   options.print_summary = false;
+  options.refine_focal_length = refine_focal_length;
   options.refine_sensor_from_rig = false;
   if (max_ceres_iterations >= 0) {
     options.ceres->solver_options.max_num_iterations = max_ceres_iterations;
@@ -114,12 +149,15 @@ int main(int argc, char** argv) {
   std::cerr << "Scene: track_length=" << track_length
             << " num_frames=" << num_frames
             << " num_points3D=" << num_points3D
+            << " num_cameras_per_rig=" << num_cameras_per_rig
+            << " refine_focal_length=" << refine_focal_length
+            << " label=" << label
             << " max_ceres_iterations="
             << options.ceres->solver_options.max_num_iterations
             << " max_caspar_iterations=" << options.caspar->solver_iter_max
             << "\n";
 
-  std::cout << "solver,iteration,time_ms,mse_px2\n";
+  std::cout << "solver,scenario,iteration,time_ms,mse_px2\n";
   // Ceres
   {
     Reconstruction copy = reconstruction;
@@ -166,29 +204,26 @@ int main(int argc, char** argv) {
     const double solve_overhead_ms =
         std::max(0.0, solve_wall_ms - iter_total_ms);
 
-    // Normalize iteration timestamps to start at zero.
-    const double t0_s =
-        s->ceres_summary.iterations.empty()
-            ? 0.0
-            : s->ceres_summary.iterations.front()
-                  .cumulative_time_in_seconds;
+    // Emit t=0 anchor so the plot origin is consistent with Caspar.
+    if (!s->ceres_summary.iterations.empty()) {
+      std::cout << "ceres," << label << ",-1,0,"
+                << s->ceres_summary.iterations.front().cost / n << "\n";
+    }
 
     for (const auto& iter : s->ceres_summary.iterations) {
       const double mse = iter.cost / n;
 
-      const double iter_ms =
-          (iter.cumulative_time_in_seconds - t0_s) * 1000.0;
-
       // Include:
       //   setup time
       // + Solve() dispatch/overhead
-      // + cumulative iteration time
+      // + cumulative iteration time (includes initial eval — same convention
+      //   as Caspar's dt_tot which includes DoResJacFirst)
       const double time_ms =
           setup_time_ms +
           solve_overhead_ms +
-          iter_ms;
+          iter.cumulative_time_in_seconds * 1000.0;
 
-      std::cout << "ceres,"
+      std::cout << "ceres," << label << ","
                 << iter.iteration << ","
                 << time_ms << ","
                 << mse << "\n";
@@ -248,7 +283,7 @@ int main(int argc, char** argv) {
         std::max(0.0, solve_wall_ms - iter_total_ms);
 
     // Emit initial state (iteration -1) at t=0
-    std::cout << "caspar,-1,0," << (s->initial_score / n) << "\n";
+    std::cout << "caspar," << label << ",-1,0," << (s->initial_score / n) << "\n";
 
     for (const auto& iter : s->iterations) {
       const double mse = iter.score_best / n;
@@ -262,7 +297,7 @@ int main(int argc, char** argv) {
           solve_overhead_ms +
           iter.dt_tot * 1000.0;
 
-      std::cout << "caspar," << iter.solver_iter << ","
+      std::cout << "caspar," << label << "," << iter.solver_iter << ","
                 << time_ms << "," << mse << "\n";
     }
 

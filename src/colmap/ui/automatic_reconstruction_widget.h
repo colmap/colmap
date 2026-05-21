@@ -52,6 +52,10 @@ class AutomaticReconstructionWidget : public OptionsWidget {
   QComboBox* data_type_cb_;
   QComboBox* quality_cb_;
   QComboBox* mesher_cb_;
+#ifdef CASPAR_ENABLED
+  QComboBox* ba_local_backend_cb_;
+  QComboBox* ba_global_backend_cb_;
+#endif
   QAction* render_result_;
 };
 

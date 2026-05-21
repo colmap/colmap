@@ -29,6 +29,7 @@
 
 #include "colmap/ui/automatic_reconstruction_widget.h"
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/ui/main_window.h"
 
 namespace colmap {
@@ -101,6 +102,25 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddOptionInt(&options_.random_seed, "random_seed", -1);
   AddOptionBool(&options_.use_gpu, "GPU");
   AddOptionText(&options_.gpu_index, "gpu_index");
+
+#ifdef CASPAR_ENABLED
+  AddSpacer();
+  AddSection("Bundle Adjustment Backend");
+
+  ba_local_backend_cb_ = new QComboBox(this);
+  ba_local_backend_cb_->addItem("CERES");
+  ba_local_backend_cb_->addItem("CASPAR");
+  ba_local_backend_cb_->setCurrentIndex(
+      static_cast<int>(options_.ba_local_backend));
+  AddWidgetRow("Local", ba_local_backend_cb_);
+
+  ba_global_backend_cb_ = new QComboBox(this);
+  ba_global_backend_cb_->addItem("CERES");
+  ba_global_backend_cb_->addItem("CASPAR");
+  ba_global_backend_cb_->setCurrentIndex(
+      static_cast<int>(options_.ba_global_backend));
+  AddWidgetRow("Global", ba_global_backend_cb_);
+#endif
 
   AddSpacer();
 
@@ -179,6 +199,13 @@ void AutomaticReconstructionWidget::Run() {
       options_.mesher = AutomaticReconstructionController::Mesher::POISSON;
       break;
   }
+
+#ifdef CASPAR_ENABLED
+  options_.ba_local_backend =
+      static_cast<BundleAdjustmentBackend>(ba_local_backend_cb_->currentIndex());
+  options_.ba_global_backend =
+      static_cast<BundleAdjustmentBackend>(ba_global_backend_cb_->currentIndex());
+#endif
 
   main_window_->reconstruction_manager_->Clear();
   main_window_->reconstruction_manager_widget_->Update();

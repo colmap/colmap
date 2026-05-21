@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
@@ -88,6 +89,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   std::string feature = "sift";
   std::string mapper = "incremental";
   std::string mesher = "poisson";
+  std::string ba_local_backend = "ceres";
+  std::string ba_global_backend = "ceres";
 
   OptionManager options;
   options.AddRequiredOption("workspace_path",
@@ -120,6 +123,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("random_seed", &reconstruction_options.random_seed);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
+  options.AddDefaultOption(
+      "Mapper.ba_local_backend", &ba_local_backend, "{ceres, caspar}");
+  options.AddDefaultOption(
+      "Mapper.ba_global_backend", &ba_global_backend, "{ceres, caspar}");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -147,6 +154,13 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   StringToUpper(&mesher);
   reconstruction_options.mesher =
       AutomaticReconstructionController::MesherFromString(mesher);
+
+  StringToUpper(&ba_local_backend);
+  reconstruction_options.ba_local_backend =
+      BundleAdjustmentBackendFromString(ba_local_backend);
+  StringToUpper(&ba_global_backend);
+  reconstruction_options.ba_global_backend =
+      BundleAdjustmentBackendFromString(ba_global_backend);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
