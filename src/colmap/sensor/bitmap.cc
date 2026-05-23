@@ -457,7 +457,9 @@ bool Bitmap::Read(const std::filesystem::path& path,
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
-  const auto input = OIIO::ImageInput::open(path.string(), &config);
+  // Use u8string() so non-ASCII paths are passed to OIIO as UTF-8 on Windows
+  // (path.string() returns a locale-dependent narrow string there).
+  const auto input = OIIO::ImageInput::open(path.u8string(), &config);
   if (!input) {
     // Always retrieve the error to clear OIIO's pending error state.
     const std::string error = OIIO::geterror();
@@ -512,7 +514,10 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
 bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
-  const auto output = OIIO::ImageOutput::create(path.string());
+  // Use u8string() so non-ASCII paths are passed to OIIO as UTF-8 on Windows
+  // (path.string() returns a locale-dependent narrow string there).
+  const std::string utf8_path = path.u8string();
+  const auto output = OIIO::ImageOutput::create(utf8_path);
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
               << ", error = " << OIIO::geterror() << "\n";
@@ -545,7 +550,7 @@ bool Bitmap::Write(const std::filesystem::path& path,
     }
   }
 
-  if (!output->open(path.string(), meta_data.image_spec)) {
+  if (!output->open(utf8_path, meta_data.image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
             << "\n";
     return false;

@@ -797,6 +797,27 @@ TEST(Bitmap, ReadWriteAsRGB) {
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.CloneAsGrey().RowMajorData());
 }
 
+TEST(Bitmap, ReadWriteUnicodePath) {
+  Bitmap bitmap(2, 3, /*as_rgb=*/true);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(40, 50, 60));
+
+  // Use a non-ASCII filename to ensure the path is round-tripped through OIIO
+  // as UTF-8. On Windows, path.string() would mangle these characters using
+  // the system locale and the read/write would fail.
+  const std::filesystem::path filename =
+      CreateTestDir() /
+      std::filesystem::u8path(u8"éü中文-bitmap.png");
+
+  EXPECT_TRUE(bitmap.Write(filename));
+
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
+}
+
 TEST(Bitmap, ReadWriteAsGrey) {
   Bitmap bitmap(2, 3, /*as_rgb=*/false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0));
