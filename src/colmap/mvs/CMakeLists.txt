@@ -280,10 +280,15 @@ if(HIP_ENABLED)
 
     # Compile .hip.cpp files with hipcc manually
     find_program(HIPCC hipcc HINTS ${ROCM_PATH}/bin)
+    # Get include directories from CMake targets for portability
+    get_target_property(EIGEN3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
+    find_package(OpenCV REQUIRED COMPONENTS core imgproc)
     set(HIP_FLAGS -O3 -fPIE -DNDEBUG -std=c++17 -DCOLMAP_HIP_ENABLED -D__HIPCC__ -D__HIP_PLATFORM_AMD__=1
                   -I${CMAKE_SOURCE_DIR}/src -I${ROCM_PATH}/include
-                  -I${ROCM_PATH}/include/hiprand -I${ROCM_PATH}/include
-                  -I${ROCM_PATH}/include/rocrand -I/usr/include/eigen3 -I/usr/include/opencv4 --offload-arch=${HIP_ARCHITECTURES})
+                  -I${ROCM_PATH}/include/hiprand -I${ROCM_PATH}/include/rocrand
+                  ${EIGEN3_INCLUDE_DIRS}
+                  ${OpenCV_INCLUDE_DIRS}
+                  --offload-arch=${HIP_ARCHITECTURES})
 
     set(HIP_OBJECTS "")
     foreach(HIP_SRC gpu_mat_prng.hip.cpp gpu_mat_ref_image.hip.cpp patch_match_cuda.hip.cpp)
@@ -301,14 +306,13 @@ if(HIP_ENABLED)
 
     add_library(colmap_mvs_cuda STATIC ${HIP_OBJECTS})
     add_dependencies(colmap_mvs_cuda colmap_mvs_cuda_hip_objects)
-    target_include_directories(colmap_mvs_cuda SYSTEM PUBLIC /opt/rocm/include)
+    target_include_directories(colmap_mvs_cuda SYSTEM PUBLIC ${ROCM_PATH}/include)
     target_include_directories(colmap_mvs_cuda PRIVATE ${CMAKE_SOURCE_DIR}/src)
     target_compile_definitions(colmap_mvs_cuda PUBLIC COLMAP_HIP_ENABLED)
     target_link_libraries(colmap_mvs_cuda
         colmap_util_cuda
         hip::device
         hip::hiprand
-        ${ROCM_PATH}/lib/librocrand.so
     )
 endif()
 

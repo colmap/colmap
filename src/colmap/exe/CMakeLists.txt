@@ -113,17 +113,16 @@ COLMAP_ADD_EXECUTABLE(
         ${OPTIONAL_LIBS}
         Boost::boost
 )
-# Link HIP libraries - use direct paths to avoid compile flag propagation
+# Link HIP libraries for the colmap executable
 if(HIP_ENABLED)
     target_link_libraries(colmap_main
         -Wl,--start-group
         colmap_mvs
-        ${CMAKE_BINARY_DIR}/src/colmap/mvs/libcolmap_mvs_cuda.a
-        ${CMAKE_BINARY_DIR}/src/colmap/util/libcolmap_util_cuda.a
+        colmap_mvs_cuda
+        colmap_util_cuda
         -Wl,--end-group
         hip::device
         hip::hiprand
-        ${ROCM_PATH}/lib/librocrand.so
     )
     add_dependencies(colmap_main colmap_mvs_cuda colmap_util_cuda)
 endif()

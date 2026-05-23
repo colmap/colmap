@@ -94,10 +94,6 @@ if(CGAL_FOUND)
 else()
 
 
-if(HIP_ENABLED)
-    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HIP_ENABLED)
-endif()
-
 if(CGAL_ENABLED)
         set(CGAL_ENABLED OFF)
         message(STATUS "Disabling CGAL support (not found)")
