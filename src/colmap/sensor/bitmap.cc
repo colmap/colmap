@@ -64,6 +64,16 @@ OIIO::string_view OIIOFromStdStringView(std::string_view value) {
   return {value.data(), value.size()};
 }
 
+// Convert a filesystem path to a UTF-8 std::string. On Windows,
+// path.string() returns a locale-dependent narrow string, which mangles
+// non-ASCII characters before they reach OIIO. path.u8string() always yields
+// UTF-8 bytes, but its return type changes from std::string in C++17 to
+// std::u8string in C++20; the reinterpret_cast keeps this portable.
+std::string PathToUtf8(const std::filesystem::path& path) {
+  const auto u8 = path.u8string();
+  return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
 std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
                                        int width,
                                        int height,
@@ -457,9 +467,7 @@ bool Bitmap::Read(const std::filesystem::path& path,
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
-  // Use u8string() so non-ASCII paths are passed to OIIO as UTF-8 on Windows
-  // (path.string() returns a locale-dependent narrow string there).
-  const auto input = OIIO::ImageInput::open(path.u8string(), &config);
+  const auto input = OIIO::ImageInput::open(PathToUtf8(path), &config);
   if (!input) {
     // Always retrieve the error to clear OIIO's pending error state.
     const std::string error = OIIO::geterror();
@@ -514,9 +522,7 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
 bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
-  // Use u8string() so non-ASCII paths are passed to OIIO as UTF-8 on Windows
-  // (path.string() returns a locale-dependent narrow string there).
-  const std::string utf8_path = path.u8string();
+  const std::string utf8_path = PathToUtf8(path);
   const auto output = OIIO::ImageOutput::create(utf8_path);
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
