@@ -41,6 +41,15 @@ if(CUDA_ENABLED)
         list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
     endif()
 endif()
+if(HIP_ENABLED)
+    # HIP libs linked via LINK_ONLY below to prevent --offload-arch propagation
+endif()
+set(HIP_PRIVATE_LIBS)
+if(HIP_ENABLED)
+    list(APPEND HIP_PRIVATE_LIBS colmap_util_cuda colmap_mvs_cuda hip::device
+        hip::hiprand
+        ${ROCM_PATH}/lib/librocrand.so)
+endif()
 if(GUI_ENABLED)
     list(APPEND OPTIONAL_LIBS
         colmap_ui
@@ -104,4 +113,18 @@ COLMAP_ADD_EXECUTABLE(
         ${OPTIONAL_LIBS}
         Boost::boost
 )
+# Link HIP libraries - use direct paths to avoid compile flag propagation
+if(HIP_ENABLED)
+    target_link_libraries(colmap_main
+        -Wl,--start-group
+        colmap_mvs
+        ${CMAKE_BINARY_DIR}/src/colmap/mvs/libcolmap_mvs_cuda.a
+        ${CMAKE_BINARY_DIR}/src/colmap/util/libcolmap_util_cuda.a
+        -Wl,--end-group
+        hip::device
+        hip::hiprand
+        ${ROCM_PATH}/lib/librocrand.so
+    )
+    add_dependencies(colmap_main colmap_mvs_cuda colmap_util_cuda)
+endif()
 set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)

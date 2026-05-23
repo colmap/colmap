@@ -440,7 +440,7 @@ if(GUI_ENABLED)
          colmap_ui
     )
 endif()
-if(CUDA_ENABLED)
+if(CUDA_ENABLED OR HIP_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
     )

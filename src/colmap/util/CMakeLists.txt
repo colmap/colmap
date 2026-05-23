@@ -245,3 +245,20 @@ if(GUI_ENABLED)
         LINK_LIBS colmap_util
     )
 endif()
+
+
+if(HIP_ENABLED)
+    # Compile cuda.cc and cudacc.cc with __HIP_PLATFORM_AMD__=1 but using regular C++ compiler
+    # (no HIP kernels in these files, just HIP runtime API calls)
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_util_cuda
+        SRCS
+            cuda.h cuda.cc
+            cudacc.h cudacc.cc
+        PUBLIC_LINK_LIBS
+            colmap_util
+            hip::device
+    )
+    target_include_directories(colmap_util_cuda PUBLIC ${ROCM_PATH}/include)
+    target_compile_definitions(colmap_util_cuda PUBLIC COLMAP_HIP_ENABLED __HIP_PLATFORM_AMD__=1)
+endif()

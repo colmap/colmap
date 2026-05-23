@@ -34,7 +34,7 @@
 namespace colmap {
 namespace mvs {
 
-class GpuMatPRNG : public GpuMat<curandState> {
+class GpuMatPRNG : public GpuMat<hiprandState> {
  public:
   GpuMatPRNG(const int width, const int height);
 

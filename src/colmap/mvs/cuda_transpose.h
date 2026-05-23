@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 namespace colmap {
 namespace mvs {
@@ -47,7 +47,7 @@ void CudaTranspose(const T* input,
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifdef __CUDACC__
+#ifdef __HIPCC__
 
 // TILE_DIM_TRANSPOSE must divide by BLOCK_ROWS. Do not change these values.
 #define TILE_DIM_TRANSPOSE 32
@@ -113,7 +113,7 @@ void CudaTranspose(const T* input,
 #undef TILE_DIM_TRANSPOSE
 #undef BLOCK_ROWS_TRANSPOSE
 
-#endif  // __CUDACC__
+#endif  // __HIPCC__
 
 }  // namespace mvs
 }  // namespace colmap

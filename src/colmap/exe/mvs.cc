@@ -230,7 +230,7 @@ void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
                              const std::string& pmvs_option_name,
                              const mvs::PatchMatchOptions& options,
                              const std::filesystem::path& config_path) {
-#if !defined(COLMAP_CUDA_ENABLED)
+#if !defined(COLMAP_CUDA_ENABLED) && !defined(COLMAP_HIP_ENABLED)
   LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA, which is not "
                       "available on your system.";
 #else   // COLMAP_CUDA_ENABLED

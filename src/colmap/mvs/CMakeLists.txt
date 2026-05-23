@@ -42,6 +42,7 @@ COLMAP_ADD_LIBRARY(
         meshing.h meshing.cc
         model.h model.cc
         normal_map.h normal_map.cc
+        patch_match.h patch_match.cc
         patch_match_options.h patch_match_options.cc
         texture_mapping.h texture_mapping.cc
         workspace.h workspace.cc
@@ -268,4 +269,55 @@ if(CUDA_ENABLED)
         SRCS gpu_mat_test.cu
         LINK_LIBS colmap_mvs_cuda
     )
+endif()
+
+# ROCm HIP support for MVS (patch_match_stereo on AMD GPUs)
+# We avoid enable_language(HIP) because it pollutes global CXX flags with --offload-arch
+if(HIP_ENABLED)
+    set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to ROCm installation")
+    find_package(hip REQUIRED)
+    find_package(hiprand REQUIRED)
+
+    # Compile .hip.cpp files with hipcc manually
+    find_program(HIPCC hipcc HINTS ${ROCM_PATH}/bin)
+    set(HIP_FLAGS -O3 -fPIE -DNDEBUG -std=c++17 -DCOLMAP_HIP_ENABLED -D__HIPCC__ -D__HIP_PLATFORM_AMD__=1
+                  -I${CMAKE_SOURCE_DIR}/src -I${ROCM_PATH}/include
+                  -I${ROCM_PATH}/include/hiprand -I${ROCM_PATH}/include
+                  -I${ROCM_PATH}/include/rocrand -I/usr/include/eigen3 -I/usr/include/opencv4 --offload-arch=${HIP_ARCHITECTURES})
+
+    set(HIP_OBJECTS "")
+    foreach(HIP_SRC gpu_mat_prng.hip.cpp gpu_mat_ref_image.hip.cpp patch_match_cuda.hip.cpp)
+        set(HIP_OBJ ${CMAKE_CURRENT_BINARY_DIR}/${HIP_SRC}.o)
+        add_custom_command(
+            OUTPUT ${HIP_OBJ}
+            COMMAND ${HIPCC} ${HIP_FLAGS} -c ${CMAKE_CURRENT_SOURCE_DIR}/${HIP_SRC} -o ${HIP_OBJ}
+            DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${HIP_SRC}
+            COMMENT "Compiling ${HIP_SRC} with hipcc"
+        )
+        list(APPEND HIP_OBJECTS ${HIP_OBJ})
+    endforeach()
+
+    add_custom_target(colmap_mvs_cuda_hip_objects DEPENDS ${HIP_OBJECTS})
+
+    add_library(colmap_mvs_cuda STATIC ${HIP_OBJECTS})
+    add_dependencies(colmap_mvs_cuda colmap_mvs_cuda_hip_objects)
+    target_include_directories(colmap_mvs_cuda SYSTEM PUBLIC /opt/rocm/include)
+    target_include_directories(colmap_mvs_cuda PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_compile_definitions(colmap_mvs_cuda PUBLIC COLMAP_HIP_ENABLED)
+    target_link_libraries(colmap_mvs_cuda
+        colmap_util_cuda
+        hip::device
+        hip::hiprand
+        ${ROCM_PATH}/lib/librocrand.so
+    )
+endif()
+
+# Add HIP headers/defs/runtime to colmap_mvs (patch_match.cc directly calls hipFree etc)
+if(HIP_ENABLED)
+    target_include_directories(colmap_mvs PUBLIC ${ROCM_PATH}/include)
+    target_compile_definitions(colmap_mvs PUBLIC COLMAP_HIP_ENABLED __HIP_PLATFORM_AMD__=1)
+    target_link_libraries(colmap_mvs PUBLIC
+        hip::device
+    )
+    target_link_libraries(colmap_mvs PRIVATE colmap_util_cuda)
 endif()
