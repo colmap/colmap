@@ -806,8 +806,7 @@ TEST(Bitmap, ReadWriteUnicodePath) {
   // as UTF-8. On Windows, path.string() would mangle these characters using
   // the system locale and the read/write would fail.
   const std::filesystem::path filename =
-      CreateTestDir() /
-      std::filesystem::u8path(u8"éü中文-bitmap.png");
+      CreateTestDir() / std::filesystem::u8path(u8"éü中文-bitmap.png");
 
   EXPECT_TRUE(bitmap.Write(filename));
 
