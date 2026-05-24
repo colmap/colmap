@@ -57,6 +57,18 @@ std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
   throw std::runtime_error("No registered database factory succeeded.");
 }
 
+void Database::Close() {
+  if (database_ != nullptr) {
+    FinalizeSQLStatements();
+    if (database_cleared_) {
+      SQLITE3_EXEC(database_, "VACUUM", nullptr);
+      database_cleared_ = false;
+    }
+    sqlite3_close_v2(database_);
+    database_ = nullptr;
+  }
+}
+
 void Database::Merge(const Database& database1,
                      const Database& database2,
                      Database* merged_database) {
