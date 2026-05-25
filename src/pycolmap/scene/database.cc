@@ -28,7 +28,16 @@ class PyDatabaseTransaction {
 
 class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
  public:
-  ~PyDatabaseImpl() override { Close(); }
+  ~PyDatabaseImpl() override {
+    // Close() is pure virtual and dispatches to a Python override. If the
+    // user instantiated Database directly (rather than subclassing it), no
+    // override exists and the call would throw. Throwing from a destructor
+    // would call std::terminate, so swallow any exception here.
+    try {
+      Close();
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
+    }
+  }
 
   void Close() override { PYBIND11_OVERRIDE_PURE(void, Database, Close); }
 

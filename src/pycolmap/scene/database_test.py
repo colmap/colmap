@@ -3,6 +3,14 @@ import numpy as np
 import pycolmap
 
 
+def test_database_direct_construction_does_not_crash_on_destruction():
+    # Regression test for https://github.com/colmap/colmap/issues/4422:
+    # Constructing the abstract Database directly used to abort on garbage
+    # collection because the trampoline destructor invoked the pure virtual
+    # Close().
+    pycolmap.Database()
+
+
 def test_database_open_and_context_manager(tmp_path):
     database_path = str(tmp_path / "test.db")
     with pycolmap.Database.open(database_path) as database:
