@@ -161,7 +161,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     camera_t prev_camera_id = static_cast<camera_t>(-1);
     ICasparModelAdapter* adapter = nullptr;
     const Camera* camera_ptr = nullptr;
-    bool focal_and_extra_var = false;
+    bool focal_and_distortion = false;
     bool principal_point_var = false;
     size_t calib_idx = 0;
 
@@ -179,9 +179,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
             LOG(FATAL_THROW)
                 << "Camera " << camera_id
                 << ": refine_focal_length != refine_extra_params is not "
-                   "supported by CASPAR's merged focal_and_extra block.";
+                   "supported by CASPAR's merged focal_and_distortion block.";
           }
-          focal_and_extra_var = IsFocalAndExtraVariable(camera_id);
+          focal_and_distortion = IsFocalAndDistortionVariable(camera_id);
           principal_point_var = IsPrincipalPointVariable(camera_id);
           calib_idx = GetOrCreateCalibration(camera_id, *camera_ptr);
         }
@@ -211,7 +211,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
                       point2D,
                       reconstruction_.Point3D(point2D.point3D_id),
                       pose_var,
-                      focal_and_extra_var,
+                      focal_and_distortion,
                       principal_point_var,
                       calib_idx,
                       *adapter);
@@ -247,7 +247,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
         continue;
       }
       // Mark frame and camera as external so that IsPoseVariable and
-      // IsFocalAndExtraVariable return false for all external observations.
+      // IsFocalAndDistortionVariable return false for all external observations.
       frames_from_outside_config_.insert(image.FrameId());
       cameras_from_outside_config_.insert(camera.camera_id);
       if (options_.refine_sensor_from_rig) {
@@ -266,7 +266,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
                     point2D,
                     point3D,
                     /*pose_var=*/false,
-                    /*focal_and_extra_var=*/false,
+                    /*focal_and_distortion=*/false,
                     /*principal_point_var=*/false,
                     calib_idx,
                     *adapter);
@@ -278,14 +278,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
                      const Point2D& point2D,
                      const Point3D& point3D,
                      bool pose_var,
-                     bool focal_and_extra_var,
+                     bool focal_and_distortion,
                      bool principal_point_var,
                      size_t calib_idx,
                      ICasparModelAdapter& adapter) {
     const bool point_var = IsPointVariable(point2D.point3D_id);
 
     // Skip fully-constant observations, there's nothing to optimize
-    if (!pose_var && !focal_and_extra_var && !principal_point_var &&
+    if (!pose_var && !focal_and_distortion && !principal_point_var &&
         !point_var) {
       return;
     }
@@ -296,17 +296,17 @@ class CasparBundleAdjuster : public BundleAdjuster {
     // Entry 0 (all fixed) is unreachable
     static constexpr FactorVariant kVariantTable[16] = {
         /* 0000 */ FactorVariant::BASE,  // unreachable
-        /* 0001 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,
-        /* 0010 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
-        /* 0011 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA,
+        /* 0001 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,
+        /* 0010 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_POINT,
+        /* 0011 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION,
         /* 0100 */ FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT,
         /* 0101 */ FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT,
         /* 0110 */ FactorVariant::FIXED_POSE_FIXED_POINT,
         /* 0111 */ FactorVariant::FIXED_POSE,
-        /* 1000 */ FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT,
-        /* 1001 */ FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,
-        /* 1010 */ FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
-        /* 1011 */ FactorVariant::FIXED_FOCAL_AND_EXTRA,
+        /* 1000 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT_FIXED_POINT,
+        /* 1001 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,
+        /* 1010 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_POINT,
+        /* 1011 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION,
         /* 1100 */ FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT,
         /* 1101 */ FactorVariant::FIXED_PRINCIPAL_POINT,
         /* 1110 */ FactorVariant::FIXED_POINT,
@@ -314,7 +314,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     };
     const FactorVariant v = kVariantTable[
         (static_cast<int>(pose_var) << 3) |
-        (static_cast<int>(focal_and_extra_var) << 2) |
+        (static_cast<int>(focal_and_distortion) << 2) |
         (static_cast<int>(principal_point_var) << 1) |
         static_cast<int>(point_var)];
 
@@ -330,13 +330,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
                  reconstruction_.Frame(image.FrameId()).RigFromWorld());
     }
 
-    if (focal_and_extra_var) {
-      vd.focal_and_extra_indices.push_back(calib_idx);
+    if (focal_and_distortion) {
+      vd.focal_and_distortion_indices.push_back(calib_idx);
     } else {
-      const size_t fs = adapter.FocalAndExtraSize();
-      const auto* src = md.focal_and_extra_data.data() + calib_idx * fs;
-      vd.const_focal_and_extra.insert(
-          vd.const_focal_and_extra.end(), src, src + fs);
+      const size_t fs = adapter.FocalAndDistortionSize();
+      const auto* src = md.focal_and_distortion_data.data() + calib_idx * fs;
+      vd.const_focal_and_distortion.insert(
+          vd.const_focal_and_distortion.end(), src, src + fs);
     }
 
     if (principal_point_var) {
@@ -428,7 +428,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       it->second = model_calib_count;
       calib_index_to_camera_[{camera.model_id, model_calib_count}] = camera_id;
       ModelData& md = model_data_per_model_.at(camera.model_id);
-      adapter->ExtractFocalAndExtra(camera, md.focal_and_extra_data);
+      adapter->ExtractFocalAndDistortion(camera, md.focal_and_distortion_data);
       adapter->ExtractPrincipalPoint(camera, md.principal_point_data);
       ++model_calib_count;
     }
@@ -444,7 +444,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   // Both focal and extra_params must be refined together (merged block).
   // If they disagree, observations are skipped. See AddFactorForObservation.
-  bool IsFocalAndExtraVariable(const camera_t camera_id) const {
+  bool IsFocalAndDistortionVariable(const camera_t camera_id) const {
     return options_.refine_focal_length && options_.refine_extra_params &&
            !config_.HasConstantCamIntrinsics(camera_id) &&
            !cameras_from_outside_config_.count(camera_id);
@@ -457,7 +457,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   bool AreIntrinsicsVariable(const camera_t camera_id) const {
-    return IsFocalAndExtraVariable(camera_id) ||
+    return IsFocalAndDistortionVariable(camera_id) ||
            IsPrincipalPointVariable(camera_id);
   }
 
@@ -594,9 +594,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
       }
 
       if (n_calib > 0) {
-        adapter_ptr->SetFocalAndExtraNodes(
+        adapter_ptr->SetFocalAndDistortionNodes(
             solver,
-            const_cast<StorageType*>(md.focal_and_extra_data.data()),
+            const_cast<StorageType*>(md.focal_and_distortion_data.data()),
             n_calib);
         adapter_ptr->SetPrincipalPointNodes(
             solver,
@@ -614,14 +614,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
             md.variants[static_cast<int>(FactorVariant::FIXED_POSE_FIXED_POINT)]
                     .num_factors > 0;
         if (has_merged) {
-          const size_t fae_size = adapter_ptr->FocalAndExtraSize();
+          const size_t fae_size = adapter_ptr->FocalAndDistortionSize();
           const size_t pp_size = adapter_ptr->PrincipalPointSize();
           const size_t cal_size = adapter_ptr->CalibSize();
           std::vector<StorageType> calib_data(n_calib * cal_size);
           for (size_t i = 0; i < n_calib; ++i) {
             for (size_t j = 0; j < fae_size; ++j) {
               calib_data[i * cal_size + j] =
-                  md.focal_and_extra_data[i * fae_size + j];
+                  md.focal_and_distortion_data[i * fae_size + j];
             }
             for (size_t j = 0; j < pp_size; ++j) {
               calib_data[i * cal_size + fae_size + j] =
@@ -666,12 +666,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
       ModelData& md = model_data_per_model_.at(model_id);
       const size_t n_calib = calib_num_per_model_.at(model_id);
       if (n_calib > 0) {
-        adapter_ptr->GetFocalAndExtraNodes(
-            solver, md.focal_and_extra_data.data(), n_calib);
+        adapter_ptr->GetFocalAndDistortionNodes(
+            solver, md.focal_and_distortion_data.data(), n_calib);
         adapter_ptr->GetPrincipalPointNodes(
             solver, md.principal_point_data.data(), n_calib);
 
-        // Split the merged Calib node back into focal_and_extra_data and
+        // Split the merged Calib node back into focal_and_distortion_data and
         // principal_point_data, overwriting the stale split-pool values above.
         const bool has_merged =
             md.variants[static_cast<int>(FactorVariant::BASE)].num_factors >
@@ -683,7 +683,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
             md.variants[static_cast<int>(FactorVariant::FIXED_POSE_FIXED_POINT)]
                     .num_factors > 0;
         if (has_merged) {
-          const size_t fae_size = adapter_ptr->FocalAndExtraSize();
+          const size_t fae_size = adapter_ptr->FocalAndDistortionSize();
           const size_t pp_size = adapter_ptr->PrincipalPointSize();
           const size_t cal_size = adapter_ptr->CalibSize();
           std::vector<StorageType> calib_data(n_calib * cal_size);
@@ -696,7 +696,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
           }
           for (size_t i = 0; i < n_calib; ++i) {
             for (size_t j = 0; j < fae_size; ++j) {
-              md.focal_and_extra_data[i * fae_size + j] =
+              md.focal_and_distortion_data[i * fae_size + j] =
                   calib_data[i * cal_size + j];
             }
             for (size_t j = 0; j < pp_size; ++j) {
@@ -706,8 +706,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
           }
           if (n_calib > 0) {
             VLOG(2) << "  After split-back [cam 0]: fae=["
-                    << md.focal_and_extra_data[0] << ", "
-                    << md.focal_and_extra_data[1] << "] pp=["
+                    << md.focal_and_distortion_data[0] << ", "
+                    << md.focal_and_distortion_data[1] << "] pp=["
                     << md.principal_point_data[0] << ", "
                     << md.principal_point_data[1] << "]";
           }
@@ -725,9 +725,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
       ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
       const ModelData& md = model_data_per_model_.at(camera.model_id);
       const std::string params_before = camera.ParamsToString();
-      if (IsFocalAndExtraVariable(camera_id)) {
-        adapter->WriteFocalAndExtra(
-            camera, md.focal_and_extra_data.data(), calib_idx);
+      if (IsFocalAndDistortionVariable(camera_id)) {
+        adapter->WriteFocalAndDistortion(
+            camera, md.focal_and_distortion_data.data(), calib_idx);
       }
       if (IsPrincipalPointVariable(camera_id)) {
         adapter->WritePrincipalPoint(
@@ -782,33 +782,33 @@ class CasparBundleAdjuster : public BundleAdjuster {
         return "BASE";
       case FactorVariant::FIXED_POSE:
         return "FIXED_POSE";
-      case FactorVariant::FIXED_FOCAL_AND_EXTRA:
+      case FactorVariant::FIXED_FOCAL_AND_DISTORTION:
         return "FIXED_FAE";
       case FactorVariant::FIXED_PRINCIPAL_POINT:
         return "FIXED_PP";
       case FactorVariant::FIXED_POINT:
         return "FIXED_POINT";
-      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION:
         return "FIXED_POSE_FAE";
       case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
         return "FIXED_POSE_PP";
       case FactorVariant::FIXED_POSE_FIXED_POINT:
         return "FIXED_POSE_POINT";
-      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+      case FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT:
         return "FIXED_FAE_PP";
-      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+      case FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_POINT:
         return "FIXED_FAE_POINT";
       case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT:
         return "FIXED_PP_POINT";
       case FactorVariant::
-          FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT:
         return "FIXED_POSE_FAE_PP";
-      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_POINT:
         return "FIXED_POSE_FAE_POINT";
       case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
         return "FIXED_POSE_PP_POINT";
       case FactorVariant::
-          FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT_FIXED_POINT:
         return "FIXED_FAE_PP_POINT";
       default:
         return "UNKNOWN";
