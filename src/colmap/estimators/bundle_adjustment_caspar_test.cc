@@ -145,7 +145,26 @@ TEST(DefaultBundleAdjuster, Nominal) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
-TEST(DefaultBundleAdjuster, MultiCameraRigNominal) {
+TEST(DefaultBundleAdjuster, RigThrowsErrorOnVariableSensorFromRig) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  BundleAdjustmentOptions options;
+  BundleAdjustmentConfig config;
+  options.refine_sensor_from_rig = true; // Not supported yet
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  EXPECT_THROW(CreateDefaultCasparBundleAdjuster(options, config, reconstruction),
+               std::invalid_argument);
+}
+
+TEST(DefaultBundleAdjuster, NominalMultiCameraRigConstantSensorFromRig) {
   // Exercises the sensor_from_rig code path: 2 cameras per rig, one of which
   // has a non-identity sensor_from_rig. Verifies that Caspar converges to the
   // ground truth when sensor_from_rig is held constant.
@@ -188,7 +207,7 @@ TEST(DefaultBundleAdjuster, MultiCameraRigNominal) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
-TEST(DefaultBundleAdjuster, MultiCameraRigLargeSensorFromRig) {
+TEST(DefaultBundleAdjuster, MultiCameraRigLargeConstantSensorFromRig) {
   // Real-world multi-camera rigs (stereo, surround-view) have large
   // sensor_from_rig offsets — typically 20–90 degrees and 0.1–1 m baseline.
   // This test uses a 30-degree Z-rotation and 0.3 m translation to exercise
@@ -1099,66 +1118,7 @@ TEST(DefaultBundleAdjuster,
   CheckConstantPoint(reconstruction.Point3D(1), orig_reconstruction.Point3D(1));
 }
 
-TEST(DefaultBundleAdjuster, MultiCameraRigMatchesCeres) {
-  // Run the same noisy 2-camera rig through Ceres and Caspar (both with
-  // refine_sensor_from_rig=false) and verify the optimized poses are
-  // numerically close. Exercises the sensor_from_rig residual path end-to-end.
-  SetPRNGSeed(0);
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 2;
-  synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 100;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.point3D_stddev = 0.1;
-  synthetic_noise_options.rig_from_world_rotation_stddev = 0.3;
-  synthetic_noise_options.rig_from_world_translation_stddev = 0.05;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
-
-  BundleAdjustmentConfig config;
-  for (const image_t image_id : reconstruction.RegImageIds()) {
-    config.AddImage(image_id);
-  }
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  BundleAdjustmentOptions options;
-  options.refine_sensor_from_rig = false;
-
-  Reconstruction reconstruction_ceres = reconstruction;
-  Reconstruction reconstruction_caspar = reconstruction;
-
-  std::unique_ptr<BundleAdjuster> ceres_adjuster =
-      CreateDefaultCeresBundleAdjuster(options, config, reconstruction_ceres);
-  ASSERT_NE(ceres_adjuster->Solve()->termination_type,
-            BundleAdjustmentTerminationType::FAILURE);
-
-  std::unique_ptr<BundleAdjuster> caspar_adjuster =
-      CreateDefaultCasparBundleAdjuster(options, config, reconstruction_caspar);
-  ASSERT_NE(caspar_adjuster->Solve()->termination_type,
-            BundleAdjustmentTerminationType::FAILURE);
-
-  // Float32 accumulation introduces more numerical divergence from Ceres
-  // (double), but both solvers should converge to the same basin.
-#ifdef CASPAR_USE_DOUBLE
-  constexpr double kRotTol = 0.1;
-  constexpr double kCenterTol = 0.05;
-#else
-  constexpr double kRotTol = 1.0;
-  constexpr double kCenterTol = 0.5;
-#endif
-
-  EXPECT_THAT(reconstruction_ceres,
-              ReconstructionNear(reconstruction_caspar,
-                                 kRotTol,
-                                 kCenterTol,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.0));
-}
-
-TEST(DefaultBundleAdjuster, MultiCameraRigResidualCount) {
+TEST(DefaultBundleAdjuster, MultiCameraRigResidualCountConstantSensorFromRig) {
   // All sensor observations (ref and non-ref) must contribute residuals.
   // The old code skipped non-ref sensor observations when the pose was
   // variable, which would halve the residual count for a 2-camera rig.
@@ -1238,7 +1198,7 @@ TEST(DefaultBundleAdjuster, MultiCameraRigConstantRigPoseHoldsAllSensors) {
   }
 }
 
-TEST(DefaultBundleAdjuster, MultiCameraRigLargeConvergence) {
+TEST(DefaultBundleAdjuster, MultiCameraRigLargeConvergenceConstantSensorFromRig) {
   // 2 rigs × 3 cameras × 5 frames = 30 images. Mirrors the Ceres
   // NominalMultiCameraRig test to verify Caspar converges to GT at the same
   // scale as the single-camera nominal test.
