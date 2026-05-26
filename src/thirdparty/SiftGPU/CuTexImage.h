@@ -47,8 +47,26 @@ protected:
 public:
 	struct CuTexObj
 	{
-		cudaTextureObject_t handle;
+		// Default-initialize the handle so that an unbound CuTexObj's
+		// destructor does not call hipDestroyTextureObject on garbage.
+		// CUDA tolerates destroying random handles; HIP segfaults.
+		cudaTextureObject_t handle = 0;
+		CuTexObj() = default;
 		~CuTexObj();
+		// Non-copyable, move-only: copying would lead to double-destroy of
+		// the same texture object handle. CUDA's hipDestroyTextureObject is
+		// not safe to call on the same handle twice on AMD.
+		CuTexObj(const CuTexObj&) = delete;
+		CuTexObj& operator=(const CuTexObj&) = delete;
+		CuTexObj(CuTexObj&& other) noexcept : handle(other.handle) { other.handle = 0; }
+		CuTexObj& operator=(CuTexObj&& other) noexcept {
+			if (this != &other) {
+				if (handle != 0) cudaDestroyTextureObject(handle);
+				handle = other.handle;
+				other.handle = 0;
+			}
+			return *this;
+		}
 	};
 
 	virtual void SetImageSize(int width, int height);

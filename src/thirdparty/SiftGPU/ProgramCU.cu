@@ -478,10 +478,26 @@ void __global__ ComputeDOG_Kernel(cudaTextureObject_t texC, cudaTextureObject_t 
 		float vp = tex1Dfetch<float>(texP, index);
 		float v = tex1Dfetch<float>(texC, index);
 		d_dog[index] = v - vp;
+#if defined(COLMAP_HIP_ENABLED)
+		// Clamp neighbor indices to image bounds. AMD's allocator hands out
+		// exactly the requested bytes, so any read past the end faults. CUDA
+		// silently tolerates these out-of-bounds reads on edge pixels. The
+		// edge-pixel gradient values diverge slightly from the CUDA path but
+		// edge keypoints are filtered out downstream anyway.
+		int ixn = (col < width - 1)  ? index + 1     : index;
+		int ixp = (col > 0)          ? index - 1     : index;
+		int iyp = (row > 0)          ? index - width : index;
+		int iyn = (row < height - 1) ? index + width : index;
+		float vxn = tex1Dfetch<float>(texC, ixn);
+		float vxp = tex1Dfetch<float>(texC, ixp);
+		float vyp = tex1Dfetch<float>(texC, iyp);
+		float vyn = tex1Dfetch<float>(texC, iyn);
+#else
 		float vxn = tex1Dfetch<float>(texC, index + 1);
 		float vxp = tex1Dfetch<float>(texC, index - 1);
 		float vyp = tex1Dfetch<float>(texC, index - width);
 		float vyn = tex1Dfetch<float>(texC, index + width);
+#endif
 		float dx = vxn - vxp, dy = vyn - vyp;
 		float grd = 0.5f * sqrt(dx * dx  + dy * dy);
 		float rot = (grd == 0.0f? 0.0f : atan2(dy, dx));

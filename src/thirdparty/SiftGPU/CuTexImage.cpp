@@ -49,7 +49,12 @@ using namespace std;
 
 CuTexImage::CuTexObj::~CuTexObj()
 {
-	cudaDestroyTextureObject(handle);
+	// handle == 0 means the object was default-constructed and never bound;
+	// guard the call so the destructor is safe on HIP (where destroying a
+	// bogus handle segfaults rather than silently no-op'ing as on CUDA).
+	if (handle != 0) {
+		cudaDestroyTextureObject(handle);
+	}
 }
 
 CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc,
