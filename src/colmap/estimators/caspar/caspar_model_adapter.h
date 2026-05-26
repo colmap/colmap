@@ -99,14 +99,15 @@ class ICasparModelAdapter {
 
   // Append focal_and_distortion / focal / principal_point params from a
   // camera into a flat output vector.
-  virtual void ExtractFocalAndDistortion(const Camera& camera,
-                                    std::vector<StorageType>& out) const = 0;
+  virtual void ExtractFocalAndDistortion(
+      const Camera& camera, std::vector<StorageType>& out) const = 0;
   virtual void ExtractPrincipalPoint(const Camera& camera,
                                      std::vector<StorageType>& out) const = 0;
 
-  virtual void WriteFocalAndDistortion(Camera& camera,
-                                  const StorageType* focal_and_distortion_data,
-                                  size_t idx) const = 0;
+  virtual void WriteFocalAndDistortion(
+      Camera& camera,
+      const StorageType* focal_and_distortion_data,
+      size_t idx) const = 0;
   virtual void WritePrincipalPoint(Camera& camera,
                                    const StorageType* principal_point_data,
                                    size_t idx) const = 0;
@@ -119,11 +120,11 @@ class ICasparModelAdapter {
                             size_t n) const = 0;
 
   virtual void SetFocalAndDistortionNodes(caspar::GraphSolver& solver,
-                                     StorageType* data,
-                                     size_t n) const = 0;
+                                          StorageType* data,
+                                          size_t n) const = 0;
   virtual void GetFocalAndDistortionNodes(caspar::GraphSolver& solver,
-                                     StorageType* data,
-                                     size_t n) const = 0;
+                                          StorageType* data,
+                                          size_t n) const = 0;
   virtual void SetPrincipalPointNodes(caspar::GraphSolver& solver,
                                       StorageType* data,
                                       size_t n) const = 0;
@@ -134,7 +135,6 @@ class ICasparModelAdapter {
   virtual void SetVariantFactors(caspar::GraphSolver& solver,
                                  FactorVariant variant,
                                  const VariantData& data) const = 0;
-
 };
 
 // SimpleRadial implementation
@@ -221,7 +221,7 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   }
 
   void ExtractFocalAndDistortion(const Camera& camera,
-                            std::vector<StorageType>& out) const override {
+                                 std::vector<StorageType>& out) const override {
     out.push_back(static_cast<StorageType>(camera.params[0]));  // f
     out.push_back(static_cast<StorageType>(camera.params[3]));  // k
   }
@@ -233,8 +233,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   }
 
   void WriteFocalAndDistortion(Camera& camera,
-                          const StorageType* data,
-                          size_t idx) const override {
+                               const StorageType* data,
+                               size_t idx) const override {
     camera.params[0] =
         static_cast<double>(data[idx * FocalAndDistortionSize() + 0]);  // f
     camera.params[3] =
@@ -263,14 +263,14 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   }
 
   void SetFocalAndDistortionNodes(caspar::GraphSolver& s,
-                             StorageType* data,
-                             size_t n) const override {
+                                  StorageType* data,
+                                  size_t n) const override {
     s.SetSimpleRadialFocalAndDistortionNodesFromStackedHost(data, 0, n);
   }
 
   void GetFocalAndDistortionNodes(caspar::GraphSolver& s,
-                             StorageType* data,
-                             size_t n) const override {
+                                  StorageType* data,
+                                  size_t n) const override {
     s.GetSimpleRadialFocalAndDistortionNodesToStackedHost(data, 0, n);
   }
 
@@ -311,8 +311,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialPoseIndicesFromHost(d.pose_indices.data(), n);
         s.SetSimpleRadialSensorFromRigDataFromStackedHost(
             d.sensor_from_rig_data.data(), 0, n);
-        s.SetSimpleRadialCalibIndicesFromHost(d.focal_and_distortion_indices.data(),
-                                              n);
+        s.SetSimpleRadialCalibIndicesFromHost(
+            d.focal_and_distortion_indices.data(), n);
         s.SetSimpleRadialPointIndicesFromHost(d.point_indices.data(), n);
         s.SetSimpleRadialPixelDataFromStackedHost(d.pixels.data(), 0, n);
         break;
@@ -605,7 +605,7 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 
   void ExtractFocalAndDistortion(const Camera& camera,
-                            std::vector<StorageType>& out) const override {
+                                 std::vector<StorageType>& out) const override {
     out.push_back(static_cast<StorageType>(camera.params[0]));  // fx
     out.push_back(static_cast<StorageType>(camera.params[1]));  // fy
   }
@@ -617,8 +617,8 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 
   void WriteFocalAndDistortion(Camera& camera,
-                          const StorageType* data,
-                          size_t idx) const override {
+                               const StorageType* data,
+                               size_t idx) const override {
     camera.params[0] =
         static_cast<double>(data[idx * FocalAndDistortionSize() + 0]);  // fx
     camera.params[1] =
@@ -647,14 +647,14 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 
   void SetFocalAndDistortionNodes(caspar::GraphSolver& s,
-                             StorageType* data,
-                             size_t n) const override {
+                                  StorageType* data,
+                                  size_t n) const override {
     s.SetPinholeFocalNodesFromStackedHost(data, 0, n);
   }
 
   void GetFocalAndDistortionNodes(caspar::GraphSolver& s,
-                             StorageType* data,
-                             size_t n) const override {
+                                  StorageType* data,
+                                  size_t n) const override {
     s.GetPinholeFocalNodesToStackedHost(data, 0, n);
   }
 
@@ -694,7 +694,8 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholePoseIndicesFromHost(d.pose_indices.data(), n);
         s.SetPinholeSensorFromRigDataFromStackedHost(
             d.sensor_from_rig_data.data(), 0, n);
-        s.SetPinholeCalibIndicesFromHost(d.focal_and_distortion_indices.data(), n);
+        s.SetPinholeCalibIndicesFromHost(d.focal_and_distortion_indices.data(),
+                                         n);
         s.SetPinholePointIndicesFromHost(d.point_indices.data(), n);
         s.SetPinholePixelDataFromStackedHost(d.pixels.data(), 0, n);
         break;

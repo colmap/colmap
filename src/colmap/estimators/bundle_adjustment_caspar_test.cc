@@ -156,12 +156,13 @@ TEST(DefaultBundleAdjuster, RigThrowsErrorOnVariableSensorFromRig) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   BundleAdjustmentOptions options;
   BundleAdjustmentConfig config;
-  options.refine_sensor_from_rig = true; // Not supported yet
+  options.refine_sensor_from_rig = true;  // Not supported yet
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  EXPECT_THROW(CreateDefaultCasparBundleAdjuster(options, config, reconstruction),
-               std::invalid_argument);
+  EXPECT_THROW(
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction),
+      std::invalid_argument);
 }
 
 TEST(DefaultBundleAdjuster, NominalMultiCameraRigConstantSensorFromRig) {
@@ -1198,7 +1199,8 @@ TEST(DefaultBundleAdjuster, MultiCameraRigConstantRigPoseHoldsAllSensors) {
   }
 }
 
-TEST(DefaultBundleAdjuster, MultiCameraRigLargeConvergenceConstantSensorFromRig) {
+TEST(DefaultBundleAdjuster,
+     MultiCameraRigLargeConvergenceConstantSensorFromRig) {
   // 2 rigs × 3 cameras × 5 frames = 30 images. Mirrors the Ceres
   // NominalMultiCameraRig test to verify Caspar converges to GT at the same
   // scale as the single-camera nominal test.

@@ -247,7 +247,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
         continue;
       }
       // Mark frame and camera as external so that IsPoseVariable and
-      // IsFocalAndDistortionVariable return false for all external observations.
+      // IsFocalAndDistortionVariable return false for all external
+      // observations.
       frames_from_outside_config_.insert(image.FrameId());
       cameras_from_outside_config_.insert(camera.camera_id);
       if (options_.refine_sensor_from_rig) {
@@ -296,15 +297,21 @@ class CasparBundleAdjuster : public BundleAdjuster {
     // Entry 0 (all fixed) is unreachable
     static constexpr FactorVariant kVariantTable[16] = {
         /* 0000 */ FactorVariant::BASE,  // unreachable
-        /* 0001 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,
-        /* 0010 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_POINT,
+                                         /* 0001 */
+        FactorVariant::
+            FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,
+        /* 0010 */
+        FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_POINT,
         /* 0011 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_DISTORTION,
         /* 0100 */ FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT,
         /* 0101 */ FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT,
         /* 0110 */ FactorVariant::FIXED_POSE_FIXED_POINT,
         /* 0111 */ FactorVariant::FIXED_POSE,
-        /* 1000 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT_FIXED_POINT,
-        /* 1001 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,
+        /* 1000 */
+        FactorVariant::
+            FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT_FIXED_POINT,
+        /* 1001 */
+        FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,
         /* 1010 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION_FIXED_POINT,
         /* 1011 */ FactorVariant::FIXED_FOCAL_AND_DISTORTION,
         /* 1100 */ FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT,
@@ -312,11 +319,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
         /* 1110 */ FactorVariant::FIXED_POINT,
         /* 1111 */ FactorVariant::BASE,
     };
-    const FactorVariant v = kVariantTable[
-        (static_cast<int>(pose_var) << 3) |
-        (static_cast<int>(focal_and_distortion) << 2) |
-        (static_cast<int>(principal_point_var) << 1) |
-        static_cast<int>(point_var)];
+    const FactorVariant v =
+        kVariantTable[(static_cast<int>(pose_var) << 3) |
+                      (static_cast<int>(focal_and_distortion) << 2) |
+                      (static_cast<int>(principal_point_var) << 1) |
+                      static_cast<int>(point_var)];
 
     VariantData& vd = md.variants[static_cast<int>(v)];
 
@@ -935,8 +942,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
     SetupSolverData(solver);
     const bool collect_iters =
         options_.caspar && options_.caspar->collect_iteration_data;
-    caspar::SolveResult result =
-        solver.solve(/*print_progress=*/false, /*verbose_logging=*/collect_iters);
+    caspar::SolveResult result = solver.solve(
+        /*print_progress=*/false, /*verbose_logging=*/collect_iters);
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
 

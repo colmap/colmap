@@ -201,10 +201,10 @@ void AutomaticReconstructionWidget::Run() {
   }
 
 #ifdef CASPAR_ENABLED
-  options_.ba_local_backend =
-      static_cast<BundleAdjustmentBackend>(ba_local_backend_cb_->currentIndex());
-  options_.ba_global_backend =
-      static_cast<BundleAdjustmentBackend>(ba_global_backend_cb_->currentIndex());
+  options_.ba_local_backend = static_cast<BundleAdjustmentBackend>(
+      ba_local_backend_cb_->currentIndex());
+  options_.ba_global_backend = static_cast<BundleAdjustmentBackend>(
+      ba_global_backend_cb_->currentIndex());
 #endif
 
   main_window_->reconstruction_manager_->Clear();

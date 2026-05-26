@@ -31,11 +31,11 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
-#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/rotation_averaging.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"

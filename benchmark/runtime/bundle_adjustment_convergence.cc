@@ -39,8 +39,8 @@
 //       [--max_ceres_iterations=N] [--max_caspar_iterations=N]
 
 #include "colmap/estimators/bundle_adjustment.h"
-#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/bundle_adjustment_caspar.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -54,7 +54,10 @@ using namespace colmap;
 
 namespace {
 
-int ParseIntFlag(int argc, char** argv, std::string_view prefix, int default_val) {
+int ParseIntFlag(int argc,
+                 char** argv,
+                 std::string_view prefix,
+                 int default_val) {
   for (int i = 1; i < argc; ++i) {
     const std::string_view arg(argv[i]);
     if (arg.substr(0, prefix.size()) == prefix) {
@@ -64,7 +67,9 @@ int ParseIntFlag(int argc, char** argv, std::string_view prefix, int default_val
   return default_val;
 }
 
-std::string ParseStrFlag(int argc, char** argv, std::string_view prefix,
+std::string ParseStrFlag(int argc,
+                         char** argv,
+                         std::string_view prefix,
                          std::string default_val) {
   for (int i = 1; i < argc; ++i) {
     const std::string_view arg(argv[i]);
@@ -75,7 +80,9 @@ std::string ParseStrFlag(int argc, char** argv, std::string_view prefix,
   return default_val;
 }
 
-bool ParseBoolFlag(int argc, char** argv, std::string_view prefix,
+bool ParseBoolFlag(int argc,
+                   char** argv,
+                   std::string_view prefix,
                    bool default_val) {
   for (int i = 1; i < argc; ++i) {
     const std::string_view arg(argv[i]);
@@ -102,8 +109,7 @@ int main(int argc, char** argv) {
       ParseIntFlag(argc, argv, "--num_cameras_per_rig=", 1);
   const bool refine_focal_length =
       ParseBoolFlag(argc, argv, "--refine_focal_length=", false);
-  const std::string label =
-      ParseStrFlag(argc, argv, "--label=", "default");
+  const std::string label = ParseStrFlag(argc, argv, "--label=", "default");
 
   SetPRNGSeed(42);
 
@@ -147,12 +153,10 @@ int main(int argc, char** argv) {
   options.caspar->collect_iteration_data = true;
 
   std::cerr << "Scene: track_length=" << track_length
-            << " num_frames=" << num_frames
-            << " num_points3D=" << num_points3D
+            << " num_frames=" << num_frames << " num_points3D=" << num_points3D
             << " num_cameras_per_rig=" << num_cameras_per_rig
             << " refine_focal_length=" << refine_focal_length
-            << " label=" << label
-            << " max_ceres_iterations="
+            << " label=" << label << " max_ceres_iterations="
             << options.ceres->solver_options.max_num_iterations
             << " max_caspar_iterations=" << options.caspar->solver_iter_max
             << "\n";
@@ -170,8 +174,7 @@ int main(int argc, char** argv) {
     const auto t_setup_end = std::chrono::steady_clock::now();
 
     const double setup_time_ms =
-        std::chrono::duration<double, std::milli>(
-            t_setup_end - t_setup_start)
+        std::chrono::duration<double, std::milli>(t_setup_end - t_setup_start)
             .count();
 
     // Measure total Solve() wall time.
@@ -180,8 +183,7 @@ int main(int argc, char** argv) {
     const auto t_solve_end = std::chrono::steady_clock::now();
 
     const double solve_wall_ms =
-        std::chrono::duration<double, std::milli>(
-            t_solve_end - t_solve_start)
+        std::chrono::duration<double, std::milli>(t_solve_end - t_solve_start)
             .count();
 
     const auto* s =
@@ -197,8 +199,8 @@ int main(int argc, char** argv) {
     const double iter_total_ms =
         s->ceres_summary.iterations.empty()
             ? 0.0
-            : s->ceres_summary.iterations.back()
-                  .cumulative_time_in_seconds * 1000.0;
+            : s->ceres_summary.iterations.back().cumulative_time_in_seconds *
+                  1000.0;
 
     // Solve() wall time not accounted for by iteration timing.
     const double solve_overhead_ms =
@@ -218,27 +220,20 @@ int main(int argc, char** argv) {
       // + Solve() dispatch/overhead
       // + cumulative iteration time (includes initial eval — same convention
       //   as Caspar's dt_tot which includes DoResJacFirst)
-      const double time_ms =
-          setup_time_ms +
-          solve_overhead_ms +
-          iter.cumulative_time_in_seconds * 1000.0;
+      const double time_ms = setup_time_ms + solve_overhead_ms +
+                             iter.cumulative_time_in_seconds * 1000.0;
 
-      std::cout << "ceres," << label << ","
-                << iter.iteration << ","
-                << time_ms << ","
-                << mse << "\n";
+      std::cout << "ceres," << label << "," << iter.iteration << "," << time_ms
+                << "," << mse << "\n";
     }
 
-    std::cerr << "Ceres: "
-              << s->ceres_summary.iterations.size()
-              << " iterations, final mse="
-              << s->ceres_summary.final_cost / n
+    std::cerr << "Ceres: " << s->ceres_summary.iterations.size()
+              << " iterations, final mse=" << s->ceres_summary.final_cost / n
               << " px^2"
               << ", setup_ms=" << setup_time_ms
               << ", solve_overhead_ms=" << solve_overhead_ms
               << ", iter_ms=" << iter_total_ms
-              << ", solve_wall_ms=" << solve_wall_ms
-              << "\n";
+              << ", solve_wall_ms=" << solve_wall_ms << "\n";
   }
 #ifdef CASPAR_ENABLED
   // Caspar
@@ -253,7 +248,8 @@ int main(int argc, char** argv) {
     const auto t_setup_end = std::chrono::steady_clock::now();
 
     const double setup_time_ms =
-        std::chrono::duration<double, std::milli>(t_setup_end - t_setup_start).count();
+        std::chrono::duration<double, std::milli>(t_setup_end - t_setup_start)
+            .count();
 
     // Measure total Solve() wall time.
     const auto t_solve_start = std::chrono::steady_clock::now();
@@ -261,7 +257,8 @@ int main(int argc, char** argv) {
     const auto t_solve_end = std::chrono::steady_clock::now();
 
     const double solve_wall_ms =
-        std::chrono::duration<double, std::milli>(t_solve_end - t_solve_start).count();
+        std::chrono::duration<double, std::milli>(t_solve_end - t_solve_start)
+            .count();
 
     const auto* s =
         dynamic_cast<const CasparBundleAdjustmentSummary*>(summary.get());
@@ -274,16 +271,15 @@ int main(int argc, char** argv) {
 
     // Caspar internal measured iteration time.
     const double iter_total_ms =
-        s->iterations.empty()
-            ? 0.0
-            : s->iterations.back().dt_tot * 1000.0;
+        s->iterations.empty() ? 0.0 : s->iterations.back().dt_tot * 1000.0;
 
     // Everything inside Solve() that is NOT accounted for by iteration timing.
     const double solve_overhead_ms =
         std::max(0.0, solve_wall_ms - iter_total_ms);
 
     // Emit initial state (iteration -1) at t=0
-    std::cout << "caspar," << label << ",-1,0," << (s->initial_score / n) << "\n";
+    std::cout << "caspar," << label << ",-1,0," << (s->initial_score / n)
+              << "\n";
 
     for (const auto& iter : s->iterations) {
       const double mse = iter.score_best / n;
@@ -293,9 +289,7 @@ int main(int argc, char** argv) {
       // + Solve() dispatch/overhead
       // + cumulative iteration time
       const double time_ms =
-          setup_time_ms +
-          solve_overhead_ms +
-          iter.dt_tot * 1000.0;
+          setup_time_ms + solve_overhead_ms + iter.dt_tot * 1000.0;
 
       std::cout << "caspar," << label << "," << iter.solver_iter << ","
                 << time_ms << "," << mse << "\n";
@@ -306,13 +300,11 @@ int main(int argc, char** argv) {
                                  : s->iterations.back().score_best / n;
 
     std::cerr << "Caspar: " << s->iteration_count
-              << " iterations, final mse=" << final_mse
-              << " px^2"
+              << " iterations, final mse=" << final_mse << " px^2"
               << ", setup_ms=" << setup_time_ms
               << ", solve_overhead_ms=" << solve_overhead_ms
               << ", iter_ms=" << iter_total_ms
-              << ", solve_wall_ms=" << solve_wall_ms
-              << "\n";
+              << ", solve_wall_ms=" << solve_wall_ms << "\n";
   }
 #endif
 

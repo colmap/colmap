@@ -215,7 +215,9 @@ def register_camera_model(
 
 def simple_radial_core(
     pose: T.Annotated[SimpleRadialPose, mem.TunableShared],
-    sensor_from_rig: T.Annotated[ConstSimpleRadialSensorFromRig, mem.ConstantSequential],
+    sensor_from_rig: T.Annotated[
+        ConstSimpleRadialSensorFromRig, mem.ConstantSequential
+    ],
     calib: T.Annotated[SimpleRadialCalib, mem.TunableShared],  # [f, k, cx, cy]
     point: T.Annotated[Point, mem.TunableShared],
     pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
@@ -238,7 +240,9 @@ def simple_radial_core(
 
 def pinhole_core(
     pose: T.Annotated[PinholePose, mem.TunableShared],
-    sensor_from_rig: T.Annotated[ConstPinholeSensorFromRig, mem.ConstantSequential],
+    sensor_from_rig: T.Annotated[
+        ConstPinholeSensorFromRig, mem.ConstantSequential
+    ],
     calib: T.Annotated[PinholeCalib, mem.TunableShared],  # [fx, fy, cx, cy]
     point: T.Annotated[Point, mem.TunableShared],
     pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
@@ -263,7 +267,9 @@ def pinhole_core(
 
 def simple_radial_split_core(
     pose: T.Annotated[SimpleRadialPose, mem.TunableShared],
-    sensor_from_rig: T.Annotated[ConstSimpleRadialSensorFromRig, mem.ConstantSequential],
+    sensor_from_rig: T.Annotated[
+        ConstSimpleRadialSensorFromRig, mem.ConstantSequential
+    ],
     focal_and_distortion: T.Annotated[
         SimpleRadialFocalAndDistortion, mem.TunableShared
     ],
@@ -290,7 +296,9 @@ def simple_radial_split_core(
 
 def pinhole_split_core(
     pose: T.Annotated[PinholePose, mem.TunableShared],
-    sensor_from_rig: T.Annotated[ConstPinholeSensorFromRig, mem.ConstantSequential],
+    sensor_from_rig: T.Annotated[
+        ConstPinholeSensorFromRig, mem.ConstantSequential
+    ],
     focal: T.Annotated[PinholeFocal, mem.TunableShared],
     principal_point: T.Annotated[PinholePrincipalPoint, mem.TunableShared],
     point: T.Annotated[Point, mem.TunableShared],
