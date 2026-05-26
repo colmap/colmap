@@ -868,7 +868,17 @@ void __global__ ComputeOrientation_Kernel(cudaTextureObject_t texDataF2,
 			float dy = y - key.y;
 			float sq_dist  = dx * dx + dy * dy;
 			if(sq_dist >= dist_threshold) continue;
+#if defined(COLMAP_HIP_ENABLED)
+			// AMD's hipResourceTypePitch2D requires pitch to be a multiple
+			// of texturePitchAlignment (256 bytes on gfx90a), which the
+			// tightly-packed CuTexImage buffer cannot guarantee at every
+			// pyramid level. Bind as linear instead and index manually -
+			// the filter mode is hipFilterModePoint anyway, so tex2D is
+			// just a floor + fetch, and x,y are pre-clamped above.
+			float2 got = tex1Dfetch<float2>(texDataF2, int(y) * width + int(x));
+#else
 			float2 got = tex2D<float2>(texDataF2, x, y);
+#endif
 			float weight = got.x * exp(sq_dist * factor);
 			float fidx = floorf(got.y * ten_degree_per_radius);
 			int oidx = fidx;
@@ -990,7 +1000,12 @@ void ProgramCU::ComputeOrientation(CuTexImage* list, CuTexImage* got, CuTexImage
         }
 	}
 
+#if defined(COLMAP_HIP_ENABLED)
+	// Linear binding paired with the tex1Dfetch path in the kernel above.
+	CuTexImage::CuTexObj gotTex = got->BindTexture(texDataDesc, cudaCreateChannelDesc<float2>());
+#else
 	CuTexImage::CuTexObj gotTex = got->BindTexture2D(texDataDesc, cudaCreateChannelDesc<float2>());
+#endif
 
 	const int block_width = len < ORIENTATION_COMPUTE_PER_BLOCK ? 16 : ORIENTATION_COMPUTE_PER_BLOCK;
 	dim3 grid((len + block_width -1) / block_width);
@@ -1050,7 +1065,11 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(cudaTe
 			float nyn = fabs(ny);
 			if(nxn < 1.0f && nyn < 1.0f)
 			{
+#if defined(COLMAP_HIP_ENABLED)
+				float2 cc = tex1Dfetch<float2>(texDataF2, int(y) * width + int(x));
+#else
 				float2 cc = tex2D<float2>(texDataF2, x, y);
+#endif
 				float dnx = nx + offsetpt.x;
 				float dny = ny + offsetpt.y;
 				float ww = exp(-0.125f * (dnx * dnx + dny * dny));
@@ -1123,7 +1142,11 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptorRECT_Kernel(cu
 			float nyn = fabs(ny);
 			if(nxn < 1.0f && nyn < 1.0f)
 			{
+#if defined(COLMAP_HIP_ENABLED)
+				float2 cc = tex1Dfetch<float2>(texDataF2, int(y) * width + int(x));
+#else
 				float2 cc = tex2D<float2>(texDataF2, x, y);
+#endif
 				float wx = 1.0 - nxn;
 				float wy = 1.0 - nyn;
 				float weight =  wx * wy * cc.x;
@@ -1204,7 +1227,12 @@ void ProgramCU::ComputeDescriptor(CuTexImage*list, CuTexImage* got, CuTexImage* 
 	int height = got->GetImgHeight();
 
     dtex->InitTexture(num * 128, 1, 1);
+#if defined(COLMAP_HIP_ENABLED)
+    // Linear binding paired with the tex1Dfetch path in the descriptor kernels.
+    CuTexImage::CuTexObj gotTex = got->BindTexture(texDataDesc, cudaCreateChannelDesc<float2>());
+#else
     CuTexImage::CuTexObj gotTex = got->BindTexture2D(texDataDesc, cudaCreateChannelDesc<float2>());
+#endif
     CuTexImage::CuTexObj listTex = list->BindTexture(texDataDesc, cudaCreateChannelDesc<float4>());
 	int block_width = DESCRIPTOR_COMPUTE_BLOCK_SIZE;
 	dim3 grid((num * 16 + block_width -1) / block_width);
