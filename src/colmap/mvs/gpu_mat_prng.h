@@ -34,7 +34,11 @@
 namespace colmap {
 namespace mvs {
 
+#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
 class GpuMatPRNG : public GpuMat<hiprandState> {
+#else
+class GpuMatPRNG : public GpuMat<curandState> {
+#endif
  public:
   GpuMatPRNG(const int width, const int height);
 

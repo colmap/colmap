@@ -63,10 +63,9 @@ if(TESTS_ENABLED)
     find_package(GTest ${COLMAP_FIND_TYPE})
 endif()
 
-
-
 if(HIP_ENABLED)
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HIP_ENABLED)
+    set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to ROCm installation")
 endif()
 
 if(CGAL_ENABLED)
@@ -92,9 +91,7 @@ if(CGAL_FOUND)
     endif()
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
 else()
-
-
-if(CGAL_ENABLED)
+    if(CGAL_ENABLED)
         set(CGAL_ENABLED OFF)
         message(STATUS "Disabling CGAL support (not found)")
     else()

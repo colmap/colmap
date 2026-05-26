@@ -248,8 +248,10 @@ endif()
 
 
 if(HIP_ENABLED)
-    # Compile cuda.cc and cudacc.cc with __HIP_PLATFORM_AMD__=1 but using regular C++ compiler
-    # (no HIP kernels in these files, just HIP runtime API calls)
+    # Compile cuda.cc and cudacc.cc with COLMAP_HIP_ENABLED but using regular C++ compiler.
+    # We intentionally avoid find_package(hip) / enable_language(HIP) because CMake 3.28+
+    # globally pollutes CXX compile flags with -x hip --offload-arch, breaking non-GPU code.
+    # Instead, we link against the HIP runtime library directly.
     COLMAP_ADD_LIBRARY(
         NAME colmap_util_cuda
         SRCS
@@ -257,8 +259,8 @@ if(HIP_ENABLED)
             cudacc.h cudacc.cc
         PUBLIC_LINK_LIBS
             colmap_util
-            hip::device
     )
     target_include_directories(colmap_util_cuda PUBLIC ${ROCM_PATH}/include)
     target_compile_definitions(colmap_util_cuda PUBLIC COLMAP_HIP_ENABLED __HIP_PLATFORM_AMD__=1)
+    target_link_libraries(colmap_util_cuda PUBLIC ${ROCM_PATH}/lib/libamdhip64.so)
 endif()

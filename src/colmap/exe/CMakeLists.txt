@@ -42,13 +42,10 @@ if(CUDA_ENABLED)
     endif()
 endif()
 if(HIP_ENABLED)
-    # HIP libs linked via LINK_ONLY below to prevent --offload-arch propagation
-endif()
-set(HIP_PRIVATE_LIBS)
-if(HIP_ENABLED)
-    list(APPEND HIP_PRIVATE_LIBS colmap_util_cuda colmap_mvs_cuda hip::device
-        hip::hiprand
-        ${ROCM_PATH}/lib/librocrand.so)
+    list(APPEND OPTIONAL_LIBS colmap_util_cuda)
+    if(MVS_ENABLED)
+        list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
+    endif()
 endif()
 if(GUI_ENABLED)
     list(APPEND OPTIONAL_LIBS
@@ -113,16 +110,17 @@ COLMAP_ADD_EXECUTABLE(
         ${OPTIONAL_LIBS}
         Boost::boost
 )
-# Link HIP libraries for the colmap executable
+# Link HIP libraries with circular dependency resolution
 if(HIP_ENABLED)
+    # Link HIP runtime directly (avoid find_package(hip) which pollutes CXX flags)
     target_link_libraries(colmap_main
         -Wl,--start-group
         colmap_mvs
         colmap_mvs_cuda
-        colmap_util_cuda
         -Wl,--end-group
-        hip::device
-        hip::hiprand
+        ${ROCM_PATH}/lib/libamdhip64.so
+        ${ROCM_PATH}/lib/libhiprand.so
+        ${ROCM_PATH}/lib/librocrand.so
     )
     add_dependencies(colmap_main colmap_mvs_cuda colmap_util_cuda)
 endif()
