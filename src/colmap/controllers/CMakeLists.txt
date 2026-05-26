@@ -75,6 +75,12 @@ if(CUDA_ENABLED)
         target_link_libraries(colmap_controllers PRIVATE colmap_mvs_cuda)
     endif()
 endif()
+if(HIP_ENABLED)
+    target_link_libraries(colmap_controllers PRIVATE colmap_util_cuda)
+    if(MVS_ENABLED)
+        target_link_libraries(colmap_controllers PRIVATE colmap_mvs_cuda)
+    endif()
+endif()
 
 COLMAP_ADD_TEST(
     NAME automatic_reconstruction_test

@@ -21,6 +21,10 @@
 
 #if defined(SIFTGPU_CUDA_ENABLED)
 
+#if defined(COLMAP_HIP_ENABLED)
+#include "colmap/util/cuda_to_hip.h"
+#endif
+
 #include "GL/glew.h"
 #include "stdio.h"
 

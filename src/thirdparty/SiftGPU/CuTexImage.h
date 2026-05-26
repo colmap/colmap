@@ -24,7 +24,11 @@
 #ifndef CU_TEX_IMAGE_H
 #define CU_TEX_IMAGE_H
 
+#if defined(COLMAP_HIP_ENABLED)
+#include "colmap/util/cuda_to_hip.h"
+#else
 #include <cuda_runtime.h>
+#endif
 
 class GLTexImage;
 

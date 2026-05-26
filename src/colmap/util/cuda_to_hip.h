@@ -113,10 +113,19 @@ using cudaTextureReadMode = hipTextureReadMode;
 #define cudaCreateChannelDesc hipCreateChannelDesc
 #define cudaCreateTextureObject hipCreateTextureObject
 #define cudaDestroyTextureObject hipDestroyTextureObject
+#define cudaMallocArray hipMallocArray
+#define cudaMemcpy2DToArray hipMemcpy2DToArray
 
 #define cudaArrayDefault hipArrayDefault
 #define cudaArrayLayered hipArrayLayered
 #define cudaResourceTypeArray hipResourceTypeArray
+#define cudaResourceTypeLinear hipResourceTypeLinear
+#define cudaResourceTypePitch2D hipResourceTypePitch2D
+
+#define cudaChannelFormatKindSigned hipChannelFormatKindSigned
+#define cudaChannelFormatKindUnsigned hipChannelFormatKindUnsigned
+#define cudaChannelFormatKindFloat hipChannelFormatKindFloat
+#define cudaChannelFormatKindNone hipChannelFormatKindNone
 
 #define cudaAddressModeWrap hipAddressModeWrap
 #define cudaAddressModeClamp hipAddressModeClamp

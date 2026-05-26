@@ -429,7 +429,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #else   // COLMAP_CUDA_ENABLED
     LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
     return;
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 
     if (IsStopped()) {
       return;

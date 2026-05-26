@@ -31,7 +31,11 @@
 #include <vector>
 using namespace std;
 
+#if defined(COLMAP_HIP_ENABLED)
+#include "colmap/util/cuda_to_hip.h"
+#else
 #include <cuda_runtime.h>
+#endif
 
 #include "CuTexImage.h"
 #include "GlobalUtil.h"

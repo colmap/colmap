@@ -31,9 +31,16 @@
 using namespace std;
 
 
+#if defined(COLMAP_HIP_ENABLED)
+// On ROCm builds, route cuda* symbols through the compat header. HIP does
+// not ship the legacy cudaGL* OpenGL interop API used below; those call
+// sites are guarded with !COLMAP_HIP_ENABLED.
+#include "colmap/util/cuda_to_hip.h"
+#else
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cuda_gl_interop.h>
+#endif
 
 #include "GlobalUtil.h"
 #include "GLTexImage.h"
@@ -96,6 +103,17 @@ CuTexImage::CuTexImage(int width, int height, int nchannel, GLuint pbo)
 {
 	_cuData = NULL;
 
+#if defined(COLMAP_HIP_ENABLED)
+	// HIP does not expose the legacy cudaGL* PBO interop API. SiftGPU does
+	// not need it for the headless feature-extraction path used by colmap;
+	// the regular cudaMalloc path is used when the image is sized later.
+	(void)width; (void)height; (void)nchannel; (void)pbo;
+	_fromPBO = 0;
+	_numBytes = 0;
+	_imgWidth = 0;
+	_imgHeight = 0;
+	_numChannel = 0;
+#else
 	//check size of pbo
 	GLint bsize, esize = width * height * nchannel * sizeof(float);
 	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pbo);
@@ -131,6 +149,7 @@ CuTexImage::CuTexImage(int width, int height, int nchannel, GLuint pbo)
 		_imgHeight = 0;
 		_numChannel = 0;
 	}
+#endif
 
 	_texWidth = _texHeight =0;
 
@@ -139,13 +158,14 @@ CuTexImage::CuTexImage(int width, int height, int nchannel, GLuint pbo)
 
 CuTexImage::~CuTexImage()
 {
-
-
+#if !defined(COLMAP_HIP_ENABLED)
 	if(_fromPBO)
 	{
 		cudaGLUnmapBufferObject(_fromPBO);
 		cudaGLUnregisterBufferObject(_fromPBO);
-	}else if(_cuData)
+	}else
+#endif
+	if(_cuData)
 	{
 		cudaFree(_cuData);
 	}
@@ -253,6 +273,11 @@ void CuTexImage::CopyToTexture2D()
 
 void CuTexImage::CopyFromPBO(int width, int height, GLuint pbo)
 {
+#if defined(COLMAP_HIP_ENABLED)
+	// Legacy cudaGL* PBO interop is not available on HIP. Headless feature
+	// extraction does not exercise this path.
+	(void)width; (void)height; (void)pbo;
+#else
 	void* pbuf =NULL;
 	GLint esize = width * height * sizeof(float);
 	cudaGLRegisterBufferObject(pbo);
@@ -262,10 +287,15 @@ void CuTexImage::CopyFromPBO(int width, int height, GLuint pbo)
 
 	cudaGLUnmapBufferObject(pbo);
 	cudaGLUnregisterBufferObject(pbo);
+#endif
 }
 
 int CuTexImage::CopyToPBO(GLuint pbo)
 {
+#if defined(COLMAP_HIP_ENABLED)
+	(void)pbo;
+	return 0;
+#else
 	void* pbuf =NULL;
 	GLint bsize, esize = _imgWidth * _imgHeight * sizeof(float) * _numChannel;
 	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pbo);
@@ -289,6 +319,7 @@ int CuTexImage::CopyToPBO(GLuint pbo)
 	{
 		return 0;
 	}
+#endif
 }
 
 #endif
