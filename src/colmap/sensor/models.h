@@ -557,20 +557,23 @@ struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
-//EUCM camera model
+// EUCM camera model
 //
-//This camera model is described in
+// This camera model is described in
 //
-//    "An Enhanced Unified Camera Model",
-//    Bogdan Khomutenko1, Gaetan Garcia, Philippe Martinet,  2018
+//      "An Enhanced Unified Camera Model",
+//      Bogdan Khomutenko, Gaetan Garcia, Philippe Martinet,  2018
 //
-// Parameter list is expected in the following order:
+//   Parameter list is expected in the following order:
 //
-//    fx, fy, cx, cy, alpha, beta
+//      fx, fy, cx, cy, alpha, beta
 //
-struct EUCMCameraModel
-    : public BaseCameraModel<EUCMCameraModel> {
+struct EUCMCameraModel : public BaseCameraModel<EUCMCameraModel> {
   CAMERA_MODEL_DEFINITIONS(CameraModelId::kEUCM, "EUCM", 2, 2, 2, false)
+
+  template <typename T>
+  static inline bool HasBogusExtraParams(const std::vector<T>& params,
+                                         T max_extra_param);
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -716,7 +719,7 @@ bool BaseCameraModel<CameraModel>::HasBogusParams(
                              height,
                              min_focal_length_ratio,
                              max_focal_length_ratio) ||
-         HasBogusExtraParams(params, max_extra_param);
+         CameraModel::HasBogusExtraParams(params, max_extra_param);
 }
 
 template <typename CameraModel>
@@ -2364,8 +2367,7 @@ std::array<size_t, 2> EUCMCameraModel::InitializeFocalLengthIdxs() {
   return {0, 1};
 }
 
-std::array<size_t, 2>
-EUCMCameraModel::InitializePrincipalPointIdxs() {
+std::array<size_t, 2> EUCMCameraModel::InitializePrincipalPointIdxs() {
   return {2, 3};
 }
 
@@ -2373,15 +2375,23 @@ std::array<size_t, 2> EUCMCameraModel::InitializeExtraParamsIdxs() {
   return {4, 5};
 }
 
-std::vector<double> EUCMCameraModel::InitializeParams(
-    const double focal_length, const size_t width, const size_t height) {
-  return {focal_length,
-          focal_length,
-          width / 2.0,
-          height / 2.0,
-          0,
-          1
-          };
+template <typename T>
+bool EUCMCameraModel::HasBogusExtraParams(const std::vector<T>& params,
+                                          const T max_extra_param) {
+  if (BaseCameraModel<EUCMCameraModel>::HasBogusExtraParams(params,
+                                                            max_extra_param)) {
+    return true;
+  }
+
+  const T alpha = params[4];
+  const T beta = params[5];
+  return alpha < T(0) || alpha > T(1) || beta <= T(0);
+}
+
+std::vector<double> EUCMCameraModel::InitializeParams(const double focal_length,
+                                                      const size_t width,
+                                                      const size_t height) {
+  return {focal_length, focal_length, width / 2.0, height / 2.0, 0.0, 1.0};
 }
 
 template <typename T>
@@ -2418,8 +2428,11 @@ bool EUCMCameraModel::ImgFromCam(
   return true;
 }
 
-bool EUCMCameraModel::CamFromImg(
-    const double* params, const double x, const double y, double* u, double* v) {
+bool EUCMCameraModel::CamFromImg(const double* params,
+                                 const double x,
+                                 const double y,
+                                 double* u,
+                                 double* v) {
   const double f1 = params[0];
   const double f2 = params[1];
   const double c1 = params[2];
@@ -2443,7 +2456,7 @@ bool EUCMCameraModel::CamFromImg(
     return false;
   }
   const double helper = (1.0 - alpha * alpha * beta * r2) / helper_den;
-  if (std::abs(helper) < std::numeric_limits<double>::epsilon()) {
+  if (helper < std::numeric_limits<double>::epsilon()) {
     return false;
   }
 
@@ -2452,7 +2465,6 @@ bool EUCMCameraModel::CamFromImg(
 
   return true;
 }
-////////////////////////////////////////////////////////////////////////////////
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     const CameraModelId model_id,
