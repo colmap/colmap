@@ -59,6 +59,7 @@ namespace PoissonRecon
 		static const std::vector< std::string > ScheduleNames;
 
 		static unsigned int NumThreads( void ){ return _NumThreads; }
+		static void SetNumThreads( unsigned int numThreads ){ _NumThreads = numThreads; }
 		static ParallelType ParallelizationType;
 		static size_t ChunkSize;
 		static ScheduleType Schedule;
