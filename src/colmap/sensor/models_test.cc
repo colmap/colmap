@@ -382,6 +382,44 @@ TEST(FisheyeCamera, Nominal) {
 
 TEST(EUCMCamera, Nominal) {
   TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.56, 0.87});
+  TestModel<EUCMCameraModel>({400, 400, 400, 400, 0.88, 0.64});
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.0, 1.0});
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.5, 1.0});
+}
+
+TEST(EUCMCamera, RejectsInvalidExtraParams) {
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, -0.01, 0.87},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 1.01, 0.87},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 0.56, 0.00},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 0.56, -0.3},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
 }
 
 }  // namespace
