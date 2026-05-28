@@ -9,8 +9,8 @@ https://demuc.de/colmap/.
 
 An overview of system packages for Linux/Unix/BSD distributions are available at
 https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
-in the default repositories for Linux/Unix/BSD do not come with CUDA support,
-which requires a manual build from source, as explained further below.
+in the default repositories for Linux/Unix/BSD do not come with CUDA or HIP/ROCm
+support, which requires a manual build from source, as explained further below.
 
 For Mac users, `Homebrew <https://brew.sh>`__ provides a formula for COLMAP with
 pre-compiled binaries or the option to build from source. After installing
@@ -118,6 +118,28 @@ Or, manually install the latest CUDA from NVIDIA's homepage. During CMake
 configuration, specify ``-DCMAKE_CUDA_ARCHITECTURES=native``, if you want to run
 COLMAP only on your current machine (default), "all"/"all-major" to be able to
 distribute to other machines, or a specific CUDA architecture like "75", etc.
+
+To compile with **HIP / ROCm support** instead of CUDA (for AMD GPUs), install
+ROCm following the `AMD ROCm installation guide
+<https://rocm.docs.amd.com/projects/install-on-linux/en/latest/>`__ and ensure
+the ``hip``, ``hiprand``, and ``rocrand`` packages are present (default
+location ``/opt/rocm``). Then pass the following flags at configure time::
+
+    cmake .. -GNinja \
+        -DCUDA_ENABLED=OFF \
+        -DHIP_ENABLED=ON \
+        -DCMAKE_HIP_ARCHITECTURES=gfx90a \
+        -DCMAKE_HIP_COMPILER=/opt/rocm/llvm/bin/clang++
+
+Set ``CMAKE_HIP_ARCHITECTURES`` to match the target AMD GPU
+(``gfx90a`` for MI200/MI250, ``gfx942`` for MI300, ``gfx1030`` for RDNA2,
+``gfx1100`` for RDNA3, etc.; multiple values can be passed as a
+semicolon-separated list). ``CUDA_ENABLED`` and ``HIP_ENABLED`` are mutually
+exclusive. CMake 3.21 or newer is required for the HIP backend. On RDNA3
+consumer parts where ROCm only officially supports a subset of architectures,
+you may also need ``HSA_OVERRIDE_GFX_VERSION=11.0.0`` in the runtime
+environment. The HIP backend currently accelerates dense reconstruction
+(``patch_match_stereo``); see the changelog for ongoing coverage.
 
 Configure and compile COLMAP::
 

@@ -36,14 +36,6 @@
 
 #include <fstream>
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-#include <hip/hip_runtime.h>
-#include <hiprand/hiprand_kernel.h>
-#else
-#include <cuda_runtime.h>
-#include <curand_kernel.h>
-#endif
-
 #if defined(__CUDACC__) || defined(__HIPCC__)
 #include "colmap/mvs/cuda_flip.h"
 #include "colmap/mvs/cuda_rotate.h"
@@ -140,15 +132,9 @@ class GpuMat {
 
   void FillWithScalar(const T value);
   void FillWithVector(const T* values);
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  void FillWithRandomNumbers(const T min_value,
-                             const T max_value,
-                             const GpuMat<hiprandState>& random_state);
-#else
   void FillWithRandomNumbers(const T min_value,
                              const T max_value,
                              const GpuMat<curandState>& random_state);
-#endif
 
   void CopyToDevice(const T* data, const size_t pitch);
   void CopyToHost(T* data, const size_t pitch) const;
@@ -196,24 +182,17 @@ class GpuMat {
 template <typename T>
 GpuMat<T>::GpuMat(const size_t width, const size_t height, const size_t depth)
     : array_ptr_(nullptr), width_(width), height_(height), depth_(depth) {
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(hipMallocPitch(
-      (void**)&array_ptr_, &pitch_, width_ * sizeof(T), height_ * depth_));
-#else
   CUDA_SAFE_CALL(cudaMallocPitch(
       (void**)&array_ptr_, &pitch_, width_ * sizeof(T), height_ * depth_));
-#endif
 
   ComputeCudaConfig();
 }
 
 template <typename T>
 GpuMat<T>::~GpuMat() {
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  hipFree(array_ptr_);
-#else
-  cudaFree(array_ptr_);
-#endif
+  // Errors during destruction would be invisible to callers anyway; explicitly
+  // discard the return value so HIP's [[nodiscard]] cudaFree does not warn.
+  (void)cudaFree(array_ptr_);
 }
 
 template <typename T>
@@ -253,44 +232,24 @@ GpuMatView<T> GpuMat<T>::View() const {
 
 template <typename T>
 void GpuMat<T>::CopyToDevice(const T* data, const size_t pitch) {
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(hipMemcpy2D((void*)array_ptr_,
-                             (size_t)pitch_,
-                             (void*)data,
-                             pitch,
-                             width_ * sizeof(T),
-                             height_ * depth_,
-                             hipMemcpyHostToDevice));
-#else
   CUDA_SAFE_CALL(cudaMemcpy2D((void*)array_ptr_,
-                               (size_t)pitch_,
-                               (void*)data,
-                               pitch,
-                               width_ * sizeof(T),
-                               height_ * depth_,
-                               cudaMemcpyHostToDevice));
-#endif
+                              (size_t)pitch_,
+                              (void*)data,
+                              pitch,
+                              width_ * sizeof(T),
+                              height_ * depth_,
+                              cudaMemcpyHostToDevice));
 }
 
 template <typename T>
 void GpuMat<T>::CopyToHost(T* data, const size_t pitch) const {
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(hipMemcpy2D((void*)data,
-                             pitch,
-                             (void*)array_ptr_,
-                             (size_t)pitch_,
-                             width_ * sizeof(T),
-                             height_ * depth_,
-                             hipMemcpyDeviceToHost));
-#else
   CUDA_SAFE_CALL(cudaMemcpy2D((void*)data,
-                               pitch,
-                               (void*)array_ptr_,
-                               (size_t)pitch_,
-                               width_ * sizeof(T),
-                               height_ * depth_,
-                               cudaMemcpyDeviceToHost));
-#endif
+                              pitch,
+                              (void*)array_ptr_,
+                              (size_t)pitch_,
+                              width_ * sizeof(T),
+                              height_ * depth_,
+                              cudaMemcpyDeviceToHost));
 }
 
 template <typename T>
@@ -348,16 +307,6 @@ void GpuMat<T>::Write(const std::filesystem::path& path) {
 template <typename T>
 void GpuMat<T>::Write(const std::filesystem::path& path, const size_t slice) {
   std::vector<T> dest(width_ * height_);
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(
-      hipMemcpy2D((void*)dest.data(),
-                   width_ * sizeof(T),
-                   (void*)(array_ptr_ + slice * height_ * pitch_ / sizeof(T)),
-                   pitch_,
-                   width_ * sizeof(T),
-                   height_,
-                   hipMemcpyDeviceToHost));
-#else
   CUDA_SAFE_CALL(
       cudaMemcpy2D((void*)dest.data(),
                    width_ * sizeof(T),
@@ -366,7 +315,6 @@ void GpuMat<T>::Write(const std::filesystem::path& path, const size_t slice) {
                    width_ * sizeof(T),
                    height_,
                    cudaMemcpyDeviceToHost));
-#endif
 
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK(text_file.is_open()) << "Could not open " << path;
@@ -419,26 +367,6 @@ __global__ void FillWithVectorKernel(const T* values, GpuMatView<T> output) {
   }
 }
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-template <typename T>
-__global__ void FillWithRandomNumbersKernel(
-    GpuMatView<T> output,
-    GpuMatView<hiprandState> random_state,
-    const T min_value,
-    const T max_value) {
-  const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
-  const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < output.GetHeight() && col < output.GetWidth()) {
-    hiprandState local_state = random_state.Get(row, col);
-    for (size_t slice = 0; slice < output.GetDepth(); ++slice) {
-      const T random_value =
-          hiprand_uniform(&local_state) * (max_value - min_value) + min_value;
-      output.Set(row, col, slice, random_value);
-    }
-    random_state.Set(row, col, local_state);
-  }
-}
-#else
 template <typename T>
 __global__ void FillWithRandomNumbersKernel(
     GpuMatView<T> output,
@@ -457,53 +385,27 @@ __global__ void FillWithRandomNumbersKernel(
     random_state.Set(row, col, local_state);
   }
 }
-#endif
 
 }  // namespace internal
 
 template <typename T>
 void GpuMat<T>::FillWithScalar(const T value) {
   internal::FillWithScalarKernel<T><<<gridSize_, blockSize_>>>(View(), value);
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SYNC_AND_CHECK();
-#else
   CUDA_SYNC_AND_CHECK();
-#endif
 }
 
 template <typename T>
 void GpuMat<T>::FillWithVector(const T* values) {
   T* values_device;
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(hipMalloc((void**)&values_device, depth_ * sizeof(T)));
-  HIP_SAFE_CALL(hipMemcpy(
-      values_device, values, depth_ * sizeof(T), hipMemcpyHostToDevice));
-#else
   CUDA_SAFE_CALL(cudaMalloc((void**)&values_device, depth_ * sizeof(T)));
   CUDA_SAFE_CALL(cudaMemcpy(
       values_device, values, depth_ * sizeof(T), cudaMemcpyHostToDevice));
-#endif
   internal::FillWithVectorKernel<T>
       <<<gridSize_, blockSize_>>>(values_device, View());
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SYNC_AND_CHECK();
-  HIP_SAFE_CALL(hipFree(values_device));
-#else
   CUDA_SYNC_AND_CHECK();
   CUDA_SAFE_CALL(cudaFree(values_device));
-#endif
 }
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-template <typename T>
-void GpuMat<T>::FillWithRandomNumbers(const T min_value,
-                                      const T max_value,
-                                      const GpuMat<hiprandState>& random_state) {
-  internal::FillWithRandomNumbersKernel<T><<<gridSize_, blockSize_>>>(
-      View(), random_state.View(), min_value, max_value);
-  HIP_SYNC_AND_CHECK();
-}
-#else
 template <typename T>
 void GpuMat<T>::FillWithRandomNumbers(const T min_value,
                                       const T max_value,
@@ -512,7 +414,6 @@ void GpuMat<T>::FillWithRandomNumbers(const T min_value,
       View(), random_state.View(), min_value, max_value);
   CUDA_SYNC_AND_CHECK();
 }
-#endif
 
 template <typename T>
 void GpuMat<T>::Transpose(GpuMat<T>* output) {
@@ -525,11 +426,7 @@ void GpuMat<T>::Transpose(GpuMat<T>* output) {
                   pitch_,
                   output->pitch_);
   }
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SYNC_AND_CHECK();
-#else
   CUDA_SYNC_AND_CHECK();
-#endif
 }
 
 template <typename T>
@@ -543,11 +440,7 @@ void GpuMat<T>::FlipHorizontal(GpuMat<T>* output) {
                        pitch_,
                        output->pitch_);
   }
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SYNC_AND_CHECK();
-#else
   CUDA_SYNC_AND_CHECK();
-#endif
 }
 
 template <typename T>
@@ -561,11 +454,7 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
                pitch_,
                output->pitch_);
   }
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SYNC_AND_CHECK();
-#else
   CUDA_SYNC_AND_CHECK();
-#endif
 }
 
 #endif  // __CUDACC__ || __HIPCC__
