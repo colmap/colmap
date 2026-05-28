@@ -1,5 +1,7 @@
 #include "colmap/scene/database.h"
 
+#include "colmap/util/logging.h"
+
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
@@ -28,7 +30,18 @@ class PyDatabaseTransaction {
 
 class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
  public:
-  ~PyDatabaseImpl() override { Close(); }
+  ~PyDatabaseImpl() override {
+    // Close() is pure virtual and dispatches to a Python override. If the
+    // user instantiated Database directly (rather than subclassing it), no
+    // override exists and the call would throw. Throwing from a destructor
+    // would call std::terminate, so swallow any exception here.
+    try {
+      Close();
+    } catch (...) {
+      LOG(WARNING) << "Database is abstract and cannot be instantiated "
+                      "directly; use pycolmap.Database.open() instead.";
+    }
+  }
 
   void Close() override { PYBIND11_OVERRIDE_PURE(void, Database, Close); }
 
@@ -430,8 +443,7 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 
 void BindDatabase(py::module& m) {
   py::classh<Database, PyDatabaseImpl> PyDatabase(m, "Database");
-  PyDatabase.def(py::init<>())
-      .def_static("open", &Database::Open, "path"_a)
+  PyDatabase.def_static("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
