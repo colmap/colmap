@@ -110,18 +110,7 @@ COLMAP_ADD_EXECUTABLE(
         ${OPTIONAL_LIBS}
         Boost::boost
 )
-# Link HIP libraries with circular dependency resolution
 if(HIP_ENABLED)
-    # Link HIP runtime directly (avoid find_package(hip) which pollutes CXX flags)
-    target_link_libraries(colmap_main
-        -Wl,--start-group
-        colmap_mvs
-        colmap_mvs_cuda
-        -Wl,--end-group
-        ${ROCM_PATH}/lib/libamdhip64.so
-        ${ROCM_PATH}/lib/libhiprand.so
-        ${ROCM_PATH}/lib/librocrand.so
-    )
-    add_dependencies(colmap_main colmap_mvs_cuda colmap_util_cuda)
+    target_link_libraries(colmap_main hip::host hip::hiprand roc::rocrand)
 endif()
 set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)

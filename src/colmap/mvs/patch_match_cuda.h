@@ -37,16 +37,11 @@
 #include "colmap/mvs/image.h"
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/util/cuda_to_hip.h"
 
 #include <iostream>
 #include <memory>
 #include <vector>
-
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-#include <hip/hip_runtime.h>
-#else
-#include <cuda_runtime.h>
-#endif
 
 namespace colmap {
 namespace mvs {

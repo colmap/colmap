@@ -64,8 +64,23 @@ if(TESTS_ENABLED)
 endif()
 
 if(HIP_ENABLED)
-    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HIP_ENABLED)
     set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to ROCm installation")
+    list(APPEND CMAKE_PREFIX_PATH "${ROCM_PATH}")
+    find_package(hip REQUIRED)
+    find_package(hiprand REQUIRED)
+    find_package(rocrand REQUIRED)
+    # enable_language(HIP) introduces a separate CMake HIP language with its
+    # own flag namespace (CMAKE_HIP_FLAGS / CMAKE_HIP_ARCHITECTURES). Only
+    # files marked with set_source_files_properties(... LANGUAGE HIP) are
+    # compiled by the HIP toolchain; ordinary C++ files keep using the host
+    # compiler. This is the same pattern PyTorch uses to compile a small
+    # number of HIP translation units inside an otherwise plain C++ build.
+    enable_language(HIP)
+    if(NOT DEFINED CMAKE_HIP_ARCHITECTURES OR CMAKE_HIP_ARCHITECTURES STREQUAL "")
+        set(CMAKE_HIP_ARCHITECTURES "gfx90a;gfx942;gfx1100" CACHE STRING
+            "AMD GPU architectures to compile HIP code for" FORCE)
+    endif()
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HIP_ENABLED)
 endif()
 
 if(CGAL_ENABLED)

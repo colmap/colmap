@@ -36,23 +36,11 @@
 #include <algorithm>
 #include <iostream>
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-#include <hip/hip_runtime.h>
-#else
-#include <cuda_runtime.h>
-#endif
-
 namespace colmap {
 namespace {
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-using DeviceProp = hipDeviceProp_t;
-#else
-using DeviceProp = cudaDeviceProp;
-#endif
-
 // Check whether the first Cuda device is better than the second.
-bool CompareCudaDevice(const DeviceProp& d1, const DeviceProp& d2) {
+bool CompareCudaDevice(const cudaDeviceProp& d1, const cudaDeviceProp& d2) {
   bool result = (d1.major > d2.major) ||
                 ((d1.major == d2.major) && (d1.minor > d2.minor)) ||
                 ((d1.major == d2.major) && (d1.minor == d2.minor) &&
@@ -64,26 +52,18 @@ bool CompareCudaDevice(const DeviceProp& d1, const DeviceProp& d2) {
 
 int GetNumCudaDevices() {
   int num_cuda_devices;
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(hipGetDeviceCount(&num_cuda_devices));
-#else
   CUDA_SAFE_CALL(cudaGetDeviceCount(&num_cuda_devices));
-#endif
   return num_cuda_devices;
 }
 
 int FindBestCudaDevice() {
   const int num_devices = GetNumCudaDevices();
   THROW_CHECK_GT(num_devices, 0) << "No CUDA devices available";
-  std::vector<DeviceProp> all_devices(num_devices);
+  std::vector<cudaDeviceProp> all_devices(num_devices);
   std::vector<int> indices(num_devices);
   for (int id = 0; id < num_devices; ++id) {
     indices[id] = id;
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-    (void)hipGetDeviceProperties(&all_devices[id], id);
-#else
-    cudaGetDeviceProperties(&all_devices[id], id);
-#endif
+    CUDA_SAFE_CALL(cudaGetDeviceProperties(&all_devices[id], id));
   }
   std::sort(indices.begin(), indices.end(), [&](int a, int b) {
     return CompareCudaDevice(all_devices[a], all_devices[b]);
@@ -96,11 +76,7 @@ void SetBestCudaDevice(const int gpu_index) {
   THROW_CHECK_GT(num_cuda_devices, 0) << "No CUDA devices available";
   const int selected = (gpu_index >= 0) ? gpu_index : FindBestCudaDevice();
   THROW_CHECK_LT(selected, num_cuda_devices) << "Invalid CUDA GPU selected";
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(hipSetDevice(selected));
-#else
   CUDA_SAFE_CALL(cudaSetDevice(selected));
-#endif
 }
 
 }  // namespace colmap

@@ -271,108 +271,43 @@ if(CUDA_ENABLED)
     )
 endif()
 
-# ROCm HIP support for MVS (patch_match_stereo on AMD GPUs)
+# ROCm HIP support for MVS (patch_match_stereo on AMD GPUs).
 #
-# Strategy: We avoid enable_language(HIP) because CMake 3.28+ globally
-# pollutes CXX compile flags with -x hip --offload-arch, breaking non-GPU
-# code. Instead, we use hipify-perl to convert .cu → .hip.cpp at build
-# time, then compile the generated files with hipcc via add_custom_command().
-#
-# Header files use #if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-# preprocessor guards for dual CUDA/HIP compatibility, so the same headers
-# work for both builds without modification.
+# enable_language(HIP) and find_package(hip/hiprand/rocrand) are handled
+# centrally in cmake/FindDependencies.cmake. Here we just mark the three
+# .cu translation units as LANGUAGE HIP so CMake hands them to the HIP
+# toolchain (clang++ -x hip) instead of the CUDA one. The source itself
+# is unmodified; symbol remapping happens in src/colmap/util/cuda_to_hip.h.
 if(HIP_ENABLED)
-    set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to ROCm installation")
-
-    # Find hipify-perl for CUDA → HIP source translation
-    find_program(HIPIFY_PERL hipify-perl HINTS ${ROCM_PATH}/bin)
-    if(NOT HIPIFY_PERL)
-        message(FATAL_ERROR
-            "hipify-perl not found. Please install ROCm and ensure "
-            "${ROCM_PATH}/bin/hipify-perl is available, or add it to PATH.")
-    endif()
-
-    find_program(HIPCC hipcc HINTS ${ROCM_PATH}/bin)
-
-    # Get include directories from CMake targets for portability
-    get_target_property(EIGEN3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
-    # Prepend -I to each include directory for hipcc
-    set(EIGEN3_INCLUDE_FLAGS "")
-    foreach(_dir ${EIGEN3_INCLUDE_DIRS})
-        list(APPEND EIGEN3_INCLUDE_FLAGS -I${_dir})
-    endforeach()
-    find_package(OpenCV REQUIRED COMPONENTS core imgproc)
-    set(OPENCV_INCLUDE_FLAGS "")
-    foreach(_dir ${OpenCV_INCLUDE_DIRS})
-        list(APPEND OPENCV_INCLUDE_FLAGS -I${_dir})
-    endforeach()
-
-    set(HIP_FLAGS -O3 -fPIE -DNDEBUG -std=c++17
-                  -DCOLMAP_HIP_ENABLED -D__HIPCC__ -D__HIP_PLATFORM_AMD__=1
-                  -I${CMAKE_SOURCE_DIR}/src
-                  -I${ROCM_PATH}/include
-                  -I${ROCM_PATH}/include/hiprand
-                  -I${ROCM_PATH}/include/rocrand
-                  ${EIGEN3_INCLUDE_FLAGS}
-                  ${OPENCV_INCLUDE_FLAGS}
-                  --offload-arch=${HIP_ARCHITECTURES})
-
-    # Generate .hip.cpp from .cu using hipify-perl, then compile with hipcc
-    set(HIP_OBJECTS "")
-    set(HIP_CU_SRCS
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_mvs_cuda
+        SRCS
+            gpu_mat_prng.h gpu_mat_prng.cu
+            gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            patch_match.h patch_match.cc
+            patch_match_cuda.h patch_match_cuda.cu
+        PUBLIC_LINK_LIBS
+            colmap_mvs
+            colmap_util_cuda
+            hip::host
+            hip::hiprand
+            roc::rocrand
+    )
+    set_source_files_properties(
         gpu_mat_prng.cu
         gpu_mat_ref_image.cu
         patch_match_cuda.cu
+        PROPERTIES LANGUAGE HIP
     )
+    # colmap_mvs headers transitively include cuda_to_hip.h, which pulls in
+    # <hip/hip_runtime.h>. Make hip::host visible to consumers of colmap_mvs
+    # (e.g. patch_match.cc) so the include path resolves.
+    target_link_libraries(colmap_mvs PUBLIC hip::host)
 
-    foreach(HIP_CU_SRC ${HIP_CU_SRCS})
-        # Generate hipified source from .cu → .hip.cpp
-        set(HIP_CPP ${CMAKE_CURRENT_BINARY_DIR}/${HIP_CU_SRC}.hip.cpp)
-        set(HIP_OBJ ${CMAKE_CURRENT_BINARY_DIR}/${HIP_CU_SRC}.o)
-
-        add_custom_command(
-            OUTPUT ${HIP_CPP}
-            COMMAND ${HIPIFY_PERL} ${CMAKE_CURRENT_SOURCE_DIR}/${HIP_CU_SRC} > ${HIP_CPP}.raw
-            COMMAND sed -e 's|colmap/util/hip/hip_runtime|colmap/util/cuda|g' -e 's|colmap/util/hip/hip|colmap/util/cuda|g' ${HIP_CPP}.raw > ${HIP_CPP}
-            DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${HIP_CU_SRC}
-            COMMENT "Hipifying ${HIP_CU_SRC} → ${HIP_CU_SRC}.hip.cpp"
-        )
-
-        # Compile generated .hip.cpp with hipcc
-        add_custom_command(
-            OUTPUT ${HIP_OBJ}
-            COMMAND ${HIPCC} ${HIP_FLAGS} -c ${HIP_CPP} -o ${HIP_OBJ}
-            DEPENDS ${HIP_CPP}
-            COMMENT "Compiling ${HIP_CU_SRC}.hip.cpp with hipcc"
-        )
-        list(APPEND HIP_OBJECTS ${HIP_OBJ})
-    endforeach()
-
-    add_custom_target(colmap_mvs_cuda_hip_objects DEPENDS ${HIP_OBJECTS})
-
-    add_library(colmap_mvs_cuda STATIC ${HIP_OBJECTS})
-    add_dependencies(colmap_mvs_cuda colmap_mvs_cuda_hip_objects)
-    target_include_directories(colmap_mvs_cuda SYSTEM PUBLIC ${ROCM_PATH}/include)
-    target_include_directories(colmap_mvs_cuda PRIVATE ${CMAKE_SOURCE_DIR}/src)
-    target_compile_definitions(colmap_mvs_cuda PUBLIC COLMAP_HIP_ENABLED)
-    # Link HIP runtime and rand libraries directly (avoid find_package(hip) which
-    # triggers enable_language(HIP) and pollutes global CXX flags in CMake 3.28+)
-    target_link_libraries(colmap_mvs_cuda
-        colmap_util_cuda
-        colmap_mvs
-        ${ROCM_PATH}/lib/libamdhip64.so
-        ${ROCM_PATH}/lib/libhiprand.so
-        ${ROCM_PATH}/lib/librocrand.so
+    COLMAP_ADD_TEST(
+        NAME gpu_mat_test
+        SRCS gpu_mat_test.cu
+        LINK_LIBS colmap_mvs_cuda
     )
-endif()
-
-# Add HIP headers/defs/runtime to colmap_mvs (patch_match.cc directly calls hipFree etc)
-if(HIP_ENABLED)
-    target_include_directories(colmap_mvs PUBLIC ${ROCM_PATH}/include)
-    target_compile_definitions(colmap_mvs PUBLIC COLMAP_HIP_ENABLED __HIP_PLATFORM_AMD__=1)
-    # Link HIP runtime directly
-    target_link_libraries(colmap_mvs PUBLIC
-        ${ROCM_PATH}/lib/libamdhip64.so
-    )
-    target_link_libraries(colmap_mvs PRIVATE colmap_util_cuda)
+    set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
 endif()

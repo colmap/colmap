@@ -28,6 +28,8 @@ Download
   can be installed with `conda install colmap`
 * **Python bindings** are available at https://pypi.org/project/pycolmap.
   CUDA-enabled wheels are available at https://pypi.org/project/pycolmap-cuda12.
+  AMD GPUs are also supported via HIP/ROCm when building from source (see
+  install docs).
 * To **build from source**, please see https://colmap.github.io/install.html.
 
 Getting Started

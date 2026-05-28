@@ -35,53 +35,28 @@
 
 #include <memory>
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-#include <hip/hip_runtime.h>
-#else
-#include <cuda_runtime.h>
-#endif
-
 namespace colmap {
 namespace mvs {
-
-// Type aliases for dual CUDA/HIP compatibility
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-using GpuTextureDesc = hipTextureDesc;
-using GpuTextureObject_t = hipTextureObject_t;
-using GpuArray_t = hipArray_t;
-using GpuResourceDesc = hipResourceDesc;
-using GpuMemcpy3DParms = hipMemcpy3DParms;
-using GpuExtent = hipExtent;
-using GpuChannelFormatDesc = hipChannelFormatDesc;
-#else
-using GpuTextureDesc = cudaTextureDesc;
-using GpuTextureObject_t = cudaTextureObject_t;
-using GpuArray_t = cudaArray_t;
-using GpuResourceDesc = cudaResourceDesc;
-using GpuMemcpy3DParms = cudaMemcpy3DParms;
-using GpuExtent = cudaExtent;
-using GpuChannelFormatDesc = cudaChannelFormatDesc;
-#endif
 
 template <typename T>
 class CudaArrayLayeredTexture {
  public:
   static std::unique_ptr<CudaArrayLayeredTexture<T>> FromGpuMat(
-      const GpuTextureDesc& texture_desc, const GpuMat<T>& mat);
+      const cudaTextureDesc& texture_desc, const GpuMat<T>& mat);
   static std::unique_ptr<CudaArrayLayeredTexture<T>> FromHostArray(
-      const GpuTextureDesc& texture_desc,
+      const cudaTextureDesc& texture_desc,
       const size_t width,
       const size_t height,
       const size_t depth,
       const T* data);
 
-  GpuTextureObject_t GetObj() const;
+  cudaTextureObject_t GetObj() const;
 
   size_t GetWidth() const;
   size_t GetHeight() const;
   size_t GetDepth() const;
 
-  CudaArrayLayeredTexture(const GpuTextureDesc& texture_desc,
+  CudaArrayLayeredTexture(const cudaTextureDesc& texture_desc,
                           const size_t width,
                           const size_t height,
                           const size_t depth);
@@ -97,10 +72,10 @@ class CudaArrayLayeredTexture {
   const size_t height_;
   const size_t depth_;
 
-  GpuArray_t array_;
-  const GpuTextureDesc texture_desc_;
-  GpuResourceDesc resource_desc_;
-  GpuTextureObject_t texture_;
+  cudaArray_t array_;
+  const cudaTextureDesc texture_desc_;
+  cudaResourceDesc resource_desc_;
+  cudaTextureObject_t texture_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -109,22 +84,13 @@ class CudaArrayLayeredTexture {
 
 template <typename T>
 std::unique_ptr<CudaArrayLayeredTexture<T>>
-CudaArrayLayeredTexture<T>::FromGpuMat(const GpuTextureDesc& texture_desc,
+CudaArrayLayeredTexture<T>::FromGpuMat(const cudaTextureDesc& texture_desc,
                                        const GpuMat<T>& mat) {
   auto array = std::make_unique<CudaArrayLayeredTexture<T>>(
       texture_desc, mat.GetWidth(), mat.GetHeight(), mat.GetDepth());
 
-  GpuMemcpy3DParms params;
+  cudaMemcpy3DParms params;
   memset(&params, 0, sizeof(params));
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  params.extent =
-      make_hipExtent(mat.GetWidth(), mat.GetHeight(), mat.GetDepth());
-  params.kind = hipMemcpyDeviceToDevice;
-  params.srcPtr = make_hipPitchedPtr(
-      (void*)mat.GetPtr(), mat.GetPitch(), mat.GetWidth(), mat.GetHeight());
-  params.dstArray = array->array_;
-  HIP_SAFE_CALL(hipMemcpy3D(&params));
-#else
   params.extent =
       make_cudaExtent(mat.GetWidth(), mat.GetHeight(), mat.GetDepth());
   params.kind = cudaMemcpyDeviceToDevice;
@@ -132,14 +98,13 @@ CudaArrayLayeredTexture<T>::FromGpuMat(const GpuTextureDesc& texture_desc,
       (void*)mat.GetPtr(), mat.GetPitch(), mat.GetWidth(), mat.GetHeight());
   params.dstArray = array->array_;
   CUDA_SAFE_CALL(cudaMemcpy3D(&params));
-#endif
 
   return array;
 }
 
 template <typename T>
 std::unique_ptr<CudaArrayLayeredTexture<T>>
-CudaArrayLayeredTexture<T>::FromHostArray(const GpuTextureDesc& texture_desc,
+CudaArrayLayeredTexture<T>::FromHostArray(const cudaTextureDesc& texture_desc,
                                           const size_t width,
                                           const size_t height,
                                           const size_t depth,
@@ -147,30 +112,21 @@ CudaArrayLayeredTexture<T>::FromHostArray(const GpuTextureDesc& texture_desc,
   auto array = std::make_unique<CudaArrayLayeredTexture<T>>(
       texture_desc, width, height, depth);
 
-  GpuMemcpy3DParms params;
+  cudaMemcpy3DParms params;
   memset(&params, 0, sizeof(params));
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  params.extent = make_hipExtent(width, height, depth);
-  params.kind = hipMemcpyHostToDevice;
-  params.srcPtr =
-      make_hipPitchedPtr((void*)data, width * sizeof(T), width, height);
-  params.dstArray = array->array_;
-  HIP_SAFE_CALL(hipMemcpy3D(&params));
-#else
   params.extent = make_cudaExtent(width, height, depth);
   params.kind = cudaMemcpyHostToDevice;
   params.srcPtr =
       make_cudaPitchedPtr((void*)data, width * sizeof(T), width, height);
   params.dstArray = array->array_;
   CUDA_SAFE_CALL(cudaMemcpy3D(&params));
-#endif
 
   return array;
 }
 
 template <typename T>
 CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
-    const GpuTextureDesc& texture_desc,
+    const cudaTextureDesc& texture_desc,
     const size_t width,
     const size_t height,
     const size_t depth)
@@ -182,20 +138,8 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
   THROW_CHECK_GT(height_, 0);
   THROW_CHECK_GT(depth_, 0);
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  GpuExtent extent = make_hipExtent(width_, height_, depth_);
-  GpuChannelFormatDesc fmt = hipCreateChannelDesc<T>();
-  HIP_SAFE_CALL(hipMalloc3DArray(&array_, &fmt, extent, hipArrayLayered));
-
-  memset(&resource_desc_, 0, sizeof(resource_desc_));
-  resource_desc_.resType = hipResourceTypeArray;
-  resource_desc_.res.array.array = array_;
-
-  HIP_SAFE_CALL(hipCreateTextureObject(
-      &texture_, &resource_desc_, &texture_desc_, nullptr));
-#else
-  GpuExtent extent = make_cudaExtent(width_, height_, depth_);
-  GpuChannelFormatDesc fmt = cudaCreateChannelDesc<T>();
+  cudaExtent extent = make_cudaExtent(width_, height_, depth_);
+  cudaChannelFormatDesc fmt = cudaCreateChannelDesc<T>();
   CUDA_SAFE_CALL(cudaMalloc3DArray(&array_, &fmt, extent, cudaArrayLayered));
 
   memset(&resource_desc_, 0, sizeof(resource_desc_));
@@ -204,22 +148,16 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
 
   CUDA_SAFE_CALL(cudaCreateTextureObject(
       &texture_, &resource_desc_, &texture_desc_, nullptr));
-#endif
 }
 
 template <typename T>
 CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() {
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-  HIP_SAFE_CALL(hipDestroyTextureObject(texture_));
-  HIP_SAFE_CALL(hipFreeArray(array_));
-#else
   CUDA_SAFE_CALL(cudaDestroyTextureObject(texture_));
   CUDA_SAFE_CALL(cudaFreeArray(array_));
-#endif
 }
 
 template <typename T>
-GpuTextureObject_t CudaArrayLayeredTexture<T>::GetObj() const {
+cudaTextureObject_t CudaArrayLayeredTexture<T>::GetObj() const {
   return texture_;
 }
 
