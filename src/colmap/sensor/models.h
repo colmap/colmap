@@ -713,12 +713,12 @@ bool BaseCameraModel<CameraModel>::HasBogusParams(
     const T min_focal_length_ratio,
     const T max_focal_length_ratio,
     const T max_extra_param) {
-  return HasBogusPrincipalPoint(params, width, height) ||
-         HasBogusFocalLength(params,
-                             width,
-                             height,
-                             min_focal_length_ratio,
-                             max_focal_length_ratio) ||
+  return CameraModel::HasBogusPrincipalPoint(params, width, height) ||
+         CameraModel::HasBogusFocalLength(params,
+                                          width,
+                                          height,
+                                          min_focal_length_ratio,
+                                          max_focal_length_ratio) ||
          CameraModel::HasBogusExtraParams(params, max_extra_param);
 }
 
