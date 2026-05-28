@@ -29,11 +29,7 @@
 
 #pragma once
 
-#if defined(__HIPCC__) || defined(COLMAP_HIP_ENABLED)
-#include <hip/hip_runtime.h>
-#else
-#include <cuda_runtime.h>
-#endif
+#include "colmap/util/cuda_to_hip.h"
 
 namespace colmap {
 namespace mvs {
