@@ -20,7 +20,7 @@ The database contains the following tables:
 - two_view_geometries
 
 To initialize an empty SQLite database file with the required schema, you can
-either create a new project in the GUI or execute ``src/colmap/exe/database_create.cc``.
+either create a new project in the GUI or run the ``colmap database_creator`` command.
 
 
 Rigs and Sensors
@@ -70,12 +70,18 @@ keypoints have 4 columns, then the feature geometry is a similarity and the
 third column is the scale and the fourth column the orientation of the feature
 (according to SIFT conventions). If the keypoints have 6 columns, then the
 feature geometry is an affinity and the last 4 columns encode its affine shape
-(see ``src/feature/types.h`` for details).
+(see ``src/colmap/feature/types.h`` for details).
 
-The extracted descriptors are stored as row-major ``uint8`` binary blobs, where
-each row describes the feature appearance of the corresponding entry in the
-keypoints table. Note that COLMAP only supports 128-D descriptors for now, i.e.
-the ``cols`` column must be 128.
+The extracted descriptors are stored as row-major binary blobs, where each row
+describes the feature appearance of the corresponding entry in the keypoints
+table. The data type and dimensionality depend on the feature extractor:
+
+- **SIFT**: ``uint8`` descriptors with 128 dimensions (128 bytes per feature).
+- **ALIKED**: ``float32`` descriptors with 128 dimensions (512 bytes per feature).
+
+The ``cols`` column in the descriptors table specifies the number of bytes per
+descriptor row. For ``uint8`` descriptors, this equals the descriptor dimension.
+For ``float32`` descriptors, this equals ``4 * dimension``.
 
 In both tables, the ``rows`` table specifies the number of detected features per
 image, while ``rows=0`` means that an image has no features. For feature matching
@@ -121,4 +127,4 @@ the ``rows`` column specifies the number of feature matches.
 
 The F, E, H blobs in the ``two_view_geometries`` table are stored as 3x3 matrices
 in row-major ``float64`` format. The meaning of the ``config`` values are documented
-in the ``src/estimators/two_view_geometry.h`` source file.
+in the ``src/colmap/estimators/two_view_geometry.h`` source file.

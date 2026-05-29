@@ -134,19 +134,7 @@ void Camera::Rescale(const double scale) {
   height = static_cast<size_t>(std::round(scale * height));
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
-  if (FocalLengthIdxs().size() == 1) {
-    SetFocalLength((scale_x + scale_y) / 2.0 * FocalLength());
-  } else if (FocalLengthIdxs().size() == 2) {
-    SetFocalLengthX(scale_x * FocalLengthX());
-    SetFocalLengthY(scale_y * FocalLengthY());
-  } else if (FocalLengthIdxs().size() == 0 &&
-             model_id == CameraModelId::kEquirectangular) {
-    // Spherical cameras have no focal length to rescale - principal point
-    // rescale above is sufficient
-  } else {
-    LOG(FATAL_THROW)
-        << "Camera model must either have 1 or 2 focal length parameters.";
-  }
+  ScaleFocalLengths(scale_x, scale_y);
 }
 
 void Camera::Rescale(const size_t new_width, const size_t new_height) {
@@ -158,19 +146,7 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
   height = new_height;
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
-  if (FocalLengthIdxs().size() == 1) {
-    SetFocalLength((scale_x + scale_y) / 2.0 * FocalLength());
-  } else if (FocalLengthIdxs().size() == 2) {
-    SetFocalLengthX(scale_x * FocalLengthX());
-    SetFocalLengthY(scale_y * FocalLengthY());
-  } else if (FocalLengthIdxs().size() == 0 &&
-             model_id == CameraModelId::kEquirectangular) {
-    // Spherical cameras have no focal length to rescale - principal point
-    // rescale above is sufficient
-  } else {
-    LOG(FATAL_THROW)
-        << "Camera model must either have 1 or 2 focal length parameters.";
-  }
+  ScaleFocalLengths(scale_x, scale_y);
 }
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
@@ -185,6 +161,24 @@ std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
          << ", params=[" << camera.ParamsToString() << "] (" << params_info
          << "))";
   return stream;
+}
+
+void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
+  const size_t num_focal_params = FocalLengthIdxs().size();
+  if (num_focal_params == 1) {
+    const double avg_scale = (scale_x + scale_y) / 2.0;
+    SetFocalLength(avg_scale * FocalLength());
+  } else if (num_focal_params == 2) {
+    SetFocalLengthX(scale_x * FocalLengthX());
+    SetFocalLengthY(scale_y * FocalLengthY());
+  } else if (num_focal_params == 0 &&
+             model_id == CameraModelId::kEquirectangular) {
+    // Spherical cameras have no focal length to rescale - the principal point
+    // rescale performed by the caller is sufficient.
+  } else {
+    LOG(FATAL_THROW)
+        << "Camera model must either have 1 or 2 focal length parameters.";
+  }
 }
 
 }  // namespace colmap

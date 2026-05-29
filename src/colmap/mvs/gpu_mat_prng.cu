@@ -33,7 +33,7 @@ namespace colmap {
 namespace mvs {
 namespace {
 
-__global__ void InitRandomStateKernel(GpuMat<curandState> output) {
+__global__ void InitRandomStateKernel(GpuMatView<curandState> output) {
   const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
   const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -51,7 +51,7 @@ __global__ void InitRandomStateKernel(GpuMat<curandState> output) {
 
 GpuMatPRNG::GpuMatPRNG(const int width, const int height)
     : GpuMat(width, height) {
-  InitRandomStateKernel<<<gridSize_, blockSize_>>>(*this);
+  InitRandomStateKernel<<<gridSize_, blockSize_>>>(View());
 }
 
 }  // namespace mvs

@@ -61,6 +61,11 @@ class DatabaseCache {
     // frame will also be included. All images are used if empty.
     std::unordered_set<std::string> image_names;
 
+    // Whether to load all candidate images regardless of whether they have
+    // correspondences. If false (default), only images that participate in at
+    // least one valid match pair are loaded.
+    bool load_all_images = false;
+
     // Whether to convert pose priors to ENU coordinate system.
     bool convert_pose_priors_to_enu = false;
   };
@@ -118,6 +123,7 @@ class DatabaseCache {
   // Get reference to const correspondence graph.
   inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
       const;
+  inline std::shared_ptr<class CorrespondenceGraph> CorrespondenceGraph();
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
@@ -216,6 +222,11 @@ bool DatabaseCache::ExistsImage(const image_t image_id) const {
 
 std::shared_ptr<const class CorrespondenceGraph>
 DatabaseCache::CorrespondenceGraph() const {
+  return correspondence_graph_;
+}
+
+std::shared_ptr<class CorrespondenceGraph>
+DatabaseCache::CorrespondenceGraph() {
   return correspondence_graph_;
 }
 

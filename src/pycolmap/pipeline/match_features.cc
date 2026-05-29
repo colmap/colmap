@@ -1,8 +1,8 @@
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/exe/feature.h"
 #include "colmap/exe/sfm.h"
-#include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
@@ -317,6 +317,21 @@ void BindMatchFeatures(py::module& m) {
                 "TwoViewGeometryOptions()"),
       "device"_a = Device::AUTO,
       "Sequential feature matching");
+
+  m.def("match_image_pairs",
+        &MatchFeatures<ImportedPairingOptions, CreateImagePairsFeatureMatcher>,
+        "database_path"_a,
+        py::arg_v("matching_options",
+                  FeatureMatchingOptions(),
+                  "FeatureMatchingOptions()"),
+        py::arg_v("pairing_options",
+                  ImportedPairingOptions(),
+                  "ImportedPairingOptions()"),
+        py::arg_v("verification_options",
+                  TwoViewGeometryOptions(),
+                  "TwoViewGeometryOptions()"),
+        "device"_a = Device::AUTO,
+        "Match features between image pairs specified in a file");
 
   m.def("verify_matches",
         &VerifyMatches,

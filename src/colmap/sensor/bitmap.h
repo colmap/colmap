@@ -105,7 +105,7 @@ class Bitmap {
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.
-  inline bool GetPixel(int x, int y, BitmapColor<uint8_t>* color) const;
+  inline std::optional<BitmapColor<uint8_t>> GetPixel(int x, int y) const;
   inline bool SetPixel(int x, int y, const BitmapColor<uint8_t>& color);
 
   // Fill entire bitmap with uniform color. For grayscale images, the first
@@ -113,13 +113,14 @@ class Bitmap {
   void Fill(const BitmapColor<uint8_t>& color);
 
   // Interpolate color at given floating point position.
-  bool InterpolateNearestNeighbor(double x,
-                                  double y,
-                                  BitmapColor<uint8_t>* color) const;
-  bool InterpolateBilinear(double x, double y, BitmapColor<float>* color) const;
+  std::optional<BitmapColor<uint8_t>> InterpolateNearestNeighbor(
+      double x, double y) const;
+  std::optional<BitmapColor<float>> InterpolateBilinear(double x,
+                                                        double y) const;
 
   // Extract EXIF information from bitmap. Returns std::nullopt if no EXIF
   // information is embedded in the bitmap.
+  std::optional<int> ExifOrientation() const;
   std::optional<std::string> ExifCameraModel() const;
   std::optional<double> ExifFocalLength() const;
   std::optional<double> ExifLatitude() const;
@@ -146,6 +147,9 @@ class Bitmap {
   void Rescale(int new_width,
                int new_height,
                RescaleFilter filter = RescaleFilter::kBilinear);
+
+  // Rotate image by k * 90 degrees counter-clockwise.
+  void Rot90(int k);
 
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
@@ -277,27 +281,21 @@ std::vector<uint8_t>& Bitmap::RowMajorData() { return data_; }
 
 const std::vector<uint8_t>& Bitmap::RowMajorData() const { return data_; }
 
-bool Bitmap::GetPixel(const int x,
-                      const int y,
-                      BitmapColor<uint8_t>* color) const {
+std::optional<BitmapColor<uint8_t>> Bitmap::GetPixel(const int x,
+                                                     const int y) const {
   if (x < 0 || x >= width_ || y < 0 || y >= height_) {
-    return false;
+    return std::nullopt;
   }
 
   if (IsGrey()) {
-    color->r = data_[y * width_ + x];
-    color->g = color->r;
-    color->b = color->r;
-    return true;
+    const uint8_t v = data_[y * width_ + x];
+    return BitmapColor<uint8_t>(v, v, v);
   } else if (IsRGB()) {
     const uint8_t* pixel = &data_[(y * width_ + x) * channels_];
-    color->r = pixel[0];
-    color->g = pixel[1];
-    color->b = pixel[2];
-    return true;
+    return BitmapColor<uint8_t>(pixel[0], pixel[1], pixel[2]);
   }
 
-  return false;
+  return std::nullopt;
 }
 
 bool Bitmap::SetPixel(const int x,

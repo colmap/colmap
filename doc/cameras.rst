@@ -24,6 +24,11 @@ model that is complex enough to model the distortion effects:
   for fisheye lenses and note that all other models are not really capable of
   modeling the distortion effects of fisheye lenses. The ``FOV`` model is used by
   Google Project Tango (make sure to not initialize ``omega`` to zero).
+- ``SIMPLE_FISHEYE``, ``FISHEYE``: Use these camera models for fisheye
+  lenses with equidistant projection where distortion can be ignored
+  or has been pre-corrected. These models use the equidistant projection
+  (theta = atan(r)) without any distortion parameters. ``SIMPLE_FISHEYE``
+  has a single focal length (f), while ``FISHEYE`` has two (fx, fy).
 - ``SIMPLE_DIVISION``, ``DIVISION``: Use these camera models, if you know the
   calibration parameters a priori. Similar to ``SIMPLE_RADIAL`` and ``RADIAL``
   models, they can model simple radial distortion effects. The two models

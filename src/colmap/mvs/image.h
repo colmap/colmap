@@ -32,7 +32,6 @@
 #include "colmap/sensor/bitmap.h"
 
 #include <filesystem>
-#include <string>
 
 namespace colmap {
 namespace mvs {
@@ -50,7 +49,7 @@ class Image {
   inline size_t GetWidth() const;
   inline size_t GetHeight() const;
 
-  void SetBitmap(const Bitmap& bitmap);
+  void SetBitmap(Bitmap bitmap);
   inline const Bitmap& GetBitmap() const;
 
   inline const std::filesystem::path& GetPath() const;

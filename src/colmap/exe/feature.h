@@ -29,8 +29,10 @@
 
 #pragma once
 
-#include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/pairing.h"
+#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <filesystem>
 

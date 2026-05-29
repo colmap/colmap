@@ -8,6 +8,10 @@ Bibliography
     "Accurate, dense, and robust multiview stereopsis."
     Transactions on Pattern Analysis and Machine Intelligence, 2010.
 
+.. [garland1997] Garland, Michael, and Heckbert, Paul S.
+    "Surface simplification using quadric error metrics."
+    Proceedings of SIGGRAPH, 1997.
+
 .. [hofer16] Hofer, M., Maurer, M., and Bischof, H.
     Efficient 3D Scene Abstraction Using Line Segments,
     Computer Vision and Image Understanding, 2016.
@@ -36,6 +40,10 @@ Bibliography
 
 .. [lowe04] Lowe, David G. "Distinctive image features from scale-invariant
     keypoints". International journal of computer vision 60.2 (2004): 91-110.
+
+.. [waechter2014] Waechter, Michael and Moehrle, Nils and Goesele, Michael.
+    "Let there be color! Large-scale texturing of 3D reconstructions."
+    European Conference on Computer Vision, 2014.
 
 .. [wu13] Wu, Changchang. "Towards linear-time incremental structure from
     motion." International Conference 3D Vision, 2013.

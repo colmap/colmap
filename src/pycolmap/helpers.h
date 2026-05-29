@@ -4,6 +4,8 @@
 #include "colmap/util/string.h"
 #include "colmap/util/threading.h"
 
+#include "pycolmap/feature/opaque_types.h"
+
 #include <exception>
 #include <optional>
 #include <regex>
@@ -336,31 +338,37 @@ void MakeDataclass(py::classh<T, options...> cls,
       },
       py::arg("recursive") = true);
 
-  cls.def(py::init([cls](const py::dict& dict) {
-    py::object self = cls();
-    self.attr("mergedict").attr("__call__")(dict);
-    return self.cast<T>();
-  }));
-  cls.def(py::init([cls](const py::kwargs& kwargs) {
-    py::dict dict = kwargs.cast<py::dict>();
-    return cls(dict).template cast<T>();
-  }));
-  py::implicitly_convertible<py::dict, T>();
-  py::implicitly_convertible<py::kwargs, T>();
+  if constexpr (std::is_copy_constructible_v<T>) {
+    cls.def(py::init([cls](const py::dict& dict) {
+      py::object self = cls();
+      self.attr("mergedict").attr("__call__")(dict);
+      return self.cast<T>();
+    }));
+    cls.def(py::init([cls](const py::kwargs& kwargs) {
+      py::dict dict = kwargs.cast<py::dict>();
+      return cls(dict).template cast<T>();
+    }));
+    py::implicitly_convertible<py::dict, T>();
+    py::implicitly_convertible<py::kwargs, T>();
 
-  cls.def("__copy__", [](const T& self) { return T(self); });
-  cls.def("__deepcopy__",
-          [](const T& self, const py::dict&) { return T(self); });
+    if (!cls.attr("__dict__").contains("__copy__")) {
+      cls.def("__copy__", [](const T& self) { return T(self); });
+    }
+    if (!cls.attr("__dict__").contains("__deepcopy__")) {
+      cls.def("__deepcopy__",
+              [](const T& self, const py::dict&) { return T(self); });
+    }
 
-  cls.def(py::pickle(
-      [attributes](const T& self) {
-        return ConvertToDict(self, attributes, /*recursive=*/false);
-      },
-      [cls](const py::dict& dict) {
-        py::object self = cls();
-        self.attr("mergedict").attr("__call__")(dict);
-        return self.cast<T>();
-      }));
+    cls.def(py::pickle(
+        [attributes](const T& self) {
+          return ConvertToDict(self, attributes, /*recursive=*/false);
+        },
+        [cls](const py::dict& dict) {
+          py::object self = cls();
+          self.attr("mergedict").attr("__call__")(dict);
+          return self.cast<T>();
+        }));
+  }
 
   if constexpr (has_equality_operator<T>::value) {
     cls.def(py::self == py::self);
@@ -370,14 +378,16 @@ void MakeDataclass(py::classh<T, options...> cls,
       cls.attr("__hash__") = py::none();
     }
   } else {
-    cls.def("__eq__", [attributes](const T& self, const py::object& other) {
-      if (!py::isinstance<T>(other)) {
-        return false;
-      }
-      py::dict self_dict = ConvertToDict(self, attributes, true);
-      py::dict other_dict = ConvertToDict(other.cast<T>(), attributes, true);
-      return self_dict.equal(other_dict);
-    });
+    if constexpr (std::is_copy_constructible_v<T>) {
+      cls.def("__eq__", [attributes](const T& self, const py::object& other) {
+        if (!py::isinstance<T>(other)) {
+          return false;
+        }
+        py::dict self_dict = ConvertToDict(self, attributes, true);
+        py::dict other_dict = ConvertToDict(other.cast<T>(), attributes, true);
+        return self_dict.equal(other_dict);
+      });
+    }
     cls.attr("__hash__") = py::none();
   }
 

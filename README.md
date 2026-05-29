@@ -7,38 +7,13 @@ About
 COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo
 (MVS) pipeline with a graphical and command-line interface. It offers a wide
 range of features for reconstruction of ordered and unordered image collections.
-The software is licensed under the new BSD license. If you use this project for
-your research, please cite:
-
-    @inproceedings{schoenberger2016sfm,
-        author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
-        title={Structure-from-Motion Revisited},
-        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
-        year={2016},
-    }
-
-    @inproceedings{schoenberger2016mvs,
-        author={Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
-        title={Pixelwise View Selection for Unstructured Multi-View Stereo},
-        booktitle={European Conference on Computer Vision (ECCV)},
-        year={2016},
-    }
-
-If you use the image retrieval / vocabulary tree engine, please also cite:
-
-    @inproceedings{schoenberger2016vote,
-        author={Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
-        title={A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
-        booktitle={Asian Conference on Computer Vision (ACCV)},
-        year={2016},
-    }
+The software is licensed under the new BSD license.
 
 The latest source code is available at https://github.com/colmap/colmap. COLMAP
 builds on top of existing works and when using specific algorithms within
 COLMAP, please also cite the original authors, as specified in the source code,
 and consider citing relevant third-party dependencies (most notably
 ceres-solver, poselib, sift-gpu, vlfeat).
-
 
 Download
 --------
@@ -55,37 +30,29 @@ Download
   CUDA-enabled wheels are available at https://pypi.org/project/pycolmap-cuda12.
 * To **build from source**, please see https://colmap.github.io/install.html.
 
-
 Getting Started
 ---------------
 
 1. Download pre-built binaries or build from source.
-2. Download one of the provided datasets at https://demuc.de/colmap/datasets/
+2. Download one of the provided [sample datasets](https://demuc.de/colmap/datasets/)
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
    with a single click or command.
 
-
 Documentation
 -------------
 
-The documentation is available at https://colmap.github.io/.
+The documentation is available [here](https://colmap.github.io/).
 
-To build and update the documentation at the documentation website, follow these steps:
-
-1. Build the documentation locally following [these instructions](https://colmap.github.io/install.html#documentation).
-2. Clone the website repository [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io).
-3. Copy the contents of the generated files at `_build/html` to the cloned respository root.
-4. Create a pull request to the [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io) repository with the updated files.
-5. (optional if main release) Copy the previous release as legacy to the "legacy" folder, under a folder with the release number [as seen here](https://github.com/colmap/colmap.github.io/tree/master/legacy)
+To build and update the documentation at the documentation website,
+follow [these steps](https://colmap.github.io/install.html#documentation).
 
 Support
 -------
 
-Please, use GitHub Discussions at https://github.com/colmap/colmap/discussions
-for questions and the GitHub issue tracker at https://github.com/colmap/colmap
+Please, use [GitHub Discussions](https://github.com/colmap/colmap/discussions)
+for questions and the [GitHub issue tracker](https://github.com/colmap/colmap)
 for bug reports, feature requests/additions, etc.
-
 
 Acknowledgments
 ---------------
@@ -94,8 +61,9 @@ COLMAP was originally written by [Johannes Schönberger](https://demuc.de/) with
 funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
 The team of core project maintainers currently includes
 [Johannes Schönberger](https://github.com/ahojnnes),
-[Paul-Edouard Sarlin](https://github.com/sarlinpe), and
-[Shaohui Liu](https://github.com/B1ueber2y).
+[Paul-Edouard Sarlin](https://github.com/sarlinpe),
+[Shaohui Liu](https://github.com/B1ueber2y), and
+[Linfei Pan](https://lpanaf.github.io/).
 
 The Python bindings in PyCOLMAP were originally added by
 [Mihai Dusmanu](https://github.com/mihaidusmanu),
@@ -106,13 +74,48 @@ The project has also benefitted from countless community contributions, includin
 bug fixes, improvements, new features, third-party tooling, and community
 support (special credits to [Torsten Sattler](https://tsattler.github.io)).
 
+Citation
+--------
+
+If you use this project for your research, please cite:
+
+    @inproceedings{schoenberger2016sfm,
+        author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
+        title={Structure-from-Motion Revisited},
+        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
+        year={2016},
+    }
+
+    @inproceedings{schoenberger2016mvs,
+        author={Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
+        title={Pixelwise View Selection for Unstructured Multi-View Stereo},
+        booktitle={European Conference on Computer Vision (ECCV)},
+        year={2016},
+    }
+
+If you use the global SfM pipeline (GLOMAP), please cite:
+
+    @inproceedings{pan2024glomap,
+        author={Pan, Linfei and Barath, Daniel and Pollefeys, Marc and Sch\"{o}nberger, Johannes Lutz},
+        title={{Global Structure-from-Motion Revisited}},
+        booktitle={European Conference on Computer Vision (ECCV)},
+        year={2024},
+    }
+
+If you use the image retrieval / vocabulary tree engine, please cite:
+
+    @inproceedings{schoenberger2016vote,
+        author={Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
+        title={A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
+        booktitle={Asian Conference on Computer Vision (ACCV)},
+        year={2016},
+    }
 
 Contribution
 ------------
 
 Contributions (bug reports, bug fixes, improvements, etc.) are very welcome and
 should be submitted in the form of new issues and/or pull requests on GitHub.
-
 
 License
 -------

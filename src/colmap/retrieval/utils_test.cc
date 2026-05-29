@@ -33,7 +33,8 @@
 
 #include <gtest/gtest.h>
 
-namespace colmap::retrieval {
+namespace colmap {
+namespace retrieval {
 namespace {
 
 TEST(HammingDistWeightFunctor, ZeroDistance) {
@@ -69,4 +70,5 @@ TEST(HammingDistWeightFunctor, Monotonicity) {
 }
 
 }  // namespace
-}  // namespace colmap::retrieval
+}  // namespace retrieval
+}  // namespace colmap

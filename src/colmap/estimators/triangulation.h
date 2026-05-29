@@ -83,9 +83,9 @@ class TriangulationEstimator {
     const Camera* camera;
   };
 
-  typedef PointData X_t;
-  typedef PoseData Y_t;
-  typedef Eigen::Vector3d M_t;
+  using X_t = PointData;
+  using Y_t = PoseData;
+  using M_t = Eigen::Vector3d;
 
   TriangulationEstimator(double min_tri_angle, ResidualType residual_type);
 
@@ -94,8 +94,8 @@ class TriangulationEstimator {
 
   // Estimate a 3D point from a two-view observation.
   //
-  // @param point_data        Image measurement.
-  // @param point_data        Camera poses.
+  // @param point_data        Image measurements.
+  // @param pose_data         Camera poses.
   //
   // @return                  Triangulated point if successful, otherwise none.
   void Estimate(const std::vector<X_t>& point_data,
@@ -105,7 +105,7 @@ class TriangulationEstimator {
   // Calculate residuals in terms of squared reprojection or angular error.
   //
   // @param point_data        Image measurements.
-  // @param point_data        Camera poses.
+  // @param pose_data         Camera poses.
   // @param xyz               3D point.
   //
   // @return                  Residual for each observation.

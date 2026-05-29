@@ -37,7 +37,7 @@
 
 namespace colmap {
 
-// Reverse the order of each byte.
+// Reverse the byte order of the data.
 template <typename T>
 T ReverseBytes(const T& data);
 

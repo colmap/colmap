@@ -35,6 +35,7 @@
 #include "colmap/util/threading.h"
 
 #include <fstream>
+#include <locale>
 #include <thread>
 
 namespace colmap {
@@ -52,7 +53,7 @@ void MaybeSetJpegQuality(const std::filesystem::path& path,
 template <typename Derived>
 void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
                  std::ofstream* file) {
-  typedef typename Eigen::MatrixBase<Derived>::Index index_t;
+  using index_t = typename Eigen::MatrixBase<Derived>::Index;
   for (index_t r = 0; r < matrix.rows(); ++r) {
     for (index_t c = 0; c < matrix.cols() - 1; ++c) {
       *file << matrix(r, c) << " ";
@@ -70,6 +71,7 @@ void WriteProjectionMatrix(const std::filesystem::path& path,
 
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
+  file.imbue(std::locale::classic());
 
   Eigen::Matrix3d calib_matrix = Eigen::Matrix3d::Identity();
   calib_matrix(0, 0) = camera.FocalLengthX();
@@ -183,7 +185,7 @@ void COLMAPUndistorter::Run() {
                                              : options_.image_ids;
   const size_t num_images = image_ids.size();
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(num_images);
   for (const image_t image_id : image_ids) {
@@ -294,14 +296,19 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
   WriteCOLMAPCommands(geometric, ".", "COLMAP", "option-all", "", "", &file);
 }
 
-PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& camera_options,
+PMVSUndistorter::PMVSUndistorter(const Options& options,
+                                 const UndistortCameraOptions& camera_options,
                                  const Reconstruction& reconstruction,
                                  const std::filesystem::path& image_path,
                                  const std::filesystem::path& output_path)
-    : camera_options_(camera_options),
+    : options_(options),
+      camera_options_(camera_options),
       reconstruction_(reconstruction),
       image_path_(image_path),
-      output_path_(output_path) {}
+      output_path_(output_path) {
+  THROW_CHECK_GE(options_.jpeg_quality, -1);
+  THROW_CHECK_LE(options_.jpeg_quality, 100);
+}
 
 void PMVSUndistorter::Run() {
   LOG_HEADING1("Image undistortion (CMVS/PMVS)");
@@ -314,7 +321,7 @@ void PMVSUndistorter::Run() {
   CreateDirIfNotExists(output_path_ / "pmvs" / "visualize");
   CreateDirIfNotExists(output_path_ / "pmvs" / "models");
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
@@ -389,6 +396,8 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
                  &undistorted_camera);
 
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
+  MaybeSetJpegQuality(
+      output_image_path, undistorted_bitmap, options_.jpeg_quality);
   return undistorted_bitmap.Write(output_image_path);
 }
 
@@ -530,14 +539,20 @@ void PMVSUndistorter::WriteOptionFile() const {
   file << "oimages 0\n";
 }
 
-CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
-                                     const Reconstruction& reconstruction,
-                                     const std::filesystem::path& image_path,
-                                     const std::filesystem::path& output_path)
+CMPMVSUndistorter::CMPMVSUndistorter(
+    const Options& options,
+    const UndistortCameraOptions& camera_options,
+    const Reconstruction& reconstruction,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path)
     : options_(options),
+      camera_options_(camera_options),
       image_path_(image_path),
       output_path_(output_path),
-      reconstruction_(reconstruction) {}
+      reconstruction_(reconstruction) {
+  THROW_CHECK_GE(options_.jpeg_quality, -1);
+  THROW_CHECK_LE(options_.jpeg_quality, 100);
+}
 
 void CMPMVSUndistorter::Run() {
   LOG_HEADING1("Image undistortion (CMP-MVS)");
@@ -545,7 +560,7 @@ void CMPMVSUndistorter::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
@@ -587,13 +602,15 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
-  UndistortImage(options_,
+  UndistortImage(camera_options_,
                  distorted_bitmap,
                  camera,
                  &undistorted_bitmap,
                  &undistorted_camera);
 
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
+  MaybeSetJpegQuality(
+      output_image_path, undistorted_bitmap, options_.jpeg_quality);
   return undistorted_bitmap.Write(output_image_path);
 }
 
@@ -618,7 +635,7 @@ void StandaloneImageUndistorter::Run() {
 
   CreateDirIfNotExists(output_path_);
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
   const size_t num_images = options_.image_names_and_cameras.size();
   futures.reserve(num_images);
@@ -646,9 +663,17 @@ bool StandaloneImageUndistorter::Undistort(const size_t image_idx) const {
       options_.image_names_and_cameras[image_idx];
 
   const auto output_image_path = output_path_ / image_name;
+  const auto input_image_path = image_path_ / image_name;
+
+  // Check if the image is already undistorted and copy from source if no
+  // scaling is needed
+  if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
+      ExistsFile(input_image_path)) {
+    FileCopy(input_image_path, output_image_path, options_.copy_type);
+    return true;
+  }
 
   Bitmap distorted_bitmap;
-  const auto input_image_path = image_path_ / image_name;
   if (!distorted_bitmap.Read(input_image_path)) {
     LOG(ERROR) << "Cannot read image at path " << input_image_path;
     return false;
@@ -689,7 +714,7 @@ void StereoImageRectifier::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  ThreadPool thread_pool;
+  ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<void>> futures;
   futures.reserve(options_.stereo_pairs.size());
   for (const auto& stereo_pair : options_.stereo_pairs) {
@@ -774,6 +799,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   const auto Q_path = output_path_ / stereo_pair_name / "Q.txt";
   std::ofstream Q_file(Q_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(Q_file, Q_path);
+  Q_file.imbue(std::locale::classic());
   WriteMatrix(Q, &Q_file);
 }
 

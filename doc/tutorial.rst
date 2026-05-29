@@ -121,8 +121,13 @@ information for every pixel in an image. Fusion of the depth and normal maps of
 multiple images in 3D then produces a dense point cloud of the scene. Using the
 depth and normal information of the fused point cloud, algorithms such as the
 (screened) Poisson surface reconstruction [kazhdan2013]_ can then recover the 3D
-surface geometry of the scene. More information on Multi-View Stereo in general
-and the algorithms in COLMAP can be found in [schoenberger16mvs]_.
+surface geometry of the scene. The resulting meshes can optionally be simplified
+using Quadric Error Metric (QEM) decimation [garland1997]_ to reduce their
+complexity while preserving shape and appearance. Additionally, the meshes can
+be textured using multi-view texture mapping [waechter2014]_, which assigns each
+face to the best-view camera image and produces a texture atlas with UV
+coordinates. More information on Multi-View Stereo in general and the algorithms
+in COLMAP can be found in [schoenberger16mvs]_.
 
 
 Preface
@@ -229,12 +234,15 @@ modify the camera models at a later point as well (see :ref:`Database Management
 to the default parameters.
 
 You can either detect and extract new features from the images or import
-existing features from text files. COLMAP extracts SIFT [lowe04]_ features
-either on the GPU or the CPU. The GPU version requires an attached display,
-while the CPU version is recommended for use on a server. In general, the GPU
-version is favorable as it has a customized feature detection mode that often
-produces higher quality features in the case of high contrast images. If you
-import existing features, every image must have a text file next to it (e.g.,
+existing features from text files. By default, COLMAP extracts SIFT [lowe04]_
+features either on the GPU or the CPU. The GPU version requires an attached
+display, while the CPU version is recommended for use on a server. In general,
+the GPU version is favorable as it has a customized feature detection mode that
+often produces higher quality features in the case of high contrast images.
+COLMAP also supports ALIKED feature extraction, a learned feature extractor
+using ONNX models, which can be selected via the ``--FeatureExtraction.type``
+option (see :ref:`Feature Extraction and Matching <features>` for details). If
+you import existing features, every image must have a text file next to it (e.g.,
 ``/path/to/image1.jpg`` and ``/path/to/image1.jpg.txt``) in the following format::
 
     NUM_FEATURES 128
@@ -368,10 +376,12 @@ reviewed/managed in the database management tool (see :ref:`Database Management
 <database-management>`) or, for experts, directly modified using SQLite (see
 :ref:`Database Format <database-format>`).
 
-Note that feature matching requires a GPU and that the display performance of
-your computer might degrade significantly during the matching process. If your
-system has multiple CUDA-enabled GPUs, you can select specific GPUs with the
-``gpu_index`` option.
+Note that SIFT feature matching can use a GPU for acceleration, and the display
+performance of your computer might degrade significantly during the matching
+process. If your system has multiple CUDA-enabled GPUs, you can select specific
+GPUs with the ``gpu_index`` option. Feature matching can also be performed on
+the CPU by setting ``--FeatureMatching.use_gpu 0``, although this will be
+significantly slower for large datasets.
 
 
 Sparse Reconstruction
@@ -387,7 +397,7 @@ visualized in "real-time" during this reconstruction process. Refer to the
 available controls. COLMAP attempts to reconstruct multiple models if not all
 images are registered into the same model. The different models can be selected
 from the drop-down menu in the toolbar. If the different models have common
-registered images, you can use the ``model_converter`` executable to merge them
+registered images, you can use the ``model_merger`` executable to merge them
 into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details).
 
 Ideally, the reconstruction works fine and all images are registered. If this is
@@ -432,6 +442,10 @@ integrated dense reconstruction pipeline to produce depth and normal maps for
 all registered images, to fuse the depth and normal maps into a dense point
 cloud with normal information, and to finally estimate a dense surface from the
 fused point cloud using Poisson [kazhdan2013]_ or Delaunay reconstruction.
+Optionally, the resulting meshes can be simplified using the ``mesh_simplifier``
+command to reduce the number of faces while preserving the overall shape. The
+meshes can also be textured using the ``mesh_texturer`` command, which produces
+a texture atlas and per-face UV coordinates from the undistorted images.
 
 To get started, import your sparse 3D model into COLMAP (or select the
 reconstructed model after finishing the previous sparse reconstruction steps).

@@ -49,7 +49,7 @@ void BindSensorRig(py::module& m) {
       .def("sensor_from_rig",
            py::overload_cast<sensor_t>(&Rig::MaybeSensorFromRig),
            "sensor_id"_a,
-           "The the transformation from rig to the sensor.")
+           "The transformation from rig to the sensor.")
       .def("set_sensor_from_rig",
            py::overload_cast<sensor_t, const std::optional<Rigid3d>&>(
                &Rig::SetSensorFromRig),

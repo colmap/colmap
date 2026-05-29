@@ -29,15 +29,14 @@
 
 #include "colmap/controllers/rotation_averaging.h"
 
+#include "colmap/estimators/gravity_refinement.h"
+#include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
-
-#include "glomap/estimators/gravity_refinement.h"
-#include "glomap/estimators/rotation_averaging.h"
-#include "glomap/scene/pose_graph.h"
 
 #include <limits>
 
@@ -50,9 +49,6 @@ RotationAveragingPipeline::RotationAveragingPipeline(
     : options_(options),
       reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {
   THROW_CHECK_NOTNULL(database);
-  if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database.get());
-  }
   LOG(INFO) << "Loading database";
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
@@ -60,6 +56,9 @@ RotationAveragingPipeline::RotationAveragingPipeline(
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+  if (options_.decompose_relative_pose) {
+    MaybeDecomposeRelativePoses(database_cache_.get());
+  }
 }
 
 void RotationAveragingPipeline::Run() {
@@ -73,7 +72,7 @@ void RotationAveragingPipeline::Run() {
 
   // Load reconstruction and pose graph from database cache.
   reconstruction_->Load(*database_cache_);
-  glomap::PoseGraph pose_graph;
+  PoseGraph pose_graph;
   pose_graph.Load(*database_cache_->CorrespondenceGraph());
 
   if (pose_graph.Empty()) {
@@ -118,15 +117,15 @@ void RotationAveragingPipeline::Run() {
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     LOG_HEADING1("Running gravity refinement");
-    glomap::RunGravityRefinement(
+    RunGravityRefinement(
         options.gravity_refiner, pose_graph, *reconstruction_, pose_priors);
   }
 
   LOG_HEADING1("Running rotation averaging");
-  if (!glomap::RunRotationAveraging(options.rotation_estimation,
-                                    pose_graph,
-                                    *reconstruction_,
-                                    pose_priors)) {
+  if (!RunRotationAveraging(options.rotation_estimation,
+                            pose_graph,
+                            *reconstruction_,
+                            pose_priors)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }

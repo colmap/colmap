@@ -33,6 +33,7 @@
 #include "colmap/util/string.h"
 
 #include <algorithm>
+#include <locale>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -95,6 +96,7 @@ std::string VectorToCSV(const std::vector<T>& values) {
   }
 
   std::ostringstream stream;
+  stream.imbue(std::locale::classic());
   for (const T& value : values) {
     stream << value << ", ";
   }
@@ -124,9 +126,9 @@ std::vector<T> CSVToVector(const std::string& csv) {
       } else if constexpr (std::is_same<T, int>::value) {
         values.push_back(std::stoi(elem));
       } else if constexpr (std::is_same<T, float>::value) {
-        values.push_back(std::stod(elem));
+        values.push_back(static_cast<float>(StringToDouble(elem)));
       } else if constexpr (std::is_same<T, double>::value) {
-        values.push_back(std::stold(elem));
+        values.push_back(StringToDouble(elem));
       }
     } catch (const std::invalid_argument&) {
       LOG(ERROR) << "Failed to convert CSV element: " << elem;

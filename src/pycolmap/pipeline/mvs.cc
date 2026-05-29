@@ -109,6 +109,10 @@ void BindMVS(py::module& m) {
           .def_readwrite("write_consistency_graph",
                          &PMOpts::write_consistency_graph,
                          "Whether to write the consistency graph.")
+          .def_readwrite("num_threads",
+                         &PMOpts::num_threads,
+                         "Number of threads for processing. "
+                         "-1 uses all available threads.")
           .def("check", &PMOpts::Check);
   MakeDataclass(PyPatchMatchOptions);
 

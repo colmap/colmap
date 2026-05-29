@@ -35,9 +35,11 @@
 #include "colmap/mvs/normal_map.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
+#include "colmap/util/types.h"
 
 #include <filesystem>
 #include <memory>
+#include <mutex>
 
 namespace colmap {
 namespace mvs {
@@ -131,6 +133,7 @@ class CachedWorkspace : public Workspace {
     NON_COPYABLE(CachedImage)
   };
 
+  std::mutex cache_mutex_;
   MemoryConstrainedLRUCache<int, CachedImage> cache_;
 };
 

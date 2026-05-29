@@ -62,12 +62,12 @@ def create_virtual_camera(
     image_width = int(pano_width * hfov_deg / 360)
     image_height = int(pano_height * vfov_deg / 180)
     focal = image_width / (2 * np.tan(np.deg2rad(hfov_deg) / 2))
-    return pycolmap.Camera.create(
-        0,
-        pycolmap.CameraModelId.SIMPLE_PINHOLE,
-        focal,
-        image_width,
-        image_height,
+    return pycolmap.Camera.create_from_model_id(
+        camera_id=0,
+        model=pycolmap.CameraModelId.SIMPLE_PINHOLE,
+        focal_length=focal,
+        width=image_width,
+        height=image_height,
     )
 
 
@@ -175,9 +175,9 @@ class PanoProcessor:
 
         # These are initialized on the first pano image
         # to avoid recomputing the rays for each pano image.
-        self._camera: pycolmap.Camera
-        self._pano_size: tuple[int, int]
-        self._rays_in_cam: npt.NDArray[np.floating]
+        self._camera: pycolmap.Camera | None = None
+        self._pano_size: tuple[int, int] | None = None
+        self._rays_in_cam: npt.NDArray[np.floating] | None = None
 
     def process(self, pano_name: str) -> None:
         pano_path = self.pano_image_dir / pano_name
@@ -217,6 +217,7 @@ class PanoProcessor:
                     )
 
         for cam_idx, cam_from_pano_r in enumerate(self.cams_from_pano_rotation):
+            assert self._rays_in_cam is not None
             rays_in_pano = self._rays_in_cam @ cam_from_pano_r
             xy_in_pano = spherical_img_from_cam(self._pano_size, rays_in_pano)
             xy_in_pano = xy_in_pano.reshape(

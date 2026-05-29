@@ -1,5 +1,8 @@
-#include "colmap/estimators/cost_functions.h"
-
+#include "colmap/estimators/cost_functions/alignment.h"
+#include "colmap/estimators/cost_functions/pose_prior.h"
+#include "colmap/estimators/cost_functions/reprojection_error.h"
+#include "colmap/estimators/cost_functions/sampson_error.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/rigid3.h"
 
 #include "pycolmap/helpers.h"

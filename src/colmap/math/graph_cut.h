@@ -71,11 +71,10 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
 template <typename node_t, typename value_t>
 class MinSTGraphCut {
  public:
-  typedef boost::
-      adjacency_list_traits<boost::vecS, boost::vecS, boost::directedS>
-          graph_traits_t;
-  typedef graph_traits_t::edge_descriptor edge_descriptor_t;
-  typedef graph_traits_t::vertices_size_type vertices_size_t;
+  using graph_traits_t =
+      boost::adjacency_list_traits<boost::vecS, boost::vecS, boost::directedS>;
+  using edge_descriptor_t = graph_traits_t::edge_descriptor;
+  using vertices_size_t = graph_traits_t::vertices_size_type;
 
   struct Edge {
     value_t capacity;
@@ -83,9 +82,8 @@ class MinSTGraphCut {
     edge_descriptor_t reverse;
   };
 
-  typedef boost::
-      adjacency_list<boost::vecS, boost::vecS, boost::directedS, size_t, Edge>
-          graph_t;
+  using graph_t = boost::
+      adjacency_list<boost::vecS, boost::vecS, boost::directedS, size_t, Edge>;
 
   explicit MinSTGraphCut(size_t num_nodes);
 

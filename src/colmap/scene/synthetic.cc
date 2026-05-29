@@ -317,9 +317,7 @@ void PosePriorPositionCartesianToWGS84(PosePrior& pose_prior) {
 
 void PosePriorPositionWGS84ToCartesian(PosePrior& pose_prior) {
   pose_prior.position = kGPSTransform.EllipsoidToENU(
-      {Eigen::Vector3d(kLat0, kLon0, kAlt0), pose_prior.position},
-      kLat0,
-      kLon0)[1];
+      {pose_prior.position}, kLat0, kLon0, kAlt0)[0];
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
 }
 
@@ -332,6 +330,17 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
   THROW_CHECK_GT(options.num_frames_per_rig, 0);
   THROW_CHECK_GE(options.num_points3D, 0);
+  THROW_CHECK(options.track_length == -1 || options.track_length >= 2);
+  if (options.track_length > 0) {
+    const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                           options.num_frames_per_rig;
+    if (options.track_length > num_images) {
+      LOG(WARNING) << "track_length (" << options.track_length
+                   << ") exceeds number of images (" << num_images
+                   << "), skipping observation pruning.";
+    }
+  }
+  THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
@@ -356,6 +365,19 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   int total_num_images = (database == nullptr) ? 0 : database->NumImages();
   int total_num_descriptors =
       (database == nullptr) ? 0 : database->NumDescriptors();
+
+  int desc_dim = 0;
+  switch (options.feature_type) {
+    case FeatureExtractorType::SIFT:
+      desc_dim = 128;
+      break;
+    case FeatureExtractorType::UNDEFINED:
+      desc_dim = 0;
+      break;
+    default:
+      LOG(FATAL_THROW) << "Invalid FeatureExtractorType specified: "
+                       << static_cast<int>(options.feature_type);
+  }
 
   for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
     Rig rig;
@@ -389,11 +411,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                              0, options.sensor_from_rig_rotation_stddev),
                          -180.0,
                          180.0);
-          sensor_from_rig.rotation = Eigen::Quaterniond(
+          sensor_from_rig.rotation() = Eigen::Quaterniond(
               Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
         }
         if (options.sensor_from_rig_translation_stddev > 0) {
-          sensor_from_rig.translation = Eigen::Vector3d(
+          sensor_from_rig.translation() = Eigen::Vector3d(
               RandomGaussian<double>(
                   0, options.sensor_from_rig_translation_stddev),
               RandomGaussian<double>(
@@ -421,9 +443,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
       const Eigen::Vector3d proj_center = -5 * view_dir;
       Rigid3d rig_from_world;
-      rig_from_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      rig_from_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           view_dir, Eigen::Vector3d(0, 0, 1));
-      rig_from_world.translation = rig_from_world.rotation * -proj_center;
+      rig_from_world.translation() = rig_from_world.rotation() * -proj_center;
 
       frame.SetRigFromWorld(rig_from_world);
 
@@ -477,7 +499,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
           if (options.prior_gravity) {
             pose_prior.gravity =
-                (cam_from_world.rotation * options.prior_gravity_in_world)
+                (cam_from_world.rotation() * options.prior_gravity_in_world)
                     .normalized();
           }
 
@@ -536,13 +558,14 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
         // Shuffle 2D points, so each image has 3D points ordered differently.
         std::shuffle(points2D.begin(), points2D.end(), *PRNG);
-        image.SetPoints2D(points2D);
 
         if (database != nullptr) {
           // Create keypoints to add to database.
           FeatureKeypoints keypoints;
           keypoints.reserve(points2D.size());
-          FeatureDescriptors descriptors(points2D.size(), 128);
+          FeatureDescriptors descriptors;
+          descriptors.type = options.feature_type;
+          descriptors.data.resize(points2D.size(), desc_dim);
           std::uniform_int_distribution<int> feature_distribution(0, 255);
           for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
                ++point2D_idx) {
@@ -555,8 +578,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                                                ? point2D.point3D_id
                                                : options.num_points3D +
                                                      (++total_num_descriptors));
-            for (int d = 0; d < descriptors.cols(); ++d) {
-              descriptors(point2D_idx, d) =
+            for (int d = 0; d < descriptors.data.cols(); ++d) {
+              descriptors.data(point2D_idx, d) =
                   feature_distribution(feature_generator);
             }
           }
@@ -572,6 +595,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             point3D.track.AddElement(image.ImageId(), point2D_idx);
           }
         }
+
+        image.SetPoints2D(std::move(points2D));
 
         if (database != nullptr) {
           database->UpdateImage(image);
@@ -607,6 +632,28 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     }
   }
 
+  if (options.track_length > 0) {
+    std::vector<point3D_t> point3D_ids;
+    point3D_ids.reserve(reconstruction->NumPoints3D());
+    for (const auto& [point3D_id, _] : reconstruction->Points3D()) {
+      point3D_ids.push_back(point3D_id);
+    }
+    for (const point3D_t point3D_id : point3D_ids) {
+      const auto& track = reconstruction->Point3D(point3D_id).track;
+      if (static_cast<int>(track.Length()) <= options.track_length) {
+        continue;
+      }
+      auto elements = track.Elements();
+      std::shuffle(elements.begin(), elements.end(), *PRNG);
+      const int num_to_delete =
+          static_cast<int>(elements.size()) - options.track_length;
+      for (int i = 0; i < num_to_delete; ++i) {
+        reconstruction->DeleteObservation(elements[i].image_id,
+                                          elements[i].point2D_idx);
+      }
+    }
+  }
+
   reconstruction->UpdatePoint3DErrors();
 }
 
@@ -628,12 +675,12 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
           RandomGaussian<double>(0, options.rig_from_world_rotation_stddev),
           -180.0,
           180.0);
-      rig_from_world.rotation *= Eigen::Quaterniond(
+      rig_from_world.rotation() *= Eigen::Quaterniond(
           Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d::UnitZ()));
     }
 
     if (options.rig_from_world_translation_stddev > 0.0) {
-      rig_from_world.translation += Eigen::Vector3d(
+      rig_from_world.translation() += Eigen::Vector3d(
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev));

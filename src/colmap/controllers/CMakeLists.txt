@@ -40,6 +40,8 @@ COLMAP_ADD_LIBRARY(
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
         feature_matching_utils.h feature_matching_utils.cc
+        matcher_cache.h matcher_cache.cc
+        pairing.h pairing.cc
         global_pipeline.h global_pipeline.cc
         image_reader.h image_reader.cc
         incremental_pipeline.h incremental_pipeline.cc
@@ -50,6 +52,7 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         colmap_estimators
         colmap_feature
+        colmap_retrieval
         colmap_geometry
         colmap_scene
         colmap_util
@@ -58,18 +61,19 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         colmap_image
         colmap_math
-        colmap_mvs
         colmap_sfm
-        colmap_glomap_sfm
         Ceres::ceres
         Boost::boost
+        faiss
 )
+if(MVS_ENABLED)
+    target_link_libraries(colmap_controllers PRIVATE colmap_mvs)
+endif()
 if(CUDA_ENABLED)
-    target_link_libraries(colmap_controllers
-        PRIVATE
-            colmap_util_cuda
-            colmap_mvs_cuda
-    )
+    target_link_libraries(colmap_controllers PRIVATE colmap_util_cuda)
+    if(MVS_ENABLED)
+        target_link_libraries(colmap_controllers PRIVATE colmap_mvs_cuda)
+    endif()
 endif()
 
 COLMAP_ADD_TEST(
@@ -108,6 +112,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
+    NAME feature_matching_utils_test
+    SRCS feature_matching_utils_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
     NAME global_pipeline_test
     SRCS global_pipeline_test.cc
     LINK_LIBS colmap_controllers
@@ -135,5 +144,15 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME undistorters_test
     SRCS undistorters_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME matcher_cache_test
+    SRCS matcher_cache_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME pairing_test
+    SRCS pairing_test.cc
     LINK_LIBS colmap_controllers
 )

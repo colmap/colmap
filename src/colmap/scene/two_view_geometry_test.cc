@@ -67,9 +67,9 @@ TEST(TwoViewGeometry, Invert) {
   EXPECT_THAT(two_view_geometry.H.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.cam2_from_cam1.has_value());
-  EXPECT_THAT(two_view_geometry.cam2_from_cam1->rotation.coeffs(),
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1->rotation().coeffs(),
               EigenMatrixNear(Eigen::Quaterniond::Identity().coeffs()));
-  EXPECT_THAT(two_view_geometry.cam2_from_cam1->translation,
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1->translation(),
               EigenMatrixNear(Eigen::Vector3d(-0, -1, -2)));
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
@@ -85,9 +85,9 @@ TEST(TwoViewGeometry, Invert) {
   EXPECT_THAT(two_view_geometry.H.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.cam2_from_cam1.has_value());
-  EXPECT_THAT(two_view_geometry.cam2_from_cam1->rotation.coeffs(),
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1->rotation().coeffs(),
               EigenMatrixNear(Eigen::Quaterniond::Identity().coeffs()));
-  EXPECT_THAT(two_view_geometry.cam2_from_cam1->translation,
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1->translation(),
               EigenMatrixNear(Eigen::Vector3d(0, 1, 2)));
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);

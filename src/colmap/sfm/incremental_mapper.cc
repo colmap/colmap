@@ -29,6 +29,8 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
@@ -82,6 +84,7 @@ void IncrementalMapper::BeginReconstruction(
       database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
 
   reg_stats_.num_shared_reg_images = 0;
+  reg_stats_.num_reg_frames_per_rig.clear();
   reg_stats_.num_reg_images_per_camera.clear();
   for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
     RegisterFrameEvent(frame_id);
@@ -93,6 +96,7 @@ void IncrementalMapper::BeginReconstruction(
 
   filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
+  reg_stats_.num_structure_less_reg_trials.clear();
 }
 
 void IncrementalMapper::EndReconstruction(const bool discard) {
@@ -103,6 +107,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
     // elements from the underlying vector.
     const std::vector<frame_t> reg_frame_ids = reconstruction_->RegFrameIds();
     for (const frame_t frame_id : reg_frame_ids) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
     }
   }
@@ -135,7 +140,9 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
       options,
       *obs_manager_,
       filtered_frames_,
-      /*num_reg_trials=*/reg_stats_.num_reg_trials,
+      /*num_reg_trials=*/
+      structure_less ? reg_stats_.num_structure_less_reg_trials
+                     : reg_stats_.num_reg_trials,
       /*structure_less=*/structure_less);
 }
 
@@ -172,7 +179,9 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Update Reconstruction
   //////////////////////////////////////////////////////////////////////////////
 
+  obs_manager_->RegisterFrame(image1.FrameId());
   RegisterFrameEvent(image1.FrameId());
+  obs_manager_->RegisterFrame(image2.FrameId());
   RegisterFrameEvent(image2.FrameId());
 }
 
@@ -300,6 +309,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // (manually or through EXIF) and if it was not already estimated previously
   // from another image (when multiple images share the same camera parameters).
 
+  // Note that we use single-threaded RANSAC here, because benchmarking showed
+  // no significant speedup for multi-threaded RANSAC here (as opposed to the
+  // generalized absolute pose estimation).
   AbsolutePoseEstimationOptions abs_pose_options;
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
@@ -405,6 +417,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -582,6 +595,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
   frame.SetRigFromWorld(rig_from_world);
 
+  obs_manager_->RegisterFrame(frame.FrameId());
   RegisterFrameEvent(frame.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -604,9 +618,16 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                                        const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
-  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
+  if (reconstruction_->NumRegImages() < 2) {
+    VLOG(2) << "Structure-less registration requires at least 2 registered "
+               "images; only "
+            << reconstruction_->NumRegImages() << " available";
+    return false;
+  }
 
   THROW_CHECK(options.Check());
+
+  reg_stats_.num_structure_less_reg_trials[image_id] += 1;
 
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = *image.CameraPtr();
@@ -691,12 +712,18 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   abs_pose_options.ransac_options.max_error = 0.5 * options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
+  // As opposed to structure-based resectioning, structure-less resectioning
+  // is based on an expensive minimal solver, so we use multi-threading, which
+  // leads to a significant speedup based on benchmarking.
+  abs_pose_options.ransac_options.num_threads = options.num_threads;
 
   BundleAdjustmentOptions abs_pose_refinement_options;
-  abs_pose_refinement_options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
-  abs_pose_refinement_options.solver_options.logging_type =
-      ceres::LoggingType::SILENT;
+  if (abs_pose_refinement_options.ceres) {
+    abs_pose_refinement_options.ceres->loss_function_type =
+        CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+    abs_pose_refinement_options.ceres->solver_options.logging_type =
+        ceres::LoggingType::SILENT;
+  }
   abs_pose_refinement_options.print_summary = false;
   if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
@@ -761,6 +788,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
@@ -858,7 +886,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                   abs_pose_refinement_config,
                                   *reconstruction_);
   const auto abs_pose_summary = abs_pose_refinement->Solve();
-  if (abs_pose_summary.termination_type == ceres::FAILURE) {
+  if (!abs_pose_summary->IsSolutionUsable()) {
     VLOG(2) << "Absolute pose refinement failed";
     return false;
   }
@@ -999,12 +1027,12 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     image_ids = ba_config.Images();
-    std::unique_ptr<BundleAdjuster> bundle_adjuster =
-        CreateDefaultBundleAdjuster(
-            ba_options, std::move(ba_config), *reconstruction_);
-    const ceres::Solver::Summary summary = bundle_adjuster->Solve();
 
-    report.num_adjusted_observations = summary.num_residuals / 2;
+    auto bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
+    const auto summary = bundle_adjuster->Solve();
+
+    report.num_adjusted_observations = summary->num_residuals / 2;
 
     // Merge refined tracks with other existing points.
     report.num_merged_observations =
@@ -1043,12 +1071,12 @@ bool IncrementalMapper::AdjustGlobalBundle(
   constexpr size_t kMinNumRegFramesForFastBA = 10;
   const bool is_small_reconstruction =
       reconstruction_->NumRegFrames() < kMinNumRegFramesForFastBA;
-  if (is_small_reconstruction) {
-    custom_ba_options.solver_options.function_tolerance /= 10;
-    custom_ba_options.solver_options.gradient_tolerance /= 10;
-    custom_ba_options.solver_options.parameter_tolerance /= 10;
-    custom_ba_options.solver_options.max_num_iterations *= 2;
-    custom_ba_options.solver_options.max_linear_solver_iterations = 200;
+  if (is_small_reconstruction && custom_ba_options.ceres) {
+    custom_ba_options.ceres->solver_options.function_tolerance /= 10;
+    custom_ba_options.ceres->solver_options.gradient_tolerance /= 10;
+    custom_ba_options.ceres->solver_options.parameter_tolerance /= 10;
+    custom_ba_options.ceres->solver_options.max_num_iterations *= 2;
+    custom_ba_options.ceres->solver_options.max_linear_solver_iterations = 200;
   }
 
   // Avoid degeneracies in bundle adjustment.
@@ -1063,9 +1091,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  THROW_CHECK_GE(ba_config.NumImages(), 2) << "At least two images must be "
-                                              "registered for global "
-                                              "bundle-adjustment";
+  // After filtering, the reconstruction may have fewer than 2 images,
+  // in which case global bundle adjustment is not possible.
+  if (ba_config.NumImages() < 2) {
+    LOG(WARNING) << "At least two images must be registered for global "
+                    "bundle-adjustment";
+    return false;
+  }
 
   // Fix the existing images, if option specified.
   if (options.fix_existing_frames) {
@@ -1109,16 +1141,18 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // with fewer steps as compared to fixing three points.
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
+
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
-      prior_options.prior_position_loss_function_type =
-          BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+      prior_options.ceres->prior_position_loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
     }
-    prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
+    prior_options.ceres->prior_position_loss_scale =
+        options.prior_position_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(custom_ba_options,
@@ -1130,7 +1164,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Optimize the redundant 3D points with all other parameters fixed.
   if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
-    if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
+    if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
       return false;
     }
 
@@ -1150,11 +1184,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
       }
     }
 
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   }
 
-  return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
+  return bundle_adjuster->Solve()->IsSolutionUsable();
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
@@ -1187,8 +1221,10 @@ void IncrementalMapper::IterativeLocalRefinement(
       break;
     }
     // Only use robust cost function for first iteration.
-    custom_ba_options.loss_function_type =
-        BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+    if (custom_ba_options.ceres) {
+      custom_ba_options.ceres->loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+    }
   }
   ClearModifiedPoints3D();
 }
@@ -1239,22 +1275,26 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
     return {};
   }
 
-  const std::vector<frame_t> frame_ids =
-      obs_manager_->FilterFrames(options.min_focal_length_ratio,
-                                 options.max_focal_length_ratio,
-                                 options.max_extra_param);
+  const std::vector<frame_t> filter_frame_ids =
+      obs_manager_->FindFramesToFilter(
+          /*min_focal_length_ratio=*/options.min_focal_length_ratio,
+          /*max_focal_length_ratio=*/options.max_focal_length_ratio,
+          /*max_extra_param=*/options.max_extra_param,
+          /*min_num_observations=*/1);
 
-  for (const frame_t frame_id : frame_ids) {
+  size_t num_filtered = 0;
+  for (const frame_t frame_id : filter_frame_ids) {
     if (!options.fix_existing_frames ||
         existing_frame_ids_.count(frame_id) == 0) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
       filtered_frames_.insert(frame_id);
+      ++num_filtered;
     }
   }
 
-  const size_t num_filtered_frames = frame_ids.size();
-  VLOG(1) << "=> Filtered frames: " << num_filtered_frames;
-  return num_filtered_frames;
+  VLOG(1) << "=> Filtered frames: " << num_filtered;
+  return num_filtered;
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
@@ -1327,8 +1367,6 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 }
 
 void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
-  obs_manager_->RegisterFrame(frame_id);
-
   const Frame& frame = reconstruction_->Frame(frame_id);
 
   size_t& num_reg_frames_for_rig =
@@ -1376,8 +1414,6 @@ void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
       reg_stats_.num_shared_reg_images -= 1;
     }
   }
-
-  obs_manager_->DeRegisterFrame(frame_id);
 }
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(

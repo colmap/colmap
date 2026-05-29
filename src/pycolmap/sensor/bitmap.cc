@@ -1,4 +1,4 @@
-#include "colmap/sensor/bitmap.h"
+#include "pycolmap/sensor/bitmap.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -21,7 +21,6 @@ py::array_t<uint8_t> ArrayFromBitmap(const Bitmap& self) {
   std::vector<ssize_t> shape = {static_cast<ssize_t>(self.Height()),
                                 static_cast<ssize_t>(self.Width())};
   const auto channels = static_cast<ssize_t>(self.Channels());
-  const bool is_rgb = self.IsRGB();
   if (channels != 1) {
     if (channels != 3) {
       throw std::runtime_error(
@@ -58,8 +57,6 @@ Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array,
   }
 
   const bool as_rgb = channels != 1;
-  const size_t pitch = width * channels;
-
   Bitmap output(width,
                 height,
                 /*as_rgb=*/as_rgb,
@@ -129,6 +126,9 @@ void BindBitmap(pybind11::module& m) {
            "new_height"_a,
            "filter"_a = BitmapRescaleFilter::kBilinear,
            "Rescale image to the new dimensions.")
+      .def("rot90",
+           &Bitmap::Rot90,
+           "Rotate image by k * 90 degrees counter-clockwise.")
       .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
       .def_property_readonly("height", &Bitmap::Height, "Height of the image.")
       .def_property_readonly(
@@ -157,6 +157,9 @@ void BindBitmap(pybind11::module& m) {
           "Set compression quality when writing to JPEG in the range [1, 100]. "
           "Lower values reduce quality and file size. By default, bitmaps are "
           "written in superb (100) quality, if not otherwise specified.")
+      .def("exif_orientation",
+           &Bitmap::ExifOrientation,
+           "Extract EXIF orientation. Returns None if not available.")
       .def("exif_camera_model",
            &Bitmap::ExifCameraModel,
            "Extract EXIF camera model. Returns None if not available.")

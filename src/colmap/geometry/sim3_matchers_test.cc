@@ -48,13 +48,13 @@ TEST(Sim3d, Eq) {
   const Sim3d x(2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dEq(y));
-  y.scale += 1e-7;
+  y.scale() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dEq(y)));
   y = x;
-  y.rotation.w() += 1e-7;
+  y.rotation().w() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dEq(y)));
   y = x;
-  y.translation.x() += 1e-7;
+  y.translation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dEq(y)));
 
   testing::StrictMock<MockTestClass> mock;
@@ -68,17 +68,17 @@ TEST(Sim3d, Near) {
   const Sim3d x(2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, /*stol=*/1e-8, /*rtol=*/1e-8, /*ttol=*/1e-8));
-  y.rotation.w() += 1e-7;
+  y.rotation().w() += 1e-7;
   EXPECT_THAT(
       x,
       testing::Not(Sim3dNear(y, /*stol=*/1e-8, /*rtol=*/1e-8, /*ttol=*/1e-8)));
   y = x;
-  y.rotation.w() += 1e-7;
+  y.rotation().w() += 1e-7;
   EXPECT_THAT(
       x,
       testing::Not(Sim3dNear(y, /*stol=*/1e-8, /*rtol=*/1e-8, /*ttol=*/1e-8)));
   y = x;
-  y.translation.x() += 1e-7;
+  y.translation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dNear(y)));
 
   testing::StrictMock<MockTestClass> mock;
@@ -92,9 +92,9 @@ TEST(Sim3d, LeftScaleNearIdentity) {
   Sim3d x(1, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  x.scale += 1e-16;
+  x.scale() += 1e-16;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  x.scale += 1e-7;
+  x.scale() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dNear(y, 1e-8)));
 }
 
@@ -102,9 +102,9 @@ TEST(Sim3d, RightScaleNearIdentity) {
   Sim3d x(1, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  y.scale += 1e-16;
+  y.scale() += 1e-16;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  y.scale += 1e-7;
+  y.scale() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dNear(y, 1e-8)));
 }
 
@@ -112,9 +112,9 @@ TEST(Sim3d, LeftRotationNearIdentity) {
   Sim3d x(1, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  x.rotation.x() += 1e-16;
+  x.rotation().x() += 1e-16;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  x.rotation.x() += 1e-7;
+  x.rotation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dNear(y, 1e-8)));
 }
 
@@ -122,9 +122,9 @@ TEST(Sim3d, RightRotationNearIdentity) {
   Sim3d x(1, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  y.rotation.x() += 1e-16;
+  y.rotation().x() += 1e-16;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  y.rotation.x() += 1e-7;
+  y.rotation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dNear(y, 1e-8)));
 }
 
@@ -132,9 +132,9 @@ TEST(Sim3d, LeftTranslationNearIdentity) {
   Sim3d x(1, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  x.translation.x() += 1e-16;
+  x.translation().x() += 1e-16;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  x.translation.x() += 1e-7;
+  x.translation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dNear(y, 1e-8)));
 }
 
@@ -142,9 +142,9 @@ TEST(Sim3d, RightTranslationNearIdentity) {
   Sim3d x(1, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  y.translation.x() += 1e-16;
+  y.translation().x() += 1e-16;
   EXPECT_THAT(x, Sim3dNear(y, 1e-8));
-  y.translation.x() += 1e-7;
+  y.translation().x() += 1e-7;
   EXPECT_THAT(x, testing::Not(Sim3dNear(y, 1e-8)));
 }
 

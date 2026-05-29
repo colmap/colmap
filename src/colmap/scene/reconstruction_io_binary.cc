@@ -72,19 +72,19 @@ void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
         std::optional<Rigid3d> sensor_from_rig;
         if (has_pose) {
           sensor_from_rig = Rigid3d();
-          sensor_from_rig->rotation.w() =
+          sensor_from_rig->rotation().w() =
               ReadBinaryLittleEndian<double>(&stream);
-          sensor_from_rig->rotation.x() =
+          sensor_from_rig->rotation().x() =
               ReadBinaryLittleEndian<double>(&stream);
-          sensor_from_rig->rotation.y() =
+          sensor_from_rig->rotation().y() =
               ReadBinaryLittleEndian<double>(&stream);
-          sensor_from_rig->rotation.z() =
+          sensor_from_rig->rotation().z() =
               ReadBinaryLittleEndian<double>(&stream);
-          sensor_from_rig->translation.x() =
+          sensor_from_rig->translation().x() =
               ReadBinaryLittleEndian<double>(&stream);
-          sensor_from_rig->translation.y() =
+          sensor_from_rig->translation().y() =
               ReadBinaryLittleEndian<double>(&stream);
-          sensor_from_rig->translation.z() =
+          sensor_from_rig->translation().z() =
               ReadBinaryLittleEndian<double>(&stream);
         }
 
@@ -139,13 +139,13 @@ void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream) {
     frame.SetRigId(ReadBinaryLittleEndian<rig_t>(&stream));
 
     Rigid3d rig_from_world;
-    rig_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&stream);
-    rig_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&stream);
-    rig_from_world.rotation.y() = ReadBinaryLittleEndian<double>(&stream);
-    rig_from_world.rotation.z() = ReadBinaryLittleEndian<double>(&stream);
-    rig_from_world.translation.x() = ReadBinaryLittleEndian<double>(&stream);
-    rig_from_world.translation.y() = ReadBinaryLittleEndian<double>(&stream);
-    rig_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.rotation().w() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.rotation().x() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.rotation().y() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.rotation().z() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.translation().x() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.translation().y() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.translation().z() = ReadBinaryLittleEndian<double>(&stream);
     frame.SetRigFromWorld(rig_from_world);
 
     const uint32_t num_data_ids = ReadBinaryLittleEndian<uint32_t>(&stream);
@@ -192,13 +192,13 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     image.SetImageId(ReadBinaryLittleEndian<image_t>(&stream));
 
     Rigid3d cam_from_world;
-    cam_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&stream);
-    cam_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&stream);
-    cam_from_world.rotation.y() = ReadBinaryLittleEndian<double>(&stream);
-    cam_from_world.rotation.z() = ReadBinaryLittleEndian<double>(&stream);
-    cam_from_world.translation.x() = ReadBinaryLittleEndian<double>(&stream);
-    cam_from_world.translation.y() = ReadBinaryLittleEndian<double>(&stream);
-    cam_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.rotation().w() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.rotation().x() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.rotation().y() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.rotation().z() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.translation().x() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.translation().y() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.translation().z() = ReadBinaryLittleEndian<double>(&stream);
 
     image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&stream));
 
@@ -310,16 +310,20 @@ void WriteRigsBinary(const Reconstruction& reconstruction,
       WriteBinaryLittleEndian<uint8_t>(&stream,
                                        sensor_from_rig.has_value() ? 1 : 0);
       if (sensor_from_rig.has_value()) {
-        WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.w());
-        WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.x());
-        WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.y());
-        WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.z());
         WriteBinaryLittleEndian<double>(&stream,
-                                        sensor_from_rig->translation.x());
+                                        sensor_from_rig->rotation().w());
         WriteBinaryLittleEndian<double>(&stream,
-                                        sensor_from_rig->translation.y());
+                                        sensor_from_rig->rotation().x());
         WriteBinaryLittleEndian<double>(&stream,
-                                        sensor_from_rig->translation.z());
+                                        sensor_from_rig->rotation().y());
+        WriteBinaryLittleEndian<double>(&stream,
+                                        sensor_from_rig->rotation().z());
+        WriteBinaryLittleEndian<double>(&stream,
+                                        sensor_from_rig->translation().x());
+        WriteBinaryLittleEndian<double>(&stream,
+                                        sensor_from_rig->translation().y());
+        WriteBinaryLittleEndian<double>(&stream,
+                                        sensor_from_rig->translation().z());
       }
     }
   }
@@ -374,13 +378,13 @@ void WriteFramesBinary(const Reconstruction& reconstruction,
     WriteBinaryLittleEndian<rig_t>(&stream, frame.RigId());
 
     const Rigid3d& rig_from_world = frame.RigFromWorld();
-    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation.w());
-    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation.x());
-    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation.y());
-    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation.z());
-    WriteBinaryLittleEndian<double>(&stream, rig_from_world.translation.x());
-    WriteBinaryLittleEndian<double>(&stream, rig_from_world.translation.y());
-    WriteBinaryLittleEndian<double>(&stream, rig_from_world.translation.z());
+    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation().w());
+    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation().x());
+    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation().y());
+    WriteBinaryLittleEndian<double>(&stream, rig_from_world.rotation().z());
+    WriteBinaryLittleEndian<double>(&stream, rig_from_world.translation().x());
+    WriteBinaryLittleEndian<double>(&stream, rig_from_world.translation().y());
+    WriteBinaryLittleEndian<double>(&stream, rig_from_world.translation().z());
 
     const std::set<data_t>& data_ids = frame.DataIds();
     WriteBinaryLittleEndian<uint32_t>(&stream, data_ids.size());
@@ -412,13 +416,13 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
     WriteBinaryLittleEndian<image_t>(&stream, image_id);
 
     const Rigid3d& cam_from_world = image.CamFromWorld();
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.w());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.x());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.y());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.z());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.x());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.y());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.z());
+    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation().w());
+    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation().x());
+    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation().y());
+    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation().z());
+    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation().x());
+    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation().y());
+    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation().z());
 
     WriteBinaryLittleEndian<camera_t>(&stream, image.CameraId());
 

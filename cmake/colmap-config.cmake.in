@@ -71,17 +71,30 @@ set(OPENMP_ENABLED @OPENMP_ENABLED@)
 set(CUDA_ENABLED @CUDA_ENABLED@)
 set(CUDA_MIN_VERSION @CUDA_MIN_VERSION@)
 
+set(ONNX_ENABLED @ONNX_ENABLED@)
+
 set(DOWNLOAD_ENABLED @DOWNLOAD_ENABLED@)
 
 set(GUI_ENABLED @GUI_ENABLED@)
 
 set(CGAL_ENABLED @CGAL_ENABLED@)
 
+set(MVS_ENABLED @MVS_ENABLED@)
+
 set(LSD_ENABLED @LSD_ENABLED@)
 
 set(FETCH_POSELIB @FETCH_POSELIB@)
 
 set(FETCH_FAISS @FETCH_FAISS@)
+
+set(FETCH_ONNX FALSE)
+if(@FETCH_ONNX@)
+    if(ONNX_ENABLED AND EXISTS ${PACKAGE_PREFIX_DIR}/share/onnxruntime/cmake)
+        set(onnxruntime_DIR ${PACKAGE_PREFIX_DIR}/share/onnxruntime/cmake)
+    endif()
+    set(onnxruntime_INCLUDE_DIR_HINTS ${PACKAGE_PREFIX_DIR}/include CACHE PATH "ONNX Runtime include directory hints")
+    set(onnxruntime_LIBRARY_DIR_HINTS ${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@ CACHE PATH "ONNX Runtime library directory hints")
+endif()
 
 include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
 include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)

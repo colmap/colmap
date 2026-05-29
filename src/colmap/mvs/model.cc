@@ -35,6 +35,9 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
 
+#include <fstream>
+#include <locale>
+
 namespace colmap {
 namespace mvs {
 
@@ -68,8 +71,8 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
 
         camera.CalibrationMatrix().cast<float>();
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
-        image.CamFromWorld().rotation.toRotationMatrix().cast<float>();
-    const Eigen::Vector3f T = image.CamFromWorld().translation.cast<float>();
+        image.CamFromWorld().rotation().toRotationMatrix().cast<float>();
+    const Eigen::Vector3f T = image.CamFromWorld().translation().cast<float>();
 
     images.emplace_back(
         image_path, camera.width, camera.height, K.data(), R.data(), T.data());
@@ -80,13 +83,13 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
   }
 
   points.reserve(reconstruction.NumPoints3D());
-  for (const auto& point3D : reconstruction.Points3D()) {
+  for (const auto& [_, point3D] : reconstruction.Points3D()) {
     Point point;
-    point.x = point3D.second.xyz(0);
-    point.y = point3D.second.xyz(1);
-    point.z = point3D.second.xyz(2);
-    point.track.reserve(point3D.second.track.Length());
-    for (const auto& track_el : point3D.second.track.Elements()) {
+    point.x = point3D.xyz(0);
+    point.y = point3D.xyz(1);
+    point.z = point3D.xyz(2);
+    point.track.reserve(point3D.track.Length());
+    for (const auto& track_el : point3D.track.Elements()) {
       point.track.push_back(image_id_to_idx.at(track_el.image_id));
     }
     points.push_back(point);
@@ -107,7 +110,7 @@ int Model::GetImageIdx(const std::string& name) const {
   return image_name_to_idx_.at(name);
 }
 
-std::string Model::GetImageName(const int image_idx) const {
+const std::string& Model::GetImageName(const int image_idx) const {
   THROW_CHECK_GE(image_idx, 0);
   THROW_CHECK_LT(image_idx, image_names_.size());
   return image_names_.at(image_idx);
@@ -132,10 +135,10 @@ std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
 
     std::vector<std::pair<int, int>> ordered_images;
     ordered_images.reserve(shared_images.size());
-    for (const auto& image : shared_images) {
-      if (overlapping_triangulation_angles.at(image.first) >=
+    for (const auto& [image_idx, count] : shared_images) {
+      if (overlapping_triangulation_angles.at(image_idx) >=
           min_triangulation_angle_rad) {
-        ordered_images.emplace_back(image.first, image.second);
+        ordered_images.emplace_back(image_idx, count);
       }
     }
 
@@ -200,12 +203,12 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 
     std::sort(image_depths.begin(), image_depths.end());
 
-    const float kMinPercentile = 0.01f;
-    const float kMaxPercentile = 0.99f;
+    constexpr float kMinPercentile = 0.01f;
+    constexpr float kMaxPercentile = 0.99f;
     depth_range.first = image_depths[image_depths.size() * kMinPercentile];
     depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
 
-    const float kStretchRatio = 0.25f;
+    constexpr float kStretchRatio = 0.25f;
     depth_range.first *= (1.0f - kStretchRatio);
     depth_range.second *= (1.0f + kStretchRatio);
   }
@@ -263,9 +266,9 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
   for (size_t image_idx = 0; image_idx < all_triangulation_angles.size();
        ++image_idx) {
     auto& overlapping_images = all_triangulation_angles[image_idx];
-    for (auto& image : overlapping_images) {
-      triangulation_angles[image_idx].emplace(
-          image.first, Percentile(image.second, percentile));
+    for (auto& [other_image_idx, angles] : overlapping_images) {
+      triangulation_angles[image_idx].emplace(other_image_idx,
+                                              Percentile(angles, percentile));
     }
   }
 
@@ -281,13 +284,14 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
 
   std::ifstream file(bundle_file_path);
   THROW_CHECK_FILE_OPEN(file, bundle_file_path);
+  file.imbue(std::locale::classic());
 
   // Header line.
   std::string header;
   std::getline(file, header);
 
   int num_images, num_points;
-  file >> num_images >> num_points;
+  THROW_CHECK(file >> num_images >> num_points);
 
   images.reserve(num_images);
   for (int image_idx = 0; image_idx < num_images; ++image_idx) {
@@ -296,7 +300,7 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
 
     float K[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
-    file >> K[0];
+    THROW_CHECK(file >> K[0]);
     K[4] = K[0];
 
     Bitmap bitmap;
@@ -305,20 +309,20 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
     K[5] = bitmap.Height() / 2.0f;
 
     float k1, k2;
-    file >> k1 >> k2;
+    THROW_CHECK(file >> k1 >> k2);
     THROW_CHECK_EQ(k1, 0.0f);
     THROW_CHECK_EQ(k2, 0.0f);
 
     float R[9];
     for (size_t i = 0; i < 9; ++i) {
-      file >> R[i];
+      THROW_CHECK(file >> R[i]);
     }
     for (size_t i = 3; i < 9; ++i) {
       R[i] = -R[i];
     }
 
     float T[3];
-    file >> T[0] >> T[1] >> T[2];
+    THROW_CHECK(file >> T[0] >> T[1] >> T[2]);
     T[1] = -T[1];
     T[2] = -T[2];
 
@@ -331,19 +335,19 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
   for (int point_id = 0; point_id < num_points; ++point_id) {
     auto& point = points[point_id];
 
-    file >> point.x >> point.y >> point.z;
+    THROW_CHECK(file >> point.x >> point.y >> point.z);
 
     int color[3];
-    file >> color[0] >> color[1] >> color[2];
+    THROW_CHECK(file >> color[0] >> color[1] >> color[2]);
 
     int track_len;
-    file >> track_len;
+    THROW_CHECK(file >> track_len);
     point.track.resize(track_len);
 
     for (int i = 0; i < track_len; ++i) {
       int feature_idx;
       float imx, imy;
-      file >> point.track[i] >> feature_idx >> imx >> imy;
+      THROW_CHECK(file >> point.track[i] >> feature_idx >> imx >> imy);
       THROW_CHECK_LT(point.track[i], images.size());
     }
   }
@@ -373,14 +377,15 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
 
     std::ifstream proj_matrix_file(proj_matrix_path);
     THROW_CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);
+    proj_matrix_file.imbue(std::locale::classic());
 
     std::string contour;
-    proj_matrix_file >> contour;
+    THROW_CHECK(proj_matrix_file >> contour);
     THROW_CHECK_EQ(contour, "CONTOUR");
 
     Eigen::Matrix3x4d P;
     for (int i = 0; i < 3; ++i) {
-      proj_matrix_file >> P(i, 0) >> P(i, 1) >> P(i, 2) >> P(i, 3);
+      THROW_CHECK(proj_matrix_file >> P(i, 0) >> P(i, 1) >> P(i, 2) >> P(i, 3));
     }
 
     Eigen::Matrix3d K;

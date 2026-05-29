@@ -180,8 +180,11 @@ TEST(PMVSUndistorter, Integration) {
       CreateSyntheticReconstructionWithBitmaps(image_path);
 
   // Run PMVS undistorter.
-  UndistortCameraOptions options;
-  PMVSUndistorter undistorter(options, reconstruction, image_path, output_path);
+  PMVSUndistorter undistorter(PMVSUndistorter::Options(),
+                              UndistortCameraOptions(),
+                              reconstruction,
+                              image_path,
+                              output_path);
   undistorter.Run();
 
   // Verify PMVS output structure was created (under pmvs/ subdirectory).
@@ -211,9 +214,11 @@ TEST(CMPMVSUndistorter, Integration) {
       CreateSyntheticReconstructionWithBitmaps(image_path);
 
   // Run CMP-MVS undistorter.
-  UndistortCameraOptions options;
-  CMPMVSUndistorter undistorter(
-      options, reconstruction, image_path, output_path);
+  CMPMVSUndistorter undistorter(CMPMVSUndistorter::Options(),
+                                UndistortCameraOptions(),
+                                reconstruction,
+                                image_path,
+                                output_path);
   undistorter.Run();
 
   // Verify CMP-MVS output structure was created.

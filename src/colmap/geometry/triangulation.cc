@@ -70,10 +70,10 @@ bool TriangulateMidPoint(const Rigid3d& cam2_from_cam1,
                          const Eigen::Vector3d& cam_ray2,
                          Eigen::Vector3d* point3D_in_cam1) {
   const Eigen::Quaterniond cam1_from_cam2_rotation =
-      cam2_from_cam1.rotation.inverse();
+      cam2_from_cam1.rotation().inverse();
   const Eigen::Vector3d cam_ray2_in_cam1 = cam1_from_cam2_rotation * cam_ray2;
   const Eigen::Vector3d cam2_in_cam1 =
-      cam1_from_cam2_rotation * -cam2_from_cam1.translation;
+      cam1_from_cam2_rotation * -cam2_from_cam1.translation();
 
   Eigen::Matrix3d A;
   A << cam_ray1(0), -cam_ray2_in_cam1(0), -cam2_in_cam1(0), cam_ray1(1),

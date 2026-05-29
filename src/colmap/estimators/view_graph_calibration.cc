@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/view_graph_calibration.h"
 
-#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/cost_functions/calibration.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
@@ -411,6 +411,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   for (const auto& [camera_id, focal_length] : calib_result.focal_lengths) {
     Camera& camera = cameras.at(camera_id);
     camera.SetFocalLength(focal_length);
+    camera.has_prior_focal_length = true;
     database->UpdateCamera(camera);
   }
 

@@ -31,7 +31,6 @@
 
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/file.h"
@@ -111,7 +110,9 @@ TEST(OptionManager, AddAllOptions) {
   EXPECT_NE(options.feature_matching, nullptr);
   EXPECT_NE(options.bundle_adjustment, nullptr);
   EXPECT_NE(options.mapper, nullptr);
+#if defined(COLMAP_MVS_ENABLED)
   EXPECT_NE(options.patch_match_stereo, nullptr);
+#endif
 }
 
 TEST(OptionManager, WriteAndRead) {
@@ -245,7 +246,7 @@ TEST(OptionManager, ParseWithOptions) {
       database_path.string(),
       "--image_path",
       image_path.string(),
-      "--SiftExtraction.max_image_size",
+      "--FeatureExtraction.max_image_size",
       "1024",
       "--SiftExtraction.max_num_features",
       "2048",
@@ -347,6 +348,26 @@ TEST(OptionManager, ParseUnknownArgumentsFails) {
 
   // Should return false when encountering unknown option
   EXPECT_FALSE(options.Parse(argv.size(), argv.data()));
+}
+
+TEST(OptionManager, WriteAfterResetOptions) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+
+  OptionManager options;
+  options.AddAllOptions();
+  *options.database_path = test_dir / "database.db";
+  CreateDirIfNotExists(test_dir / "images");
+  *options.image_path = test_dir / "images";
+
+  // ResetOptions reassigns option structs, which reallocates sub-objects
+  // (e.g., feature_matching->sift, bundle_adjustment->ceres). This must not
+  // invalidate the raw pointers registered by AddAllOptions, otherwise
+  // Write() will dereference dangling pointers.
+  options.ResetOptions(/*reset_paths=*/false);
+
+  EXPECT_NO_THROW(options.Write(config_path));
+  EXPECT_TRUE(ExistsFile(config_path));
 }
 
 }  // namespace

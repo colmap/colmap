@@ -36,10 +36,10 @@ endif()
 
 set(OPTIONAL_LIBS)
 if(CUDA_ENABLED)
-    list(APPEND OPTIONAL_LIBS
-        colmap_util_cuda
-        colmap_mvs_cuda
-    )
+    list(APPEND OPTIONAL_LIBS colmap_util_cuda)
+    if(MVS_ENABLED)
+        list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
+    endif()
 endif()
 if(GUI_ENABLED)
     list(APPEND OPTIONAL_LIBS
@@ -47,48 +47,60 @@ if(GUI_ENABLED)
     )
 endif()
 
+set(COLMAP_EXE_SRCS
+    feature.h feature.cc
+    sfm.h sfm.cc
+    model.h model.cc
+)
+set(COLMAP_EXE_PUBLIC_LIBS
+    colmap_controllers
+    colmap_estimators
+    colmap_geometry
+    colmap_optim
+    colmap_scene
+    colmap_sfm
+    colmap_util
+)
+if(MVS_ENABLED)
+    list(APPEND COLMAP_EXE_SRCS mvs.h mvs.cc)
+    list(APPEND COLMAP_EXE_PUBLIC_LIBS colmap_mvs)
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_exe
     SRCS
-        feature.h feature.cc
-        sfm.h sfm.cc
-        model.h model.cc
-        mvs.h mvs.cc
+        ${COLMAP_EXE_SRCS}
     PUBLIC_LINK_LIBS
-        colmap_controllers
-        colmap_estimators
-        colmap_geometry
-        colmap_mvs
-        colmap_optim
-        colmap_scene
-        colmap_sfm
-        colmap_util
+        ${COLMAP_EXE_PUBLIC_LIBS}
     PRIVATE_LINK_LIBS
         Boost::boost
         colmap_sfm
 )
 
+set(COLMAP_MAIN_SRCS
+    colmap.cc
+    database.cc
+    feature.cc
+    gui.cc
+    image.cc
+    model.cc
+    sfm.cc
+    vocab_tree.cc
+)
+if(MVS_ENABLED)
+    list(APPEND COLMAP_MAIN_SRCS mvs.cc)
+endif()
+
 COLMAP_ADD_EXECUTABLE(
     NAME colmap_main
     SRCS
-        feature.cc
-        sfm.cc
-        colmap.cc
-        database.cc
-        feature.cc
-        gui.cc
-        image.cc
-        model.cc
-        mvs.cc
-        sfm.cc
-        vocab_tree.cc
+        ${COLMAP_MAIN_SRCS}
     LINK_LIBS
         colmap_controllers
         colmap_retrieval
         colmap_scene
         colmap_sfm
         colmap_util
-        colmap_glomap_sfm
         ${OPTIONAL_LIBS}
         Boost::boost
 )

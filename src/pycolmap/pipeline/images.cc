@@ -104,15 +104,14 @@ void UndistortImages(const std::filesystem::path& output_path,
                      const FileCopyType copy_type,
                      const int num_patch_match_src_images,
                      const UndistortCameraOptions& undistort_camera_options,
-                     int jpeg_quality) {
+                     int jpeg_quality,
+                     int num_threads) {
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
   if (output_type != "COLMAP") {
     LOG_IF(WARNING, !image_names.empty())
         << "Ignoring `image_names` for output type " << output_type;
-    LOG_IF(WARNING, jpeg_quality != -1)
-        << "Ignoring `jpeg_quality` for output type " << output_type;
     LOG_IF(WARNING, num_patch_match_src_images != -1)
         << "Ignoring `num_patch_match_src_images` for output type "
         << output_type;
@@ -124,42 +123,54 @@ void UndistortImages(const std::filesystem::path& output_path,
                             reconstruction.NumImages(),
                             reconstruction.NumPoints3D());
 
-  COLMAPUndistorter::Options options;
-  options.copy_type = copy_type;
-  if (num_patch_match_src_images > 0) {
-    options.num_patch_match_src_images = num_patch_match_src_images;
-  }
-  options.jpeg_quality = jpeg_quality;
-  options.image_ids.reserve(image_names.size());
-  for (const auto& image_name : image_names) {
-    const Image* image = reconstruction.FindImageWithName(image_name);
-    if (image != nullptr) {
-      options.image_ids.push_back(image->ImageId());
-    } else {
-      LOG(WARNING) << "Cannot find image " << image_name;
-    }
-  }
-
-  py::gil_scoped_release release;
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
+    COLMAPUndistorter::Options options;
+    options.copy_type = copy_type;
+    if (num_patch_match_src_images > 0) {
+      options.num_patch_match_src_images = num_patch_match_src_images;
+    }
+    options.jpeg_quality = jpeg_quality;
+    options.num_threads = num_threads;
+    options.image_ids.reserve(image_names.size());
+    for (const auto& image_name : image_names) {
+      const Image* image = reconstruction.FindImageWithName(image_name);
+      if (image != nullptr) {
+        options.image_ids.push_back(image->ImageId());
+      } else {
+        LOG(WARNING) << "Cannot find image " << image_name;
+      }
+    }
     undistorter = std::make_unique<COLMAPUndistorter>(std::move(options),
                                                       undistort_camera_options,
                                                       reconstruction,
                                                       image_path,
                                                       output_path);
   } else if (output_type == "PMVS") {
-    undistorter = std::make_unique<PMVSUndistorter>(
-        undistort_camera_options, reconstruction, image_path, output_path);
+    PMVSUndistorter::Options pmvs_options;
+    pmvs_options.jpeg_quality = jpeg_quality;
+    pmvs_options.num_threads = num_threads;
+    undistorter = std::make_unique<PMVSUndistorter>(pmvs_options,
+                                                    undistort_camera_options,
+                                                    reconstruction,
+                                                    image_path,
+                                                    output_path);
   } else if (output_type == "CMP-MVS") {
-    undistorter = std::make_unique<CMPMVSUndistorter>(
-        undistort_camera_options, reconstruction, image_path, output_path);
+    CMPMVSUndistorter::Options cmpmvs_options;
+    cmpmvs_options.jpeg_quality = jpeg_quality;
+    cmpmvs_options.num_threads = num_threads;
+    undistorter = std::make_unique<CMPMVSUndistorter>(cmpmvs_options,
+                                                      undistort_camera_options,
+                                                      reconstruction,
+                                                      image_path,
+                                                      output_path);
   } else {
     LOG(FATAL_THROW)
         << "Invalid `output_type` - supported values are {'COLMAP', "
            "'PMVS', 'CMP-MVS'}.";
   }
 
+  py::gil_scoped_release release;
   undistorter->Run();
 }
 
@@ -250,5 +261,6 @@ void BindImages(py::module& m) {
                   UndistortCameraOptions(),
                   "UndistortCameraOptions()"),
         "jpeg_quality"_a = -1,
+        "num_threads"_a = -1,
         "Undistort images");
 }

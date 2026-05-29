@@ -37,9 +37,9 @@ namespace mvs {
 namespace {
 
 __global__ void FilterKernel(const cudaTextureObject_t image_texture,
-                             GpuMat<uint8_t> image,
-                             GpuMat<float> sum_image,
-                             GpuMat<float> squared_sum_image,
+                             GpuMatView<uint8_t> image,
+                             GpuMatView<float> sum_image,
+                             GpuMatView<float> squared_sum_image,
                              const int window_radius,
                              const int window_step,
                              const float sigma_spatial,
@@ -110,9 +110,9 @@ void GpuMatRefImage::Filter(const uint8_t* image_data,
                        (height_ - 1) / block_size.y + 1);
 
   FilterKernel<<<grid_size, block_size>>>(image_texture->GetObj(),
-                                          *image,
-                                          *sum_image,
-                                          *squared_sum_image,
+                                          image->View(),
+                                          sum_image->View(),
+                                          squared_sum_image->View(),
                                           window_radius,
                                           window_step,
                                           sigma_spatial,

@@ -59,9 +59,9 @@ TEST(DecomposeProjectionMatrix, Nominal) {
     Eigen::Vector3d T;
     DecomposeProjectionMatrix(P, &K, &R, &T);
     EXPECT_THAT(ref_K, EigenMatrixNear(K, 1e-6));
-    EXPECT_THAT(cam_from_world.rotation.toRotationMatrix(),
+    EXPECT_THAT(cam_from_world.rotation().toRotationMatrix(),
                 EigenMatrixNear(R, 1e-6));
-    EXPECT_THAT(cam_from_world.translation, EigenMatrixNear(T, 1e-6));
+    EXPECT_THAT(cam_from_world.translation(), EigenMatrixNear(T, 1e-6));
   }
 }
 
@@ -184,20 +184,20 @@ TEST(InterpolateCameraPoses, Nominal) {
 
   const Rigid3d interp_cam_from_world1 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0);
-  EXPECT_THAT(interp_cam_from_world1.translation,
-              EigenMatrixNear(cam_from_world1.translation));
+  EXPECT_THAT(interp_cam_from_world1.translation(),
+              EigenMatrixNear(cam_from_world1.translation()));
 
   const Rigid3d interp_cam_from_world2 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 1);
-  EXPECT_THAT(interp_cam_from_world2.translation,
-              EigenMatrixNear(cam_from_world2.translation));
+  EXPECT_THAT(interp_cam_from_world2.translation(),
+              EigenMatrixNear(cam_from_world2.translation()));
 
   const Rigid3d interp_cam_from_world3 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0.5);
-  EXPECT_THAT(
-      interp_cam_from_world3.translation,
-      EigenMatrixNear(Eigen::Vector3d(
-          (cam_from_world1.translation + cam_from_world2.translation) / 2)));
+  EXPECT_THAT(interp_cam_from_world3.translation(),
+              EigenMatrixNear(Eigen::Vector3d((cam_from_world1.translation() +
+                                               cam_from_world2.translation()) /
+                                              2)));
 }
 
 TEST(CheckCheirality, Nominal) {

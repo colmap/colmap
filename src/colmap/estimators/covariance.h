@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 
@@ -125,7 +125,7 @@ struct BACovarianceOptions {
 std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
     const Reconstruction& reconstruction,
-    BundleAdjuster& bundle_adjuster);
+    CeresBundleAdjuster& bundle_adjuster);
 std::optional<BACovariance> EstimateBACovarianceFromProblem(
     const BACovarianceOptions& options,
     const Reconstruction& reconstruction,
@@ -135,8 +135,7 @@ namespace internal {
 
 struct PoseParam {
   image_t image_id = kInvalidImageId;
-  const double* qvec = nullptr;
-  const double* tvec = nullptr;
+  const double* cam_from_world = nullptr;
 };
 
 std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,

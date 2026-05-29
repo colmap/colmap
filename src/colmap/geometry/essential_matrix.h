@@ -60,9 +60,6 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
 // @param E               3x3 essential matrix.
 // @param cam_rays1       First set of corresponding rays.
 // @param cam_rays2       Second set of corresponding rays.
-// @param inlier_mask     Only points with `true` in the inlier mask are
-//                        considered in the cheirality test. Size of the
-//                        inlier mask must match the number of points N.
 // @param cam2_from_cam1  Relative camera transformation.
 // @param points3D        Triangulated 3D points infront of camera.
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
@@ -76,10 +73,9 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
 // Assumes that first camera pose has projection matrix P = [I | 0], and
 // pose of second camera is given as transformation from world to camera system.
 //
-// @param R             3x3 rotation matrix.
-// @param t             3x1 translation vector.
+// @param cam2_from_cam1  Relative camera transformation.
 //
-// @return              3x3 essential matrix.
+// @return                3x3 essential matrix.
 Eigen::Matrix3d EssentialMatrixFromPose(const Rigid3d& cam2_from_cam1);
 
 // Find optimal image points, such that:
@@ -133,5 +129,44 @@ Eigen::Matrix3d FundamentalFromEssentialMatrix(const Eigen::Matrix3d& K2,
 Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
                                                const Eigen::Matrix3d& F,
                                                const Eigen::Matrix3d& K1);
+
+// Calculate the squared Sampson error for a single point pair and a given
+// fundamental or essential matrix.
+//
+// @param ray1        First point/ray in homogeneous coordinates.
+// @param ray2        Second point/ray in homogeneous coordinates.
+// @param E           3x3 fundamental or essential matrix.
+// @return            Squared Sampson error.
+double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
+                                  const Eigen::Vector3d& ray2,
+                                  const Eigen::Matrix3d& E);
+
+// Calculate the residuals of a set of corresponding points and a given
+// fundamental or essential matrix.
+//
+// Residuals are defined as the squared Sampson error.
+//
+// @param points1     Corresponding points.
+// @param points2     Corresponding points.
+// @param E           3x3 fundamental or essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
+                                const std::vector<Eigen::Vector2d>& points2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals);
+
+// Calculate the residuals of a set of corresponding rays and a given
+// fundamental or essential matrix.
+//
+// Residuals are defined as the squared Sampson error.
+//
+// @param rays1       Corresponding rays.
+// @param rays2       Corresponding rays.
+// @param E           3x3 fundamental or essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
+                                const std::vector<Eigen::Vector3d>& rays2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals);
 
 }  // namespace colmap

@@ -29,6 +29,7 @@
 
 #include "colmap/geometry/rigid3.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -50,17 +51,17 @@ TEST(CrossProductMatrix, Nominal) {
 
 TEST(Rigid3d, Default) {
   const Rigid3d tform;
-  EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
+  EXPECT_EQ(tform.rotation().coeffs(), Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(tform.translation(), Eigen::Vector3d::Zero());
 }
 
 TEST(Rigid3d, Equals) {
   Rigid3d tform;
   Rigid3d other = tform;
   EXPECT_EQ(tform, other);
-  tform.translation.x() = 1;
+  tform.translation().x() = 1;
   EXPECT_NE(tform, other);
-  other.translation.x() = 1;
+  other.translation().x() = 1;
   EXPECT_EQ(tform, other);
 }
 

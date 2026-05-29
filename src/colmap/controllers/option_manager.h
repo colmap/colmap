@@ -53,18 +53,20 @@ struct GlobalPipelineOptions;
 struct RenderOptions;
 struct ReconstructionClusteringOptions;
 
+#if defined(COLMAP_MVS_ENABLED)
 namespace mvs {
 struct PatchMatchOptions;
 struct StereoFusionOptions;
 struct PoissonMeshingOptions;
 struct DelaunayMeshingOptions;
+struct MeshTextureMappingOptions;
+struct MeshSimplificationOptions;
 }  // namespace mvs
+#endif
+
+struct GravityRefinerOptions;
 
 }  // namespace colmap
-
-namespace glomap {
-struct GravityRefinerOptions;
-}  // namespace glomap
 
 namespace colmap {
 
@@ -100,16 +102,21 @@ class OptionManager : public BaseOptionManager {
   void AddGlobalMapperOptions();
   void AddGravityRefinerOptions();
   void AddReconstructionClustererOptions();
+#if defined(COLMAP_MVS_ENABLED)
   void AddPatchMatchStereoOptions();
   void AddStereoFusionOptions();
   void AddPoissonMeshingOptions();
   void AddDelaunayMeshingOptions();
+  void AddMeshTextureMappingOptions();
+  void AddMeshSimplificationOptions();
+#endif
   void AddRenderOptions();
 
-  void Reset() override;
+  void Reset(bool reset_logging = true) override;
   void ResetOptions(bool reset_paths) override;
   bool Check() override;
-  bool Read(const std::filesystem::path& path) override;
+  bool Read(const std::filesystem::path& path,
+            bool allow_unregistered = true) override;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
@@ -126,12 +133,16 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<IncrementalPipelineOptions> mapper;
   std::shared_ptr<GlobalPipelineOptions> global_mapper;
   std::shared_ptr<ReconstructionClusteringOptions> reconstruction_clusterer;
-  std::shared_ptr<glomap::GravityRefinerOptions> gravity_refiner;
+  std::shared_ptr<GravityRefinerOptions> gravity_refiner;
 
+#if defined(COLMAP_MVS_ENABLED)
   std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;
   std::shared_ptr<mvs::PoissonMeshingOptions> poisson_meshing;
   std::shared_ptr<mvs::DelaunayMeshingOptions> delaunay_meshing;
+  std::shared_ptr<mvs::MeshTextureMappingOptions> mesh_texture_mapping;
+  std::shared_ptr<mvs::MeshSimplificationOptions> mesh_simplification;
+#endif
 
   std::shared_ptr<RenderOptions> render;
 
@@ -158,10 +169,14 @@ class OptionManager : public BaseOptionManager {
   bool added_global_mapper_options_ = false;
   bool added_gravity_refiner_options_ = false;
   bool added_reconstruction_clusterer_options_ = false;
+#if defined(COLMAP_MVS_ENABLED)
   bool added_patch_match_stereo_options_ = false;
   bool added_stereo_fusion_options_ = false;
   bool added_poisson_meshing_options_ = false;
   bool added_delaunay_meshing_options_ = false;
+  bool added_mesh_texture_mapping_options_ = false;
+  bool added_mesh_simplification_options_ = false;
+#endif
   bool added_render_options_ = false;
 };
 

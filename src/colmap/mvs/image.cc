@@ -29,11 +29,13 @@
 
 #include "colmap/mvs/image.h"
 
-#include "colmap/scene/projection.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <utility>
+
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 namespace colmap {
 namespace mvs {
@@ -54,10 +56,10 @@ Image::Image(const std::filesystem::path& path,
   ComposeInverseProjectionMatrix(K_, R_, T_, inv_P_);
 }
 
-void Image::SetBitmap(const Bitmap& bitmap) {
-  bitmap_ = bitmap;
-  THROW_CHECK_EQ(width_, bitmap_.Width());
-  THROW_CHECK_EQ(height_, bitmap_.Height());
+void Image::SetBitmap(Bitmap bitmap) {
+  THROW_CHECK_EQ(width_, bitmap.Width());
+  THROW_CHECK_EQ(height_, bitmap.Height());
+  bitmap_ = std::move(bitmap);
 }
 
 void Image::Rescale(const float factor) { Rescale(factor, factor); }

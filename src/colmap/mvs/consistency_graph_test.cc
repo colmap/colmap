@@ -29,6 +29,8 @@
 
 #include "colmap/mvs/consistency_graph.h"
 
+#include "colmap/util/testing.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -94,6 +96,37 @@ TEST(ConsistencyGraph, Full) {
   EXPECT_EQ(num_images, 1);
   EXPECT_EQ(image_idxs[0], 100);
   EXPECT_EQ(consistency_graph.GetNumBytes(), 48);
+}
+
+TEST(ConsistencyGraph, DefaultConstructor) {
+  ConsistencyGraph consistency_graph;
+  EXPECT_EQ(consistency_graph.GetNumBytes(), 0);
+}
+
+TEST(ConsistencyGraph, WriteReadRoundtrip) {
+  const std::vector<int> data = {0, 0, 3, 5, 7, 33, 0, 1, 1, 100};
+  ConsistencyGraph original(1, 2, data);
+
+  const auto test_dir = CreateTestDir();
+  const auto path = test_dir / "consistency_graph.bin";
+  original.Write(path);
+
+  ConsistencyGraph loaded;
+  loaded.Read(path);
+
+  EXPECT_EQ(loaded.GetNumBytes(), original.GetNumBytes());
+
+  // Verify data is preserved
+  int num_images;
+  const int* image_idxs;
+  loaded.GetImageIdxs(0, 0, &num_images, &image_idxs);
+  EXPECT_EQ(num_images, 3);
+  EXPECT_EQ(image_idxs[0], 5);
+  EXPECT_EQ(image_idxs[1], 7);
+  EXPECT_EQ(image_idxs[2], 33);
+  loaded.GetImageIdxs(1, 0, &num_images, &image_idxs);
+  EXPECT_EQ(num_images, 1);
+  EXPECT_EQ(image_idxs[0], 100);
 }
 
 }  // namespace

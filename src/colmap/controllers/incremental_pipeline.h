@@ -137,7 +137,14 @@ struct IncrementalPipelineOptions {
 
   // Whether to use Ceres' CUDA sparse linear algebra library, if available.
   bool ba_use_gpu = false;
+  // GPU device index for bundle adjustment (-1 = auto-select).
   std::string ba_gpu_index = "-1";
+
+  // Bundle adjustment solver backend for local bundle adjustment.
+  BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
+
+  // Bundle adjustment solver backend for global bundle adjustment.
+  BundleAdjustmentBackend ba_global_backend = BundleAdjustmentBackend::CERES;
 
   // Whether to use priors on the camera positions.
   bool use_prior_position = false;
@@ -162,6 +169,12 @@ struct IncrementalPipelineOptions {
   // Optional list of image names to reconstruct. If no images are specified,
   // all images will be reconstructed by default.
   std::vector<std::string> image_names;
+
+  // Whether to load all images from the database, including those without
+  // correspondences. Only useful for triangulation where all images are
+  // already registered and should retain their keypoints. Should not be
+  // enabled for incremental SfM.
+  bool load_all_images = false;
 
   // If reconstruction is provided as input, fix the existing frame poses.
   bool fix_existing_frames = false;

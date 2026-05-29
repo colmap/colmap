@@ -37,13 +37,18 @@ COLMAP_ADD_LIBRARY(
         least_absolute_deviations.h least_absolute_deviations.cc
         progressive_sampler.h progressive_sampler.cc
         random_sampler.h random_sampler.cc
+        sparse_cholesky.h sparse_cholesky.cc
         sprt.h sprt.cc
         support_measurement.h support_measurement.cc
     PUBLIC_LINK_LIBS
         colmap_math
+        colmap_util
         Eigen3::Eigen
         CHOLMOD::CHOLMOD
 )
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_optim PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 COLMAP_ADD_TEST(
     NAME combination_sampler_test
@@ -73,6 +78,16 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME ransac_test
     SRCS ransac_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME sparse_cholesky_test
+    SRCS sparse_cholesky_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME sprt_test
+    SRCS sprt_test.cc
     LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(

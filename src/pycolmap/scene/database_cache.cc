@@ -2,6 +2,7 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -25,6 +26,11 @@ void BindDatabaseCache(py::module& m) {
                      &Opts::image_names,
                      "Only load the data for a subset of the images. "
                      "All images are used if empty.")
+      .def_readwrite(
+          "load_all_images",
+          &Opts::load_all_images,
+          "Whether to load all candidate images regardless of whether they "
+          "have correspondences. Only useful for triangulation.")
       .def_readwrite(
           "convert_pose_priors_to_enu",
           &Opts::convert_pose_priors_to_enu,
@@ -70,12 +76,22 @@ void BindDatabaseCache(py::module& m) {
            py::overload_cast<image_t>(&DatabaseCache::Image),
            py::return_value_policy::reference_internal,
            "image_id"_a)
-      .def_property_readonly("rigs", &DatabaseCache::Rigs)
-      .def_property_readonly("cameras", &DatabaseCache::Cameras)
-      .def_property_readonly("frames", &DatabaseCache::Frames)
-      .def_property_readonly("images", &DatabaseCache::Images)
+      .def_property_readonly("rigs",
+                             &DatabaseCache::Rigs,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("cameras",
+                             &DatabaseCache::Cameras,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("frames",
+                             &DatabaseCache::Frames,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("images",
+                             &DatabaseCache::Images,
+                             py::return_value_policy::reference_internal)
       .def_property_readonly("pose_priors", &DatabaseCache::PosePriors)
-      .def_property_readonly("correspondence_graph",
-                             &DatabaseCache::CorrespondenceGraph)
+      .def_property_readonly(
+          "correspondence_graph",
+          static_cast<std::shared_ptr<const class CorrespondenceGraph> (
+              DatabaseCache::*)() const>(&DatabaseCache::CorrespondenceGraph))
       .def("find_image_with_name", &DatabaseCache::FindImageWithName, "name"_a);
 }

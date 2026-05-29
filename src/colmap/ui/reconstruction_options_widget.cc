@@ -93,6 +93,10 @@ class MapperRegistrationOptionsWidget : public OptionsWidget {
     AddOptionDouble(&options->mapper->mapper.abs_pose_min_inlier_ratio,
                     "abs_pose_min_inlier_ratio");
     AddOptionInt(&options->mapper->mapper.max_reg_trials, "max_reg_trials", 1);
+    AddOptionBool(&options->mapper->structure_less_registration_fallback,
+                  "structure_less_registration_fallback");
+    AddOptionBool(&options->mapper->structure_less_registration_only,
+                  "structure_less_registration_only");
   }
 };
 
@@ -149,6 +153,43 @@ class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
                     1,
                     1e-6,
                     6);
+
+#ifdef CASPAR_ENABLED
+    {
+      auto* backend_combo = new QComboBox(this);
+      backend_combo->addItem("CERES");
+      backend_combo->addItem("CASPAR");
+      backend_combo->setCurrentIndex(
+          static_cast<int>(options->mapper->ba_local_backend));
+      connect(backend_combo,
+              QOverload<int>::of(&QComboBox::currentIndexChanged),
+              [options](int idx) {
+                options->mapper->ba_local_backend =
+                    static_cast<BundleAdjustmentBackend>(idx);
+              });
+      AddWidgetRow("local_backend", backend_combo);
+    }
+#endif
+
+    AddSpacer();
+
+#ifdef CASPAR_ENABLED
+    AddSection("Global Bundle Adjustment Backend");
+    {
+      auto* backend_combo = new QComboBox(this);
+      backend_combo->addItem("CERES");
+      backend_combo->addItem("CASPAR");
+      backend_combo->setCurrentIndex(
+          static_cast<int>(options->mapper->ba_global_backend));
+      connect(backend_combo,
+              QOverload<int>::of(&QComboBox::currentIndexChanged),
+              [options](int idx) {
+                options->mapper->ba_global_backend =
+                    static_cast<BundleAdjustmentBackend>(idx);
+              });
+      AddWidgetRow("global_backend", backend_combo);
+    }
+#endif
 
     AddSpacer();
 

@@ -45,10 +45,10 @@ class Rigid3dEqMatcher : public testing::MatcherInterface<T> {
   bool MatchAndExplain(T lhs,
                        testing::MatchResultListener* listener) const override {
     // Note that with use !(a == b) to handle NaNs.
-    if (!(lhs.rotation.coeffs() == rhs_.rotation.coeffs())) {
+    if (!(lhs.rotation().coeffs() == rhs_.rotation().coeffs())) {
       return false;
     }
-    if (!(lhs.translation == rhs_.translation)) {
+    if (!(lhs.translation() == rhs_.translation())) {
       return false;
     }
     return true;
@@ -75,15 +75,15 @@ class Rigid3dNearMatcher : public testing::MatcherInterface<T> {
   bool MatchAndExplain(T lhs,
                        testing::MatchResultListener* listener) const override {
     // Note that with use !(a <= b) to handle NaNs.
-    if (!(lhs.rotation.angularDistance(rhs_.rotation) <= rtol_)) {
+    if (!(lhs.rotation().angularDistance(rhs_.rotation()) <= rtol_)) {
       *listener << " exceed rotation threshold " << rtol_;
       return false;
     }
-    if (rhs_.translation.isZero()) {
+    if (rhs_.translation().isZero()) {
       // isApprox() is not well-defined for zero matrices.
-      return lhs.translation.norm() <= ttol_;
+      return lhs.translation().norm() <= ttol_;
     } else {
-      if (!lhs.translation.isApprox(rhs_.translation, ttol_)) {
+      if (!lhs.translation().isApprox(rhs_.translation(), ttol_)) {
         *listener << " exceed translation threshold " << ttol_;
         return false;
       }

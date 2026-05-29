@@ -44,7 +44,7 @@ TEST(DecomposeEssentialMatrix, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
                                Eigen::Vector3d(0.5, 1, 1).normalized());
   const Eigen::Matrix3d cam2_from_cam1_rot_mat =
-      cam2_from_cam1.rotation.toRotationMatrix();
+      cam2_from_cam1.rotation().toRotationMatrix();
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
   Eigen::Matrix3d R1;
@@ -54,8 +54,8 @@ TEST(DecomposeEssentialMatrix, Nominal) {
 
   EXPECT_TRUE((R1 - cam2_from_cam1_rot_mat).norm() < 1e-10 ||
               (R2 - cam2_from_cam1_rot_mat).norm() < 1e-10);
-  EXPECT_TRUE((t - cam2_from_cam1.translation).norm() < 1e-10 ||
-              (t + cam2_from_cam1.translation).norm() < 1e-10);
+  EXPECT_TRUE((t - cam2_from_cam1.translation()).norm() < 1e-10 ||
+              (t + cam2_from_cam1.translation()).norm() < 1e-10);
 }
 
 TEST(EssentialMatrixFromPose, Nominal) {
@@ -173,6 +173,28 @@ TEST(EssentialFromFundamentalMatrix, Nominal) {
   const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(K2, E, K1);
   EXPECT_THAT(EssentialFromFundamentalMatrix(K2, F, K1),
               EigenMatrixNear(E, 1e-6));
+}
+
+TEST(ComputeSquaredSampsonError, Nominal) {
+  std::vector<Eigen::Vector2d> points1;
+  points1.emplace_back(0, 0);
+  points1.emplace_back(0, 0);
+  points1.emplace_back(0, 0);
+  std::vector<Eigen::Vector2d> points2;
+  points2.emplace_back(2, 0);
+  points2.emplace_back(2, 1);
+  points2.emplace_back(2, 2);
+
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+
+  std::vector<double> residuals;
+  ComputeSquaredSampsonError(points1, points2, E, &residuals);
+
+  EXPECT_EQ(residuals.size(), 3);
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0.5);
+  EXPECT_EQ(residuals[2], 2);
 }
 
 }  // namespace

@@ -31,6 +31,8 @@
 
 #include "colmap/util/logging.h"
 
+#include <cstring>
+
 namespace colmap {
 
 FeatureKeypoint::FeatureKeypoint() : FeatureKeypoint(0, 0) {}
@@ -89,6 +91,49 @@ void FeatureKeypoint::Rescale(const float scale_x, const float scale_y) {
   a22 *= scale_y;
 }
 
+void FeatureKeypoint::Rot90(int k, int width, int height) {
+  k = k % 4;
+  if (k < 0) {
+    k += 4;
+  }
+  if (k == 0) {
+    return;
+  }
+  float new_x = x, new_y = y;
+  float new_a11 = a11, new_a12 = a12, new_a21 = a21, new_a22 = a22;
+  const float w = static_cast<float>(width);
+  const float h = static_cast<float>(height);
+
+  if (k == 1) {  // 90 CCW
+    new_x = y;
+    new_y = w - x;
+    new_a11 = a21;
+    new_a12 = a22;
+    new_a21 = -a11;
+    new_a22 = -a12;
+  } else if (k == 2) {  // 180 CCW
+    new_x = w - x;
+    new_y = h - y;
+    new_a11 = -a11;
+    new_a12 = -a12;
+    new_a21 = -a21;
+    new_a22 = -a22;
+  } else if (k == 3) {  // 270 CCW
+    new_x = h - y;
+    new_y = x;
+    new_a11 = -a21;
+    new_a12 = -a22;
+    new_a21 = a11;
+    new_a22 = a12;
+  }
+  x = new_x;
+  y = new_y;
+  a11 = new_a11;
+  a12 = new_a12;
+  a21 = new_a21;
+  a22 = new_a22;
+}
+
 float FeatureKeypoint::ComputeScale() const {
   return (ComputeScaleX() + ComputeScaleY()) / 2.0f;
 }
@@ -107,6 +152,113 @@ float FeatureKeypoint::ComputeOrientation() const {
 
 float FeatureKeypoint::ComputeShear() const {
   return std::atan2(-a12, a22) - ComputeOrientation();
+}
+
+FeatureDescriptors FeatureDescriptors::FromFloat(
+    const FeatureDescriptorsFloat& float_desc) {
+  FeatureDescriptors result;
+  result.type = float_desc.type;
+  const Eigen::Index rows = float_desc.data.rows();
+  const Eigen::Index float_cols = float_desc.data.cols();
+
+  switch (float_desc.type) {
+    case FeatureExtractorType::SIFT:
+      // cast each float value to uint8
+      result.data = float_desc.data.cast<uint8_t>();
+      break;
+    case FeatureExtractorType::ALIKED_N16ROT:
+    case FeatureExtractorType::ALIKED_N32: {
+      // reinterpret float32 data as uint8 bytes
+      const Eigen::Index uint8_cols = float_cols * sizeof(float);
+      result.data.resize(rows, uint8_cols);
+      std::memcpy(result.data.data(),
+                  float_desc.data.data(),
+                  rows * float_cols * sizeof(float));
+      break;
+    }
+    default:
+      LOG(FATAL_THROW) << "Unsupported feature type: "
+                       << FeatureExtractorTypeToString(float_desc.type);
+  }
+  return result;
+}
+
+FeatureDescriptorsFloat FeatureDescriptors::ToFloat() const {
+  return FeatureDescriptorsFloat::FromBytes(*this);
+}
+
+FeatureDescriptorsFloat FeatureDescriptorsFloat::FromBytes(
+    const FeatureDescriptors& byte_desc) {
+  FeatureDescriptorsFloat result;
+  result.type = byte_desc.type;
+  const Eigen::Index rows = byte_desc.data.rows();
+  const Eigen::Index uint8_cols = byte_desc.data.cols();
+
+  switch (byte_desc.type) {
+    case FeatureExtractorType::SIFT:
+      // cast each uint8 value to float
+      result.data = byte_desc.data.cast<float>();
+      break;
+    case FeatureExtractorType::ALIKED_N16ROT:
+    case FeatureExtractorType::ALIKED_N32: {
+      // reinterpret uint8 bytes as float32 data
+      THROW_CHECK_EQ(uint8_cols % sizeof(float), 0);
+      const Eigen::Index float_cols = uint8_cols / sizeof(float);
+      result.data.resize(rows, float_cols);
+      std::memcpy(result.data.data(), byte_desc.data.data(), rows * uint8_cols);
+      break;
+    }
+    default:
+      LOG(FATAL_THROW) << "Unsupported feature type: "
+                       << FeatureExtractorTypeToString(byte_desc.type);
+  }
+  return result;
+}
+
+FeatureDescriptors FeatureDescriptorsFloat::ToBytes() const {
+  return FeatureDescriptors::FromFloat(*this);
+}
+
+FeatureKeypointsMatrix KeypointsToMatrix(
+    const FeatureKeypoints& feature_keypoints) {
+  const size_t num_features = feature_keypoints.size();
+  FeatureKeypointsMatrix keypoints(num_features, kKeypointMatrixCols);
+  for (size_t i = 0; i < num_features; ++i) {
+    keypoints(i, 0) = feature_keypoints[i].x;
+    keypoints(i, 1) = feature_keypoints[i].y;
+    keypoints(i, 2) = feature_keypoints[i].ComputeScale();
+    keypoints(i, 3) = feature_keypoints[i].ComputeOrientation();
+  }
+  return keypoints;
+}
+
+FeatureKeypoints KeypointsFromMatrix(
+    const Eigen::Ref<const FeatureKeypointsMatrix>& keypoints) {
+  FeatureKeypoints feature_keypoints(keypoints.rows());
+  for (Eigen::Index i = 0; i < keypoints.rows(); ++i) {
+    feature_keypoints[i] = FeatureKeypoint(
+        keypoints(i, 0), keypoints(i, 1), keypoints(i, 2), keypoints(i, 3));
+  }
+  return feature_keypoints;
+}
+
+FeatureMatchesMatrix MatchesToMatrix(const FeatureMatches& feature_matches) {
+  const size_t num_matches = feature_matches.size();
+  FeatureMatchesMatrix matches(num_matches, 2);
+  for (size_t i = 0; i < num_matches; ++i) {
+    matches(i, 0) = feature_matches[i].point2D_idx1;
+    matches(i, 1) = feature_matches[i].point2D_idx2;
+  }
+  return matches;
+}
+
+FeatureMatches MatchesFromMatrix(
+    const Eigen::Ref<const FeatureMatchesMatrix>& matches) {
+  FeatureMatches feature_matches(matches.rows());
+  for (Eigen::Index i = 0; i < matches.rows(); ++i) {
+    feature_matches[i] = FeatureMatch(matches(i, 0), matches(i, 1));
+  }
+  return feature_matches;
 }
 
 }  // namespace colmap

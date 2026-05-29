@@ -1,5 +1,7 @@
 #include "colmap/retrieval/visual_index.h"
 
+#include "colmap/feature/types.h"
+
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
@@ -36,12 +38,16 @@ class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(int, VisualIndex, EmbeddingDim);
   }
 
+  FeatureExtractorType FeatureType() const override {
+    PYBIND11_OVERRIDE_PURE(FeatureExtractorType, VisualIndex, FeatureType);
+  }
+
   void Add(const IndexOptions& options,
            int image_id,
-           const Geometries& geometries,
-           const Descriptors& descriptors) override {
+           const FeatureKeypoints& keypoints,
+           const FeatureDescriptorsFloat& descriptors) override {
     PYBIND11_OVERRIDE_PURE(
-        void, VisualIndex, Add, options, image_id, geometries, descriptors);
+        void, VisualIndex, Add, options, image_id, keypoints, descriptors);
   }
 
   bool IsImageIndexed(int image_id) const override {
@@ -49,18 +55,18 @@ class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
   }
 
   void Query(const QueryOptions& options,
-             const Descriptors& descriptors,
+             const FeatureDescriptorsFloat& descriptors,
              std::vector<ImageScore>* image_scores) const override {
     PYBIND11_OVERRIDE_PURE(
         void, VisualIndex, Query, options, descriptors, image_scores);
   }
 
   void Query(const QueryOptions& options,
-             const Geometries& geometries,
-             const Descriptors& descriptors,
+             const FeatureKeypoints& keypoints,
+             const FeatureDescriptorsFloat& descriptors,
              std::vector<ImageScore>* image_scores) const override {
     PYBIND11_OVERRIDE_PURE(
-        void, VisualIndex, Query, geometries, descriptors, image_scores);
+        void, VisualIndex, Query, keypoints, descriptors, image_scores);
   }
 
   void Prepare() override {
@@ -68,7 +74,7 @@ class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
   }
 
   void Build(const BuildOptions& options,
-             const Descriptors& descriptors) override {
+             const FeatureDescriptorsFloat& descriptors) override {
     PYBIND11_OVERRIDE_PURE(void, VisualIndex, Build, options, descriptors);
   }
 
@@ -77,8 +83,11 @@ class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
   }
 
  protected:
-  void ReadFromFaiss(const std::filesystem::path& path, long offset) override {
-    PYBIND11_OVERRIDE_PURE(void, VisualIndex, ReadFromFaiss, path, offset);
+  void ReadFromFaiss(const std::filesystem::path& path,
+                     long offset,
+                     FeatureExtractorType feature_type) override {
+    PYBIND11_OVERRIDE_PURE(
+        void, VisualIndex, ReadFromFaiss, path, offset, feature_type);
   }
 };
 
@@ -136,25 +145,26 @@ void BindVisualIndex(py::module& m) {
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::IndexOptions&,
                int,
-               const typename VisualIndex::Geometries&,
-               const typename VisualIndex::Descriptors&)>(&VisualIndex::Add),
+               const FeatureKeypoints&,
+               const FeatureDescriptorsFloat&)>(&VisualIndex::Add),
            py::call_guard<py::gil_scoped_release>())
       .def("is_image_indexed", &VisualIndex::IsImageIndexed)
       .def("num_visual_words", &VisualIndex::NumVisualWords)
       .def("num_images", &VisualIndex::NumImages)
       .def("desc_dim", &VisualIndex::DescDim)
       .def("embedding_dim", &VisualIndex::EmbeddingDim)
+      .def("feature_type", &VisualIndex::FeatureType)
       .def("query",
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::QueryOptions&,
-               const typename VisualIndex::Descriptors&,
+               const FeatureDescriptorsFloat&,
                std::vector<ImageScore>*) const>(&VisualIndex::Query),
            py::call_guard<py::gil_scoped_release>())
       .def("query",
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::QueryOptions&,
-               const typename VisualIndex::Geometries&,
-               const typename VisualIndex::Descriptors&,
+               const FeatureKeypoints&,
+               const FeatureDescriptorsFloat&,
                std::vector<ImageScore>*) const>(&VisualIndex::Query),
            py::call_guard<py::gil_scoped_release>())
       .def("prepare",
@@ -170,8 +180,7 @@ void BindVisualIndex(py::module& m) {
            py::call_guard<py::gil_scoped_release>())
       .def("__repr__", [](const VisualIndex& self) {
         std::ostringstream ss;
-        ss << "VisualIndex(num_visual_words=" << self.NumVisualWords()
-           << ", num_images=" << self.NumImages() << ")";
+        ss << self;
         return ss.str();
       });
 }

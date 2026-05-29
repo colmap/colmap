@@ -30,6 +30,8 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/bundle_adjustment_caspar.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
@@ -65,6 +67,7 @@ DatabaseCache::Options CreateDatabaseCacheOptions(
       database_cache_options.image_names.insert(image.Name());
     }
   }
+  database_cache_options.load_all_images = options.load_all_images;
   database_cache_options.convert_pose_priors_to_enu =
       options.use_prior_position;
   return database_cache_options;
@@ -156,60 +159,76 @@ IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
 BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
-  options.solver_options.function_tolerance = ba_local_function_tolerance;
-  options.solver_options.gradient_tolerance = 10.0;
-  options.solver_options.parameter_tolerance = 0.0;
-  options.solver_options.max_num_iterations = ba_local_max_num_iterations;
-  options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.logging_type = ceres::LoggingType::SILENT;
-  options.solver_options.num_threads = num_threads;
-#if CERES_VERSION_MAJOR < 2
-  options.solver_options.num_linear_solver_threads = num_threads;
-#endif  // CERES_VERSION_MAJOR
   options.print_summary = false;
+  options.backend = ba_local_backend;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
-  options.min_num_residuals_for_cpu_multi_threading =
-      ba_min_num_residuals_for_cpu_multi_threading;
-  options.loss_function_scale = 1.0;
-  options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
-  options.use_gpu = ba_use_gpu;
-  options.gpu_index = ba_gpu_index;
+  if (options.ceres) {
+    options.ceres->solver_options.function_tolerance =
+        ba_local_function_tolerance;
+    options.ceres->solver_options.gradient_tolerance = 10.0;
+    options.ceres->solver_options.parameter_tolerance = 0.0;
+    options.ceres->solver_options.max_num_iterations =
+        ba_local_max_num_iterations;
+    options.ceres->solver_options.max_linear_solver_iterations = 100;
+    options.ceres->solver_options.logging_type = ceres::LoggingType::SILENT;
+    options.ceres->solver_options.num_threads = num_threads;
+#if CERES_VERSION_MAJOR < 2
+    options.ceres->solver_options.num_linear_solver_threads = num_threads;
+#endif  // CERES_VERSION_MAJOR
+    options.ceres->min_num_residuals_for_cpu_multi_threading =
+        ba_min_num_residuals_for_cpu_multi_threading;
+    options.ceres->loss_function_scale = 1.0;
+    options.ceres->loss_function_type =
+        CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+    options.ceres->use_gpu = ba_use_gpu;
+    options.ceres->gpu_index = ba_gpu_index;
+  }
+  if (options.caspar) {
+    options.caspar->gpu_index = ba_gpu_index;
+  }
   return options;
 }
 
 BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
-  options.solver_options.function_tolerance = ba_global_function_tolerance;
-  options.solver_options.gradient_tolerance = 1.0;
-  options.solver_options.parameter_tolerance = 0.0;
-  options.solver_options.max_num_iterations = ba_global_max_num_iterations;
-  options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.logging_type = ceres::LoggingType::SILENT;
-  if (VLOG_IS_ON(2)) {
-    options.solver_options.minimizer_progress_to_stdout = true;
-    options.solver_options.logging_type =
-        ceres::LoggingType::PER_MINIMIZER_ITERATION;
-  }
-  options.solver_options.num_threads = num_threads;
-#if CERES_VERSION_MAJOR < 2
-  options.solver_options.num_linear_solver_threads = num_threads;
-#endif  // CERES_VERSION_MAJOR
   options.print_summary = false;
+  options.backend = ba_global_backend;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
-  options.min_num_residuals_for_cpu_multi_threading =
-      ba_min_num_residuals_for_cpu_multi_threading;
-  options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
-  options.use_gpu = ba_use_gpu;
-  options.gpu_index = ba_gpu_index;
+  if (options.ceres) {
+    options.ceres->solver_options.function_tolerance =
+        ba_global_function_tolerance;
+    options.ceres->solver_options.gradient_tolerance = 1.0;
+    options.ceres->solver_options.parameter_tolerance = 0.0;
+    options.ceres->solver_options.max_num_iterations =
+        ba_global_max_num_iterations;
+    options.ceres->solver_options.max_linear_solver_iterations = 100;
+    options.ceres->solver_options.logging_type = ceres::LoggingType::SILENT;
+    if (VLOG_IS_ON(2)) {
+      options.ceres->solver_options.minimizer_progress_to_stdout = true;
+      options.ceres->solver_options.logging_type =
+          ceres::LoggingType::PER_MINIMIZER_ITERATION;
+    }
+    options.ceres->solver_options.num_threads = num_threads;
+#if CERES_VERSION_MAJOR < 2
+    options.ceres->solver_options.num_linear_solver_threads = num_threads;
+#endif  // CERES_VERSION_MAJOR
+    options.ceres->min_num_residuals_for_cpu_multi_threading =
+        ba_min_num_residuals_for_cpu_multi_threading;
+    options.ceres->loss_function_type =
+        CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+    options.ceres->use_gpu = ba_use_gpu;
+    options.ceres->gpu_index = ba_gpu_index;
+  }
+  if (options.caspar) {
+    options.caspar->gpu_index = ba_gpu_index;
+  }
   return options;
 }
 
@@ -230,12 +249,16 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(ba_global_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_local_max_refinements, 0);
   CHECK_OPTION_GE(ba_local_max_refinement_change, 0);
-  CHECK_OPTION_GT(ba_global_max_refinements, 0);
+  CHECK_OPTION_GE(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(random_seed, -1);
+#ifndef CASPAR_ENABLED
+  CHECK_OPTION(ba_local_backend != BundleAdjustmentBackend::CASPAR);
+  CHECK_OPTION(ba_global_backend != BundleAdjustmentBackend::CASPAR);
+#endif
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -400,6 +423,10 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
       mapper.TriangulateImage(tri_options, data_id.id);
     }
+  }
+
+  if (reconstruction.NumPoints3D() == 0) {
+    return Status::BAD_INITIAL_PAIR;
   }
 
   LOG(INFO) << "Global bundle adjustment";
@@ -758,7 +785,8 @@ void IncrementalPipeline::TriangulateReconstruction(
   reconstruction->UpdatePoint3DErrors();
 
   LOG(INFO) << "Extracting colors";
-  reconstruction->ExtractColorsForAllImages(options_->image_path);
+  reconstruction->ExtractColorsForAllImages(options_->image_path,
+                                            options_->num_threads);
 }
 
 void IncrementalPipeline::RegisterCallbacks() {

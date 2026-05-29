@@ -33,19 +33,19 @@
 
 // Simple example that reads and writes a reconstruction.
 int main(int argc, char** argv) {
-  colmap::InitializeGlog(argv);
+  InitializeGlog(argv);
 
   std::filesystem::path input_path;
   std::filesystem::path output_path;
 
-  colmap::OptionManager options;
+  OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
-  colmap::Reconstruction reconstruction;
+  Reconstruction reconstruction;
   reconstruction.Read(input_path);
   reconstruction.Write(output_path);
 

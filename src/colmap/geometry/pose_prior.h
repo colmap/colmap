@@ -33,6 +33,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <ostream>
 
 #include <Eigen/Core>
@@ -76,5 +77,13 @@ struct PosePrior {
 };
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
+
+// Extract gravity vector from EXIF orientation. Returns std::nullopt if not an
+// upright orientation (e.g. mirrored).
+std::optional<Eigen::Vector3d> GravityFromExifOrientation(int orientation);
+
+// Returns the number of 90 deg counter-clockwise rotations needed to make the
+// sensor upright.
+int ComputeRot90FromGravity(const Eigen::Vector3d& gravity);
 
 }  // namespace colmap

@@ -40,6 +40,8 @@ namespace colmap {
 
 // Controller that clusters frames from a reconstruction
 // and splits it into multiple reconstructions based on clustering.
+// Note: this module is experimental and should be verified carefully
+// before use in production pipelines.
 class ReconstructionClustererController : public BaseController {
  public:
   ReconstructionClustererController(

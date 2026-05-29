@@ -97,6 +97,20 @@
 
 namespace colmap {
 
+#if !defined(GLOG_VERSION_MAJOR) || GLOG_VERSION_MAJOR > 0 || \
+    GLOG_VERSION_MINOR >= 4
+#define COLMAP_GLOG_HAS_COLOR_SUPPORT 1
+#else
+#define COLMAP_GLOG_HAS_COLOR_SUPPORT 0
+#endif
+
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#define COLMAP_GLOG_HAS_STDOUT_SUPPORT 1
+#else
+#define COLMAP_GLOG_HAS_STDOUT_SUPPORT 0
+#endif
+
 // Initialize glog at the beginning of the program.
 void InitializeGlog(char** argv);
 

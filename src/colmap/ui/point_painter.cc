@@ -82,10 +82,19 @@ void PointPainter::Upload(const std::vector<PointPainter::Data>& data) {
   shader_program_.setAttributeBuffer(
       "a_position", GL_FLOAT, 0, 3, sizeof(PointPainter::Data));
 
-  // in_color
+  // in_color: use glVertexAttribPointer directly because Qt's
+  // setAttributeBuffer does not support the normalized parameter,
+  // which is needed to map uint8 [0,255] to float [0.0,1.0] in the shader.
   shader_program_.enableAttributeArray("a_color");
-  shader_program_.setAttributeBuffer(
-      "a_color", GL_FLOAT, 3 * sizeof(GLfloat), 4, sizeof(PointPainter::Data));
+  QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
+  gl_funcs->glVertexAttribPointer(
+      shader_program_.attributeLocation("a_color"),
+      4,
+      GL_UNSIGNED_BYTE,
+      GL_TRUE,
+      sizeof(PointPainter::Data),
+      reinterpret_cast<const void*>(  // NOLINT(performance-no-int-to-ptr)
+          3 * sizeof(GLfloat)));
 
   // Make sure they are not changed from the outside
   vbo_.release();

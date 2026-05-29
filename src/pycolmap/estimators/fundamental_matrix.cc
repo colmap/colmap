@@ -1,4 +1,4 @@
-#include "colmap/estimators/fundamental_matrix.h"
+#include "colmap/estimators/solvers/fundamental_matrix.h"
 
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
@@ -46,6 +46,4 @@ void BindFundamentalMatrixEstimator(py::module& m) {
         "points2D2"_a,
         py::arg_v("estimation_options", ransac_options, "RANSACOptions()"),
         "Robustly estimate fundamental matrix with LO-RANSAC.");
-  DefDeprecation(
-      m, "fundamental_matrix_estimation", "estimate_fundamental_matrix");
 }

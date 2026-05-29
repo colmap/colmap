@@ -1,13 +1,16 @@
 #include "colmap/mvs/meshing.h"
 
+#include "colmap/mvs/mesh_simplification.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/ply.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
 #include <filesystem>
 
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -160,4 +163,49 @@ void BindMeshing(py::module& m) {
           "options", mvs::DelaunayMeshingOptions(), "DelaunayMeshingOptions()"),
       "Delaunay meshing of dense COLMAP reconstructions.");
 #endif
-};
+
+  using MSOpts = mvs::MeshSimplificationOptions;
+  auto PyMeshSimplificationOptions =
+      py::classh<MSOpts>(m, "MeshSimplificationOptions")
+          .def(py::init<>())
+          .def_readwrite("target_face_ratio",
+                         &MSOpts::target_face_ratio,
+                         "Fraction of faces to retain, in (0, 1].")
+          .def_readwrite("max_error",
+                         &MSOpts::max_error,
+                         "Maximum quadric error per collapse; 0 = disabled.")
+          .def_readwrite("boundary_weight",
+                         &MSOpts::boundary_weight,
+                         "Penalty weight for boundary edges; 0 = disabled.")
+          .def_readwrite(
+              "interpolate_colors",
+              &MSOpts::interpolate_colors,
+              "Blend colors on collapse vs. pick lower-error vertex.")
+          .def_readwrite("num_threads",
+                         &MSOpts::num_threads,
+                         "The number of threads to use for initialization. "
+                         "-1 = all threads.")
+          .def("check", &MSOpts::Check);
+  MakeDataclass(PyMeshSimplificationOptions);
+
+  m.def(
+      "simplify_mesh",
+      [](const std::filesystem::path& input_path,
+         const std::filesystem::path& output_path,
+         const MSOpts& options) -> void {
+        THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+        THROW_CHECK_FILE_EXISTS(input_path);
+        THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+        const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
+        const PlyMesh result = mvs::SimplifyMesh(mesh, options);
+        WriteBinaryPlyMesh(output_path, PlyTexturedMesh{result});
+      },
+      "input_path"_a,
+      "output_path"_a,
+      py::arg_v("options",
+                mvs::MeshSimplificationOptions(),
+                "MeshSimplificationOptions()"),
+      "Read a PLY mesh, simplify it using QEM decimation, and write "
+      "the result.",
+      py::call_guard<py::gil_scoped_release>());
+}
