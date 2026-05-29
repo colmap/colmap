@@ -98,7 +98,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kSimpleDivision,          // = 12
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
-                                kFisheye                  // = 15
+                                kFisheye,                 // = 15
+                                kEUCM                     // = 16
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -169,7 +170,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(FisheyeCameraModel)
+  CAMERA_MODEL_CASE(FisheyeCameraModel)             \
+  CAMERA_MODEL_CASE(EUCMCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -555,6 +557,25 @@ struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
+// EUCM camera model
+//
+// This camera model is described in
+//
+//      "An Enhanced Unified Camera Model",
+//      Bogdan Khomutenko, Gaetan Garcia, Philippe Martinet,  2018
+//
+//   Parameter list is expected in the following order:
+//
+//      fx, fy, cx, cy, alpha, beta
+//
+struct EUCMCameraModel : public BaseCameraModel<EUCMCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kEUCM, "EUCM", 2, 2, 2, false)
+
+  template <typename T>
+  static inline bool HasBogusExtraParams(const std::vector<T>& params,
+                                         T max_extra_param);
+};
+
 // Check whether camera model with given name or identifier exists.
 bool ExistsCameraModelWithName(const std::string& model_name);
 bool ExistsCameraModelWithId(CameraModelId model_id);
@@ -692,13 +713,13 @@ bool BaseCameraModel<CameraModel>::HasBogusParams(
     const T min_focal_length_ratio,
     const T max_focal_length_ratio,
     const T max_extra_param) {
-  return HasBogusPrincipalPoint(params, width, height) ||
-         HasBogusFocalLength(params,
-                             width,
-                             height,
-                             min_focal_length_ratio,
-                             max_focal_length_ratio) ||
-         HasBogusExtraParams(params, max_extra_param);
+  return CameraModel::HasBogusPrincipalPoint(params, width, height) ||
+         CameraModel::HasBogusFocalLength(params,
+                                          width,
+                                          height,
+                                          min_focal_length_ratio,
+                                          max_focal_length_ratio) ||
+         CameraModel::HasBogusExtraParams(params, max_extra_param);
 }
 
 template <typename CameraModel>
@@ -2332,6 +2353,116 @@ bool FisheyeCameraModel::CamFromImg(
   FisheyeFromImg(params, x, y, &uu, &vv);
   // No undistortion needed
   NormalFromFisheye(uu, vv, u, v);
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EUCMCameraModel
+
+std::string EUCMCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy, alpha, beta";
+}
+
+std::array<size_t, 2> EUCMCameraModel::InitializeFocalLengthIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 2> EUCMCameraModel::InitializePrincipalPointIdxs() {
+  return {2, 3};
+}
+
+std::array<size_t, 2> EUCMCameraModel::InitializeExtraParamsIdxs() {
+  return {4, 5};
+}
+
+template <typename T>
+bool EUCMCameraModel::HasBogusExtraParams(const std::vector<T>& params,
+                                          const T max_extra_param) {
+  if (BaseCameraModel<EUCMCameraModel>::HasBogusExtraParams(params,
+                                                            max_extra_param)) {
+    return true;
+  }
+
+  const T alpha = params[4];
+  const T beta = params[5];
+  return alpha < T(0) || alpha > T(1) || beta <= T(0);
+}
+
+std::vector<double> EUCMCameraModel::InitializeParams(const double focal_length,
+                                                      const size_t width,
+                                                      const size_t height) {
+  return {focal_length, focal_length, width / 2.0, height / 2.0, 0.0, 1.0};
+}
+
+template <typename T>
+bool EUCMCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  if (w < std::numeric_limits<T>::epsilon()) {
+    return false;
+  }
+
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  const T alpha = params[4];
+  const T beta = params[5];
+
+  const T rho2 = beta * (u * u + v * v) + w * w;
+  if (rho2 < T(0)) {
+    return false;
+  }
+  const T rho = ceres::sqrt(rho2);
+  const T den = alpha * rho + (1.0 - alpha) * w;
+  if (den < T(std::numeric_limits<double>::epsilon())) {
+    return false;
+  }
+  *x = u / den;
+  *y = v / den;
+
+  // Transform to image coordinates
+  *x = f1 * *x + c1;
+  *y = f2 * *y + c2;
+
+  return true;
+}
+
+bool EUCMCameraModel::CamFromImg(const double* params,
+                                 const double x,
+                                 const double y,
+                                 double* u,
+                                 double* v) {
+  const double f1 = params[0];
+  const double f2 = params[1];
+  const double c1 = params[2];
+  const double c2 = params[3];
+
+  const double alpha = params[4];
+  const double beta = params[5];
+
+  // Lift points to normalized plane
+  *u = (x - c1) / f1;
+  *v = (y - c2) / f2;
+
+  const double r2 = *u * *u + *v * *v;
+  const double gamma = 1.0 - alpha;
+  const double radicand = 1.0 - (alpha - gamma) * beta * r2;
+  if (radicand < 0) {
+    return false;
+  }
+  const double helper_den = alpha * std::sqrt(radicand) + gamma;
+  if (helper_den < std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+  const double helper = (1.0 - alpha * alpha * beta * r2) / helper_den;
+  if (helper < std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  *u /= helper;
+  *v /= helper;
+
   return true;
 }
 
