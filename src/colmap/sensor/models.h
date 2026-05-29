@@ -99,7 +99,13 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
-                                kSpherical          // = 16
+                                // Reserved for the upstream EUCM model (PR #4416)
+                                // so SPHERICAL does not collide with it. The enum
+                                // macro requires consecutive values, hence the
+                                // placeholder; the model itself is not implemented
+                                // here yet.
+                                kEUCM,                    // = 16
+                                kSpherical                // = 17
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
