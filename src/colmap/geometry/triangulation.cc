@@ -116,12 +116,12 @@ bool TriangulatePointBearing(const Rigid3d& cam_from_world1,
   const Rigid3d world_from_cam1 = Inverse(cam_from_world1);
   const Rigid3d world_from_cam2 = Inverse(cam_from_world2);
 
-  const Eigen::Vector3d ray1_world = world_from_cam1.rotation * bearing1;
-  const Eigen::Vector3d ray2_world = world_from_cam2.rotation * bearing2;
+  const Eigen::Vector3d ray1_world = world_from_cam1.rotation() * bearing1;
+  const Eigen::Vector3d ray2_world = world_from_cam2.rotation() * bearing2;
 
   // Camera centers in world frame
-  const Eigen::Vector3d center1 = world_from_cam1.translation;
-  const Eigen::Vector3d center2 = world_from_cam2.translation;
+  const Eigen::Vector3d center1 = world_from_cam1.translation();
+  const Eigen::Vector3d center2 = world_from_cam2.translation();
 
   // Find closest points on the two rays using the parametric form:
   // P1 = center1 + t1 * ray1_world
