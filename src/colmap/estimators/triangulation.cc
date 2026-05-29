@@ -45,8 +45,7 @@ namespace {
 // Helper to check if a camera is a spherical model that can see in all
 // directions (no positive-depth constraint).
 inline bool IsSphericalCamera(const Camera* camera) {
-  return camera != nullptr &&
-         camera->model_id == CameraModelId::kSpherical;
+  return camera != nullptr && camera->model_id == CameraModelId::kSpherical;
 }
 }  // namespace
 
@@ -73,8 +72,9 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
                          point_data[0].cam_point,
                          point_data[1].cam_point,
                          &xyz) &&
-        // Skip positive depth check for spherical cameras (e.g., equirectangular)
-        // which can see in all directions, not just positive Z.
+        // Skip positive depth check for spherical cameras (e.g.,
+        // equirectangular) which can see in all directions, not just positive
+        // Z.
         (IsSphericalCamera(pose_data[0].camera) ||
          HasPointPositiveDepth(pose_data[0].cam_from_world, xyz)) &&
         (IsSphericalCamera(pose_data[1].camera) ||

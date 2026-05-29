@@ -99,13 +99,13 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
-                                // Reserved for the upstream EUCM model (PR #4416)
-                                // so SPHERICAL does not collide with it. The enum
-                                // macro requires consecutive values, hence the
-                                // placeholder; the model itself is not implemented
-                                // here yet.
-                                kEUCM,                    // = 16
-                                kSpherical                // = 17
+                                // Reserved for the upstream EUCM model (PR
+                                // #4416) so SPHERICAL does not collide with it.
+                                // The enum macro requires consecutive values,
+                                // hence the placeholder; the model itself is
+                                // not implemented here yet.
+                                kEUCM,      // = 16
+                                kSpherical  // = 17
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -578,14 +578,9 @@ struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
 // Where cx, cy is the principal point (typically at image center).
 // Image coordinates: x = (theta + pi) / (2*pi) * width
 //                    y = (pi/2 - phi) / pi * height
-struct SphericalCameraModel
-    : public BaseCameraModel<SphericalCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSpherical,
-                           "SPHERICAL",
-                           0,
-                           2,
-                           0,
-                           false)
+struct SphericalCameraModel : public BaseCameraModel<SphericalCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSpherical, "SPHERICAL", 0, 2, 0, false)
 
   // Override CamFromImgThreshold since we have no focal length
   template <typename T>
@@ -2227,16 +2222,13 @@ void DivisionCameraModel::Distortion(
 ////////////////////////////////////////////////////////////////////////////////
 // SphericalCameraModel
 
-std::string SphericalCameraModel::InitializeParamsInfo() {
-  return "cx, cy";
-}
+std::string SphericalCameraModel::InitializeParamsInfo() { return "cx, cy"; }
 
 std::array<size_t, 0> SphericalCameraModel::InitializeFocalLengthIdxs() {
   return {};
 }
 
-std::array<size_t, 2>
-SphericalCameraModel::InitializePrincipalPointIdxs() {
+std::array<size_t, 2> SphericalCameraModel::InitializePrincipalPointIdxs() {
   return {0, 1};
 }
 
@@ -2441,8 +2433,9 @@ bool SphericalCameraModel::CamFromImg(
   const double cos_theta = std::cos(theta);
   const double sin_phi = std::sin(phi);
 
-  // 3D direction: X = sin(theta)*cos(phi), Y = sin(phi), Z = cos(theta)*cos(phi)
-  // We return (u/w, v/w) where w = cos(theta)*cos(phi) (the Z component)
+  // 3D direction: X = sin(theta)*cos(phi), Y = sin(phi),
+  // Z = cos(theta)*cos(phi).
+  // We return (u/w, v/w) where w = cos(theta)*cos(phi) (the Z component).
   const double w_comp = cos_theta * cos_phi;
 
   // Handle the case when looking sideways (theta = +/- pi/2) or near the poles
@@ -2461,7 +2454,7 @@ bool SphericalCameraModel::CamFromImg(
   }
 
   *u = (sin_theta * cos_phi) / w_comp;  // X/Z
-  *v = sin_phi / w_comp;                 // Y/Z
+  *v = sin_phi / w_comp;                // Y/Z
 
   return true;
 }
@@ -2476,7 +2469,7 @@ void SphericalCameraModel::Distortion(
 
 template <typename T>
 T SphericalCameraModel::CamFromImgThreshold(const T* params,
-                                                   const T threshold) {
+                                            const T threshold) {
   // For equirectangular, convert pixel threshold to angular threshold
   // The image width spans 2*pi radians, so:
   // angular_per_pixel = 2*pi / (2*cx) = pi/cx
