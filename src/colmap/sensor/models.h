@@ -99,7 +99,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
-                                kEquirectangular          // = 16
+                                kSpherical          // = 16
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -171,7 +171,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FisheyeCameraModel)             \
-  CAMERA_MODEL_CASE(EquirectangularCameraModel)
+  CAMERA_MODEL_CASE(SphericalCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -572,10 +572,10 @@ struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
 // Where cx, cy is the principal point (typically at image center).
 // Image coordinates: x = (theta + pi) / (2*pi) * width
 //                    y = (pi/2 - phi) / pi * height
-struct EquirectangularCameraModel
-    : public BaseCameraModel<EquirectangularCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kEquirectangular,
-                           "EQUIRECTANGULAR",
+struct SphericalCameraModel
+    : public BaseCameraModel<SphericalCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSpherical,
+                           "SPHERICAL",
                            0,
                            2,
                            0,
@@ -2219,33 +2219,33 @@ void DivisionCameraModel::Distortion(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// EquirectangularCameraModel
+// SphericalCameraModel
 
-std::string EquirectangularCameraModel::InitializeParamsInfo() {
+std::string SphericalCameraModel::InitializeParamsInfo() {
   return "cx, cy";
 }
 
-std::array<size_t, 0> EquirectangularCameraModel::InitializeFocalLengthIdxs() {
+std::array<size_t, 0> SphericalCameraModel::InitializeFocalLengthIdxs() {
   return {};
 }
 
 std::array<size_t, 2>
-EquirectangularCameraModel::InitializePrincipalPointIdxs() {
+SphericalCameraModel::InitializePrincipalPointIdxs() {
   return {0, 1};
 }
 
-std::array<size_t, 0> EquirectangularCameraModel::InitializeExtraParamsIdxs() {
+std::array<size_t, 0> SphericalCameraModel::InitializeExtraParamsIdxs() {
   return {};
 }
 
-std::vector<double> EquirectangularCameraModel::InitializeParams(
+std::vector<double> SphericalCameraModel::InitializeParams(
     const double /*focal_length*/, const size_t width, const size_t height) {
   // Principal point at image center
   return {width / 2.0, height / 2.0};
 }
 
 template <typename T>
-bool EquirectangularCameraModel::ImgFromCam(
+bool SphericalCameraModel::ImgFromCam(
     const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   // Equirectangular projection: 3D point (u,v,w) to spherical to image coords
   // Unlike perspective cameras, points behind the camera are valid
@@ -2418,7 +2418,7 @@ bool FisheyeCameraModel::ImgFromCam(
   return true;
 }
 
-bool EquirectangularCameraModel::CamFromImg(
+bool SphericalCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v) {
   const double cx = params[0];
   const double cy = params[1];
@@ -2461,7 +2461,7 @@ bool EquirectangularCameraModel::CamFromImg(
 }
 
 template <typename T>
-void EquirectangularCameraModel::Distortion(
+void SphericalCameraModel::Distortion(
     const T* /*extra_params*/, const T& /*u*/, const T& /*v*/, T* du, T* dv) {
   // No distortion for equirectangular
   *du = T(0);
@@ -2469,7 +2469,7 @@ void EquirectangularCameraModel::Distortion(
 }
 
 template <typename T>
-T EquirectangularCameraModel::CamFromImgThreshold(const T* params,
+T SphericalCameraModel::CamFromImgThreshold(const T* params,
                                                    const T threshold) {
   // For equirectangular, convert pixel threshold to angular threshold
   // The image width spans 2*pi radians, so:

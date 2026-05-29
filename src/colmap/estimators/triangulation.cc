@@ -46,7 +46,7 @@ namespace {
 // directions (no positive-depth constraint).
 inline bool IsSphericalCamera(const Camera* camera) {
   return camera != nullptr &&
-         camera->model_id == CameraModelId::kEquirectangular;
+         camera->model_id == CameraModelId::kSpherical;
 }
 }  // namespace
 

@@ -71,7 +71,7 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
     K(0, 0) = params[idxs[0]];
     K(1, 1) = params[idxs[1]];
   } else if (idxs.size() == 0 &&
-             model_id == CameraModelId::kEquirectangular) {
+             model_id == CameraModelId::kSpherical) {
     // For equirectangular cameras, use a pseudo focal length based on
     // the angular coverage. For a 360-degree camera:
     // focal_length ≈ width / (2 * pi)
@@ -93,7 +93,7 @@ double Camera::MeanFocalLength() const {
   const span<const size_t> focal_length_idxs = FocalLengthIdxs();
   if (focal_length_idxs.size() == 0) {
     // For spherical cameras like EQUIRECTANGULAR, return pseudo focal length
-    if (model_id == CameraModelId::kEquirectangular) {
+    if (model_id == CameraModelId::kSpherical) {
       return PrincipalPointX() / M_PI;
     }
     return 0.0;
@@ -172,7 +172,7 @@ void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
   } else if (num_focal_params == 0 &&
-             model_id == CameraModelId::kEquirectangular) {
+             model_id == CameraModelId::kSpherical) {
     // Spherical cameras have no focal length to rescale - the principal point
     // rescale performed by the caller is sufficient.
   } else {

@@ -422,7 +422,7 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
       const Camera& camera = *image.CameraPtr();
       // Skip depth check for spherical cameras (e.g., EQUIRECTANGULAR)
       // which can see in all directions, not just positive Z
-      if (camera.model_id == CameraModelId::kEquirectangular) {
+      if (camera.model_id == CameraModelId::kSpherical) {
         continue;
       }
       const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
