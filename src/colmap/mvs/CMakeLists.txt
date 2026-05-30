@@ -42,7 +42,6 @@ COLMAP_ADD_LIBRARY(
         meshing.h meshing.cc
         model.h model.cc
         normal_map.h normal_map.cc
-        patch_match.h patch_match.cc
         patch_match_options.h patch_match_options.cc
         texture_mapping.h texture_mapping.cc
         workspace.h workspace.cc
@@ -299,10 +298,6 @@ if(HIP_ENABLED)
         patch_match_cuda.cu
         PROPERTIES LANGUAGE HIP
     )
-    # colmap_mvs headers transitively include cuda_to_hip.h, which pulls in
-    # <hip/hip_runtime.h>. Make hip::host visible to consumers of colmap_mvs
-    # (e.g. patch_match.cc) so the include path resolves.
-    target_link_libraries(colmap_mvs PUBLIC hip::host)
 
     COLMAP_ADD_TEST(
         NAME gpu_mat_test

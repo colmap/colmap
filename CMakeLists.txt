@@ -28,7 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.12)
 
 ################################################################################
 # Options
@@ -38,6 +38,14 @@ option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
 option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(HIP_ENABLED "Whether to enable AMD GPU support via HIP/ROCm" OFF)
+
+# enable_language(HIP) and set_source_files_properties(LANGUAGE HIP) require
+# CMake 3.21+. Bump the minimum only when HIP is requested so CUDA-only and
+# CPU-only builds continue to work on older CMake versions.
+if(HIP_ENABLED)
+    cmake_minimum_required(VERSION 3.21)
+endif()
 option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(MVS_ENABLED "Whether to enable the Multi-View Stereo module" ON)
