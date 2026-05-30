@@ -133,7 +133,7 @@ using curandState = hiprandState;
 #define curand_uniform hiprand_uniform
 #define curand_normal hiprand_normal
 
-#else  // !COLMAP_HIP_ENABLED
+#elif defined(COLMAP_CUDA_ENABLED) || defined(__CUDACC__)
 
 #include <cuda_runtime.h>
 #include <curand_kernel.h>

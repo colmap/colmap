@@ -28,8 +28,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/util/cuda.h"
-#include "colmap/util/cudacc.h"
 
+#include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 
@@ -68,7 +68,11 @@ int FindBestCudaDevice() {
   std::sort(indices.begin(), indices.end(), [&](int a, int b) {
     return CompareCudaDevice(all_devices[a], all_devices[b]);
   });
-  return indices.back();
+  const int selected = indices.front();
+  VLOG(2) << "Found " << num_devices << " CUDA device(s), "
+          << "selected device " << selected << " with name "
+          << all_devices[selected].name;
+  return selected;
 }
 
 void SetBestCudaDevice(const int gpu_index) {
