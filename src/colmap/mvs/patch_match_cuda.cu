@@ -413,6 +413,36 @@ struct LocalRefImage {
   const cudaTextureObject_t ref_image_texture_;
 };
 
+#if defined(__GFX9__)
+// AMD CDNA/gfx9 hardware cannot create a linear-filtered layered texture
+// (cudaCreateTextureObject returns hipErrorNotSupported), so on gfx9 device
+// code the source image texture is bound with cudaFilterModePoint (see the
+// runtime branch in InitSourceImages) and we emulate the hardware bilinear
+// fetch with four point samples. Non-normalized coordinates place texel
+// centers at integer+0.5; cudaAddressModeBorder returns 0 outside the image,
+// so out-of-range point samples reproduce the border blend. __GFX9__ is a
+// per-architecture device macro, so a fat binary still uses the hardware path
+// for its non-gfx9 (e.g. RDNA) device code.
+__device__ inline float SampleLayeredBilinear(
+    const cudaTextureObject_t texture,
+    const float x,
+    const float y,
+    const int layer) {
+  const float px = x - 0.5f;
+  const float py = y - 0.5f;
+  const float fx = floorf(px);
+  const float fy = floorf(py);
+  const float wx = px - fx;
+  const float wy = py - fy;
+  const float c00 = tex2DLayered<float>(texture, fx + 0.5f, fy + 0.5f, layer);
+  const float c10 = tex2DLayered<float>(texture, fx + 1.5f, fy + 0.5f, layer);
+  const float c01 = tex2DLayered<float>(texture, fx + 0.5f, fy + 1.5f, layer);
+  const float c11 = tex2DLayered<float>(texture, fx + 1.5f, fy + 1.5f, layer);
+  return (c00 * (1.0f - wx) + c10 * wx) * (1.0f - wy) +
+         (c01 * (1.0f - wx) + c11 * wx) * wy;
+}
+#endif
+
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
 // value, the better the color consistency.
 template <int kWindowSize, int kWindowStep>
@@ -498,8 +528,13 @@ struct PhotoConsistencyCostComputer {
         const float norm_col_src = inv_z * col_src + 0.5f;
         const float norm_row_src = inv_z * row_src + 0.5f;
         const float ref_color = local_ref_image.data[ref_image_idx];
+#if defined(__GFX9__)
+        const float src_color = SampleLayeredBilinear(
+            src_images_texture_, norm_col_src, norm_row_src, src_image_idx);
+#else
         const float src_color = tex2DLayered<float>(
             src_images_texture_, norm_col_src, norm_row_src, src_image_idx);
+#endif
 
         const float bilateral_weight = bilateral_weight_computer_.Compute(
             row, col, ref_center_color, ref_color);
@@ -1594,6 +1629,20 @@ void PatchMatchCuda::InitSourceImages() {
     texture_desc.addressMode[1] = cudaAddressModeBorder;
     texture_desc.addressMode[2] = cudaAddressModeBorder;
     texture_desc.filterMode = cudaFilterModeLinear;
+#ifdef COLMAP_HIP_ENABLED
+    // AMD CDNA/gfx9 GPUs do not support linear filtering of layered textures.
+    // Detect the actual device at runtime (so a binary built for several
+    // architectures still picks the right path per GPU) and fall back to point
+    // filtering there; the gfx9 device code emulates bilinear filtering in the
+    // kernel (see SampleLayeredBilinear). Non-gfx9 GPUs keep hardware filtering.
+    int device = 0;
+    CUDA_SAFE_CALL(cudaGetDevice(&device));
+    cudaDeviceProp device_prop;
+    CUDA_SAFE_CALL(cudaGetDeviceProperties(&device_prop, device));
+    if (std::string(device_prop.gcnArchName).rfind("gfx9", 0) == 0) {
+      texture_desc.filterMode = cudaFilterModePoint;
+    }
+#endif
     texture_desc.readMode = cudaReadModeNormalizedFloat;
     texture_desc.normalizedCoords = false;
     src_images_texture_ = CudaArrayLayeredTexture<uint8_t>::FromHostArray(
