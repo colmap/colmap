@@ -278,8 +278,16 @@ TEST(RotationAveraging, DeterministicRandomSeed) {
   EXPECT_TRUE(RunRotationAveraging(
       options, pose_graph2, reconstruction2, data.pose_priors));
 
-  ExpectEqualRotations(
-      reconstruction1, reconstruction2, /*max_rotation_error_deg=*/0);
+  for (const image_t image_id : reconstruction1.RegImageIds()) {
+    const Eigen::Quaterniond q1 =
+        reconstruction1.Image(image_id).CamFromWorld().rotation();
+    const Eigen::Quaterniond q2 =
+        reconstruction2.Image(image_id).CamFromWorld().rotation();
+    // In the presence of optimizations like FMA, q.angularDistance(q) can be
+    // near-zero instead of zero, so check equality explicitly instead of with
+    // ExpectEqualRotations.
+    EXPECT_EQ(q1.coeffs(), q2.coeffs());
+  }
 }
 
 TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
