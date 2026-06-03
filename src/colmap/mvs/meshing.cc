@@ -51,6 +51,17 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
+#include "thirdparty/PoissonRecon/MultiThreading.h"
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include "thirdparty/PoissonRecon/PoissonRecon.h"
 #include "thirdparty/PoissonRecon/SurfaceTrimmer.h"
 
@@ -131,15 +142,25 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
 
   bool success = true;
 
-#pragma omp parallel num_threads(1)
-  {
-    omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
-#ifdef _MSC_VER
-    omp_set_nested(1);
-#else
-    omp_set_max_active_levels(1);
-#endif
+  const int num_effective_threads = GetEffectiveNumThreads(options.num_threads);
 
+  // Configure PoissonRecon's internal thread pool directly, since it uses its
+  // own threading mechanism that is not controlled by OMP settings.
+  PoissonRecon::ThreadPool::SetNumThreads(num_effective_threads);
+  if (num_effective_threads > 1) {
+#ifdef _OPENMP
+    PoissonRecon::ThreadPool::ParallelizationType =
+        PoissonRecon::ThreadPool::OPEN_MP;
+#else
+    PoissonRecon::ThreadPool::ParallelizationType =
+        PoissonRecon::ThreadPool::ASYNC;
+#endif
+  } else {
+    PoissonRecon::ThreadPool::ParallelizationType =
+        PoissonRecon::ThreadPool::NONE;
+  }
+
+  try {
     std::vector<std::string> args;
 
     args.push_back("./poisson_recon");
@@ -164,11 +185,6 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
 
     if (options.color) {
       args.push_back("--colors");
-    }
-
-    if (options.num_threads > 0) {
-      args.push_back("--parallel");
-      args.push_back("0");
     }
 
     if (options.trim > 0) {
@@ -212,6 +228,9 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
         success = false;
       }
     }
+  } catch (const std::exception& e) {
+    LOG(WARNING) << "PoissonRecon failed with exception: " << e.what();
+    success = false;
   }
 
   return success;
