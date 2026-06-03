@@ -51,7 +51,17 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 #include "thirdparty/PoissonRecon/MultiThreading.h"
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include "thirdparty/PoissonRecon/PoissonRecon.h"
 #include "thirdparty/PoissonRecon/SurfaceTrimmer.h"
 
