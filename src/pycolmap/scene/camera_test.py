@@ -158,6 +158,22 @@ def test_camera_cam_from_img_matrix(simple_camera):
     assert len(result) == 2
 
 
+def test_camera_cam_ray_from_img_point2d(simple_camera):
+    point2d = np.array([512.0, 384.0])
+    result = simple_camera.cam_ray_from_img(point2d)
+    assert result is not None
+    assert result.shape == (3,)
+    assert np.isclose(np.linalg.norm(result), 1.0)
+
+
+def test_camera_cam_ray_from_img_matrix(simple_camera):
+    points = np.array([[512.0, 384.0], [100.0, 200.0]])
+    result = simple_camera.cam_ray_from_img(points)
+    assert len(result) == 2
+    for ray in result:
+        assert np.isclose(np.linalg.norm(ray), 1.0)
+
+
 def test_camera_img_from_cam_point3d(simple_camera):
     point3d = np.array([0.0, 0.0, 1.0])
     result = simple_camera.img_from_cam(point3d)
