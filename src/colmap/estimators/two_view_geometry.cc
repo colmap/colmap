@@ -331,6 +331,15 @@ TwoViewGeometry EstimateTwoViewGeometry(
     if (is_calibrated(camera1) && is_calibrated(camera2)) {
       return EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
+    } else if (camera1.FocalLengthIdxs().size() == 0 ||
+               camera2.FocalLengthIdxs().size() == 0) {
+      // A non-perspective camera (e.g. SPHERICAL) paired with an uncalibrated
+      // perspective one: F/H on the non-perspective image are not meaningful
+      // and there is no calibration to fall back on, so bail out rather than
+      // waste RANSAC iterations on a meaningless model.
+      TwoViewGeometry geometry;
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
     } else {
       return EstimateUncalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);

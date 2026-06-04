@@ -223,15 +223,21 @@ bool EstimateGeneralizedRelativePose(
     Rigid3d cam2_from_cam1;
     std::vector<Eigen::Vector3d> cam_rays1(num_points);
     std::vector<Eigen::Vector3d> cam_rays2(num_points);
+    // Precompute the (few) inverse rig rotations once instead of per point.
+    std::vector<Eigen::Quaterniond> rig_from_cam_rotations(
+        cams_from_rig.size());
+    for (size_t i = 0; i < cams_from_rig.size(); ++i) {
+      rig_from_cam_rotations[i] = cams_from_rig[i].rotation().inverse();
+    }
     for (size_t i = 0; i < num_points; ++i) {
       const size_t camera_idx1 = camera_idxs1[i];
-      cam_rays1[i] = cams_from_rig[camera_idx1].rotation().inverse() *
+      cam_rays1[i] = rig_from_cam_rotations[camera_idx1] *
                      cameras[camera_idx1]
                          .CamRayFromImg(points2D1[i])
                          .value_or(Eigen::Vector3d::Zero());
 
       const size_t camera_idx2 = camera_idxs2[i];
-      cam_rays2[i] = cams_from_rig[camera_idx2].rotation().inverse() *
+      cam_rays2[i] = rig_from_cam_rotations[camera_idx2] *
                      cameras[camera_idx2]
                          .CamRayFromImg(points2D2[i])
                          .value_or(Eigen::Vector3d::Zero());

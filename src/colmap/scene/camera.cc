@@ -61,6 +61,14 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
+  // Omnidirectional cameras (no focal length, e.g. SPHERICAL) have no pinhole
+  // calibration matrix; fail loudly rather than reading out of bounds on the
+  // empty focal-length/principal-point spans. Callers that handle such
+  // cameras use the bearing interface (CamRayFromImg) instead.
+  THROW_CHECK_GT(FocalLengthIdxs().size(), 0)
+      << "CalibrationMatrix() is undefined for a camera without a focal "
+         "length (e.g. the omnidirectional SPHERICAL model).";
+
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
 
   K(0, 0) = FocalLengthX();

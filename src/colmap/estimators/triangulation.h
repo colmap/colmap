@@ -68,7 +68,7 @@ class TriangulationEstimator {
               const Eigen::Vector3d& cam_ray)
         : img_point(img_point), cam_point(cam_point), cam_ray(cam_ray) {}
     // Image observation in pixels. Only needs to be set for REPROJECTION_ERROR.
-    Eigen::Vector2d img_point;
+    Eigen::Vector2d img_point = Eigen::Vector2d::Zero();
     // Normalized camera coordinates (u = X/Z, v = Y/Z). Must be set for
     // perspective cameras. For omnidirectional (SPHERICAL) cameras, back-
     // hemisphere observations may leave this zero and rely on cam_ray only.
