@@ -547,6 +547,11 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
               << run_timer.ElapsedSeconds() << " seconds";
   }
 
+  // Filter passes here use NORMALIZED/ANGULAR error, so point3D.error is
+  // left in non-pixel units. Recompute in pixels for consistent reporting
+  // in model_analyzer.
+  reconstruction_->UpdatePoint3DErrors();
+
   return true;
 }
 
