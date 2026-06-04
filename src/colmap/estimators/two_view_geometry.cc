@@ -320,12 +320,21 @@ TwoViewGeometry EstimateTwoViewGeometry(
   } else if (options.force_H_use) {
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
-  } else if (camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
-    return EstimateCalibratedTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
   } else {
-    return EstimateUncalibratedTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
+    // A camera with no focal length (omnidirectional, e.g. SPHERICAL) has no
+    // pinhole image plane, but its intrinsics are fully determined: it is
+    // already calibrated and must use the bearing-based essential-matrix path.
+    auto is_calibrated = [](const Camera& camera) {
+      return camera.has_prior_focal_length ||
+             camera.FocalLengthIdxs().size() == 0;
+    };
+    if (is_calibrated(camera1) && is_calibrated(camera2)) {
+      return EstimateCalibratedTwoViewGeometry(
+          camera1, points1, camera2, points2, matches, options);
+    } else {
+      return EstimateUncalibratedTwoViewGeometry(
+          camera1, points1, camera2, points2, matches, options);
+    }
   }
 }
 
@@ -508,8 +517,17 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
     TwoViewGeometry* geometry) {
   std::vector<Eigen::Vector3d> points3D;
 
+  // Omnidirectional cameras (no focal length, e.g. SPHERICAL) have no
+  // calibration matrix, so only the bearing-based essential-matrix path is
+  // valid for them. The matcher commits such pairs to CALIBRATED, but guard
+  // here as well so a stale or unexpected config can never reach the
+  // CalibrationMatrix() calls below (which would read out of bounds).
+  const bool non_perspective = camera1.FocalLengthIdxs().size() == 0 ||
+                               camera2.FocalLengthIdxs().size() == 0;
+
   Rigid3d cam2_from_cam1;
-  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
+  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
+      (non_perspective && geometry->E.has_value())) {
     THROW_CHECK(geometry->E.has_value());
     PoseFromEssentialMatrix(*geometry->E,
                             inlier_cam_rays1,
@@ -519,6 +537,9 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
     if (points3D.empty()) {
       return false;
     }
+  } else if (non_perspective) {
+    // No essential matrix to fall back on and no calibration matrix available.
+    return false;
   } else if (geometry->config ==
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     THROW_CHECK(geometry->F.has_value());
@@ -745,6 +766,24 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   } else {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
+  }
+
+  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane, so
+  // F/H estimated on their raw pixels are not geometrically meaningful and the
+  // downstream pose code cannot form a calibration matrix from them. Commit
+  // such pairs to the CALIBRATED essential-matrix configuration, which is
+  // estimated directly from bearing rays.
+  if ((camera1.FocalLengthIdxs().size() == 0 ||
+       camera2.FocalLengthIdxs().size() == 0) &&
+      best_inlier_mask != nullptr) {
+    if (E_report.success && E_report.support.num_inliers >= min_num_inliers) {
+      geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+      num_inliers = E_report.support.num_inliers;
+      best_inlier_mask = &E_report.inlier_mask;
+    } else {
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
+    }
   }
 
   if (best_inlier_mask != nullptr) {
