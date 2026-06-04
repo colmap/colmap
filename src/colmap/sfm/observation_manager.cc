@@ -542,6 +542,24 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
         case ReprojectionErrorType::NORMALIZED: {
           const Eigen::Vector3d point3D_in_cam =
               image.CamFromWorld() * point3D.xyz;
+          if (camera.FocalLengthIdxs().size() == 0) {
+            // Omnidirectional cameras (e.g. SPHERICAL) have no pinhole
+            // z-divide and legitimately observe points behind the local +Z
+            // axis, so the cheirality gate and 2D CamFromImg below do not
+            // apply. Compare unit bearings instead (chord distance ~= angle
+            // for small errors, consistent with the normalized threshold).
+            const std::optional<Eigen::Vector3d> cam_ray =
+                camera.CamRayFromImg(point2D.xy);
+            if (!cam_ray.has_value()) {
+              should_filter = true;
+              break;
+            }
+            const double squared_error =
+                (point3D_in_cam.normalized() - *cam_ray).squaredNorm();
+            should_filter = squared_error > max_squared_error;
+            observation_error = std::sqrt(squared_error);
+            break;
+          }
           constexpr double kMinDepth = 1e-12;
           if (point3D_in_cam.z() < kMinDepth) {
             should_filter = true;

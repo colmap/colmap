@@ -64,12 +64,14 @@ double CalculateAngularReprojectionError(const Eigen::Vector2d& point2D,
                                          const Eigen::Vector3d& point3D,
                                          const Rigid3d& cam_from_world,
                                          const Camera& camera) {
-  const std::optional<Eigen::Vector2d> cam_point = camera.CamFromImg(point2D);
-  if (!cam_point) {
+  // Use the 3D bearing (full sphere) rather than the 2D CamFromImg, which
+  // cannot represent back-hemisphere rays of omnidirectional (e.g. SPHERICAL)
+  // cameras. Identical to the legacy path for perspective cameras.
+  const std::optional<Eigen::Vector3d> cam_ray = camera.CamRayFromImg(point2D);
+  if (!cam_ray) {
     return EIGEN_PI;
   }
-  return CalculateAngularReprojectionError(
-      cam_point->homogeneous().normalized(), point3D, cam_from_world);
+  return CalculateAngularReprojectionError(*cam_ray, point3D, cam_from_world);
 }
 
 double CalculateAngularReprojectionError(
@@ -77,12 +79,11 @@ double CalculateAngularReprojectionError(
     const Eigen::Vector3d& point3D,
     const Eigen::Matrix3x4d& cam_from_world,
     const Camera& camera) {
-  const std::optional<Eigen::Vector2d> cam_point = camera.CamFromImg(point2D);
-  if (!cam_point) {
+  const std::optional<Eigen::Vector3d> cam_ray = camera.CamRayFromImg(point2D);
+  if (!cam_ray) {
     return EIGEN_PI;
   }
-  return CalculateAngularReprojectionError(
-      cam_point->homogeneous().normalized(), point3D, cam_from_world);
+  return CalculateAngularReprojectionError(*cam_ray, point3D, cam_from_world);
 }
 
 double CalculateAngularReprojectionError(const Eigen::Vector3d& cam_ray,
