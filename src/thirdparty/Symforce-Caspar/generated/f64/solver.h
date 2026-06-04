@@ -49,8 +49,8 @@ class GraphSolver {
    * PinholePrincipalPoints
    * @param Point_num_max the maximum number of Points
    * @param SimpleRadialCalib_num_max the maximum number of SimpleRadialCalibs
-   * @param SimpleRadialFocalAndDistortion_num_max the maximum number of
-   * SimpleRadialFocalAndDistortions
+   * @param SimpleRadialFocalAndExtra_num_max the maximum number of
+   * SimpleRadialFocalAndExtras
    * @param SimpleRadialPose_num_max the maximum number of SimpleRadialPoses
    * @param SimpleRadialPrincipalPoint_num_max the maximum number of
    * SimpleRadialPrincipalPoints
@@ -67,40 +67,38 @@ class GraphSolver {
    * pinhole_fixed_points
    * @param pinhole_fixed_pose_fixed_point_num_max the maximum number of
    * pinhole_fixed_pose_fixed_points
-   * @param simple_radial_split_fixed_focal_and_distortion_num_max the maximum
-   * number of simple_radial_split_fixed_focal_and_distortions
+   * @param simple_radial_split_fixed_focal_and_extra_num_max the maximum number
+   * of simple_radial_split_fixed_focal_and_extras
    * @param simple_radial_split_fixed_principal_point_num_max the maximum number
    * of simple_radial_split_fixed_principal_points
-   * @param simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max
-   * the maximum number of
-   * simple_radial_split_fixed_pose_fixed_focal_and_distortions
+   * @param simple_radial_split_fixed_pose_fixed_focal_and_extra_num_max the
+   * maximum number of simple_radial_split_fixed_pose_fixed_focal_and_extras
    * @param simple_radial_split_fixed_pose_fixed_principal_point_num_max the
    * maximum number of simple_radial_split_fixed_pose_fixed_principal_points
    * @param
-   * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max
-   * the maximum number of
-   * simple_radial_split_fixed_focal_and_distortion_fixed_principal_points
-   * @param simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max
-   * the maximum number of
-   * simple_radial_split_fixed_focal_and_distortion_fixed_points
+   * simple_radial_split_fixed_focal_and_extra_fixed_principal_point_num_max the
+   * maximum number of
+   * simple_radial_split_fixed_focal_and_extra_fixed_principal_points
+   * @param simple_radial_split_fixed_focal_and_extra_fixed_point_num_max the
+   * maximum number of simple_radial_split_fixed_focal_and_extra_fixed_points
    * @param simple_radial_split_fixed_principal_point_fixed_point_num_max the
    * maximum number of simple_radial_split_fixed_principal_point_fixed_points
    * @param
-   * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max
+   * simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max
    * the maximum number of
-   * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_points
+   * simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_points
    * @param
-   * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max
+   * simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max
    * the maximum number of
-   * simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_points
+   * simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_points
    * @param
    * simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max
    * the maximum number of
    * simple_radial_split_fixed_pose_fixed_principal_point_fixed_points
    * @param
-   * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max
+   * simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max
    * the maximum number of
-   * simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_points
+   * simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_points
    * @param pinhole_split_fixed_focal_num_max the maximum number of
    * pinhole_split_fixed_focals
    * @param pinhole_split_fixed_principal_point_num_max the maximum number of
@@ -135,7 +133,7 @@ class GraphSolver {
       size_t PinholePrincipalPoint_num_max,
       size_t Point_num_max,
       size_t SimpleRadialCalib_num_max,
-      size_t SimpleRadialFocalAndDistortion_num_max,
+      size_t SimpleRadialFocalAndExtra_num_max,
       size_t SimpleRadialPose_num_max,
       size_t SimpleRadialPrincipalPoint_num_max,
       size_t simple_radial_num_max,
@@ -146,22 +144,22 @@ class GraphSolver {
       size_t pinhole_fixed_pose_num_max,
       size_t pinhole_fixed_point_num_max,
       size_t pinhole_fixed_pose_fixed_point_num_max,
-      size_t simple_radial_split_fixed_focal_and_distortion_num_max,
+      size_t simple_radial_split_fixed_focal_and_extra_num_max,
       size_t simple_radial_split_fixed_principal_point_num_max,
-      size_t simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max,
+      size_t simple_radial_split_fixed_pose_fixed_focal_and_extra_num_max,
       size_t simple_radial_split_fixed_pose_fixed_principal_point_num_max,
       size_t
-          simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max,
-      size_t simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max,
+          simple_radial_split_fixed_focal_and_extra_fixed_principal_point_num_max,
+      size_t simple_radial_split_fixed_focal_and_extra_fixed_point_num_max,
       size_t simple_radial_split_fixed_principal_point_fixed_point_num_max,
       size_t
-          simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max,
+          simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max,
       size_t
-          simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max,
+          simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max,
       size_t
           simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
       size_t
-          simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max,
+          simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max,
       size_t pinhole_split_fixed_focal_num_max,
       size_t pinhole_split_fixed_principal_point_num_max,
       size_t pinhole_split_fixed_pose_fixed_focal_num_max,
@@ -500,52 +498,51 @@ class GraphSolver {
   void SetSimpleRadialCalibNum(size_t num);
 
   /**
-   * Set the current value for the SimpleRadialFocalAndDistortion nodes from the
+   * Set the current value for the SimpleRadialFocalAndExtra nodes from the
    * stacked host data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void SetSimpleRadialFocalAndDistortionNodesFromStackedHost(
+  void SetSimpleRadialFocalAndExtraNodesFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current value for the SimpleRadialFocalAndDistortion nodes from the
+   * Set the current value for the SimpleRadialFocalAndExtra nodes from the
    * stacked device data.
    *
    * The offset can be used to start writing at a specific index.
    */
-  void SetSimpleRadialFocalAndDistortionNodesFromStackedDevice(
+  void SetSimpleRadialFocalAndExtraNodesFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Read the current value for the SimpleRadialFocalAndDistortion nodes into
-   * the stacked output host data.
+   * Read the current value for the SimpleRadialFocalAndExtra nodes into the
+   * stacked output host data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void GetSimpleRadialFocalAndDistortionNodesToStackedHost(double* const data,
-                                                           size_t offset,
-                                                           size_t num);
+  void GetSimpleRadialFocalAndExtraNodesToStackedHost(double* const data,
+                                                      size_t offset,
+                                                      size_t num);
 
   /**
-   * Read the current value for the SimpleRadialFocalAndDistortion nodes into
-   * the stacked output device data.
+   * Read the current value for the SimpleRadialFocalAndExtra nodes into the
+   * stacked output device data.
    *
    * The offset can be used to start reading from a specific index.
    */
-  void GetSimpleRadialFocalAndDistortionNodesToStackedDevice(double* const data,
-                                                             size_t offset,
-                                                             size_t num);
+  void GetSimpleRadialFocalAndExtraNodesToStackedDevice(double* const data,
+                                                        size_t offset,
+                                                        size_t num);
 
   /**
-   * Set the current number of active nodes of type
-   * SimpleRadialFocalAndDistortion.
+   * Set the current number of active nodes of type SimpleRadialFocalAndExtra.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void SetSimpleRadialFocalAndDistortionNum(size_t num);
+  void SetSimpleRadialFocalAndExtraNum(size_t num);
 
   /**
    * Set the current value for the SimpleRadialPose nodes from the stacked host
@@ -1382,113 +1379,108 @@ class GraphSolver {
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortion factor from host.
+   * SimpleRadialSplitFixedFocalAndExtra factor from host.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortion factor from device.
+   * SimpleRadialSplitFixedFocalAndExtra factor from device.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionPoseIndicesFromDevice(
+  void SetSimpleRadialSplitFixedFocalAndExtraPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortion factor from host.
+   * SimpleRadialSplitFixedFocalAndExtra factor from host.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraPrincipalPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortion factor from device.
+   * SimpleRadialSplitFixedFocalAndExtra factor from device.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
+  void SetSimpleRadialSplitFixedFocalAndExtraPrincipalPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortion factor from host.
+   * SimpleRadialSplitFixedFocalAndExtra factor from host.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortion factor from device.
+   * SimpleRadialSplitFixedFocalAndExtra factor from device.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionPointIndicesFromDevice(
+  void SetSimpleRadialSplitFixedFocalAndExtraPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked host data.
+   * SimpleRadialSplitFixedFocalAndExtra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionSensorFromRigDataFromStackedHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraSensorFromRigDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtra factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionSensorFromRigDataFromStackedDevice(
+  void SetSimpleRadialSplitFixedFocalAndExtraSensorFromRigDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked host data.
+   * Set the values for the pixel consts SimpleRadialSplitFixedFocalAndExtra
+   * factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionPixelDataFromStackedHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked device data.
+   * Set the values for the pixel consts SimpleRadialSplitFixedFocalAndExtra
+   * factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionPixelDataFromStackedDevice(
+  void SetSimpleRadialSplitFixedFocalAndExtraPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked host data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFocalAndDistortionDataFromStackedHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortion factor from stacked device data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtra factor from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFocalAndDistortionDataFromStackedDevice(
+  void SetSimpleRadialSplitFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of SimpleRadialSplitFixedFocalAndDistortion factors.
+   * Set the current number of SimpleRadialSplitFixedFocalAndExtra factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionNum(size_t num);
+  void SetSimpleRadialSplitFixedFocalAndExtraNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the
@@ -1505,18 +1497,17 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
+   * Set the indices for the focal_and_extra argument for the
    * SimpleRadialSplitFixedPrincipalPoint factor from host.
    */
-  void SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromHost(
+  void SetSimpleRadialSplitFixedPrincipalPointFocalAndExtraIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
+   * Set the indices for the focal_and_extra argument for the
    * SimpleRadialSplitFixedPrincipalPoint factor from device.
    */
-  void
-  SetSimpleRadialSplitFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
+  void SetSimpleRadialSplitFixedPrincipalPointFocalAndExtraIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -1600,147 +1591,139 @@ class GraphSolver {
 
   /**
    * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from host.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from host.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from device.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from device.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPrincipalPointIndicesFromDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from host.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from host.
    */
-  void SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromHost(
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from device.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from device.
    */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPointIndicesFromDevice(
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked host
-   * data.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionSensorFromRigDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraSensorFromRigDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked
-   * device data.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionSensorFromRigDataFromStackedDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraSensorFromRigDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked host
-   * data.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPixelDataFromStackedHost(
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPixelDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked host
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked device
    * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPoseDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked
-   * device data.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionPoseDataFromStackedDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked host
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtra factor from stacked device
    * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFocalAndDistortionDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortion factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFocalAndDistortionDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of SimpleRadialSplitFixedPoseFixedFocalAndDistortion
+   * Set the current number of SimpleRadialSplitFixedPoseFixedFocalAndExtra
    * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionNum(size_t num);
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraNum(size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
+   * Set the indices for the focal_and_extra argument for the
    * SimpleRadialSplitFixedPoseFixedPrincipalPoint factor from host.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromHost(
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
+   * Set the indices for the focal_and_extra argument for the
    * SimpleRadialSplitFixedPoseFixedPrincipalPoint factor from device.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndDistortionIndicesFromDevice(
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -1855,267 +1838,259 @@ class GraphSolver {
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * host.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from host.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * device.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from device.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPoseIndicesFromDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * host.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from host.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * device.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from device.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked host data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked host data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked host data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked device data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factor from
-   * stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the current number of
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPoint factors.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointNum(
-      size_t num);
+  void SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from host.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from host.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraFixedPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from device.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from device.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPoseIndicesFromDevice(
+  void SetSimpleRadialSplitFixedFocalAndExtraFixedPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from host.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from host.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from device.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from device.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked host
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked host
    * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked
-   * device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked host
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked host
    * data.
    *
    * The offset can be used to start writing from a specific index.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPixelDataFromStackedHost(
+  void SetSimpleRadialSplitFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPixelDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked host
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked device
    * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked
-   * device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked host
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked host
    * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPointDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factor from stacked
-   * device data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked device
+   * data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPointPointDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the current number of
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPoint factors.
+   * Set the values for the point consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSimpleRadialSplitFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPoint factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of SimpleRadialSplitFixedFocalAndExtraFixedPoint
+   * factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void SetSimpleRadialSplitFixedFocalAndDistortionFixedPointNum(size_t num);
+  void SetSimpleRadialSplitFixedFocalAndExtraFixedPointNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the
@@ -2132,19 +2107,19 @@ class GraphSolver {
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
+   * Set the indices for the focal_and_extra argument for the
    * SimpleRadialSplitFixedPrincipalPointFixedPoint factor from host.
    */
   void
-  SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
+  SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
+   * Set the indices for the focal_and_extra argument for the
    * SimpleRadialSplitFixedPrincipalPointFixedPoint factor from device.
    */
   void
-  SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
+  SetSimpleRadialSplitFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -2247,298 +2222,293 @@ class GraphSolver {
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from host.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
+   * host.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from device.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPointIndicesFromDevice(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedHost(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointSensorFromRigDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedHost(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pixel consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPixelDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPoseDataFromStackedHost(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the pose consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPoseDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedHost(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointFocalAndDistortionDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedHost(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint factor
-   * from stacked device data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointPrincipalPointDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the current number of
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPoint
-   * factors.
-   *
-   * The value is set during initialization and this function is only needed if
-   * you want to change the problem between optimization runs. This is work in
-   * progress and can have performance impacts.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPrincipalPointNum(
-      size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
-   * host.
-   */
-  void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromHost(
-      const unsigned int* const indices, size_t num);
-
-  /**
-   * Set the indices for the principal_point argument for the
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * device.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPrincipalPointIndicesFromDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointSensorFromRigDataFromStackedDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPixelDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPixelDataFromStackedDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPoseDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pose consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPoseDataFromStackedDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointFocalAndDistortionDataFromStackedDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * Set the values for the principal_point consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPointDataFromStackedHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the point consts
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factor from
+   * Set the values for the principal_point consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor from
    * stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointPointDataFromStackedDevice(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the current number of
-   * SimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPoint factors.
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void SetSimpleRadialSplitFixedPoseFixedFocalAndDistortionFixedPointNum(
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(
       size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
-   * SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPoint factor from host.
+   * Set the indices for the principal_point argument for the
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from host.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromHost(
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
-   * Set the indices for the focal_and_distortion argument for the
+   * Set the indices for the principal_point argument for the
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from device.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pose consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * SimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetSimpleRadialSplitFixedPoseFixedFocalAndExtraFixedPointNum(size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
+   * SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPoint factor from host.
+   */
+  void
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the focal_and_extra argument for the
    * SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPoint factor from device.
    */
   void
-  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndDistortionIndicesFromDevice(
+  SetSimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
@@ -2664,143 +2634,141 @@ class GraphSolver {
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from host.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from host.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the indices for the pose argument for the
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from device.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from device.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromDevice(
       const unsigned int* const indices, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked host data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the sensor_from_rig consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked host data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the pixel consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked host data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointFocalAndDistortionDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
-   * Set the values for the focal_and_distortion consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked device data.
+   * Set the values for the focal_and_extra consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointFocalAndDistortionDataFromStackedDevice(
-      const double* const data, size_t offset, size_t num);
-
-  /**
-   * Set the values for the principal_point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked host data.
-   *
-   * The offset can be used to start writing from a specific index.
-   */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the principal_point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked host data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked host data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPointDataFromStackedHost(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the values for the point consts
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factor from stacked device data.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factor
+   * from stacked device data.
    *
    * The offset can be used to start writing from a specific index.
    */
   void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+  SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedDevice(
       const double* const data, size_t offset, size_t num);
 
   /**
    * Set the current number of
-   * SimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPoint
-   * factors.
+   * SimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPoint factors.
    *
    * The value is set during initialization and this function is only needed if
    * you want to change the problem between optimization runs. This is work in
    * progress and can have performance impacts.
    */
-  void
-  SetSimpleRadialSplitFixedFocalAndDistortionFixedPrincipalPointFixedPointNum(
+  void SetSimpleRadialSplitFixedFocalAndExtraFixedPrincipalPointFixedPointNum(
       size_t num);
 
   /**
@@ -4125,8 +4093,8 @@ class GraphSolver {
   size_t Point_num_max_;
   size_t SimpleRadialCalib_num_;
   size_t SimpleRadialCalib_num_max_;
-  size_t SimpleRadialFocalAndDistortion_num_;
-  size_t SimpleRadialFocalAndDistortion_num_max_;
+  size_t SimpleRadialFocalAndExtra_num_;
+  size_t SimpleRadialFocalAndExtra_num_max_;
   size_t SimpleRadialPose_num_;
   size_t SimpleRadialPose_num_max_;
   size_t SimpleRadialPrincipalPoint_num_;
@@ -4147,37 +4115,35 @@ class GraphSolver {
   size_t pinhole_fixed_point_num_max_;
   size_t pinhole_fixed_pose_fixed_point_num_;
   size_t pinhole_fixed_pose_fixed_point_num_max_;
-  size_t simple_radial_split_fixed_focal_and_distortion_num_;
-  size_t simple_radial_split_fixed_focal_and_distortion_num_max_;
+  size_t simple_radial_split_fixed_focal_and_extra_num_;
+  size_t simple_radial_split_fixed_focal_and_extra_num_max_;
   size_t simple_radial_split_fixed_principal_point_num_;
   size_t simple_radial_split_fixed_principal_point_num_max_;
-  size_t simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_;
-  size_t simple_radial_split_fixed_pose_fixed_focal_and_distortion_num_max_;
+  size_t simple_radial_split_fixed_pose_fixed_focal_and_extra_num_;
+  size_t simple_radial_split_fixed_pose_fixed_focal_and_extra_num_max_;
   size_t simple_radial_split_fixed_pose_fixed_principal_point_num_;
   size_t simple_radial_split_fixed_pose_fixed_principal_point_num_max_;
+  size_t simple_radial_split_fixed_focal_and_extra_fixed_principal_point_num_;
   size_t
-      simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_;
-  size_t
-      simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_num_max_;
-  size_t simple_radial_split_fixed_focal_and_distortion_fixed_point_num_;
-  size_t simple_radial_split_fixed_focal_and_distortion_fixed_point_num_max_;
+      simple_radial_split_fixed_focal_and_extra_fixed_principal_point_num_max_;
+  size_t simple_radial_split_fixed_focal_and_extra_fixed_point_num_;
+  size_t simple_radial_split_fixed_focal_and_extra_fixed_point_num_max_;
   size_t simple_radial_split_fixed_principal_point_fixed_point_num_;
   size_t simple_radial_split_fixed_principal_point_fixed_point_num_max_;
   size_t
-      simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_;
+      simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_;
   size_t
-      simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point_num_max_;
+      simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_;
+  size_t simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_;
   size_t
-      simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_;
-  size_t
-      simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point_num_max_;
+      simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_;
   size_t simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_;
   size_t
       simple_radial_split_fixed_pose_fixed_principal_point_fixed_point_num_max_;
   size_t
-      simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_;
+      simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_;
   size_t
-      simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point_num_max_;
+      simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_;
   size_t pinhole_split_fixed_focal_num_;
   size_t pinhole_split_fixed_focal_num_max_;
   size_t pinhole_split_fixed_principal_point_num_;
@@ -4239,9 +4205,9 @@ class GraphSolver {
   double* nodes__SimpleRadialCalib__storage_current_;
   double* nodes__SimpleRadialCalib__storage_check_;
   double* nodes__SimpleRadialCalib__storage_new_best_;
-  double* nodes__SimpleRadialFocalAndDistortion__storage_current_;
-  double* nodes__SimpleRadialFocalAndDistortion__storage_check_;
-  double* nodes__SimpleRadialFocalAndDistortion__storage_new_best_;
+  double* nodes__SimpleRadialFocalAndExtra__storage_current_;
+  double* nodes__SimpleRadialFocalAndExtra__storage_check_;
+  double* nodes__SimpleRadialFocalAndExtra__storage_new_best_;
   double* nodes__SimpleRadialPose__storage_current_;
   double* nodes__SimpleRadialPose__storage_check_;
   double* nodes__SimpleRadialPose__storage_new_best_;
@@ -4291,44 +4257,43 @@ class GraphSolver {
   double* facs__pinhole_fixed_pose_fixed_point__args__pose__data_;
   double* facs__pinhole_fixed_pose_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__pose__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra__args__pose__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__sensor_from_rig__data_;
+      facs__simple_radial_split_fixed_focal_and_extra__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra__args__principal_point__idx_shared_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__point__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra__args__point__idx_shared_;
+  double* facs__simple_radial_split_fixed_focal_and_extra__args__pixel__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__pixel__data_;
-  double*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__focal_and_distortion__data_;
+      facs__simple_radial_split_fixed_focal_and_extra__args__focal_and_extra__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_principal_point__args__pose__idx_shared_;
   double*
       facs__simple_radial_split_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__idx_shared_;
+      facs__simple_radial_split_fixed_principal_point__args__focal_and_extra__idx_shared_;
   SharedIndex*
       facs__simple_radial_split_fixed_principal_point__args__point__idx_shared_;
   double* facs__simple_radial_split_fixed_principal_point__args__pixel__data_;
   double*
       facs__simple_radial_split_fixed_principal_point__args__principal_point__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__sensor_from_rig__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__idx_shared_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_;
   SharedIndex*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__idx_shared_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pixel__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__pixel__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__pose__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__pose__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__focal_and_distortion__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__idx_shared_;
+      facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_;
   SharedIndex*
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__idx_shared_;
   double*
@@ -4338,35 +4303,35 @@ class GraphSolver {
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__sensor_from_rig__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__sensor_from_rig__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pixel__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__pixel__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__point__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__point__data_;
   SharedIndex*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__idx_shared_;
   double*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__idx_shared_;
+      facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_;
   double*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
@@ -4374,33 +4339,33 @@ class GraphSolver {
   double*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__point__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__sensor_from_rig__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__idx_shared_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pixel__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__pose__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__focal_and_distortion__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__principal_point__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__sensor_from_rig__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__principal_point__idx_shared_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pixel__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__pose__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__focal_and_distortion__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__point__data_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_distortion__idx_shared_;
+      facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
@@ -4410,17 +4375,17 @@ class GraphSolver {
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__idx_shared_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__sensor_from_rig__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pixel__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__focal_and_distortion__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__principal_point__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__point__data_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex* facs__pinhole_split_fixed_focal__args__pose__idx_shared_;
   double* facs__pinhole_split_fixed_focal__args__sensor_from_rig__data_;
   SharedIndex*
@@ -4550,23 +4515,22 @@ class GraphSolver {
   double* facs__pinhole_fixed_pose__res_;
   double* facs__pinhole_fixed_point__res_;
   double* facs__pinhole_fixed_pose_fixed_point__res_;
-  double* facs__simple_radial_split_fixed_focal_and_distortion__res_;
+  double* facs__simple_radial_split_fixed_focal_and_extra__res_;
   double* facs__simple_radial_split_fixed_principal_point__res_;
-  double* facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__res_;
+  double* facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__res_;
   double* facs__simple_radial_split_fixed_pose_fixed_principal_point__res_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__res_;
-  double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__res_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__res_;
+  double* facs__simple_radial_split_fixed_focal_and_extra_fixed_point__res_;
   double* facs__simple_radial_split_fixed_principal_point_fixed_point__res_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__res_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__res_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__res_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__res_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__res_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__res_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_;
   double* facs__pinhole_split_fixed_focal__res_;
   double* facs__pinhole_split_fixed_principal_point__res_;
   double* facs__pinhole_split_fixed_pose_fixed_focal__res_;
@@ -4597,44 +4561,42 @@ class GraphSolver {
   double* facs__pinhole_fixed_point__args__pose__jac_;
   double* facs__pinhole_fixed_point__args__calib__jac_;
   double* facs__pinhole_fixed_pose_fixed_point__args__calib__jac_;
+  double* facs__simple_radial_split_fixed_focal_and_extra__args__pose__jac_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__pose__jac_;
-  double*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__principal_point__jac_;
-  double*
-      facs__simple_radial_split_fixed_focal_and_distortion__args__point__jac_;
+      facs__simple_radial_split_fixed_focal_and_extra__args__principal_point__jac_;
+  double* facs__simple_radial_split_fixed_focal_and_extra__args__point__jac_;
   double* facs__simple_radial_split_fixed_principal_point__args__pose__jac_;
   double*
-      facs__simple_radial_split_fixed_principal_point__args__focal_and_distortion__jac_;
+      facs__simple_radial_split_fixed_principal_point__args__focal_and_extra__jac_;
   double* facs__simple_radial_split_fixed_principal_point__args__point__jac_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__principal_point__jac_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__args__point__jac_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__args__point__jac_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_distortion__jac_;
+      facs__simple_radial_split_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point__args__point__jac_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__pose__jac_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__args__point__jac_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__pose__jac_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__pose__jac_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__args__principal_point__jac_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_point__args__principal_point__jac_;
   double*
       facs__simple_radial_split_fixed_principal_point_fixed_point__args__pose__jac_;
   double*
-      facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_distortion__jac_;
+      facs__simple_radial_split_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__args__point__jac_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__args__principal_point__jac_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__jac_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_distortion__jac_;
+      facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__jac_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__args__pose__jac_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__jac_;
   double* facs__pinhole_split_fixed_focal__args__pose__jac_;
   double* facs__pinhole_split_fixed_focal__args__principal_point__jac_;
   double* facs__pinhole_split_fixed_focal__args__point__jac_;
@@ -4679,8 +4641,8 @@ class GraphSolver {
   double* nodes__Point__z_end__;
   double* nodes__SimpleRadialCalib__z_;
   double* nodes__SimpleRadialCalib__z_end__;
-  double* nodes__SimpleRadialFocalAndDistortion__z_;
-  double* nodes__SimpleRadialFocalAndDistortion__z_end__;
+  double* nodes__SimpleRadialFocalAndExtra__z_;
+  double* nodes__SimpleRadialFocalAndExtra__z_end__;
   double* nodes__SimpleRadialPose__z_;
   double* nodes__SimpleRadialPose__z_end__;
   double* nodes__SimpleRadialPrincipalPoint__z_;
@@ -4697,8 +4659,8 @@ class GraphSolver {
   double* nodes__Point__p_end__;
   double* nodes__SimpleRadialCalib__p_;
   double* nodes__SimpleRadialCalib__p_end__;
-  double* nodes__SimpleRadialFocalAndDistortion__p_;
-  double* nodes__SimpleRadialFocalAndDistortion__p_end__;
+  double* nodes__SimpleRadialFocalAndExtra__p_;
+  double* nodes__SimpleRadialFocalAndExtra__p_end__;
   double* nodes__SimpleRadialPose__p_;
   double* nodes__SimpleRadialPose__p_end__;
   double* nodes__SimpleRadialPrincipalPoint__p_;
@@ -4715,8 +4677,8 @@ class GraphSolver {
   double* nodes__Point__step_end__;
   double* nodes__SimpleRadialCalib__step_;
   double* nodes__SimpleRadialCalib__step_end__;
-  double* nodes__SimpleRadialFocalAndDistortion__step_;
-  double* nodes__SimpleRadialFocalAndDistortion__step_end__;
+  double* nodes__SimpleRadialFocalAndExtra__step_;
+  double* nodes__SimpleRadialFocalAndExtra__step_end__;
   double* nodes__SimpleRadialPose__step_;
   double* nodes__SimpleRadialPose__step_end__;
   double* nodes__SimpleRadialPrincipalPoint__step_;
@@ -4728,7 +4690,7 @@ class GraphSolver {
   double* nodes__PinholePrincipalPoint__w_;
   double* nodes__Point__w_;
   double* nodes__SimpleRadialCalib__w_;
-  double* nodes__SimpleRadialFocalAndDistortion__w_;
+  double* nodes__SimpleRadialFocalAndExtra__w_;
   double* nodes__SimpleRadialPose__w_;
   double* nodes__SimpleRadialPrincipalPoint__w_;
   double* marker__w_end_;
@@ -4739,7 +4701,7 @@ class GraphSolver {
   double* nodes__PinholePrincipalPoint__r_0_;
   double* nodes__Point__r_0_;
   double* nodes__SimpleRadialCalib__r_0_;
-  double* nodes__SimpleRadialFocalAndDistortion__r_0_;
+  double* nodes__SimpleRadialFocalAndExtra__r_0_;
   double* nodes__SimpleRadialPose__r_0_;
   double* nodes__SimpleRadialPrincipalPoint__r_0_;
   double* marker__r_0_end_;
@@ -4750,7 +4712,7 @@ class GraphSolver {
   double* nodes__PinholePrincipalPoint__r_k_;
   double* nodes__Point__r_k_;
   double* nodes__SimpleRadialCalib__r_k_;
-  double* nodes__SimpleRadialFocalAndDistortion__r_k_;
+  double* nodes__SimpleRadialFocalAndExtra__r_k_;
   double* nodes__SimpleRadialPose__r_k_;
   double* nodes__SimpleRadialPrincipalPoint__r_k_;
   double* marker__r_k_end_;
@@ -4761,7 +4723,7 @@ class GraphSolver {
   double* nodes__PinholePrincipalPoint__Mp_;
   double* nodes__Point__Mp_;
   double* nodes__SimpleRadialCalib__Mp_;
-  double* nodes__SimpleRadialFocalAndDistortion__Mp_;
+  double* nodes__SimpleRadialFocalAndExtra__Mp_;
   double* nodes__SimpleRadialPose__Mp_;
   double* nodes__SimpleRadialPrincipalPoint__Mp_;
   double* marker__Mp_end_;
@@ -4778,8 +4740,8 @@ class GraphSolver {
   double* nodes__Point__precond_tril_;
   double* nodes__SimpleRadialCalib__precond_diag_;
   double* nodes__SimpleRadialCalib__precond_tril_;
-  double* nodes__SimpleRadialFocalAndDistortion__precond_diag_;
-  double* nodes__SimpleRadialFocalAndDistortion__precond_tril_;
+  double* nodes__SimpleRadialFocalAndExtra__precond_diag_;
+  double* nodes__SimpleRadialFocalAndExtra__precond_tril_;
   double* nodes__SimpleRadialPose__precond_diag_;
   double* nodes__SimpleRadialPose__precond_tril_;
   double* nodes__SimpleRadialPrincipalPoint__precond_diag_;
@@ -4794,22 +4756,22 @@ class GraphSolver {
   double* facs__pinhole_fixed_pose__jp_;
   double* facs__pinhole_fixed_point__jp_;
   double* facs__pinhole_fixed_pose_fixed_point__jp_;
-  double* facs__simple_radial_split_fixed_focal_and_distortion__jp_;
+  double* facs__simple_radial_split_fixed_focal_and_extra__jp_;
   double* facs__simple_radial_split_fixed_principal_point__jp_;
-  double* facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion__jp_;
+  double* facs__simple_radial_split_fixed_pose_fixed_focal_and_extra__jp_;
   double* facs__simple_radial_split_fixed_pose_fixed_principal_point__jp_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point__jp_;
-  double* facs__simple_radial_split_fixed_focal_and_distortion_fixed_point__jp_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point__jp_;
+  double* facs__simple_radial_split_fixed_focal_and_extra_fixed_point__jp_;
   double* facs__simple_radial_split_fixed_principal_point_fixed_point__jp_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_principal_point__jp_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__jp_;
   double*
-      facs__simple_radial_split_fixed_pose_fixed_focal_and_distortion_fixed_point__jp_;
+      facs__simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point__jp_;
   double*
       facs__simple_radial_split_fixed_pose_fixed_principal_point_fixed_point__jp_;
   double*
-      facs__simple_radial_split_fixed_focal_and_distortion_fixed_principal_point_fixed_point__jp_;
+      facs__simple_radial_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__jp_;
   double* facs__pinhole_split_fixed_focal__jp_;
   double* facs__pinhole_split_fixed_principal_point__jp_;
   double* facs__pinhole_split_fixed_pose_fixed_focal__jp_;

@@ -14,9 +14,9 @@ __global__ void __launch_bounds__(1024, 1)
     SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointResJacKernel(
         float* sensor_from_rig,
         unsigned int sensor_from_rig_num_alloc,
-        float* focal_and_distortion,
-        unsigned int focal_and_distortion_num_alloc,
-        SharedIndex* focal_and_distortion_indices,
+        float* focal_and_extra,
+        unsigned int focal_and_extra_num_alloc,
+        SharedIndex* focal_and_extra_indices,
         float* pixel,
         unsigned int pixel_num_alloc,
         float* pose,
@@ -27,20 +27,20 @@ __global__ void __launch_bounds__(1024, 1)
         unsigned int point_num_alloc,
         float* out_res,
         unsigned int out_res_num_alloc,
-        float* const out_focal_and_distortion_njtr,
-        unsigned int out_focal_and_distortion_njtr_num_alloc,
-        float* const out_focal_and_distortion_precond_diag,
-        unsigned int out_focal_and_distortion_precond_diag_num_alloc,
-        float* const out_focal_and_distortion_precond_tril,
-        unsigned int out_focal_and_distortion_precond_tril_num_alloc,
+        float* const out_focal_and_extra_njtr,
+        unsigned int out_focal_and_extra_njtr_num_alloc,
+        float* const out_focal_and_extra_precond_diag,
+        unsigned int out_focal_and_extra_precond_diag_num_alloc,
+        float* const out_focal_and_extra_precond_tril,
+        unsigned int out_focal_and_extra_precond_tril_num_alloc,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[8192];
 
-  __shared__ SharedIndex focal_and_distortion_indices_loc[1024];
-  focal_and_distortion_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex focal_and_extra_indices_loc[1024];
+  focal_and_extra_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? focal_and_distortion_indices[global_thread_idx]
+           ? focal_and_extra_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
@@ -58,13 +58,13 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = -1.00000000000000000e+00;
     r2 = fmaf(r2, r4, r0);
   };
-  LoadShared<2, float, float>(focal_and_distortion,
-                              0 * focal_and_distortion_num_alloc,
-                              focal_and_distortion_indices_loc,
+  LoadShared<2, float, float>(focal_and_extra,
+                              0 * focal_and_extra_num_alloc,
+                              focal_and_extra_indices_loc,
                               (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared2<float>((float*)inout_shared,
-                       focal_and_distortion_indices_loc[threadIdx.x].target,
+                       focal_and_extra_indices_loc[threadIdx.x].target,
                        r0,
                        r5);
   };
@@ -200,17 +200,17 @@ __global__ void __launch_bounds__(1024, 1)
     r1 = r1 * r3;
     r3 = r4 * r2;
     r3 = fmaf(r20, r3, r23 * r1);
-    r23 = r4 * r26;
-    r20 = r0 * r10;
-    r23 = r23 * r2;
-    r23 = r23 * r25;
-    r11 = r25 * r20;
-    r11 = fmaf(r1, r11, r20 * r23);
+    r23 = r0 * r10;
+    r20 = r25 * r23;
+    r11 = r4 * r26;
+    r11 = r11 * r2;
+    r11 = r11 * r25;
+    r11 = fmaf(r23, r11, r1 * r20);
     WriteSum2<float, float>((float*)inout_shared, r3, r11);
   };
-  FlushSumShared<2, float>(out_focal_and_distortion_njtr,
-                           0 * out_focal_and_distortion_njtr_num_alloc,
-                           focal_and_distortion_indices_loc,
+  FlushSumShared<2, float>(out_focal_and_extra_njtr,
+                           0 * out_focal_and_extra_njtr_num_alloc,
+                           focal_and_extra_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r11 = r5 * r5;
@@ -219,14 +219,14 @@ __global__ void __launch_bounds__(1024, 1)
     r3 = r3 * r43;
     r3 = fmaf(r33, r3, r22 * r11);
     r10 = r0 * r10;
-    r43 = r43 * r20;
+    r43 = r43 * r23;
     r10 = r10 * r43;
     r10 = fmaf(r22, r10, r33 * r10);
     WriteSum2<float, float>((float*)inout_shared, r3, r10);
   };
-  FlushSumShared<2, float>(out_focal_and_distortion_precond_diag,
-                           0 * out_focal_and_distortion_precond_diag_num_alloc,
-                           focal_and_distortion_indices_loc,
+  FlushSumShared<2, float>(out_focal_and_extra_precond_diag,
+                           0 * out_focal_and_extra_precond_diag_num_alloc,
+                           focal_and_extra_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r10 = r5 * r33;
@@ -234,18 +234,18 @@ __global__ void __launch_bounds__(1024, 1)
     r3 = fmaf(r43, r3, r43 * r10);
     WriteSum1<float, float>((float*)inout_shared, r3);
   };
-  FlushSumShared<1, float>(out_focal_and_distortion_precond_tril,
-                           0 * out_focal_and_distortion_precond_tril_num_alloc,
-                           focal_and_distortion_indices_loc,
+  FlushSumShared<1, float>(out_focal_and_extra_precond_tril,
+                           0 * out_focal_and_extra_precond_tril_num_alloc,
+                           focal_and_extra_indices_loc,
                            (float*)inout_shared);
 }
 
 void SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointResJac(
     float* sensor_from_rig,
     unsigned int sensor_from_rig_num_alloc,
-    float* focal_and_distortion,
-    unsigned int focal_and_distortion_num_alloc,
-    SharedIndex* focal_and_distortion_indices,
+    float* focal_and_extra,
+    unsigned int focal_and_extra_num_alloc,
+    SharedIndex* focal_and_extra_indices,
     float* pixel,
     unsigned int pixel_num_alloc,
     float* pose,
@@ -256,12 +256,12 @@ void SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointResJac(
     unsigned int point_num_alloc,
     float* out_res,
     unsigned int out_res_num_alloc,
-    float* const out_focal_and_distortion_njtr,
-    unsigned int out_focal_and_distortion_njtr_num_alloc,
-    float* const out_focal_and_distortion_precond_diag,
-    unsigned int out_focal_and_distortion_precond_diag_num_alloc,
-    float* const out_focal_and_distortion_precond_tril,
-    unsigned int out_focal_and_distortion_precond_tril_num_alloc,
+    float* const out_focal_and_extra_njtr,
+    unsigned int out_focal_and_extra_njtr_num_alloc,
+    float* const out_focal_and_extra_precond_diag,
+    unsigned int out_focal_and_extra_precond_diag_num_alloc,
+    float* const out_focal_and_extra_precond_tril,
+    unsigned int out_focal_and_extra_precond_tril_num_alloc,
     size_t problem_size) {
   if (problem_size == 0) {
     return;
@@ -272,9 +272,9 @@ void SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointResJac(
       n_blocks,
       1024>>>(sensor_from_rig,
               sensor_from_rig_num_alloc,
-              focal_and_distortion,
-              focal_and_distortion_num_alloc,
-              focal_and_distortion_indices,
+              focal_and_extra,
+              focal_and_extra_num_alloc,
+              focal_and_extra_indices,
               pixel,
               pixel_num_alloc,
               pose,
@@ -285,12 +285,12 @@ void SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointResJac(
               point_num_alloc,
               out_res,
               out_res_num_alloc,
-              out_focal_and_distortion_njtr,
-              out_focal_and_distortion_njtr_num_alloc,
-              out_focal_and_distortion_precond_diag,
-              out_focal_and_distortion_precond_diag_num_alloc,
-              out_focal_and_distortion_precond_tril,
-              out_focal_and_distortion_precond_tril_num_alloc,
+              out_focal_and_extra_njtr,
+              out_focal_and_extra_njtr_num_alloc,
+              out_focal_and_extra_precond_diag,
+              out_focal_and_extra_precond_diag_num_alloc,
+              out_focal_and_extra_precond_tril,
+              out_focal_and_extra_precond_tril_num_alloc,
               problem_size);
 }
 

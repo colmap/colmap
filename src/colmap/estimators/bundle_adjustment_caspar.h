@@ -55,33 +55,33 @@ enum class FactorVariant {
   BASE,
   // r=1
   FIXED_POSE,
-  FIXED_FOCAL_AND_DISTORTION,
+  FIXED_FOCAL_AND_EXTRA,
   FIXED_PRINCIPAL_POINT,
   FIXED_POINT,
   // r=2
-  FIXED_POSE_FIXED_FOCAL_AND_DISTORTION,
+  FIXED_POSE_FIXED_FOCAL_AND_EXTRA,
   FIXED_POSE_FIXED_PRINCIPAL_POINT,
   FIXED_POSE_FIXED_POINT,
-  FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,  // calibrated camera
-  FIXED_FOCAL_AND_DISTORTION_FIXED_POINT,
+  FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,  // calibrated camera
+  FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
   FIXED_PRINCIPAL_POINT_FIXED_POINT,
   // r=3
-  FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT,
-  FIXED_POSE_FIXED_FOCAL_AND_DISTORTION_FIXED_POINT,
+  FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,
+  FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
   FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT,
-  FIXED_FOCAL_AND_DISTORTION_FIXED_PRINCIPAL_POINT_FIXED_POINT,
+  FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT,
 };
 
 struct VariantData {
   std::vector<unsigned int> pose_indices;
   std::vector<StorageType> sensor_from_rig_data;  // 7 floats per factor
-  std::vector<unsigned int> focal_and_distortion_indices;
+  std::vector<unsigned int> focal_and_extra_indices;
   std::vector<unsigned int> principal_point_indices;
   std::vector<unsigned int> point_indices;
 
   std::vector<StorageType> const_poses;  // 7 floats per factor
   std::vector<StorageType>
-      const_focal_and_distortion;  // FocalAndDistortionSize() per factor
+      const_focal_and_extra;  // FocalAndExtraSize() per factor
   std::vector<StorageType>
       const_principal_point;              // PrincipalPointSize() per factor
   std::vector<StorageType> const_points;  // 3 floats per factor
@@ -92,7 +92,7 @@ struct VariantData {
 
 struct ModelData {
   std::vector<StorageType>
-      focal_and_distortion_data;  // FocalAndDistortionSize() entries per camera
+      focal_and_extra_data;  // FocalAndExtraSize() entries per camera
   std::vector<StorageType>
       principal_point_data;  // PrincipalPointSize() per camera
   std::array<VariantData, CASPAR_NUM_VARIANTS>

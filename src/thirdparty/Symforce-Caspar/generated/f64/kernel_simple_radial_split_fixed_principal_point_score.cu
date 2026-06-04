@@ -17,9 +17,9 @@ __global__ void __launch_bounds__(1024, 1)
         SharedIndex* pose_indices,
         double* sensor_from_rig,
         unsigned int sensor_from_rig_num_alloc,
-        double* focal_and_distortion,
-        unsigned int focal_and_distortion_num_alloc,
-        SharedIndex* focal_and_distortion_indices,
+        double* focal_and_extra,
+        unsigned int focal_and_extra_num_alloc,
+        SharedIndex* focal_and_extra_indices,
         double* point,
         unsigned int point_num_alloc,
         SharedIndex* point_indices,
@@ -38,10 +38,10 @@ __global__ void __launch_bounds__(1024, 1)
            ? pose_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
-  __shared__ SharedIndex focal_and_distortion_indices_loc[1024];
-  focal_and_distortion_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex focal_and_extra_indices_loc[1024];
+  focal_and_extra_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? focal_and_distortion_indices[global_thread_idx]
+           ? focal_and_extra_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
   __shared__ SharedIndex point_indices_loc[1024];
   point_indices_loc[threadIdx.x] =
@@ -53,7 +53,7 @@ __global__ void __launch_bounds__(1024, 1)
 
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
-      r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44;
+      r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43;
 
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(principal_point,
@@ -64,11 +64,11 @@ __global__ void __launch_bounds__(1024, 1)
     ReadIdx2<1024, double, double, double2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
-    r3 = fma(r3, r4, r1);
+    r2 = fma(r2, r4, r0);
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             4 * sensor_from_rig_num_alloc,
                                             global_thread_idx,
-                                            r1,
+                                            r0,
                                             r5);
   };
   LoadShared<2, double, double>(
@@ -78,180 +78,182 @@ __global__ void __launch_bounds__(1024, 1)
         (double*)inout_shared, point_indices_loc[threadIdx.x].target, r6, r7);
   };
   __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r8 = -2.00000000000000000e+00;
+  };
   LoadShared<2, double, double>(
-      pose, 0 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+      pose, 2 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared2<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r8, r9);
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r9, r10);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             2 * sensor_from_rig_num_alloc,
                                             global_thread_idx,
-                                            r10,
-                                            r11);
+                                            r11,
+                                            r12);
   };
   LoadShared<2, double, double>(
-      pose, 2 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+      pose, 0 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared2<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r12, r13);
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r13, r14);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             0 * sensor_from_rig_num_alloc,
                                             global_thread_idx,
-                                            r14,
-                                            r15);
-    r16 = r12 * r14;
-    r16 = fma(r4, r16, r9 * r11);
-    r16 = fma(r13, r15, r16);
-    r16 = fma(r8, r10, r16);
-    r17 = 2.00000000000000000e+00;
-    r18 = fma(r13, r14, r8 * r11);
-    r19 = r9 * r10;
-    r18 = fma(r4, r19, r18);
-    r18 = fma(r12, r15, r18);
-    r19 = r17 * r18;
-    r20 = r16 * r19;
-    r21 = fma(r9, r14, r12 * r11);
-    r22 = r8 * r15;
-    r21 = fma(r4, r22, r21);
-    r21 = fma(r13, r10, r21);
-    r22 = fma(r9, r15, r8 * r14);
-    r22 = fma(r12, r10, r22);
-    r22 = fma(r4, r22, r13 * r11);
-    r13 = r21 * r22;
-    r23 = fma(r17, r13, r20);
-    r23 = fma(r6, r23, r5);
-  };
-  LoadShared<2, double, double>(
-      pose, 4 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
-  if (global_thread_idx < problem_size) {
-    ReadShared2<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r5, r24);
-  };
-  __syncthreads();
-  if (global_thread_idx < problem_size) {
-    r25 = r14 * r15;
-    r25 = r25 * r17;
-    r26 = r10 * r11;
-    r26 = fma(r17, r26, r25);
-    r27 = -2.00000000000000000e+00;
-    r28 = r10 * r10;
-    r28 = r27 * r28;
-    r29 = 1.00000000000000000e+00;
-    r30 = r14 * r14;
-    r30 = fma(r27, r30, r29);
-    r31 = r28 + r30;
-  };
-  LoadShared<1, double, double>(
-      pose, 6 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
-  if (global_thread_idx < problem_size) {
-    ReadShared1<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r32);
-  };
-  __syncthreads();
-  if (global_thread_idx < problem_size) {
-    r33 = r15 * r10;
-    r33 = r33 * r17;
-    r34 = r11 * r27;
-    r35 = fma(r14, r34, r33);
+                                            r15,
+                                            r16);
+    r17 = fma(r14, r15, r9 * r12);
+    r18 = r13 * r16;
+    r17 = fma(r4, r18, r17);
+    r17 = fma(r10, r11, r17);
+    r18 = r17 * r17;
+    r18 = r8 * r18;
+    r19 = 1.00000000000000000e+00;
+    r20 = r9 * r15;
+    r20 = fma(r4, r20, r14 * r12);
+    r20 = fma(r10, r16, r20);
+    r20 = fma(r13, r11, r20);
+    r21 = r20 * r20;
+    r21 = fma(r8, r21, r19);
+    r22 = r18 + r21;
+    r22 = fma(r6, r22, r0);
+    r0 = 2.00000000000000000e+00;
+    r23 = fma(r10, r15, r13 * r12);
+    r24 = r14 * r11;
+    r23 = fma(r4, r24, r23);
+    r23 = fma(r9, r16, r23);
+    r24 = r0 * r23;
+    r25 = r20 * r24;
+    r26 = fma(r14, r16, r13 * r15);
+    r26 = fma(r9, r11, r26);
+    r26 = fma(r4, r26, r10 * r12);
+    r10 = r8 * r26;
+    r27 = fma(r17, r10, r25);
   };
   LoadShared<1, double, double>(
       point, 2 * point_num_alloc, point_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared1<double>(
-        (double*)inout_shared, point_indices_loc[threadIdx.x].target, r36);
+        (double*)inout_shared, point_indices_loc[threadIdx.x].target, r28);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r37 = r17 * r21;
-    r37 = r37 * r16;
-    r38 = r18 * r27;
-    r38 = fma(r22, r38, r37);
-    r39 = r18 * r18;
-    r39 = r39 * r27;
-    r40 = r29 + r39;
-    r41 = r21 * r21;
-    r41 = r41 * r27;
-    r40 = r40 + r41;
-    r23 = fma(r5, r26, r23);
-    r23 = fma(r24, r31, r23);
-    r23 = fma(r32, r35, r23);
-    r23 = fma(r36, r38, r23);
-    r23 = fma(r7, r40, r23);
+    r29 = r0 * r20;
+    r30 = r17 * r24;
+    r29 = fma(r26, r29, r30);
   };
-  LoadShared<2, double, double>(focal_and_distortion,
-                                0 * focal_and_distortion_num_alloc,
-                                focal_and_distortion_indices_loc,
+  LoadShared<1, double, double>(
+      pose, 6 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    ReadShared1<double>(
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r31);
+  };
+  __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r32 = r15 * r11;
+    r32 = r32 * r0;
+    r33 = r16 * r12;
+    r34 = fma(r0, r33, r32);
+  };
+  LoadShared<2, double, double>(
+      pose, 4 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    ReadShared2<double>(
+        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r35, r36);
+  };
+  __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r37 = r11 * r12;
+    r38 = r15 * r16;
+    r38 = r38 * r0;
+    r37 = fma(r8, r37, r38);
+    r39 = r16 * r16;
+    r39 = r39 * r8;
+    r40 = r19 + r39;
+    r41 = r11 * r11;
+    r41 = r8 * r41;
+    r40 = r40 + r41;
+    r22 = fma(r7, r27, r22);
+    r22 = fma(r28, r29, r22);
+    r22 = fma(r31, r34, r22);
+    r22 = fma(r36, r37, r22);
+    r22 = fma(r35, r40, r22);
+  };
+  LoadShared<2, double, double>(focal_and_extra,
+                                0 * focal_and_extra_num_alloc,
+                                focal_and_extra_indices_loc,
                                 (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared2<double>((double*)inout_shared,
-                        focal_and_distortion_indices_loc[threadIdx.x].target,
+                        focal_and_extra_indices_loc[threadIdx.x].target,
                         r40,
-                        r38);
+                        r37);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r35 = 1.00000000000000008e-15;
+    r34 = 1.00000000000000008e-15;
     ReadIdx1<1024, double, double, double>(
-        sensor_from_rig, 6 * sensor_from_rig_num_alloc, global_thread_idx, r31);
-    r26 = r27 * r16;
-    r21 = r21 * r19;
-    r26 = fma(r22, r26, r21);
-    r26 = fma(r6, r26, r31);
-    r31 = r14 * r10;
-    r31 = r31 * r17;
-    r42 = fma(r15, r34, r31);
-    r43 = r15 * r15;
-    r43 = r27 * r43;
-    r30 = r43 + r30;
-    r44 = r14 * r11;
-    r44 = fma(r17, r44, r33);
-    r19 = fma(r22, r19, r37);
-    r39 = r29 + r39;
-    r37 = r16 * r16;
-    r37 = r27 * r37;
-    r39 = r39 + r37;
-    r26 = fma(r5, r42, r26);
-    r26 = fma(r32, r30, r26);
-    r26 = fma(r24, r44, r26);
-    r26 = fma(r7, r19, r26);
-    r26 = fma(r36, r39, r26);
-    r39 = copysign(1.0, r26);
-    r39 = fma(r35, r39, r26);
-    r35 = r39 * r39;
-    r35 = 1.0 / r35;
-    r41 = r29 + r41;
-    r41 = r41 + r37;
-    r41 = fma(r6, r41, r1);
-    r13 = fma(r27, r13, r20);
-    r20 = r17 * r16;
-    r20 = fma(r22, r20, r21);
-    r21 = r15 * r11;
-    r21 = fma(r17, r21, r31);
-    r34 = fma(r10, r34, r25);
-    r28 = r29 + r28;
-    r28 = r28 + r43;
-    r41 = fma(r7, r13, r41);
-    r41 = fma(r36, r20, r41);
-    r41 = fma(r32, r21, r41);
-    r41 = fma(r24, r34, r41);
-    r41 = fma(r5, r28, r41);
-    r28 = r41 * r41;
-    r5 = r23 * r23;
-    r5 = fma(r35, r5, r35 * r28);
-    r5 = fma(r38, r5, r29);
-    r5 = r40 * r5;
-    r39 = 1.0 / r39;
-    r5 = r5 * r39;
-    r3 = fma(r23, r5, r3);
-    r4 = fma(r2, r4, r0);
-    r4 = fma(r41, r5, r4);
-    r4 = fma(r4, r4, r3 * r3);
+        sensor_from_rig, 6 * sensor_from_rig_num_alloc, global_thread_idx, r29);
+    r30 = fma(r20, r10, r30);
+    r30 = fma(r6, r30, r29);
+    r33 = fma(r8, r33, r32);
+    r39 = r19 + r39;
+    r32 = r15 * r15;
+    r32 = r8 * r32;
+    r39 = r39 + r32;
+    r29 = r16 * r11;
+    r29 = r29 * r0;
+    r27 = r15 * r12;
+    r27 = fma(r0, r27, r29);
+    r42 = r0 * r17;
+    r42 = r42 * r20;
+    r24 = fma(r26, r24, r42);
+    r43 = r23 * r23;
+    r43 = r43 * r8;
+    r21 = r43 + r21;
+    r30 = fma(r35, r33, r30);
+    r30 = fma(r31, r39, r30);
+    r30 = fma(r36, r27, r30);
+    r30 = fma(r7, r24, r30);
+    r30 = fma(r28, r21, r30);
+    r21 = copysign(1.0, r30);
+    r21 = fma(r34, r21, r30);
+    r34 = r21 * r21;
+    r34 = 1.0 / r34;
+    r30 = r22 * r22;
+    r24 = r0 * r17;
+    r24 = fma(r26, r24, r25);
+    r24 = fma(r6, r24, r5);
+    r6 = r11 * r12;
+    r6 = fma(r0, r6, r38);
+    r41 = r19 + r41;
+    r41 = r41 + r32;
+    r32 = r15 * r12;
+    r32 = fma(r8, r32, r29);
+    r10 = fma(r23, r10, r42);
+    r18 = r19 + r18;
+    r18 = r18 + r43;
+    r24 = fma(r35, r6, r24);
+    r24 = fma(r36, r41, r24);
+    r24 = fma(r31, r32, r24);
+    r24 = fma(r28, r10, r24);
+    r24 = fma(r7, r18, r24);
+    r18 = r24 * r24;
+    r18 = fma(r34, r18, r34 * r30);
+    r18 = fma(r37, r18, r19);
+    r18 = r40 * r18;
+    r21 = 1.0 / r21;
+    r18 = r18 * r21;
+    r2 = fma(r22, r18, r2);
+    r4 = fma(r3, r4, r1);
+    r4 = fma(r24, r18, r4);
+    r4 = fma(r4, r4, r2 * r2);
   };
   SumStore<double>(out_rTr_local,
                    (double*)inout_shared,
@@ -267,9 +269,9 @@ void SimpleRadialSplitFixedPrincipalPointScore(
     SharedIndex* pose_indices,
     double* sensor_from_rig,
     unsigned int sensor_from_rig_num_alloc,
-    double* focal_and_distortion,
-    unsigned int focal_and_distortion_num_alloc,
-    SharedIndex* focal_and_distortion_indices,
+    double* focal_and_extra,
+    unsigned int focal_and_extra_num_alloc,
+    SharedIndex* focal_and_extra_indices,
     double* point,
     unsigned int point_num_alloc,
     SharedIndex* point_indices,
@@ -290,9 +292,9 @@ void SimpleRadialSplitFixedPrincipalPointScore(
       pose_indices,
       sensor_from_rig,
       sensor_from_rig_num_alloc,
-      focal_and_distortion,
-      focal_and_distortion_num_alloc,
-      focal_and_distortion_indices,
+      focal_and_extra,
+      focal_and_extra_num_alloc,
+      focal_and_extra_indices,
       point,
       point_num_alloc,
       point_indices,

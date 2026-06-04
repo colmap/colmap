@@ -615,7 +615,7 @@ cudaError_t ConstPointCasparToStacked(const double* cas_data,
 }
 
 __global__
-__launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionStackedToCaspar_kernel(
+__launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndExtraStackedToCaspar_kernel(
     const double* const __restrict__ stacked_data,
     double* const __restrict__ cas_data,
     const unsigned int cas_stride,
@@ -647,7 +647,7 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionStacked
 }
 
 __global__
-__launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionCasparToStacked_kernel(
+__launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndExtraCasparToStacked_kernel(
     const double* const __restrict__ cas_data,
     double* const __restrict__ stacked_data,
     const unsigned int cas_stride,
@@ -677,7 +677,7 @@ __launch_bounds__(block_size, 1) void ConstSimpleRadialFocalAndDistortionCasparT
   }
 }
 
-cudaError_t ConstSimpleRadialFocalAndDistortionStackedToCaspar(
+cudaError_t ConstSimpleRadialFocalAndExtraStackedToCaspar(
     const double* stacked_data,
     double* cas_data,
     const unsigned int cas_stride,
@@ -685,14 +685,14 @@ cudaError_t ConstSimpleRadialFocalAndDistortionStackedToCaspar(
     const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
-  ConstSimpleRadialFocalAndDistortionStackedToCaspar_kernel<<<num_blocks,
-                                                              block_size>>>(
+  ConstSimpleRadialFocalAndExtraStackedToCaspar_kernel<<<num_blocks,
+                                                         block_size>>>(
       stacked_data, cas_data, cas_stride, cas_offset, num_objects);
 
   return cudaGetLastError();
 }
 
-cudaError_t ConstSimpleRadialFocalAndDistortionCasparToStacked(
+cudaError_t ConstSimpleRadialFocalAndExtraCasparToStacked(
     const double* cas_data,
     double* stacked_data,
     const unsigned int cas_stride,
@@ -700,8 +700,8 @@ cudaError_t ConstSimpleRadialFocalAndDistortionCasparToStacked(
     const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
-  ConstSimpleRadialFocalAndDistortionCasparToStacked_kernel<<<num_blocks,
-                                                              block_size>>>(
+  ConstSimpleRadialFocalAndExtraCasparToStacked_kernel<<<num_blocks,
+                                                         block_size>>>(
       cas_data, stacked_data, cas_stride, cas_offset, num_objects);
 
   return cudaGetLastError();
@@ -1635,7 +1635,7 @@ cudaError_t SimpleRadialCalibCasparToStacked(const double* cas_data,
 }
 
 __global__
-__launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionStackedToCaspar_kernel(
+__launch_bounds__(block_size, 1) void SimpleRadialFocalAndExtraStackedToCaspar_kernel(
     const double* const __restrict__ stacked_data,
     double* const __restrict__ cas_data,
     const unsigned int cas_stride,
@@ -1667,7 +1667,7 @@ __launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionStackedToCas
 }
 
 __global__
-__launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionCasparToStacked_kernel(
+__launch_bounds__(block_size, 1) void SimpleRadialFocalAndExtraCasparToStacked_kernel(
     const double* const __restrict__ cas_data,
     double* const __restrict__ stacked_data,
     const unsigned int cas_stride,
@@ -1697,7 +1697,7 @@ __launch_bounds__(block_size, 1) void SimpleRadialFocalAndDistortionCasparToStac
   }
 }
 
-cudaError_t SimpleRadialFocalAndDistortionStackedToCaspar(
+cudaError_t SimpleRadialFocalAndExtraStackedToCaspar(
     const double* stacked_data,
     double* cas_data,
     const unsigned int cas_stride,
@@ -1705,14 +1705,13 @@ cudaError_t SimpleRadialFocalAndDistortionStackedToCaspar(
     const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
-  SimpleRadialFocalAndDistortionStackedToCaspar_kernel<<<num_blocks,
-                                                         block_size>>>(
+  SimpleRadialFocalAndExtraStackedToCaspar_kernel<<<num_blocks, block_size>>>(
       stacked_data, cas_data, cas_stride, cas_offset, num_objects);
 
   return cudaGetLastError();
 }
 
-cudaError_t SimpleRadialFocalAndDistortionCasparToStacked(
+cudaError_t SimpleRadialFocalAndExtraCasparToStacked(
     const double* cas_data,
     double* stacked_data,
     const unsigned int cas_stride,
@@ -1720,8 +1719,7 @@ cudaError_t SimpleRadialFocalAndDistortionCasparToStacked(
     const unsigned int num_objects) {
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
-  SimpleRadialFocalAndDistortionCasparToStacked_kernel<<<num_blocks,
-                                                         block_size>>>(
+  SimpleRadialFocalAndExtraCasparToStacked_kernel<<<num_blocks, block_size>>>(
       cas_data, stacked_data, cas_stride, cas_offset, num_objects);
 
   return cudaGetLastError();
