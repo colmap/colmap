@@ -127,8 +127,7 @@ class AutomaticReconstructionController : public Thread {
     std::string gpu_index = "-1";
 
     // Bundle adjustment solver backend for local and global BA.
-    BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
-    BundleAdjustmentBackend ba_global_backend = BundleAdjustmentBackend::CERES;
+    BundleAdjustmentBackend ba_backend = BundleAdjustmentBackend::CERES;
   };
 
   AutomaticReconstructionController(

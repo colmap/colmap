@@ -38,6 +38,7 @@
 //       [--track_length=N] [--num_frames=N] [--num_points3D=N] \
 //       [--max_ceres_iterations=N] [--max_caspar_iterations=N]
 
+#include "colmap/controllers/base_option_manager.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
@@ -48,68 +49,32 @@
 #include <chrono>
 #include <iostream>
 #include <string>
-#include <string_view>
 
 using namespace colmap;
 
-namespace {
-
-int ParseIntFlag(int argc,
-                 char** argv,
-                 std::string_view prefix,
-                 int default_val) {
-  for (int i = 1; i < argc; ++i) {
-    const std::string_view arg(argv[i]);
-    if (arg.substr(0, prefix.size()) == prefix) {
-      return std::stoi(std::string(arg.substr(prefix.size())));
-    }
-  }
-  return default_val;
-}
-
-std::string ParseStrFlag(int argc,
-                         char** argv,
-                         std::string_view prefix,
-                         std::string default_val) {
-  for (int i = 1; i < argc; ++i) {
-    const std::string_view arg(argv[i]);
-    if (arg.substr(0, prefix.size()) == prefix) {
-      return std::string(arg.substr(prefix.size()));
-    }
-  }
-  return default_val;
-}
-
-bool ParseBoolFlag(int argc,
-                   char** argv,
-                   std::string_view prefix,
-                   bool default_val) {
-  for (int i = 1; i < argc; ++i) {
-    const std::string_view arg(argv[i]);
-    if (arg.substr(0, prefix.size()) == prefix) {
-      const auto val = arg.substr(prefix.size());
-      return val == "1" || val == "true";
-    }
-  }
-  return default_val;
-}
-
-}  // namespace
-
 int main(int argc, char** argv) {
   // -1 means "use solver default". Override only when flag is provided.
-  const int max_ceres_iterations =
-      ParseIntFlag(argc, argv, "--max_ceres_iterations=", -1);
-  const int max_caspar_iterations =
-      ParseIntFlag(argc, argv, "--max_caspar_iterations=", -1);
-  const int track_length = ParseIntFlag(argc, argv, "--track_length=", 20);
-  const int num_frames = ParseIntFlag(argc, argv, "--num_frames=", 50);
-  const int num_points3D = ParseIntFlag(argc, argv, "--num_points3D=", 5000);
-  const int num_cameras_per_rig =
-      ParseIntFlag(argc, argv, "--num_cameras_per_rig=", 1);
-  const bool refine_focal_length =
-      ParseBoolFlag(argc, argv, "--refine_focal_length=", false);
-  const std::string label = ParseStrFlag(argc, argv, "--label=", "default");
+  int max_ceres_iterations = -1;
+  int max_caspar_iterations = -1;
+  int track_length = 20;
+  int num_frames = 50;
+  int num_points3D = 5000;
+  int num_cameras_per_rig = 1;
+  bool refine_focal_length = false;
+  std::string label = "default";
+
+  BaseOptionManager args(/*add_project_options=*/false);
+  args.AddDefaultOption("max_ceres_iterations", &max_ceres_iterations);
+  args.AddDefaultOption("max_caspar_iterations", &max_caspar_iterations);
+  args.AddDefaultOption("track_length", &track_length);
+  args.AddDefaultOption("num_frames", &num_frames);
+  args.AddDefaultOption("num_points3D", &num_points3D);
+  args.AddDefaultOption("num_cameras_per_rig", &num_cameras_per_rig);
+  args.AddDefaultOption("refine_focal_length", &refine_focal_length);
+  args.AddDefaultOption("label", &label);
+  if (!args.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   SetPRNGSeed(42);
 

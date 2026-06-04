@@ -153,8 +153,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.feature_extraction->use_gpu = options_.use_gpu;
   option_manager_.feature_matching->use_gpu = options_.use_gpu;
   option_manager_.mapper->ba_use_gpu = options_.use_gpu;
-  option_manager_.mapper->ba_local_backend = options_.ba_local_backend;
-  option_manager_.mapper->ba_global_backend = options_.ba_global_backend;
+  option_manager_.mapper->ba_local_backend = options_.ba_backend;
+  option_manager_.mapper->ba_global_backend = options_.ba_backend;
   if (option_manager_.bundle_adjustment->ceres) {
     option_manager_.bundle_adjustment->ceres->use_gpu = options_.use_gpu;
   }

@@ -141,20 +141,15 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void AddFactors() {
-    std::vector<image_t> sorted_image_ids;
-    sorted_image_ids.reserve(config_.Images().size());
-    for (const image_t image_id : config_.Images()) {
-      sorted_image_ids.push_back(image_id);
-    }
     // Sort camera-first so all factors for the same calibration are contiguous.
     // This improves float32 numerical quality in the GPU gradient summation.
-    std::sort(sorted_image_ids.begin(),
-              sorted_image_ids.end(),
-              [&](image_t a, image_t b) {
-                const camera_t cam_a = reconstruction_.Image(a).CameraId();
-                const camera_t cam_b = reconstruction_.Image(b).CameraId();
-                return cam_a != cam_b ? cam_a < cam_b : a < b;
-              });
+    std::vector<std::pair<camera_t, image_t>> sorted_images;
+    sorted_images.reserve(config_.Images().size());
+    for (const image_t image_id : config_.Images()) {
+      sorted_images.emplace_back(reconstruction_.Image(image_id).CameraId(),
+                                 image_id);
+    }
+    std::sort(sorted_images.begin(), sorted_images.end());
 
     // Cache per-camera values across images sharing the same camera. These are
     // recomputed only when the camera changes (images are sorted camera-first).
@@ -165,9 +160,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
     bool principal_point_var = false;
     size_t calib_idx = 0;
 
-    for (const image_t image_id : sorted_image_ids) {
+    for (const auto& [camera_id, image_id] : sorted_images) {
       const Image& image = reconstruction_.Image(image_id);
-      const camera_t camera_id = image.CameraId();
 
       if (camera_id != prev_camera_id) {
         camera_ptr = &reconstruction_.Camera(camera_id);

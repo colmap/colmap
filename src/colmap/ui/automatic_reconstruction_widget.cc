@@ -107,19 +107,11 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddSpacer();
   AddSection("Bundle Adjustment Backend");
 
-  ba_local_backend_cb_ = new QComboBox(this);
-  ba_local_backend_cb_->addItem("CERES");
-  ba_local_backend_cb_->addItem("CASPAR");
-  ba_local_backend_cb_->setCurrentIndex(
-      static_cast<int>(options_.ba_local_backend));
-  AddWidgetRow("Local", ba_local_backend_cb_);
-
-  ba_global_backend_cb_ = new QComboBox(this);
-  ba_global_backend_cb_->addItem("CERES");
-  ba_global_backend_cb_->addItem("CASPAR");
-  ba_global_backend_cb_->setCurrentIndex(
-      static_cast<int>(options_.ba_global_backend));
-  AddWidgetRow("Global", ba_global_backend_cb_);
+  ba_backend_cb_ = new QComboBox(this);
+  ba_backend_cb_->addItem("CERES");
+  ba_backend_cb_->addItem("CASPAR");
+  ba_backend_cb_->setCurrentIndex(static_cast<int>(options_.ba_backend));
+  AddWidgetRow("Backend", ba_backend_cb_);
 #endif
 
   AddSpacer();
@@ -201,10 +193,8 @@ void AutomaticReconstructionWidget::Run() {
   }
 
 #ifdef CASPAR_ENABLED
-  options_.ba_local_backend = static_cast<BundleAdjustmentBackend>(
-      ba_local_backend_cb_->currentIndex());
-  options_.ba_global_backend = static_cast<BundleAdjustmentBackend>(
-      ba_global_backend_cb_->currentIndex());
+  options_.ba_backend = static_cast<BundleAdjustmentBackend>(
+      ba_backend_cb_->currentIndex());
 #endif
 
   main_window_->reconstruction_manager_->Clear();
