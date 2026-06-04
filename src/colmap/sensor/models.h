@@ -99,7 +99,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
-                                kEUCM                     // = 16
+                                kEUCM,                    // = 16
+                                kSpherical                // = 17
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -171,7 +172,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FisheyeCameraModel)             \
-  CAMERA_MODEL_CASE(EUCMCameraModel)
+  CAMERA_MODEL_CASE(EUCMCameraModel)                \
+  CAMERA_MODEL_CASE(SphericalCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -602,6 +604,73 @@ struct EUCMCameraModel : public BaseCameraModel<EUCMCameraModel> {
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
                                          T max_extra_param);
+};
+
+// Spherical (equirectangular panorama) camera model.
+//
+// Maps the full 360°x180° sphere onto an equirectangular image: the azimuth
+// spans the image width and the elevation spans the image height. The model
+// is fully specified by the image dimensions, so the two parameters are the
+// width and height; there is no focal length and no lens distortion.
+//
+// Parameter list is expected in the following order:
+//
+//    w, h
+//
+// Named "SPHERICAL" and parametrized by (w, h) to match PoseLib's
+// SphericalCameraModel, so cameras map across the COLMAP/PoseLib boundary by
+// model name.
+struct SphericalCameraModel : public BaseCameraModel<SphericalCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSpherical, "SPHERICAL", 0, 0, 2, false)
+
+  // Override BaseCameraModel: the only parameters are image dimensions —
+  // always valid by construction — so the generic bogus-focal / bogus-extra
+  // checks don't apply.
+  template <typename T>
+  static inline bool HasBogusParams(const std::vector<T>& params,
+                                    size_t width,
+                                    size_t height,
+                                    T min_focal_length_ratio,
+                                    T max_focal_length_ratio,
+                                    T max_extra_param) {
+    (void)params;
+    (void)width;
+    (void)height;
+    (void)min_focal_length_ratio;
+    (void)max_focal_length_ratio;
+    (void)max_extra_param;
+    return false;
+  }
+
+  // Override BaseCameraModel: SPHERICAL has no focal length. Convert pixel
+  // thresholds to normalized-camera-coord thresholds using the angular
+  // resolution at the equator (2π rad per W pixels in azimuth).
+  template <typename T>
+  static inline T CamFromImgThreshold(const T* params, T threshold) {
+    return threshold * T(2.0 * M_PI) / params[0];
+  }
+
+  // Override BaseCameraModel: the default CamRayFromImg goes through the 2D
+  // CamFromImg which fails for back-hemisphere pixels. SPHERICAL can produce
+  // valid unit bearings for any pixel in the equirectangular image, so we
+  // compute the ray directly from the azimuth/elevation parametrization.
+  static inline bool CamRayFromImg(const double* params,
+                                   double x,
+                                   double y,
+                                   double* rx,
+                                   double* ry,
+                                   double* rz) {
+    const double width = params[0];
+    const double height = params[1];
+    const double theta = 2.0 * M_PI * (x / width - 0.5);
+    const double phi = M_PI * (0.5 - y / height);
+    const double cos_phi = std::cos(phi);
+    *rx = cos_phi * std::sin(theta);
+    *ry = -std::sin(phi);
+    *rz = cos_phi * std::cos(theta);
+    return true;
+  }
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -2513,6 +2582,90 @@ bool EUCMCameraModel::CamFromImg(const double* params,
   *v /= helper;
 
   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SphericalCameraModel
+
+std::string SphericalCameraModel::InitializeParamsInfo() { return "w, h"; }
+
+std::array<size_t, 0> SphericalCameraModel::InitializeFocalLengthIdxs() {
+  return {};
+}
+
+std::array<size_t, 0> SphericalCameraModel::InitializePrincipalPointIdxs() {
+  return {};
+}
+
+std::array<size_t, 2> SphericalCameraModel::InitializeExtraParamsIdxs() {
+  return {0, 1};
+}
+
+std::vector<double> SphericalCameraModel::InitializeParams(
+    const double /*focal_length*/, const size_t width, const size_t height) {
+  // focal_length is ignored: an equirectangular projection is fully specified
+  // by the image dimensions.
+  return {static_cast<double>(width), static_cast<double>(height)};
+}
+
+// Projects camera-frame point (u, v, w) onto the equirectangular image plane.
+// Unlike pinhole/fisheye models that require w > 0, SPHERICAL accepts any
+// non-zero direction — all 4π sr of the sphere are representable.
+template <typename T>
+bool SphericalCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  const T width = params[0];
+  const T height = params[1];
+
+  const T horizontal = ceres::sqrt(u * u + w * w);
+  // Degenerate: zero direction vector.
+  if (horizontal + ceres::abs(v) < T(std::numeric_limits<double>::epsilon())) {
+    return false;
+  }
+
+  // Azimuth θ ∈ (-π, π], measured from +Z axis (forward). +X is θ = +π/2.
+  const T theta = ceres::atan2(u, w);
+  // Elevation φ ∈ [-π/2, π/2], measured from the equator. -Y (up) is +π/2.
+  const T phi = ceres::atan2(-v, horizontal);
+
+  *x = (theta / T(2.0 * M_PI) + T(0.5)) * width;
+  *y = (T(0.5) - phi / T(M_PI)) * height;
+  return true;
+}
+
+// Inverse equirectangular projection. Returns the normalized camera
+// coordinates (u = X/Z, v = Y/Z) of the pixel's ray, valid only when the ray
+// falls in the forward hemisphere (Z > 0). Back-hemisphere pixels return
+// false; use CamRayFromImg for the full-sphere 3D bearing.
+bool SphericalCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double width = params[0];
+  const double height = params[1];
+
+  const double theta = 2.0 * M_PI * (x / width - 0.5);
+  const double phi = M_PI * (0.5 - y / height);
+
+  const double cos_phi = std::cos(phi);
+  const double rx = cos_phi * std::sin(theta);
+  const double ry = -std::sin(phi);
+  const double rz = cos_phi * std::cos(theta);
+
+  if (rz <= std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  *u = rx / rz;
+  *v = ry / rz;
+  return true;
+}
+
+// SPHERICAL has no lens distortion. The macro declares a Distortion function;
+// this no-op satisfies the interface.
+template <typename T>
+void SphericalCameraModel::Distortion(
+    const T* /*extra_params*/, const T& /*u*/, const T& /*v*/, T* du, T* dv) {
+  *du = T(0);
+  *dv = T(0);
 }
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
