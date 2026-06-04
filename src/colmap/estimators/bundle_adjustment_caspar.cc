@@ -280,8 +280,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     const bool point_var = IsPointVariable(point2D.point3D_id);
 
     // Skip fully-constant observations, there's nothing to optimize
-    if (!pose_var && !focal_and_extra && !principal_point_var &&
-        !point_var) {
+    if (!pose_var && !focal_and_extra && !principal_point_var && !point_var) {
       return;
     }
 
@@ -292,8 +291,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     static constexpr FactorVariant kVariantTable[16] = {
         /* 0000 */ FactorVariant::BASE,  // unreachable
                                          /* 0001 */
-        FactorVariant::
-            FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,
+        FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,
         /* 0010 */
         FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT,
         /* 0011 */ FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA,
@@ -302,8 +300,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
         /* 0110 */ FactorVariant::FIXED_POSE_FIXED_POINT,
         /* 0111 */ FactorVariant::FIXED_POSE,
         /* 1000 */
-        FactorVariant::
-            FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT,
+        FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT,
         /* 1001 */
         FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT,
         /* 1010 */ FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT,

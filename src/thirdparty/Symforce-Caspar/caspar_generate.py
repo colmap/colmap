@@ -270,9 +270,7 @@ def simple_radial_split_core(
     sensor_from_rig: T.Annotated[
         ConstSimpleRadialSensorFromRig, mem.ConstantSequential
     ],
-    focal_and_extra: T.Annotated[
-        SimpleRadialFocalAndExtra, mem.TunableShared
-    ],
+    focal_and_extra: T.Annotated[SimpleRadialFocalAndExtra, mem.TunableShared],
     principal_point: T.Annotated[SimpleRadialPrincipalPoint, mem.TunableShared],
     point: T.Annotated[Point, mem.TunableShared],
     pixel: T.Annotated[ConstPixel, mem.ConstantSequential],

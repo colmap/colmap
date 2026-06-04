@@ -122,8 +122,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("random_seed", &reconstruction_options.random_seed);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
-  options.AddDefaultOption(
-      "Mapper.ba_backend", &ba_backend, "{ceres, caspar}");
+  options.AddDefaultOption("Mapper.ba_backend", &ba_backend, "{ceres, caspar}");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }

@@ -34,17 +34,15 @@ struct CasparSolverSizing {
   size_t num_simple_radial_split_fixed_principal_point = 0;
   size_t num_simple_radial_split_fixed_pose_fixed_focal_and_extra = 0;
   size_t num_simple_radial_split_fixed_pose_fixed_principal_point = 0;
-  size_t
-      num_simple_radial_split_fixed_focal_and_extra_fixed_principal_point =
-          0;
+  size_t num_simple_radial_split_fixed_focal_and_extra_fixed_principal_point =
+      0;
   size_t num_simple_radial_split_fixed_focal_and_extra_fixed_point = 0;
   size_t num_simple_radial_split_fixed_principal_point_fixed_point = 0;
   size_t
       num_simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point =
           0;
-  size_t
-      num_simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point =
-          0;
+  size_t num_simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_point =
+      0;
   size_t num_simple_radial_split_fixed_pose_fixed_principal_point_fixed_point =
       0;
   size_t
@@ -99,15 +97,14 @@ class ICasparModelAdapter {
 
   // Append focal_and_extra / focal / principal_point params from a
   // camera into a flat output vector.
-  virtual void ExtractFocalAndExtra(
-      const Camera& camera, std::vector<StorageType>& out) const = 0;
+  virtual void ExtractFocalAndExtra(const Camera& camera,
+                                    std::vector<StorageType>& out) const = 0;
   virtual void ExtractPrincipalPoint(const Camera& camera,
                                      std::vector<StorageType>& out) const = 0;
 
-  virtual void WriteFocalAndExtra(
-      Camera& camera,
-      const StorageType* focal_and_extra_data,
-      size_t idx) const = 0;
+  virtual void WriteFocalAndExtra(Camera& camera,
+                                  const StorageType* focal_and_extra_data,
+                                  size_t idx) const = 0;
   virtual void WritePrincipalPoint(Camera& camera,
                                    const StorageType* principal_point_data,
                                    size_t idx) const = 0;
@@ -120,11 +117,11 @@ class ICasparModelAdapter {
                             size_t n) const = 0;
 
   virtual void SetFocalAndExtraNodes(caspar::GraphSolver& solver,
-                                          StorageType* data,
-                                          size_t n) const = 0;
+                                     StorageType* data,
+                                     size_t n) const = 0;
   virtual void GetFocalAndExtraNodes(caspar::GraphSolver& solver,
-                                          StorageType* data,
-                                          size_t n) const = 0;
+                                     StorageType* data,
+                                     size_t n) const = 0;
   virtual void SetPrincipalPointNodes(caspar::GraphSolver& solver,
                                       StorageType* data,
                                       size_t n) const = 0;
@@ -221,7 +218,7 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   }
 
   void ExtractFocalAndExtra(const Camera& camera,
-                                 std::vector<StorageType>& out) const override {
+                            std::vector<StorageType>& out) const override {
     out.push_back(static_cast<StorageType>(camera.params[0]));  // f
     out.push_back(static_cast<StorageType>(camera.params[3]));  // k
   }
@@ -233,8 +230,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   }
 
   void WriteFocalAndExtra(Camera& camera,
-                               const StorageType* data,
-                               size_t idx) const override {
+                          const StorageType* data,
+                          size_t idx) const override {
     camera.params[0] =
         static_cast<double>(data[idx * FocalAndExtraSize() + 0]);  // f
     camera.params[3] =
@@ -263,14 +260,14 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   }
 
   void SetFocalAndExtraNodes(caspar::GraphSolver& s,
-                                  StorageType* data,
-                                  size_t n) const override {
+                             StorageType* data,
+                             size_t n) const override {
     s.SetSimpleRadialFocalAndExtraNodesFromStackedHost(data, 0, n);
   }
 
   void GetFocalAndExtraNodes(caspar::GraphSolver& s,
-                                  StorageType* data,
-                                  size_t n) const override {
+                             StorageType* data,
+                             size_t n) const override {
     s.GetSimpleRadialFocalAndExtraNodesToStackedHost(data, 0, n);
   }
 
@@ -311,8 +308,8 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
         s.SetSimpleRadialPoseIndicesFromHost(d.pose_indices.data(), n);
         s.SetSimpleRadialSensorFromRigDataFromStackedHost(
             d.sensor_from_rig_data.data(), 0, n);
-        s.SetSimpleRadialCalibIndicesFromHost(
-            d.focal_and_extra_indices.data(), n);
+        s.SetSimpleRadialCalibIndicesFromHost(d.focal_and_extra_indices.data(),
+                                              n);
         s.SetSimpleRadialPointIndicesFromHost(d.point_indices.data(), n);
         s.SetSimpleRadialPixelDataFromStackedHost(d.pixels.data(), 0, n);
         break;
@@ -605,7 +602,7 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 
   void ExtractFocalAndExtra(const Camera& camera,
-                                 std::vector<StorageType>& out) const override {
+                            std::vector<StorageType>& out) const override {
     out.push_back(static_cast<StorageType>(camera.params[0]));  // fx
     out.push_back(static_cast<StorageType>(camera.params[1]));  // fy
   }
@@ -617,8 +614,8 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 
   void WriteFocalAndExtra(Camera& camera,
-                               const StorageType* data,
-                               size_t idx) const override {
+                          const StorageType* data,
+                          size_t idx) const override {
     camera.params[0] =
         static_cast<double>(data[idx * FocalAndExtraSize() + 0]);  // fx
     camera.params[1] =
@@ -647,14 +644,14 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 
   void SetFocalAndExtraNodes(caspar::GraphSolver& s,
-                                  StorageType* data,
-                                  size_t n) const override {
+                             StorageType* data,
+                             size_t n) const override {
     s.SetPinholeFocalNodesFromStackedHost(data, 0, n);
   }
 
   void GetFocalAndExtraNodes(caspar::GraphSolver& s,
-                                  StorageType* data,
-                                  size_t n) const override {
+                             StorageType* data,
+                             size_t n) const override {
     s.GetPinholeFocalNodesToStackedHost(data, 0, n);
   }
 
@@ -694,8 +691,7 @@ class PinholeAdapter : public ICasparModelAdapter {
         s.SetPinholePoseIndicesFromHost(d.pose_indices.data(), n);
         s.SetPinholeSensorFromRigDataFromStackedHost(
             d.sensor_from_rig_data.data(), 0, n);
-        s.SetPinholeCalibIndicesFromHost(d.focal_and_extra_indices.data(),
-                                         n);
+        s.SetPinholeCalibIndicesFromHost(d.focal_and_extra_indices.data(), n);
         s.SetPinholePointIndicesFromHost(d.point_indices.data(), n);
         s.SetPinholePixelDataFromStackedHost(d.pixels.data(), 0, n);
         break;
@@ -957,15 +953,15 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_fixed_point,             // {point}
       sz.num_pinhole_fixed_pose_fixed_point,  // {pose, point}
       // simple_radial_split factor counts (11 variants, must_fix_one_of):
-      sz.num_simple_radial_split_fixed_focal_and_extra,  // r=1 {fae}
-      sz.num_simple_radial_split_fixed_principal_point,       // r=1 {pp}
+      sz.num_simple_radial_split_fixed_focal_and_extra,             // r=1 {fae}
+      sz.num_simple_radial_split_fixed_principal_point,             // r=1 {pp}
       sz.num_simple_radial_split_fixed_pose_fixed_focal_and_extra,  // r=2
-                                                                         // {pose,fad}
+                                                                    // {pose,fad}
       sz.num_simple_radial_split_fixed_pose_fixed_principal_point,  // r=2
                                                                     // {pose,pp}
       sz.num_simple_radial_split_fixed_focal_and_extra_fixed_principal_point,  // r=2 {fae,pp}
       sz.num_simple_radial_split_fixed_focal_and_extra_fixed_point,  // r=2
-                                                                          // {fae,pt}
+                                                                     // {fae,pt}
       sz.num_simple_radial_split_fixed_principal_point_fixed_point,  // r=2
                                                                      // {pp,pt}
       sz.num_simple_radial_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point,  // r=3
