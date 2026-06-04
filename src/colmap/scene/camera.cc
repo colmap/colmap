@@ -73,6 +73,10 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
 
 double Camera::MeanFocalLength() const {
   const span<const size_t> focal_length_idxs = FocalLengthIdxs();
+  // Omnidirectional cameras (e.g. SPHERICAL) have no focal length.
+  if (focal_length_idxs.size() == 0) {
+    return 0.0;
+  }
   double focal_length = 0;
   for (const auto idx : focal_length_idxs) {
     focal_length += params[idx];
@@ -146,6 +150,9 @@ void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
   } else if (num_focal_params == 2) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
+  } else if (num_focal_params == 0) {
+    // Omnidirectional cameras (e.g. SPHERICAL) have no focal length to scale;
+    // the principal-point rescale performed by the caller is sufficient.
   } else {
     LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";
