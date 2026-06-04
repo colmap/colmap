@@ -38,6 +38,22 @@ except ImportError:
     print("Install with: pip install rerun-sdk")
 
 
+def select_largest_model(sparse_path: Path) -> Path:
+    """Return the reconstruction sub-model with the most images.
+
+    The incremental mapper can emit several disconnected models (0/, 1/, ...);
+    model 0 is not necessarily the largest. The size of images.bin is a good
+    proxy for the model with the most images/observations.
+    """
+    candidates = [
+        d for d in sparse_path.iterdir()
+        if d.is_dir() and (d / "images.bin").exists()
+    ]
+    if not candidates:
+        return sparse_path / "0"
+    return max(candidates, key=lambda d: (d / "images.bin").stat().st_size)
+
+
 def find_files(folder, types):
     """Find files with given extensions in folder."""
     return [entry.path for entry in os.scandir(folder)
@@ -92,16 +108,18 @@ def run_colmap_sfm(colmap_path: Path, database_path: Path, image_path: Path,
     subprocess.run(cmd, shell=True, check=True)
     print(f"  Completed in {time.perf_counter() - t0:.2f}s")
 
-    # Incremental mapping
+    # Incremental mapping (GPU bundle adjustment when available: DENSE_SCHUR on
+    # CUDA for >= 50 images).
     print("\n[COLMAP] Incremental Mapping...")
     t0 = time.perf_counter()
     output_path.mkdir(parents=True, exist_ok=True)
-    cmd = f"{colmap_path} mapper --database_path {database_path} --image_path {image_path} --output_path {output_path}"
+    ba_gpu_flag = "--Mapper.ba_use_gpu 1" if use_gpu else "--Mapper.ba_use_gpu 0"
+    cmd = f"{colmap_path} mapper --database_path {database_path} --image_path {image_path} --output_path {output_path} {ba_gpu_flag}"
     print(f"  Command: {cmd}")
     subprocess.run(cmd, shell=True, check=True)
     print(f"  Completed in {time.perf_counter() - t0:.2f}s")
 
-    return output_path / "0"
+    return select_largest_model(output_path)
 
 
 def run_global_sfm(colmap_path: Path, database_path: Path, image_path: Path,
@@ -144,7 +162,7 @@ def run_global_sfm(colmap_path: Path, database_path: Path, image_path: Path,
     subprocess.run(cmd, shell=True, check=True)
     print(f"  Completed in {time.perf_counter() - t0:.2f}s")
 
-    return output_path / "0"
+    return select_largest_model(output_path)
 
 
 def export_to_txt(colmap_path: Path, model_path: Path, output_path: Path):
