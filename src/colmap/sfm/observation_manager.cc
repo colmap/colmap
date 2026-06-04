@@ -411,6 +411,12 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
       const Image& image = reconstruction_.Image(data_id.id);
+      // Omnidirectional cameras (no focal length, e.g. SPHERICAL) see the full
+      // sphere, so observations behind the local +Z axis are valid and must
+      // not be filtered by the positive-depth (cheirality) test.
+      if (image.CameraPtr()->FocalLengthIdxs().size() == 0) {
+        continue;
+      }
       const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
       for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
            ++point2D_idx) {

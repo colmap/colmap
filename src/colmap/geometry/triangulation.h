@@ -83,6 +83,24 @@ bool TriangulateMultiViewPoint(
     const span<const Eigen::Vector2d>& cam_points,
     Eigen::Vector3d* point3D);
 
+// Triangulate point from multiple views minimizing the L2 error, directly
+// from unit bearing vectors in each camera frame. Unlike the 2D-normalized
+// overload, this variant accepts observations from omnidirectional cameras
+// (e.g. SPHERICAL) whose full-sphere coverage cannot be represented in the
+// (u, v, 1) plane. For perspective cameras, passing
+// `cam_point.homogeneous().normalized()` as the bearing is equivalent to
+// the 2D overload.
+//
+// @param cams_from_world   Projection matrices of multi-view observations.
+// @param cam_rays          Unit bearing vectors in camera frame (3D).
+// @param point3D           Triangulated 3D point.
+//
+// @return                  Whether triangulation was successful.
+bool TriangulateMultiViewPoint(
+    const span<const Eigen::Matrix3x4d>& cams_from_world,
+    const span<const Eigen::Vector3d>& cam_rays,
+    Eigen::Vector3d* point3D);
+
 // Triangulate optimal 3D point from corresponding image point observations by
 // finding the optimal image observations.
 //
