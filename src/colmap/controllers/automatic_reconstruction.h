@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/threading.h"
@@ -124,6 +125,9 @@ class AutomaticReconstructionController : public Thread {
     // comma, e.g., "0,1,2,3". For single-GPU stages only the first GPU will be
     // used. By default, all available GPUs will be used in all stages.
     std::string gpu_index = "-1";
+
+    // Bundle adjustment solver backend for local and global BA.
+    BundleAdjustmentBackend ba_backend = BundleAdjustmentBackend::CERES;
   };
 
   AutomaticReconstructionController(

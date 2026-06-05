@@ -242,6 +242,34 @@ struct BaseCameraModel {
                                            double* u,
                                            double* v);
 
+  // Unproject a pixel to a unit bearing vector in the camera frame.
+  //
+  // Default implementation: delegates to CameraModel::CamFromImg and
+  // normalizes the resulting homogeneous coordinate. Correct for perspective
+  // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
+  //
+  // Omnidirectional camera models override this to produce rays in any
+  // direction of the full sphere. Downstream geometry code should prefer
+  // CamRayFromImg over the 2D CamFromImg whenever a 3D bearing is needed,
+  // since the 2D (u, v, 1) representation cannot encode rays with rz <= 0.
+  static inline bool CamRayFromImg(const double* params,
+                                   double x,
+                                   double y,
+                                   double* rx,
+                                   double* ry,
+                                   double* rz) {
+    double u = 0;
+    double v = 0;
+    if (!CameraModel::CamFromImg(params, x, y, &u, &v)) {
+      return false;
+    }
+    const double norm = std::sqrt(u * u + v * v + 1.0);
+    *rx = u / norm;
+    *ry = v / norm;
+    *rz = 1.0 / norm;
+    return true;
+  }
+
  private:
   BaseCameraModel() = default;
   friend CameraModel;
@@ -674,6 +702,27 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
 //
 // @return              Output ray in camera frame (u, v, w).
 inline std::optional<Eigen::Vector2d> CameraModelCamFromImg(
+    CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector2d& xy);
+
+// Unproject a pixel to a unit 3D bearing vector in the camera frame.
+//
+// Unlike `CameraModelCamFromImg` (limited to the forward hemisphere via the
+// 2D normalized-coordinate representation), this function returns a valid
+// bearing for any pixel the camera model can unproject — including back-
+// facing rays for omnidirectional cameras.
+//
+// Prefer this over `CameraModelCamFromImg` followed by homogeneous +
+// normalize when downstream code needs a 3D ray.
+//
+// @param model_id      Unique identifier of camera model.
+// @param params        Array of camera parameters.
+// @param xy            Image coordinates in pixels.
+//
+// @return              Unit bearing vector in camera frame, or std::nullopt
+//                      if unprojection fails.
+inline std::optional<Eigen::Vector3d> CameraModelCamRayFromImg(
     CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector2d& xy);
@@ -2499,6 +2548,36 @@ std::optional<Eigen::Vector2d> CameraModelCamFromImg(
             params.data(), xy.x(), xy.y(), &uv.x(), &uv.y())) { \
       return uv;                                                \
     }                                                           \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+  return std::nullopt;
+}
+
+// Unproject a pixel to a unit bearing vector in camera coordinates.
+//
+// Unlike CameraModelCamFromImg (which is limited to the forward hemisphere
+// via the 2D normalized-coordinate representation), this function returns a
+// valid 3D unit ray for any pixel on the camera model's image plane,
+// including back-facing rays on omnidirectional cameras.
+//
+// Downstream geometry code (two-view geometry, absolute/relative pose,
+// triangulation) should prefer this function when a 3D bearing is needed.
+std::optional<Eigen::Vector3d> CameraModelCamRayFromImg(
+    const CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector2d& xy) {
+  Eigen::Vector3d ray;
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                      \
+  case CameraModel::model_id:                                               \
+    if (CameraModel::CamRayFromImg(                                         \
+            params.data(), xy.x(), xy.y(), &ray.x(), &ray.y(), &ray.z())) { \
+      return ray;                                                           \
+    }                                                                       \
     break;
 
     CAMERA_MODEL_SWITCH_CASES

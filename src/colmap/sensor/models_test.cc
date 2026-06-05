@@ -104,6 +104,26 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   }
 }
 
+// Round-trip a pixel through the 3D bearing interface: CamRayFromImg yields a
+// unit ray, ImgFromCam must project it back to the same pixel.
+template <typename CameraModel>
+void TestCamRayFromImgToImg(const std::vector<double>& params,
+                            const double x0,
+                            const double y0) {
+  const std::optional<Eigen::Vector3d> ray = CameraModelCamRayFromImg(
+      CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
+  ASSERT_TRUE(ray.has_value());
+  EXPECT_NEAR(ray->norm(), 1.0, 1e-12);
+  const std::optional<Eigen::Vector2d> xy =
+      CameraModelImgFromCam(CameraModel::model_id, params, *ray);
+  ASSERT_TRUE(xy.has_value());
+  // The pixel round-trip is floored by the iterative Newton undistortion in
+  // CamFromImg (~1e-7 worst case); matches the tolerance of the sibling
+  // CamFromImg/ImgFromCam round-trip in TestCamFromImgToImg.
+  EXPECT_NEAR(xy->x(), x0, 1e-6);
+  EXPECT_NEAR(xy->y(), y0, 1e-6);
+}
+
 // Validate ImgFromCamWithJac against ImgFromCam using Ceres Jets.
 template <typename CameraModel>
 void TestImgFromCamWithJac(const std::vector<double>& params,
@@ -236,11 +256,14 @@ void TestModel(const std::vector<double>& params) {
         continue;
       }
       TestCamFromImgToImg<CameraModel>(params, x, y);
+      TestCamRayFromImgToImg<CameraModel>(params, x, y);
     }
   }
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
   TestCamFromImgToImg<CameraModel>(
+      params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
+  TestCamRayFromImgToImg<CameraModel>(
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 
   if constexpr (CameraModel::has_img_from_cam_with_jac) {

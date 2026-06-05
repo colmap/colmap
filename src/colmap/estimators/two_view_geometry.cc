@@ -493,20 +493,10 @@ void ExtractInlierCamRays(const Camera& camera1,
   inlier_cam_rays2->resize(inlier_matches.size());
   for (size_t i = 0; i < inlier_matches.size(); ++i) {
     const FeatureMatch& match = inlier_matches[i];
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points1[match.point2D_idx1]);
-        cam_point1) {
-      (*inlier_cam_rays1)[i] = cam_point1->homogeneous().normalized();
-    } else {
-      (*inlier_cam_rays1)[i].setZero();
-    }
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2[match.point2D_idx2]);
-        cam_point2) {
-      (*inlier_cam_rays2)[i] = cam_point2->homogeneous().normalized();
-    } else {
-      (*inlier_cam_rays2)[i].setZero();
-    }
+    (*inlier_cam_rays1)[i] = camera1.CamRayFromImg(points1[match.point2D_idx1])
+                                 .value_or(Eigen::Vector3d::Zero());
+    (*inlier_cam_rays2)[i] = camera2.CamRayFromImg(points2[match.point2D_idx2])
+                                 .value_or(Eigen::Vector3d::Zero());
   }
 }
 
@@ -647,20 +637,10 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points1[idx1]);
-        cam_point1) {
-      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
-    } else {
-      matched_cam_rays1[i].setZero();
-    }
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2[idx2]);
-        cam_point2) {
-      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
-    } else {
-      matched_cam_rays2[i].setZero();
-    }
+    matched_cam_rays1[i] =
+        camera1.CamRayFromImg(points1[idx1]).value_or(Eigen::Vector3d::Zero());
+    matched_cam_rays2[i] =
+        camera2.CamRayFromImg(points2[idx2]).value_or(Eigen::Vector3d::Zero());
   }
 
   // Estimate epipolar models.
