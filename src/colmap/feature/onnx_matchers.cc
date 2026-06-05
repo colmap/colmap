@@ -582,7 +582,7 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
                      features.descriptors_data.size());
       std::memcpy(features.descriptors_data.data(),
                   reinterpret_cast<const void*>(descriptors_float.data.data()),
-                  descriptors_float.data.size());
+                  descriptors_float.data.size() * sizeof(float));
 
       // Extract scale and orientation from keypoints.
       features.scales_shape = {1, num_keypoints};
