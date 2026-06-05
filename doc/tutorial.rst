@@ -91,7 +91,7 @@ defaults. The source code contains more documentation about all parameters.
 
 COLMAP is research software, and in rare cases it may exit ungracefully if some
 constraints are not fulfilled. In this case, the program prints a traceback to
-stdout. To see this traceback or more debug information, it is recommended to
+stderr. To see this traceback or more debug information, it is recommended to
 run the executables (including the GUI) from the command-line, where you can
 also define various levels of logging verbosity.
 
