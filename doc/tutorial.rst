@@ -67,8 +67,8 @@ The same automatic reconstruction can be run from the command-line, without the
 GUI, using the ``automatic_reconstructor`` command, which produces the identical
 workspace layout shown above::
 
-    ./src/colmap/exe/colmap automatic_reconstructor \
-        --workspace_path path/to/project \
+    colmap automatic_reconstructor \\
+        --workspace_path path/to/project \\
         --image_path path/to/project/images
 
 The following sections give general recommendations and describe the
