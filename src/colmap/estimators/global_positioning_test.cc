@@ -36,6 +36,9 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <map>
+#include <utility>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -135,6 +138,70 @@ TEST(GlobalPositioning, MultiCameraRig) {
                                  /*max_proj_center_error=*/0.5,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.0));
+}
+
+TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {
+  SetPRNGSeed(0);
+
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  // Multi-camera rig so the sensor offsets are non-trivial — both
+  // rotation and translation must round-trip.
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  DatabaseCache database_cache;
+  DatabaseCache::Options cache_options;
+  database_cache.Load(*database, cache_options);
+
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache.CorrespondenceGraph());
+
+  // Copy GT reconstruction and keep only rotations on frames (reset
+  // their translations); leave the rig calibration as-is.
+  Reconstruction reconstruction = gt_reconstruction;
+  for (const auto& [frame_id, _] : reconstruction.Frames()) {
+    Frame& frame = reconstruction.Frame(frame_id);
+    frame.SetRigFromWorld(
+        Rigid3d(frame.RigFromWorld().rotation(), Eigen::Vector3d::Zero()));
+  }
+
+  // Snapshot the rig BEFORE GP.
+  std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
+  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig.has_value());
+      snapshot[{rig_id, sensor_id}] = *sensor_from_rig;
+    }
+  }
+  ASSERT_GT(snapshot.size(), 0u);
+
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  options.random_seed = 42;
+  options.solver_options.minimizer_progress_to_stdout = false;
+  options.refine_sensor_from_rig = false;
+
+  ASSERT_TRUE(RunGlobalPositioning(options, pose_graph, reconstruction));
+
+  // Every sensor_from_rig must match the snapshot exactly.
+  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+    }
+  }
 }
 
 }  // namespace

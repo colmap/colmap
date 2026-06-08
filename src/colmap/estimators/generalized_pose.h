@@ -67,16 +67,18 @@ bool EstimateGeneralizedAbsolutePose(
 
 // Estimate generalized relative pose from 2D-2D correspondences.
 //
-// @param options              RANSAC options.
-// @param points2D1            Corresponding 2D points.
-// @param points2D2            Corresponding 2D points.
-// @param camera_idxs1         Index of the rig camera for each correspondence.
-// @param camera_idxs2         Index of the rig camera for each correspondence.
+// @param ransac_options       RANSAC options.
+// @param points2D1            Corresponding 2D points in first rig image.
+// @param points2D2            Corresponding 2D points in second rig image.
+// @param camera_idxs1         Index of the rig camera for each correspondence
+//                             in the first rig.
+// @param camera_idxs2         Index of the rig camera for each correspondence
+//                             in the second rig.
 // @param cams_from_rig        Relative pose from rig to each camera frame.
 // @param cameras              Cameras for which to estimate pose.
 // @param rig2_from_rig1       Estimated rig2 from rig1 pose, if at least one of
 //                             the rigs is non-panoramic.
-// @param pano2_from_pano1     Estimated rig2 from rig1 pose, if the rigs are
+// @param pano2_from_pano1     Estimated pano2-from-pano1 pose, if the rigs are
 //                             both panoramic.
 // @param num_inliers          Number of inliers in RANSAC.
 // @param inlier_mask          Inlier mask for 2D-2D correspondences.

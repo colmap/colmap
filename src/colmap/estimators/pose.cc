@@ -83,14 +83,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     std::vector<P3PEstimator::X_t> points2D_with_rays(points2D.size());
     for (size_t i = 0; i < points2D.size(); ++i) {
       points2D_with_rays[i].image_point = points2D[i];
-      if (const std::optional<Eigen::Vector2d> cam_point =
-              camera->CamFromImg(points2D[i]);
-          cam_point) {
-        points2D_with_rays[i].camera_ray =
-            cam_point->homogeneous().normalized();
-      } else {
-        points2D_with_rays[i].camera_ray.setZero();
-      }
+      points2D_with_rays[i].camera_ray =
+          camera->CamRayFromImg(points2D[i]).value_or(Eigen::Vector3d::Zero());
     }
 
     ImgFromCamFunc img_from_cam_func =
@@ -241,12 +235,12 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         }
       }
     }
-  }
 
-  SetManifold(&problem,
-              cam_from_world->params.data(),
-              CreateProductManifold(CreateEigenQuaternionManifold(),
-                                    CreateEuclideanManifold<3>()));
+    SetManifold(&problem,
+                cam_from_world->params.data(),
+                CreateProductManifold(CreateEigenQuaternionManifold(),
+                                      CreateEuclideanManifold<3>()));
+  }
 
   ceres::Solver::Options solver_options;
   solver_options.gradient_tolerance = options.gradient_tolerance;

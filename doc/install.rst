@@ -92,6 +92,7 @@ Dependencies from the default Ubuntu repositories::
         qt6-base-dev \
         libqt6opengl6-dev \
         libqt6openglwidgets6 \
+        libqt6svg6-dev \
         libcgal-dev \
         libceres-dev \
         libsuitesparse-dev \
@@ -105,7 +106,7 @@ Dependencies from the default Ubuntu repositories::
 
 Alternatively, you can also build against Qt 5 instead of Qt 6 using::
 
-    qtbase5-dev libqt5opengl5-dev
+    qtbase5-dev libqt5opengl5-dev libqt5svg5-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 

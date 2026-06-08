@@ -44,15 +44,8 @@ TEST(UndistortCamera, Nominal) {
   Camera distorted_camera;
   Camera undistorted_camera;
 
-  distorted_camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1, 1, 1);
-  undistorted_camera = UndistortCamera(options, distorted_camera);
-  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
-  EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
-  EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
-  EXPECT_EQ(undistorted_camera.width, 1);
-  EXPECT_EQ(undistorted_camera.height, 1);
-
-  distorted_camera = Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 1, 1, 1);
+  distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
@@ -61,7 +54,16 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.height, 1);
 
   distorted_camera =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 1, 1, 1);
+  undistorted_camera = UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
+  EXPECT_EQ(undistorted_camera.width, 1);
+  EXPECT_EQ(undistorted_camera.height, 1);
+
+  distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera.params[3] = 0.5;
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
@@ -103,13 +105,50 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 30);
 }
 
+TEST(UndistortCamera, MaxCamPointNorm) {
+  // Fisheye camera with off-center principal point: pixels far from (cx, cy)
+  // have theta close to pi/2, so CamFromImg returns very large values
+  // (|cam_point| = tan(theta)) that blow up the output dimensions.
+  Camera distorted_camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimpleFisheye, 130, 200, 100);
+  distorted_camera.SetPrincipalPointX(10);
+  distorted_camera.SetPrincipalPointY(50);
+
+  UndistortCameraOptions options;
+  // Exercise the path driven by extreme samples.
+  options.blank_pixels = 1.0;
+
+  // Default (max_cam_point_norm = -1): the extreme cam_points push the scale
+  // factor against max_scale, so the output is the maximum allowed size.
+  const Camera undistorted_camera_unbounded =
+      UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera_unbounded.width,
+            distorted_camera.width * options.max_scale);
+  EXPECT_EQ(undistorted_camera_unbounded.height,
+            distorted_camera.height * options.max_scale);
+
+  // With a finite threshold, extreme border samples are skipped, yielding
+  // a smaller output that is no longer hitting the max_scale clamp.
+  options.max_cam_point_norm = 2.0;
+  const Camera undistorted_camera_bounded =
+      UndistortCamera(options, distorted_camera);
+  EXPECT_LT(undistorted_camera_bounded.width,
+            undistorted_camera_unbounded.width);
+  EXPECT_LT(undistorted_camera_bounded.height,
+            undistorted_camera_unbounded.height);
+
+  // max_cam_point_norm = 0 is invalid (would skip every sample).
+  options.max_cam_point_norm = 0;
+  EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
+}
+
 TEST(UndistortCamera, BlankPixels) {
   UndistortCameraOptions options;
   options.blank_pixels = 1;
 
   Camera distorted_camera;
   distorted_camera =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
   Bitmap distorted_image(100, 100, false);
@@ -152,7 +191,7 @@ TEST(UndistortCamera, NoBlankPixels) {
 
   Camera distorted_camera;
   distorted_camera =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
   Bitmap distorted_image(100, 100, false);
@@ -192,7 +231,7 @@ TEST(UndistortReconstruction, Nominal) {
 
   Reconstruction reconstruction;
 
-  Camera camera = Camera::CreateFromModelName(1, "OPENCV", 1, 1, 1);
+  Camera camera = Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 1, 1, 1);
   camera.params[4] = 1.0;
   reconstruction.AddCamera(camera);
   Rig rig;
@@ -233,10 +272,10 @@ TEST(UndistortReconstruction, Nominal) {
 
 TEST(RectifyStereoCameras, Nominal) {
   Camera camera1;
-  camera1 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
+  camera1 = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
 
   Camera camera2;
-  camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
+  camera2 = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
 
   const Rigid3d cam2_from_cam1(
       Eigen::Quaterniond(EulerAnglesToRotationMatrix(0.1, 0.2, 0.3)),
@@ -269,11 +308,11 @@ TEST(RectifyAndUndistortStereoImages, Nominal) {
 
   // Create two distorted cameras with radial distortion.
   Camera distorted_camera1 =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera1.params[3] = 0.1;  // Add some radial distortion
 
   Camera distorted_camera2 =
-      Camera::CreateFromModelName(2, "SIMPLE_RADIAL", 100, 100, 100);
+      Camera::CreateFromModelId(2, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera2.params[3] = 0.1;  // Add some radial distortion
 
   // Create dummy distorted images.

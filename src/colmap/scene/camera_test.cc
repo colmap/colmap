@@ -279,7 +279,8 @@ TEST(Camera, CreateFromModelName) {
 TEST(Camera, CamFromImg) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImg(Eigen::Vector2d::Zero()), std::domain_error);
-  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0)).value(),
             Eigen::Vector2d(-0.5, -0.5));
   EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5)).value(),
@@ -289,12 +290,13 @@ TEST(Camera, CamFromImg) {
 TEST(Camera, CamFromImgThreshold) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImgThreshold(0), std::domain_error);
-  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   EXPECT_EQ(camera.CamFromImgThreshold(0), 0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 1);
   camera.SetFocalLength(2.0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 1, 1);
   camera.SetFocalLengthY(3.0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
 }
@@ -302,7 +304,8 @@ TEST(Camera, CamFromImgThreshold) {
 TEST(Camera, ImgFromCam) {
   Camera camera;
   EXPECT_THROW(camera.ImgFromCam(Eigen::Vector3d::Zero()), std::domain_error);
-  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(0.0, 0.0, 1)).value(),
             Eigen::Vector2d(0.5, 0.5));
   EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(-0.5, -0.5, 1)).value(),
@@ -310,7 +313,8 @@ TEST(Camera, ImgFromCam) {
 }
 
 TEST(Camera, Rescale) {
-  Camera camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera.Rescale(2.0);
   EXPECT_EQ(camera.width, 2);
   EXPECT_EQ(camera.height, 2);
@@ -318,7 +322,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 1);
   EXPECT_EQ(camera.PrincipalPointY(), 1);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 1, 1);
   camera.Rescale(2.0);
   EXPECT_EQ(camera.width, 2);
   EXPECT_EQ(camera.height, 2);
@@ -327,7 +331,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 1);
   EXPECT_EQ(camera.PrincipalPointY(), 1);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 2, 2);
   camera.Rescale(0.5);
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
@@ -336,7 +340,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 2, 2);
   camera.Rescale(1, 1);
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
@@ -345,7 +349,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 2, 2);
   camera.Rescale(4, 4);
   EXPECT_EQ(camera.width, 4);
   EXPECT_EQ(camera.height, 4);

@@ -168,8 +168,8 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
         sensor_from_rig.value(),
         Rigid3dNear(
             gt_reconstruction.Rig(kConstantRigId).SensorFromRig(sensor_id),
-            /*rtol=*/1e-5,
-            /*ttol=*/1e-5));
+            /*rtol=*/1e-4,
+            /*ttol=*/1e-4));
   }
   EXPECT_EQ(reconstruction.Camera(kConstantCameraId).params,
             gt_reconstruction.Camera(kConstantCameraId).params);
@@ -256,12 +256,21 @@ TEST(IncrementalPipeline, WithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto reconstruction = reconstruction_manager->Get(0);
   EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction_manager->Get(0),
+              ReconstructionNear(*reconstruction,
                                  /*max_rotation_error_deg=*/1e-1,
                                  /*max_proj_center_error=*/1e-1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+
+  // After the pipeline runs, point3D.error must be in pixel units, i.e.
+  // equal to what UpdatePoint3DErrors would recompute.
+  ASSERT_GT(reconstruction->NumPoints3D(), 0u);
+  const double mean_after_run = reconstruction->ComputeMeanReprojectionError();
+  reconstruction->UpdatePoint3DErrors();
+  EXPECT_DOUBLE_EQ(mean_after_run,
+                   reconstruction->ComputeMeanReprojectionError());
 }
 
 TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {

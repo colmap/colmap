@@ -174,10 +174,10 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     Image& image = reconstruction.Image(observation.image_id);
     if (!image.HasPose()) continue;
 
-    const std::optional<Eigen::Vector2d> cam_point =
-        image.CameraPtr()->CamFromImg(
+    const std::optional<Eigen::Vector3d> cam_ray =
+        image.CameraPtr()->CamRayFromImg(
             image.Point2D(observation.point2D_idx).xy);
-    if (!cam_point.has_value()) {
+    if (!cam_ray.has_value()) {
       LOG(WARNING)
           << "Ignoring feature because it failed to project: point3D_id="
           << point3D_id << ", image_id=" << observation.image_id
@@ -186,8 +186,7 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     }
 
     const Eigen::Vector3d cam_from_point3D_dir =
-        image.CamFromWorld().rotation().inverse() *
-        cam_point->homogeneous().normalized();
+        image.CamFromWorld().rotation().inverse() * (*cam_ray);
 
     CHECK_GE(scales_.capacity(), scales_.size())
         << "Not enough capacity was reserved for the scales.";
@@ -242,8 +241,12 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
                                    frame_centers_[image.FrameId()].data(),
                                    &scale);
       } else {
-        // If the cam_from_rig contains nan values, it needs to be re-estimated.
-        // Initialize cams_in_rig_ if not already done.
+        // NaN translation means the sensor's cam_from_rig must be
+        // re-estimated, which requires refine_sensor_from_rig=true.
+        THROW_CHECK(options_.refine_sensor_from_rig)
+            << "sensor_from_rig has NaN translation but "
+               "refine_sensor_from_rig=false (image_id="
+            << observation.image_id << ")";
         const sensor_t sensor_id = image.CameraPtr()->SensorId();
         if (cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
           // Will be initialized to random values in ParameterizeVariables().
@@ -410,13 +413,9 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
 
   // Set up the options for the solver
   // Do not use iterative solvers, for its suboptimal performance.
-  if (reconstruction.NumPoints3D() > 0) {
-    options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-    options_.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
-  } else {
-    options_.solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    options_.solver_options.preconditioner_type = ceres::JACOBI;
-  }
+  // TODO: Investigate whether the direct solver should be chosen
+  // adaptively based on problem scale.
+  options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
 }
 
 void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
@@ -426,7 +425,6 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
     rig_from_world.translation() = rig_from_world.rotation() * -center;
   }
 
-  // Convert optimized cam_in_rig back to sensor_from_rig translations.
   for (const auto& [sensor_id, center] : cams_in_rig_) {
     // Find the rig containing this sensor.
     for (const auto& [rig_id, rig] : reconstruction.Rigs()) {

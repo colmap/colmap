@@ -2,6 +2,17 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.0.4 (04/27/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Log an error instead of crash on unknown EXIF orientation
+* Fix crash in AdjustGlobalBundle after aggressive frame filtering
+* Change std::filesystem::relative to lexically_relative for NormalizePath
+* Fix onnxruntime DLL copy error under Windows in Findonnxruntime.cmake
+
+-------------------------
 COLMAP 4.0.3 (04/06/2026)
 -------------------------
 

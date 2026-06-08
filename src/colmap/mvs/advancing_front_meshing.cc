@@ -42,11 +42,20 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdint>
+#include <optional>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include <CGAL/AABB_face_graph_triangle_primitive.h>
+#include <CGAL/version.h>
+// CGAL renamed AABB_traits to AABB_traits_3 in version 6.0.
+#if CGAL_VERSION_NR >= 1060000000  // CGAL >= 6.0
 #include <CGAL/AABB_traits_3.h>
+#else
+#include <CGAL/AABB_traits.h>
+#endif
+#include <CGAL/AABB_face_graph_triangle_primitive.h>
 #include <CGAL/AABB_tree.h>
 #include <CGAL/Advancing_front_surface_reconstruction.h>
 #include <CGAL/Cartesian_converter.h>
@@ -59,6 +68,23 @@
 #include <omp.h>
 
 namespace {
+
+// CGAL 6.0 changed Surface_mesh::property_map() to return std::optional, while
+// older versions return std::pair<PropertyMap, bool>. Normalize both to
+// std::optional so call sites can use a single interface.
+template <typename PropertyMap>
+std::optional<PropertyMap> NormalizePropertyMap(
+    std::pair<PropertyMap, bool> result) {
+  if (result.second) {
+    return result.first;
+  }
+  return std::nullopt;
+}
+template <typename PropertyMap>
+std::optional<PropertyMap> NormalizePropertyMap(
+    std::optional<PropertyMap> result) {
+  return result;
+}
 
 // Float32 kernel with exact predicates for memory efficiency and speed.
 // Uses filtered predicates wrapping Simple_cartesian<float> to maintain
@@ -78,7 +104,11 @@ using SurfaceMesh = CGAL::Surface_mesh<K::Point_3>;
 
 // AABB tree types for post-filtering.
 using AABBPrimitive = CGAL::AABB_face_graph_triangle_primitive<SurfaceMesh>;
+#if CGAL_VERSION_NR >= 1060000000  // CGAL >= 6.0
 using AABBTraits = CGAL::AABB_traits_3<K, AABBPrimitive>;
+#else
+using AABBTraits = CGAL::AABB_traits<K, AABBPrimitive>;
+#endif
 using AABBTree = CGAL::AABB_tree<AABBTraits>;
 
 // Visibility counter: maps triangulation facets to intersection counts.
@@ -255,8 +285,8 @@ struct MeshConstructor {
 colmap::PlyMesh SurfaceMeshToPlyMesh(const SurfaceMesh& mesh) {
   colmap::PlyMesh ply_mesh;
 
-  const auto vcolors =
-      mesh.property_map<SurfaceMesh::Vertex_index, CGAL::Color>("v:color");
+  const auto vcolors = NormalizePropertyMap(
+      mesh.property_map<SurfaceMesh::Vertex_index, CGAL::Color>("v:color"));
 
   ply_mesh.vertices.reserve(mesh.number_of_vertices());
   if (vcolors.has_value()) {
@@ -408,8 +438,9 @@ colmap::PlyMesh ReconstructBlock(
     {
       std::vector<AFSRTriangulation::Facet> intersections;
       auto& local_counter = thread_counters[omp_get_thread_num()];
+      const int64_t num_rays = static_cast<int64_t>(rays.size());
 #pragma omp for schedule(dynamic)
-      for (size_t i = 0; i < rays.size(); ++i) {
+      for (int64_t i = 0; i < num_rays; ++i) {
         ray_caster.CastRaySegment(rays[i], &intersections);
         for (const auto& intersection : intersections) {
           local_counter[intersection]++;
@@ -459,8 +490,9 @@ colmap::PlyMesh ReconstructBlock(
     {
       std::vector<AABBTree::Primitive_id> primitives;
       auto& local_counter = thread_counters[omp_get_thread_num()];
+      const int64_t num_rays = static_cast<int64_t>(rays.size());
 #pragma omp for schedule(dynamic)
-      for (size_t i = 0; i < rays.size(); ++i) {
+      for (int64_t i = 0; i < num_rays; ++i) {
         primitives.clear();
         tree.all_intersected_primitives(rays[i],
                                         std::back_inserter(primitives));

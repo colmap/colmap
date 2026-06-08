@@ -61,6 +61,17 @@ option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" O
 option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
+# Experimental
+option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
+option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
+
+if(CASPAR_ENABLED)
+    add_compile_definitions(CASPAR_ENABLED)
+    if(CASPAR_USE_DOUBLE)
+        add_compile_definitions(CASPAR_USE_DOUBLE)
+    endif()
+endif()
+
 # Disables default features, as we specify each required feature manually below.
 list(APPEND VCPKG_MANIFEST_FEATURES "core")
 
@@ -448,6 +459,9 @@ endif()
 if(FETCH_FAISS)
     list(APPEND COLMAP_EXPORT_LIBS faiss)
 endif()
+if(CASPAR_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS caspar_lib_core)
+endif()
 
 # Add unified interface library target to export.
 add_library(colmap INTERFACE)
@@ -492,7 +506,25 @@ install(
 install(
     DIRECTORY src/thirdparty
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/colmap
-    FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
+    FILES_MATCHING
+        REGEX ".*[.]h|.*[.]hpp|.*[.]inl"
+        PATTERN "Symforce-Caspar" EXCLUDE)
+
+# Only ship the active Caspar precision tree (avoids bundling unused kernel
+# headers and the inactive precision when CASPAR_ENABLED is off).
+if(CASPAR_ENABLED)
+    if(CASPAR_USE_DOUBLE)
+        set(_caspar_install_precision "f64")
+    else()
+        set(_caspar_install_precision "f32")
+    endif()
+    install(
+        DIRECTORY
+            src/thirdparty/Symforce-Caspar/generated/${_caspar_install_precision}
+        DESTINATION
+            ${CMAKE_INSTALL_INCLUDEDIR}/colmap/thirdparty/Symforce-Caspar/generated
+        FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
+endif()
 
 # Install find_package scripts for dependencies.
 install(

@@ -92,8 +92,8 @@ class GR8PEstimator {
   // in his paper that using 8 samples is more stable.
   static const int kMinNumSamples = 8;
 
-  // Estimate the most probable solution of the GR6P problem from a set of
-  // six 2D-2D point correspondences.
+  // Estimate the most probable solution of the GR8P problem from a set of
+  // eight 2D-2D point correspondences.
   static void Estimate(const std::vector<X_t>& points1,
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* rigs2_from_rigs1);

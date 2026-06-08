@@ -38,23 +38,44 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
   return ba->Solve()->IsSolutionUsable();
 }
 
-GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
-  // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = options;
-  if (opts.random_seed >= 0) {
-    opts.rotation_averaging.random_seed = opts.random_seed;
-    opts.global_positioning.random_seed = opts.random_seed;
-    opts.global_positioning.use_parameter_block_ordering = false;
-    opts.retriangulation.random_seed = opts.random_seed;
-  }
-  opts.global_positioning.solver_options.num_threads = opts.num_threads;
-  if (opts.bundle_adjustment.ceres) {
-    opts.bundle_adjustment.ceres->solver_options.num_threads = opts.num_threads;
+}  // namespace
+
+RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
+  RotationEstimatorOptions opts = rotation_averaging;
+  opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  if (random_seed >= 0) {
+    opts.random_seed = random_seed;
   }
   return opts;
 }
 
-}  // namespace
+GlobalPositionerOptions GlobalMapperOptions::GlobalPositioning() const {
+  GlobalPositionerOptions opts = global_positioning;
+  opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.solver_options.num_threads = num_threads;
+  if (random_seed >= 0) {
+    opts.random_seed = random_seed;
+    opts.use_parameter_block_ordering = false;
+  }
+  return opts;
+}
+
+BundleAdjustmentOptions GlobalMapperOptions::BundleAdjustment() const {
+  BundleAdjustmentOptions opts = bundle_adjustment;
+  opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  if (opts.ceres) {
+    opts.ceres->solver_options.num_threads = num_threads;
+  }
+  return opts;
+}
+
+IncrementalTriangulator::Options GlobalMapperOptions::Retriangulation() const {
+  IncrementalTriangulator::Options opts = retriangulation;
+  if (random_seed >= 0) {
+    opts.random_seed = random_seed;
+  }
+  return opts;
+}
 
 GlobalMapper::GlobalMapper(std::shared_ptr<const DatabaseCache> database_cache)
     : database_cache_(std::move(THROW_CHECK_NOTNULL(database_cache))) {}
@@ -214,7 +235,13 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
 
   std::unordered_map<image_t, size_t> tracks_per_image;
   size_t images_left = image_id_to_keypoints.size();
+  const size_t max_num_tracks =
+      static_cast<size_t>(options.keep_max_num_tracks);
   for (const auto& [track_length, point3D_id] : track_lengths) {
+    // Stop once the global track budget is exhausted. As tracks are sorted by
+    // decreasing length, this keeps the longest tracks and bounds memory usage.
+    if (reconstruction_->NumPoints3D() >= max_num_tracks) break;
+
     auto& point3D = candidate_points3D.at(point3D_id);
 
     // Check if any image in this track still needs more observations.
@@ -457,15 +484,12 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
     return false;
   }
 
-  // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = InitializeOptions(options);
-
   // Run rotation averaging
-  if (!opts.skip_rotation_averaging) {
+  if (!options.skip_rotation_averaging) {
     LOG_HEADING1("Running rotation averaging");
     Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging)) {
+    if (!RotationAveraging(options.RotationAveraging())) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -473,24 +497,24 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
   }
 
   // Track establishment and selection
-  if (!opts.skip_track_establishment) {
+  if (!options.skip_track_establishment) {
     LOG_HEADING1("Running track establishment");
     Timer run_timer;
     run_timer.Start();
-    EstablishTracks(opts);
+    EstablishTracks(options);
     LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
 
   // Global positioning
-  if (!opts.skip_global_positioning) {
+  if (!options.skip_global_positioning) {
     LOG_HEADING1("Running global positioning");
     Timer run_timer;
     run_timer.Start();
-    if (!GlobalPositioning(opts.global_positioning,
-                           opts.max_angular_reproj_error_deg,
-                           opts.max_normalized_reproj_error,
-                           opts.min_tri_angle_deg)) {
+    if (!GlobalPositioning(options.GlobalPositioning(),
+                           options.max_angular_reproj_error_deg,
+                           options.max_normalized_reproj_error,
+                           options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
@@ -498,16 +522,16 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
   }
 
   // Bundle adjustment
-  if (!opts.skip_bundle_adjustment) {
+  if (!options.skip_bundle_adjustment) {
     LOG_HEADING1("Running iterative bundle adjustment");
     Timer run_timer;
     run_timer.Start();
-    if (!IterativeBundleAdjustment(opts.bundle_adjustment,
-                                   opts.max_normalized_reproj_error,
-                                   opts.min_tri_angle_deg,
-                                   opts.ba_num_iterations,
-                                   opts.ba_skip_fixed_rotation_stage,
-                                   opts.ba_skip_joint_optimization_stage)) {
+    if (!IterativeBundleAdjustment(options.BundleAdjustment(),
+                                   options.max_normalized_reproj_error,
+                                   options.min_tri_angle_deg,
+                                   options.ba_num_iterations,
+                                   options.ba_skip_fixed_rotation_stage,
+                                   options.ba_skip_joint_optimization_stage)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
@@ -515,19 +539,24 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
   }
 
   // Retriangulation
-  if (!opts.skip_retriangulation) {
+  if (!options.skip_retriangulation) {
     LOG_HEADING1("Running iterative retriangulation and refinement");
     Timer run_timer;
     run_timer.Start();
-    if (!IterativeRetriangulateAndRefine(opts.retriangulation,
-                                         opts.bundle_adjustment,
-                                         opts.max_normalized_reproj_error,
-                                         opts.min_tri_angle_deg)) {
+    if (!IterativeRetriangulateAndRefine(options.Retriangulation(),
+                                         options.BundleAdjustment(),
+                                         options.max_normalized_reproj_error,
+                                         options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
               << run_timer.ElapsedSeconds() << " seconds";
   }
+
+  // Filter passes here use NORMALIZED/ANGULAR error, so point3D.error is
+  // left in non-pixel units. Recompute in pixels for consistent reporting
+  // in model_analyzer.
+  reconstruction_->UpdatePoint3DErrors();
 
   return true;
 }

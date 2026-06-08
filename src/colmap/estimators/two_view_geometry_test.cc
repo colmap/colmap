@@ -933,5 +933,47 @@ TEST(MaybeDecomposeRelativePoses, Nominal) {
             geometry_second.cam2_from_cam1->translation());
 }
 
+// Regression test for https://github.com/colmap/colmap/issues/4387: older
+// COLMAP databases stored the two-view geometry config without persisting
+// the E/F/H matrices. MaybeDecomposeRelativePoses must refit the missing
+// matrix from the inlier matches instead of crashing in
+// EstimateTwoViewGeometryPose's THROW_CHECK on geometry->E/F/H.
+TEST(MaybeDecomposeRelativePoses, MissingMatrixFromOldDatabase) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+
+  // Simulate an older database that has the configuration but no E matrix.
+  TwoViewGeometry geometry_legacy = database->ReadTwoViewGeometry(1, 2);
+  ASSERT_EQ(geometry_legacy.config,
+            TwoViewGeometry::ConfigurationType::CALIBRATED);
+  ASSERT_TRUE(geometry_legacy.E.has_value());
+  geometry_legacy.E.reset();
+  database->UpdateTwoViewGeometry(1, 2, geometry_legacy);
+
+  DatabaseCache::Options cache_options;
+  auto cache = DatabaseCache::Create(*database, cache_options);
+
+  const auto corr_graph = cache->CorrespondenceGraph();
+  TwoViewGeometry geometry_before = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
+  EXPECT_FALSE(geometry_before.cam2_from_cam1.has_value());
+
+  MaybeDecomposeRelativePoses(cache.get());
+
+  TwoViewGeometry geometry_after = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
+  EXPECT_TRUE(geometry_after.cam2_from_cam1.has_value());
+}
+
 }  // namespace
 }  // namespace colmap

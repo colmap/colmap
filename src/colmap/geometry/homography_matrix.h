@@ -49,7 +49,8 @@ namespace colmap {
 // `cams2_from_cams1.size() == n.size() == 1` the homography is pure-rotational.
 //
 // @param H                 3x3 homography matrix.
-// @param K                 3x3 calibration matrix.
+// @param K1                3x3 calibration matrix of first camera.
+// @param K2                3x3 calibration matrix of second camera.
 // @param cams2_from_cams1  Possible relative camera transformations.
 // @param normals           Possible normal vectors.
 void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
@@ -67,10 +68,7 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
 // @param K2              3x3 calibration matrix of second camera.
 // @param cam_rays1       First set of corresponding rays.
 // @param cam_rays2       Second set of corresponding rays.
-// @param inlier_mask     Only points with `true` in the inlier mask are
-//                        considered in the cheirality test. Size of the
-//                        inlier mask must match the number of points N.
-// @param cam2_from_cam1  Most probable 3x1 translation vector.
+// @param cam2_from_cam1  Most probable relative camera transformation.
 // @param normal          Most probable 3x1 normal vector.
 // @param points3D        Triangulated 3D points infront of camera
 //                        (only if homography is not pure-rotational).
