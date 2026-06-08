@@ -66,6 +66,10 @@ struct GlobalMapperOptions {
   int track_required_tracks_per_view = std::numeric_limits<int>::max();
   // Minimum number of views per track.
   int track_min_num_views_per_track = 3;
+  // Maximum total number of tracks to establish. Tracks are selected in order
+  // of decreasing length, so the longest tracks are kept. Use this to bound
+  // memory usage on large datasets. By default, there is no limit.
+  int keep_max_num_tracks = std::numeric_limits<int>::max();
 
   // Thresholds for each component.
   double max_angular_reproj_error_deg = 1.;   // for global positioning

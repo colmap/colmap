@@ -196,6 +196,8 @@ void BindSfM(py::module& m) {
                            &Opts::track_required_tracks_per_view)
             .def_readwrite("track_min_num_views_per_track",
                            &Opts::track_min_num_views_per_track)
+            .def_readwrite("keep_max_num_tracks",
+                           &Opts::keep_max_num_tracks)
             .def_readwrite("max_angular_reproj_error_deg",
                            &Opts::max_angular_reproj_error_deg)
             .def_readwrite("max_normalized_reproj_error",
