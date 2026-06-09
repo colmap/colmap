@@ -37,11 +37,17 @@
 
 #include <fstream>
 
+#if defined(COLMAP_CGAL_ENABLED)
+#include <CGAL/version.h>
+#endif
+
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace mvs {
 namespace {
+
+#if defined(COLMAP_CGAL_ENABLED) && CGAL_VERSION_NR >= 1060000000
 
 void WriteRandomPlyPoints(const std::filesystem::path& path,
                           int num_points = 100) {
@@ -80,8 +86,6 @@ Reconstruction CreateAndWriteSyntheticReconstruction(
   reconstruction.Write(sparse_path);
   return reconstruction;
 }
-
-#if defined(COLMAP_CGAL_ENABLED)
 
 TEST(AdvancingFrontMeshing, NoVisibility) {
   const auto test_dir = CreateTestDir();
@@ -270,7 +274,7 @@ TEST(AdvancingFrontMeshing, BlockWiseWithVisibility) {
   EXPECT_GE(mesh.mesh.faces.size(), 1);
 }
 
-#endif  // COLMAP_CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED && CGAL_VERSION_NR >= 1060000000
 
 }  // namespace
 }  // namespace mvs

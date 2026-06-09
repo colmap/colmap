@@ -32,6 +32,17 @@
 #include "colmap/util/logging.h"
 
 #if defined(COLMAP_CGAL_ENABLED)
+#include <CGAL/version.h>
+// This implementation uses a 32-bit float kernel to halve memory usage. CGAL's
+// Advancing_front_surface_reconstruction only instantiates correctly with a
+// float kernel as of CGAL 6.0 (older versions trigger a std::max type mismatch
+// in their internal growing loop), so the feature is gated on CGAL >= 6.0.
+#if CGAL_VERSION_NR >= 1060000000
+#define COLMAP_ADVANCING_FRONT_MESHING_ENABLED
+#endif
+#endif
+
+#if defined(COLMAP_ADVANCING_FRONT_MESHING_ENABLED)
 
 #include "colmap/mvs/fusion.h"
 #include "colmap/scene/reconstruction.h"
@@ -43,19 +54,11 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
-#include <optional>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
-#include <CGAL/version.h>
-// CGAL renamed AABB_traits to AABB_traits_3 in version 6.0.
-#if CGAL_VERSION_NR >= 1060000000  // CGAL >= 6.0
-#include <CGAL/AABB_traits_3.h>
-#else
-#include <CGAL/AABB_traits.h>
-#endif
 #include <CGAL/AABB_face_graph_triangle_primitive.h>
+#include <CGAL/AABB_traits_3.h>
 #include <CGAL/AABB_tree.h>
 #include <CGAL/Advancing_front_surface_reconstruction.h>
 #include <CGAL/Cartesian_converter.h>
@@ -68,23 +71,6 @@
 #include <omp.h>
 
 namespace {
-
-// CGAL 6.0 changed Surface_mesh::property_map() to return std::optional, while
-// older versions return std::pair<PropertyMap, bool>. Normalize both to
-// std::optional so call sites can use a single interface.
-template <typename PropertyMap>
-std::optional<PropertyMap> NormalizePropertyMap(
-    std::pair<PropertyMap, bool> result) {
-  if (result.second) {
-    return result.first;
-  }
-  return std::nullopt;
-}
-template <typename PropertyMap>
-std::optional<PropertyMap> NormalizePropertyMap(
-    std::optional<PropertyMap> result) {
-  return result;
-}
 
 // Float32 kernel with exact predicates for memory efficiency and speed.
 // Uses filtered predicates wrapping Simple_cartesian<float> to maintain
@@ -104,11 +90,7 @@ using SurfaceMesh = CGAL::Surface_mesh<K::Point_3>;
 
 // AABB tree types for post-filtering.
 using AABBPrimitive = CGAL::AABB_face_graph_triangle_primitive<SurfaceMesh>;
-#if CGAL_VERSION_NR >= 1060000000  // CGAL >= 6.0
 using AABBTraits = CGAL::AABB_traits_3<K, AABBPrimitive>;
-#else
-using AABBTraits = CGAL::AABB_traits<K, AABBPrimitive>;
-#endif
 using AABBTree = CGAL::AABB_tree<AABBTraits>;
 
 // Visibility counter: maps triangulation facets to intersection counts.
@@ -285,8 +267,8 @@ struct MeshConstructor {
 colmap::PlyMesh SurfaceMeshToPlyMesh(const SurfaceMesh& mesh) {
   colmap::PlyMesh ply_mesh;
 
-  const auto vcolors = NormalizePropertyMap(
-      mesh.property_map<SurfaceMesh::Vertex_index, CGAL::Color>("v:color"));
+  const auto vcolors =
+      mesh.property_map<SurfaceMesh::Vertex_index, CGAL::Color>("v:color");
 
   ply_mesh.vertices.reserve(mesh.number_of_vertices());
   if (vcolors.has_value()) {
@@ -828,7 +810,7 @@ colmap::PlyMesh ReconstructBlocks(
 
 }  // namespace
 
-#endif  // COLMAP_CGAL_ENABLED
+#endif  // COLMAP_ADVANCING_FRONT_MESHING_ENABLED
 
 namespace colmap {
 namespace mvs {
@@ -850,6 +832,14 @@ bool AdvancingFrontMeshingOptions::Check() const {
 void AdvancingFrontMeshing(const AdvancingFrontMeshingOptions& options,
                            const std::filesystem::path& input_path,
                            const std::filesystem::path& output_path) {
+#if !defined(COLMAP_ADVANCING_FRONT_MESHING_ENABLED)
+  (void)options;
+  (void)input_path;
+  (void)output_path;
+  LOG(FATAL_THROW)
+      << "Advancing front meshing requires CGAL >= 6.0, but COLMAP was "
+         "built against an older version.";
+#else
   THROW_CHECK(options.Check());
   THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
   THROW_CHECK_PATH_OPEN(output_path);
@@ -900,6 +890,7 @@ void AdvancingFrontMeshing(const AdvancingFrontMeshingOptions& options,
   WriteBinaryPlyMesh(output_path, PlyTexturedMesh{std::move(mesh)});
 
   timer.PrintSeconds();
+#endif  // COLMAP_ADVANCING_FRONT_MESHING_ENABLED
 }
 
 #endif  // COLMAP_CGAL_ENABLED
