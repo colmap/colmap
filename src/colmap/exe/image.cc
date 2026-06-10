@@ -383,6 +383,23 @@ int RunImageUndistorter(int argc, char** argv) {
     }
   }
 
+  // Reject non-perspective (e.g. SPHERICAL) cameras up front with a clear
+  // message: undistortion produces a pinhole image, which is undefined for
+  // omnidirectional models. This avoids launching the worker pool only to
+  // fail per-image inside UndistortCamera.
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    if (camera.FocalLengthIdxs().size() == 0) {
+      LOG(ERROR) << "Camera " << camera_id << " uses model "
+                 << camera.ModelName()
+                 << ", which has no focal length and cannot be undistorted to "
+                    "a pinhole image. Omnidirectional models such as SPHERICAL "
+                    "are not supported by image_undistorter; use the original "
+                    "images with a pipeline that supports their native "
+                    "projection.";
+      return EXIT_FAILURE;
+    }
+  }
+
   StringToUpper(&copy_policy);
   undistorter_options.copy_type = FileCopyTypeFromString(copy_policy);
   undistorter_options.jpeg_quality = jpeg_quality;

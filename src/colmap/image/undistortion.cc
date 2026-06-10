@@ -49,6 +49,18 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   THROW_CHECK_LT(options.roi_min_x, options.roi_max_x);
   THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
 
+  // Undistortion produces a pinhole image, which is only well-defined for
+  // perspective cameras. Omnidirectional models without a focal length (e.g.
+  // SPHERICAL) have no pinhole image plane and cannot be undistorted; reject
+  // them here with a clear message instead of dereferencing the (empty) focal
+  // length parameters below.
+  THROW_CHECK_GT(camera.FocalLengthIdxs().size(), 0)
+      << "Camera model " << camera.ModelName()
+      << " has no focal length and cannot be undistorted to a pinhole image. "
+         "Omnidirectional models such as SPHERICAL must be used directly with "
+         "a pipeline that supports their native projection (do not run "
+         "image_undistorter on them).";
+
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
   undistorted_camera.width = camera.width;
