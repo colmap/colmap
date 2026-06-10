@@ -2,6 +2,7 @@
 #   python generate_caspar.py <out_dir> [f32|f64]
 
 import inspect
+import math
 import sys
 from itertools import combinations
 from pathlib import Path
@@ -137,6 +138,27 @@ class ConstPinholeSensorFromRig(sf.Pose3):
     pass
 
 
+# Spherical (equirectangular): params = [w, h] (image dimensions). The model has
+# no focal length, principal point, or distortion, and (w, h) are held CONSTANT
+# in bundle adjustment, so there is NO tunable calib node — only pose and point
+# are optimized. (w, h) ride along as a constant per-camera node, like
+# sensor_from_rig.
+class SphericalPose(sf.Pose3):
+    pass
+
+
+class ConstSphericalPose(sf.Pose3):
+    pass
+
+
+class ConstSphericalSensorFromRig(sf.Pose3):
+    pass
+
+
+class ConstSphericalWH(sf.V2):
+    pass  # [width, height]  (constant)
+
+
 def _make_variant(
     core_fn, name: str, base_params: list, hints: dict, fixed: dict
 ):
@@ -260,6 +282,39 @@ def pinhole_core(
     depth = point_cam[2]
     p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
     return sf.V2([fx * p[0] + cx, fy * p[1] + cy]) - pixel
+
+
+def spherical_core(
+    pose: T.Annotated[SphericalPose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstSphericalSensorFromRig, mem.ConstantSequential
+    ],
+    wh: T.Annotated[ConstSphericalWH, mem.ConstantSequential],  # [w, h] const
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """Reprojection residual for COLMAP's EQUIRECTANGULAR model.
+
+    Equirectangular projection (see sensor/models.h). (w, h) are the image
+    dimensions, held constant in BA (the model has no focal length, principal
+    point, or distortion), so only pose and point are tunable. Mirrors
+    EquirectangularCameraModel::ImgFromCam:
+        theta = atan2(X, Z);  phi = atan2(-Y, sqrt(X^2 + Z^2))
+        x = (theta / (2*pi) + 1/2) * w;  y = (1/2 - phi / pi) * h
+    pose holds rig_from_world; sensor_from_rig is identity for single-camera
+    rigs (cam_from_world == rig_from_world in that case).
+    """
+    point_cam = (sensor_from_rig * pose) * point
+    px, py, pz = point_cam[0], point_cam[1], point_cam[2]
+    horizontal = sf.sqrt(px * px + pz * pz + sf.epsilon())
+    theta = sf.atan2(px, pz, epsilon=sf.epsilon())
+    phi = sf.atan2(-py, horizontal, epsilon=sf.epsilon())
+    w, h = wh
+    # Use a numeric pi: Caspar's expression lowering has no entry for the
+    # symbolic Pi constant (it only handles concrete Float/Integer leaves).
+    x = (theta / (2.0 * math.pi) + 0.5) * w
+    y = (0.5 - phi / math.pi) * h
+    return sf.V2([x, y]) - pixel
 
 
 # Split cores delegate to merged cores to avoid duplicating projection math.
@@ -389,6 +444,22 @@ register_camera_model(
     pinhole_split_core,
     FIXABLE_PINHOLE_SPLIT,
     must_fix_one_of={"focal", "principal_point"},
+)
+
+# Spherical: (w, h) are constant (no tunable intrinsics), so there are no calib
+# variants — only the pose/point fix combinations. include_all_fixed is left
+# False: with no calib to optimize, the "fixed pose + fixed point" variant has
+# no free parameter, so it is a no-op and intentionally not generated. This
+# yields 3 variants: spherical, spherical_fixed_pose, spherical_fixed_point.
+FIXABLE_SPHERICAL = {
+    "pose": ConstSphericalPose,
+    "point": ConstPoint,
+}
+register_camera_model(
+    caslib,
+    "spherical",
+    spherical_core,
+    FIXABLE_SPHERICAL,
 )
 
 out_dir = Path(f"{sys.argv[1]}")

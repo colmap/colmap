@@ -87,6 +87,12 @@ struct VariantData {
   std::vector<StorageType> const_points;  // 3 floats per factor
 
   std::vector<StorageType> pixels;  // 2 floats per factor
+
+  // Model-specific per-factor constant parameters. For SPHERICAL this holds
+  // (w, h) — 2 floats per factor — since the equirectangular model has no
+  // tunable intrinsics. Empty for models without such constants.
+  std::vector<StorageType> const_camera_params;
+
   size_t num_factors = 0;
 };
 
