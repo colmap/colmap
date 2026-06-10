@@ -54,6 +54,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <limits>
 #include <unordered_map>
 #include <vector>
 
@@ -675,7 +676,18 @@ std::vector<K::Segment_3> GatherBlockRays(
 colmap::PlyMesh CropMeshToRegion(const colmap::PlyMesh& mesh,
                                  const Eigen::AlignedBox3d& crop_box) {
   colmap::PlyMesh cropped;
-  cropped.vertices = mesh.vertices;
+  // Remap old vertex indices to new, compacted indices so that only the
+  // vertices referenced by kept faces are retained.
+  constexpr size_t kInvalidIdx = std::numeric_limits<size_t>::max();
+  std::vector<size_t> orig_to_cropped_idx(mesh.vertices.size(), kInvalidIdx);
+  const auto remap_vertex = [&](const size_t old_idx) {
+    size_t& cropped_idx = orig_to_cropped_idx[old_idx];
+    if (cropped_idx == kInvalidIdx) {
+      cropped_idx = cropped.vertices.size();
+      cropped.vertices.push_back(mesh.vertices[old_idx]);
+    }
+    return cropped_idx;
+  };
   for (const auto& face : mesh.faces) {
     const auto& v0 = mesh.vertices[face.vertex_idx1];
     const auto& v1 = mesh.vertices[face.vertex_idx2];
@@ -684,7 +696,9 @@ colmap::PlyMesh CropMeshToRegion(const colmap::PlyMesh& mesh,
                                    (v0.y + v1.y + v2.y) / 3.0,
                                    (v0.z + v1.z + v2.z) / 3.0);
     if (crop_box.contains(centroid)) {
-      cropped.faces.push_back(face);
+      cropped.faces.emplace_back(remap_vertex(face.vertex_idx1),
+                                 remap_vertex(face.vertex_idx2),
+                                 remap_vertex(face.vertex_idx3));
     }
   }
   return cropped;
