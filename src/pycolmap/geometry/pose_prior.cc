@@ -36,4 +36,9 @@ void BindPosePrior(py::module& m) {
   DefDeprecation(PyPosePrior, "is_valid", "has_position");
   DefDeprecation(PyPosePrior, "is_covariance_valid", "has_position_cov");
   MakeDataclass(PyPosePrior);
+
+  m.def("compute_rot90_from_gravity",
+        &ComputeRot90FromGravity,
+        "gravity"_a,
+        "Compute number of 90 deg CCW rotations to make sensor upright.");
 }
