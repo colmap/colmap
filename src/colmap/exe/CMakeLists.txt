@@ -41,6 +41,12 @@ if(CUDA_ENABLED)
         list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
     endif()
 endif()
+if(HIP_ENABLED)
+    list(APPEND OPTIONAL_LIBS colmap_util_cuda)
+    if(MVS_ENABLED)
+        list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
+    endif()
+endif()
 if(GUI_ENABLED)
     list(APPEND OPTIONAL_LIBS
         colmap_ui
@@ -104,4 +110,7 @@ COLMAP_ADD_EXECUTABLE(
         ${OPTIONAL_LIBS}
         Boost::boost
 )
+if(HIP_ENABLED)
+    target_link_libraries(colmap_main hip::host hip::hiprand roc::rocrand)
+endif()
 set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)
