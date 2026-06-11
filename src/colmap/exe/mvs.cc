@@ -30,12 +30,14 @@
 #include "colmap/exe/mvs.h"
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/mvs/advancing_front_meshing.h"
+#include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/mesh_simplification.h"
-#include "colmap/mvs/meshing.h"
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/mvs/poisson_meshing.h"
 #include "colmap/mvs/texture_mapping.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
@@ -44,6 +46,31 @@
 #include <utility>
 
 namespace colmap {
+
+int RunAdvancingFrontMesher(int argc, char** argv) {
+#if !defined(COLMAP_CGAL_ENABLED)
+  LOG(ERROR) << "Advancing front meshing requires CGAL, which is not "
+                "available on your system.";
+  return EXIT_FAILURE;
+#else   // COLMAP_CGAL_ENABLED
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "input_path", &input_path, "Path to the dense workspace folder");
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddAdvancingFrontMeshingOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  mvs::AdvancingFrontMeshing(
+      *options.advancing_front_meshing, input_path, output_path);
+
+  return EXIT_SUCCESS;
+#endif  // COLMAP_CGAL_ENABLED
+}
 
 int RunDelaunayMesher(int argc, char** argv) {
 #if !defined(COLMAP_CGAL_ENABLED)
