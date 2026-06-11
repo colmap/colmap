@@ -45,7 +45,10 @@ void RunPointTriangulatorImpl(
     const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
     bool clear_points,
-    bool refine_intrinsics);
+    bool refine_intrinsics,
+    bool refine_extrinsics,
+    bool refine_loop,
+    const BundleAdjustmentOptions& ba_options);
 
 bool RunIncrementalMapperImpl(
     const std::filesystem::path& database_path,
