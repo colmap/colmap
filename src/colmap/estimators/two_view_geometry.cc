@@ -325,14 +325,12 @@ TwoViewGeometry EstimateTwoViewGeometry(
     // pinhole image plane, but its intrinsics are fully determined: it is
     // already calibrated and must use the bearing-based essential-matrix path.
     auto is_calibrated = [](const Camera& camera) {
-      return camera.has_prior_focal_length ||
-             camera.FocalLengthIdxs().size() == 0;
+      return camera.has_prior_focal_length || !camera.IsPerspective();
     };
     if (is_calibrated(camera1) && is_calibrated(camera2)) {
       return EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
-    } else if (camera1.FocalLengthIdxs().size() == 0 ||
-               camera2.FocalLengthIdxs().size() == 0) {
+    } else if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
       // A non-perspective camera (e.g. SPHERICAL) paired with an uncalibrated
       // perspective one: F/H on the non-perspective image are not meaningful
       // and there is no calibration to fall back on, so bail out rather than
@@ -528,15 +526,11 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
 
   // Omnidirectional cameras (no focal length, e.g. SPHERICAL) have no
   // calibration matrix, so only the bearing-based essential-matrix path is
-  // valid for them. The matcher commits such pairs to CALIBRATED, but guard
-  // here as well so a stale or unexpected config can never reach the
-  // CalibrationMatrix() calls below (which would read out of bounds).
-  const bool non_perspective = camera1.FocalLengthIdxs().size() == 0 ||
-                               camera2.FocalLengthIdxs().size() == 0;
-
+  // valid for them. EstimateTwoViewGeometry already commits such pairs to the
+  // CALIBRATED configuration (or DEGENERATE), so they are handled by the
+  // CALIBRATED branch below and never reach the CalibrationMatrix() calls.
   Rigid3d cam2_from_cam1;
-  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
-      (non_perspective && geometry->E.has_value())) {
+  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     THROW_CHECK(geometry->E.has_value());
     PoseFromEssentialMatrix(*geometry->E,
                             inlier_cam_rays1,
@@ -546,9 +540,6 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
     if (points3D.empty()) {
       return false;
     }
-  } else if (non_perspective) {
-    // No essential matrix to fall back on and no calibration matrix available.
-    return false;
   } else if (geometry->config ==
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     THROW_CHECK(geometry->F.has_value());
@@ -782,8 +773,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // downstream pose code cannot form a calibration matrix from them. Commit
   // such pairs to the CALIBRATED essential-matrix configuration, which is
   // estimated directly from bearing rays.
-  if ((camera1.FocalLengthIdxs().size() == 0 ||
-       camera2.FocalLengthIdxs().size() == 0) &&
+  if ((!camera1.IsPerspective() || !camera2.IsPerspective()) &&
       best_inlier_mask != nullptr) {
     if (E_report.success && E_report.support.num_inliers >= min_num_inliers) {
       geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;

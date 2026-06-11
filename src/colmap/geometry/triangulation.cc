@@ -110,24 +110,15 @@ bool TriangulateMultiViewPoint(
     const span<const Eigen::Vector2d>& cam_points,
     Eigen::Vector3d* xyz) {
   THROW_CHECK_EQ(cams_from_world.size(), cam_points.size());
-  THROW_CHECK_NOTNULL(xyz);
-
-  Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
-  for (size_t i = 0; i < cam_points.size(); i++) {
-    const Eigen::Vector3d point = cam_points[i].homogeneous().normalized();
-    const Eigen::Matrix3x4d term =
-        cams_from_world[i] - point * point.transpose() * cams_from_world[i];
-    A += term.transpose() * term;
+  // Delegate to the 3D-bearing overload, which holds the shared DLT.
+  std::vector<Eigen::Vector3d> cam_rays(cam_points.size());
+  for (size_t i = 0; i < cam_points.size(); ++i) {
+    cam_rays[i] = cam_points[i].homogeneous().normalized();
   }
-
-  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d> eigen_solver(A);
-  if (eigen_solver.info() != Eigen::Success ||
-      eigen_solver.eigenvectors()(3, 0) == 0) {
-    return false;
-  }
-
-  *xyz = eigen_solver.eigenvectors().col(0).hnormalized();
-  return true;
+  return TriangulateMultiViewPoint(
+      cams_from_world,
+      span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
+      xyz);
 }
 
 bool TriangulateMultiViewPoint(
@@ -137,10 +128,10 @@ bool TriangulateMultiViewPoint(
   THROW_CHECK_EQ(cams_from_world.size(), cam_rays.size());
   THROW_CHECK_NOTNULL(xyz);
 
-  // Same projector-based DLT as the 2D overload, but starting directly from
-  // a 3D bearing. Works for any camera model whose unprojection returns a
-  // unit ray, including omnidirectional (SPHERICAL) cameras where the legacy
-  // 2D (u, v, 1) representation can't encode back-hemisphere rays.
+  // Projector-based DLT from 3D bearings. Works for any camera model whose
+  // unprojection returns a unit ray, including omnidirectional (SPHERICAL)
+  // cameras where the 2D (u, v, 1) representation can't encode back-hemisphere
+  // rays.
   Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
   for (size_t i = 0; i < cam_rays.size(); ++i) {
     const Eigen::Vector3d point = cam_rays[i].normalized();

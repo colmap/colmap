@@ -239,6 +239,7 @@ class span {
   T const& operator[](size_t i) const noexcept { return ptr_[i]; }
 
   size_t size() const noexcept { return size_; }
+  bool empty() const noexcept { return size_ == 0; }
 
   T* begin() noexcept { return ptr_; }
   T* end() noexcept { return ptr_ + size_; }

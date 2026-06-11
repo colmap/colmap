@@ -82,7 +82,7 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
 double Camera::MeanFocalLength() const {
   const span<const size_t> focal_length_idxs = FocalLengthIdxs();
   // Omnidirectional cameras (e.g. SPHERICAL) have no focal length.
-  if (focal_length_idxs.size() == 0) {
+  if (focal_length_idxs.empty()) {
     return 0.0;
   }
   double focal_length = 0;

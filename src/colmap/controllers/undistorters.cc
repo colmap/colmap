@@ -233,6 +233,19 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const auto input_image_path = image_path_ / image.Name();
   const auto output_image_path = output_path_ / "images" / image.Name();
 
+  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane and
+  // cannot be undistorted. Skip them with a warning, copying the original
+  // image through so the dataset stays complete.
+  if (!camera.IsPerspective()) {
+    LOG(WARNING) << "Cannot undistort image " << image.Name()
+                 << " with non-perspective camera model " << camera.ModelName()
+                 << "; copying the original image.";
+    if (ExistsFile(input_image_path)) {
+      FileCopy(input_image_path, output_image_path, options_.copy_type);
+    }
+    return true;
+  }
+
   // Check if the image is already undistorted and copy from source if no
   // scaling is needed
   if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&

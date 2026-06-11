@@ -280,7 +280,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   const std::unordered_map<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
-    if (camera.second.IsUndistorted()) {
+    // Non-perspective cameras (e.g. SPHERICAL) cannot be undistorted to a
+    // pinhole; leave them and their observations unchanged.
+    if (camera.second.IsUndistorted() || !camera.second.IsPerspective()) {
       continue;
     }
     reconstruction->Camera(camera.first) =
@@ -290,6 +292,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   for (const auto& distorted_image : reconstruction->Images()) {
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
+    if (!distorted_camera.IsPerspective()) {
+      continue;
+    }
     const Camera& undistorted_camera = *image.CameraPtr();
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {

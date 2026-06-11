@@ -57,111 +57,45 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
   models->clear();
 
-  // A camera with no focal length (omnidirectional, e.g. SPHERICAL) sees the
-  // full sphere: its observations can lie in the back hemisphere, so neither
-  // the 2D (u, v, 1) representation nor the positive-depth (cheirality)
-  // constraint apply. Detect these via an empty focal-length parameter set.
-  const auto is_perspective = [](const Camera* camera) {
-    return camera != nullptr && camera->FocalLengthIdxs().size() > 0;
-  };
-
-  // Use the bearing-vector path when at least one observation has a non-zero
-  // cam_ray (set by EstimateTriangulation when the camera supports
-  // CamRayFromImg). This handles omnidirectional (SPHERICAL) observations
-  // whose back-hemisphere rays can't be represented by the 2D (u, v, 1)
-  // cam_point.
-  const bool use_bearings =
-      std::any_of(point_data.begin(), point_data.end(), [](const PointData& p) {
-        return p.cam_ray.squaredNorm() > 0;
-      });
-
+  // Triangulate from 3D bearing vectors (Camera::CamRayFromImg), the canonical
+  // observation representation for every camera model. This handles
+  // omnidirectional (e.g. SPHERICAL) observations whose back-hemisphere rays
+  // cannot be expressed in the 2D (u, v, 1) normalized representation.
   std::vector<Eigen::Matrix3x4d> cams_from_world(point_data.size());
-  std::vector<Eigen::Vector3d> cam_rays;
-  std::vector<Eigen::Vector2d> cam_points;
-  if (use_bearings) {
-    cam_rays.resize(point_data.size());
-  } else {
-    cam_points.resize(point_data.size());
-  }
+  std::vector<Eigen::Vector3d> cam_rays(point_data.size());
   for (size_t i = 0; i < point_data.size(); ++i) {
     cams_from_world[i] = pose_data[i].cam_from_world;
-    if (use_bearings) {
-      cam_rays[i] = point_data[i].cam_ray.squaredNorm() > 0
-                        ? point_data[i].cam_ray
-                        : point_data[i].cam_point.homogeneous().normalized();
-    } else {
-      cam_points[i] = point_data[i].cam_point;
-    }
+    cam_rays[i] = point_data[i].cam_ray;
   }
 
-  if (point_data.size() == 2) {
-    // Two-view triangulation.
-    M_t xyz;
-    bool triangulated = false;
-    if (use_bearings) {
-      triangulated = TriangulateMultiViewPoint(
+  M_t xyz;
+  if (!TriangulateMultiViewPoint(
           span<const Eigen::Matrix3x4d>(cams_from_world.data(),
                                         cams_from_world.size()),
           span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
-          &xyz);
-    } else {
-      triangulated = TriangulatePoint(pose_data[0].cam_from_world,
-                                      pose_data[1].cam_from_world,
-                                      point_data[0].cam_point,
-                                      point_data[1].cam_point,
-                                      &xyz);
-    }
-    if (triangulated &&
-        (!is_perspective(pose_data[0].camera) ||
-         HasPointPositiveDepth(pose_data[0].cam_from_world, xyz)) &&
-        (!is_perspective(pose_data[1].camera) ||
-         HasPointPositiveDepth(pose_data[1].cam_from_world, xyz)) &&
-        CalculateTriangulationAngle(pose_data[0].proj_center,
-                                    pose_data[1].proj_center,
-                                    xyz) >= min_tri_angle_) {
-      models->resize(1);
-      (*models)[0] = xyz;
-      return;
-    }
-  } else {
-    // Multi-view triangulation.
-    M_t xyz;
-    const bool triangulated =
-        use_bearings
-            ? TriangulateMultiViewPoint(
-                  span<const Eigen::Matrix3x4d>(cams_from_world.data(),
-                                                cams_from_world.size()),
-                  span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
-                  &xyz)
-            : TriangulateMultiViewPoint(
-                  span<const Eigen::Matrix3x4d>(cams_from_world.data(),
-                                                cams_from_world.size()),
-                  span<const Eigen::Vector2d>(cam_points.data(),
-                                              cam_points.size()),
-                  &xyz);
-    if (!triangulated) {
-      return;
-    }
+          &xyz)) {
+    return;
+  }
 
-    // Check for cheirality constraint (skipped for omnidirectional cameras,
-    // which legitimately observe points behind their local +Z axis).
-    for (const auto& pose : pose_data) {
-      if (is_perspective(pose.camera) &&
-          !HasPointPositiveDepth(pose.cam_from_world, xyz)) {
+  // Cheirality: points must lie in front of perspective cameras. Skipped for
+  // omnidirectional cameras (e.g. SPHERICAL), which legitimately observe
+  // points behind their local +Z axis.
+  for (const auto& pose : pose_data) {
+    if (pose.camera != nullptr && pose.camera->IsPerspective() &&
+        !HasPointPositiveDepth(pose.cam_from_world, xyz)) {
+      return;
+    }
+  }
+
+  // Require a sufficient triangulation angle for at least one pair of views.
+  for (size_t i = 0; i < pose_data.size(); ++i) {
+    for (size_t j = 0; j < i; ++j) {
+      if (CalculateTriangulationAngle(pose_data[i].proj_center,
+                                      pose_data[j].proj_center,
+                                      xyz) >= min_tri_angle_) {
+        models->resize(1);
+        (*models)[0] = xyz;
         return;
-      }
-    }
-
-    // Check for sufficient triangulation angle.
-    for (size_t i = 0; i < pose_data.size(); ++i) {
-      for (size_t j = 0; j < i; ++j) {
-        const double tri_angle = CalculateTriangulationAngle(
-            pose_data[i].proj_center, pose_data[j].proj_center, xyz);
-        if (tri_angle >= min_tri_angle_) {
-          models->resize(1);
-          (*models)[0] = xyz;
-          return;
-        }
       }
     }
   }
@@ -183,17 +117,11 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
                                             pose_data[i].cam_from_world,
                                             *pose_data[i].camera);
     } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
-      // Prefer the stored 3D bearing when available (set by CamRayFromImg);
-      // fall back to the legacy 2D → (u, v, 1) → normalize path otherwise.
-      // This lets omnidirectional (SPHERICAL) back-hemisphere observations
-      // contribute angular residuals without the 2D representation that
-      // can't encode Z <= 0.
-      const Eigen::Vector3d ray =
-          point_data[i].cam_ray.squaredNorm() > 0
-              ? point_data[i].cam_ray
-              : point_data[i].cam_point.homogeneous().normalized();
+      // The stored 3D bearing (Camera::CamRayFromImg) lets omnidirectional
+      // (SPHERICAL) back-hemisphere observations contribute angular residuals
+      // without a 2D representation that can't encode Z <= 0.
       const double angular_error = CalculateAngularReprojectionError(
-          ray, xyz, pose_data[i].cam_from_world);
+          point_data[i].cam_ray, xyz, pose_data[i].cam_from_world);
       (*residuals)[i] = angular_error * angular_error;
     }
   }
@@ -218,24 +146,11 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
   pose_data.resize(points.size());
   for (size_t i = 0; i < points.size(); ++i) {
     point_data[i].img_point = points[i];
-    if (const std::optional<Eigen::Vector2d> cam_point =
-            cameras[i]->CamFromImg(points[i]);
-        cam_point) {
-      point_data[i].cam_point = *cam_point;
-    } else {
-      point_data[i].cam_point.setZero();
-    }
-    // Populate the 3D bearing if the camera supports it. Essential for
-    // omnidirectional models (e.g. SPHERICAL) where back-hemisphere
-    // observations produce nullopt from CamFromImg but still yield a valid
-    // unit ray from CamRayFromImg.
-    if (const std::optional<Eigen::Vector3d> cam_ray =
-            cameras[i]->CamRayFromImg(points[i]);
-        cam_ray) {
-      point_data[i].cam_ray = *cam_ray;
-    } else {
-      point_data[i].cam_ray.setZero();
-    }
+    // Unit bearing in the camera frame. CamRayFromImg yields a valid ray for
+    // any camera model, including omnidirectional (SPHERICAL) back-hemisphere
+    // observations that CamFromImg cannot represent.
+    point_data[i].cam_ray =
+        cameras[i]->CamRayFromImg(points[i]).value_or(Eigen::Vector3d::Zero());
     pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();
     pose_data[i].proj_center = cams_from_world[i].TgtOriginInSrc();
     pose_data[i].camera = cameras[i];

@@ -287,6 +287,62 @@ TEST(Pinhole, Nominal) {
   TestModel<PinholeCameraModel>({651.123, 655.123, 386.123, 511.123});
 }
 
+TEST(Spherical, Nominal) {
+  // params = (w, h) of the equirectangular image.
+  const std::vector<double> params = {800, 400};
+  EXPECT_TRUE(CameraModelVerifyParams(SphericalCameraModel::model_id, params));
+
+  // Metadata: no focal length, the two params are the principal point, no
+  // extra (distortion) params.
+  EXPECT_EQ(CameraModelParamsInfo(SphericalCameraModel::model_id), "w,h");
+  EXPECT_TRUE(
+      CameraModelFocalLengthIdxs(SphericalCameraModel::model_id).empty());
+  EXPECT_EQ(
+      std::vector<size_t>(
+          CameraModelPrincipalPointIdxs(SphericalCameraModel::model_id).begin(),
+          CameraModelPrincipalPointIdxs(SphericalCameraModel::model_id).end()),
+      (std::vector<size_t>{0, 1}));
+  EXPECT_TRUE(
+      CameraModelExtraParamsIdxs(SphericalCameraModel::model_id).empty());
+  EXPECT_EQ(CameraModelNumParams(SphericalCameraModel::model_id), 2u);
+
+  // SPHERICAL is non-perspective and never has bogus parameters.
+  EXPECT_FALSE(CameraModelIsPerspective(SphericalCameraModel::model_id));
+  EXPECT_TRUE(CameraModelIsPerspective(PinholeCameraModel::model_id));
+  EXPECT_FALSE(CameraModelHasBogusParams(
+      SphericalCameraModel::model_id, params, 800, 400, 0.1, 2.0, 1.0));
+
+  // InitializeParams ignores the focal length and returns (w, h).
+  EXPECT_EQ(CameraModelInitializeParams(
+                SphericalCameraModel::model_id, /*focal_length=*/123, 800, 400),
+            params);
+
+  // Full-sphere bearing round-trip CamRayFromImg -> ImgFromCam over the image
+  // interior (avoiding the azimuth seam at x in {0, w} and the poles at
+  // y in {0, h}, where the azimuth is undefined).
+  for (double x = 40; x <= 760; x += 40) {
+    for (double y = 40; y <= 360; y += 40) {
+      TestCamRayFromImgToImg<SphericalCameraModel>(params, x, y);
+    }
+  }
+
+  // Back-hemisphere pixels (azimuth near +/-pi) have no forward 2D
+  // representation, so the 2D CamFromImg fails there while CamRayFromImg still
+  // yields a valid unit bearing.
+  EXPECT_FALSE(CameraModelCamFromImg(SphericalCameraModel::model_id,
+                                     params,
+                                     Eigen::Vector2d(0, 200))
+                   .has_value());
+  EXPECT_TRUE(CameraModelCamRayFromImg(SphericalCameraModel::model_id,
+                                       params,
+                                       Eigen::Vector2d(0, 200))
+                  .has_value());
+
+  // A forward-hemisphere pixel (azimuth ~0, image center column) also
+  // round-trips through the 2D CamFromImg / ImgFromCam path.
+  TestCamFromImgToImg<SphericalCameraModel>(params, 400, 200);
+}
+
 TEST(SimpleRadial, Nominal) {
   TestModel<SimpleRadialCameraModel>({651.123, 386.123, 511.123, 0});
   TestModel<SimpleRadialCameraModel>({651.123, 386.123, 511.123, 0.1});
