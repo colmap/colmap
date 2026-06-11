@@ -50,16 +50,10 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
 
   // Undistortion produces a pinhole image, which is only well-defined for
-  // perspective cameras. Omnidirectional models without a focal length (e.g.
-  // SPHERICAL) have no pinhole image plane and cannot be undistorted; reject
-  // them here with a clear message instead of dereferencing the (empty) focal
-  // length parameters below.
-  THROW_CHECK_GT(camera.FocalLengthIdxs().size(), 0)
-      << "Camera model " << camera.ModelName()
-      << " has no focal length and cannot be undistorted to a pinhole image. "
-         "Omnidirectional models such as SPHERICAL must be used directly with "
-         "a pipeline that supports their native projection (do not run "
-         "image_undistorter on them).";
+  // perspective cameras. Omnidirectional models (e.g. SPHERICAL) have no
+  // pinhole image plane and cannot be undistorted; callers skip them, but guard
+  // here too rather than dereferencing the (empty) focal-length parameters.
+  THROW_CHECK(camera.IsPerspective());
 
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
@@ -280,9 +274,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   const std::unordered_map<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
-    // Non-perspective cameras (e.g. SPHERICAL) cannot be undistorted to a
-    // pinhole; leave them and their observations unchanged.
-    if (camera.second.IsUndistorted() || !camera.second.IsPerspective()) {
+    // IsUndistorted() is true for non-perspective cameras (e.g. SPHERICAL),
+    // which cannot be undistorted to a pinhole, so they are left unchanged.
+    if (camera.second.IsUndistorted()) {
       continue;
     }
     reconstruction->Camera(camera.first) =
@@ -292,7 +286,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   for (const auto& distorted_image : reconstruction->Images()) {
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
-    if (!distorted_camera.IsPerspective()) {
+    // Cameras left unchanged above (undistorted perspective cameras and all
+    // non-perspective cameras, e.g. SPHERICAL) need no observation rewrite.
+    if (distorted_camera.IsUndistorted()) {
       continue;
     }
     const Camera& undistorted_camera = *image.CameraPtr();

@@ -65,7 +65,7 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
   // calibration matrix; fail loudly rather than reading out of bounds on the
   // empty focal-length/principal-point spans. Callers that handle such
   // cameras use the bearing interface (CamRayFromImg) instead.
-  THROW_CHECK_GT(FocalLengthIdxs().size(), 0)
+  THROW_CHECK(!FocalLengthIdxs().empty() && !PrincipalPointIdxs().empty())
       << "CalibrationMatrix() is undefined for a camera without a focal "
          "length (e.g. the omnidirectional SPHERICAL model).";
 
@@ -104,6 +104,11 @@ bool Camera::SetParamsFromString(const std::string& string) {
 }
 
 bool Camera::IsUndistorted() const {
+  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane to
+  // undistort to; treat them as already undistorted so undistortion is a no-op.
+  if (!IsPerspective()) {
+    return true;
+  }
   for (const size_t idx : ExtraParamsIdxs()) {
     if (std::abs(params[idx]) > 1e-8) {
       return false;
