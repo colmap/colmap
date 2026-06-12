@@ -57,31 +57,53 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
   models->clear();
 
-  // Triangulate from 3D bearing vectors (Camera::CamRayFromImg), the canonical
-  // observation representation for every camera model. This handles
-  // omnidirectional (e.g. SPHERICAL) observations whose back-hemisphere rays
-  // cannot be expressed in the 2D (u, v, 1) normalized representation.
-  std::vector<Eigen::Matrix3x4d> cams_from_world(point_data.size());
-  std::vector<Eigen::Vector3d> cam_rays(point_data.size());
-  for (size_t i = 0; i < point_data.size(); ++i) {
-    cams_from_world[i] = pose_data[i].cam_from_world;
-    cam_rays[i] = point_data[i].cam_ray;
+  // The camera is required for the cheirality test and to choose the
+  // triangulation path; callers (e.g. EstimateTriangulation) always set it.
+  for (const auto& pose : pose_data) {
+    THROW_CHECK_NOTNULL(pose.camera);
   }
+  const bool all_perspective =
+      std::all_of(pose_data.begin(), pose_data.end(), [](const Y_t& pose) {
+        return pose.camera->IsPerspective();
+      });
 
   M_t xyz;
-  if (!TriangulateMultiViewPoint(
-          span<const Eigen::Matrix3x4d>(cams_from_world.data(),
-                                        cams_from_world.size()),
-          span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
-          &xyz)) {
-    return;
+  if (point_data.size() == 2 && all_perspective) {
+    // Closed-form two-view triangulation for perspective cameras (the RANSAC
+    // minimal sample). For a perspective camera the bearing's hnormalized()
+    // recovers the (u, v) normalized image point (forward hemisphere, Z > 0).
+    if (!TriangulatePoint(pose_data[0].cam_from_world,
+                          pose_data[1].cam_from_world,
+                          point_data[0].cam_ray.hnormalized(),
+                          point_data[1].cam_ray.hnormalized(),
+                          &xyz)) {
+      return;
+    }
+  } else {
+    // Projector-based DLT from 3D bearing vectors (Camera::CamRayFromImg).
+    // Handles omnidirectional (e.g. SPHERICAL) observations whose
+    // back-hemisphere rays cannot be expressed in the 2D (u, v, 1)
+    // representation, as well as the multi-view case.
+    std::vector<Eigen::Matrix3x4d> cams_from_world(point_data.size());
+    std::vector<Eigen::Vector3d> cam_rays(point_data.size());
+    for (size_t i = 0; i < point_data.size(); ++i) {
+      cams_from_world[i] = pose_data[i].cam_from_world;
+      cam_rays[i] = point_data[i].cam_ray;
+    }
+    if (!TriangulateMultiViewPoint(
+            span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                          cams_from_world.size()),
+            span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
+            &xyz)) {
+      return;
+    }
   }
 
   // Cheirality: points must lie in front of perspective cameras. Skipped for
   // omnidirectional cameras (e.g. SPHERICAL), which legitimately observe
   // points behind their local +Z axis.
   for (const auto& pose : pose_data) {
-    if (pose.camera != nullptr && pose.camera->IsPerspective() &&
+    if (pose.camera->IsPerspective() &&
         !HasPointPositiveDepth(pose.cam_from_world, xyz)) {
       return;
     }
@@ -148,9 +170,11 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
     point_data[i].img_point = points[i];
     // Unit bearing in the camera frame. CamRayFromImg yields a valid ray for
     // any camera model, including omnidirectional (SPHERICAL) back-hemisphere
-    // observations that CamFromImg cannot represent.
+    // observations that CamFromImg cannot represent. Fall back to a defined
+    // forward bearing (+Z) if unprojection fails, so downstream normalize() in
+    // the DLT never sees a zero vector (which would produce NaNs).
     point_data[i].cam_ray =
-        cameras[i]->CamRayFromImg(points[i]).value_or(Eigen::Vector3d::Zero());
+        cameras[i]->CamRayFromImg(points[i]).value_or(Eigen::Vector3d::UnitZ());
     pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();
     pose_data[i].proj_center = cams_from_world[i].TgtOriginInSrc();
     pose_data[i].camera = cameras[i];
