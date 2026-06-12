@@ -418,6 +418,14 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   for (const camera_t camera_id : camera_ids) {
     Camera& camera = reconstruction.Camera(camera_id);
 
+    // Omnidirectional cameras (e.g. SPHERICAL) are parametrized purely by their
+    // fixed image dimensions, which are sensor properties and must never be
+    // optimized. Always keep them constant.
+    if (!camera.IsPerspective()) {
+      problem.SetParameterBlockConstant(camera.params.data());
+      continue;
+    }
+
     if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
       problem.SetParameterBlockConstant(camera.params.data());
     } else {

@@ -411,6 +411,12 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
       const Image& image = reconstruction_.Image(data_id.id);
+      // Omnidirectional cameras (e.g. SPHERICAL) see the full sphere, so
+      // observations behind the local +Z axis are valid and must not be
+      // filtered by the positive-depth (cheirality) test.
+      if (!image.CameraPtr()->IsPerspective()) {
+        continue;
+      }
       const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
       for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
            ++point2D_idx) {
@@ -536,23 +542,41 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
         case ReprojectionErrorType::NORMALIZED: {
           const Eigen::Vector3d point3D_in_cam =
               image.CamFromWorld() * point3D.xyz;
-          constexpr double kMinDepth = 1e-12;
-          if (point3D_in_cam.z() < kMinDepth) {
-            should_filter = true;
-            break;
+          if (camera.IsPerspective()) {
+            constexpr double kMinDepth = 1e-12;
+            if (point3D_in_cam.z() < kMinDepth) {
+              should_filter = true;
+              break;
+            }
+            const std::optional<Eigen::Vector2d> cam_point =
+                camera.CamFromImg(point2D.xy);
+            if (!cam_point.has_value()) {
+              should_filter = true;
+              break;
+            }
+            const Eigen::Vector2d reproj_point =
+                point3D_in_cam.hnormalized().head<2>();
+            const double squared_error =
+                (reproj_point - *cam_point).squaredNorm();
+            should_filter = squared_error > max_squared_error;
+            observation_error = std::sqrt(squared_error);
+          } else {
+            // Omnidirectional cameras (e.g. SPHERICAL) have no pinhole z-divide
+            // and legitimately observe points behind the local +Z axis, so the
+            // cheirality gate and 2D CamFromImg above do not apply. Compare
+            // unit bearings instead (chord distance ~= angle for small errors,
+            // consistent with the normalized threshold).
+            const std::optional<Eigen::Vector3d> cam_ray =
+                camera.CamRayFromImg(point2D.xy);
+            if (!cam_ray.has_value()) {
+              should_filter = true;
+              break;
+            }
+            const double squared_error =
+                (point3D_in_cam.normalized() - *cam_ray).squaredNorm();
+            should_filter = squared_error > max_squared_error;
+            observation_error = std::sqrt(squared_error);
           }
-          const std::optional<Eigen::Vector2d> cam_point =
-              camera.CamFromImg(point2D.xy);
-          if (!cam_point.has_value()) {
-            should_filter = true;
-            break;
-          }
-          const Eigen::Vector2d reproj_point =
-              point3D_in_cam.hnormalized().head<2>();
-          const double squared_error =
-              (reproj_point - *cam_point).squaredNorm();
-          should_filter = squared_error > max_squared_error;
-          observation_error = std::sqrt(squared_error);
           break;
         }
         case ReprojectionErrorType::ANGULAR: {

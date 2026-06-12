@@ -61,6 +61,14 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
+  // Omnidirectional cameras (no focal length, e.g. SPHERICAL) have no pinhole
+  // calibration matrix; fail loudly rather than reading out of bounds on the
+  // empty focal-length/principal-point spans. Callers that handle such
+  // cameras use the bearing interface (CamRayFromImg) instead.
+  THROW_CHECK(!FocalLengthIdxs().empty() && !PrincipalPointIdxs().empty())
+      << "CalibrationMatrix() is undefined for a camera without a focal "
+         "length (e.g. the omnidirectional SPHERICAL model).";
+
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
 
   K(0, 0) = FocalLengthX();
@@ -73,6 +81,10 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
 
 double Camera::MeanFocalLength() const {
   const span<const size_t> focal_length_idxs = FocalLengthIdxs();
+  // Omnidirectional cameras (e.g. SPHERICAL) have no focal length.
+  if (focal_length_idxs.empty()) {
+    return 0.0;
+  }
   double focal_length = 0;
   for (const auto idx : focal_length_idxs) {
     focal_length += params[idx];
@@ -92,6 +104,11 @@ bool Camera::SetParamsFromString(const std::string& string) {
 }
 
 bool Camera::IsUndistorted() const {
+  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane to
+  // undistort to; treat them as already undistorted so undistortion is a no-op.
+  if (!IsPerspective()) {
+    return true;
+  }
   for (const size_t idx : ExtraParamsIdxs()) {
     if (std::abs(params[idx]) > 1e-8) {
       return false;
@@ -146,6 +163,9 @@ void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
   } else if (num_focal_params == 2) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
+  } else if (num_focal_params == 0) {
+    // Omnidirectional cameras (e.g. SPHERICAL) have no focal length to scale;
+    // the principal-point rescale performed by the caller is sufficient.
   } else {
     LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";

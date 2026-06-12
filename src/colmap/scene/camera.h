@@ -122,6 +122,11 @@ struct Camera {
   // Check whether camera is already undistorted.
   bool IsUndistorted() const;
 
+  // Whether the camera model is perspective, i.e. has a focal length and a
+  // finite pinhole image plane (so positive-depth cheirality applies).
+  // Omnidirectional models such as SPHERICAL are not perspective.
+  inline bool IsPerspective() const;
+
   // Check whether camera has bogus parameters.
   inline bool HasBogusParams(double min_focal_length_ratio,
                              double max_focal_length_ratio,
@@ -250,6 +255,10 @@ span<const size_t> Camera::PrincipalPointIdxs() const {
 
 span<const size_t> Camera::ExtraParamsIdxs() const {
   return CameraModelExtraParamsIdxs(model_id);
+}
+
+bool Camera::IsPerspective() const {
+  return CameraModelIsPerspective(model_id);
 }
 
 bool Camera::VerifyParams() const {

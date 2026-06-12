@@ -99,57 +99,63 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kDivision,                // = 13
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
-                                kEUCM                     // = 16
+                                kEUCM,                    // = 16
+                                kSpherical                // = 17
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
-#define CAMERA_MODEL_DEFINITIONS(model_id_val,                                \
-                                 model_name_val,                              \
-                                 num_focal_params_val,                        \
-                                 num_pp_params_val,                           \
-                                 num_extra_params_val,                        \
-                                 has_img_from_cam_with_jac_val)               \
-  static constexpr size_t num_params =                                        \
-      (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);  \
-  static constexpr size_t num_focal_params = num_focal_params_val;            \
-  static constexpr size_t num_pp_params = num_pp_params_val;                  \
-  static constexpr size_t num_extra_params = num_extra_params_val;            \
-  static constexpr bool has_img_from_cam_with_jac =                           \
-      has_img_from_cam_with_jac_val;                                          \
-  static constexpr CameraModelId model_id = model_id_val;                     \
-  static const std::string model_name;                                        \
-  static const std::string params_info;                                       \
-  static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;  \
-  static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;  \
-  static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;  \
-  static inline CameraModelId InitializeModelId() { return model_id_val; };   \
-  static inline std::string InitializeModelName() { return model_name_val; }; \
-  static inline std::string InitializeParamsInfo();                           \
-  static inline std::array<size_t, (num_focal_params_val)>                    \
-  InitializeFocalLengthIdxs();                                                \
-  static inline std::array<size_t, (num_pp_params_val)>                       \
-  InitializePrincipalPointIdxs();                                             \
-  static inline std::array<size_t, (num_extra_params_val)>                    \
-  InitializeExtraParamsIdxs();                                                \
-  static inline std::vector<double> InitializeParams(                         \
-      double focal_length, size_t width, size_t height);                      \
-  template <typename T>                                                       \
-  static bool ImgFromCam(                                                     \
-      const T* params, const T& u, const T& v, const T& w, T* x, T* y);       \
-  template <bool Enable = has_img_from_cam_with_jac,                          \
-            typename std::enable_if<Enable, int>::type = 0>                   \
-  static inline bool ImgFromCamWithJac(const double* params,                  \
-                                       const double& u,                       \
-                                       const double& v,                       \
-                                       const double& w,                       \
-                                       double* x,                             \
-                                       double* y,                             \
-                                       double* J_params,                      \
-                                       double* J_uvw);                        \
-  static inline bool CamFromImg(                                              \
-      const double* params, double x, double y, double* u, double* v);        \
-  template <typename T>                                                       \
-  static void Distortion(                                                     \
+#define CAMERA_MODEL_DEFINITIONS(model_id_val,                                 \
+                                 model_name_val,                               \
+                                 num_focal_params_val,                         \
+                                 num_pp_params_val,                            \
+                                 num_extra_params_val,                         \
+                                 has_img_from_cam_with_jac_val,                \
+                                 is_perspective_val)                           \
+  static constexpr size_t num_params =                                         \
+      (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);   \
+  static constexpr size_t num_focal_params = num_focal_params_val;             \
+  static constexpr size_t num_pp_params = num_pp_params_val;                   \
+  static constexpr size_t num_extra_params = num_extra_params_val;             \
+  /* Whether the model has a finite pinhole image plane (positive-depth     */ \
+  /* cheirality applies). Omnidirectional models such as SPHERICAL are not */                                                                            \
+  /* perspective and observe the full sphere.                               */ \
+  static constexpr bool is_perspective = is_perspective_val;                   \
+  static constexpr bool has_img_from_cam_with_jac =                            \
+      has_img_from_cam_with_jac_val;                                           \
+  static constexpr CameraModelId model_id = model_id_val;                      \
+  static const std::string model_name;                                         \
+  static const std::string params_info;                                        \
+  static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;   \
+  static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;   \
+  static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;   \
+  static inline CameraModelId InitializeModelId() { return model_id_val; };    \
+  static inline std::string InitializeModelName() { return model_name_val; };  \
+  static inline std::string InitializeParamsInfo();                            \
+  static inline std::array<size_t, (num_focal_params_val)>                     \
+  InitializeFocalLengthIdxs();                                                 \
+  static inline std::array<size_t, (num_pp_params_val)>                        \
+  InitializePrincipalPointIdxs();                                              \
+  static inline std::array<size_t, (num_extra_params_val)>                     \
+  InitializeExtraParamsIdxs();                                                 \
+  static inline std::vector<double> InitializeParams(                          \
+      double focal_length, size_t width, size_t height);                       \
+  template <typename T>                                                        \
+  static bool ImgFromCam(                                                      \
+      const T* params, const T& u, const T& v, const T& w, T* x, T* y);        \
+  template <bool Enable = has_img_from_cam_with_jac,                           \
+            typename std::enable_if<Enable, int>::type = 0>                    \
+  static inline bool ImgFromCamWithJac(const double* params,                   \
+                                       const double& u,                        \
+                                       const double& v,                        \
+                                       const double& w,                        \
+                                       double* x,                              \
+                                       double* y,                              \
+                                       double* J_params,                       \
+                                       double* J_uvw);                         \
+  static inline bool CamFromImg(                                               \
+      const double* params, double x, double y, double* u, double* v);         \
+  template <typename T>                                                        \
+  static void Distortion(                                                      \
       const T* extra_params, const T& u, const T& v, T* du, T* dv);
 #endif
 
@@ -171,7 +177,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FisheyeCameraModel)             \
-  CAMERA_MODEL_CASE(EUCMCameraModel)
+  CAMERA_MODEL_CASE(EUCMCameraModel)                \
+  CAMERA_MODEL_CASE(SphericalCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -320,7 +327,7 @@ struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
 struct SimplePinholeCameraModel
     : public BaseCameraModel<SimplePinholeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0, false)
+      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0, false, true)
 };
 
 // Pinhole camera model.
@@ -333,7 +340,8 @@ struct SimplePinholeCameraModel
 //
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kPinhole, "PINHOLE", 2, 2, 0, false)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kPinhole, "PINHOLE", 2, 2, 0, false, true)
 };
 
 // Simple camera model with one focal length and one radial distortion
@@ -350,7 +358,7 @@ struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
 struct SimpleRadialCameraModel
     : public BaseCameraModel<SimpleRadialCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1, true)
+      CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1, true, true)
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -364,7 +372,8 @@ struct SimpleRadialCameraModel
 //    f, cx, cy, k1, k2
 //
 struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadial, "RADIAL", 1, 2, 2, false)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kRadial, "RADIAL", 1, 2, 2, false, true)
 };
 
 // OpenCV camera model.
@@ -380,7 +389,8 @@ struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kOpenCV, "OPENCV", 2, 2, 4, false)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kOpenCV, "OPENCV", 2, 2, 4, false, true)
 };
 
 // OpenCV fish-eye camera model.
@@ -398,7 +408,7 @@ struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
 struct OpenCVFisheyeCameraModel
     : public BaseFisheyeCameraModel<OpenCVFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, false)
+      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, false, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -415,7 +425,7 @@ struct OpenCVFisheyeCameraModel
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8, false)
+      CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8, false, true)
 };
 
 // FOV camera model.
@@ -433,7 +443,7 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 // Automatic calibration and removal of distortion from scenes of structured
 // environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFOV, "FOV", 2, 2, 1, false)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFOV, "FOV", 2, 2, 1, false, true)
 
   template <typename T>
   static void Undistortion(const T* extra_params, T u, T v, T* du, T* dv);
@@ -456,7 +466,8 @@ struct SimpleRadialFisheyeCameraModel
                            1,
                            2,
                            1,
-                           false)
+                           false,
+                           true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -473,7 +484,7 @@ struct SimpleRadialFisheyeCameraModel
 struct RadialFisheyeCameraModel
     : public BaseFisheyeCameraModel<RadialFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, false)
+      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, false, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -491,8 +502,13 @@ struct RadialFisheyeCameraModel
 //
 struct ThinPrismFisheyeCameraModel
     : public BaseFisheyeCameraModel<ThinPrismFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, false)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kThinPrismFisheye,
+                           "THIN_PRISM_FISHEYE",
+                           2,
+                           2,
+                           8,
+                           false,
+                           true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -515,7 +531,8 @@ struct RadTanThinPrismFisheyeModel
                            2,
                            2,
                            12,
-                           false)
+                           false,
+                           true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -534,7 +551,7 @@ struct RadTanThinPrismFisheyeModel
 struct SimpleDivisionCameraModel
     : public BaseCameraModel<SimpleDivisionCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, false)
+      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, false, true)
 };
 
 // Division camera model.
@@ -550,7 +567,8 @@ struct SimpleDivisionCameraModel
 //    fx, fy, cx, cy, k
 //
 struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kDivision, "DIVISION", 2, 2, 1, false, true)
 };
 
 // Simple equidistant fisheye camera model.
@@ -566,7 +584,7 @@ struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
 struct SimpleFisheyeCameraModel
     : public BaseFisheyeCameraModel<SimpleFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, false)
+      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, false, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -581,7 +599,8 @@ struct SimpleFisheyeCameraModel
 //    fx, fy, cx, cy
 //
 struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -597,11 +616,74 @@ struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
 //      fx, fy, cx, cy, alpha, beta
 //
 struct EUCMCameraModel : public BaseCameraModel<EUCMCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kEUCM, "EUCM", 2, 2, 2, false)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kEUCM, "EUCM", 2, 2, 2, false, true)
 
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
                                          T max_extra_param);
+};
+
+// Spherical (equirectangular panorama) camera model.
+//
+// Maps the full 360°x180° sphere onto an equirectangular image: the azimuth
+// spans the image width and the elevation spans the image height. The model
+// is fully specified by the image dimensions, so the two parameters are the
+// width and height; there is no focal length and no lens distortion. The two
+// parameters are classified as principal-point parameters (not extra/
+// distortion parameters) since they are intrinsic image geometry.
+//
+// Parameter list is expected in the following order:
+//
+//    w, h
+//
+// Named "SPHERICAL" and parametrized by (w, h) to match PoseLib's
+// SphericalCameraModel, so cameras map across the COLMAP/PoseLib boundary by
+// model name.
+struct SphericalCameraModel : public BaseCameraModel<SphericalCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSpherical, "SPHERICAL", 0, 2, 0, false, false)
+
+  // Override BaseCameraModel: the only parameters are image dimensions —
+  // always valid by construction — so the generic bogus-focal / bogus-extra
+  // checks don't apply.
+  template <typename T>
+  static inline bool HasBogusParams(const std::vector<T>& /*params*/,
+                                    size_t /*width*/,
+                                    size_t /*height*/,
+                                    T /*min_focal_length_ratio*/,
+                                    T /*max_focal_length_ratio*/,
+                                    T /*max_extra_param*/) {
+    return false;
+  }
+
+  // Override BaseCameraModel: SPHERICAL has no focal length. Convert pixel
+  // thresholds to normalized-camera-coord thresholds using the angular
+  // resolution at the equator (2π rad per W pixels in azimuth).
+  template <typename T>
+  static inline T CamFromImgThreshold(const T* params, T threshold) {
+    return threshold * T(2.0 * EIGEN_PI) / params[0];
+  }
+
+  // Override BaseCameraModel: the default CamRayFromImg goes through the 2D
+  // CamFromImg which fails for back-hemisphere pixels. SPHERICAL can produce
+  // valid unit bearings for any pixel in the equirectangular image, so we
+  // compute the ray directly from the azimuth/elevation parametrization.
+  static inline bool CamRayFromImg(const double* params,
+                                   double x,
+                                   double y,
+                                   double* rx,
+                                   double* ry,
+                                   double* rz) {
+    const double width = params[0];
+    const double height = params[1];
+    const double theta = 2.0 * EIGEN_PI * (x / width - 0.5);
+    const double phi = EIGEN_PI * (0.5 - y / height);
+    const double cos_phi = std::cos(phi);
+    *rx = cos_phi * std::sin(theta);
+    *ry = -std::sin(phi);
+    *rz = cos_phi * std::cos(theta);
+    return true;
+  }
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -745,6 +827,14 @@ inline double CameraModelCamFromImgThreshold(CameraModelId model_id,
 //
 // @return              Whether it is a fisheye camera model.
 inline bool CameraModelIsFisheye(CameraModelId model_id);
+
+// Test if a camera model is perspective, i.e. has a focal length and a finite
+// pinhole image plane. Omnidirectional models such as SPHERICAL are not.
+//
+// @param model_id      Unique identifier of camera model.
+//
+// @return              Whether it is a perspective camera model.
+inline bool CameraModelIsPerspective(CameraModelId model_id);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -2515,6 +2605,81 @@ bool EUCMCameraModel::CamFromImg(const double* params,
   return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// SphericalCameraModel
+
+std::string SphericalCameraModel::InitializeParamsInfo() { return "w,h"; }
+
+std::array<size_t, 0> SphericalCameraModel::InitializeFocalLengthIdxs() {
+  return {};
+}
+
+std::array<size_t, 2> SphericalCameraModel::InitializePrincipalPointIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 0> SphericalCameraModel::InitializeExtraParamsIdxs() {
+  return {};
+}
+
+std::vector<double> SphericalCameraModel::InitializeParams(
+    const double /*focal_length*/, const size_t width, const size_t height) {
+  // focal_length is ignored: an equirectangular projection is fully specified
+  // by the image dimensions.
+  return {static_cast<double>(width), static_cast<double>(height)};
+}
+
+// Projects camera-frame point (u, v, w) onto the equirectangular image plane.
+// Unlike pinhole/fisheye models that require w > 0, SPHERICAL accepts any
+// non-zero direction — all 4π sr of the sphere are representable.
+template <typename T>
+bool SphericalCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  const T width = params[0];
+  const T height = params[1];
+
+  const T horizontal = ceres::sqrt(u * u + w * w);
+  // Degenerate: zero direction vector.
+  if (horizontal + ceres::abs(v) < T(std::numeric_limits<double>::epsilon())) {
+    return false;
+  }
+
+  // Azimuth θ ∈ (-π, π], measured from +Z axis (forward). +X is θ = +π/2.
+  const T theta = ceres::atan2(u, w);
+  // Elevation φ ∈ [-π/2, π/2], measured from the equator. -Y (up) is +π/2.
+  const T phi = ceres::atan2(-v, horizontal);
+
+  *x = (theta / T(2.0 * EIGEN_PI) + T(0.5)) * width;
+  *y = (T(0.5) - phi / T(EIGEN_PI)) * height;
+  return true;
+}
+
+// Inverse equirectangular projection. Returns the normalized camera
+// coordinates (u = X/Z, v = Y/Z) of the pixel's ray, valid only when the ray
+// falls in the forward hemisphere (Z > 0). Back-hemisphere pixels return
+// false; use CamRayFromImg for the full-sphere 3D bearing.
+bool SphericalCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double width = params[0];
+  const double height = params[1];
+
+  const double theta = 2.0 * EIGEN_PI * (x / width - 0.5);
+  const double phi = EIGEN_PI * (0.5 - y / height);
+
+  const double cos_phi = std::cos(phi);
+  const double rx = cos_phi * std::sin(theta);
+  const double ry = -std::sin(phi);
+  const double rz = cos_phi * std::cos(theta);
+
+  if (rz <= std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  *u = rx / rz;
+  *v = ry / rz;
+  return true;
+}
+
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     const CameraModelId model_id,
     const std::vector<double>& params,
@@ -2612,6 +2777,20 @@ bool CameraModelIsFisheye(const CameraModelId model_id) {
     return true;
     default:
       return false;
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  return false;
+}
+
+bool CameraModelIsPerspective(const CameraModelId model_id) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel) \
+  case CameraModel::model_id:          \
+    return CameraModel::is_perspective;
+
+    CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
   }
