@@ -277,7 +277,10 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
 void SequentialMatchingTab::Run() {
   WriteOptions();
 
+  // An empty path is valid: the matcher then resolves the default vocabulary
+  // tree for the database's feature type via GetVocabTreeUriForFeatureType.
   if (options_->sequential_pairing->loop_detection &&
+      !options_->sequential_pairing->vocab_tree_path.empty() &&
       !ExistsFile(options_->sequential_pairing->vocab_tree_path) &&
       !IsURI(options_->sequential_pairing->vocab_tree_path.string())) {
     QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
@@ -316,7 +319,10 @@ VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
 void VocabTreeMatchingTab::Run() {
   WriteOptions();
 
-  if (!ExistsFile(options_->vocab_tree_pairing->vocab_tree_path) &&
+  // An empty path is valid: the matcher then resolves the default vocabulary
+  // tree for the database's feature type via GetVocabTreeUriForFeatureType.
+  if (!options_->vocab_tree_pairing->vocab_tree_path.empty() &&
+      !ExistsFile(options_->vocab_tree_pairing->vocab_tree_path) &&
       !IsURI(options_->vocab_tree_pairing->vocab_tree_path.string())) {
     QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
     return;
