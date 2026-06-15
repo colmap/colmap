@@ -104,58 +104,58 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
-#define CAMERA_MODEL_DEFINITIONS(model_id_val,                                 \
-                                 model_name_val,                               \
-                                 num_focal_params_val,                         \
-                                 num_pp_params_val,                            \
-                                 num_extra_params_val,                         \
-                                 has_img_from_cam_with_jac_val,                \
-                                 is_perspective_val)                           \
-  static constexpr size_t num_params =                                         \
-      (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);   \
-  static constexpr size_t num_focal_params = num_focal_params_val;             \
-  static constexpr size_t num_pp_params = num_pp_params_val;                   \
-  static constexpr size_t num_extra_params = num_extra_params_val;             \
-  /* Whether the model has a finite pinhole image plane (positive-depth     */ \
-  /* cheirality applies). Omnidirectional models such as SPHERICAL are not */                                                                            \
-  /* perspective and observe the full sphere.                               */ \
-  static constexpr bool is_perspective = is_perspective_val;                   \
-  static constexpr bool has_img_from_cam_with_jac =                            \
-      has_img_from_cam_with_jac_val;                                           \
-  static constexpr CameraModelId model_id = model_id_val;                      \
-  static const std::string model_name;                                         \
-  static const std::string params_info;                                        \
-  static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;   \
-  static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;   \
-  static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;   \
-  static inline CameraModelId InitializeModelId() { return model_id_val; };    \
-  static inline std::string InitializeModelName() { return model_name_val; };  \
-  static inline std::string InitializeParamsInfo();                            \
-  static inline std::array<size_t, (num_focal_params_val)>                     \
-  InitializeFocalLengthIdxs();                                                 \
-  static inline std::array<size_t, (num_pp_params_val)>                        \
-  InitializePrincipalPointIdxs();                                              \
-  static inline std::array<size_t, (num_extra_params_val)>                     \
-  InitializeExtraParamsIdxs();                                                 \
-  static inline std::vector<double> InitializeParams(                          \
-      double focal_length, size_t width, size_t height);                       \
-  template <typename T>                                                        \
-  static bool ImgFromCam(                                                      \
-      const T* params, const T& u, const T& v, const T& w, T* x, T* y);        \
-  template <bool Enable = has_img_from_cam_with_jac,                           \
-            typename std::enable_if<Enable, int>::type = 0>                    \
-  static inline bool ImgFromCamWithJac(const double* params,                   \
-                                       const double& u,                        \
-                                       const double& v,                        \
-                                       const double& w,                        \
-                                       double* x,                              \
-                                       double* y,                              \
-                                       double* J_params,                       \
-                                       double* J_uvw);                         \
-  static inline bool CamFromImg(                                               \
-      const double* params, double x, double y, double* u, double* v);         \
-  template <typename T>                                                        \
-  static void Distortion(                                                      \
+#define CAMERA_MODEL_DEFINITIONS(model_id_val,                                \
+                                 model_name_val,                              \
+                                 num_focal_params_val,                        \
+                                 num_pp_params_val,                           \
+                                 num_extra_params_val,                        \
+                                 has_img_from_cam_with_jac_val,               \
+                                 is_perspective_val)                          \
+  static constexpr size_t num_params =                                        \
+      (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);  \
+  static constexpr size_t num_focal_params = num_focal_params_val;            \
+  static constexpr size_t num_pp_params = num_pp_params_val;                  \
+  static constexpr size_t num_extra_params = num_extra_params_val;            \
+  /* Whether the model has a finite pinhole image plane (positive-depth    */ \
+  /* cheirality applies). Omnidirectional models such as SPHERICAL are not */ \
+  /* perspective and observe the full sphere.                              */ \
+  static constexpr bool is_perspective = is_perspective_val;                  \
+  static constexpr bool has_img_from_cam_with_jac =                           \
+      has_img_from_cam_with_jac_val;                                          \
+  static constexpr CameraModelId model_id = model_id_val;                     \
+  static const std::string model_name;                                        \
+  static const std::string params_info;                                       \
+  static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;  \
+  static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;  \
+  static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;  \
+  static inline CameraModelId InitializeModelId() { return model_id_val; };   \
+  static inline std::string InitializeModelName() { return model_name_val; }; \
+  static inline std::string InitializeParamsInfo();                           \
+  static inline std::array<size_t, (num_focal_params_val)>                    \
+  InitializeFocalLengthIdxs();                                                \
+  static inline std::array<size_t, (num_pp_params_val)>                       \
+  InitializePrincipalPointIdxs();                                             \
+  static inline std::array<size_t, (num_extra_params_val)>                    \
+  InitializeExtraParamsIdxs();                                                \
+  static inline std::vector<double> InitializeParams(                         \
+      double focal_length, size_t width, size_t height);                      \
+  template <typename T>                                                       \
+  static bool ImgFromCam(                                                     \
+      const T* params, const T& u, const T& v, const T& w, T* x, T* y);       \
+  template <bool Enable = has_img_from_cam_with_jac,                          \
+            typename std::enable_if<Enable, int>::type = 0>                   \
+  static inline bool ImgFromCamWithJac(const double* params,                  \
+                                       const double& u,                       \
+                                       const double& v,                       \
+                                       const double& w,                       \
+                                       double* x,                             \
+                                       double* y,                             \
+                                       double* J_params,                      \
+                                       double* J_uvw);                        \
+  static inline bool CamFromImg(                                              \
+      const double* params, double x, double y, double* u, double* v);        \
+  template <typename T>                                                       \
+  static void Distortion(                                                     \
       const T* extra_params, const T& u, const T& v, T* du, T* dv);
 #endif
 

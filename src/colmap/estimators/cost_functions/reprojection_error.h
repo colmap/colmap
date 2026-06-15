@@ -42,12 +42,12 @@ namespace colmap {
 // Periodic (azimuthal) camera models such as SPHERICAL wrap the x image
 // coordinate at the ±π seam, so a raw pixel residual can jump by ~width across
 // the seam (e.g. an observation at x ≈ 0 whose 3D point reprojects to
-// x ≈ width). Wrap the x-residual into (-width/2, width/2] so the
+// x ≈ width). Wrap the x-residual into [-width/2, width/2) so the
 // bundle-adjustment cost stays continuous across the seam. The offset is
 // locally constant, so it does not perturb the residual's derivatives. No-op
 // for non-periodic camera models. (Elevation has no wrap, so y is untouched.)
 template <typename CameraModel, typename T>
-inline void WrapImageResidualSeam(const T* camera_params, T* residuals) {
+inline void WrapSphericalHorizontalSeam(const T* camera_params, T* residuals) {
   if constexpr (CameraModel::model_id == CameraModelId::kSpherical) {
     const T width = camera_params[0];
     residuals[0] -= width * ceres::floor(residuals[0] / width + T(0.5));
@@ -184,6 +184,9 @@ class AnalyticalReprojErrorCostFunction
     }
 
     residuals_vec -= point2D_;
+    // No-op for non-periodic models. The offset is locally constant, so the
+    // analytic Jacobians below are unaffected.
+    WrapSphericalHorizontalSeam<CameraModel>(camera_params, residuals);
 
     if (J_point) {
       J_point_mat =
@@ -232,7 +235,7 @@ class ReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
-      WrapImageResidualSeam<CameraModel>(camera_params, residuals);
+      WrapSphericalHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }
@@ -339,7 +342,7 @@ class RigReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
-      WrapImageResidualSeam<CameraModel>(camera_params, residuals);
+      WrapSphericalHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }

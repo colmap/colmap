@@ -291,5 +291,121 @@ TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
   EXPECT_EQ(residuals[1], 2);
 }
 
+constexpr double kSphericalCameraWidth = 1000;
+constexpr double kSphericalCameraHeight = 500;
+
+TEST(WrapSphericalHorizontalSeam, Nominal) {
+  const double camera_params[2] = {kSphericalCameraWidth,
+                                   kSphericalCameraHeight};
+
+  // No-op for non-periodic models, regardless of residual magnitude.
+  {
+    double residuals[2] = {993.0, -7.0};
+    WrapSphericalHorizontalSeam<SimplePinholeCameraModel>(camera_params,
+                                                          residuals);
+    EXPECT_EQ(residuals[0], 993.0);
+    EXPECT_EQ(residuals[1], -7.0);
+  }
+
+  // Spherical folds the x-residual into [-w/2, w/2); y is untouched.
+  {
+    double residuals[2] = {1000.0, 5.0};  // Exactly one period -> 0.
+    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    EXPECT_EQ(residuals[0], 0.0);
+    EXPECT_EQ(residuals[1], 5.0);
+  }
+  {
+    double residuals[2] = {998.0, 0.0};  // Just under a period -> -2.
+    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    EXPECT_EQ(residuals[0], -2.0);
+  }
+  {
+    double residuals[2] = {-998.0, 0.0};
+    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    EXPECT_EQ(residuals[0], 2.0);
+  }
+  {
+    double residuals[2] = {-3.0, 0.0};  // Already minimal -> unchanged.
+    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    EXPECT_EQ(residuals[0], -3.0);
+  }
+  {
+    double residuals[2] = {500.0, 0.0};  // +w/2 boundary folds to -w/2.
+    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    EXPECT_EQ(residuals[0], -500.0);
+  }
+}
+
+template <typename CreateCostFunction>
+void ExpectSphericalSeamWrap(const CreateCostFunction& create,
+                             const std::vector<const double*>& parameters) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      create(Eigen::Vector2d(2, kSphericalCameraHeight / 2)));
+  double residuals[2];
+  EXPECT_TRUE(cost_function->Evaluate(parameters.data(), residuals, nullptr));
+  EXPECT_EQ(residuals[0], -2);  // Raw ~w folded into [-w/2, w/2).
+  EXPECT_EQ(residuals[1], 0);
+}
+
+TEST(ReprojErrorCostFunctor, SphericalSeamWrap) {
+  double cam_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};  // Azimuth = ±π -> projects to x = w.
+  double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
+  ExpectSphericalSeamWrap(
+      [](const Eigen::Vector2d& point2D) {
+        return ReprojErrorCostFunctor<SphericalCameraModel>::Create(point2D);
+      },
+      {point3D, cam_from_world, camera_params});
+}
+
+TEST(ReprojErrorConstantPoseCostFunctor, SphericalSeamWrap) {
+  const Rigid3d cam_from_world;
+  double point3D[3] = {0, 0, -1};
+  double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
+  ExpectSphericalSeamWrap(
+      [&cam_from_world](const Eigen::Vector2d& point2D) {
+        return ReprojErrorConstantPoseCostFunctor<SphericalCameraModel>::Create(
+            point2D, cam_from_world);
+      },
+      {point3D, camera_params});
+}
+
+TEST(ReprojErrorConstantPoint3DCostFunctor, SphericalSeamWrap) {
+  const Eigen::Vector3d point3D(0, 0, -1);
+  double cam_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
+  double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
+  ExpectSphericalSeamWrap(
+      [&point3D](const Eigen::Vector2d& point2D) {
+        return ReprojErrorConstantPoint3DCostFunctor<
+            SphericalCameraModel>::Create(point2D, point3D);
+      },
+      {cam_from_world, camera_params});
+}
+
+TEST(RigReprojErrorCostFunctor, SphericalSeamWrap) {
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, 0};
+  double rig_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};
+  double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
+  ExpectSphericalSeamWrap(
+      [](const Eigen::Vector2d& point2D) {
+        return RigReprojErrorCostFunctor<SphericalCameraModel>::Create(point2D);
+      },
+      {point3D, cam_from_rig, rig_from_world, camera_params});
+}
+
+TEST(RigReprojErrorConstantRigCostFunctor, SphericalSeamWrap) {
+  const Rigid3d cam_from_rig;
+  double rig_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};
+  double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
+  ExpectSphericalSeamWrap(
+      [&cam_from_rig](const Eigen::Vector2d& point2D) {
+        return RigReprojErrorConstantRigCostFunctor<
+            SphericalCameraModel>::Create(point2D, cam_from_rig);
+      },
+      {point3D, rig_from_world, camera_params});
+}
+
 }  // namespace
 }  // namespace colmap
