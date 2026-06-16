@@ -122,6 +122,16 @@ void BindCamera(py::module& m) {
       .def("is_undistorted",
            &Camera::IsUndistorted,
            "Check whether camera is already undistorted.")
+      .def("is_perspective",
+           &Camera::IsPerspective,
+           "Whether the camera model is perspective, i.e. has a focal length "
+           "and a finite pinhole image plane (so positive-depth cheirality "
+           "applies). Omnidirectional models such as SPHERICAL are not "
+           "perspective.")
+      .def("is_spherical",
+           &Camera::IsSpherical,
+           "Whether the camera model is spherical (equirectangular "
+           "omnidirectional panorama).")
       .def("cam_from_img",
            &Camera::CamFromImg,
            "image_point"_a,

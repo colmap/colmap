@@ -306,9 +306,12 @@ TEST(Spherical, Nominal) {
       CameraModelExtraParamsIdxs(SphericalCameraModel::model_id).empty());
   EXPECT_EQ(CameraModelNumParams(SphericalCameraModel::model_id), 2u);
 
-  // SPHERICAL is non-perspective and never has bogus parameters.
+  // SPHERICAL is non-perspective, spherical, and never has bogus parameters.
   EXPECT_FALSE(CameraModelIsPerspective(SphericalCameraModel::model_id));
   EXPECT_TRUE(CameraModelIsPerspective(PinholeCameraModel::model_id));
+  EXPECT_TRUE(CameraModelIsSpherical(SphericalCameraModel::model_id));
+  EXPECT_FALSE(CameraModelIsSpherical(PinholeCameraModel::model_id));
+  EXPECT_FALSE(CameraModelIsSpherical(OpenCVFisheyeCameraModel::model_id));
   EXPECT_FALSE(CameraModelHasBogusParams(
       SphericalCameraModel::model_id, params, 800, 400, 0.1, 2.0, 1.0));
 

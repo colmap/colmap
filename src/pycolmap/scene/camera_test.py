@@ -200,6 +200,22 @@ def test_camera_is_undistorted(simple_camera):
     assert isinstance(result, bool)
 
 
+def test_camera_is_perspective(simple_camera):
+    assert simple_camera.is_perspective() is True
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "SPHERICAL", 0.0, 1024, 512
+    )
+    assert spherical_camera.is_perspective() is False
+
+
+def test_camera_is_spherical(simple_camera):
+    assert simple_camera.is_spherical() is False
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "SPHERICAL", 0.0, 1024, 512
+    )
+    assert spherical_camera.is_spherical() is True
+
+
 def test_camera_has_bogus_params(simple_camera):
     result = simple_camera.has_bogus_params(0.1, 100.0, 1.0)
     assert isinstance(result, bool)

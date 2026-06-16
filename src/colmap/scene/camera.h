@@ -127,6 +127,10 @@ struct Camera {
   // Omnidirectional models such as SPHERICAL are not perspective.
   inline bool IsPerspective() const;
 
+  // Whether the camera model is spherical (equirectangular omnidirectional
+  // panorama), i.e. the SPHERICAL model.
+  inline bool IsSpherical() const;
+
   // Check whether camera has bogus parameters.
   inline bool HasBogusParams(double min_focal_length_ratio,
                              double max_focal_length_ratio,
@@ -260,6 +264,8 @@ span<const size_t> Camera::ExtraParamsIdxs() const {
 bool Camera::IsPerspective() const {
   return CameraModelIsPerspective(model_id);
 }
+
+bool Camera::IsSpherical() const { return CameraModelIsSpherical(model_id); }
 
 bool Camera::VerifyParams() const {
   return CameraModelVerifyParams(model_id, params);

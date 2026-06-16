@@ -324,17 +324,13 @@ def run_spherical(
 ) -> None:
     """Reconstruct directly on the equirectangular panoramas with the native
     SPHERICAL camera model, without rendering perspective images."""
-    pano_image_dir = args.input_image_path
-    logging.info(
-        f"Reconstructing with the native SPHERICAL camera model from "
-        f"{pano_image_dir}."
-    )
+
+    logging.info("Reconstructing with SPHERICAL camera")
+
     reader_options = pycolmap.ImageReaderOptions(camera_model="SPHERICAL")
-    if args.mask_path is not None:
-        reader_options.mask_path = str(args.mask_path)
     pycolmap.extract_features(
         database_path,
-        pano_image_dir,
+        args.input_image_path,
         reader_options=reader_options,
         camera_mode=pycolmap.CameraMode.SINGLE,
     )
@@ -345,7 +341,9 @@ def run_spherical(
 
     # The SPHERICAL model has no focal length, principal point, or distortion
     # to refine; its (w, h) parameters are held constant in bundle adjustment.
-    recs = pycolmap.incremental_mapping(database_path, pano_image_dir, rec_path)
+    recs = pycolmap.incremental_mapping(
+        database_path, args.input_image_path, rec_path
+    )
     for idx, rec in recs.items():
         logging.info(f"#{idx} {rec.summary()}")
 
@@ -355,6 +353,9 @@ def run_perspective(
 ) -> None:
     """Render the panoramas into a rig of perspective virtual cameras and
     reconstruct from those."""
+
+    logging.info("Reconstructing with rig of perspective virtual cameras")
+
     image_dir = args.output_path / "images"
     mask_dir = args.output_path / "masks"
     image_dir.mkdir(exist_ok=True, parents=True)
@@ -440,12 +441,5 @@ if __name__ == "__main__":
         # "spherical" reconstructs directly on the panoramas with the native
         # SPHERICAL camera model instead of rendering perspective images.
         choices=[*PANO_RENDER_OPTIONS.keys(), "spherical"],
-    )
-    parser.add_argument(
-        "--mask_path",
-        type=Path,
-        default=None,
-        help="Optional mask directory (COLMAP naming: <image>.png, black = "
-        "ignored) for the 'spherical' render type.",
     )
     run(parser.parse_args())
