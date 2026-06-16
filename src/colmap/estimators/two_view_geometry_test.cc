@@ -393,9 +393,9 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.camera_model_id = SphericalCameraModel::model_id;
-  synthetic_dataset_options.camera_width = 1024;
-  synthetic_dataset_options.camera_height = 768;
-  synthetic_dataset_options.camera_params = {1024, 768};
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
   ASSERT_FALSE(test_data.camera1.IsPerspective());
@@ -455,9 +455,9 @@ TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
   Camera spherical_camera;
   spherical_camera.camera_id = 100;
   spherical_camera.model_id = SphericalCameraModel::model_id;
-  spherical_camera.width = 1024;
-  spherical_camera.height = 768;
-  spherical_camera.params = {1024, 768};
+  spherical_camera.width = 1000;
+  spherical_camera.height = 500;
+  spherical_camera.params = {1000, 500};
   ASSERT_TRUE(spherical_camera.IsSpherical());
   ASSERT_TRUE(perspective_camera.IsPerspective());
 
