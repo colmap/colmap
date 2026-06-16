@@ -276,6 +276,102 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
   return multi_geometry;
 }
 
+// Estimate two-view geometry for an image pair where at least one camera is
+// omnidirectional (no pinhole image plane, e.g. SPHERICAL). The fundamental
+// matrix and homography are not geometrically meaningful for such cameras, so
+// only the bearing-based essential matrix is estimated and the result is
+// committed to the CALIBRATED configuration (or DEGENERATE).
+// TODO(jsch): Implement mixed spherical/calibrated perspective camera case
+// using one-sided focal length solver from poselib.
+TwoViewGeometry EstimateSphericalTwoViewGeometry(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const FeatureMatches& matches,
+    const TwoViewGeometryOptions& options) {
+  THROW_CHECK(options.Check());
+
+  TwoViewGeometry geometry;
+
+  const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
+  if (matches.size() < min_num_inliers) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  // Extract corresponding image points and bearing rays. For omnidirectional
+  // cameras (e.g. SPHERICAL) the bearing rays are the only valid
+  // representation; the raw image points are kept only for watermark detection.
+  std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays1(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays2(matches.size());
+  for (size_t i = 0; i < matches.size(); ++i) {
+    const point2D_t idx1 = matches[i].point2D_idx1;
+    const point2D_t idx2 = matches[i].point2D_idx2;
+    matched_img_points1[i] = points1[idx1];
+    matched_img_points2[i] = points2[idx2];
+    matched_cam_rays1[i] =
+        camera1.CamRayFromImg(points1[idx1]).value_or(Eigen::Vector3d::Zero());
+    matched_cam_rays2[i] =
+        camera2.CamRayFromImg(points2[idx2]).value_or(Eigen::Vector3d::Zero());
+  }
+
+  // Only the bearing-based essential matrix is meaningful: the fundamental
+  // matrix and homography assume a pinhole image plane that an omnidirectional
+  // camera does not have.
+  auto ransac_options = options.ransac_options;
+  if (options.min_inlier_ratio > 0) {
+    ransac_options.min_inlier_ratio = options.min_inlier_ratio;
+  }
+  ransac_options.max_error =
+      (camera1.CamFromImgThreshold(options.ransac_options.max_error) +
+       camera2.CamFromImgThreshold(options.ransac_options.max_error)) /
+      2;
+
+  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+      E_ransac(ransac_options);
+  const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
+  geometry.E = E_report.model;
+
+  if (!E_report.success || E_report.support.num_inliers < min_num_inliers) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+  geometry.inlier_matches = ExtractInlierMatches(
+      matches, E_report.support.num_inliers, E_report.inlier_mask);
+
+  // Check inlier ratio threshold.
+  if (options.min_inlier_ratio > 0) {
+    const double inlier_ratio =
+        static_cast<double>(E_report.support.num_inliers) / matches.size();
+    if (inlier_ratio < options.min_inlier_ratio) {
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
+    }
+  }
+
+  if (options.detect_watermark &&
+      DetectWatermarkMatches(camera1,
+                             matched_img_points1,
+                             camera2,
+                             matched_img_points2,
+                             E_report.support.num_inliers,
+                             E_report.inlier_mask,
+                             options)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
+  }
+
+  if (options.compute_relative_pose) {
+    EstimateTwoViewGeometryPose(camera1, points1, camera2, points2, &geometry);
+  }
+
+  return geometry;
+}
+
 }  // namespace
 
 bool TwoViewGeometryOptions::Check() const {
@@ -321,23 +417,17 @@ TwoViewGeometry EstimateTwoViewGeometry(
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
   } else {
-    // A camera with no focal length (omnidirectional, e.g. SPHERICAL) has no
-    // pinhole image plane, but its intrinsics are fully determined: it is
-    // already calibrated and must use the bearing-based essential-matrix path.
-    auto is_calibrated = [](const Camera& camera) {
-      return camera.has_prior_focal_length || !camera.IsPerspective();
-    };
-    if (is_calibrated(camera1) && is_calibrated(camera2)) {
+    // A spherical (omnidirectional) camera has no pinhole image plane, so only
+    // the bearing-based essential matrix is meaningful. Otherwise, use the
+    // calibrated path if both cameras have a known focal length, and the
+    // uncalibrated path otherwise.
+    if (camera1.IsSpherical() || camera2.IsSpherical()) {
+      return EstimateSphericalTwoViewGeometry(
+          camera1, points1, camera2, points2, matches, options);
+    } else if (camera1.has_prior_focal_length &&
+               camera2.has_prior_focal_length) {
       return EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
-    } else if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
-      // A non-perspective camera (e.g. SPHERICAL) paired with an uncalibrated
-      // perspective one: F/H on the non-perspective image are not meaningful
-      // and there is no calibration to fall back on, so bail out rather than
-      // waste RANSAC iterations on a meaningless model.
-      TwoViewGeometry geometry;
-      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
-      return geometry;
     } else {
       return EstimateUncalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
@@ -640,6 +730,11 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
 
+  if (camera1.IsSpherical() || camera2.IsSpherical()) {
+    return EstimateSphericalTwoViewGeometry(
+        camera1, points1, camera2, points2, matches, options);
+  }
+
   TwoViewGeometry geometry;
 
   const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
@@ -766,23 +861,6 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   } else {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
-  }
-
-  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane, so
-  // F/H estimated on their raw pixels are not geometrically meaningful and the
-  // downstream pose code cannot form a calibration matrix from them. Commit
-  // such pairs to the CALIBRATED essential-matrix configuration, which is
-  // estimated directly from bearing rays.
-  if ((!camera1.IsPerspective() || !camera2.IsPerspective()) &&
-      best_inlier_mask != nullptr) {
-    if (E_report.success && E_report.support.num_inliers >= min_num_inliers) {
-      geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
-      num_inliers = E_report.support.num_inliers;
-      best_inlier_mask = &E_report.inlier_mask;
-    } else {
-      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
-      return geometry;
-    }
   }
 
   if (best_inlier_mask != nullptr) {

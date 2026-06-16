@@ -386,6 +386,119 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
   return data;
 }
 
+TEST(EstimateTwoViewGeometry, Spherical) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_model_id = SphericalCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1024;
+  synthetic_dataset_options.camera_height = 768;
+  synthetic_dataset_options.camera_params = {1024, 768};
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_FALSE(test_data.camera1.IsPerspective());
+  ASSERT_FALSE(test_data.camera2.IsPerspective());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+
+  // Spherical cameras have no pinhole image plane, so the fundamental matrix
+  // and homography are not estimated; only the bearing-based essential matrix
+  // is, committing to the CALIBRATED configuration.
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
+  EXPECT_TRUE(geometry.E.has_value());
+  EXPECT_FALSE(geometry.F.has_value());
+  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+
+  // EstimateCalibratedTwoViewGeometry delegates to the spherical path rather
+  // than estimating a meaningless fundamental matrix / homography.
+  const TwoViewGeometry calibrated_geometry =
+      EstimateCalibratedTwoViewGeometry(test_data.camera1,
+                                        test_data.points1,
+                                        test_data.camera2,
+                                        test_data.points2,
+                                        test_data.matches,
+                                        two_view_geometry_options);
+  EXPECT_EQ(calibrated_geometry.config,
+            TwoViewGeometry::ConfigurationType::CALIBRATED);
+  EXPECT_TRUE(calibrated_geometry.E.has_value());
+  EXPECT_FALSE(calibrated_geometry.F.has_value());
+  EXPECT_FALSE(calibrated_geometry.H.has_value());
+}
+
+TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
+  // Synthesize a perspective two-view dataset to obtain consistent poses and 3D
+  // points, then re-project the first image through a SPHERICAL camera to form
+  // a mixed spherical/perspective pair.
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const Image& image1 = reconstruction.Image(1);
+  const Image& image2 = reconstruction.Image(2);
+  const Camera perspective_camera = reconstruction.Camera(image2.CameraId());
+
+  Camera spherical_camera;
+  spherical_camera.camera_id = 100;
+  spherical_camera.model_id = SphericalCameraModel::model_id;
+  spherical_camera.width = 1024;
+  spherical_camera.height = 768;
+  spherical_camera.params = {1024, 768};
+  ASSERT_TRUE(spherical_camera.IsSpherical());
+  ASSERT_TRUE(perspective_camera.IsPerspective());
+
+  // Re-project shared 3D points: image1 via the spherical camera, image2 via
+  // the perspective camera.
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  FeatureMatches matches;
+  for (const auto& [_, point3D] : reconstruction.Points3D()) {
+    const std::optional<Eigen::Vector2d> xy1 =
+        spherical_camera.ImgFromCam(image1.CamFromWorld() * point3D.xyz);
+    const std::optional<Eigen::Vector2d> xy2 =
+        perspective_camera.ImgFromCam(image2.CamFromWorld() * point3D.xyz);
+    if (!xy1.has_value() || !xy2.has_value()) {
+      continue;
+    }
+    matches.emplace_back(static_cast<point2D_t>(points1.size()),
+                         static_cast<point2D_t>(points2.size()));
+    points1.push_back(*xy1);
+    points2.push_back(*xy2);
+  }
+  ASSERT_GE(matches.size(), 50u);
+
+  // A pair with one spherical camera routes to the bearing-based essential
+  // matrix path regardless of the other camera, committing to CALIBRATED
+  // without estimating a fundamental matrix or homography.
+  const TwoViewGeometryOptions two_view_geometry_options;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(spherical_camera,
+                              points1,
+                              perspective_camera,
+                              points2,
+                              matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
+  EXPECT_TRUE(geometry.E.has_value());
+  EXPECT_FALSE(geometry.F.has_value());
+  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
+}
+
 TEST(EstimateTwoViewGeometry, DetectWatermark) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
