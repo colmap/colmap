@@ -233,12 +233,13 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const auto input_image_path = image_path_ / image.Name();
   const auto output_image_path = output_path_ / "images" / image.Name();
 
-  const bool is_undistorted_and_file_exists =
-      camera.IsUndistorted() && ExistsFile(input_image_path);
-
-  // Check if the image is already undistorted and copy from source if no
-  // scaling is needed.
-  if (is_undistorted_and_file_exists && camera_options_.max_image_size < 0) {
+  // Already-undistorted cameras (undistorted perspective and all
+  // non-perspective models, e.g. SPHERICAL) are left unchanged by
+  // UndistortReconstruction, so copy their images through unchanged to keep the
+  // exported image and its camera the same size. max_image_size is
+  // intentionally not applied here, since the camera dimensions are not
+  // rescaled.
+  if (camera.IsUndistorted() && ExistsFile(input_image_path)) {
     LOG(INFO) << "Copying already undistorted image to location: "
               << output_image_path;
     FileCopy(input_image_path, output_image_path, options_.copy_type);
@@ -249,15 +250,6 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   if (!distorted_bitmap.Read(input_image_path)) {
     LOG(ERROR) << "Cannot read image at path: " << input_image_path;
     return false;
-  }
-
-  if (is_undistorted_and_file_exists && camera_options_.max_image_size > 0) {
-    LOG(INFO) << "Rescaling already distorted image to location: "
-              << output_image_path;
-    distorted_bitmap.Thumbnail(camera_options_.max_image_size);
-    MaybeSetJpegQuality(
-        output_image_path, distorted_bitmap, options_.jpeg_quality);
-    return distorted_bitmap.Write(output_image_path);
   }
 
   Bitmap undistorted_bitmap;

@@ -105,11 +105,10 @@ void BuildSphericalCameraModel(
     const double azimuth = 2.0 * EIGEN_PI * slice / kNumSlices;
     const double sin_polar = std::sin(polar);
     return center +
-           radius *
-               Eigen::Vector3f(
-                   static_cast<float>(sin_polar * std::cos(azimuth)),
-                   static_cast<float>(std::cos(polar)),
-                   static_cast<float>(sin_polar * std::sin(azimuth)));
+           radius * Eigen::Vector3f(
+                        static_cast<float>(sin_polar * std::cos(azimuth)),
+                        static_cast<float>(std::cos(polar)),
+                        static_cast<float>(sin_polar * std::sin(azimuth)));
   };
 
   if (triangle_data != nullptr) {

@@ -452,12 +452,12 @@ TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
   const Image& image2 = reconstruction.Image(2);
   const Camera perspective_camera = reconstruction.Camera(image2.CameraId());
 
-  Camera spherical_camera;
-  spherical_camera.camera_id = 100;
-  spherical_camera.model_id = SphericalCameraModel::model_id;
-  spherical_camera.width = 1000;
-  spherical_camera.height = 500;
-  spherical_camera.params = {1000, 500};
+  const Camera spherical_camera =
+      Camera::CreateFromModelId(100,
+                                SphericalCameraModel::model_id,
+                                /*focal_length=*/1.0,
+                                1000,
+                                500);
   ASSERT_TRUE(spherical_camera.IsSpherical());
   ASSERT_TRUE(perspective_camera.IsPerspective());
 

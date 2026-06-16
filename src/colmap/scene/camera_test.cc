@@ -359,5 +359,34 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointY(), 2);
 }
 
+TEST(Camera, Spherical) {
+  Camera camera = Camera::CreateFromModelId(
+      1, SphericalCameraModel::model_id, /*focal_length=*/1.0, 1000, 500);
+  EXPECT_EQ(camera.params, std::vector<double>({1000, 500}));
+  EXPECT_FALSE(camera.IsPerspective());
+  EXPECT_TRUE(camera.IsSpherical());
+
+  // No focal length / pinhole image plane.
+  EXPECT_TRUE(camera.FocalLengthIdxs().empty());
+  EXPECT_EQ(camera.MeanFocalLength(), 0.0);
+  // CalibrationMatrix is undefined without a focal length.
+  EXPECT_ANY_THROW(camera.CalibrationMatrix());
+  // Spherical images have no lens distortion to undistort.
+  EXPECT_TRUE(camera.IsUndistorted());
+
+  // Rescaling keeps the (w, h) parameters consistent with the dimensions.
+  camera.Rescale(0.5);
+  EXPECT_EQ(camera.width, 500);
+  EXPECT_EQ(camera.height, 250);
+  EXPECT_EQ(camera.params, std::vector<double>({500, 250}));
+  EXPECT_TRUE(camera.IsSpherical());
+
+  // A perspective camera is not spherical.
+  const Camera pinhole =
+      Camera::CreateFromModelId(2, PinholeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(pinhole.IsPerspective());
+  EXPECT_FALSE(pinhole.IsSpherical());
+}
+
 }  // namespace
 }  // namespace colmap

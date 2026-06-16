@@ -227,6 +227,10 @@ FocalLengthCalibResult CalibrateFocalLengths(
   auto loss_function = options.CreateLossFunction();
 
   for (const auto& input : inputs) {
+    if (!cameras.at(input.camera_id1).IsPerspective() ||
+        !cameras.at(input.camera_id2).IsPerspective()) {
+      continue;
+    }
     if (input.camera_id1 == input.camera_id2) {
       problem.AddResidualBlock(
           FetzerFocalLengthSameCameraCostFunctor::Create(
@@ -248,6 +252,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Parameterize cameras (fix those with prior, set lower bound).
   size_t num_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
+    if (!camera.IsPerspective()) continue;
     double* focal_ptr = &focal_lengths[camera_id].optimized;
     if (!problem.HasParameterBlock(focal_ptr)) continue;
 
@@ -293,6 +298,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Validate focal lengths and revert degenerate ones.
   size_t rejected_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
+    if (!camera.IsPerspective()) continue;
     auto& focal = focal_lengths[camera_id];
     if (!problem.HasParameterBlock(&focal.optimized)) continue;
 

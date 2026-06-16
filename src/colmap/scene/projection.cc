@@ -29,17 +29,41 @@
 
 #include "colmap/scene/projection.h"
 
+#include <cmath>
 #include <limits>
 
 namespace colmap {
+namespace {
+
+// Pixel reprojection error is ill-defined for equirectangular (e.g. SPHERICAL)
+// cameras: the azimuth is discontinuous at the ±π seam and its pixel scale
+// diverges towards the poles (azimuth pixels grow as 1/cos(elevation)). Instead
+// measure the angular error between the observed bearing and the 3D point and
+// convert it to an equivalent pixel error at the equator, consistent with the
+// model's pixel<->angle scale used by CamFromImgThreshold. This makes the
+// (squared) error continuous across the seam and uniform over the sphere.
+double SquaredSphericalReprojectionError(const double angular_error,
+                                         const Camera& camera) {
+  const double pixels_per_radian =
+      static_cast<double>(camera.width) / (2.0 * EIGEN_PI);
+  const double pixel_error = angular_error * pixels_per_radian;
+  return pixel_error * pixel_error;
+}
+
+}  // namespace
 
 double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
                                          const Eigen::Vector3d& point3D,
                                          const Rigid3d& cam_from_world,
                                          const Camera& camera) {
-  const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
+  if (camera.IsSpherical()) {
+    return SquaredSphericalReprojectionError(
+        CalculateAngularReprojectionError(
+            point2D, point3D, cam_from_world, camera),
+        camera);
+  }
   const std::optional<Eigen::Vector2d> proj_point2D =
-      camera.ImgFromCam(point3D_in_cam);
+      camera.ImgFromCam(cam_from_world * point3D);
   if (!proj_point2D) {
     return std::numeric_limits<double>::max();
   }
@@ -51,9 +75,14 @@ double CalculateSquaredReprojectionError(
     const Eigen::Vector3d& point3D,
     const Eigen::Matrix3x4d& cam_from_world,
     const Camera& camera) {
-  const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D.homogeneous();
+  if (camera.IsSpherical()) {
+    return SquaredSphericalReprojectionError(
+        CalculateAngularReprojectionError(
+            point2D, point3D, cam_from_world, camera),
+        camera);
+  }
   const std::optional<Eigen::Vector2d> proj_point2D =
-      camera.ImgFromCam(point3D_in_cam);
+      camera.ImgFromCam(cam_from_world * point3D.homogeneous());
   if (!proj_point2D) {
     return std::numeric_limits<double>::max();
   }
