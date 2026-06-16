@@ -84,46 +84,124 @@ inline RGBAColor IndexToRGB(const size_t index) {
   return color;
 }
 
-void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
-                      const Camera& camera,
-                      const float image_size,
-                      const RGBAColor& plane_color,
-                      const RGBAColor& frame_color,
-                      const Eigen::Vector3d& model_origin,
-                      const double model_scale,
-                      const bool show_camera_orientation,
-                      std::vector<TrianglePainter::Data>* triangle_data,
-                      std::vector<LinePainter::Data>* line_data) {
-  // Updating the reconstruction in the viewer (e.g., deleting an image or a
-  // point) is not thread-safe when the mapper is running, where some images may
-  // be in a partial, incorrect state. In rare circumstances, an image may be
-  // registered but not yet have a pose. Instead of crashing the viewer, we
-  // simply skip the visualization of these images and warn the user.
-  if (!cam_from_world) {
-    LOG(WARNING) << "Failed to render camera because it has no pose.";
-    return;
+// Builds a translucent + wireframe sphere centered at `center` with the given
+// `radius`. Used to visualize omnidirectional (e.g. SPHERICAL) cameras, which
+// observe the full sphere and have no pinhole frustum. The triangle mesh
+// provides the translucent fill and also makes the camera selectable (picking
+// is done against triangles); the lines form the wireframe.
+void BuildSphericalCameraModel(
+    const Eigen::Vector3f& center,
+    const float radius,
+    const RGBAColor& plane_color,
+    const RGBAColor& frame_color,
+    std::vector<TrianglePainter::Data>* triangle_data,
+    std::vector<LinePainter::Data>* line_data) {
+  constexpr int kNumStacks = 6;   // Latitude divisions (pole to pole).
+  constexpr int kNumSlices = 12;  // Longitude divisions (around the axis).
+
+  const auto sphere_point = [&](const int stack,
+                                const int slice) -> Eigen::Vector3f {
+    const double polar = EIGEN_PI * stack / kNumStacks;
+    const double azimuth = 2.0 * EIGEN_PI * slice / kNumSlices;
+    const double sin_polar = std::sin(polar);
+    return center +
+           radius *
+               Eigen::Vector3f(
+                   static_cast<float>(sin_polar * std::cos(azimuth)),
+                   static_cast<float>(std::cos(polar)),
+                   static_cast<float>(sin_polar * std::sin(azimuth)));
+  };
+
+  if (triangle_data != nullptr) {
+    const auto add_triangle = [&](const Eigen::Vector3f& p1,
+                                  const Eigen::Vector3f& p2,
+                                  const Eigen::Vector3f& p3) {
+      triangle_data->emplace_back(PointPainter::Data(p1(0),
+                                                     p1(1),
+                                                     p1(2),
+                                                     plane_color(0),
+                                                     plane_color(1),
+                                                     plane_color(2),
+                                                     plane_color(3)),
+                                  PointPainter::Data(p2(0),
+                                                     p2(1),
+                                                     p2(2),
+                                                     plane_color(0),
+                                                     plane_color(1),
+                                                     plane_color(2),
+                                                     plane_color(3)),
+                                  PointPainter::Data(p3(0),
+                                                     p3(1),
+                                                     p3(2),
+                                                     plane_color(0),
+                                                     plane_color(1),
+                                                     plane_color(2),
+                                                     plane_color(3)));
+    };
+    for (int i = 0; i < kNumStacks; ++i) {
+      for (int j = 0; j < kNumSlices; ++j) {
+        const Eigen::Vector3f p00 = sphere_point(i, j);
+        const Eigen::Vector3f p01 = sphere_point(i, j + 1);
+        const Eigen::Vector3f p10 = sphere_point(i + 1, j);
+        const Eigen::Vector3f p11 = sphere_point(i + 1, j + 1);
+        add_triangle(p00, p01, p11);
+        add_triangle(p00, p11, p10);
+      }
+    }
   }
 
-  // Generate camera dimensions in OpenGL (world) coordinate space.
-  const float kBaseCameraWidth = 1024.0f;
-  const float image_width = image_size * camera.width / kBaseCameraWidth;
-  const float image_height = image_width * static_cast<float>(camera.height) /
-                             static_cast<float>(camera.width);
-  const float image_extent = std::max(image_width, image_height);
+  if (line_data != nullptr) {
+    const auto add_line = [&](const Eigen::Vector3f& p1,
+                              const Eigen::Vector3f& p2) {
+      line_data->emplace_back(PointPainter::Data(p1(0),
+                                                 p1(1),
+                                                 p1(2),
+                                                 frame_color(0),
+                                                 frame_color(1),
+                                                 frame_color(2),
+                                                 frame_color(3)),
+                              PointPainter::Data(p2(0),
+                                                 p2(1),
+                                                 p2(2),
+                                                 frame_color(0),
+                                                 frame_color(1),
+                                                 frame_color(2),
+                                                 frame_color(3)));
+    };
+    // Latitude circles (parallels), skipping the degenerate poles.
+    for (int i = 1; i < kNumStacks; ++i) {
+      for (int j = 0; j < kNumSlices; ++j) {
+        add_line(sphere_point(i, j), sphere_point(i, j + 1));
+      }
+    }
+    // Longitude half-circles (meridians).
+    for (int j = 0; j < kNumSlices; ++j) {
+      for (int i = 0; i < kNumStacks; ++i) {
+        add_line(sphere_point(i, j), sphere_point(i + 1, j));
+      }
+    }
+  }
+}
+
+// Builds a viewing frustum (image plane as two triangles, plus the frame and
+// connecting lines to the projection center) for a perspective camera.
+void BuildPerspectiveCameraModel(
+    const Eigen::Matrix<float, 3, 4>& world_from_cam_mat,
+    const Camera& camera,
+    const float image_width,
+    const float image_height,
+    const float image_extent,
+    const RGBAColor& plane_color,
+    const RGBAColor& frame_color,
+    const bool show_camera_orientation,
+    std::vector<TrianglePainter::Data>* triangle_data,
+    std::vector<LinePainter::Data>* line_data) {
   const float camera_extent = std::max(camera.width, camera.height);
   const float camera_extent_normalized =
       static_cast<float>(camera.CamFromImgThreshold(camera_extent));
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
-  Rigid3d world_from_cam = Inverse(*cam_from_world);
-  world_from_cam.translation() += model_origin;
-  world_from_cam.translation() *= model_scale;
-
-  const Eigen::Matrix<float, 3, 4> world_from_cam_mat =
-      world_from_cam.ToMatrix().cast<float>();
-
   // Projection center, top-left, top-right, bottom-right, bottom-left corners.
-
   const Eigen::Vector3f pc = world_from_cam_mat.rightCols<1>();
   const Eigen::Vector3f tl =
       world_from_cam_mat *
@@ -206,6 +284,64 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
     add_line(tr, br);
     add_line(br, bl);
     add_line(bl, tl);
+  }
+}
+
+void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
+                      const Camera& camera,
+                      const float image_size,
+                      const RGBAColor& plane_color,
+                      const RGBAColor& frame_color,
+                      const Eigen::Vector3d& model_origin,
+                      const double model_scale,
+                      const bool show_camera_orientation,
+                      std::vector<TrianglePainter::Data>* triangle_data,
+                      std::vector<LinePainter::Data>* line_data) {
+  // Updating the reconstruction in the viewer (e.g., deleting an image or a
+  // point) is not thread-safe when the mapper is running, where some images may
+  // be in a partial, incorrect state. In rare circumstances, an image may be
+  // registered but not yet have a pose. Instead of crashing the viewer, we
+  // simply skip the visualization of these images and warn the user.
+  if (!cam_from_world) {
+    LOG(WARNING) << "Failed to render camera because it has no pose.";
+    return;
+  }
+
+  // Generate camera dimensions in OpenGL (world) coordinate space.
+  const float kBaseCameraWidth = 1024.0f;
+  const float image_width = image_size * camera.width / kBaseCameraWidth;
+  const float image_height = image_width * static_cast<float>(camera.height) /
+                             static_cast<float>(camera.width);
+  const float image_extent = std::max(image_width, image_height);
+
+  Rigid3d world_from_cam = Inverse(*cam_from_world);
+  world_from_cam.translation() += model_origin;
+  world_from_cam.translation() *= model_scale;
+
+  const Eigen::Matrix<float, 3, 4> world_from_cam_mat =
+      world_from_cam.ToMatrix().cast<float>();
+
+  const Eigen::Vector3f pc = world_from_cam_mat.rightCols<1>();
+
+  // Spherical (equirectangular) cameras observe the full sphere and have no
+  // pinhole image plane, so a frustum is meaningless. Visualize them as a
+  // sphere centered at the projection center instead; all other models use a
+  // perspective viewing frustum.
+  if (camera.IsSpherical()) {
+    const double radius = image_extent / 2.0;
+    BuildSphericalCameraModel(
+        pc, radius, plane_color, frame_color, triangle_data, line_data);
+  } else {
+    BuildPerspectiveCameraModel(world_from_cam_mat,
+                                camera,
+                                image_width,
+                                image_height,
+                                image_extent,
+                                plane_color,
+                                frame_color,
+                                show_camera_orientation,
+                                triangle_data,
+                                line_data);
   }
 }  // namespace
 
