@@ -206,7 +206,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
     return result;
   }
 
-  // Initialize focal lengths from cameras.
+  // Initialize focal lengths from all perspective cameras.
   struct FocalLengthState {
     double optimized = 0.0;
     double initial = 0.0;
@@ -214,8 +214,10 @@ FocalLengthCalibResult CalibrateFocalLengths(
   std::unordered_map<camera_t, FocalLengthState> focal_lengths;
   focal_lengths.reserve(cameras.size());
   for (const auto& [camera_id, camera] : cameras) {
-    const double focal = camera.MeanFocalLength();
-    focal_lengths[camera_id] = {focal, focal};
+    if (camera.IsPerspective()) {
+      const double focal = camera.MeanFocalLength();
+      focal_lengths[camera_id] = {focal, focal};
+    }
   }
 
   // Build Ceres problem.

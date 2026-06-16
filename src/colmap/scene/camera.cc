@@ -61,13 +61,12 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
-  // Omnidirectional cameras (no focal length, e.g. SPHERICAL) have no pinhole
-  // calibration matrix; fail loudly rather than reading out of bounds on the
-  // empty focal-length/principal-point spans. Callers that handle such
-  // cameras use the bearing interface (CamRayFromImg) instead.
-  THROW_CHECK(!FocalLengthIdxs().empty() && !PrincipalPointIdxs().empty())
-      << "CalibrationMatrix() is undefined for a camera without a focal "
-         "length (e.g. the omnidirectional SPHERICAL model).";
+  THROW_CHECK(!FocalLengthIdxs().empty())
+      << "CalibrationMatrix() is undefined for a camera without a focal length "
+         "(e.g. the SPHERICAL model).";
+  THROW_CHECK(!PrincipalPointIdxs().empty())
+      << "CalibrationMatrix() is undefined for a camera without a principal "
+         "point (e.g. the SPHERICAL model).";
 
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
 
@@ -106,7 +105,7 @@ bool Camera::SetParamsFromString(const std::string& string) {
 bool Camera::IsUndistorted() const {
   // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane to
   // undistort to; treat them as already undistorted so undistortion is a no-op.
-  if (!IsPerspective()) {
+  if (IsSpherical()) {
     return true;
   }
   for (const size_t idx : ExtraParamsIdxs()) {

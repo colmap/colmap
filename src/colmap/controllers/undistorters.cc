@@ -233,24 +233,13 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const auto input_image_path = image_path_ / image.Name();
   const auto output_image_path = output_path_ / "images" / image.Name();
 
-  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane and
-  // cannot be undistorted. Skip them with a warning, copying the original
-  // image through so the dataset stays complete.
-  if (!camera.IsPerspective()) {
-    LOG(WARNING) << "Cannot undistort image " << image.Name()
-                 << " with non-perspective camera model " << camera.ModelName()
-                 << "; copying the original image.";
-    if (ExistsFile(input_image_path)) {
-      FileCopy(input_image_path, output_image_path, options_.copy_type);
-    }
-    return true;
-  }
+  const bool is_undistorted_and_file_exists =
+      camera.IsUndistorted() && ExistsFile(input_image_path);
 
   // Check if the image is already undistorted and copy from source if no
-  // scaling is needed
-  if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
-      ExistsFile(input_image_path)) {
-    LOG(INFO) << "Copying already distorted image to location: "
+  // scaling is needed.
+  if (is_undistorted_and_file_exists && camera_options_.max_image_size < 0) {
+    LOG(INFO) << "Copying already undistorted image to location: "
               << output_image_path;
     FileCopy(input_image_path, output_image_path, options_.copy_type);
     return true;
@@ -260,6 +249,15 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   if (!distorted_bitmap.Read(input_image_path)) {
     LOG(ERROR) << "Cannot read image at path: " << input_image_path;
     return false;
+  }
+
+  if (is_undistorted_and_file_exists && camera_options_.max_image_size > 0) {
+    LOG(INFO) << "Rescaling already distorted image to location: "
+              << output_image_path;
+    distorted_bitmap.Thumbnail(camera_options_.max_image_size);
+    MaybeSetJpegQuality(
+        output_image_path, distorted_bitmap, options_.jpeg_quality);
+    return distorted_bitmap.Write(output_image_path);
   }
 
   Bitmap undistorted_bitmap;
