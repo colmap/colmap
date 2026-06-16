@@ -300,6 +300,17 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
     return geometry;
   }
 
+  // The bearing-based essential matrix needs reliable bearings from both
+  // cameras. A non-spherical (perspective) camera's bearings come from
+  // CamFromImg and are only trustworthy with a known focal length, so a mixed
+  // spherical/perspective pair whose perspective camera lacks a focal prior is
+  // treated as degenerate rather than solved unreliably.
+  if ((!camera1.IsSpherical() && !camera1.has_prior_focal_length) ||
+      (!camera2.IsSpherical() && !camera2.has_prior_focal_length)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
   // Extract corresponding image points and bearing rays. For omnidirectional
   // cameras (e.g. SPHERICAL) the bearing rays are the only valid
   // representation; the raw image points are kept only for watermark detection.
