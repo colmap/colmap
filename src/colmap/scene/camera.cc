@@ -61,12 +61,9 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
-  THROW_CHECK(!FocalLengthIdxs().empty())
-      << "CalibrationMatrix() is undefined for a camera without a focal length "
-         "(e.g. the SPHERICAL model).";
-  THROW_CHECK(!PrincipalPointIdxs().empty())
-      << "CalibrationMatrix() is undefined for a camera without a principal "
-         "point (e.g. the SPHERICAL model).";
+  THROW_CHECK(!IsSpherical())
+      << "CalibrationMatrix() is undefined for the omnidirectional SPHERICAL "
+         "model, which has no focal length or principal point.";
 
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
 
@@ -79,11 +76,11 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
 }
 
 double Camera::MeanFocalLength() const {
-  const span<const size_t> focal_length_idxs = FocalLengthIdxs();
-  // Omnidirectional cameras (e.g. SPHERICAL) have no focal length.
-  if (focal_length_idxs.empty()) {
+  // The omnidirectional SPHERICAL model has no focal length.
+  if (IsSpherical()) {
     return 0.0;
   }
+  const span<const size_t> focal_length_idxs = FocalLengthIdxs();
   double focal_length = 0;
   for (const auto idx : focal_length_idxs) {
     focal_length += params[idx];

@@ -353,6 +353,8 @@ struct TwoViewGeometryTestData {
   std::vector<Eigen::Vector2d> points1;
   std::vector<Eigen::Vector2d> points2;
   FeatureMatches matches;
+  // Ground-truth relative pose (cam2_from_cam1) of the synthetic dataset.
+  Rigid3d cam2_from_cam1;
 };
 
 TwoViewGeometryTestData CreateTwoViewGeometryTestData(
@@ -374,6 +376,7 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
   TwoViewGeometryTestData data;
   data.camera1 = reconstruction.Camera(image1.CameraId());
   data.camera2 = reconstruction.Camera(image2.CameraId());
+  data.cam2_from_cam1 = image2.CamFromWorld() * Inverse(image1.CamFromWorld());
 
   ExtractPointsAndMatches(reconstruction,
                           image1,
@@ -402,6 +405,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   ASSERT_FALSE(test_data.camera2.IsPerspective());
 
   TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.compute_relative_pose = true;
 
   // Spherical cameras have no pinhole image plane, so the fundamental matrix
   // and homography are not estimated; only the bearing-based essential matrix
@@ -418,6 +422,18 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   EXPECT_FALSE(geometry.F.has_value());
   EXPECT_FALSE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+
+  // The recovered relative pose should match the ground truth: rotation
+  // exactly, translation up to scale (the essential matrix fixes only the
+  // translation direction).
+  ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
+  EXPECT_LT(geometry.cam2_from_cam1->rotation().angularDistance(
+                test_data.cam2_from_cam1.rotation()),
+            1e-3);
+  EXPECT_LT((geometry.cam2_from_cam1->translation().normalized() -
+             test_data.cam2_from_cam1.translation().normalized())
+                .norm(),
+            1e-2);
 
   // EstimateCalibratedTwoViewGeometry delegates to the spherical path rather
   // than estimating a meaningless fundamental matrix / homography.

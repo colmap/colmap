@@ -99,12 +99,17 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
     }
   }
 
-  // Cheirality: points must lie in front of perspective cameras. Skipped for
-  // omnidirectional cameras (e.g. SPHERICAL), which legitimately observe
-  // points behind their local +Z axis.
-  for (const auto& pose : pose_data) {
-    if (pose.camera->IsPerspective() &&
-        !HasPointPositiveDepth(pose.cam_from_world, xyz)) {
+  // Cheirality. Perspective cameras require positive depth (the point in front
+  // of the local +Z axis). Omnidirectional cameras (e.g. SPHERICAL) have no
+  // single front, but the point must still lie in the half-space the observed
+  // bearing points toward, i.e. (cam_from_world * X) . cam_ray > 0.
+  for (size_t i = 0; i < pose_data.size(); ++i) {
+    if (pose_data[i].camera->IsPerspective()) {
+      if (!HasPointPositiveDepth(pose_data[i].cam_from_world, xyz)) {
+        return;
+      }
+    } else if ((pose_data[i].cam_from_world * xyz.homogeneous())
+                   .dot(point_data[i].cam_ray) <= 0.0) {
       return;
     }
   }
