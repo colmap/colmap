@@ -61,17 +61,13 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
-  THROW_CHECK(!IsSpherical())
-      << "CalibrationMatrix() is undefined for the omnidirectional SPHERICAL "
-         "model, which has no focal length or principal point.";
-
+  THROW_CHECK(IsPerspective())
+      << "CalibrationMatrix() only defined for perspective cameras.";
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
-
   K(0, 0) = FocalLengthX();
   K(1, 1) = FocalLengthY();
   K(0, 2) = PrincipalPointX();
   K(1, 2) = PrincipalPointY();
-
   return K;
 }
 
