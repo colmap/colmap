@@ -120,6 +120,14 @@ void Camera::Rescale(const double scale) {
       std::round(scale * height) / static_cast<double>(height);
   width = static_cast<size_t>(std::round(scale * width));
   height = static_cast<size_t>(std::round(scale * height));
+  if (IsSpherical()) {
+    // The (w, h) parameters are the image dimensions themselves; keep them in
+    // sync with the rescaled image (there is no focal length / principal point
+    // to scale).
+    params[0] = static_cast<double>(width);
+    params[1] = static_cast<double>(height);
+    return;
+  }
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
   ScaleFocalLengths(scale_x, scale_y);
@@ -132,6 +140,11 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
       static_cast<double>(new_height) / static_cast<double>(height);
   width = new_width;
   height = new_height;
+  if (IsSpherical()) {
+    params[0] = static_cast<double>(width);
+    params[1] = static_cast<double>(height);
+    return;
+  }
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
   ScaleFocalLengths(scale_x, scale_y);

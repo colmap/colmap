@@ -297,13 +297,15 @@ TEST(Spherical, Nominal) {
   EXPECT_EQ(CameraModelParamsInfo(SphericalCameraModel::model_id), "w,h");
   EXPECT_TRUE(
       CameraModelFocalLengthIdxs(SphericalCameraModel::model_id).empty());
+  EXPECT_TRUE(
+      CameraModelPrincipalPointIdxs(SphericalCameraModel::model_id).empty());
+  // (w, h) are classified as extra parameters (neither focal nor principal
+  // point).
   EXPECT_EQ(
       std::vector<size_t>(
-          CameraModelPrincipalPointIdxs(SphericalCameraModel::model_id).begin(),
-          CameraModelPrincipalPointIdxs(SphericalCameraModel::model_id).end()),
+          CameraModelExtraParamsIdxs(SphericalCameraModel::model_id).begin(),
+          CameraModelExtraParamsIdxs(SphericalCameraModel::model_id).end()),
       (std::vector<size_t>{0, 1}));
-  EXPECT_TRUE(
-      CameraModelExtraParamsIdxs(SphericalCameraModel::model_id).empty());
   EXPECT_EQ(CameraModelNumParams(SphericalCameraModel::model_id), 2u);
 
   // SPHERICAL is non-perspective, spherical, and never has bogus parameters.

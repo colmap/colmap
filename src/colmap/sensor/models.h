@@ -641,9 +641,9 @@ struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
 // Maps the full 360°x180° sphere onto an equirectangular image: the azimuth
 // spans the image width and the elevation spans the image height. The model
 // is fully specified by the image dimensions, so the two parameters are the
-// width and height; there is no focal length and no lens distortion. The two
-// parameters are classified as principal-point parameters (not extra/
-// distortion parameters) since they are intrinsic image geometry.
+// width and height; there is no focal length, principal point, or lens
+// distortion. The two parameters are classified as extra parameters (the group
+// for anything that is neither focal length nor principal point).
 //
 // Parameter list is expected in the following order:
 //
@@ -654,7 +654,7 @@ struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
 // model name.
 struct SphericalCameraModel : public BaseCameraModel<SphericalCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSpherical, "SPHERICAL", 0, 2, 0, false)
+      CameraModelId::kSpherical, "SPHERICAL", 0, 0, 2, false)
 
   // SPHERICAL derives from BaseCameraModel directly (not from
   // BasePerspectiveCameraModel) and provides its own validity check: the only
@@ -2636,12 +2636,12 @@ std::array<size_t, 0> SphericalCameraModel::InitializeFocalLengthIdxs() {
   return {};
 }
 
-std::array<size_t, 2> SphericalCameraModel::InitializePrincipalPointIdxs() {
-  return {0, 1};
+std::array<size_t, 0> SphericalCameraModel::InitializePrincipalPointIdxs() {
+  return {};
 }
 
-std::array<size_t, 0> SphericalCameraModel::InitializeExtraParamsIdxs() {
-  return {};
+std::array<size_t, 2> SphericalCameraModel::InitializeExtraParamsIdxs() {
+  return {0, 1};
 }
 
 std::vector<double> SphericalCameraModel::InitializeParams(
