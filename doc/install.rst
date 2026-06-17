@@ -93,6 +93,7 @@ Dependencies from the default Ubuntu repositories::
         libqt6opengl6-dev \
         libqt6openglwidgets6 \
         libqt6svg6-dev \
+        qt6-svg-dev \
         libcgal-dev \
         libceres-dev \
         libsuitesparse-dev \
