@@ -59,16 +59,13 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
   // The camera is required for the cheirality test and to choose the
   // triangulation path; callers (e.g. EstimateTriangulation) always set it.
-  for (const auto& pose : pose_data) {
-    THROW_CHECK_NOTNULL(pose.camera);
-  }
-  const bool all_perspective =
+  const bool all_cams_perspective =
       std::all_of(pose_data.begin(), pose_data.end(), [](const Y_t& pose) {
-        return pose.camera->IsPerspective();
+        return THROW_CHECK_NOTNULL(pose.camera)->IsPerspective();
       });
 
   M_t xyz;
-  if (point_data.size() == 2 && all_perspective) {
+  if (point_data.size() == 2 && all_cams_perspective) {
     // Closed-form two-view triangulation for perspective cameras (the RANSAC
     // minimal sample). For a perspective camera the bearing's hnormalized()
     // recovers the (u, v) normalized image point (forward hemisphere, Z > 0).
@@ -102,7 +99,7 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
   // Cheirality. Perspective cameras require positive depth (the point in front
   // of the local +Z axis). Omnidirectional cameras (e.g. SPHERICAL) have no
   // single front, but the point must still lie in the half-space the observed
-  // bearing points toward, i.e. (cam_from_world * X) . cam_ray > 0.
+  // bearing points toward.
   for (size_t i = 0; i < pose_data.size(); ++i) {
     if (pose_data[i].camera->IsPerspective()) {
       if (!HasPointPositiveDepth(pose_data[i].cam_from_world, xyz)) {
@@ -144,9 +141,6 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
                                             pose_data[i].cam_from_world,
                                             *pose_data[i].camera);
     } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
-      // The stored 3D bearing (Camera::CamRayFromImg) lets omnidirectional
-      // (SPHERICAL) back-hemisphere observations contribute angular residuals
-      // without a 2D representation that can't encode Z <= 0.
       const double angular_error = CalculateAngularReprojectionError(
           point_data[i].cam_ray, xyz, pose_data[i].cam_from_world);
       (*residuals)[i] = angular_error * angular_error;
