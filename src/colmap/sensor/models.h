@@ -2653,7 +2653,7 @@ std::vector<double> SphericalCameraModel::InitializeParams(
 
 // Projects camera-frame point (u, v, w) onto the equirectangular image plane.
 // Unlike pinhole/fisheye models that require w > 0, SPHERICAL accepts any
-// non-zero direction — all 4π sr of the sphere are representable.
+// non-zero direction — all 4π of the sphere are representable.
 template <typename T>
 bool SphericalCameraModel::ImgFromCam(
     const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
