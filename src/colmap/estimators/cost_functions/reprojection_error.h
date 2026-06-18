@@ -47,7 +47,8 @@ namespace colmap {
 // locally constant, so it does not perturb the residual's derivatives. No-op
 // for non-periodic camera models. (Elevation has no wrap, so y is untouched.)
 template <typename CameraModel, typename T>
-inline void WrapSphericalHorizontalSeam(const T* camera_params, T* residuals) {
+inline void WrapEquirectangularHorizontalSeam(const T* camera_params,
+                                              T* residuals) {
   if constexpr (CameraModel::model_id == CameraModelId::kEquirectangular) {
     const T width = camera_params[0];
     residuals[0] -= width * ceres::floor(residuals[0] / width + T(0.5));
@@ -186,7 +187,7 @@ class AnalyticalReprojErrorCostFunction
     residuals_vec -= point2D_;
     // No-op for non-periodic models. The offset is locally constant, so the
     // analytic Jacobians below are unaffected.
-    WrapSphericalHorizontalSeam<CameraModel>(camera_params, residuals);
+    WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
 
     if (J_point) {
       J_point_mat =
@@ -235,7 +236,7 @@ class ReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
-      WrapSphericalHorizontalSeam<CameraModel>(camera_params, residuals);
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }
@@ -342,7 +343,7 @@ class RigReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
-      WrapSphericalHorizontalSeam<CameraModel>(camera_params, residuals);
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }

@@ -215,11 +215,11 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 //
 //   BaseCameraModel                            (shared by all camera models)
 //     - BasePerspectiveCameraModel             (finite pinhole image plane)
-//         - the perspective models
+//         - Perspective models
 //         - BasePerspectiveFisheyeCameraModel  (fisheye projection)
-//             - the fisheye models
-//     - EquirectangularCameraModel                   (omnidirectional, no focal
-//     len)
+//             - Fisheye models
+//     - BaseSphericalCameraModel               (spherical/omnidirectional)
+//        - EquirectangularCameraModel
 //
 // Whether a model is perspective is derived from its position in this hierarchy
 // (see CameraModelIsPerspective), rather than from a separate flag.
@@ -272,12 +272,6 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
   // Default implementation: delegates to CameraModel::CamFromImg and
   // normalizes the resulting homogeneous coordinate. Correct for perspective
   // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
-  //
-  // Omnidirectional camera models (e.g. EquirectangularCameraModel) provide
-  // their own CamRayFromImg to produce rays in any direction of the full
-  // sphere. Downstream geometry code should prefer CamRayFromImg over the 2D
-  // CamFromImg whenever a 3D bearing is needed, since the 2D (u, v, 1)
-  // representation cannot encode rays with rz <= 0.
   static inline bool CamRayFromImg(const double* params,
                                    double x,
                                    double y,
@@ -298,6 +292,13 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
 
  private:
   BasePerspectiveCameraModel() = default;
+  friend CameraModel;
+};
+
+template <typename CameraModel>
+struct BaseSphericalCameraModel : public BaseCameraModel<CameraModel> {
+ private:
+  BaseSphericalCameraModel() = default;
   friend CameraModel;
 };
 
@@ -653,14 +654,10 @@ struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
 // This is one specific omnidirectional (spherical) projection; see
 // IsSpherical() for the camera-model-agnostic category predicate.
 struct EquirectangularCameraModel
-    : public BaseCameraModel<EquirectangularCameraModel> {
+    : public BaseSphericalCameraModel<EquirectangularCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kEquirectangular, "EQUIRECTANGULAR", 0, 0, 2, false)
 
-  // EQUIRECTANGULAR derives from BaseCameraModel directly (not from
-  // BasePerspectiveCameraModel) and provides its own validity check: the only
-  // parameters are image dimensions — always valid by construction — so the
-  // perspective bogus-focal / bogus-extra checks don't apply.
   template <typename T>
   static inline bool HasBogusParams(const std::vector<T>& /*params*/,
                                     size_t /*width*/,
@@ -673,17 +670,17 @@ struct EquirectangularCameraModel
 
   // EQUIRECTANGULAR has no focal length, so it cannot use the perspective
   // base's focal-length-based threshold. Convert pixel thresholds to
-  // normalized- camera-coord thresholds using the angular resolution at the
+  // normalized camera-coordinate thresholds using the angular resolution at the
   // equator (2π rad per W pixels in azimuth).
   template <typename T>
   static inline T CamFromImgThreshold(const T* params, T threshold) {
     return threshold * T(2.0 * EIGEN_PI) / params[0];
   }
 
-  // The perspective base's default CamRayFromImg goes through the 2D
-  // CamFromImg which fails for back-hemisphere pixels. EQUIRECTANGULAR can
-  // produce valid unit bearings for any pixel in the equirectangular image, so
-  // we compute the ray directly from the azimuth/elevation parametrization.
+  // The base's default CamRayFromImg goes through the 2D CamFromImg which fails
+  // for back-hemisphere pixels. EQUIRECTANGULAR can produce valid unit bearings
+  // for any pixel in the equirectangular image, so we compute the ray directly
+  // from the azimuth/elevation parametrization.
   static inline bool CamRayFromImg(const double* params,
                                    double x,
                                    double y,
@@ -2648,8 +2645,6 @@ std::array<size_t, 2> EquirectangularCameraModel::InitializeExtraParamsIdxs() {
 
 std::vector<double> EquirectangularCameraModel::InitializeParams(
     const double /*focal_length*/, const size_t width, const size_t height) {
-  // focal_length is ignored: an equirectangular projection is fully specified
-  // by the image dimensions.
   return {static_cast<double>(width), static_cast<double>(height)};
 }
 
@@ -2810,9 +2805,6 @@ bool CameraModelIsFisheye(const CameraModelId model_id) {
 
 bool CameraModelIsPerspective(const CameraModelId model_id) {
   switch (model_id) {
-    // A model is perspective iff it derives from BasePerspectiveCameraModel,
-    // i.e. has a finite pinhole image plane and a focal length. This is derived
-    // from the camera model class hierarchy rather than an explicit flag.
 #define CAMERA_MODEL_CASE(CameraModel)                                \
   case CameraModel::model_id:                                         \
     return std::is_base_of_v<BasePerspectiveCameraModel<CameraModel>, \
@@ -2827,7 +2819,18 @@ bool CameraModelIsPerspective(const CameraModelId model_id) {
 }
 
 bool CameraModelIsSpherical(const CameraModelId model_id) {
-  return model_id == CameraModelId::kEquirectangular;
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                              \
+  case CameraModel::model_id:                                       \
+    return std::is_base_of_v<BaseSphericalCameraModel<CameraModel>, \
+                             CameraModel>;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  return false;
 }
 
 }  // namespace colmap

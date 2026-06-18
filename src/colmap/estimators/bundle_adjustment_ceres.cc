@@ -418,10 +418,8 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   for (const camera_t camera_id : camera_ids) {
     Camera& camera = reconstruction.Camera(camera_id);
 
-    // EQUIRECTANGULAR cameras are parametrized purely by their fixed image
-    // dimensions, which are sensor properties and must never be optimized.
-    // Always keep their whole parameter block constant.
-    if (camera.IsSpherical()) {
+    // The EQUIRECTANGULAR camera model's extra parameters are not optimizable.
+    if (camera.model_id == CameraModelId::kEquirectangular) {
       problem.SetParameterBlockConstant(camera.params.data());
       continue;
     }

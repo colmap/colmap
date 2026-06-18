@@ -325,7 +325,7 @@ def run_spherical(
     """Reconstruct directly on the equirectangular panoramas with the native
     EQUIRECTANGULAR camera model, without rendering perspective images."""
 
-    logging.info("Reconstructing with EQUIRECTANGULAR camera")
+    logging.info("Reconstructing with spherical camera")
 
     reader_options = pycolmap.ImageReaderOptions(camera_model="EQUIRECTANGULAR")
     pycolmap.extract_features(
