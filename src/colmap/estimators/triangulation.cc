@@ -57,30 +57,33 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
   models->clear();
 
-  // The camera is required for the cheirality test and to choose the
-  // triangulation path; callers (e.g. EstimateTriangulation) always set it.
-  const bool all_cams_perspective =
-      std::all_of(pose_data.begin(), pose_data.end(), [](const Y_t& pose) {
-        return THROW_CHECK_NOTNULL(pose.camera)->IsPerspective();
-      });
-
   M_t xyz;
-  if (point_data.size() == 2 && all_cams_perspective) {
-    // Closed-form two-view triangulation for perspective cameras (the RANSAC
-    // minimal sample). For a perspective camera the bearing's hnormalized()
-    // recovers the (u, v) normalized image point (forward hemisphere, Z > 0).
-    if (!TriangulatePoint(pose_data[0].cam_from_world,
-                          pose_data[1].cam_from_world,
-                          point_data[0].cam_ray.hnormalized(),
-                          point_data[1].cam_ray.hnormalized(),
-                          &xyz)) {
-      return;
+  if (point_data.size() == 2) {
+    // More efficient closed-form solution for the two-view case.
+    const bool all_cams_perspective =
+        std::all_of(pose_data.begin(), pose_data.end(), [](const Y_t& pose) {
+          return THROW_CHECK_NOTNULL(pose.camera)->IsPerspective();
+        });
+    if (all_cams_perspective) {
+      if (!TriangulatePoint(
+              pose_data[0].cam_from_world,
+              pose_data[1].cam_from_world,
+              Eigen::Vector2d(point_data[0].cam_ray.hnormalized()),
+              Eigen::Vector2d(point_data[1].cam_ray.hnormalized()),
+              &xyz)) {
+        return;
+      }
+    } else {
+      if (!TriangulatePoint(pose_data[0].cam_from_world,
+                            pose_data[1].cam_from_world,
+                            point_data[0].cam_ray,
+                            point_data[1].cam_ray,
+                            &xyz)) {
+        return;
+      }
     }
+
   } else {
-    // Projector-based DLT from 3D bearing vectors (Camera::CamRayFromImg).
-    // Handles omnidirectional (e.g. SPHERICAL) observations whose
-    // back-hemisphere rays cannot be expressed in the 2D (u, v, 1)
-    // representation, as well as the multi-view case.
     std::vector<Eigen::Matrix3x4d> cams_from_world(point_data.size());
     std::vector<Eigen::Vector3d> cam_rays(point_data.size());
     for (size_t i = 0; i < point_data.size(); ++i) {

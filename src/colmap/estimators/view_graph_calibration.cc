@@ -390,6 +390,9 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
+    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+      continue;
+    }
     tvg.F = FundamentalFromEssentialMatrix(
         camera2.CalibrationMatrix(),
         EssentialMatrixFromPose(*tvg.cam2_from_cam1),
@@ -400,13 +403,16 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   std::vector<FocalLengthCalibInput> inputs;
   inputs.reserve(pairs.size());
   for (const auto& [pair_id, tvg] : pairs) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const Camera& camera1 = *image_id_to_camera.at(image_id1);
+    const Camera& camera2 = *image_id_to_camera.at(image_id2);
+    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+      continue;
+    }
     THROW_CHECK(tvg.F.has_value())
         << "Two-view geometry must have F matrix for focal length calibration";
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    inputs.push_back({pair_id,
-                      image_id_to_camera.at(image_id1)->camera_id,
-                      image_id_to_camera.at(image_id2)->camera_id,
-                      tvg.F.value()});
+    inputs.push_back(
+        {pair_id, camera1.camera_id, camera2.camera_id, tvg.F.value()});
   }
 
   const FocalLengthCalibResult calib_result =

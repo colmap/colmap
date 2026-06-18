@@ -73,7 +73,7 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
 
 TEST(CalculateSquaredReprojectionError, Spherical) {
   const Camera camera = Camera::CreateFromModelId(
-      1, SphericalCameraModel::model_id, /*focal_length=*/1.0, 1000, 500);
+      1, SphericalCameraModel::model_id, /*focal_length=*/0.0, 1000, 500);
   const Rigid3d cam_from_world;
   const double px_per_rad =
       static_cast<double>(camera.width) / (2.0 * EIGEN_PI);

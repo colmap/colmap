@@ -417,6 +417,15 @@ TEST(Bitmap, Thumbnail) {
   EXPECT_DOUBLE_EQ(portrait_scale, 0.5);
   EXPECT_EQ(portrait.Width(), 40);
   EXPECT_EQ(portrait.Height(), 50);
+
+  // Non-integer scale: dimensions are rounded to the nearest integer, so the
+  // limiting dimension fits exactly into max_image_size (300 * 100/300 rounds
+  // to 100 rather than truncating to 99) and the other is rounded (200 *
+  // 100/300 = 66.67 rounds to 67).
+  Bitmap non_integer(300, 200, /*as_rgb=*/true);
+  non_integer.Thumbnail(/*max_image_size=*/100);
+  EXPECT_EQ(non_integer.Width(), 100);
+  EXPECT_EQ(non_integer.Height(), 67);
 }
 
 TEST(Bitmap, ThumbnailNoOp) {

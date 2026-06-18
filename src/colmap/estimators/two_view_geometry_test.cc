@@ -425,15 +425,15 @@ TEST(EstimateTwoViewGeometry, Spherical) {
 
   // The recovered relative pose should match the ground truth: rotation
   // exactly, translation up to scale (the essential matrix fixes only the
-  // translation direction).
+  // translation direction), so compare with normalized translations.
   ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
-  EXPECT_LT(geometry.cam2_from_cam1->rotation().angularDistance(
-                test_data.cam2_from_cam1.rotation()),
-            1e-3);
-  EXPECT_LT((geometry.cam2_from_cam1->translation().normalized() -
-             test_data.cam2_from_cam1.translation().normalized())
-                .norm(),
-            1e-2);
+  EXPECT_THAT(
+      Rigid3d(geometry.cam2_from_cam1->rotation(),
+              geometry.cam2_from_cam1->translation().normalized()),
+      Rigid3dNear(Rigid3d(test_data.cam2_from_cam1.rotation(),
+                          test_data.cam2_from_cam1.translation().normalized()),
+                  /*rtol=*/1e-3,
+                  /*ttol=*/1e-2));
 
   // EstimateCalibratedTwoViewGeometry delegates to the spherical path rather
   // than estimating a meaningless fundamental matrix / homography.
@@ -471,7 +471,7 @@ TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
   const Camera spherical_camera =
       Camera::CreateFromModelId(100,
                                 SphericalCameraModel::model_id,
-                                /*focal_length=*/1.0,
+                                /*focal_length=*/0.0,
                                 1000,
                                 500);
   ASSERT_TRUE(spherical_camera.IsSpherical());

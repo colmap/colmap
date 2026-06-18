@@ -215,7 +215,7 @@ TEST(ObservationManager, FilterPoints3DSphericalSeam) {
   const camera_t kCameraId = 1;
   Camera camera = Camera::CreateFromModelId(kCameraId,
                                             SphericalCameraModel::model_id,
-                                            /*focal_length=*/1.0,
+                                            /*focal_length=*/0.0,
                                             1000,
                                             500);
   reconstruction.AddCamera(camera);

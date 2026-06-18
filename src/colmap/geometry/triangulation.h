@@ -58,11 +58,30 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam_from_world1,
                       const Eigen::Vector2d& cam_point2,
                       Eigen::Vector3d* point3D);
 
+// Triangulate 3D point from two corresponding camera-frame bearing vectors.
+//
+// Closed-form two-view counterpart of the bearing overload of
+// TriangulateMultiViewPoint: it minimizes the same perpendicular-to-ray
+// (angular) residual but avoids the multi-view container overhead.
+//
+// @param cam_from_world1   Pose of the first camera as 3x4 matrix.
+// @param cam_from_world2   Pose of the second camera as 3x4 matrix.
+// @param cam_ray1          Unit bearing vector in the first camera.
+// @param cam_ray2          Unit bearing vector in the second camera.
+// @param point3D           Triangulated 3D point.
+//
+// @return                  Whether triangulation was successful.
+bool TriangulatePoint(const Eigen::Matrix3x4d& cam_from_world1,
+                      const Eigen::Matrix3x4d& cam_from_world2,
+                      const Eigen::Vector3d& cam_ray1,
+                      const Eigen::Vector3d& cam_ray2,
+                      Eigen::Vector3d* point3D);
+
 // Triangulate 3D mid-point from corresponding camera ray observations.
 //
 // @param cam2_from_cam1    Relative pose between camera pair.
-// @param cam_ray1          Corresponding 2D ray in first camera.
-// @param cam_ray2          Corresponding 2D ray in second camera.
+// @param cam_ray1          Unit bearing vector in the first camera.
+// @param cam_ray2          Unit bearing vector in the second camera.
 // @param point3D           Triangulated 3D point in first camera.
 //
 // @return                  Whether triangulation was successful.
