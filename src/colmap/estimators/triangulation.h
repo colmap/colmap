@@ -64,8 +64,8 @@ class TriangulationEstimator {
     Eigen::Vector2d img_point = Eigen::Vector2d::Zero();
     // Unit bearing vector in the camera frame (Camera::CamRayFromImg). The
     // canonical observation representation for all camera models, including
-    // omnidirectional (SPHERICAL) back-hemisphere rays that the 2D normalized
-    // representation cannot encode.
+    // omnidirectional (EQUIRECTANGULAR) back-hemisphere rays that the 2D
+    // normalized representation cannot encode.
     Eigen::Vector3d cam_ray = Eigen::Vector3d::Zero();
   };
 

@@ -5,7 +5,7 @@ Two modes are available via --pano_render_type:
   * "overlapping" / "non-overlapping": render the panoramas into a rig of
     perspective virtual cameras (cubemap-style) and reconstruct from those.
   * "spherical": reconstruct directly on the equirectangular panoramas using
-    the native SPHERICAL camera model, without rendering perspective images.
+    the native EQUIRECTANGULAR camera model, without rendering perspective images.
 """
 
 import argparse
@@ -323,11 +323,11 @@ def run_spherical(
     args: argparse.Namespace, database_path: Path, rec_path: Path
 ) -> None:
     """Reconstruct directly on the equirectangular panoramas with the native
-    SPHERICAL camera model, without rendering perspective images."""
+    EQUIRECTANGULAR camera model, without rendering perspective images."""
 
-    logging.info("Reconstructing with SPHERICAL camera")
+    logging.info("Reconstructing with EQUIRECTANGULAR camera")
 
-    reader_options = pycolmap.ImageReaderOptions(camera_model="SPHERICAL")
+    reader_options = pycolmap.ImageReaderOptions(camera_model="EQUIRECTANGULAR")
     pycolmap.extract_features(
         database_path,
         args.input_image_path,
@@ -335,11 +335,11 @@ def run_spherical(
         camera_mode=pycolmap.CameraMode.SINGLE,
     )
 
-    # A single SPHERICAL camera observes the whole sphere from one center, so
+    # A single EQUIRECTANGULAR camera observes the whole sphere from one center, so
     # there is no rig and no per-frame image-pair skipping.
     run_matcher(args, database_path, pycolmap.FeatureMatchingOptions())
 
-    # The SPHERICAL model has no focal length, principal point, or distortion
+    # The EQUIRECTANGULAR model has no focal length, principal point, or distortion
     # to refine; its (w, h) parameters are held constant in bundle adjustment.
     recs = pycolmap.incremental_mapping(
         database_path, args.input_image_path, rec_path
@@ -439,7 +439,7 @@ if __name__ == "__main__":
         "--pano_render_type",
         default="overlapping",
         # "spherical" reconstructs directly on the panoramas with the native
-        # SPHERICAL camera model instead of rendering perspective images.
+        # EQUIRECTANGULAR camera model instead of rendering perspective images.
         choices=[*PANO_RENDER_OPTIONS.keys(), "spherical"],
     )
     run(parser.parse_args())

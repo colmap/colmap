@@ -203,7 +203,7 @@ def test_camera_is_undistorted(simple_camera):
 def test_camera_is_perspective(simple_camera):
     assert simple_camera.is_perspective() is True
     spherical_camera = pycolmap.Camera.create_from_model_name(
-        3, "SPHERICAL", 0.0, 1024, 512
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
     )
     assert spherical_camera.is_perspective() is False
 
@@ -211,7 +211,7 @@ def test_camera_is_perspective(simple_camera):
 def test_camera_is_spherical(simple_camera):
     assert simple_camera.is_spherical() is False
     spherical_camera = pycolmap.Camera.create_from_model_name(
-        3, "SPHERICAL", 0.0, 1024, 512
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
     )
     assert spherical_camera.is_spherical() is True
 

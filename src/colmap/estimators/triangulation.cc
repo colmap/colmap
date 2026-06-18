@@ -100,9 +100,9 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
   }
 
   // Cheirality. Perspective cameras require positive depth (the point in front
-  // of the local +Z axis). Omnidirectional cameras (e.g. SPHERICAL) have no
-  // single front, but the point must still lie in the half-space the observed
-  // bearing points toward.
+  // of the local +Z axis). Omnidirectional cameras (e.g. EQUIRECTANGULAR) have
+  // no single front, but the point must still lie in the half-space the
+  // observed bearing points toward.
   for (size_t i = 0; i < pose_data.size(); ++i) {
     if (pose_data[i].camera->IsPerspective()) {
       if (!HasPointPositiveDepth(pose_data[i].cam_from_world, xyz)) {
@@ -171,10 +171,11 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
   for (size_t i = 0; i < points.size(); ++i) {
     point_data[i].img_point = points[i];
     // Unit bearing in the camera frame. CamRayFromImg yields a valid ray for
-    // any camera model, including omnidirectional (SPHERICAL) back-hemisphere
-    // observations that CamFromImg cannot represent. Fall back to a defined
-    // forward bearing (+Z) if unprojection fails, so downstream normalize() in
-    // the DLT never sees a zero vector (which would produce NaNs).
+    // any camera model, including omnidirectional (EQUIRECTANGULAR)
+    // back-hemisphere observations that CamFromImg cannot represent. Fall back
+    // to a defined forward bearing (+Z) if unprojection fails, so downstream
+    // normalize() in the DLT never sees a zero vector (which would produce
+    // NaNs).
     point_data[i].cam_ray =
         cameras[i]->CamRayFromImg(points[i]).value_or(Eigen::Vector3d::UnitZ());
     pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();

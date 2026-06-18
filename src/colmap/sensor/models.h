@@ -101,7 +101,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
                                 kEUCM,                    // = 16
-                                kSpherical                // = 17
+                                kEquirectangular          // = 17
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -174,7 +174,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FisheyeCameraModel)             \
   CAMERA_MODEL_CASE(EUCMCameraModel)                \
-  CAMERA_MODEL_CASE(SphericalCameraModel)
+  CAMERA_MODEL_CASE(EquirectangularCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -218,7 +218,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 //         - the perspective models
 //         - BasePerspectiveFisheyeCameraModel  (fisheye projection)
 //             - the fisheye models
-//     - SphericalCameraModel                   (omnidirectional, no focal len)
+//     - EquirectangularCameraModel                   (omnidirectional, no focal
+//     len)
 //
 // Whether a model is perspective is derived from its position in this hierarchy
 // (see CameraModelIsPerspective), rather than from a separate flag.
@@ -272,11 +273,11 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
   // normalizes the resulting homogeneous coordinate. Correct for perspective
   // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
   //
-  // Omnidirectional camera models (e.g. SphericalCameraModel) provide their own
-  // CamRayFromImg to produce rays in any direction of the full sphere.
-  // Downstream geometry code should prefer CamRayFromImg over the 2D CamFromImg
-  // whenever a 3D bearing is needed, since the 2D (u, v, 1) representation
-  // cannot encode rays with rz <= 0.
+  // Omnidirectional camera models (e.g. EquirectangularCameraModel) provide
+  // their own CamRayFromImg to produce rays in any direction of the full
+  // sphere. Downstream geometry code should prefer CamRayFromImg over the 2D
+  // CamFromImg whenever a 3D bearing is needed, since the 2D (u, v, 1)
+  // representation cannot encode rays with rz <= 0.
   static inline bool CamRayFromImg(const double* params,
                                    double x,
                                    double y,
@@ -636,7 +637,7 @@ struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
                                          T max_extra_param);
 };
 
-// Spherical (equirectangular panorama) camera model.
+// Equirectangular (spherical panorama) camera model.
 //
 // Maps the full 360°x180° sphere onto an equirectangular image: the azimuth
 // spans the image width and the elevation spans the image height. The model
@@ -649,14 +650,14 @@ struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
 //
 //    w, h
 //
-// Named "SPHERICAL" and parametrized by (w, h) to match PoseLib's
-// SphericalCameraModel, so cameras map across the COLMAP/PoseLib boundary by
-// model name.
-struct SphericalCameraModel : public BaseCameraModel<SphericalCameraModel> {
+// This is one specific omnidirectional (spherical) projection; see
+// IsSpherical() for the camera-model-agnostic category predicate.
+struct EquirectangularCameraModel
+    : public BaseCameraModel<EquirectangularCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSpherical, "SPHERICAL", 0, 0, 2, false)
+      CameraModelId::kEquirectangular, "EQUIRECTANGULAR", 0, 0, 2, false)
 
-  // SPHERICAL derives from BaseCameraModel directly (not from
+  // EQUIRECTANGULAR derives from BaseCameraModel directly (not from
   // BasePerspectiveCameraModel) and provides its own validity check: the only
   // parameters are image dimensions — always valid by construction — so the
   // perspective bogus-focal / bogus-extra checks don't apply.
@@ -670,19 +671,19 @@ struct SphericalCameraModel : public BaseCameraModel<SphericalCameraModel> {
     return false;
   }
 
-  // SPHERICAL has no focal length, so it cannot use the perspective base's
-  // focal-length-based threshold. Convert pixel thresholds to normalized-
-  // camera-coord thresholds using the angular resolution at the equator
-  // (2π rad per W pixels in azimuth).
+  // EQUIRECTANGULAR has no focal length, so it cannot use the perspective
+  // base's focal-length-based threshold. Convert pixel thresholds to
+  // normalized- camera-coord thresholds using the angular resolution at the
+  // equator (2π rad per W pixels in azimuth).
   template <typename T>
   static inline T CamFromImgThreshold(const T* params, T threshold) {
     return threshold * T(2.0 * EIGEN_PI) / params[0];
   }
 
   // The perspective base's default CamRayFromImg goes through the 2D
-  // CamFromImg which fails for back-hemisphere pixels. SPHERICAL can produce
-  // valid unit bearings for any pixel in the equirectangular image, so we
-  // compute the ray directly from the azimuth/elevation parametrization.
+  // CamFromImg which fails for back-hemisphere pixels. EQUIRECTANGULAR can
+  // produce valid unit bearings for any pixel in the equirectangular image, so
+  // we compute the ray directly from the azimuth/elevation parametrization.
   static inline bool CamRayFromImg(const double* params,
                                    double x,
                                    double y,
@@ -844,7 +845,7 @@ inline double CameraModelCamFromImgThreshold(CameraModelId model_id,
 inline bool CameraModelIsFisheye(CameraModelId model_id);
 
 // Test if a camera model is perspective, i.e. has a focal length and a finite
-// pinhole image plane. Omnidirectional models such as SPHERICAL are not.
+// pinhole image plane. Omnidirectional models such as EQUIRECTANGULAR are not.
 //
 // @param model_id      Unique identifier of camera model.
 //
@@ -2628,23 +2629,24 @@ bool EUCMCameraModel::CamFromImg(const double* params,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// SphericalCameraModel
+// EquirectangularCameraModel
 
-std::string SphericalCameraModel::InitializeParamsInfo() { return "w,h"; }
+std::string EquirectangularCameraModel::InitializeParamsInfo() { return "w,h"; }
 
-std::array<size_t, 0> SphericalCameraModel::InitializeFocalLengthIdxs() {
+std::array<size_t, 0> EquirectangularCameraModel::InitializeFocalLengthIdxs() {
   return {};
 }
 
-std::array<size_t, 0> SphericalCameraModel::InitializePrincipalPointIdxs() {
+std::array<size_t, 0>
+EquirectangularCameraModel::InitializePrincipalPointIdxs() {
   return {};
 }
 
-std::array<size_t, 2> SphericalCameraModel::InitializeExtraParamsIdxs() {
+std::array<size_t, 2> EquirectangularCameraModel::InitializeExtraParamsIdxs() {
   return {0, 1};
 }
 
-std::vector<double> SphericalCameraModel::InitializeParams(
+std::vector<double> EquirectangularCameraModel::InitializeParams(
     const double /*focal_length*/, const size_t width, const size_t height) {
   // focal_length is ignored: an equirectangular projection is fully specified
   // by the image dimensions.
@@ -2652,10 +2654,10 @@ std::vector<double> SphericalCameraModel::InitializeParams(
 }
 
 // Projects camera-frame point (u, v, w) onto the equirectangular image plane.
-// Unlike pinhole/fisheye models that require w > 0, SPHERICAL accepts any
+// Unlike pinhole/fisheye models that require w > 0, EQUIRECTANGULAR accepts any
 // non-zero direction — all 4π of the sphere are representable.
 template <typename T>
-bool SphericalCameraModel::ImgFromCam(
+bool EquirectangularCameraModel::ImgFromCam(
     const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   const T width = params[0];
   const T height = params[1];
@@ -2680,7 +2682,7 @@ bool SphericalCameraModel::ImgFromCam(
 // coordinates (u = X/Z, v = Y/Z) of the pixel's ray, valid only when the ray
 // falls in the forward hemisphere (Z > 0). Back-hemisphere pixels return
 // false; use CamRayFromImg for the full-sphere 3D bearing.
-bool SphericalCameraModel::CamFromImg(
+bool EquirectangularCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v) {
   const double width = params[0];
   const double height = params[1];
@@ -2825,7 +2827,7 @@ bool CameraModelIsPerspective(const CameraModelId model_id) {
 }
 
 bool CameraModelIsSpherical(const CameraModelId model_id) {
-  return model_id == CameraModelId::kSpherical;
+  return model_id == CameraModelId::kEquirectangular;
 }
 
 }  // namespace colmap

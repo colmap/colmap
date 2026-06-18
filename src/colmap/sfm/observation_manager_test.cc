@@ -213,11 +213,12 @@ TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
 TEST(ObservationManager, FilterPoints3DSphericalSeam) {
   Reconstruction reconstruction;
   const camera_t kCameraId = 1;
-  Camera camera = Camera::CreateFromModelId(kCameraId,
-                                            SphericalCameraModel::model_id,
-                                            /*focal_length=*/0.0,
-                                            1000,
-                                            500);
+  Camera camera =
+      Camera::CreateFromModelId(kCameraId,
+                                EquirectangularCameraModel::model_id,
+                                /*focal_length=*/0.0,
+                                1000,
+                                500);
   reconstruction.AddCamera(camera);
 
   Rig rig;

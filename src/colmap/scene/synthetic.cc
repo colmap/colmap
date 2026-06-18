@@ -81,9 +81,10 @@ void SetTwoViewGeometryModel(const Camera& camera1,
                              TwoViewGeometry* two_view_geometry) {
   two_view_geometry->E = EssentialMatrixFromPose(cam2_from_cam1);
   if (camera1.IsSpherical() || camera2.IsSpherical()) {
-    // Omnidirectional cameras (e.g. SPHERICAL) have no pinhole calibration
-    // matrix, so the fundamental matrix is undefined; they are always
-    // calibrated and use the bearing-based essential-matrix configuration.
+    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no pinhole
+    // calibration matrix, so the fundamental matrix is undefined; they are
+    // always calibrated and use the bearing-based essential-matrix
+    // configuration.
     two_view_geometry->config = TwoViewGeometry::CALIBRATED;
     return;
   }

@@ -235,7 +235,7 @@ TEST(TriangulateMultiViewPoint, Bearings) {
   // The 3D bearing overload recovers the same points as the 2D overload, and
   // additionally handles back-hemisphere rays (negative Z in the camera frame)
   // that the 2D (u, v, 1) representation cannot encode -- as produced by
-  // omnidirectional (e.g. SPHERICAL) cameras.
+  // omnidirectional (e.g. EQUIRECTANGULAR) cameras.
   const std::vector<Eigen::Vector3d> points3D = {
       Eigen::Vector3d(0, 0.1, 0.1),
       Eigen::Vector3d(0, 1, 3),

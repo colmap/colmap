@@ -254,7 +254,7 @@ TEST(CalibrateViewGraph, SphericalCamerasAreIgnored) {
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
-  options.camera_model_id = SphericalCameraModel::model_id;
+  options.camera_model_id = EquirectangularCameraModel::model_id;
   options.camera_width = 1000;
   options.camera_height = 500;
   options.camera_params = {1000, 500};

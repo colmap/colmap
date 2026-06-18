@@ -310,28 +310,33 @@ TEST(WrapSphericalHorizontalSeam, Nominal) {
   // Spherical folds the x-residual into [-w/2, w/2); y is untouched.
   {
     double residuals[2] = {1000.0, 5.0};  // Exactly one period -> 0.
-    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    WrapSphericalHorizontalSeam<EquirectangularCameraModel>(camera_params,
+                                                            residuals);
     EXPECT_EQ(residuals[0], 0.0);
     EXPECT_EQ(residuals[1], 5.0);
   }
   {
     double residuals[2] = {998.0, 0.0};  // Just under a period -> -2.
-    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    WrapSphericalHorizontalSeam<EquirectangularCameraModel>(camera_params,
+                                                            residuals);
     EXPECT_EQ(residuals[0], -2.0);
   }
   {
     double residuals[2] = {-998.0, 0.0};
-    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    WrapSphericalHorizontalSeam<EquirectangularCameraModel>(camera_params,
+                                                            residuals);
     EXPECT_EQ(residuals[0], 2.0);
   }
   {
     double residuals[2] = {-3.0, 0.0};  // Already minimal -> unchanged.
-    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    WrapSphericalHorizontalSeam<EquirectangularCameraModel>(camera_params,
+                                                            residuals);
     EXPECT_EQ(residuals[0], -3.0);
   }
   {
     double residuals[2] = {500.0, 0.0};  // +w/2 boundary folds to -w/2.
-    WrapSphericalHorizontalSeam<SphericalCameraModel>(camera_params, residuals);
+    WrapSphericalHorizontalSeam<EquirectangularCameraModel>(camera_params,
+                                                            residuals);
     EXPECT_EQ(residuals[0], -500.0);
   }
 }
@@ -353,7 +358,8 @@ TEST(ReprojErrorCostFunctor, SphericalSeamWrap) {
   double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
   ExpectSphericalSeamWrap(
       [](const Eigen::Vector2d& point2D) {
-        return ReprojErrorCostFunctor<SphericalCameraModel>::Create(point2D);
+        return ReprojErrorCostFunctor<EquirectangularCameraModel>::Create(
+            point2D);
       },
       {point3D, cam_from_world, camera_params});
 }
@@ -364,8 +370,8 @@ TEST(ReprojErrorConstantPoseCostFunctor, SphericalSeamWrap) {
   double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
   ExpectSphericalSeamWrap(
       [&cam_from_world](const Eigen::Vector2d& point2D) {
-        return ReprojErrorConstantPoseCostFunctor<SphericalCameraModel>::Create(
-            point2D, cam_from_world);
+        return ReprojErrorConstantPoseCostFunctor<
+            EquirectangularCameraModel>::Create(point2D, cam_from_world);
       },
       {point3D, camera_params});
 }
@@ -377,7 +383,7 @@ TEST(ReprojErrorConstantPoint3DCostFunctor, SphericalSeamWrap) {
   ExpectSphericalSeamWrap(
       [&point3D](const Eigen::Vector2d& point2D) {
         return ReprojErrorConstantPoint3DCostFunctor<
-            SphericalCameraModel>::Create(point2D, point3D);
+            EquirectangularCameraModel>::Create(point2D, point3D);
       },
       {cam_from_world, camera_params});
 }
@@ -389,7 +395,8 @@ TEST(RigReprojErrorCostFunctor, SphericalSeamWrap) {
   double camera_params[2] = {kSphericalCameraWidth, kSphericalCameraHeight};
   ExpectSphericalSeamWrap(
       [](const Eigen::Vector2d& point2D) {
-        return RigReprojErrorCostFunctor<SphericalCameraModel>::Create(point2D);
+        return RigReprojErrorCostFunctor<EquirectangularCameraModel>::Create(
+            point2D);
       },
       {point3D, cam_from_rig, rig_from_world, camera_params});
 }
@@ -402,7 +409,7 @@ TEST(RigReprojErrorConstantRigCostFunctor, SphericalSeamWrap) {
   ExpectSphericalSeamWrap(
       [&cam_from_rig](const Eigen::Vector2d& point2D) {
         return RigReprojErrorConstantRigCostFunctor<
-            SphericalCameraModel>::Create(point2D, cam_from_rig);
+            EquirectangularCameraModel>::Create(point2D, cam_from_rig);
       },
       {point3D, rig_from_world, camera_params});
 }

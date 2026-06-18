@@ -418,7 +418,7 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   for (const camera_t camera_id : camera_ids) {
     Camera& camera = reconstruction.Camera(camera_id);
 
-    // SPHERICAL cameras are parametrized purely by their fixed image
+    // EQUIRECTANGULAR cameras are parametrized purely by their fixed image
     // dimensions, which are sensor properties and must never be optimized.
     // Always keep their whole parameter block constant.
     if (camera.IsSpherical()) {

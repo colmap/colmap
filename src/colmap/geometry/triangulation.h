@@ -105,8 +105,8 @@ bool TriangulateMultiViewPoint(
 // Triangulate point from multiple views minimizing the L2 error, directly
 // from unit bearing vectors in each camera frame. Unlike the 2D-normalized
 // overload, this variant accepts observations from omnidirectional cameras
-// (e.g. SPHERICAL) whose full-sphere coverage cannot be represented in the
-// (u, v, 1) plane. For perspective cameras, passing
+// (e.g. EQUIRECTANGULAR) whose full-sphere coverage cannot be represented in
+// the (u, v, 1) plane. For perspective cameras, passing
 // `cam_point.homogeneous().normalized()` as the bearing is equivalent to
 // the 2D overload.
 //

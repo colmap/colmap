@@ -39,7 +39,7 @@
 
 namespace colmap {
 
-// Periodic (azimuthal) camera models such as SPHERICAL wrap the x image
+// Periodic (azimuthal) camera models such as EQUIRECTANGULAR wrap the x image
 // coordinate at the ±π seam, so a raw pixel residual can jump by ~width across
 // the seam (e.g. an observation at x ≈ 0 whose 3D point reprojects to
 // x ≈ width). Wrap the x-residual into [-width/2, width/2) so the
@@ -48,7 +48,7 @@ namespace colmap {
 // for non-periodic camera models. (Elevation has no wrap, so y is untouched.)
 template <typename CameraModel, typename T>
 inline void WrapSphericalHorizontalSeam(const T* camera_params, T* residuals) {
-  if constexpr (CameraModel::model_id == CameraModelId::kSpherical) {
+  if constexpr (CameraModel::model_id == CameraModelId::kEquirectangular) {
     const T width = camera_params[0];
     residuals[0] -= width * ceres::floor(residuals[0] / width + T(0.5));
   }

@@ -124,11 +124,11 @@ struct Camera {
 
   // Whether the camera model is perspective, i.e. has a focal length and a
   // finite pinhole image plane (so positive-depth cheirality applies).
-  // Omnidirectional models such as SPHERICAL are not perspective.
+  // Omnidirectional models such as EQUIRECTANGULAR are not perspective.
   inline bool IsPerspective() const;
 
   // Whether the camera model is spherical (equirectangular omnidirectional
-  // panorama), i.e. the SPHERICAL model.
+  // panorama), i.e. the EQUIRECTANGULAR model.
   inline bool IsSpherical() const;
 
   // Check whether camera has bogus parameters.

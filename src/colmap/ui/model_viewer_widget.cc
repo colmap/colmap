@@ -85,8 +85,8 @@ inline RGBAColor IndexToRGB(const size_t index) {
 }
 
 // Builds a translucent + wireframe sphere centered at `center` with the given
-// `radius`. Used to visualize omnidirectional (e.g. SPHERICAL) cameras, which
-// observe the full sphere and have no pinhole frustum. The triangle mesh
+// `radius`. Used to visualize omnidirectional (e.g. EQUIRECTANGULAR) cameras,
+// which observe the full sphere and have no pinhole frustum. The triangle mesh
 // provides the translucent fill and also makes the camera selectable (picking
 // is done against triangles); the lines form the wireframe. The sphere is
 // oriented by `world_from_cam_rot` so that its latitude/longitude lines align
@@ -106,8 +106,8 @@ void BuildSphericalCameraModel(
   constexpr int kNumSlices = 12;  // Longitude (azimuth) divisions.
 
   // Sphere point at the given elevation/azimuth grid index, using the same
-  // equirectangular parametrization as the SPHERICAL camera model so that the
-  // wireframe aligns with the image: stack 0..N maps elevation +pi/2..-pi/2
+  // equirectangular parametrization as the EQUIRECTANGULAR camera model so that
+  // the wireframe aligns with the image: stack 0..N maps elevation +pi/2..-pi/2
   // (image top to bottom), slice 0..N maps azimuth -pi..pi (image left to
   // right). The camera-frame bearing is rotated into world space.
   const auto sphere_point = [&](const int stack,

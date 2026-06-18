@@ -126,7 +126,7 @@ void BindCamera(py::module& m) {
            &Camera::IsPerspective,
            "Whether the camera model is perspective, i.e. has a focal length "
            "and a finite pinhole image plane (so positive-depth cheirality "
-           "applies). Omnidirectional models such as SPHERICAL are not "
+           "applies). Omnidirectional models such as EQUIRECTANGULAR are not "
            "perspective.")
       .def("is_spherical",
            &Camera::IsSpherical,

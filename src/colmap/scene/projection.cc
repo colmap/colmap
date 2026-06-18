@@ -35,13 +35,14 @@
 namespace colmap {
 namespace {
 
-// Pixel reprojection error is ill-defined for equirectangular (e.g. SPHERICAL)
-// cameras: the azimuth is discontinuous at the ±π seam and its pixel scale
-// diverges towards the poles (azimuth pixels grow as 1/cos(elevation)). Instead
-// measure the angular error between the observed bearing and the 3D point and
-// convert it to an equivalent pixel error at the equator, consistent with the
-// model's pixel<->angle scale used by CamFromImgThreshold. This makes the
-// (squared) error continuous across the seam and uniform over the sphere.
+// Pixel reprojection error is ill-defined for equirectangular (e.g.
+// EQUIRECTANGULAR) cameras: the azimuth is discontinuous at the ±π seam and its
+// pixel scale diverges towards the poles (azimuth pixels grow as
+// 1/cos(elevation)). Instead measure the angular error between the observed
+// bearing and the 3D point and convert it to an equivalent pixel error at the
+// equator, consistent with the model's pixel<->angle scale used by
+// CamFromImgThreshold. This makes the (squared) error continuous across the
+// seam and uniform over the sphere.
 double SquaredSphericalReprojectionError(const double angular_error,
                                          const Camera& camera) {
   const double pixels_per_radian =
@@ -94,8 +95,9 @@ double CalculateAngularReprojectionError(const Eigen::Vector2d& point2D,
                                          const Rigid3d& cam_from_world,
                                          const Camera& camera) {
   // Use the 3D bearing (full sphere) rather than the 2D CamFromImg, which
-  // cannot represent back-hemisphere rays of omnidirectional (e.g. SPHERICAL)
-  // cameras. Identical to the legacy path for perspective cameras.
+  // cannot represent back-hemisphere rays of omnidirectional (e.g.
+  // EQUIRECTANGULAR) cameras. Identical to the legacy path for perspective
+  // cameras.
   const std::optional<Eigen::Vector3d> cam_ray = camera.CamRayFromImg(point2D);
   if (!cam_ray) {
     return EIGEN_PI;

@@ -72,7 +72,7 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
 }
 
 double Camera::MeanFocalLength() const {
-  // The omnidirectional SPHERICAL model has no focal length.
+  // The omnidirectional EQUIRECTANGULAR model has no focal length.
   if (IsSpherical()) {
     return 0.0;
   }
@@ -96,8 +96,9 @@ bool Camera::SetParamsFromString(const std::string& string) {
 }
 
 bool Camera::IsUndistorted() const {
-  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane to
-  // undistort to; treat them as already undistorted so undistortion is a no-op.
+  // Non-perspective cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane
+  // to undistort to; treat them as already undistorted so undistortion is a
+  // no-op.
   if (IsSpherical()) {
     return true;
   }
@@ -169,8 +170,8 @@ void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
   } else if (num_focal_params == 0) {
-    // Omnidirectional cameras (e.g. SPHERICAL) have no focal length to scale;
-    // the principal-point rescale performed by the caller is sufficient.
+    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no focal length to
+    // scale; the principal-point rescale performed by the caller is sufficient.
   } else {
     LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";

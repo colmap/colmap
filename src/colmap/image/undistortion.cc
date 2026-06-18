@@ -50,7 +50,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
 
   // Undistortion produces a pinhole image, which is only well-defined for
-  // perspective cameras. Omnidirectional models (e.g. SPHERICAL) have no
+  // perspective cameras. Omnidirectional models (e.g. EQUIRECTANGULAR) have no
   // pinhole image plane and cannot be undistorted; callers skip them, but guard
   // here too rather than dereferencing the (empty) focal-length parameters.
   THROW_CHECK(camera.IsPerspective());
@@ -274,8 +274,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   const std::unordered_map<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
-    // IsUndistorted() is true for non-perspective cameras (e.g. SPHERICAL),
-    // which cannot be undistorted to a pinhole, so they are left unchanged.
+    // IsUndistorted() is true for non-perspective cameras (e.g.
+    // EQUIRECTANGULAR), which cannot be undistorted to a pinhole, so they are
+    // left unchanged.
     if (camera.second.IsUndistorted()) {
       continue;
     }
@@ -287,7 +288,8 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
     // Cameras left unchanged above (undistorted perspective cameras and all
-    // non-perspective cameras, e.g. SPHERICAL) need no observation rewrite.
+    // non-perspective cameras, e.g. EQUIRECTANGULAR) need no observation
+    // rewrite.
     if (distorted_camera.IsUndistorted()) {
       continue;
     }

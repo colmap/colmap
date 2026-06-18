@@ -395,7 +395,8 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 200;
-  synthetic_dataset_options.camera_model_id = SphericalCameraModel::model_id;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
   synthetic_dataset_options.camera_width = 1000;
   synthetic_dataset_options.camera_height = 500;
   synthetic_dataset_options.camera_params = {1000, 500};
@@ -453,8 +454,8 @@ TEST(EstimateTwoViewGeometry, Spherical) {
 
 TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
   // Synthesize a perspective two-view dataset to obtain consistent poses and 3D
-  // points, then re-project the first image through a SPHERICAL camera to form
-  // a mixed spherical/perspective pair.
+  // points, then re-project the first image through a EQUIRECTANGULAR camera to
+  // form a mixed spherical/perspective pair.
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -470,7 +471,7 @@ TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
 
   const Camera spherical_camera =
       Camera::CreateFromModelId(100,
-                                SphericalCameraModel::model_id,
+                                EquirectangularCameraModel::model_id,
                                 /*focal_length=*/0.0,
                                 1000,
                                 500);

@@ -277,10 +277,10 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
 }
 
 // Estimate two-view geometry for an image pair where at least one camera is
-// omnidirectional (no pinhole image plane, e.g. SPHERICAL). The fundamental
-// matrix and homography are not geometrically meaningful for such cameras, so
-// only the bearing-based essential matrix is estimated and the result is
-// committed to the CALIBRATED configuration (or DEGENERATE).
+// omnidirectional (no pinhole image plane, e.g. EQUIRECTANGULAR). The
+// fundamental matrix and homography are not geometrically meaningful for such
+// cameras, so only the bearing-based essential matrix is estimated and the
+// result is committed to the CALIBRATED configuration (or DEGENERATE).
 // TODO(jsch): Implement mixed spherical/calibrated perspective camera case
 // using one-sided focal length solver from poselib.
 TwoViewGeometry EstimateSphericalTwoViewGeometry(
@@ -308,7 +308,7 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
   // degenerate.
 
   // Extract corresponding image points and bearing rays. For omnidirectional
-  // cameras (e.g. SPHERICAL) the bearing rays are the only valid
+  // cameras (e.g. EQUIRECTANGULAR) the bearing rays are the only valid
   // representation; the raw image points are kept only for watermark detection.
   std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
@@ -621,7 +621,7 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
     TwoViewGeometry* geometry) {
   std::vector<Eigen::Vector3d> points3D;
 
-  // Omnidirectional cameras (no focal length, e.g. SPHERICAL) have no
+  // Omnidirectional cameras (no focal length, e.g. EQUIRECTANGULAR) have no
   // calibration matrix, so only the bearing-based essential-matrix path is
   // valid for them. EstimateTwoViewGeometry already commits such pairs to the
   // CALIBRATED configuration (or DEGENERATE), so they are handled by the

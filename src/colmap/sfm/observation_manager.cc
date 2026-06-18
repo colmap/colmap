@@ -544,11 +544,11 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
                           .norm()
                     : std::numeric_limits<double>::infinity();
           } else {
-            // Omnidirectional cameras (e.g. SPHERICAL) have no pinhole z-divide
-            // and legitimately observe points behind the local +Z axis, so the
-            // cheirality gate and 2D CamFromImg above do not apply. Compare
-            // unit bearings instead (chord distance ~= angle for small errors,
-            // consistent with the normalized threshold).
+            // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no pinhole
+            // z-divide and legitimately observe points behind the local +Z
+            // axis, so the cheirality gate and 2D CamFromImg above do not
+            // apply. Compare unit bearings instead (chord distance ~= angle for
+            // small errors, consistent with the normalized threshold).
             const std::optional<Eigen::Vector3d> cam_ray =
                 camera.CamRayFromImg(point2D.xy);
             observation_error =

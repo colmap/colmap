@@ -233,8 +233,8 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const auto input_image_path = image_path_ / image.Name();
   const auto output_image_path = output_path_ / "images" / image.Name();
 
-  // Non-perspective cameras (e.g. SPHERICAL) have no pinhole image plane to
-  // undistort to and are left unchanged by UndistortReconstruction, so copy
+  // Non-perspective cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane
+  // to undistort to and are left unchanged by UndistortReconstruction, so copy
   // their images through unchanged (they cannot be rescaled to a pinhole image
   // for MVS).
   if (!camera.IsPerspective() && ExistsFile(input_image_path)) {

@@ -78,7 +78,8 @@ TEST(IncrementalPipeline, WithoutNoiseSphericalCameras) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.camera_model_id = SphericalCameraModel::model_id;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
   synthetic_dataset_options.camera_width = 1000;
   synthetic_dataset_options.camera_height = 500;
   synthetic_dataset_options.camera_params = {1000, 500};
