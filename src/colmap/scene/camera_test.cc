@@ -361,7 +361,7 @@ TEST(Camera, Rescale) {
 
 TEST(Camera, Spherical) {
   Camera camera = Camera::CreateFromModelId(
-      1, SphericalCameraModel::model_id, /*focal_length=*/1.0, 1000, 500);
+      1, SphericalCameraModel::model_id, /*focal_length=*/0.0, 1000, 500);
   EXPECT_EQ(camera.params, std::vector<double>({1000, 500}));
   EXPECT_FALSE(camera.IsPerspective());
   EXPECT_TRUE(camera.IsSpherical());
