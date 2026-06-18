@@ -5,7 +5,8 @@ Two modes are available via --pano_render_type:
   * "overlapping" / "non-overlapping": render the panoramas into a rig of
     perspective virtual cameras (cubemap-style) and reconstruct from those.
   * "spherical": reconstruct directly on the equirectangular panoramas using
-    the native EQUIRECTANGULAR camera model, without rendering perspective images.
+    the native EQUIRECTANGULAR camera model, without rendering perspective
+    images.
 """
 
 import argparse
@@ -335,12 +336,13 @@ def run_spherical(
         camera_mode=pycolmap.CameraMode.SINGLE,
     )
 
-    # A single EQUIRECTANGULAR camera observes the whole sphere from one center, so
-    # there is no rig and no per-frame image-pair skipping.
+    # A single EQUIRECTANGULAR camera observes the whole sphere from one
+    # center, so there is no rig and no per-frame image-pair skipping.
     run_matcher(args, database_path, pycolmap.FeatureMatchingOptions())
 
-    # The EQUIRECTANGULAR model has no focal length, principal point, or distortion
-    # to refine; its (w, h) parameters are held constant in bundle adjustment.
+    # The EQUIRECTANGULAR model has no focal length, principal point, or
+    # distortion to refine; its (w, h) params are held constant in bundle
+    # adjustment.
     recs = pycolmap.incremental_mapping(
         database_path, args.input_image_path, rec_path
     )
