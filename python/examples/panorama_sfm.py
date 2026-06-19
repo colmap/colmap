@@ -570,14 +570,16 @@ def run_perspective(
             database_path, image_dir, rec_path, opts
         )
     elif args.mapper == Mapper.GLOBAL:
-        opts = pycolmap.GlobalPipelineOptions(
+        global_opts = pycolmap.GlobalPipelineOptions(
             mapper=pycolmap.GlobalMapperOptions(refine_sensor_from_rig=False)
         )
         # Don't set these in the init to not overwrite custom default options.
-        opts.mapper.bundle_adjustment.refine_focal_length = False
-        opts.mapper.bundle_adjustment.refine_principal_point = False
-        opts.mapper.bundle_adjustment.refine_extra_params = False
-        recs = pycolmap.global_mapping(database_path, image_dir, rec_path, opts)
+        global_opts.mapper.bundle_adjustment.refine_focal_length = False
+        global_opts.mapper.bundle_adjustment.refine_principal_point = False
+        global_opts.mapper.bundle_adjustment.refine_extra_params = False
+        recs = pycolmap.global_mapping(
+            database_path, image_dir, rec_path, global_opts
+        )
     else:
         logging.fatal(f"Unknown mapper: {args.mapper}")
 
