@@ -324,6 +324,7 @@ def run(args: argparse.Namespace) -> None:
     )
 
     rendered_camera = rig_config.cameras[0].camera
+    assert rendered_camera is not None  # Make mypy happy.
     pycolmap.extract_features(
         database_path,
         image_dir,
