@@ -204,6 +204,7 @@ void TestModel(const std::vector<double>& params) {
                 CameraModelExtraParamsIdxs(CameraModel::model_id).end()),
             std::vector<size_t>(CameraModel::extra_params_idxs.begin(),
                                 CameraModel::extra_params_idxs.end()));
+  EXPECT_TRUE(CameraModelMetaDataParamsIdxs(CameraModel::model_id).empty());
   EXPECT_EQ(CameraModelNumParams(CameraModel::model_id),
             CameraModel::num_params);
 
@@ -293,23 +294,26 @@ TEST(Spherical, Nominal) {
   EXPECT_TRUE(
       CameraModelVerifyParams(EquirectangularCameraModel::model_id, params));
 
-  // Metadata: no focal length, the two params are the principal point, no
-  // extra (distortion) params.
   EXPECT_EQ(CameraModelParamsInfo(EquirectangularCameraModel::model_id), "w,h");
   EXPECT_TRUE(
       CameraModelFocalLengthIdxs(EquirectangularCameraModel::model_id).empty());
   EXPECT_TRUE(
       CameraModelPrincipalPointIdxs(EquirectangularCameraModel::model_id)
           .empty());
-  // (w, h) are classified as extra parameters (neither focal nor principal
-  // point).
-  EXPECT_EQ(std::vector<size_t>(
-                CameraModelExtraParamsIdxs(EquirectangularCameraModel::model_id)
-                    .begin(),
-                CameraModelExtraParamsIdxs(EquirectangularCameraModel::model_id)
-                    .end()),
-            (std::vector<size_t>{0, 1}));
+  EXPECT_TRUE(
+      CameraModelExtraParamsIdxs(EquirectangularCameraModel::model_id).empty());
+  EXPECT_EQ(
+      std::vector<size_t>(
+          CameraModelMetaDataParamsIdxs(EquirectangularCameraModel::model_id)
+              .begin(),
+          CameraModelMetaDataParamsIdxs(EquirectangularCameraModel::model_id)
+              .end()),
+      (std::vector<size_t>{0, 1}));
   EXPECT_EQ(CameraModelNumParams(EquirectangularCameraModel::model_id), 2u);
+
+  // Perspective models have no metadata parameters.
+  EXPECT_TRUE(
+      CameraModelMetaDataParamsIdxs(PinholeCameraModel::model_id).empty());
 
   // EQUIRECTANGULAR is non-perspective, spherical, and never has bogus
   // parameters.
@@ -509,6 +513,47 @@ TEST(EUCMCamera, RejectsInvalidExtraParams) {
       0.1,
       2.0,
       1.0));
+}
+
+TEST(CameraModelRescale, Perspective) {
+  // Distinct per-axis scale factors to verify each is applied to the right
+  // parameter; all results are exactly representable.
+  const double scale_x = 2.0;
+  const double scale_y = 3.0;
+
+  // Two focal lengths (fx, fy): each scales along its own axis, as does the
+  // principal point (cx, cy).
+  {
+    std::vector<double> params = {100, 200, 50, 80};  // fx, fy, cx, cy
+    CameraModelRescale(PinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{200, 600, 100, 240}));
+  }
+
+  // Single shared focal length scales by the mean of the two factors.
+  {
+    std::vector<double> params = {100, 50, 80};  // f, cx, cy
+    CameraModelRescale(
+        SimplePinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{250, 100, 240}));  // f *= 2.5
+  }
+
+  // Extra (distortion) parameters are resolution independent and untouched.
+  {
+    std::vector<double> params = {100, 50, 80, 0.3};  // f, cx, cy, k
+    CameraModelRescale(
+        SimpleRadialCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{250, 100, 240, 0.3}));
+  }
+}
+
+TEST(CameraModelRescale, Spherical) {
+  // The (w, h) image-size parameters track the rescaled image dimensions.
+  std::vector<double> params = {800, 400};  // w, h
+  CameraModelRescale(EquirectangularCameraModel::model_id,
+                     /*scale_x=*/2.0,
+                     /*scale_y=*/0.5,
+                     params);
+  EXPECT_EQ(params, (std::vector<double>{1600, 200}));
 }
 
 }  // namespace

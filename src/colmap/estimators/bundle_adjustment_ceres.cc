@@ -418,18 +418,19 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   for (const camera_t camera_id : camera_ids) {
     Camera& camera = reconstruction.Camera(camera_id);
 
-    // The EQUIRECTANGULAR camera model's extra parameters are not optimizable.
-    if (camera.model_id == CameraModelId::kEquirectangular) {
-      problem.SetParameterBlockConstant(camera.params.data());
-      continue;
-    }
-
     if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
       problem.SetParameterBlockConstant(camera.params.data());
     } else {
       std::vector<int> const_camera_params;
       const_camera_params.reserve(camera.params.size());
 
+      {
+        // Metadata parameters (e.g. the (w, h) image dimensions of spherical
+        // models) are sensor properties and are never optimized.
+        const span<const size_t> params_idxs = camera.MetaDataParamsIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
       if (!options.refine_focal_length) {
         const span<const size_t> params_idxs = camera.FocalLengthIdxs();
         const_camera_params.insert(
@@ -446,7 +447,9 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
             const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
 
-      if (!const_camera_params.empty()) {
+      if (const_camera_params.size() == camera.params.size()) {
+        problem.SetParameterBlockConstant(camera.params.data());
+      } else if (!const_camera_params.empty()) {
         SetManifold(
             &problem,
             camera.params.data(),

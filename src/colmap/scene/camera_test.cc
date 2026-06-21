@@ -46,6 +46,9 @@ TEST(Camera, Empty) {
   EXPECT_EQ(camera.height, 0);
   EXPECT_FALSE(camera.has_prior_focal_length);
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
+  EXPECT_THROW(camera.PrincipalPointIdxs(), std::domain_error);
+  EXPECT_THROW(camera.ExtraParamsIdxs(), std::domain_error);
+  EXPECT_THROW(camera.MetaDataParamsIdxs(), std::domain_error);
   EXPECT_THROW(camera.ParamsInfo(), std::domain_error);
   EXPECT_EQ(camera.ParamsToString(), "");
   EXPECT_EQ(camera.params.size(), 0);
@@ -132,10 +135,12 @@ TEST(Camera, ParamIdxs) {
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
   EXPECT_THROW(camera.PrincipalPointIdxs(), std::domain_error);
   EXPECT_THROW(camera.ExtraParamsIdxs(), std::domain_error);
+  EXPECT_THROW(camera.MetaDataParamsIdxs(), std::domain_error);
   camera.model_id = FullOpenCVCameraModel::model_id;
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 2);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 8);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
 }
 
 TEST(Camera, CalibrationMatrix) {
@@ -237,6 +242,7 @@ TEST(Camera, CreateFromModelId) {
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
   EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
@@ -262,6 +268,7 @@ TEST(Camera, CreateFromModelName) {
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
   EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
@@ -366,8 +373,12 @@ TEST(Camera, Spherical) {
   EXPECT_FALSE(camera.IsPerspective());
   EXPECT_TRUE(camera.IsSpherical());
 
-  // No focal length / pinhole image plane.
+  // No focal length / pinhole image plane. The (w, h) parameters form the
+  // metadata group; there is no principal point or extra (distortion).
   EXPECT_TRUE(camera.FocalLengthIdxs().empty());
+  EXPECT_TRUE(camera.PrincipalPointIdxs().empty());
+  EXPECT_TRUE(camera.ExtraParamsIdxs().empty());
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 2);
   EXPECT_EQ(camera.MeanFocalLength(), 0.0);
   // CalibrationMatrix is undefined without a focal length.
   EXPECT_ANY_THROW(camera.CalibrationMatrix());

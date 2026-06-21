@@ -101,6 +101,7 @@ struct Camera {
   inline span<const size_t> FocalLengthIdxs() const;
   inline span<const size_t> PrincipalPointIdxs() const;
   inline span<const size_t> ExtraParamsIdxs() const;
+  inline span<const size_t> MetaDataParamsIdxs() const;
 
   // Get intrinsic calibration matrix composed from focal length and principal
   // point parameters, excluding distortion parameters.
@@ -163,9 +164,6 @@ struct Camera {
 
   inline bool operator==(const Camera& other) const;
   inline bool operator!=(const Camera& other) const;
-
- private:
-  void ScaleFocalLengths(double scale_x, double scale_y);
 };
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera);
@@ -255,6 +253,10 @@ span<const size_t> Camera::FocalLengthIdxs() const {
 
 span<const size_t> Camera::PrincipalPointIdxs() const {
   return CameraModelPrincipalPointIdxs(model_id);
+}
+
+span<const size_t> Camera::MetaDataParamsIdxs() const {
+  return CameraModelMetaDataParamsIdxs(model_id);
 }
 
 span<const size_t> Camera::ExtraParamsIdxs() const {

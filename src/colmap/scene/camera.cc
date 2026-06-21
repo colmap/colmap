@@ -117,17 +117,7 @@ void Camera::Rescale(const double scale) {
       std::round(scale * height) / static_cast<double>(height);
   width = static_cast<size_t>(std::round(scale * width));
   height = static_cast<size_t>(std::round(scale * height));
-  if (IsSpherical()) {
-    // The (w, h) parameters are the image dimensions themselves; keep them in
-    // sync with the rescaled image (there is no focal length / principal point
-    // to scale).
-    params[0] = static_cast<double>(width);
-    params[1] = static_cast<double>(height);
-    return;
-  }
-  SetPrincipalPointX(scale_x * PrincipalPointX());
-  SetPrincipalPointY(scale_y * PrincipalPointY());
-  ScaleFocalLengths(scale_x, scale_y);
+  CameraModelRescale(model_id, scale_x, scale_y, params);
 }
 
 void Camera::Rescale(const size_t new_width, const size_t new_height) {
@@ -137,14 +127,7 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
       static_cast<double>(new_height) / static_cast<double>(height);
   width = new_width;
   height = new_height;
-  if (IsSpherical()) {
-    params[0] = static_cast<double>(width);
-    params[1] = static_cast<double>(height);
-    return;
-  }
-  SetPrincipalPointX(scale_x * PrincipalPointX());
-  SetPrincipalPointY(scale_y * PrincipalPointY());
-  ScaleFocalLengths(scale_x, scale_y);
+  CameraModelRescale(model_id, scale_x, scale_y, params);
 }
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
@@ -159,23 +142,6 @@ std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
          << ", params=[" << camera.ParamsToString() << "] (" << params_info
          << "))";
   return stream;
-}
-
-void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
-  const size_t num_focal_params = FocalLengthIdxs().size();
-  if (num_focal_params == 1) {
-    const double avg_scale = (scale_x + scale_y) / 2.0;
-    SetFocalLength(avg_scale * FocalLength());
-  } else if (num_focal_params == 2) {
-    SetFocalLengthX(scale_x * FocalLengthX());
-    SetFocalLengthY(scale_y * FocalLengthY());
-  } else if (num_focal_params == 0) {
-    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no focal length to
-    // scale; the principal-point rescale performed by the caller is sufficient.
-  } else {
-    LOG(FATAL_THROW)
-        << "Camera model must either have 1 or 2 focal length parameters.";
-  }
 }
 
 }  // namespace colmap
