@@ -141,6 +141,16 @@ def test_camera_extra_params_idxs(simple_camera):
     assert isinstance(idxs, list)
 
 
+def test_camera_metadata_params_idxs(simple_camera):
+    # Perspective models have no metadata parameters.
+    assert simple_camera.metadata_params_idxs() == []
+    # Spherical models carry their (w, h) image dimensions as metadata.
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.metadata_params_idxs() == [0, 1]
+
+
 def test_camera_calibration_matrix(simple_camera):
     matrix = simple_camera.calibration_matrix()
     assert matrix.shape == (3, 3)
