@@ -83,6 +83,10 @@ void BindCamera(py::module& m) {
       .def("extra_params_idxs",
            &Camera::ExtraParamsIdxs,
            "Indices of extra parameters in params property.")
+      .def("metadata_params_idxs",
+           &Camera::MetaDataParamsIdxs,
+           "Indices of metadata parameters in params property (only "
+           "spherical models have these; empty for perspective models).")
       .def("calibration_matrix",
            &Camera::CalibrationMatrix,
            "Compute calibration matrix from params.")
