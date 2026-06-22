@@ -130,7 +130,11 @@ jobs:
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "3.31.0"
+          # CMake >= 4.1 knows the CUDA 13 architecture set, so "all-major"
+          # expands to Turing..Blackwell (75..120). Older CMake predates CUDA 13
+          # and would expand it to a stale set including Maxwell/Pascal/Volta
+          # (compute_50/60/70), which CUDA 13 no longer supports.
+          cmakeVersion: "4.1.0"
           ninjaVersion: "1.12.1"
 
       - name: Configure and build
