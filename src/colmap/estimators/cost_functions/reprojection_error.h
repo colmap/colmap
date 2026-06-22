@@ -366,6 +366,26 @@ class RigReprojErrorConstantRigCostFunctor
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
+// Creates the analytical reprojection error cost function for camera models
+// that implement ImgFromCamWithJac(). The overloads are selected via SFINAE so
+// that AnalyticalReprojErrorCostFunction<CameraModel> is only ever named (and
+// thus instantiated) for qualifying models. This avoids instantiating its
+// virtual Evaluate() member for models without an analytical Jacobian, which
+// would reference the SFINAE-disabled ImgFromCamWithJac() overload.
+template <typename CameraModel, typename... Args>
+std::enable_if_t<CameraModel::has_img_from_cam_with_jac, ceres::CostFunction*>
+CreateAnalyticalReprojErrorCostFunction(Args&&... args) {
+  return new AnalyticalReprojErrorCostFunction<CameraModel>(
+      std::forward<Args>(args)...);
+}
+
+template <typename CameraModel, typename... Args>
+std::enable_if_t<!CameraModel::has_img_from_cam_with_jac, ceres::CostFunction*>
+CreateAnalyticalReprojErrorCostFunction(Args&&... /*args*/) {
+  // Unreachable: callers guard on has_img_from_cam_with_jac.
+  return nullptr;
+}
+
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
@@ -376,7 +396,7 @@ ceres::CostFunction* CreateCameraCostFunction(
     if constexpr (std::is_same<CostFunctor<CameraModel>,                      \
                                ReprojErrorCostFunctor<CameraModel>>::value && \
                   CameraModel::has_img_from_cam_with_jac) {                   \
-      return new AnalyticalReprojErrorCostFunction<CameraModel>(              \
+      return CreateAnalyticalReprojErrorCostFunction<CameraModel>(            \
           std::forward<Args>(args)...);                                       \
     } else {                                                                  \
       return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);   \
