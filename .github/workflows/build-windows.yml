@@ -108,9 +108,11 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
-          # CUDA 13 split the CRT headers (crt/host_config.h, included by
-          # cuda_runtime.h) out of nvcc into a standalone "crt" component.
-          sub-packages: '["nvcc", "crt", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          # CUDA 13 split nvcc into smaller components: cuda_nvcc now depends on
+          # the standalone crt (crt/host_config.h, included by cuda_runtime.h),
+          # nvvm (the cicc device compiler + libdevice) and cccl (Thrust/CUB)
+          # packages, so all of them must be installed for a working toolchain.
+          sub-packages: '["nvcc", "crt", "nvvm", "cccl", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
       - name: Setup vcpkg
