@@ -23,3 +23,14 @@ if (!$env:VisualStudioDevShell) {
 
     $env:VisualStudioDevShell = $true
 }
+
+# The Visual Studio toolchain bundles an LLVM flang Fortran compiler that
+# miscompiles LAPACK's *gedmd routines (e.g. "'ssum' is not an object that can
+# appear in an expression"). When flang is on the PATH, vcpkg's
+# vcpkg_find_fortran picks it up instead of falling back to a working MinGW
+# gfortran, breaking the lapack-reference build. Remove the bundled LLVM tools
+# from the PATH so vcpkg uses MinGW gfortran. COLMAP itself builds with MSVC
+# (cl.exe) and does not need these tools.
+# See https://github.com/llvm/llvm-project/issues/201254 and
+# https://developercommunity.microsoft.com/t/11105096.
+$env:Path = ($env:Path -split ';' | Where-Object { $_ -notmatch '\\VC\\Tools\\Llvm\\' }) -join ';'
