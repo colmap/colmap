@@ -46,9 +46,9 @@ jobs:
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
-      CUDA_MAJOR_VERSION: 12
-      CUDA_MINOR_VERSION: 9
-      CUDA_PATCH_VERSION: 1
+      CUDA_MAJOR_VERSION: 13
+      CUDA_MINOR_VERSION: 3
+      CUDA_PATCH_VERSION: 0
 
     steps:
       - uses: actions/checkout@v4
@@ -136,10 +136,12 @@ jobs:
           cd build
           if ($${{ matrix.config.cudaEnabled }}) {
             # The windows-2025 runner ships a newer MSVC toolset (VS 18,
-            # _MSC_VER 19.5x) than CUDA 12.9's host_config.h whitelists, which
-            # otherwise aborts with "unsupported Microsoft Visual Studio
-            # version". CMake reads CUDAFLAGS during CUDA compiler detection, so
-            # set the nvcc override here to allow the newer host compiler.
+            # _MSC_VER 19.5x) than older CUDA host_config.h versions whitelist,
+            # which otherwise aborts CUDA compiler detection with "unsupported
+            # Microsoft Visual Studio version". Kept as a safety net in case the
+            # pinned CUDA toolkit still lags the runner's MSVC; it is a no-op
+            # when the host compiler is already supported. CMake reads CUDAFLAGS
+            # during CUDA compiler detection.
             $env:CUDAFLAGS = "-allow-unsupported-compiler"
           }
           cmake .. `
