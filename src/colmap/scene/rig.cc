@@ -252,6 +252,12 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
   reconstruction->SetRigsAndFrames(std::move(rigs), std::move(frames));
 }
 
+void CopyCameraIntrinsics(const Camera& src, Camera& dst) {
+  dst.model_id = src.model_id;
+  dst.params = src.params;
+  dst.has_prior_focal_length = src.has_prior_focal_length;
+}
+
 }  // namespace
 
 std::vector<RigConfig> ReadRigConfig(
@@ -362,14 +368,13 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
             camera_id = image.CameraId();
             if (config_camera.camera.has_value()) {
               Camera database_camera = database.ReadCamera(image.CameraId());
-              database_camera.model_id = config_camera.camera->model_id;
-              database_camera.params = config_camera.camera->params;
+              CopyCameraIntrinsics(*config_camera.camera, database_camera);
               database.UpdateCamera(database_camera);
               if (reconstruction != nullptr) {
                 auto& reconstruction_camera =
                     reconstruction->Camera(image.CameraId());
-                reconstruction_camera.model_id = config_camera.camera->model_id;
-                reconstruction_camera.params = config_camera.camera->params;
+                CopyCameraIntrinsics(*config_camera.camera,
+                                     reconstruction_camera);
               }
             }
           }
