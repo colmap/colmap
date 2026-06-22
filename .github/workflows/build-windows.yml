@@ -108,13 +108,14 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
-          # Install the full toolkit. In CUDA 13 the Windows installer's "nvcc"
-          # subpackage no longer ships the nvvm directory (the cicc device
-          # compiler + libdevice), and there is no separate nvvm subpackage to
-          # add, so a cherry-picked sub-packages list produces a broken nvcc
-          # ("system cannot find the path specified" when launching cicc). An
-          # empty list installs the complete toolkit, which the action caches.
-          sub-packages: '[]'
+          # CUDA 13 reorganized the toolkit, so the compiler now needs three
+          # extra components beyond the old list: crt (crt/host_config.h,
+          # included by cuda_runtime.h), nvvm (the cicc device compiler +
+          # libdevice; no longer bundled in the nvcc subpackage) and thrust
+          # (Thrust/CUB headers, on Windows the subpackage is "thrust", not
+          # "cccl"). We avoid a full install to skip the large math/Nsight
+          # subpackages COLMAP does not use.
+          sub-packages: '["nvcc", "crt", "nvvm", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
       - name: Setup vcpkg
