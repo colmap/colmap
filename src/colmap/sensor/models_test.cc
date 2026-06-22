@@ -334,9 +334,10 @@ TEST(Spherical, Nominal) {
   // Full-sphere bearing round-trip CamRayFromImg -> ImgFromCam over the image
   // interior (avoiding the azimuth seam at x in {0, w} and the poles at
   // y in {0, h}, where the azimuth is undefined).
-  for (double x = 40; x <= 760; x += 40) {
-    for (double y = 40; y <= 360; y += 40) {
-      TestCamRayFromImgToImg<EquirectangularCameraModel>(params, x, y);
+  for (int xi = 40; xi <= 760; xi += 40) {
+    for (int yi = 40; yi <= 360; yi += 40) {
+      TestCamRayFromImgToImg<EquirectangularCameraModel>(
+          params, static_cast<double>(xi), static_cast<double>(yi));
     }
   }
 
