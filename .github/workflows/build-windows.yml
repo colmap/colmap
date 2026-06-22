@@ -108,7 +108,9 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
-          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          # CUDA 13 split the CRT headers (crt/host_config.h, included by
+          # cuda_runtime.h) out of nvcc into a standalone "crt" component.
+          sub-packages: '["nvcc", "crt", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
       - name: Setup vcpkg
