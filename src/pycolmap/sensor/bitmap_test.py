@@ -208,9 +208,10 @@ def test_bitmap_exif_altitude():
 def test_bitmap_thumbnail():
     bitmap = pycolmap.Bitmap(width=200, height=100, as_rgb=True)
     scale = bitmap.thumbnail(max_image_size=50)
-    assert scale == 0.5
-    assert bitmap.width == 100
-    assert bitmap.height == 50
+    # The longest side is scaled to fit max_image_size: 50 / max(200, 100).
+    assert scale == 0.25
+    assert bitmap.width == 50
+    assert bitmap.height == 25
 
 
 def test_bitmap_thumbnail_noop():
