@@ -2,11 +2,12 @@
 An example for running incremental SfM on 360 spherical panorama images.
 
 Two modes are available via --pano_render_type:
-  * "overlapping" / "non-overlapping": render the panoramas into a rig of
-    perspective virtual cameras (cubemap-style) and reconstruct from those.
-  * "spherical": reconstruct directly on the equirectangular panoramas using
-    the native EQUIRECTANGULAR camera model, without rendering perspective
-    images.
+  * "perspective_overlapping" / "perspective_non_overlapping": render the
+    panoramas into a rig of perspective virtual cameras (cubemap-style)
+    and reconstruct from those.
+  * "spherical": reconstruct directly on the panoramas using the native
+    equirectangular camera model, without rendering perspective images.
+The "perspective_*" modes are generally more accurate but slower.
 """
 
 import argparse
@@ -50,7 +51,7 @@ PANO_RENDER_OPTIONS: dict[str, PanoRenderOptions] = {
         vfov_deg=90.0,
     ),
     # Cubemap without top and bottom images.
-    "non-overlapping": PanoRenderOptions(
+    "perspective_non_overlapping": PanoRenderOptions(
         num_steps_yaw=4,
         pitches_deg=(0.0,),
         hfov_deg=90.0,
@@ -449,7 +450,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--pano_render_type",
-        default="overlapping",
+        default="perspective_overlapping",
         # "spherical" reconstructs directly on the panoramas with the native
         # EQUIRECTANGULAR camera model instead of rendering perspective images.
         choices=[*PANO_RENDER_OPTIONS.keys(), "spherical"],
