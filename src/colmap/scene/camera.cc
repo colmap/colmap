@@ -61,17 +61,21 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
+  THROW_CHECK(IsPerspective())
+      << "CalibrationMatrix() only defined for perspective cameras.";
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
-
   K(0, 0) = FocalLengthX();
   K(1, 1) = FocalLengthY();
   K(0, 2) = PrincipalPointX();
   K(1, 2) = PrincipalPointY();
-
   return K;
 }
 
 double Camera::MeanFocalLength() const {
+  // The omnidirectional EQUIRECTANGULAR model has no focal length.
+  if (IsSpherical()) {
+    return 0.0;
+  }
   const span<const size_t> focal_length_idxs = FocalLengthIdxs();
   double focal_length = 0;
   for (const auto idx : focal_length_idxs) {
@@ -92,6 +96,12 @@ bool Camera::SetParamsFromString(const std::string& string) {
 }
 
 bool Camera::IsUndistorted() const {
+  // Non-perspective cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane
+  // to undistort to; treat them as already undistorted so undistortion is a
+  // no-op.
+  if (IsSpherical()) {
+    return true;
+  }
   for (const size_t idx : ExtraParamsIdxs()) {
     if (std::abs(params[idx]) > 1e-8) {
       return false;
@@ -107,9 +117,7 @@ void Camera::Rescale(const double scale) {
       std::round(scale * height) / static_cast<double>(height);
   width = static_cast<size_t>(std::round(scale * width));
   height = static_cast<size_t>(std::round(scale * height));
-  SetPrincipalPointX(scale_x * PrincipalPointX());
-  SetPrincipalPointY(scale_y * PrincipalPointY());
-  ScaleFocalLengths(scale_x, scale_y);
+  CameraModelRescale(model_id, scale_x, scale_y, params);
 }
 
 void Camera::Rescale(const size_t new_width, const size_t new_height) {
@@ -119,9 +127,7 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
       static_cast<double>(new_height) / static_cast<double>(height);
   width = new_width;
   height = new_height;
-  SetPrincipalPointX(scale_x * PrincipalPointX());
-  SetPrincipalPointY(scale_y * PrincipalPointY());
-  ScaleFocalLengths(scale_x, scale_y);
+  CameraModelRescale(model_id, scale_x, scale_y, params);
 }
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
@@ -136,20 +142,6 @@ std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
          << ", params=[" << camera.ParamsToString() << "] (" << params_info
          << "))";
   return stream;
-}
-
-void Camera::ScaleFocalLengths(double scale_x, double scale_y) {
-  const size_t num_focal_params = FocalLengthIdxs().size();
-  if (num_focal_params == 1) {
-    const double avg_scale = (scale_x + scale_y) / 2.0;
-    SetFocalLength(avg_scale * FocalLength());
-  } else if (num_focal_params == 2) {
-    SetFocalLengthX(scale_x * FocalLengthX());
-    SetFocalLengthY(scale_y * FocalLengthY());
-  } else {
-    LOG(FATAL_THROW)
-        << "Camera model must either have 1 or 2 focal length parameters.";
-  }
 }
 
 }  // namespace colmap

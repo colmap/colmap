@@ -30,21 +30,6 @@ typedef std::tuple<FeatureKeypointsMatrix, descriptors_t> sift_output_t;
 
 static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
 
-// Rescale bitmap if it exceeds max_image_size. Returns the scale factor used.
-double MaybeRescaleBitmap(Bitmap& bitmap, int max_image_size) {
-  const int width = bitmap.Width();
-  const int height = bitmap.Height();
-  if (width <= max_image_size && height <= max_image_size) {
-    return 1.0;
-  }
-  const double scale =
-      static_cast<double>(max_image_size) / std::max(width, height);
-  const int new_width = static_cast<int>(width * scale);
-  const int new_height = static_cast<int>(height * scale);
-  bitmap.Rescale(new_width, new_height);
-  return scale;
-}
-
 namespace {
 
 class PyFeatureExtractor : public FeatureExtractor,
@@ -93,7 +78,7 @@ class Sift {
     Bitmap bitmap(image.cols(), image.rows(), /*as_rgb=*/false);
     std::memcpy(bitmap.RowMajorData().data(), image.data(), bitmap.NumBytes());
 
-    const double scale = MaybeRescaleBitmap(bitmap, options_.EffMaxImageSize());
+    const double scale = bitmap.Thumbnail(options_.EffMaxImageSize());
 
     FeatureKeypoints feature_keypoints;
     FeatureDescriptors feature_descriptors;

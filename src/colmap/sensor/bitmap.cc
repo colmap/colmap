@@ -597,6 +597,20 @@ void Bitmap::Rescale(const int new_width,
   meta_data->image_spec.height = new_height;
 }
 
+double Bitmap::Thumbnail(const int max_image_size, RescaleFilter filter) {
+  THROW_CHECK_GT(max_image_size, 0);
+  if (width_ <= max_image_size && height_ <= max_image_size) {
+    return 1.0;
+  }
+  // Fit the down-sampled version exactly into the max dimensions.
+  const double scale =
+      static_cast<double>(max_image_size) / std::max(width_, height_);
+  Rescale(static_cast<int>(std::round(width_ * scale)),
+          static_cast<int>(std::round(height_ * scale)),
+          filter);
+  return scale;
+}
+
 void Bitmap::Rot90(int k) {
   if (IsEmpty()) {
     return;

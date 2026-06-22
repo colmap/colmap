@@ -355,6 +355,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     if (!options.abs_pose_refine_extra_params) {
       abs_pose_refinement_options.refine_extra_params = false;
     }
+
+    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no focal length, and
+    // their parameters (e.g. image dimensions) are not distortion coefficients
+    // to be refined during registration.
+    if (!camera.IsPerspective()) {
+      abs_pose_options.estimate_focal_length = false;
+      abs_pose_refinement_options.refine_focal_length = false;
+      abs_pose_refinement_options.refine_extra_params = false;
+    }
   }
 
   // If any of the cameras in the same rig has bogus cameras, reset them to the

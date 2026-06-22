@@ -250,6 +250,58 @@ TEST(DefaultBundleAdjuster, TwoView) {
   }
 }
 
+TEST(DefaultBundleAdjuster, ThreeViewSpherical) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  ASSERT_TRUE(reconstruction.Camera(1).IsSpherical());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
+
+  // The spherical model has no focal length; its (w, h) parameters are held
+  // constant during bundle adjustment.
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    EXPECT_EQ(camera.params, orig_reconstruction.Camera(camera_id).params);
+  }
+
+  CheckConstantCamFromWorld(reconstruction.Image(1),
+                            orig_reconstruction.Image(1));
+  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
+                                            orig_reconstruction.Image(2));
+  CheckVariableCamFromWorld(reconstruction.Image(3),
+                            orig_reconstruction.Image(3));
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
 TEST(DefaultBundleAdjuster, TwoViewRig) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;

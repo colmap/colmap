@@ -83,6 +83,10 @@ void BindCamera(py::module& m) {
       .def("extra_params_idxs",
            &Camera::ExtraParamsIdxs,
            "Indices of extra parameters in params property.")
+      .def("metadata_params_idxs",
+           &Camera::MetaDataParamsIdxs,
+           "Indices of metadata parameters in params property (only "
+           "spherical models have these; empty for perspective models).")
       .def("calibration_matrix",
            &Camera::CalibrationMatrix,
            "Compute calibration matrix from params.")
@@ -122,6 +126,16 @@ void BindCamera(py::module& m) {
       .def("is_undistorted",
            &Camera::IsUndistorted,
            "Check whether camera is already undistorted.")
+      .def("is_perspective",
+           &Camera::IsPerspective,
+           "Whether the camera model is perspective, i.e. has a focal length "
+           "and a finite pinhole image plane (so positive-depth cheirality "
+           "applies). Omnidirectional models such as EQUIRECTANGULAR are not "
+           "perspective.")
+      .def("is_spherical",
+           &Camera::IsSpherical,
+           "Whether the camera model is spherical (equirectangular "
+           "omnidirectional panorama).")
       .def("cam_from_img",
            &Camera::CamFromImg,
            "image_point"_a,
