@@ -134,6 +134,14 @@ jobs:
           ./vcpkg/vcpkg.exe integrate install
           mkdir -Force build
           cd build
+          if ($${{ matrix.config.cudaEnabled }}) {
+            # The windows-2025 runner ships a newer MSVC toolset (VS 18,
+            # _MSC_VER 19.5x) than CUDA 12.9's host_config.h whitelists, which
+            # otherwise aborts with "unsupported Microsoft Visual Studio
+            # version". CMake reads CUDAFLAGS during CUDA compiler detection, so
+            # set the nvcc override here to allow the newer host compiler.
+            $env:CUDAFLAGS = "-allow-unsupported-compiler"
+          }
           cmake .. `
             -GNinja `
             -DCMAKE_MAKE_PROGRAM=ninja `
