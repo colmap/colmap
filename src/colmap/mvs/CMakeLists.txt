@@ -33,14 +33,16 @@ set(FOLDER_NAME "mvs")
 COLMAP_ADD_LIBRARY(
     NAME colmap_mvs
     SRCS
+        advancing_front_meshing.h advancing_front_meshing.cc
         consistency_graph.h consistency_graph.cc
+        delaunay_meshing.h delaunay_meshing.cc
         depth_map.h depth_map.cc
         fusion.h fusion.cc
         image.h image.cc
         mat.h mat.cc
         mesh_simplification.h mesh_simplification.cc
-        meshing.h meshing.cc
         model.h model.cc
+        poisson_meshing.h poisson_meshing.cc
         normal_map.h normal_map.cc
         patch_match_options.h patch_match_options.cc
         texture_mapping.h texture_mapping.cc
@@ -93,8 +95,18 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
-    NAME meshing_test
-    SRCS meshing_test.cc
+    NAME poisson_meshing_test
+    SRCS poisson_meshing_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME delaunay_meshing_test
+    SRCS delaunay_meshing_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME advancing_front_meshing_test
+    SRCS advancing_front_meshing_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(

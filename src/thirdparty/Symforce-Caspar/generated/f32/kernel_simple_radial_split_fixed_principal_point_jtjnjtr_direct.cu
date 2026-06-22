@@ -17,11 +17,11 @@ __global__ void __launch_bounds__(1024, 1)
         SharedIndex* pose_njtr_indices,
         float* pose_jac,
         unsigned int pose_jac_num_alloc,
-        float* focal_and_distortion_njtr,
-        unsigned int focal_and_distortion_njtr_num_alloc,
-        SharedIndex* focal_and_distortion_njtr_indices,
-        float* focal_and_distortion_jac,
-        unsigned int focal_and_distortion_jac_num_alloc,
+        float* focal_and_extra_njtr,
+        unsigned int focal_and_extra_njtr_num_alloc,
+        SharedIndex* focal_and_extra_njtr_indices,
+        float* focal_and_extra_jac,
+        unsigned int focal_and_extra_jac_num_alloc,
         float* point_njtr,
         unsigned int point_njtr_num_alloc,
         SharedIndex* point_njtr_indices,
@@ -29,8 +29,8 @@ __global__ void __launch_bounds__(1024, 1)
         unsigned int point_jac_num_alloc,
         float* const out_pose_njtr,
         unsigned int out_pose_njtr_num_alloc,
-        float* const out_focal_and_distortion_njtr,
-        unsigned int out_focal_and_distortion_njtr_num_alloc,
+        float* const out_focal_and_extra_njtr,
+        unsigned int out_focal_and_extra_njtr_num_alloc,
         float* const out_point_njtr,
         unsigned int out_point_njtr_num_alloc,
         size_t problem_size) {
@@ -43,10 +43,10 @@ __global__ void __launch_bounds__(1024, 1)
            ? pose_njtr_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
-  __shared__ SharedIndex focal_and_distortion_njtr_indices_loc[1024];
-  focal_and_distortion_njtr_indices_loc[threadIdx.x] =
+  __shared__ SharedIndex focal_and_extra_njtr_indices_loc[1024];
+  focal_and_extra_njtr_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
-           ? focal_and_distortion_njtr_indices[global_thread_idx]
+           ? focal_and_extra_njtr_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
   __shared__ SharedIndex point_njtr_indices_loc[1024];
@@ -87,21 +87,20 @@ __global__ void __launch_bounds__(1024, 1)
     r13 = fmaf(r5, r11, r6 * r7);
     r13 = fmaf(r4, r9, r13);
   };
-  LoadShared<2, float, float>(focal_and_distortion_njtr,
-                              0 * focal_and_distortion_njtr_num_alloc,
-                              focal_and_distortion_njtr_indices_loc,
+  LoadShared<2, float, float>(focal_and_extra_njtr,
+                              0 * focal_and_extra_njtr_num_alloc,
+                              focal_and_extra_njtr_indices_loc,
                               (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<float>(
-        (float*)inout_shared,
-        focal_and_distortion_njtr_indices_loc[threadIdx.x].target,
-        r14,
-        r15);
+    ReadShared2<float>((float*)inout_shared,
+                       focal_and_extra_njtr_indices_loc[threadIdx.x].target,
+                       r14,
+                       r15);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    ReadIdx4<1024, float, float, float4>(focal_and_distortion_jac,
-                                         0 * focal_and_distortion_jac_num_alloc,
+    ReadIdx4<1024, float, float, float4>(focal_and_extra_jac,
+                                         0 * focal_and_extra_jac_num_alloc,
                                          global_thread_idx,
                                          r16,
                                          r17,
@@ -134,8 +133,8 @@ __global__ void __launch_bounds__(1024, 1)
     ReadIdx4<1024, float, float, float4>(
         pose_jac, 8 * pose_jac_num_alloc, global_thread_idx, r27, r26, r6, r4);
     r28 = fmaf(r26, r14, r27 * r21);
-    r14 = fmaf(r4, r14, r6 * r21);
-    WriteSum2<float, float>((float*)inout_shared, r28, r14);
+    r21 = fmaf(r6, r21, r4 * r14);
+    WriteSum2<float, float>((float*)inout_shared, r28, r21);
   };
   FlushSumShared<2, float>(out_pose_njtr,
                            4 * out_pose_njtr_num_alloc,
@@ -148,12 +147,12 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadShared2<float>((float*)inout_shared,
                        pose_njtr_indices_loc[threadIdx.x].target,
-                       r14,
+                       r21,
                        r28);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r27 = fmaf(r14, r27, r28 * r6);
+    r27 = fmaf(r21, r27, r28 * r6);
   };
   LoadShared<4, float, float>(pose_njtr,
                               0 * pose_njtr_num_alloc,
@@ -163,7 +162,7 @@ __global__ void __launch_bounds__(1024, 1)
     ReadShared4<float>((float*)inout_shared,
                        pose_njtr_indices_loc[threadIdx.x].target,
                        r6,
-                       r21,
+                       r14,
                        r29,
                        r30);
   };
@@ -172,21 +171,21 @@ __global__ void __launch_bounds__(1024, 1)
     r27 = fmaf(r29, r22, r27);
     r27 = fmaf(r30, r24, r27);
     r27 = fmaf(r6, r0, r27);
-    r27 = fmaf(r21, r2, r27);
+    r27 = fmaf(r14, r2, r27);
     r13 = r27 + r13;
     r25 = fmaf(r30, r25, r28 * r4);
     r25 = fmaf(r29, r23, r25);
     r25 = fmaf(r6, r1, r25);
-    r25 = fmaf(r21, r3, r25);
-    r25 = fmaf(r14, r26, r25);
+    r25 = fmaf(r14, r3, r25);
+    r25 = fmaf(r21, r26, r25);
     r5 = r25 + r5;
     r17 = fmaf(r17, r5, r16 * r13);
     r5 = fmaf(r19, r5, r18 * r13);
     WriteSum2<float, float>((float*)inout_shared, r17, r5);
   };
-  FlushSumShared<2, float>(out_focal_and_distortion_njtr,
-                           0 * out_focal_and_distortion_njtr_num_alloc,
-                           focal_and_distortion_njtr_indices_loc,
+  FlushSumShared<2, float>(out_focal_and_extra_njtr,
+                           0 * out_focal_and_extra_njtr_num_alloc,
+                           focal_and_extra_njtr_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r20 = r27 + r20;
@@ -208,11 +207,11 @@ void SimpleRadialSplitFixedPrincipalPointJtjnjtrDirect(
     SharedIndex* pose_njtr_indices,
     float* pose_jac,
     unsigned int pose_jac_num_alloc,
-    float* focal_and_distortion_njtr,
-    unsigned int focal_and_distortion_njtr_num_alloc,
-    SharedIndex* focal_and_distortion_njtr_indices,
-    float* focal_and_distortion_jac,
-    unsigned int focal_and_distortion_jac_num_alloc,
+    float* focal_and_extra_njtr,
+    unsigned int focal_and_extra_njtr_num_alloc,
+    SharedIndex* focal_and_extra_njtr_indices,
+    float* focal_and_extra_jac,
+    unsigned int focal_and_extra_jac_num_alloc,
     float* point_njtr,
     unsigned int point_njtr_num_alloc,
     SharedIndex* point_njtr_indices,
@@ -220,8 +219,8 @@ void SimpleRadialSplitFixedPrincipalPointJtjnjtrDirect(
     unsigned int point_jac_num_alloc,
     float* const out_pose_njtr,
     unsigned int out_pose_njtr_num_alloc,
-    float* const out_focal_and_distortion_njtr,
-    unsigned int out_focal_and_distortion_njtr_num_alloc,
+    float* const out_focal_and_extra_njtr,
+    unsigned int out_focal_and_extra_njtr_num_alloc,
     float* const out_point_njtr,
     unsigned int out_point_njtr_num_alloc,
     size_t problem_size) {
@@ -236,11 +235,11 @@ void SimpleRadialSplitFixedPrincipalPointJtjnjtrDirect(
       pose_njtr_indices,
       pose_jac,
       pose_jac_num_alloc,
-      focal_and_distortion_njtr,
-      focal_and_distortion_njtr_num_alloc,
-      focal_and_distortion_njtr_indices,
-      focal_and_distortion_jac,
-      focal_and_distortion_jac_num_alloc,
+      focal_and_extra_njtr,
+      focal_and_extra_njtr_num_alloc,
+      focal_and_extra_njtr_indices,
+      focal_and_extra_jac,
+      focal_and_extra_jac_num_alloc,
       point_njtr,
       point_njtr_num_alloc,
       point_njtr_indices,
@@ -248,8 +247,8 @@ void SimpleRadialSplitFixedPrincipalPointJtjnjtrDirect(
       point_jac_num_alloc,
       out_pose_njtr,
       out_pose_njtr_num_alloc,
-      out_focal_and_distortion_njtr,
-      out_focal_and_distortion_njtr_num_alloc,
+      out_focal_and_extra_njtr,
+      out_focal_and_extra_njtr_num_alloc,
       out_point_njtr,
       out_point_njtr_num_alloc,
       problem_size);

@@ -6,18 +6,18 @@
 namespace caspar {
 
 void SimpleRadialSplitFixedPoseFixedPrincipalPointJtjnjtrDirect(
-    double* focal_and_distortion_njtr,
-    unsigned int focal_and_distortion_njtr_num_alloc,
-    SharedIndex* focal_and_distortion_njtr_indices,
-    double* focal_and_distortion_jac,
-    unsigned int focal_and_distortion_jac_num_alloc,
+    double* focal_and_extra_njtr,
+    unsigned int focal_and_extra_njtr_num_alloc,
+    SharedIndex* focal_and_extra_njtr_indices,
+    double* focal_and_extra_jac,
+    unsigned int focal_and_extra_jac_num_alloc,
     double* point_njtr,
     unsigned int point_njtr_num_alloc,
     SharedIndex* point_njtr_indices,
     double* point_jac,
     unsigned int point_jac_num_alloc,
-    double* const out_focal_and_distortion_njtr,
-    unsigned int out_focal_and_distortion_njtr_num_alloc,
+    double* const out_focal_and_extra_njtr,
+    unsigned int out_focal_and_extra_njtr_num_alloc,
     double* const out_point_njtr,
     unsigned int out_point_njtr_num_alloc,
     size_t problem_size);

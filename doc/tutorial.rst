@@ -15,6 +15,10 @@ representation of the scene and the camera poses of the input images using
 Structure-from-Motion. This output then serves as the input to Multi-View Stereo
 to recover a dense representation of the scene.
 
+.. contents:: Contents
+    :local:
+    :depth: 1
+
 
 .. _quick-start:
 
@@ -31,38 +35,66 @@ select ``path/to/project`` as a workspace folder and after running the automatic
 reconstruction tool, the folder would look similar to this::
 
     +── images
-    │   +── image1.jpg
-    │   +── image2.jpg
-    │   +── ...
+    │   +── image1.jpg
+    │   +── image2.jpg
+    │   +── ...
     +── sparse
-    │   +── 0
-    │   │   +── rigs.bin
-    │   │   +── cameras.bin
-    │   │   +── frames.bin
-    │   │   +── images.bin
-    │   │   +── points3D.bin
+    │   +── 0
+    │   │   +── rigs.bin
+    │   │   +── cameras.bin
+    │   │   +── frames.bin
+    │   │   +── images.bin
+    │   │   +── points3D.bin
     │   +── ...
     +── dense
-    │   +── 0
-    │   │   +── images
-    │   │   +── sparse
-    │   │   +── stereo
-    │   │   +── fused.ply
-    │   │   +── meshed-poisson.ply
-    │   │   +── meshed-delaunay.ply
+    │   +── 0
+    │   │   +── images
+    │   │   +── sparse
+    │   │   +── stereo
+    │   │   +── fused.ply
+    │   │   +── meshed-poisson.ply
+    │   │   +── meshed-delaunay.ply
+    │   │   +── meshed-advancing-front.ply
     │   +── ...
     +── database.db
 
 Here, the ``path/to/project/sparse`` contains the sparse models for all
 reconstructed components, while ``path/to/project/dense`` contains their
 corresponding dense models. The dense point cloud ``fused.ply`` can be imported
-in COLMAP using ``File > Import model from ...``, while the dense mesh must be
+in COLMAP using ``File > Import from ...``, while the dense mesh must be
 visualized with an external viewer such as Meshlab.
+
+The same automatic reconstruction can be run from the command-line, without the
+GUI, using the ``automatic_reconstructor`` command, which produces the identical
+workspace layout shown above::
+
+    colmap automatic_reconstructor \\
+        --workspace_path path/to/project \\
+        --image_path path/to/project/images
 
 The following sections give general recommendations and describe the
 reconstruction process in more detail, if you need more control over the
 reconstruction process/parameters or if you are interested in the underlying
 technology in COLMAP.
+
+
+Preface
+-------
+
+COLMAP requires only a few steps to perform a standard reconstruction for a
+general user. For more experienced users, the program exposes many different parameters,
+only some of which are intuitive to a beginner. The program should usually work
+without the need to modify any parameters. The defaults are chosen as a trade-
+off between reconstruction robustness/quality and speed. You can set "optimal"
+options for different reconstruction scenarios by choosing ``Extras > Set
+options for ... data``. If in doubt what settings to choose, stick to the
+defaults. The source code contains more documentation about all parameters.
+
+COLMAP is research software, and in rare cases it may exit ungracefully if some
+constraints are not fulfilled. In this case, the program prints a traceback to
+stderr. To see this traceback or more debug information, it is recommended to
+run the executables (including the GUI) from the command-line, where you can
+also define various levels of logging verbosity.
 
 
 Structure-from-Motion
@@ -85,7 +117,7 @@ this process into three stages:
 2) Feature matching and geometric verification
 3) Structure and motion reconstruction
 
-COLMAP reflects these stages in different modules, that can be combined
+COLMAP reflects these stages in different modules that can be combined
 depending on the application. More information on Structure-from-Motion in
 general and the algorithms in COLMAP can be found in [schoenberger16sfm]_ and
 [schoenberger16mvs]_.
@@ -108,7 +140,7 @@ guidelines for optimal reconstruction results:
 - Capture images from **different viewpoints**. Do not take images from the
   same location by only rotating the camera, e.g., make a few steps after each
   shot. At the same time, try to have enough images from a relatively similar
-  viewpoint. Note that more images is not necessarily better and might lead to a
+  viewpoint. Note that more images are not necessarily better and might lead to a
   slow reconstruction process. If you use a video as input, consider
   down-sampling the frame rate.
 
@@ -120,8 +152,9 @@ Multi-View Stereo (MVS) takes the output of SfM to compute depth and/or normal
 information for every pixel in an image. Fusion of the depth and normal maps of
 multiple images in 3D then produces a dense point cloud of the scene. Using the
 depth and normal information of the fused point cloud, algorithms such as the
-(screened) Poisson surface reconstruction [kazhdan2013]_ can then recover the 3D
-surface geometry of the scene. The resulting meshes can optionally be simplified
+(screened) Poisson surface reconstruction [kazhdan2013]_ or the advancing front
+surface reconstruction [cohen-steiner2004]_ can then recover the 3D surface
+geometry of the scene. The resulting meshes can optionally be simplified
 using Quadric Error Metric (QEM) decimation [garland1997]_ to reduce their
 complexity while preserving shape and appearance. Additionally, the meshes can
 be textured using multi-view texture mapping [waechter2014]_, which assigns each
@@ -130,30 +163,11 @@ coordinates. More information on Multi-View Stereo in general and the algorithms
 in COLMAP can be found in [schoenberger16mvs]_.
 
 
-Preface
--------
-
-COLMAP requires only few steps to do a standard reconstruction for a general
-user. For more experienced users, the program exposes many different parameters,
-only some of which are intuitive to a beginner. The program should usually work
-without the need to modify any parameters. The defaults are chosen as a trade-
-off between reconstruction robustness/quality and speed. You can set "optimal"
-options for different reconstruction scenarios by choosing ``Extras > Set
-options for ... data``. If in doubt what settings to choose, stick to the
-defaults. The source code contains more documentation about all parameters.
-
-COLMAP is research software and in rare cases it may exit ungracefully if some
-constraints are not fulfilled. In this case, the program prints a traceback to
-stdout. To see this traceback or more debug information, it is recommended to
-run the executables (including the GUI) from the command-line, where you can
-define various levels of logging verbosity.
-
-
 Terminology
 -----------
 
-The term **camera** is associated with the physical object of a camera using the
-same zoom-factor and lens. A camera defines the intrinsic projection model in
+The term **camera** refers to a physical camera using the same zoom factor and
+lens. A camera defines the intrinsic projection model in
 COLMAP. A single camera can take multiple images with the same resolution,
 intrinsic parameters, and distortion characteristics. The term **image** is
 associated with a bitmap file, e.g., a JPEG or PNG file on disk. COLMAP detects
@@ -162,13 +176,22 @@ associated with a bitmap file, e.g., a JPEG or PNG file on disk. COLMAP detects
 keypoints/descriptors are defined by **matches**, while **inlier matches** are
 geometrically verified and used for the reconstruction procedure.
 
+The term **rig** describes a fixed assembly of one or more cameras whose relative
+poses are constant over time, e.g., a stereo or multi-camera setup, or a single
+moving camera (a trivial rig with one camera). The term **frame** denotes a
+single snapshot in time, i.e., the set of images captured simultaneously by all
+cameras of a rig. A frame therefore groups images that share the same rig pose,
+and COLMAP optimizes one pose per frame rather than one pose per image. Rigs and
+frames are stored as ``rigs.bin`` and ``frames.bin`` in the reconstruction output
+(see :ref:`Rig Support <rig-support>` and :ref:`Output Format <output-format>`).
+
 
 Data Structure
 --------------
 
 COLMAP assumes that all input images are in one input directory with potentially
 nested sub-directories. It recursively considers all images stored in this
-directory, and it supports various different image formats by OpenImageIO. Other
+directory, and it supports various image formats through OpenImageIO. Other
 files are automatically ignored. If high performance is a requirement, then you
 should separate any files that are not images. Images are identified uniquely by
 their relative file path. For later processing, such as image undistortion or
@@ -215,11 +238,11 @@ Feature Detection and Extraction
 
 In the first step, feature detection/extraction finds sparse feature points in
 the image and describes their appearance using a numerical descriptor. COLMAP
-imports images and performs feature detection/extraction in one step in order to
-only load images from disk once.
+imports images and performs feature detection/extraction in a single step, so
+that each image is loaded from disk only once.
 
 Next, choose ``Processing > Extract features``. In this dialog, you must first
-decide on the employed intrinsic camera model. You can either automatically
+decide on the intrinsic camera model to use. You can either automatically
 extract focal length information from the embedded EXIF information or manually
 specify intrinsic parameters, e.g., as obtained in a lab calibration. If an
 image has partial EXIF information, COLMAP tries to find the missing camera
@@ -235,10 +258,13 @@ to the default parameters.
 
 You can either detect and extract new features from the images or import
 existing features from text files. By default, COLMAP extracts SIFT [lowe04]_
-features either on the GPU or the CPU. The GPU version requires an attached
-display, while the CPU version is recommended for use on a server. In general,
-the GPU version is favorable as it has a customized feature detection mode that
-often produces higher quality features in the case of high contrast images.
+features either on the GPU or the CPU. When COLMAP is built with CUDA support
+(recommended), GPU feature extraction runs without an attached display and is
+suitable for headless servers. The OpenGL-based fallback (used when CUDA is not
+available) instead requires an attached display, so on such systems the CPU
+version is recommended for use on a server. In general, the GPU version is
+favorable, as it has a customized feature detection mode that often produces
+higher-quality features for high-contrast images.
 COLMAP also supports ALIKED feature extraction, a learned feature extractor
 using ONNX models, which can be selected via the ``--FeatureExtraction.type``
 option (see :ref:`Feature Extraction and Matching <features>` for details). If
@@ -261,10 +287,11 @@ file should look something like this::
     0.2 1.3 1.1 0.3 3 2 3 2 ... 2
     1.2 2.3 1.1 0.3 3 2 3 2 ... 3
 
-Note that by convention the upper left corner of an image has coordinate ``(0,
-0)`` and the center of the upper left most pixel has coordinate ``(0.5, 0.5)``. If
-you must  import features for large image collections, it is much more efficient
-to directly access the database with your favorite scripting language (see
+Note that by convention the upper left corner of an image has coordinate
+``(0, 0)`` and the center of the upper left most pixel has coordinate
+``(0.5, 0.5)``. If you must import features for large image collections, it is
+much more efficient to directly access the database with your favorite scripting
+language (see
 :ref:`Database Format <database-format>`).
 
 If you are done setting all options, choose ``Extract`` and wait for the
@@ -286,12 +313,12 @@ Feature Matching and Geometric Verification
 In the second step, feature matching and geometric verification finds
 correspondences between the feature points in different images.
 
-Please, choose ``Processing > Feature matching`` and select one of the provided
-matching modes, that are intended for different input scenarios:
+Please choose ``Processing > Feature matching`` and select one of the provided
+matching modes, which are intended for different input scenarios:
 
 - **Exhaustive Matching**: If the number of images in your dataset is
   relatively low (up to several hundreds), this matching mode should be fast
-  enough and leads to the best reconstruction results. Here, every image is
+  enough and lead to the best reconstruction results. Here, every image is
   matched against every other image, while the block size determines how many
   images are loaded from disk into memory at the same time.
 
@@ -300,8 +327,9 @@ matching modes, that are intended for different input scenarios:
   have visual overlap and there is no need to match all image pairs
   exhaustively. Instead, consecutively captured images are matched against each
   other. This matching mode has built-in loop detection based on a vocabulary
-  tree, where every N-th image (``loop_detection_period``) is matched against its
-  visually most similar images (``loop_detection_num_images``). Note that image
+  tree, where every N-th image (``--SequentialMatching.loop_detection_period``)
+  is matched against its visually most similar images
+  (``--SequentialMatching.loop_detection_num_images``). Note that image
   file names must be ordered sequentially (e.g., ``image0001.jpg``,
   ``image0002.jpg``, etc.). The order in the database is not relevant, since the
   images are explicitly ordered according to their file names. Note that loop
@@ -328,7 +356,7 @@ matching modes, that are intended for different input scenarios:
   If an image A matches to an image B and B matches to C, then this matcher
   attempts to match A to C directly.
 
-- **Custom Matching**: This mode allows to specify individual image pairs for
+- **Custom Matching**: This mode allows you to specify individual image pairs for
   matching or to import individual feature matches. To specify image pairs, you
   have to provide a text file with one image pair per line::
 
@@ -337,8 +365,8 @@ matching modes, that are intended for different input scenarios:
     ...
 
   where ``image1.jpg`` is the relative path in the image folder. You have two
-  options to import individual feature matches. Either raw feature matches,
-  which are not geometrically verified or already geometrically verified feature
+  options for importing individual feature matches: either raw feature matches,
+  which are not geometrically verified, or already geometrically verified feature
   matches. In both cases, the expected format is::
 
     image1.jpg image2.jpg
@@ -364,12 +392,14 @@ to finish or cancel in between. Note that this step can take a significant
 amount of time depending on the number of images, the number of features per
 image, and the chosen matching mode. Expected times for exhaustive matching are
 from a few minutes for tens of images to a few hours for hundreds of images to
-days or weeks for thousands of images. If you cancel the matching process or
+days or weeks for thousands of images. Exhaustive matching scales quadratically
+with the number of images and quickly becomes impractical for large collections;
+for thousands of images or more, use vocabulary tree or sequential matching
+instead, which are dramatically faster. If you cancel the matching process or
 import new images after matching, COLMAP only matches image pairs that have not
 been matched previously. The overhead of skipping already matched image pairs is
-low. This also enables to match additional images imported after an initial
-matching and it enables to combine different matching modes for the same
-dataset.
+low. This also makes it possible to match additional images imported after an
+initial matching, and to combine different matching modes for the same dataset.
 
 All extracted data will be stored in the database file and can be
 reviewed/managed in the database management tool (see :ref:`Database Management
@@ -379,9 +409,9 @@ reviewed/managed in the database management tool (see :ref:`Database Management
 Note that SIFT feature matching can use a GPU for acceleration, and the display
 performance of your computer might degrade significantly during the matching
 process. If your system has multiple CUDA-enabled GPUs, you can select specific
-GPUs with the ``gpu_index`` option. Feature matching can also be performed on
-the CPU by setting ``--FeatureMatching.use_gpu 0``, although this will be
-significantly slower for large datasets.
+GPUs with the ``--FeatureMatching.gpu_index`` option. Feature matching can also
+be performed on the CPU by setting ``--FeatureMatching.use_gpu 0``, although this
+will be significantly slower for large datasets.
 
 
 Sparse Reconstruction
@@ -417,18 +447,19 @@ Importing and Exporting
 
 COLMAP provides several export options for further processing. For full
 flexibility, it is recommended to export the reconstruction in COLMAP's data
-format by choosing ``File > Export`` to export the currently viewed model or
-``File > Export all`` to export all reconstructed models. The model is exported
-in the selected folder using separate text files for the reconstructed cameras,
-images, and points. When exporting in COLMAP's data format, you can re- import
-the reconstruction for later visualization, image undistortion, or to continue
-an existing reconstruction from where it left off (e.g., after importing and
-matching new images). To import a model, choose ``File > Import`` and select the
-export folder path. Alternatively, you can also export the model in various
-other formats, such as Bundler, VisualSfM [#f1]_, PLY, or VRML by choosing
-``File > Export as...``. COLMAP can visualize plain PLY point cloud files with
-RGB information by choosing ``File > Import From...``. Further information about
-the format of the exported models can be found :ref:`here <output-format>`.
+format by choosing ``File > Export model`` to export the currently viewed model
+or ``File > Export all models`` to export all reconstructed models. The model is
+exported in the selected folder using separate text files for the reconstructed
+cameras, images, and points. When exporting in COLMAP's data format, you can
+re-import the reconstruction for later visualization, image undistortion, or to
+continue an existing reconstruction from where it left off (e.g., after importing
+and matching new images). To import a model, choose ``File > Import model`` and
+select the export folder path. Alternatively, you can export the model in
+various other formats, such as Bundler, VisualSfM [#f1]_, PLY, or VRML by
+choosing ``File > Export model as...``. COLMAP can visualize plain PLY point
+cloud files with RGB information by choosing ``File > Import from ...``. Further
+information about the format of the exported models can be found
+:ref:`here <output-format>`.
 
 
 .. _dense-reconstruction:
@@ -450,25 +481,28 @@ a texture atlas and per-face UV coordinates from the undistorted images.
 To get started, import your sparse 3D model into COLMAP (or select the
 reconstructed model after finishing the previous sparse reconstruction steps).
 Then, choose ``Reconstruction > Multi-view stereo`` and select an empty or
-existing workspace folder, which is used for the output and of all dense
+existing workspace folder, which is used for the output of all dense
 reconstruction results. The first step is to ``undistort`` the images, second to
 compute the depth and normal maps using ``stereo``, third to ``fuse`` the depth
-and normals maps to a point cloud, followed by a final, optional point cloud
-``meshing`` step. During the stereo reconstruction process, the display might
+and normal maps into a point cloud, followed by a final, optional point cloud
+``meshing`` step. These steps are also available from the command-line as the
+``image_undistorter``, ``patch_match_stereo``, ``stereo_fusion``, and
+``poisson_mesher`` / ``delaunay_mesher`` commands, respectively. During the
+stereo reconstruction process, the display might
 freeze due to heavy compute load and, if your GPU does not have enough memory,
-the reconstruction process might ungracefully crash. Please, refer to the FAQ
+the reconstruction process might crash ungracefully. Please refer to the FAQ
 (:ref:`freeze <faq-dense-timeout>` and :ref:`memory <faq-dense-memory>`) for
 information on how to avoid these problems. Note that the reconstructed normals
-of the point cloud cannot be directly visualized in COLMAP, but e.g. in Meshlab
-by enabling ``Render > Show Normal/Curvature``. Similarly, the reconstructed
+of the point cloud cannot be visualized directly in COLMAP, but can be viewed in
+external tools such as Meshlab by enabling ``Render > Show Normal/Curvature``. Similarly, the reconstructed
 dense surface mesh model must be visualized with external software.
 
-In addition to the internal dense reconstruction functionality, COLMAP exports 
-to several other dense reconstruction libraries, such as CMVS/PMVS [furukawa10]_ 
-or CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select 
+In addition to the internal dense reconstruction functionality, COLMAP can
+export to several other dense reconstruction libraries, such as CMVS/PMVS
+[furukawa10]_ or CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select
 the appropriate format. The output folders contain the reconstruction and the
 undistorted images. In addition, the folders contain sample shell scripts to
-perform the dense reconstruction. To run PMVS2, execute the following commands:
+perform the dense reconstruction. To run PMVS2, execute the following command::
 
     ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/ option-all
 
@@ -477,7 +511,7 @@ dialog. Make sure not to forget the trailing slash in
 ``/path/to/undistortion/folder/pmvs/`` in the above command-line arguments.
 
 For large datasets, you probably want to first run CMVS to cluster the scene
-into more manageable parts and then run COLMAP or PMVS2. Please, refer to the
+into more manageable parts and then run COLMAP or PMVS2. Please refer to the
 sample shell scripts in the undistortion output folder on how to run CMVS in
 combination with COLMAP or PMVS2. Moreover, there are a number of external
 libraries that support COLMAP's output:
@@ -497,25 +531,25 @@ the database management tool. Choose ``Processing > Manage database``. In the
 opening dialog, you can see the list of imported images and cameras. You can
 view the features and matches for each image by clicking ``Show image`` and
 ``Overlapping images``. Individual entries in the database tables can be
-modified by double clicking specific cells. Note that any changes to the
+modified by double-clicking specific cells. Note that any changes to the
 database are only effective after clicking ``Save``.
 
 To share intrinsic camera parameters between arbitrary groups of images, select
-a single or multiple images, choose ``Set camera`` and set the ``camera_id``,
+one or more images, choose ``Set camera`` and set the ``camera_id``,
 which corresponds to the unique ``camera_id`` column in the cameras table. You can
 also add new cameras with specific parameters. By setting the
 ``prior_focal_length`` flag to 0 or 1, you can give a hint whether the
 reconstruction algorithm should trust the focal length value. In case of a prior
-lab calibration, you want to set this value to 1. Without prior knowledge about
+lab calibration, you should set this value to 1. Without prior knowledge about
 the focal length, it is recommended to set this value to ``1.25 *
 max(width_in_px, height_in_px)``.
 
 The database management tool has only limited functionality and, for full
 control over the data, you must directly modify the SQLite database (see
 :ref:`Database Format <database-format>`). By accessing the database directly,
-you can use COLMAP only for feature extraction and matching or you can import
-your own features and matches to only use COLMAP's incremental reconstruction
-algorithm.
+you can use COLMAP only for feature extraction and matching, or you can import
+your own features and matches and use COLMAP solely for its incremental
+reconstruction algorithm.
 
 
 .. _interface:
@@ -533,7 +567,7 @@ please execute ``colmap gui`` or directly specify a project configuration as
 the GUI. To list the different commands available from the command-line, execute
 ``colmap help``. For example, to run feature extraction from the command-line,
 you must execute ``colmap feature_extractor``. The :ref:`graphical user
-interface <gui>` and :ref:`command-line Interface <cli>` sections provide more
+interface <gui>` and :ref:`command-line interface <cli>` sections provide more
 details about the available commands.
 
 

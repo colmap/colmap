@@ -131,6 +131,15 @@ struct Camera {
   inline std::optional<Eigen::Vector2d> CamFromImg(
       const Eigen::Vector2d& image_point) const;
 
+  // Unproject a pixel to a unit 3D bearing vector in the camera frame.
+  //
+  // Unlike CamFromImg (which returns a 2D normalized coordinate and is
+  // therefore limited to the forward hemisphere), this works for any pixel
+  // the camera model can unproject — including back-facing rays on
+  // omnidirectional cameras.
+  inline std::optional<Eigen::Vector3d> CamRayFromImg(
+      const Eigen::Vector2d& image_point) const;
+
   // Convert pixel threshold in image plane to camera frame.
   inline double CamFromImgThreshold(double threshold) const;
 
@@ -262,6 +271,11 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
 std::optional<Eigen::Vector2d> Camera::CamFromImg(
     const Eigen::Vector2d& image_point) const {
   return CameraModelCamFromImg(model_id, params, image_point);
+}
+
+std::optional<Eigen::Vector3d> Camera::CamRayFromImg(
+    const Eigen::Vector2d& image_point) const {
+  return CameraModelCamRayFromImg(model_id, params, image_point);
 }
 
 double Camera::CamFromImgThreshold(const double threshold) const {

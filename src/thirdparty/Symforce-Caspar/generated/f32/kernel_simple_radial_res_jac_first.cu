@@ -14,6 +14,8 @@ __global__ void __launch_bounds__(1024, 1)
     SimpleRadialResJacFirstKernel(float* pose,
                                   unsigned int pose_num_alloc,
                                   SharedIndex* pose_indices,
+                                  float* sensor_from_rig,
+                                  unsigned int sensor_from_rig_num_alloc,
                                   float* calib,
                                   unsigned int calib_num_alloc,
                                   SharedIndex* calib_indices,
@@ -58,6 +60,7 @@ __global__ void __launch_bounds__(1024, 1)
       (global_thread_idx < problem_size
            ? pose_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
+
   __shared__ SharedIndex calib_indices_loc[1024];
   calib_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
@@ -74,7 +77,10 @@ __global__ void __launch_bounds__(1024, 1)
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
       r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45,
-      r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56;
+      r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56, r57, r58, r59, r60,
+      r61, r62, r63, r64, r65, r66, r67, r68, r69, r70, r71, r72, r73, r74, r75,
+      r76, r77, r78, r79, r80, r81, r82, r83, r84, r85, r86, r87, r88, r89, r90,
+      r91, r92;
   LoadShared<4, float, float>(
       calib, 0 * calib_num_alloc, calib_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
@@ -91,14 +97,13 @@ __global__ void __launch_bounds__(1024, 1)
         pixel, 0 * pixel_num_alloc, global_thread_idx, r4, r5);
     r6 = -1.00000000000000000e+00;
     r4 = fmaf(r4, r6, r2);
+    ReadIdx3<1024, float, float, float4>(sensor_from_rig,
+                                         4 * sensor_from_rig_num_alloc,
+                                         global_thread_idx,
+                                         r2,
+                                         r7,
+                                         r8);
   };
-  LoadShared<3, float, float>(
-      pose, 4 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
-  if (global_thread_idx < problem_size) {
-    ReadShared3<float>(
-        (float*)inout_shared, pose_indices_loc[threadIdx.x].target, r2, r7, r8);
-  };
-  __syncthreads();
   LoadShared<3, float, float>(
       point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
@@ -121,503 +126,697 @@ __global__ void __launch_bounds__(1024, 1)
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r16 = r14 * r15;
-    r17 = -2.00000000000000000e+00;
-    r16 = r16 * r17;
-    r18 = r12 * r13;
-    r19 = 2.00000000000000000e+00;
-    r18 = r18 * r19;
-    r20 = r16 + r18;
-    r2 = fmaf(r10, r20, r2);
-    r21 = r12 * r14;
-    r21 = r21 * r19;
-    r22 = r13 * r15;
-    r22 = r22 * r19;
-    r23 = r21 + r22;
-    r24 = r14 * r14;
-    r25 = r17 * r24;
-    r26 = 1.00000000000000000e+00;
-    r27 = r13 * r13;
-    r28 = fmaf(r17, r27, r26);
-    r29 = r25 + r28;
-    r2 = fmaf(r11, r23, r2);
+    ReadIdx4<1024, float, float, float4>(sensor_from_rig,
+                                         0 * sensor_from_rig_num_alloc,
+                                         global_thread_idx,
+                                         r16,
+                                         r17,
+                                         r18,
+                                         r19);
+    r20 = fmaf(r13, r16, r14 * r19);
+    r21 = r12 * r17;
+    r20 = fmaf(r6, r21, r20);
+    r20 = fmaf(r15, r18, r20);
+    r21 = r20 * r20;
+    r22 = -2.00000000000000000e+00;
+    r21 = r21 * r22;
+    r23 = 1.00000000000000000e+00;
+    r24 = r15 * r17;
+    r25 = fmaf(r13, r19, r24);
+    r26 = r12 * r18;
+    r27 = r14 * r16;
+    r25 = r25 + r26;
+    r25 = fmaf(r6, r27, r25);
+    r28 = r22 * r25;
+    r28 = fmaf(r25, r28, r23);
+    r29 = r21 + r28;
     r2 = fmaf(r9, r29, r2);
-    r30 = r0 * r2;
-    r31 = r14 * r15;
-    r31 = r31 * r19;
-    r18 = r18 + r31;
-    r7 = fmaf(r9, r18, r7);
-    r32 = r13 * r14;
-    r32 = r32 * r19;
-    r33 = r12 * r15;
-    r33 = r33 * r17;
-    r34 = r32 + r33;
-    r25 = r26 + r25;
-    r35 = r12 * r12;
-    r36 = r17 * r35;
-    r25 = r25 + r36;
-    r7 = fmaf(r11, r34, r7);
-    r7 = fmaf(r10, r25, r7);
-    r37 = r7 * r7;
-    r38 = 9.99999999999999955e-07;
-    r39 = r12 * r15;
-    r39 = r39 * r19;
-    r32 = r32 + r39;
-    r8 = fmaf(r10, r32, r8);
-    r40 = r13 * r15;
-    r40 = r40 * r17;
-    r21 = r21 + r40;
-    r28 = r36 + r28;
-    r8 = fmaf(r9, r21, r8);
+    r30 = 2.00000000000000000e+00;
+    r31 = fmaf(r15, r16, r12 * r19);
+    r32 = r13 * r18;
+    r31 = fmaf(r6, r32, r31);
+    r31 = fmaf(r14, r17, r31);
+    r32 = r30 * r31;
+    r32 = r32 * r25;
+    r33 = r20 * r22;
+    r34 = fmaf(r13, r17, r12 * r16);
+    r34 = fmaf(r14, r18, r34);
+    r34 = fmaf(r6, r34, r15 * r19);
+    r33 = fmaf(r34, r33, r32);
+    r35 = r30 * r20;
+    r35 = r35 * r31;
+    r36 = r30 * r34;
+    r37 = fmaf(r25, r36, r35);
+  };
+  LoadShared<3, float, float>(
+      pose, 4 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    ReadShared3<float>((float*)inout_shared,
+                       pose_indices_loc[threadIdx.x].target,
+                       r38,
+                       r39,
+                       r40);
+  };
+  __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r41 = r16 * r18;
+    r41 = r41 * r30;
+    r42 = r17 * r19;
+    r42 = fmaf(r30, r42, r41);
+    r43 = r18 * r19;
+    r44 = r16 * r17;
+    r44 = r44 * r30;
+    r43 = fmaf(r22, r43, r44);
+    r45 = r17 * r17;
+    r45 = r45 * r22;
+    r46 = r23 + r45;
+    r47 = r18 * r18;
+    r47 = r47 * r22;
+    r46 = r46 + r47;
+    r2 = fmaf(r10, r33, r2);
+    r2 = fmaf(r11, r37, r2);
+    r2 = fmaf(r40, r42, r2);
+    r2 = fmaf(r39, r43, r2);
+    r2 = fmaf(r38, r46, r2);
+    r48 = 9.99999999999999955e-07;
+    r49 = r22 * r25;
+    r49 = fmaf(r34, r49, r35);
+    r8 = fmaf(r9, r49, r8);
+    r35 = r17 * r19;
+    r35 = fmaf(r22, r35, r41);
+    r45 = r23 + r45;
+    r41 = r16 * r16;
+    r41 = r41 * r22;
+    r45 = r45 + r41;
+    r50 = r17 * r18;
+    r50 = r50 * r30;
+    r51 = r16 * r19;
+    r51 = fmaf(r30, r51, r50);
+    r52 = r30 * r20;
+    r52 = r52 * r25;
+    r53 = fmaf(r31, r36, r52);
+    r54 = r31 * r31;
+    r54 = r54 * r22;
+    r28 = r54 + r28;
+    r8 = fmaf(r38, r35, r8);
+    r8 = fmaf(r40, r45, r8);
+    r8 = fmaf(r39, r51, r8);
+    r8 = fmaf(r10, r53, r8);
     r8 = fmaf(r11, r28, r8);
-    r36 = copysign(1.0, r8);
-    r36 = fmaf(r38, r36, r8);
-    r38 = r36 * r36;
-    r8 = 1.0 / r38;
-    r41 = r2 * r2;
-    r41 = fmaf(r8, r41, r8 * r37);
-    r37 = fmaf(r1, r41, r26);
-    r42 = 1.0 / r36;
-    r43 = r37 * r42;
-    r4 = fmaf(r30, r43, r4);
+    r55 = copysign(1.0, r8);
+    r55 = fmaf(r48, r55, r8);
+    r48 = r55 * r55;
+    r8 = 1.0 / r48;
+    r56 = r2 * r8;
+    r32 = fmaf(r20, r36, r32);
+    r7 = fmaf(r9, r32, r7);
+    r57 = r18 * r19;
+    r57 = fmaf(r30, r57, r44);
+    r47 = r23 + r47;
+    r47 = r47 + r41;
+    r41 = r16 * r19;
+    r41 = fmaf(r22, r41, r50);
+    r50 = r31 * r22;
+    r50 = fmaf(r34, r50, r52);
+    r21 = r23 + r21;
+    r21 = r21 + r54;
+    r7 = fmaf(r38, r57, r7);
+    r7 = fmaf(r39, r47, r7);
+    r7 = fmaf(r40, r41, r7);
+    r7 = fmaf(r11, r50, r7);
+    r7 = fmaf(r10, r21, r7);
+    r40 = r7 * r7;
+    r39 = fmaf(r8, r40, r2 * r56);
+    r38 = fmaf(r1, r39, r23);
+    r54 = r2 * r38;
+    r52 = 1.0 / r55;
+    r44 = r0 * r52;
+    r4 = fmaf(r44, r54, r4);
     r5 = fmaf(r5, r6, r3);
-    r3 = r0 * r37;
-    r3 = r3 * r42;
-    r5 = fmaf(r7, r3, r5);
+    r3 = r7 * r38;
+    r5 = fmaf(r44, r3, r5);
     WriteIdx2<1024, float, float, float2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r4, r5);
-    r44 = fmaf(r5, r5, r4 * r4);
+    r3 = fmaf(r5, r5, r4 * r4);
   };
   SumStore<float>(out_rTr_local,
                   (float*)inout_shared,
                   0,
                   global_thread_idx < problem_size,
-                  r44);
+                  r3);
   if (global_thread_idx < problem_size) {
-    r44 = r19 * r7;
-    r15 = r15 * r15;
-    r45 = r6 * r15;
-    r46 = r24 + r45;
-    r47 = r6 * r27;
-    r48 = r35 + r47;
-    r49 = r46 + r48;
-    r49 = fmaf(r11, r49, r10 * r34);
-    r44 = r44 * r49;
-    r50 = r13 * r14;
-    r50 = r50 * r17;
-    r33 = r33 + r50;
-    r47 = r24 + r47;
-    r51 = r6 * r35;
-    r52 = r15 + r51;
-    r47 = r47 + r52;
-    r47 = fmaf(r10, r47, r11 * r33);
-    r33 = r7 * r7;
-    r33 = r17 * r33;
-    r38 = r36 * r38;
-    r36 = 1.0 / r38;
-    r33 = r33 * r36;
-    r44 = fmaf(r47, r33, r8 * r44);
-    r53 = r2 * r2;
-    r53 = r17 * r53;
-    r53 = r53 * r36;
-    r54 = r19 * r2;
-    r13 = r12 * r13;
-    r13 = r13 * r17;
-    r31 = r31 + r13;
-    r31 = fmaf(r10, r23, r11 * r31);
-    r54 = r54 * r31;
-    r44 = fmaf(r8, r54, r44);
-    r44 = fmaf(r47, r53, r44);
-    r54 = r1 * r44;
-    r54 = r54 * r42;
-    r55 = r47 * r30;
-    r56 = r37 * r6;
-    r56 = r56 * r8;
-    r55 = fmaf(r56, r55, r30 * r54);
-    r55 = fmaf(r31, r3, r55);
-    r31 = r0 * r44;
-    r54 = r1 * r7;
-    r31 = r31 * r42;
-    r31 = fmaf(r54, r31, r49 * r3);
-    r49 = r0 * r7;
-    r49 = r49 * r47;
-    r31 = fmaf(r56, r49, r31);
-    r49 = r19 * r7;
-    r50 = r39 + r50;
-    r50 = fmaf(r9, r50, r11 * r18);
-    r49 = r49 * r50;
-    r39 = r19 * r2;
-    r14 = r12 * r14;
-    r14 = r14 * r17;
-    r40 = r40 + r14;
-    r24 = r6 * r24;
-    r15 = r15 + r24;
-    r15 = r15 + r48;
-    r15 = fmaf(r11, r15, r9 * r40);
-    r39 = r39 * r15;
-    r39 = fmaf(r8, r39, r8 * r49);
-    r45 = r35 + r45;
-    r24 = r27 + r24;
-    r45 = r45 + r24;
-    r45 = fmaf(r9, r45, r11 * r21);
-    r39 = fmaf(r45, r53, r39);
-    r39 = fmaf(r45, r33, r39);
-    r11 = r1 * r39;
-    r11 = r11 * r42;
-    r35 = r45 * r30;
-    r35 = fmaf(r56, r35, r30 * r11);
-    r35 = fmaf(r15, r3, r35);
-    r15 = r0 * r39;
-    r15 = r15 * r42;
-    r11 = r0 * r7;
-    r11 = r11 * r45;
-    r11 = fmaf(r56, r11, r54 * r15);
-    r11 = fmaf(r50, r3, r11);
+    r3 = r30 * r7;
+    r54 = r31 * r22;
+    r58 = r12 * r19;
+    r59 = -5.00000000000000000e-01;
+    r60 = r15 * r16;
+    r60 = fmaf(r59, r60, r59 * r58);
+    r58 = r14 * r17;
+    r60 = fmaf(r59, r58, r60);
+    r61 = r13 * r18;
+    r62 = 5.00000000000000000e-01;
+    r60 = fmaf(r62, r61, r60);
+    r61 = r22 * r34;
+    r58 = r12 * r16;
+    r63 = r14 * r18;
+    r63 = fmaf(r59, r63, r59 * r58);
+    r58 = r19 * r62;
+    r64 = r13 * r59;
+    r63 = fmaf(r15, r58, r63);
+    r63 = fmaf(r17, r64, r63);
+    r61 = r61 * r63;
+    r54 = fmaf(r60, r54, r61);
+    r65 = r30 * r25;
+    r66 = fmaf(r62, r27, r19 * r64);
+    r66 = fmaf(r59, r24, r66);
+    r66 = fmaf(r59, r26, r66);
+    r65 = r65 * r66;
+    r67 = r30 * r20;
+    r68 = r13 * r16;
+    r69 = r12 * r17;
+    r69 = fmaf(r59, r69, r62 * r68);
+    r68 = r15 * r18;
+    r69 = fmaf(r62, r68, r69);
+    r69 = fmaf(r14, r58, r69);
+    r67 = fmaf(r69, r67, r65);
+    r54 = r54 + r67;
+    r68 = -4.00000000000000000e+00;
+    r70 = r31 * r68;
+    r71 = r63 * r70;
+    r72 = r20 * r66;
+    r73 = r68 * r72;
+    r74 = r71 + r73;
+    r74 = fmaf(r10, r74, r11 * r54);
+    r54 = r30 * r31;
+    r54 = r54 * r69;
+    r75 = fmaf(r66, r36, r54);
+    r76 = r30 * r25;
+    r76 = r76 * r63;
+    r77 = r30 * r20;
+    r77 = fmaf(r60, r77, r76);
+    r75 = r75 + r77;
+    r74 = fmaf(r9, r75, r74);
+    r3 = r3 * r74;
+    r75 = r25 * r60;
+    r78 = fmaf(r69, r36, r30 * r75);
+    r79 = r30 * r31;
+    r80 = r30 * r20;
+    r80 = r80 * r63;
+    r79 = fmaf(r66, r79, r80);
+    r78 = r78 + r79;
+    r54 = r76 + r54;
+    r76 = r20 * r22;
+    r54 = fmaf(r60, r76, r54);
+    r81 = r22 * r34;
+    r54 = fmaf(r66, r81, r54);
+    r54 = fmaf(r10, r54, r11 * r78);
+    r78 = r25 * r69;
+    r78 = r78 * r68;
+    r73 = r78 + r73;
+    r54 = fmaf(r9, r73, r54);
+    r73 = r30 * r54;
+    r73 = fmaf(r56, r73, r8 * r3);
+    r3 = r30 * r31;
+    r3 = r3 * r60;
+    r81 = r63 * r36;
+    r76 = r3 + r81;
+    r67 = r67 + r76;
+    r82 = r22 * r34;
+    r82 = fmaf(r22, r75, r69 * r82);
+    r82 = r82 + r79;
+    r82 = fmaf(r9, r82, r10 * r67);
+    r71 = r78 + r71;
+    r82 = fmaf(r11, r71, r82);
+    r48 = r55 * r48;
+    r48 = 1.0 / r48;
+    r48 = r22 * r48;
+    r55 = r82 * r48;
+    r73 = fmaf(r40, r55, r73);
+    r71 = r2 * r2;
+    r71 = r71 * r48;
+    r73 = fmaf(r82, r71, r73);
+    r1 = r1 * r44;
+    r73 = r73 * r1;
+    r55 = r38 * r54;
+    r55 = fmaf(r44, r55, r2 * r73);
+    r78 = r82 * r56;
+    r67 = r6 * r38;
+    r69 = r0 * r67;
+    r55 = fmaf(r69, r78, r55);
+    r78 = r38 * r74;
+    r78 = fmaf(r44, r78, r7 * r73);
+    r73 = r7 * r8;
+    r73 = r73 * r69;
+    r78 = fmaf(r82, r73, r78);
+    r81 = r65 + r81;
+    r65 = r30 * r20;
+    r83 = r14 * r19;
+    r84 = r12 * r17;
+    r84 = fmaf(r62, r84, r59 * r83);
+    r83 = r15 * r18;
+    r84 = fmaf(r59, r83, r84);
+    r84 = fmaf(r16, r64, r84);
+    r65 = r65 * r84;
+    r83 = r30 * r31;
+    r85 = r15 * r16;
+    r86 = r14 * r17;
+    r86 = fmaf(r62, r86, r62 * r85);
+    r86 = fmaf(r12, r58, r86);
+    r86 = fmaf(r18, r64, r86);
+    r83 = fmaf(r86, r83, r65);
+    r81 = r81 + r83;
+    r64 = r25 * r63;
+    r64 = r64 * r68;
+    r85 = r20 * r68;
+    r85 = r85 * r86;
+    r87 = r64 + r85;
+    r87 = fmaf(r9, r87, r11 * r81);
+    r81 = r22 * r34;
+    r81 = fmaf(r22, r72, r86 * r81);
+    r88 = r30 * r31;
+    r88 = r88 * r63;
+    r89 = r30 * r25;
+    r89 = fmaf(r84, r89, r88);
+    r81 = r81 + r89;
+    r87 = fmaf(r10, r81, r87);
+    r81 = r38 * r87;
+    r90 = r30 * r87;
+    r91 = r22 * r25;
+    r91 = fmaf(r66, r91, r61);
+    r91 = r91 + r83;
+    r83 = r30 * r25;
+    r83 = r83 * r86;
+    r92 = fmaf(r84, r36, r83);
+    r92 = r92 + r79;
+    r92 = fmaf(r10, r92, r9 * r91);
+    r91 = r84 * r70;
+    r64 = r64 + r91;
+    r92 = fmaf(r11, r64, r92);
+    r90 = fmaf(r92, r71, r56 * r90);
+    r64 = r92 * r48;
+    r90 = fmaf(r40, r64, r90);
+    r79 = r30 * r7;
+    r83 = r80 + r83;
+    r80 = r31 * r22;
+    r83 = fmaf(r66, r80, r83);
+    r66 = r22 * r34;
+    r83 = fmaf(r84, r66, r83);
+    r86 = fmaf(r86, r36, r30 * r72);
+    r86 = r86 + r89;
+    r86 = fmaf(r9, r86, r11 * r83);
+    r91 = r85 + r91;
+    r86 = fmaf(r10, r91, r86);
+    r79 = r79 * r86;
+    r90 = fmaf(r8, r79, r90);
+    r79 = r2 * r90;
+    r79 = fmaf(r1, r79, r44 * r81);
+    r81 = r92 * r56;
+    r79 = fmaf(r69, r81, r79);
+    r81 = r38 * r86;
+    r64 = r7 * r90;
+    r64 = fmaf(r1, r64, r44 * r81);
+    r64 = fmaf(r92, r73, r64);
     WriteIdx4<1024, float, float, float4>(out_pose_jac,
                                           0 * out_pose_jac_num_alloc,
                                           global_thread_idx,
                                           r55,
-                                          r31,
-                                          r35,
-                                          r11);
-    r50 = r0 * r1;
-    r50 = r50 * r19;
-    r50 = r50 * r2;
-    r50 = r50 * r7;
-    r50 = r50 * r36;
-    r51 = r27 + r51;
-    r51 = r51 + r46;
-    r51 = fmaf(r10, r51, r9 * r20);
-    r14 = r22 + r14;
-    r14 = fmaf(r10, r14, r9 * r32);
-    r22 = r14 * r30;
-    r22 = fmaf(r56, r22, r51 * r3);
-    r46 = r19 * r2;
-    r46 = r46 * r51;
-    r46 = fmaf(r14, r33, r8 * r46);
-    r51 = r19 * r7;
-    r13 = r16 + r13;
-    r24 = r52 + r24;
-    r24 = fmaf(r9, r24, r10 * r13);
-    r51 = r51 * r24;
-    r46 = fmaf(r8, r51, r46);
-    r46 = fmaf(r14, r53, r46);
-    r51 = r1 * r46;
-    r51 = r51 * r42;
-    r22 = fmaf(r30, r51, r22);
-    r51 = r0 * r46;
-    r51 = r51 * r42;
-    r9 = r0 * r7;
-    r9 = r9 * r14;
-    r9 = fmaf(r56, r9, r54 * r51);
-    r9 = fmaf(r24, r3, r9);
-    r24 = r1 * r19;
-    r24 = r24 * r2;
-    r24 = r24 * r36;
-    r24 = fmaf(r30, r24, r3);
+                                          r78,
+                                          r79,
+                                          r64);
+    r3 = r61 + r3;
+    r61 = r30 * r25;
+    r27 = fmaf(r59, r27, r13 * r58);
+    r27 = fmaf(r62, r24, r27);
+    r27 = fmaf(r62, r26, r27);
+    r61 = r61 * r27;
+    r26 = r20 * r22;
+    r3 = fmaf(r84, r26, r3);
+    r3 = r3 + r61;
+    r63 = r20 * r63;
+    r63 = r63 * r68;
+    r75 = r68 * r75;
+    r68 = r63 + r75;
+    r68 = fmaf(r9, r68, r10 * r3);
+    r3 = r30 * r20;
+    r3 = r3 * r27;
+    r26 = fmaf(r60, r36, r3);
+    r26 = r26 + r89;
+    r68 = fmaf(r11, r26, r68);
+    r26 = r38 * r68;
+    r70 = r27 * r70;
+    r75 = r75 + r70;
+    r3 = r88 + r3;
+    r88 = r22 * r25;
+    r3 = fmaf(r84, r88, r3);
+    r89 = r22 * r34;
+    r3 = fmaf(r60, r89, r3);
+    r3 = fmaf(r9, r3, r11 * r75);
+    r75 = r30 * r31;
+    r36 = fmaf(r27, r36, r84 * r75);
+    r36 = r36 + r77;
+    r3 = fmaf(r10, r36, r3);
+    r36 = r3 * r56;
+    r36 = fmaf(r69, r36, r44 * r26);
+    r26 = r30 * r68;
+    r26 = fmaf(r56, r26, r3 * r71);
+    r75 = r3 * r48;
+    r26 = fmaf(r40, r75, r26);
+    r89 = r30 * r7;
+    r61 = r65 + r61;
+    r61 = r61 + r76;
+    r76 = r31 * r22;
+    r65 = r22 * r34;
+    r65 = fmaf(r27, r65, r84 * r76);
+    r65 = r65 + r77;
+    r65 = fmaf(r11, r65, r9 * r61);
+    r70 = r63 + r70;
+    r65 = fmaf(r10, r70, r65);
+    r89 = r89 * r65;
+    r26 = fmaf(r8, r89, r26);
+    r89 = r2 * r26;
+    r36 = fmaf(r1, r89, r36);
+    r89 = r7 * r26;
+    r89 = fmaf(r3, r73, r1 * r89);
+    r75 = r38 * r65;
+    r89 = fmaf(r44, r75, r89);
+    r75 = r35 * r56;
+    r70 = r46 * r38;
+    r70 = fmaf(r44, r70, r69 * r75);
+    r75 = r35 * r48;
+    r10 = r30 * r57;
+    r10 = r10 * r7;
+    r10 = fmaf(r8, r10, r40 * r75);
+    r75 = r30 * r46;
+    r10 = fmaf(r56, r75, r10);
+    r10 = fmaf(r35, r71, r10);
+    r75 = r2 * r10;
+    r70 = fmaf(r1, r75, r70);
+    r75 = r57 * r38;
+    r63 = r7 * r10;
+    r63 = fmaf(r1, r63, r44 * r75);
+    r63 = fmaf(r35, r73, r63);
     WriteIdx4<1024, float, float, float4>(out_pose_jac,
                                           4 * out_pose_jac_num_alloc,
                                           global_thread_idx,
-                                          r22,
-                                          r9,
-                                          r24,
-                                          r50);
-    r51 = r0 * r19;
-    r51 = r51 * r7;
-    r51 = r51 * r36;
-    r51 = fmaf(r54, r51, r3);
-    r13 = r33 + r53;
-    r10 = r1 * r13;
-    r10 = r10 * r42;
-    r10 = fmaf(r30, r10, r30 * r56);
-    r52 = r0 * r7;
-    r16 = r0 * r13;
-    r16 = r16 * r42;
-    r16 = fmaf(r54, r16, r56 * r52);
+                                          r36,
+                                          r89,
+                                          r70,
+                                          r63);
+    r75 = r51 * r48;
+    r11 = r30 * r47;
+    r11 = r11 * r7;
+    r11 = fmaf(r8, r11, r40 * r75);
+    r75 = r30 * r43;
+    r11 = fmaf(r56, r75, r11);
+    r11 = fmaf(r51, r71, r11);
+    r75 = r2 * r11;
+    r61 = r43 * r38;
+    r61 = fmaf(r44, r61, r1 * r75);
+    r75 = r51 * r56;
+    r61 = fmaf(r69, r75, r61);
+    r75 = r7 * r11;
+    r75 = fmaf(r51, r73, r1 * r75);
+    r9 = r47 * r38;
+    r75 = fmaf(r44, r9, r75);
+    r9 = r45 * r56;
+    r77 = r42 * r38;
+    r77 = fmaf(r44, r77, r69 * r9);
+    r9 = r30 * r41;
+    r9 = r9 * r7;
+    r76 = r45 * r48;
+    r76 = fmaf(r40, r76, r8 * r9);
+    r9 = r30 * r42;
+    r76 = fmaf(r56, r9, r76);
+    r76 = fmaf(r45, r71, r76);
+    r9 = r2 * r76;
+    r77 = fmaf(r1, r9, r77);
+    r9 = r41 * r38;
+    r9 = fmaf(r45, r73, r44 * r9);
+    r27 = r7 * r76;
+    r9 = fmaf(r1, r27, r9);
     WriteIdx4<1024, float, float, float4>(out_pose_jac,
                                           8 * out_pose_jac_num_alloc,
                                           global_thread_idx,
-                                          r50,
-                                          r51,
-                                          r10,
-                                          r16);
-    r52 = r6 * r4;
+                                          r61,
+                                          r75,
+                                          r77,
+                                          r9);
     r27 = r6 * r5;
-    r27 = fmaf(r31, r27, r55 * r52);
-    r52 = r6 * r5;
-    r15 = r6 * r4;
-    r15 = fmaf(r35, r15, r11 * r52);
-    r52 = r6 * r5;
-    r49 = r6 * r4;
-    r49 = fmaf(r22, r49, r9 * r52);
-    r52 = r6 * r4;
-    r36 = r17 * r36;
-    r17 = r5 * r36;
-    r40 = r30 * r54;
-    r17 = fmaf(r40, r17, r24 * r52);
-    WriteSum4<float, float>((float*)inout_shared, r27, r15, r49, r17);
+    r84 = r6 * r4;
+    r84 = fmaf(r55, r84, r78 * r27);
+    r27 = r6 * r5;
+    r88 = r6 * r4;
+    r88 = fmaf(r79, r88, r64 * r27);
+    r27 = r6 * r5;
+    r60 = r6 * r4;
+    r60 = fmaf(r36, r60, r89 * r27);
+    r27 = r6 * r4;
+    r62 = r6 * r5;
+    r62 = fmaf(r63, r62, r70 * r27);
+    WriteSum4<float, float>((float*)inout_shared, r84, r88, r60, r62);
   };
   FlushSumShared<4, float>(out_pose_njtr,
                            0 * out_pose_njtr_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r17 = r6 * r5;
-    r49 = r6 * r4;
-    r49 = fmaf(r10, r49, r16 * r17);
-    r17 = r6 * r5;
-    r15 = r4 * r36;
-    r15 = fmaf(r40, r15, r51 * r17);
-    WriteSum2<float, float>((float*)inout_shared, r15, r49);
+    r62 = r6 * r5;
+    r60 = r6 * r4;
+    r60 = fmaf(r61, r60, r75 * r62);
+    r62 = r6 * r5;
+    r88 = r6 * r4;
+    r88 = fmaf(r77, r88, r9 * r62);
+    WriteSum2<float, float>((float*)inout_shared, r60, r88);
   };
   FlushSumShared<2, float>(out_pose_njtr,
                            4 * out_pose_njtr_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r49 = fmaf(r31, r31, r55 * r55);
-    r15 = fmaf(r11, r11, r35 * r35);
-    r17 = fmaf(r9, r9, r22 * r22);
-    r27 = r0 * r1;
-    r52 = 4.00000000000000000e+00;
-    r38 = r38 * r38;
-    r38 = 1.0 / r38;
-    r27 = r27 * r2;
-    r27 = r27 * r7;
-    r27 = r27 * r52;
-    r27 = r27 * r38;
-    r27 = r27 * r40;
-    r40 = fmaf(r24, r24, r27);
-    WriteSum4<float, float>((float*)inout_shared, r49, r15, r17, r40);
+    r88 = fmaf(r78, r78, r55 * r55);
+    r60 = fmaf(r79, r79, r64 * r64);
+    r62 = fmaf(r36, r36, r89 * r89);
+    r84 = fmaf(r70, r70, r63 * r63);
+    WriteSum4<float, float>((float*)inout_shared, r88, r60, r62, r84);
   };
   FlushSumShared<4, float>(out_pose_precond_diag,
                            0 * out_pose_precond_diag_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r27 = fmaf(r51, r51, r27);
-    r40 = fmaf(r16, r16, r10 * r10);
-    WriteSum2<float, float>((float*)inout_shared, r27, r40);
+    r84 = fmaf(r75, r75, r61 * r61);
+    r62 = fmaf(r9, r9, r77 * r77);
+    WriteSum2<float, float>((float*)inout_shared, r84, r62);
   };
   FlushSumShared<2, float>(out_pose_precond_diag,
                            4 * out_pose_precond_diag_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r40 = fmaf(r31, r11, r55 * r35);
-    r27 = fmaf(r31, r9, r55 * r22);
-    r17 = fmaf(r31, r50, r55 * r24);
-    r15 = fmaf(r55, r50, r31 * r51);
-    WriteSum4<float, float>((float*)inout_shared, r40, r27, r17, r15);
+    r62 = fmaf(r55, r79, r78 * r64);
+    r84 = fmaf(r55, r36, r78 * r89);
+    r60 = fmaf(r78, r63, r55 * r70);
+    r88 = fmaf(r78, r75, r55 * r61);
+    WriteSum4<float, float>((float*)inout_shared, r62, r84, r60, r88);
   };
   FlushSumShared<4, float>(out_pose_precond_tril,
                            0 * out_pose_precond_tril_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r31 = fmaf(r31, r16, r55 * r10);
-    r55 = fmaf(r35, r22, r11 * r9);
-    r15 = fmaf(r11, r50, r35 * r24);
-    r17 = fmaf(r35, r50, r11 * r51);
-    WriteSum4<float, float>((float*)inout_shared, r31, r55, r15, r17);
+    r55 = fmaf(r55, r77, r78 * r9);
+    r78 = fmaf(r79, r36, r64 * r89);
+    r88 = fmaf(r64, r63, r79 * r70);
+    r60 = fmaf(r79, r61, r64 * r75);
+    WriteSum4<float, float>((float*)inout_shared, r55, r78, r88, r60);
   };
   FlushSumShared<4, float>(out_pose_precond_tril,
                            4 * out_pose_precond_tril_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r11 = fmaf(r11, r16, r35 * r10);
-    r35 = fmaf(r22, r10, r9 * r16);
-    r17 = fmaf(r9, r50, r22 * r24);
-    r22 = fmaf(r22, r50, r9 * r51);
-    WriteSum4<float, float>((float*)inout_shared, r11, r17, r22, r35);
+    r79 = fmaf(r79, r77, r64 * r9);
+    r64 = fmaf(r89, r63, r36 * r70);
+    r60 = fmaf(r89, r75, r36 * r61);
+    r89 = fmaf(r89, r9, r36 * r77);
+    WriteSum4<float, float>((float*)inout_shared, r79, r64, r60, r89);
   };
   FlushSumShared<4, float>(out_pose_precond_tril,
                            8 * out_pose_precond_tril_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r35 = fmaf(r24, r50, r51 * r50);
-    r24 = fmaf(r16, r50, r24 * r10);
-    r50 = fmaf(r10, r50, r51 * r16);
-    WriteSum3<float, float>((float*)inout_shared, r35, r24, r50);
+    r89 = fmaf(r63, r75, r70 * r61);
+    r70 = fmaf(r70, r77, r63 * r9);
+    r77 = fmaf(r61, r77, r75 * r9);
+    WriteSum3<float, float>((float*)inout_shared, r89, r70, r77);
   };
   FlushSumShared<3, float>(out_pose_precond_tril,
                            12 * out_pose_precond_tril_num_alloc,
                            pose_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r50 = r2 * r43;
-    r24 = r7 * r43;
-    r35 = r41 * r42;
-    r35 = r35 * r30;
-    r10 = r0 * r7;
-    r10 = r10 * r41;
-    r10 = r10 * r42;
+    r77 = r2 * r38;
+    r77 = r77 * r52;
+    r70 = r7 * r38;
+    r70 = r70 * r52;
+    r89 = r2 * r39;
+    r89 = r89 * r44;
+    r61 = r7 * r39;
+    r61 = r61 * r44;
     WriteIdx4<1024, float, float, float4>(out_calib_jac,
                                           0 * out_calib_jac_num_alloc,
                                           global_thread_idx,
-                                          r50,
-                                          r24,
-                                          r35,
-                                          r10);
-    r16 = r6 * r4;
-    r51 = r6 * r5;
-    r22 = r2 * r6;
-    r22 = r22 * r4;
-    r17 = r7 * r6;
-    r17 = r17 * r5;
-    r17 = fmaf(r43, r17, r43 * r22);
-    r22 = r41 * r6;
-    r22 = r22 * r4;
-    r22 = r22 * r42;
-    r43 = r0 * r7;
-    r43 = r43 * r41;
-    r43 = r43 * r6;
-    r43 = r43 * r5;
-    r43 = fmaf(r42, r43, r30 * r22);
-    WriteSum4<float, float>((float*)inout_shared, r17, r43, r16, r51);
+                                          r77,
+                                          r70,
+                                          r89,
+                                          r61);
+    r9 = r6 * r4;
+    r75 = r6 * r5;
+    r63 = r2 * r4;
+    r63 = r63 * r52;
+    r60 = r7 * r5;
+    r60 = r60 * r52;
+    r60 = fmaf(r67, r60, r67 * r63);
+    r63 = r6 * r2;
+    r63 = r63 * r39;
+    r63 = r63 * r4;
+    r67 = r6 * r7;
+    r67 = r67 * r39;
+    r67 = r67 * r5;
+    r67 = fmaf(r44, r67, r44 * r63);
+    WriteSum4<float, float>((float*)inout_shared, r60, r67, r9, r75);
   };
   FlushSumShared<4, float>(out_calib_njtr,
                            0 * out_calib_njtr_num_alloc,
                            calib_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r51 = r7 * r7;
-    r51 = r51 * r37;
-    r51 = r51 * r37;
-    r16 = r2 * r2;
-    r16 = r16 * r37;
-    r16 = r16 * r37;
-    r16 = fmaf(r8, r16, r8 * r51);
-    r51 = r0 * r8;
-    r43 = r41 * r41;
-    r51 = r51 * r43;
-    r43 = r7 * r51;
-    r17 = r0 * r7;
-    r22 = r2 * r30;
-    r22 = fmaf(r51, r22, r17 * r43);
-    WriteSum4<float, float>((float*)inout_shared, r16, r22, r26, r26);
+    r75 = r38 * r8;
+    r75 = r75 * r40;
+    r9 = r2 * r38;
+    r9 = r9 * r38;
+    r9 = fmaf(r56, r9, r38 * r75);
+    r67 = r8 * r40;
+    r60 = r0 * r0;
+    r63 = r39 * r39;
+    r60 = r60 * r63;
+    r63 = r2 * r56;
+    r63 = fmaf(r60, r63, r60 * r67);
+    WriteSum4<float, float>((float*)inout_shared, r9, r63, r23, r23);
   };
   FlushSumShared<4, float>(out_calib_precond_diag,
                            0 * out_calib_precond_diag_num_alloc,
                            calib_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r26 = r2 * r41;
-    r26 = r26 * r37;
-    r26 = r26 * r8;
-    r22 = r0 * r7;
-    r22 = r22 * r7;
-    r22 = r22 * r41;
-    r22 = r22 * r37;
-    r22 = fmaf(r8, r22, r30 * r26);
-    WriteSum4<float, float>((float*)inout_shared, r22, r50, r24, r35);
+    r23 = r0 * r39;
+    r63 = r0 * r2;
+    r63 = r63 * r39;
+    r63 = r63 * r38;
+    r63 = fmaf(r56, r63, r75 * r23);
+    WriteSum4<float, float>((float*)inout_shared, r63, r77, r70, r89);
   };
   FlushSumShared<4, float>(out_calib_precond_tril,
                            0 * out_calib_precond_tril_num_alloc,
                            calib_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r35 = 0.00000000000000000e+00;
-    WriteSum2<float, float>((float*)inout_shared, r10, r35);
+    r89 = 0.00000000000000000e+00;
+    WriteSum2<float, float>((float*)inout_shared, r61, r89);
   };
   FlushSumShared<2, float>(out_calib_precond_tril,
                            4 * out_calib_precond_tril_num_alloc,
                            calib_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r35 = r21 * r30;
-    r35 = fmaf(r56, r35, r29 * r3);
-    r10 = r19 * r29;
-    r10 = r10 * r2;
-    r10 = fmaf(r8, r10, r21 * r53);
-    r24 = r19 * r18;
-    r24 = r24 * r7;
-    r10 = fmaf(r8, r24, r10);
-    r10 = fmaf(r21, r33, r10);
-    r24 = r1 * r10;
-    r24 = r24 * r42;
-    r35 = fmaf(r30, r24, r35);
-    r24 = r0 * r10;
-    r24 = r24 * r42;
-    r50 = r0 * r7;
-    r50 = r50 * r21;
-    r50 = fmaf(r56, r50, r54 * r24);
-    r50 = fmaf(r18, r3, r50);
-    r24 = r32 * r56;
-    r22 = fmaf(r20, r3, r30 * r24);
-    r26 = r19 * r20;
-    r26 = r26 * r2;
-    r26 = fmaf(r32, r53, r8 * r26);
-    r37 = r19 * r25;
-    r37 = r37 * r7;
-    r26 = fmaf(r8, r37, r26);
-    r26 = fmaf(r32, r33, r26);
-    r37 = r1 * r26;
-    r37 = r37 * r42;
-    r22 = fmaf(r30, r37, r22);
-    r37 = r0 * r26;
-    r37 = r37 * r42;
-    r37 = fmaf(r54, r37, r24 * r17);
-    r37 = fmaf(r25, r3, r37);
+    r89 = r49 * r56;
+    r61 = r30 * r32;
+    r61 = r61 * r7;
+    r70 = r30 * r29;
+    r70 = fmaf(r56, r70, r8 * r61);
+    r61 = r49 * r48;
+    r70 = fmaf(r40, r61, r70);
+    r70 = fmaf(r49, r71, r70);
+    r61 = r2 * r70;
+    r61 = fmaf(r1, r61, r69 * r89);
+    r89 = r29 * r38;
+    r61 = fmaf(r44, r89, r61);
+    r89 = r32 * r38;
+    r89 = fmaf(r49, r73, r44 * r89);
+    r77 = r7 * r70;
+    r89 = fmaf(r1, r77, r89);
+    r77 = r33 * r38;
+    r63 = r53 * r56;
+    r63 = fmaf(r69, r63, r44 * r77);
+    r77 = r53 * r48;
+    r23 = r30 * r33;
+    r23 = fmaf(r56, r23, r40 * r77);
+    r77 = r30 * r21;
+    r77 = r77 * r7;
+    r23 = fmaf(r8, r77, r23);
+    r23 = fmaf(r53, r71, r23);
+    r77 = r2 * r23;
+    r63 = fmaf(r1, r77, r63);
+    r77 = r7 * r23;
+    r75 = r21 * r38;
+    r75 = fmaf(r44, r75, r1 * r77);
+    r75 = fmaf(r53, r73, r75);
     WriteIdx4<1024, float, float, float4>(out_point_jac,
                                           0 * out_point_jac_num_alloc,
                                           global_thread_idx,
-                                          r35,
-                                          r50,
-                                          r22,
-                                          r37);
-    r17 = r28 * r30;
-    r17 = fmaf(r23, r3, r56 * r17);
-    r24 = r19 * r23;
-    r24 = r24 * r2;
-    r53 = fmaf(r28, r53, r8 * r24);
-    r24 = r19 * r34;
-    r24 = r24 * r7;
-    r53 = fmaf(r8, r24, r53);
-    r53 = fmaf(r28, r33, r53);
-    r33 = r1 * r53;
-    r33 = r33 * r42;
-    r17 = fmaf(r30, r33, r17);
-    r33 = r0 * r7;
-    r33 = r33 * r28;
-    r3 = fmaf(r34, r3, r56 * r33);
-    r33 = r0 * r53;
-    r33 = r33 * r42;
-    r3 = fmaf(r54, r33, r3);
+                                          r61,
+                                          r89,
+                                          r63,
+                                          r75);
+    r77 = r28 * r56;
+    r9 = r37 * r38;
+    r9 = fmaf(r44, r9, r69 * r77);
+    r77 = r30 * r50;
+    r77 = r77 * r7;
+    r69 = r28 * r48;
+    r69 = fmaf(r40, r69, r8 * r77);
+    r77 = r30 * r37;
+    r69 = fmaf(r56, r77, r69);
+    r69 = fmaf(r28, r71, r69);
+    r77 = r2 * r69;
+    r9 = fmaf(r1, r77, r9);
+    r77 = r50 * r38;
+    r73 = fmaf(r28, r73, r44 * r77);
+    r77 = r7 * r69;
+    r73 = fmaf(r1, r77, r73);
     WriteIdx2<1024, float, float, float2>(
-        out_point_jac, 4 * out_point_jac_num_alloc, global_thread_idx, r17, r3);
-    r33 = r6 * r5;
-    r54 = r6 * r4;
-    r54 = fmaf(r35, r54, r50 * r33);
-    r33 = r6 * r4;
-    r42 = r6 * r5;
-    r42 = fmaf(r37, r42, r22 * r33);
-    r33 = r6 * r4;
-    r56 = r6 * r5;
-    r56 = fmaf(r3, r56, r17 * r33);
-    WriteSum3<float, float>((float*)inout_shared, r54, r42, r56);
+        out_point_jac, 4 * out_point_jac_num_alloc, global_thread_idx, r9, r73);
+    r77 = r6 * r4;
+    r1 = r6 * r5;
+    r1 = fmaf(r89, r1, r61 * r77);
+    r77 = r6 * r5;
+    r44 = r6 * r4;
+    r44 = fmaf(r63, r44, r75 * r77);
+    r77 = r6 * r5;
+    r71 = r6 * r4;
+    r71 = fmaf(r9, r71, r73 * r77);
+    WriteSum3<float, float>((float*)inout_shared, r1, r44, r71);
   };
   FlushSumShared<3, float>(out_point_njtr,
                            0 * out_point_njtr_num_alloc,
                            point_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r56 = fmaf(r35, r35, r50 * r50);
-    r42 = fmaf(r22, r22, r37 * r37);
-    r54 = fmaf(r3, r3, r17 * r17);
-    WriteSum3<float, float>((float*)inout_shared, r56, r42, r54);
+    r71 = fmaf(r61, r61, r89 * r89);
+    r44 = fmaf(r75, r75, r63 * r63);
+    r1 = fmaf(r9, r9, r73 * r73);
+    WriteSum3<float, float>((float*)inout_shared, r71, r44, r1);
   };
   FlushSumShared<3, float>(out_point_precond_diag,
                            0 * out_point_precond_diag_num_alloc,
                            point_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r54 = fmaf(r50, r37, r35 * r22);
-    r50 = fmaf(r50, r3, r35 * r17);
-    r3 = fmaf(r37, r3, r22 * r17);
-    WriteSum3<float, float>((float*)inout_shared, r54, r50, r3);
+    r1 = fmaf(r61, r63, r89 * r75);
+    r89 = fmaf(r89, r73, r61 * r9);
+    r73 = fmaf(r75, r73, r63 * r9);
+    WriteSum3<float, float>((float*)inout_shared, r1, r89, r73);
   };
   FlushSumShared<3, float>(out_point_precond_tril,
                            0 * out_point_precond_tril_num_alloc,
@@ -629,6 +828,8 @@ __global__ void __launch_bounds__(1024, 1)
 void SimpleRadialResJacFirst(float* pose,
                              unsigned int pose_num_alloc,
                              SharedIndex* pose_indices,
+                             float* sensor_from_rig,
+                             unsigned int sensor_from_rig_num_alloc,
                              float* calib,
                              unsigned int calib_num_alloc,
                              SharedIndex* calib_indices,
@@ -674,6 +875,8 @@ void SimpleRadialResJacFirst(float* pose,
       pose,
       pose_num_alloc,
       pose_indices,
+      sensor_from_rig,
+      sensor_from_rig_num_alloc,
       calib,
       calib_num_alloc,
       calib_indices,

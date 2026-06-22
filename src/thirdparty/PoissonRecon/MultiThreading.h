@@ -59,6 +59,7 @@ namespace PoissonRecon
 		static const std::vector< std::string > ScheduleNames;
 
 		static unsigned int NumThreads( void ){ return _NumThreads; }
+		static void SetNumThreads( unsigned int numThreads ){ _NumThreads = numThreads; }
 		static ParallelType ParallelizationType;
 		static size_t ChunkSize;
 		static ScheduleType Schedule;
@@ -136,12 +137,15 @@ namespace PoissonRecon
 #ifdef _OPENMP
 			else if( pType==ParallelType::OPEN_MP )
 			{
+				// NOLINTBEGIN(bugprone-branch-clone): the branches differ only
+				// in their OpenMP schedule pragma, which clang-tidy ignores.
 				if( schedule==ScheduleType::STATIC )
 #pragma omp parallel for num_threads( numThreads ) schedule( static , 1 )
 					for( int c=0 ; c<chunks ; c++ ) _ChunkFunction( omp_get_thread_num() , c );
 				else if( schedule==ScheduleType::DYNAMIC )
 #pragma omp parallel for num_threads( numThreads ) schedule( dynamic , 1 )
 					for( int c=0 ; c<chunks ; c++ ) _ChunkFunction( omp_get_thread_num() , c );
+				// NOLINTEND(bugprone-branch-clone)
 			}
 #endif // _OPENMP
 			else if( pType==ParallelType::ASYNC )

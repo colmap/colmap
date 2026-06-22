@@ -104,6 +104,26 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   }
 }
 
+// Round-trip a pixel through the 3D bearing interface: CamRayFromImg yields a
+// unit ray, ImgFromCam must project it back to the same pixel.
+template <typename CameraModel>
+void TestCamRayFromImgToImg(const std::vector<double>& params,
+                            const double x0,
+                            const double y0) {
+  const std::optional<Eigen::Vector3d> ray = CameraModelCamRayFromImg(
+      CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
+  ASSERT_TRUE(ray.has_value());
+  EXPECT_NEAR(ray->norm(), 1.0, 1e-12);
+  const std::optional<Eigen::Vector2d> xy =
+      CameraModelImgFromCam(CameraModel::model_id, params, *ray);
+  ASSERT_TRUE(xy.has_value());
+  // The pixel round-trip is floored by the iterative Newton undistortion in
+  // CamFromImg (~1e-7 worst case); matches the tolerance of the sibling
+  // CamFromImg/ImgFromCam round-trip in TestCamFromImgToImg.
+  EXPECT_NEAR(xy->x(), x0, 1e-6);
+  EXPECT_NEAR(xy->y(), y0, 1e-6);
+}
+
 // Validate ImgFromCamWithJac against ImgFromCam using Ceres Jets.
 template <typename CameraModel>
 void TestImgFromCamWithJac(const std::vector<double>& params,
@@ -236,11 +256,14 @@ void TestModel(const std::vector<double>& params) {
         continue;
       }
       TestCamFromImgToImg<CameraModel>(params, x, y);
+      TestCamRayFromImgToImg<CameraModel>(params, x, y);
     }
   }
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
   TestCamFromImgToImg<CameraModel>(
+      params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
+  TestCamRayFromImgToImg<CameraModel>(
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 
   if constexpr (CameraModel::has_img_from_cam_with_jac) {
@@ -378,6 +401,48 @@ TEST(SimpleFisheyeCamera, Nominal) {
 
 TEST(FisheyeCamera, Nominal) {
   TestModel<FisheyeCameraModel>({651.123, 655.123, 386.123, 511.123});
+}
+
+TEST(EUCMCamera, Nominal) {
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.56, 0.87});
+  TestModel<EUCMCameraModel>({400, 400, 400, 400, 0.88, 0.64});
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.0, 1.0});
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.5, 1.0});
+}
+
+TEST(EUCMCamera, RejectsInvalidExtraParams) {
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, -0.01, 0.87},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 1.01, 0.87},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 0.56, 0.00},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 0.56, -0.3},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
 }
 
 }  // namespace
