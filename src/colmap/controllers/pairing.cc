@@ -389,20 +389,32 @@ void VocabTreePairGenerator::IndexImages(
 }
 
 void VocabTreePairGenerator::Query(const image_t image_id) {
-  auto keypoints = *cache_->GetKeypoints(image_id);
-  auto descriptors = *cache_->GetDescriptors(image_id);
-  if (options_.max_num_features > 0 &&
-      descriptors.data.rows() > options_.max_num_features) {
-    ExtractTopScaleFeatures(
-        &keypoints, &descriptors, options_.max_num_features);
-  }
-
   Retrieval retrieval;
   retrieval.image_id = image_id;
-  visual_index_->Query(query_options_,
-                       keypoints,
-                       descriptors.ToFloat(),
-                       &retrieval.image_scores);
+
+  // Each query must push exactly one result, because the consuming Next() pops
+  // exactly one result per query. If a query fails (e.g., due to corrupt
+  // features or an out-of-memory error during spatial verification), we still
+  // push an empty result and skip retrieval for this image. Otherwise, the
+  // consumer would block indefinitely waiting for a result that never arrives.
+  try {
+    auto keypoints = *cache_->GetKeypoints(image_id);
+    auto descriptors = *cache_->GetDescriptors(image_id);
+    if (options_.max_num_features > 0 &&
+        descriptors.data.rows() > options_.max_num_features) {
+      ExtractTopScaleFeatures(
+          &keypoints, &descriptors, options_.max_num_features);
+    }
+
+    visual_index_->Query(query_options_,
+                         keypoints,
+                         descriptors.ToFloat(),
+                         &retrieval.image_scores);
+  } catch (const std::exception& error) {
+    LOG(ERROR) << "Failed to query image " << image_id
+               << " against vocabulary tree, skipping: " << error.what();
+    retrieval.image_scores.clear();
+  }
 
   THROW_CHECK(queue_.Push(std::move(retrieval)));
 }
