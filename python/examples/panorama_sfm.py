@@ -60,6 +60,7 @@ PANO_RENDER_OPTIONS: dict[str, PanoRenderOptions] = {
 
 
 def create_virtual_camera(
+    *,
     pano_width: int,
     pano_height: int,
     hfov_deg: float,
@@ -69,13 +70,16 @@ def create_virtual_camera(
     image_width = int(pano_width * hfov_deg / 360)
     image_height = int(pano_height * vfov_deg / 180)
     focal = image_width / (2 * np.tan(np.deg2rad(hfov_deg) / 2))
-    return pycolmap.Camera.create_from_model_id(
+    camera = pycolmap.Camera.create_from_model_id(
         camera_id=0,
         model=pycolmap.CameraModelId.SIMPLE_PINHOLE,
         focal_length=focal,
         width=image_width,
         height=image_height,
     )
+    # Not set by create_from_model_id.
+    camera.has_prior_focal_length = True
+    return camera
 
 
 def get_virtual_camera_rays(
@@ -195,12 +199,12 @@ class PanoProcessor:
             return
 
         pano_exif = pano_pil_image.getexif()
-        pano_image = np.asarray(pano_pil_image)
         gpsonly_exif = PIL.Image.Exif()
         gpsonly_exif[PIL.ExifTags.IFD.GPSInfo] = pano_exif.get_ifd(
             PIL.ExifTags.IFD.GPSInfo
         )
 
+        pano_image = np.asarray(pano_pil_image)
         pano_height, pano_width, *_ = pano_image.shape
         if pano_width != pano_height * 2:
             raise ValueError("Only 360° panoramas are supported.")
@@ -380,10 +384,16 @@ def run_perspective(
         PANO_RENDER_OPTIONS[args.pano_render_type],
     )
 
+    rendered_camera = rig_config.cameras[0].camera
+    assert rendered_camera is not None  # Make mypy happy.
     pycolmap.extract_features(
         database_path,
         image_dir,
-        reader_options=pycolmap.ImageReaderOptions(mask_path=mask_dir),
+        reader_options=pycolmap.ImageReaderOptions(
+            mask_path=mask_dir,
+            camera_model=rendered_camera.model_name,
+            camera_params=rendered_camera.params_to_string(),
+        ),
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 
