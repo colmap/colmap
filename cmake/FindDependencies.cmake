@@ -127,7 +127,27 @@ if(TESTS_ENABLED)
 endif()
 
 if(HIP_ENABLED)
-    set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to ROCm installation")
+    # Locate the ROCm installation. Precedence: an explicit -DROCM_PATH, then the
+    # ROCM_PATH environment variable, then a pip/venv ROCm install (AMD's TheRock
+    # packaging exposes a "rocm-sdk" helper that reports its own root), then the
+    # system default /opt/rocm. This lets a non-default install (e.g. a Python
+    # virtualenv) be picked up without hand-setting paths.
+    find_program(ROCM_SDK_EXECUTABLE rocm-sdk)
+    set(_rocm_path_default "/opt/rocm")
+    if(DEFINED ENV{ROCM_PATH})
+        set(_rocm_path_default "$ENV{ROCM_PATH}")
+    elseif(ROCM_SDK_EXECUTABLE)
+        execute_process(
+            COMMAND "${ROCM_SDK_EXECUTABLE}" path --root
+            OUTPUT_VARIABLE _rocm_sdk_root
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+            RESULT_VARIABLE _rocm_sdk_root_result)
+        if(_rocm_sdk_root_result EQUAL 0 AND IS_DIRECTORY "${_rocm_sdk_root}")
+            set(_rocm_path_default "${_rocm_sdk_root}")
+        endif()
+    endif()
+    set(ROCM_PATH "${_rocm_path_default}" CACHE PATH "Path to ROCm installation")
     list(APPEND CMAKE_PREFIX_PATH "${ROCM_PATH}")
     find_package(hip REQUIRED)
     find_package(hiprand REQUIRED)
@@ -140,7 +160,27 @@ if(HIP_ENABLED)
     # number of HIP translation units inside an otherwise plain C++ build.
     enable_language(HIP)
     if(NOT DEFINED CMAKE_HIP_ARCHITECTURES OR CMAKE_HIP_ARCHITECTURES STREQUAL "")
-        set(CMAKE_HIP_ARCHITECTURES "gfx90a;gfx942;gfx1100" CACHE STRING
+        # When the user does not pin the target architectures, try to discover
+        # them from the local ROCm install via "rocm-sdk targets" (TheRock); it
+        # prints the gfx IDs the SDK was built for as a Python-style list, e.g.
+        # ['gfx1100', 'gfx1101']. Extract the gfx tokens regardless of quoting or
+        # separators, and fall back to a portable default set of validated parts.
+        set(_hip_archs "")
+        if(ROCM_SDK_EXECUTABLE)
+            execute_process(
+                COMMAND "${ROCM_SDK_EXECUTABLE}" targets
+                OUTPUT_VARIABLE _rocm_sdk_targets
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+                RESULT_VARIABLE _rocm_sdk_targets_result)
+            if(_rocm_sdk_targets_result EQUAL 0)
+                string(REGEX MATCHALL "gfx[0-9a-fA-F]+" _hip_archs "${_rocm_sdk_targets}")
+            endif()
+        endif()
+        if(NOT _hip_archs)
+            set(_hip_archs "gfx90a;gfx942;gfx1100")
+        endif()
+        set(CMAKE_HIP_ARCHITECTURES "${_hip_archs}" CACHE STRING
             "AMD GPU architectures to compile HIP code for" FORCE)
     endif()
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HIP_ENABLED)
