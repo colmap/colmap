@@ -141,6 +141,15 @@ you may also need ``HSA_OVERRIDE_GFX_VERSION=11.0.0`` in the runtime
 environment. The HIP backend currently accelerates dense reconstruction
 (``patch_match_stereo``); see the changelog for ongoing coverage.
 
+If ROCm is installed through a Python wheel / virtualenv (for example AMD's
+TheRock packaging, which puts a ``rocm-sdk`` command on the ``PATH``), the
+install root and target architectures are detected automatically from
+``rocm-sdk path --root`` and ``rocm-sdk targets``, so ``ROCM_PATH`` and
+``CMAKE_HIP_ARCHITECTURES`` need not be set by hand. An explicit
+``-DROCM_PATH`` or a ``ROCM_PATH`` environment variable still takes
+precedence, and CMake's own architecture autodetection sets
+``CMAKE_HIP_ARCHITECTURES`` when a target GPU is visible at configure time.
+
 Configure and compile COLMAP::
 
     git clone https://github.com/colmap/colmap.git
