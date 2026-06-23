@@ -1387,7 +1387,7 @@ int ProgramCU::CheckCudaDevice(int device)
 
 		}
     }
-    if(device >0 && device < count)
+    if(device >= 0 && device < count)
     {
         cudaSetDevice(device);
         CheckErrorCUDA("cudaSetDevice\n");

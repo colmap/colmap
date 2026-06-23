@@ -120,19 +120,7 @@ class ImageResizerThread : public Thread {
         auto& image_data = input_job.Data();
 
         if (image_data.status == ImageReader::Status::SUCCESS) {
-          if (static_cast<int>(image_data.bitmap->Width()) > max_image_size_ ||
-              static_cast<int>(image_data.bitmap->Height()) > max_image_size_) {
-            // Fit the down-sampled version exactly into the max dimensions.
-            const double scale = static_cast<double>(max_image_size_) /
-                                 std::max(image_data.bitmap->Width(),
-                                          image_data.bitmap->Height());
-            const int new_width =
-                static_cast<int>(image_data.bitmap->Width() * scale);
-            const int new_height =
-                static_cast<int>(image_data.bitmap->Height() * scale);
-
-            image_data.bitmap->Rescale(new_width, new_height);
-          }
+          image_data.bitmap->Thumbnail(max_image_size_);
         }
 
         output_queue_->Push(std::move(image_data));
@@ -297,10 +285,12 @@ class FeatureWriterThread : public Thread {
         LOG(INFO) << StringPrintf("  Camera:          #%d - %s",
                                   image_data.camera.camera_id,
                                   image_data.camera.ModelName().c_str());
-        LOG(INFO) << StringPrintf(
-            "  Focal Length:    %.2fpx%s",
-            image_data.camera.MeanFocalLength(),
-            image_data.camera.has_prior_focal_length ? " (Prior)" : "");
+        if (image_data.camera.IsPerspective()) {
+          LOG(INFO) << StringPrintf(
+              "  Focal Length:    %.2fpx%s",
+              image_data.camera.MeanFocalLength(),
+              image_data.camera.has_prior_focal_length ? " (Prior)" : "");
+        }
         LOG(INFO) << "  Features:        " << image_data.keypoints.size()
                   << " (" << extractor_type_str_ << ")";
         if (image_data.mask) {

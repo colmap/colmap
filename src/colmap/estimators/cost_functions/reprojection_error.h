@@ -39,6 +39,22 @@
 
 namespace colmap {
 
+// Periodic (azimuthal) camera models such as EQUIRECTANGULAR wrap the x image
+// coordinate at the ±π seam, so a raw pixel residual can jump by ~width across
+// the seam (e.g. an observation at x ≈ 0 whose 3D point reprojects to
+// x ≈ width). Wrap the x-residual into [-width/2, width/2) so the
+// bundle-adjustment cost stays continuous across the seam. The offset is
+// locally constant, so it does not perturb the residual's derivatives. No-op
+// for non-periodic camera models. (Elevation has no wrap, so y is untouched.)
+template <typename CameraModel, typename T>
+inline void WrapEquirectangularHorizontalSeam(const T* camera_params,
+                                              T* residuals) {
+  if constexpr (CameraModel::model_id == CameraModelId::kEquirectangular) {
+    const T width = camera_params[0];
+    residuals[0] -= width * ceres::floor(residuals[0] / width + T(0.5));
+  }
+}
+
 // Rotates the point and computes the Jacobian of R(q) * p with respect to Eigen
 // quaternions. J_out is a 3x4 matrix in row-major order.
 inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
@@ -169,6 +185,9 @@ class AnalyticalReprojErrorCostFunction
     }
 
     residuals_vec -= point2D_;
+    // No-op for non-periodic models. The offset is locally constant, so the
+    // analytic Jacobians below are unaffected.
+    WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
 
     if (J_point) {
       J_point_mat =
@@ -217,6 +236,7 @@ class ReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }
@@ -323,6 +343,7 @@ class RigReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }

@@ -1,5 +1,13 @@
 """
 An example for running incremental SfM on 360 spherical panorama images.
+
+Two modes are available via --pano_render_type:
+  * "perspective_overlapping" / "perspective_non_overlapping": render the
+    panoramas into a rig of perspective virtual cameras (cubemap-style)
+    and reconstruct from those.
+  * "spherical": reconstruct directly on the panoramas using the native
+    equirectangular camera model, without rendering perspective images.
+The "perspective_*" modes are generally more accurate but slower.
 """
 
 import argparse
@@ -43,7 +51,7 @@ PANO_RENDER_OPTIONS: dict[str, PanoRenderOptions] = {
         vfov_deg=90.0,
     ),
     # Cubemap without top and bottom images.
-    "non-overlapping": PanoRenderOptions(
+    "perspective_non_overlapping": PanoRenderOptions(
         num_steps_yaw=4,
         pitches_deg=(0.0,),
         hfov_deg=90.0,
@@ -290,21 +298,75 @@ def render_perspective_images(
     return processor.rig_config
 
 
-def run(args: argparse.Namespace) -> None:
-    pycolmap.set_random_seed(0)
+def run_matcher(
+    args: argparse.Namespace,
+    database_path: Path,
+    matching_options: pycolmap.FeatureMatchingOptions,
+) -> None:
+    if args.matcher == "sequential":
+        pycolmap.match_sequential(
+            database_path,
+            pairing_options=pycolmap.SequentialPairingOptions(
+                loop_detection=True
+            ),
+            matching_options=matching_options,
+        )
+    elif args.matcher == "exhaustive":
+        pycolmap.match_exhaustive(
+            database_path, matching_options=matching_options
+        )
+    elif args.matcher == "vocabtree":
+        pycolmap.match_vocabtree(
+            database_path, matching_options=matching_options
+        )
+    elif args.matcher == "spatial":
+        pycolmap.match_spatial(database_path, matching_options=matching_options)
+    else:
+        logging.fatal(f"Unknown matcher: {args.matcher}")
 
-    # Define the paths.
+
+def run_spherical(
+    args: argparse.Namespace, database_path: Path, rec_path: Path
+) -> None:
+    """Reconstruct directly on the equirectangular panoramas with the native
+    EQUIRECTANGULAR camera model, without rendering perspective images."""
+
+    logging.info("Reconstructing with spherical camera")
+
+    reader_options = pycolmap.ImageReaderOptions(camera_model="EQUIRECTANGULAR")
+    pycolmap.extract_features(
+        database_path,
+        args.input_image_path,
+        reader_options=reader_options,
+        camera_mode=pycolmap.CameraMode.SINGLE,
+    )
+
+    # A single EQUIRECTANGULAR camera observes the whole sphere from one
+    # center, so there is no rig and no per-frame image-pair skipping.
+    run_matcher(args, database_path, pycolmap.FeatureMatchingOptions())
+
+    # The EQUIRECTANGULAR model has no focal length, principal point, or
+    # distortion to refine; its (w, h) params are held constant in bundle
+    # adjustment.
+    recs = pycolmap.incremental_mapping(
+        database_path, args.input_image_path, rec_path
+    )
+    for idx, rec in recs.items():
+        logging.info(f"#{idx} {rec.summary()}")
+
+
+def run_perspective(
+    args: argparse.Namespace, database_path: Path, rec_path: Path
+) -> None:
+    """Render the panoramas into a rig of perspective virtual cameras and
+    reconstruct from those."""
+
+    logging.info("Reconstructing with rig of perspective virtual cameras")
+
     image_dir = args.output_path / "images"
     mask_dir = args.output_path / "masks"
     image_dir.mkdir(exist_ok=True, parents=True)
     mask_dir.mkdir(exist_ok=True, parents=True)
-
-    database_path = args.output_path / "database.db"
-    if database_path.exists():
-        database_path.unlink()
-
-    rec_path = args.output_path / "sparse"
-    rec_path.mkdir(exist_ok=True, parents=True)
 
     # Search for input images.
     pano_image_dir = args.input_image_path
@@ -346,26 +408,7 @@ def run(args: argparse.Namespace) -> None:
     matching_options.rig_verification = True
     # The images within a frame do not have overlap due to the provided masks.
     matching_options.skip_image_pairs_in_same_frame = True
-    if args.matcher == "sequential":
-        pycolmap.match_sequential(
-            database_path,
-            pairing_options=pycolmap.SequentialPairingOptions(
-                loop_detection=True
-            ),
-            matching_options=matching_options,
-        )
-    elif args.matcher == "exhaustive":
-        pycolmap.match_exhaustive(
-            database_path, matching_options=matching_options
-        )
-    elif args.matcher == "vocabtree":
-        pycolmap.match_vocabtree(
-            database_path, matching_options=matching_options
-        )
-    elif args.matcher == "spatial":
-        pycolmap.match_spatial(database_path, matching_options=matching_options)
-    else:
-        logging.fatal(f"Unknown matcher: {args.matcher}")
+    run_matcher(args, database_path, matching_options)
 
     opts = pycolmap.IncrementalPipelineOptions(
         ba_refine_sensor_from_rig=False,
@@ -380,6 +423,22 @@ def run(args: argparse.Namespace) -> None:
         logging.info(f"#{idx} {rec.summary()}")
 
 
+def run(args: argparse.Namespace) -> None:
+    pycolmap.set_random_seed(0)
+
+    database_path = args.output_path / "database.db"
+    if database_path.exists():
+        database_path.unlink()
+
+    rec_path = args.output_path / "sparse"
+    rec_path.mkdir(exist_ok=True, parents=True)
+
+    if args.pano_render_type == "spherical":
+        run_spherical(args, database_path, rec_path)
+    else:
+        run_perspective(args, database_path, rec_path)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_image_path", type=Path, required=True)
@@ -391,7 +450,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--pano_render_type",
-        default="overlapping",
-        choices=list(PANO_RENDER_OPTIONS.keys()),
+        default="perspective_overlapping",
+        # "spherical" reconstructs directly on the panoramas with the native
+        # EQUIRECTANGULAR camera model instead of rendering perspective images.
+        choices=[*PANO_RENDER_OPTIONS.keys(), "spherical"],
     )
     run(parser.parse_args())

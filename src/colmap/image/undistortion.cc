@@ -49,6 +49,12 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   THROW_CHECK_LT(options.roi_min_x, options.roi_max_x);
   THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
 
+  // Undistortion produces a pinhole image, which is only well-defined for
+  // perspective cameras. Omnidirectional models (e.g. EQUIRECTANGULAR) have no
+  // pinhole image plane and cannot be undistorted; callers skip them, but guard
+  // here too rather than dereferencing the (empty) focal-length parameters.
+  THROW_CHECK(camera.IsPerspective());
+
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
   undistorted_camera.width = camera.width;
@@ -268,6 +274,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   const std::unordered_map<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
+    // IsUndistorted() is true for non-perspective cameras (e.g.
+    // EQUIRECTANGULAR), which cannot be undistorted to a pinhole, so they are
+    // left unchanged.
     if (camera.second.IsUndistorted()) {
       continue;
     }
@@ -278,6 +287,12 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   for (const auto& distorted_image : reconstruction->Images()) {
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
+    // Cameras left unchanged above (undistorted perspective cameras and all
+    // non-perspective cameras, e.g. EQUIRECTANGULAR) need no observation
+    // rewrite.
+    if (distorted_camera.IsUndistorted()) {
+      continue;
+    }
     const Camera& undistorted_camera = *image.CameraPtr();
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {

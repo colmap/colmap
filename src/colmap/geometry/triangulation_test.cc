@@ -88,6 +88,44 @@ TEST(TriangulatePoint, ParallelRays) {
       &point3D));
 }
 
+TEST(TriangulatePoint, Bearings) {
+  const std::vector<Eigen::Vector3d> points3D = {
+      Eigen::Vector3d(0, 0.1, 0.1),
+      Eigen::Vector3d(0, 1, 3),
+      Eigen::Vector3d(-1, 0.1, 1),
+      Eigen::Vector3d(0.1, 0.1, -0.5),  // behind cam1 (negative Z)
+      Eigen::Vector3d(0.2, -0.3, -2),   // behind cam1
+  };
+
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond(0.21, 0.31, 0.41, 0.1),
+                                Eigen::Vector3d(1, 2, 3));
+
+  for (const Eigen::Vector3d& point3D : points3D) {
+    const Eigen::Vector3d cam_ray1 = (cam1_from_world * point3D).normalized();
+    const Eigen::Vector3d cam_ray2 = (cam2_from_world * point3D).normalized();
+
+    Eigen::Vector3d tri_point3D;
+    EXPECT_TRUE(TriangulatePoint(cam1_from_world.ToMatrix(),
+                                 cam2_from_world.ToMatrix(),
+                                 cam_ray1,
+                                 cam_ray2,
+                                 &tri_point3D));
+    EXPECT_THAT(point3D, EigenMatrixNear(tri_point3D, 1e-9));
+  }
+}
+
+TEST(TriangulatePoint, BearingsParallelRays) {
+  Eigen::Vector3d point3D;
+  EXPECT_FALSE(TriangulatePoint(
+      Rigid3d().ToMatrix(),
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0))
+          .ToMatrix(),
+      Eigen::Vector3d(0, 0, 1),
+      Eigen::Vector3d(0, 0, 1),
+      &point3D));
+}
+
 TEST(TriangulateMidPoint, Nominal) {
   constexpr int kNumTrials = 10;
   for (int i = 0; i < kNumTrials; ++i) {
@@ -190,6 +228,45 @@ TEST(TriangulateMultiViewPoint, Nominal) {
         EXPECT_THAT(point3D, EigenMatrixNear(tri_point3D, 1e-10));
       }
     }
+  }
+}
+
+TEST(TriangulateMultiViewPoint, Bearings) {
+  // The 3D bearing overload recovers the same points as the 2D overload, and
+  // additionally handles back-hemisphere rays (negative Z in the camera frame)
+  // that the 2D (u, v, 1) representation cannot encode -- as produced by
+  // omnidirectional (e.g. EQUIRECTANGULAR) cameras.
+  const std::vector<Eigen::Vector3d> points3D = {
+      Eigen::Vector3d(0, 0.1, 0.1),
+      Eigen::Vector3d(0, 1, 3),
+      Eigen::Vector3d(-1, 0.1, 1),
+      Eigen::Vector3d(0.1, 0.1, -0.5),  // behind cam1 (negative Z)
+      Eigen::Vector3d(0.2, -0.3, -2),   // behind cam1
+  };
+
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond(0.21, 0.31, 0.41, 0.1),
+                                Eigen::Vector3d(1, 2, 3));
+  const Rigid3d cam3_from_world(Eigen::Quaterniond(0.2, 0.3, 0.4, 0.05),
+                                Eigen::Vector3d(2, 2.1, 3.1));
+  const std::array<Eigen::Matrix3x4d, 3> cams_from_world = {
+      cam1_from_world.ToMatrix(),
+      cam2_from_world.ToMatrix(),
+      cam3_from_world.ToMatrix()};
+
+  for (const Eigen::Vector3d& point3D : points3D) {
+    const std::array<Eigen::Vector3d, 3> cam_rays = {
+        (cam1_from_world * point3D).normalized(),
+        (cam2_from_world * point3D).normalized(),
+        (cam3_from_world * point3D).normalized()};
+
+    Eigen::Vector3d tri_point3D;
+    EXPECT_TRUE(TriangulateMultiViewPoint(
+        span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                      cams_from_world.size()),
+        span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
+        &tri_point3D));
+    EXPECT_THAT(point3D, EigenMatrixNear(tri_point3D, 1e-9));
   }
 }
 
