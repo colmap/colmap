@@ -308,7 +308,7 @@ TEST(RefineAbsolutePose, PositionPriorCovariance) {
   AbsolutePoseRefinementOptions strong_prior_options = weak_prior_options;
   // Small covariance = strong prior (low uncertainty).
   strong_prior_options.position_prior_covariance =
-      0.01 * Eigen::Matrix3d::Identity();
+      0.0001 * Eigen::Matrix3d::Identity();
 
   const Rigid3d initial_cam_from_world(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX())),
