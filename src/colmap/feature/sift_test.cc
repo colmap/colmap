@@ -38,6 +38,7 @@
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/essential_matrix.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/util/opengl_utils.h"
 

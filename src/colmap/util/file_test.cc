@@ -196,7 +196,11 @@ TEST(FileCopy, Nominal) {
   EXPECT_TRUE(ExistsFile(dst_hard_link_path));
 
   const auto dst_soft_link_path = dir / "destination_soft_link.txt";
-  FileCopy(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
+  try {
+    FileCopy(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
+  } catch (const std::filesystem::filesystem_error& e) {
+    GTEST_SKIP() << "Could not create symlink: " << e.what();
+  }
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
 }
 
