@@ -47,6 +47,14 @@ class Mapper(enum.StrEnum):
     GLOBAL = enum.auto()
 
 
+class PanoRenderType(enum.StrEnum):
+    PERSPECTIVE_OVERLAPPING = enum.auto()
+    PERSPECTIVE_NON_OVERLAPPING = enum.auto()
+    # Reconstruct directly on the panoramas with the native EQUIRECTANGULAR
+    # camera model instead of rendering perspective images.
+    SPHERICAL = enum.auto()
+
+
 N = TypeVar("N", bound=int)
 NDArrayNx2 = np.ndarray[tuple[N, Literal[2]], np.dtype[np.float64]]
 NDArray3x1 = np.ndarray[tuple[Literal[3], Literal[1]], np.dtype[np.float64]]
@@ -61,15 +69,15 @@ class PanoRenderOptions:
     vfov_deg: float
 
 
-PANO_RENDER_OPTIONS: dict[str, PanoRenderOptions] = {
-    "perspective_overlapping": PanoRenderOptions(
+PANO_RENDER_OPTIONS: dict[PanoRenderType, PanoRenderOptions] = {
+    PanoRenderType.PERSPECTIVE_OVERLAPPING: PanoRenderOptions(
         num_steps_yaw=4,
         pitches_deg=(-35.0, 0.0, 35.0),
         hfov_deg=90.0,
         vfov_deg=90.0,
     ),
     # Cubemap without top and bottom images.
-    "perspective_non_overlapping": PanoRenderOptions(
+    PanoRenderType.PERSPECTIVE_NON_OVERLAPPING: PanoRenderOptions(
         num_steps_yaw=4,
         pitches_deg=(0.0,),
         hfov_deg=90.0,
@@ -606,7 +614,7 @@ def run(args: argparse.Namespace) -> None:
     rec_path = args.output_path / "sparse"
     rec_path.mkdir(exist_ok=True, parents=True)
 
-    if args.pano_render_type == "spherical":
+    if args.pano_render_type == PanoRenderType.SPHERICAL:
         run_spherical(args, database_path, rec_path)
     else:
         run_perspective(args, database_path, rec_path)
@@ -630,10 +638,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--pano_render_type",
-        default="perspective_overlapping",
-        # "spherical" reconstructs directly on the panoramas with the native
-        # EQUIRECTANGULAR camera model instead of rendering perspective images.
-        choices=[*PANO_RENDER_OPTIONS.keys(), "spherical"],
+        type=PanoRenderType,
+        default=PanoRenderType.PERSPECTIVE_OVERLAPPING,
+        choices=list(PanoRenderType),
     )
     args = parser.parse_args()
     run(args)
