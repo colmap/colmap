@@ -36,6 +36,7 @@ from pycolmap import logging
 N = TypeVar("N", bound=int)
 NDArrayNx2 = np.ndarray[tuple[N, Literal[2]], np.dtype[np.float64]]
 NDArray3x1 = np.ndarray[tuple[Literal[3], Literal[1]], np.dtype[np.float64]]
+NDArray3x3 = np.ndarray[tuple[Literal[3], Literal[3]], np.dtype[np.float64]]
 
 
 @dataclass
@@ -313,8 +314,10 @@ class PanoProcessor:
         # pano_from_world = pano_from_cam0 @ cam0_from_world. The virtual
         # cameras share the panorama center, hence the zero translation.
         pano_from_ref = pycolmap.Rigid3d(
-            pycolmap.Rotation3d(self.cams_from_pano_rotation[0]),
-            np.zeros((3, 1), dtype=np.float64),
+            pycolmap.Rotation3d(
+                cast(NDArray3x3, self.cams_from_pano_rotation[0])
+            ),
+            cast(NDArray3x1, np.zeros((3, 1), dtype=np.float64)),
         ).inverse()
 
         # Group the registered virtual cameras by frame. All virtual cameras of
@@ -340,7 +343,11 @@ class PanoProcessor:
         for image_id, images in enumerate(frame_images, start=1):
             pano_name = self.split_image_name(images[0].name)[1]
             pano_to_image_id[pano_name] = image_id
-            pano_from_world = pano_from_ref * images[0].frame.rig_from_world
+            frame = images[0].frame
+            assert frame is not None
+            rig_from_world = frame.rig_from_world
+            assert rig_from_world is not None
+            pano_from_world = pano_from_ref * rig_from_world
 
             # Concatenate the keypoints of all virtual cameras of this panorama.
             keypoints: list[npt.NDArray[np.floating]] = []
