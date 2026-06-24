@@ -1,12 +1,8 @@
 Changelog
 =========
 
-.. Draft changelog for the 4.1.0 release, covering all changes on main since the
-   4.0.0 branch point. Some bug fixes listed below already shipped in the
-   4.0.1-4.0.4 patch releases; deduplicate as needed before tagging.
-
 -------------------------
-COLMAP 4.1.0 (unreleased)
+COLMAP 4.1.0 (25/06/2026)
 -------------------------
 
 New Features
@@ -14,50 +10,46 @@ New Features
 * Added Caspar, a GPU-accelerated bundle adjustment backend, selectable as an
   alternative to the Ceres solver. Includes rig support, GPU device selection,
   and pycolmap bindings for choosing the bundle adjustment and mapper backends.
-* Added the EUCM (Enhanced Unified Camera Model) camera model.
-* Added a spherical (equirectangular) camera model.
+* Added EUCM (Enhanced Unified Camera Model) camera model.
+* Added spherical (equirectangular) camera model. The ``panorama_sfm`` example
+  can now convert perspective cameras back to equirectangular and supports
+  incremental and global mapping.
 * Added advancing-front surface reconstruction meshing.
 * Added gravity-only pose priors.
 * Added ``CamRayFromImg`` bearing-vector unprojection interface and bindings.
 * Estimate separate ``fx``/``fy`` in the p4pf solver for two-focal camera models.
-* Added a new CLI command to print the COLMAP version.
+* Added a new ``version`` CLI command to print the COLMAP version.
 * Added ``MVS_ENABLED`` build option to compile without the MVS module.
 * Added ``GlobalMapper.keep_max_num_tracks`` option to bound established tracks.
 * Added rotation averaging options to the GlobalMapper configuration.
-* Added new camera specs to the camera database.
-* Bound ``ReprojectionErrorType`` and additional point filter methods in pycolmap.
-* Show the camera up vector in the viewer.
+* Added pycolmap bindings for ``ReprojectionErrorType`` and
+  additional point filter methods.
+* Added support for showing camera up vector in the viewer.
 * Replaced the GUI icons with Material Symbols (Apache 2.0).
 * Added keyboard shortcuts for model import/export in the GUI.
-* The ``panorama_sfm`` example can now convert perspective cameras back to
-  equirectangular and supports incremental and global mapping.
 
 Improvements
 ------------
 * Accelerated the exhaustive matcher by using ``IndexIVFScalarQuantizer``
   instead of ``IndexIVFFlat``.
 * Parallelized color extraction across all images.
+* Added and updated sensor specs to the camera database.
 * Avoided a forced copy in ``mvs::Image::SetBitmap``.
-* Reduced rehashing by reserving unordered maps and other micro-optimizations.
-* Reused BFS allocations and simplified ``merge_trials_`` in the incremental
-  triangulator.
-* Move semantics for ``SetPoints2D`` (take ``Point2D`` vector by value).
+* Faster incremental triangulator through reused BFS allocations and
+  simplified ``merge_trials_`` in the
 * Support incremental ``CorrespondenceGraph`` and ``ObservationManager``
   construction, decoupling ``reg_stats`` from ``ObservationManager``.
 * Return ``std::optional`` from ``Bitmap::GetPixel``/``Interpolate*``.
-* Use ``Camera::CreateFromModelId`` with enum instead of ``CreateFromModelName``.
-* Clip extreme pixels in fisheye undistortion.
 * Refit missing E/F/H in ``MaybeDecomposeRelativePoses`` for old databases.
 * Inherit all bundle adjustment options in the global mapper.
 * Guard against frame mutation after reconstruction insertion via
   ``FinalizeDataIds()``.
+* Move semantics for ``SetPoints2D`` (take ``Point2D`` vector by value).
 * Conditional initialization of Google logging.
 * Numerous benchmarking improvements: live progress display, ``--fast`` mode,
   better parallelism and per-step logging, per-dataset/overall summary rows,
   GT-covisibility-based filtering, and dynamic scheduling.
 * Added compiler warning flags and a ``WERROR`` option to the pycolmap build.
-* Updated third-party dependencies: PoseLib, ONNX Runtime, pybind11,
-  cibuildwheel, vcpkg baseline, ruff, and clang-format.
 * Various tutorial and docstring improvements.
 * For other minor improvements, see the full list of changes below.
 
@@ -93,7 +85,6 @@ Bug Fixes
 * Fix mask usage log never printing in the feature writer thread.
 * Fix ``pyceres`` ``.problem`` attribute on ``CeresBundleAdjuster`` factory
   functions.
-* Disambiguate the ``ceres::GradientChecker`` constructor.
 * Fix conditional Eigen alignment for the 3.4.0 pre-release version.
 * Fix optional access in guided matching.
 * Fix reading of dynamic matrices in the SQLite database.

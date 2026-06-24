@@ -14,6 +14,7 @@ virtual cameras back onto the original equirectangular input images.
 
 import argparse
 import collections
+import enum
 import os
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,6 +34,27 @@ from tqdm import tqdm
 import pycolmap
 from pycolmap import logging
 
+
+class Matcher(enum.StrEnum):
+    SEQUENTIAL = enum.auto()
+    EXHAUSTIVE = enum.auto()
+    VOCABTREE = enum.auto()
+    SPATIAL = enum.auto()
+
+
+class Mapper(enum.StrEnum):
+    INCREMENTAL = enum.auto()
+    GLOBAL = enum.auto()
+
+
+class PanoRenderType(enum.StrEnum):
+    PERSPECTIVE_OVERLAPPING = enum.auto()
+    PERSPECTIVE_NON_OVERLAPPING = enum.auto()
+    # Reconstruct directly on the panoramas with the native EQUIRECTANGULAR
+    # camera model instead of rendering perspective images.
+    SPHERICAL = enum.auto()
+
+
 N = TypeVar("N", bound=int)
 NDArrayNx2 = np.ndarray[tuple[N, Literal[2]], np.dtype[np.float64]]
 NDArray3x1 = np.ndarray[tuple[Literal[3], Literal[1]], np.dtype[np.float64]]
@@ -47,15 +69,15 @@ class PanoRenderOptions:
     vfov_deg: float
 
 
-PANO_RENDER_OPTIONS: dict[str, PanoRenderOptions] = {
-    "perspective_overlapping": PanoRenderOptions(
+PANO_RENDER_OPTIONS: dict[PanoRenderType, PanoRenderOptions] = {
+    PanoRenderType.PERSPECTIVE_OVERLAPPING: PanoRenderOptions(
         num_steps_yaw=4,
         pitches_deg=(-35.0, 0.0, 35.0),
         hfov_deg=90.0,
         vfov_deg=90.0,
     ),
     # Cubemap without top and bottom images.
-    "perspective_non_overlapping": PanoRenderOptions(
+    PanoRenderType.PERSPECTIVE_NON_OVERLAPPING: PanoRenderOptions(
         num_steps_yaw=4,
         pitches_deg=(0.0,),
         hfov_deg=90.0,
@@ -545,15 +567,30 @@ def run_perspective(
     matching_options.skip_image_pairs_in_same_frame = True
     run_matcher(args, database_path, matching_options)
 
-    opts = pycolmap.IncrementalPipelineOptions(
-        ba_refine_sensor_from_rig=False,
-        ba_refine_focal_length=False,
-        ba_refine_principal_point=False,
-        ba_refine_extra_params=False,
-    )
-    recs = pycolmap.incremental_mapping(
-        database_path, image_dir, rec_path, opts
-    )
+    if args.mapper == Mapper.INCREMENTAL:
+        opts = pycolmap.IncrementalPipelineOptions(
+            ba_refine_sensor_from_rig=False,
+            ba_refine_focal_length=False,
+            ba_refine_principal_point=False,
+            ba_refine_extra_params=False,
+        )
+        recs = pycolmap.incremental_mapping(
+            database_path, image_dir, rec_path, opts
+        )
+    elif args.mapper == Mapper.GLOBAL:
+        global_opts = pycolmap.GlobalPipelineOptions(
+            mapper=pycolmap.GlobalMapperOptions(refine_sensor_from_rig=False)
+        )
+        # Don't set these in the init to not overwrite custom default options.
+        global_opts.mapper.bundle_adjustment.refine_focal_length = False
+        global_opts.mapper.bundle_adjustment.refine_principal_point = False
+        global_opts.mapper.bundle_adjustment.refine_extra_params = False
+        recs = pycolmap.global_mapping(
+            database_path, image_dir, rec_path, global_opts
+        )
+    else:
+        logging.fatal(f"Unknown mapper: {args.mapper}")
+
     for idx, rec in recs.items():
         logging.info(f"#{idx} {rec.summary()}")
 
@@ -577,7 +614,7 @@ def run(args: argparse.Namespace) -> None:
     rec_path = args.output_path / "sparse"
     rec_path.mkdir(exist_ok=True, parents=True)
 
-    if args.pano_render_type == "spherical":
+    if args.pano_render_type == PanoRenderType.SPHERICAL:
         run_spherical(args, database_path, rec_path)
     else:
         run_perspective(args, database_path, rec_path)
@@ -589,15 +626,21 @@ if __name__ == "__main__":
     parser.add_argument("--output_path", type=Path, required=True)
     parser.add_argument(
         "--matcher",
-        default="sequential",
-        choices=["sequential", "exhaustive", "vocabtree", "spatial"],
+        type=Matcher,
+        default=Matcher.SEQUENTIAL,
+        choices=list(Matcher),
+    )
+    parser.add_argument(
+        "--mapper",
+        type=Mapper,
+        default=Mapper.INCREMENTAL,
+        choices=list(Mapper),
     )
     parser.add_argument(
         "--pano_render_type",
-        default="perspective_overlapping",
-        # "spherical" reconstructs directly on the panoramas with the native
-        # EQUIRECTANGULAR camera model instead of rendering perspective images.
-        choices=[*PANO_RENDER_OPTIONS.keys(), "spherical"],
+        type=PanoRenderType,
+        default=PanoRenderType.PERSPECTIVE_OVERLAPPING,
+        choices=list(PanoRenderType),
     )
     args = parser.parse_args()
     run(args)
