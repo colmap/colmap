@@ -60,6 +60,12 @@ class RotationAveragingProblem {
     return constraint_matrix_;
   }
   const Eigen::VectorXd& Residuals() const { return residuals_; }
+  // Per-residual-row weights derived from edge match counts. Only populated
+  // when options_.weight_by_num_matches is true; std::nullopt otherwise (no
+  // memory overhead). When present, its length equals NumResiduals().
+  const std::optional<Eigen::VectorXd>& EdgeWeights() const {
+    return edge_weights_;
+  }
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
   int NumGaugeFixingResiduals() const { return num_gauge_fixing_residuals_; }
@@ -92,6 +98,10 @@ class RotationAveragingProblem {
   // Linear system components.
   Eigen::SparseMatrix<double> constraint_matrix_;  // Matrix A.
   Eigen::VectorXd residuals_;                      // Vector b.
+
+  // Optional per-row edge weights (num_matches), applied to the linear system
+  // when weight_by_num_matches is enabled.
+  std::optional<Eigen::VectorXd> edge_weights_;
 
   // Current rotation estimates in tangent space (angle-axis).
   Eigen::VectorXd estimated_rotations_;

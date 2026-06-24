@@ -445,6 +445,23 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   // Initialize residual vector.
   residuals_.resize(curr_row);
+
+  // Optionally build per-row edge weights from the number of two-view matches.
+  // Gauge-fixing rows keep weight 1. Left as nullopt (no allocation) when the
+  // feature is disabled.
+  if (options_.weight_by_num_matches) {
+    Eigen::VectorXd weights = Eigen::VectorXd::Ones(curr_row);
+    for (const auto& [pair_id, constraint] : pair_constraints_) {
+      const double num_matches =
+          static_cast<double>(pose_graph.Edges().at(pair_id).num_matches);
+      if (std::holds_alternative<GravityAligned1DOF>(constraint.constraint)) {
+        weights[constraint.row_index] = num_matches;
+      } else {
+        weights.segment<3>(constraint.row_index).setConstant(num_matches);
+      }
+    }
+    edge_weights_ = std::move(weights);
+  }
 }
 
 void RotationAveragingProblem::ComputeResiduals() {
@@ -660,8 +677,21 @@ bool RotationAveragingSolver::SolveL1Regression(
       LeastAbsoluteDeviationSolver::Options::SolverType::SupernodalCholmodLLT;
   l1_solver_options.ridge_regularization = options_.ridge_regularization;
 
-  LeastAbsoluteDeviationSolver l1_solver(l1_solver_options,
-                                         problem.ConstraintMatrix());
+  // For weighted rotation averaging, scale the rows of the constraint matrix
+  // (and, below, the residuals) by the edge weights. This solves the weighted
+  // problem min ||D(Ax-b)||_1 = sum_i w_i |r_i| without altering the stored
+  // constraint matrix. For a noise-free (consistent) system, the minimizer is
+  // unchanged.
+  const bool weighted = problem.EdgeWeights().has_value();
+  Eigen::SparseMatrix<double> weighted_matrix;
+  if (weighted) {
+    weighted_matrix =
+        problem.EdgeWeights()->asDiagonal() * problem.ConstraintMatrix();
+  }
+  const Eigen::SparseMatrix<double>& l1_matrix =
+      weighted ? weighted_matrix : problem.ConstraintMatrix();
+
+  LeastAbsoluteDeviationSolver l1_solver(l1_solver_options, l1_matrix);
   if (!l1_solver.Valid()) {
     LOG(ERROR) << "L1 regression linear solver factorization failed";
     return false;
@@ -682,8 +712,14 @@ bool RotationAveragingSolver::SolveL1Regression(
     prev_norm = curr_norm;
 
     step.setZero();
-    if (!l1_solver.Solve(problem.Residuals(), &step) ||
-        step.array().isNaN().any()) {
+    Eigen::VectorXd weighted_residuals;
+    if (weighted) {
+      weighted_residuals =
+          problem.EdgeWeights()->asDiagonal() * problem.Residuals();
+    }
+    const Eigen::VectorXd& b =
+        weighted ? weighted_residuals : problem.Residuals();
+    if (!l1_solver.Solve(b, &step) || step.array().isNaN().any()) {
       LOG(ERROR) << "L1 regression solve failed (iteration " << iteration
                  << ")";
       return false;
@@ -790,6 +826,14 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     auto weights_irls = ComputeIRLSWeights(problem, sigma);
     if (!weights_irls) {
       return false;
+    }
+
+    // For weighted rotation averaging, fold the per-edge weights into the IRLS
+    // weights. They then propagate to both the system matrix at_weight_a and
+    // the right-hand side at_weight * residuals below, scaling both sides of
+    // the linear system by the same weights.
+    if (problem.EdgeWeights().has_value()) {
+      *weights_irls = weights_irls->cwiseProduct(*problem.EdgeWeights());
     }
 
     // Optionally add a small Tikhonov ridge to stabilize poorly conditioned

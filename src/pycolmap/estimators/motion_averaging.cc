@@ -182,7 +182,12 @@ void BindRotationEstimator(py::module& m) {
               "refine_sensor_from_rig",
               &RotationEstimatorOptions::refine_sensor_from_rig,
               "When False, treat each non-ref sensor's cam_from_rig as a "
-              "pre-calibrated constant.");
+              "pre-calibrated constant.")
+          .def_readwrite(
+              "weight_by_num_matches",
+              &RotationEstimatorOptions::weight_by_num_matches,
+              "Weight each constraint by its edge's number of two-view "
+              "matches.");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(

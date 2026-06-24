@@ -79,6 +79,12 @@ struct RotationEstimatorOptions {
   // When false, treat each non-ref sensor's cam_from_rig rotation as a
   // pre-calibrated constant
   bool refine_sensor_from_rig = true;
+
+  // If true, weight each relative-rotation constraint by the number of
+  // two-view matches (PoseGraph::Edge::num_matches) of the corresponding edge.
+  // Weights are applied as a diagonal scaling of the linear system, so a
+  // noise-free (consistent) system yields an identical solution.
+  bool weight_by_num_matches = false;
 };
 
 // High-level interface for rotation averaging.

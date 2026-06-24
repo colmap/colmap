@@ -840,6 +840,9 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_max_rotation_error_deg",
       &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
+  AddDefaultOption(
+      "GlobalMapper.ra_weight_by_num_matches",
+      &global_mapper->mapper.rotation_averaging.weight_by_num_matches);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
