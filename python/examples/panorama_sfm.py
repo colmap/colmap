@@ -358,7 +358,7 @@ class PanoProcessor:
                     old_to_new_point2D[image.image_id] = {}
                     continue
                 xy = np.array([point2D.xy for point2D in image.points2D])
-                rays_in_cam = np.asarray(
+                rays_in_cam: npt.NDArray[np.floating] = np.asarray(
                     self._camera.cam_ray_from_img(image_points=xy)
                 )
                 rays_in_cam /= np.linalg.norm(
