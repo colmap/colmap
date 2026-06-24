@@ -7,10 +7,13 @@ Two modes are available via --pano_render_type:
     and reconstruct from those.
   * "spherical": reconstruct directly on the panoramas using the native
     equirectangular camera model, without rendering perspective images.
-The "perspective_*" modes are generally more accurate but slower.
+The "perspective_*" modes are generally more accurate but slower. For these
+modes, the script additionally writes a reconstruction that maps the perspective
+virtual cameras back onto the original equirectangular input images.
 """
 
 import argparse
+import collections
 import os
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -44,7 +47,7 @@ class PanoRenderOptions:
 
 
 PANO_RENDER_OPTIONS: dict[str, PanoRenderOptions] = {
-    "overlapping": PanoRenderOptions(
+    "perspective_overlapping": PanoRenderOptions(
         num_steps_yaw=4,
         pitches_deg=(-35.0, 0.0, 35.0),
         hfov_deg=90.0,
@@ -270,6 +273,130 @@ class PanoProcessor:
             if not pycolmap.Bitmap.from_array(mask).write(mask_path):
                 raise RuntimeError(f"Cannot write {mask_path}")
 
+    def split_image_name(self, image_name: str) -> tuple[int, str]:
+        """Split a rendered image name into (virtual camera idx, pano name)."""
+        for cam_idx, rig_camera in enumerate(self.rig_config.cameras):
+            prefix = rig_camera.image_prefix
+            if image_name.startswith(prefix):
+                return cam_idx, image_name[len(prefix) :]
+        raise ValueError(f"Unknown virtual camera for image {image_name!r}.")
+
+    def convert_to_equirectangular(
+        self, reconstruction: pycolmap.Reconstruction
+    ) -> pycolmap.Reconstruction:
+        """Convert a reconstruction built from the rig of perspective virtual
+        cameras back to one equirectangular camera/image per input panorama.
+
+        The output reconstruction references the original panorama images with
+        the native EQUIRECTANGULAR camera model. Frame poses, 3D points, and
+        all keypoints (including those without a 3D observation) are carried
+        over by re-projecting the perspective keypoints onto the panorama
+        through the same spherical mapping used for rendering, so the result is
+        a valid, bundle-adjustable reconstruction.
+        """
+        if self._camera is None or self._pano_size is None:
+            raise RuntimeError("No panorama was rendered yet.")
+        pano_width, pano_height = self._pano_size
+
+        equirect = pycolmap.Reconstruction()
+        equirect_camera = pycolmap.Camera.create_from_model_id(
+            camera_id=1,
+            model=pycolmap.CameraModelId.EQUIRECTANGULAR,
+            focal_length=0.0,
+            width=pano_width,
+            height=pano_height,
+        )
+        equirect.add_camera_with_trivial_rig(equirect_camera)
+
+        # The rig reference sensor is virtual camera 0 (see
+        # create_pano_rig_config), so rig_from_world == cam0_from_world and
+        # pano_from_world = pano_from_cam0 @ cam0_from_world. The virtual
+        # cameras share the panorama center, hence the zero translation.
+        pano_from_ref = pycolmap.Rigid3d(
+            pycolmap.Rotation3d(self.cams_from_pano_rotation[0]),
+            np.zeros((3, 1), dtype=np.float64),
+        ).inverse()
+
+        # Group the registered virtual cameras by frame. All virtual cameras of
+        # a frame observe the same panorama and share its pose, so we can
+        # accumulate their keypoints into a single equirectangular image.
+        images_by_frame: dict[int, list[pycolmap.Image]] = (
+            collections.defaultdict(list)
+        )
+        for image in reconstruction.images.values():
+            if image.has_pose:
+                images_by_frame[image.frame_id].append(image)
+
+        # Maps an image_id of a virtual camera to a dict from its old point2D
+        # index to the (new point2D index, pano_name) in the equirectangular
+        # image, so we can later rebuild the 3D point tracks.
+        old_to_new_point2D: dict[int, dict[int, tuple[int, str]]] = {}
+        pano_to_image_id: dict[str, int] = {}
+
+        frame_images = sorted(
+            images_by_frame.values(),
+            key=lambda images: self.split_image_name(images[0].name)[1],
+        )
+        for image_id, images in enumerate(frame_images, start=1):
+            pano_name = self.split_image_name(images[0].name)[1]
+            pano_to_image_id[pano_name] = image_id
+            pano_from_world = pano_from_ref * images[0].frame.rig_from_world
+
+            # Concatenate the keypoints of all virtual cameras of this panorama.
+            keypoints: list[npt.NDArray[np.floating]] = []
+            for image in images:
+                cam_idx = self.split_image_name(image.name)[0]
+                num_points2D = len(image.points2D)
+                if num_points2D == 0:
+                    old_to_new_point2D[image.image_id] = {}
+                    continue
+                xy = np.array([point2D.xy for point2D in image.points2D])
+                rays_in_cam = np.asarray(
+                    self._camera.cam_ray_from_img(image_points=xy)
+                )
+                rays_in_cam /= np.linalg.norm(
+                    rays_in_cam, axis=-1, keepdims=True
+                )
+                rays_in_pano = (
+                    rays_in_cam @ self.cams_from_pano_rotation[cam_idx]
+                )
+                xy_in_pano = spherical_img_from_cam(
+                    self._pano_size, rays_in_pano
+                )
+
+                base_idx = len(keypoints)
+                keypoints.extend(xy_in_pano)
+                old_to_new_point2D[image.image_id] = {
+                    point2D_idx: (base_idx + point2D_idx, pano_name)
+                    for point2D_idx in range(num_points2D)
+                }
+
+            equirect.add_image_with_trivial_frame(
+                pycolmap.Image(
+                    name=pano_name,
+                    keypoints=keypoints,
+                    camera_id=equirect_camera.camera_id,
+                    image_id=image_id,
+                ),
+                pano_from_world,
+            )
+
+        for point3D_id, point3D in reconstruction.points3D.items():
+            track = pycolmap.Track()
+            for element in point3D.track.elements:
+                new_point2D_idx, pano_name = old_to_new_point2D[
+                    element.image_id
+                ][element.point2D_idx]
+                track.add_element(pano_to_image_id[pano_name], new_point2D_idx)
+            equirect.add_point3D_with_id(
+                point3D_id,
+                pycolmap.Point3D(
+                    xyz=point3D.xyz, color=point3D.color, track=track
+                ),
+            )
+
+        return equirect
+
 
 def render_perspective_images(
     pano_image_names: Sequence[str],
@@ -277,7 +404,7 @@ def render_perspective_images(
     output_image_dir: Path,
     mask_dir: Path,
     render_options: PanoRenderOptions,
-) -> pycolmap.RigConfig:
+) -> PanoProcessor:
     processor = PanoProcessor(
         pano_image_dir, output_image_dir, mask_dir, render_options
     )
@@ -295,7 +422,7 @@ def render_perspective_images(
                 future.result()
                 pbar.update(1)
 
-    return processor.rig_config
+    return processor
 
 
 def run_matcher(
@@ -377,13 +504,14 @@ def run_perspective(
     )
     logging.info(f"Found {len(pano_image_names)} images in {pano_image_dir}.")
 
-    rig_config = render_perspective_images(
+    processor = render_perspective_images(
         pano_image_names,
         pano_image_dir,
         image_dir,
         mask_dir,
         PANO_RENDER_OPTIONS[args.pano_render_type],
     )
+    rig_config = processor.rig_config
 
     rendered_camera = rig_config.cameras[0].camera
     assert rendered_camera is not None  # Make mypy happy.
@@ -422,6 +550,15 @@ def run_perspective(
     for idx, rec in recs.items():
         logging.info(f"#{idx} {rec.summary()}")
 
+    logging.info("Converting virtual cameras back to equirectangular")
+    equirect_rec_path = args.output_path / "sparse_equirectangular"
+    for idx, rec in recs.items():
+        equirect_rec = processor.convert_to_equirectangular(rec)
+        output_path = equirect_rec_path / str(idx)
+        output_path.mkdir(exist_ok=True, parents=True)
+        equirect_rec.write(output_path)
+        logging.info(f"#{idx} {equirect_rec.summary()}")
+
 
 def run(args: argparse.Namespace) -> None:
     pycolmap.set_random_seed(0)
@@ -455,4 +592,5 @@ if __name__ == "__main__":
         # EQUIRECTANGULAR camera model instead of rendering perspective images.
         choices=[*PANO_RENDER_OPTIONS.keys(), "spherical"],
     )
-    run(parser.parse_args())
+    args = parser.parse_args()
+    run(args)
