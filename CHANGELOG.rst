@@ -37,7 +37,7 @@ Improvements
   instead of ``IndexIVFFlat``.
 * Faster color extraction through parallelization across all images.
 * Faster incremental triangulator through reused BFS allocations and
-  simplified ``merge_trials_`` in the
+  simplified ``merge_trials_``.
 * Added and updated sensor specs to the camera database.
 * Avoided a forced copy in ``mvs::Image::SetBitmap``.
 * Support incremental ``CorrespondenceGraph`` and ``ObservationManager``
@@ -54,6 +54,7 @@ Improvements
   GT-covisibility-based filtering, and dynamic scheduling.
 * Added compiler warning flags and a ``WERROR`` option to the pycolmap build.
 * Robustified gravity-aligned rotation averaging against 180deg flips.
+* Clipping extreme pixels in fisheye undistortion.
 * Various tutorial and docstring improvements.
 * For other minor improvements, see the full list of changes below.
 
