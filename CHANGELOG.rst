@@ -13,12 +13,12 @@ New Features
   backends. Caspar is often 1-2 orders of magnitude faster than the Ceres CUDA
   backend for medium- to large-scale problems, leading to drastic speedups
   especially for the incremental mapper.
-* Added spherical (equirectangular) camera to natively model equirectangular
-  images throughout the whole pipeline. The ``panorama_sfm`` example script
-  now supports this new camera model as well as the existing approach of
-  rendering a virtual perspective camera rig. The script now also converts
-  the perspective camera rig back to a reconstruction with spherical cameras
-  as well as supports switching between incremental and global mapping.
+* Added the spherical (equirectangular) camera models. This enables native
+  reconstruction of 360 panoramic images and is generally faster but less
+  accurate than rendering perspective views, as performed in the
+  ``panorama_sfm`` example.
+* Extended the ``panorama_sfm`` example to now convert perspective cameras
+  back to equirectangular and added global mapping support.
 * Added Enhanced Unified Camera Model (EUCM).
 * Added advancing-front surface reconstruction meshing.
 * Added support for extracting gravity pose priors from EXIF orientation tags.
@@ -26,7 +26,8 @@ New Features
 * Estimate separate ``fx``/``fy`` in the p4pf solver for two-focal camera models.
 * Added a new ``version`` CLI command to print the COLMAP version.
 * Added ``MVS_ENABLED`` build option to compile without the MVS module.
-* Added ``GlobalMapper.keep_max_num_tracks`` option to bound established tracks.
+* Added ``GlobalMapper.keep_max_num_tracks`` option to bound the number of
+  established tracks.
 * Added rotation averaging options to the GlobalMapper configuration.
 * Added pycolmap bindings for ``ReprojectionErrorType`` and
   additional point filter methods.
@@ -38,8 +39,8 @@ Improvements
 ------------
 * Accelerated the exhaustive matcher by using ``IndexIVFScalarQuantizer``
   instead of ``IndexIVFFlat``.
-* Faster color extraction through parallelization across all images.
-* Faster incremental triangulator through reused BFS allocations and
+* Accelerated extraction of colors through parallelization across all images.
+* Accelerated incremental triangulator through reused BFS allocations and
   simplified ``merge_trials_``.
 * Added and updated sensor specs to the camera database.
 * Avoided a forced copy in ``mvs::Image::SetBitmap``.
