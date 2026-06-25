@@ -106,9 +106,9 @@ class RotationAveragingProblem {
 
   // Optional reweighting operator W applied to the residual space (rows of A
   // and b); the solver works on the reweighted system min ||W (A x - b)||.
-  // Populated when the weighting scheme is not NONE. A sparse matrix (rather
-  // than a diagonal vector) so it extends beyond diagonal weighting.
-  std::optional<Eigen::SparseMatrix<double>> residual_reweighting_;
+  // Populated when the weighting scheme is not NONE. Stored as the diagonal of
+  // W (one weight per residual row).
+  std::optional<Eigen::VectorXd> residual_reweighting_;
 
   // Current rotation estimates in tangent space (angle-axis).
   Eigen::VectorXd estimated_rotations_;

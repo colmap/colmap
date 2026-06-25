@@ -474,27 +474,21 @@ void RotationAveragingProblem::BuildConstraintMatrix(
         }
       }
     }
-    Eigen::SparseMatrix<double> reweighting(curr_row, curr_row);
-    reweighting.reserve(Eigen::VectorXi::Constant(curr_row, 1));
-    for (int i = 0; i < static_cast<int>(curr_row); ++i) {
-      reweighting.insert(i, i) = reweighting_diagonal[i];
-    }
-    reweighting.makeCompressed();
-    residual_reweighting_ = std::move(reweighting);
+    residual_reweighting_ = std::move(reweighting_diagonal);
   }
 }
 
 Eigen::SparseMatrix<double> RotationAveragingProblem::WeightedConstraintMatrix()
     const {
   if (residual_reweighting_.has_value()) {
-    return *residual_reweighting_ * constraint_matrix_;
+    return residual_reweighting_->asDiagonal() * constraint_matrix_;
   }
   return constraint_matrix_;
 }
 
 Eigen::VectorXd RotationAveragingProblem::WeightedResiduals() const {
   if (residual_reweighting_.has_value()) {
-    return *residual_reweighting_ * residuals_;
+    return residual_reweighting_->cwiseProduct(residuals_);
   }
   return residuals_;
 }
