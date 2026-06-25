@@ -98,7 +98,10 @@ COLMAP offers three SfM pipelines:
 
 - **Incremental mapper** (``mapper``, default): Reconstructs the scene by
   incrementally adding one image at a time. This is the most robust and
-  well-tested pipeline, but can become slow for large image collections.
+  well-tested pipeline, but can become slow for large image collections, where
+  repeated bundle adjustment is often the bottleneck. This can be accelerated
+  substantially with the GPU-based Caspar backend (see
+  :ref:`Speedup bundle adjustment <speedup-bundle-adjustment>`).
 
 - **Global mapper** (``global_mapper``): Solves for all camera poses
   simultaneously using rotation averaging and global positioning. This can be
@@ -520,6 +523,8 @@ required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
 
 
+.. _speedup-bundle-adjustment:
+
 Speedup bundle adjustment
 -------------------------
 
@@ -561,6 +566,34 @@ The following describes practical ways to reduce bundle adjustment runtime.
 
   - High image covisibility
   - Shared camera intrinsics.
+
+- **Use the Caspar GPU bundle adjustment backend**
+
+  COLMAP includes Caspar [caspar]_, an experimental GPU-accelerated bundle
+  adjustment backend that can be one to two orders of magnitude faster than the
+  Ceres CUDA solver for medium- to large-scale problems, leading to drastic
+  speedups especially for the incremental mapper. Caspar requires CUDA and is
+  disabled by default; it must be enabled at build time by configuring COLMAP
+  with ``-DCASPAR_ENABLED=ON``.
+
+  Caspar is selected through the bundle adjustment ``backend`` option, which
+  accepts ``CERES`` (default) or ``CASPAR``:
+
+  - Standalone ``bundle_adjuster``: ``--BundleAdjustment.backend CASPAR``.
+  - Incremental ``mapper``: ``--Mapper.ba_local_backend CASPAR`` and/or
+    ``--Mapper.ba_global_backend CASPAR``. The GPU device is selected via
+    ``--Mapper.ba_gpu_index``.
+
+  The solver behavior and GPU device of the standalone backend can be tuned via
+  the ``--BundleAdjustmentCaspar.*`` options, e.g. ``--BundleAdjustmentCaspar.gpu_index``
+  (default ``-1`` auto-selects the best CUDA device).
+
+  .. Attention:: Caspar is experimental and currently supports only the
+     ``SIMPLE_RADIAL`` and ``PINHOLE`` camera models; observations using other
+     camera models are skipped. It does not support pose priors or refining
+     ``sensor_from_rig`` for non-reference rig sensors, and requires
+     ``refine_focal_length`` and ``refine_extra_params`` to be equal. The
+     ``global_mapper`` does not expose a Caspar backend selector.
 
 - **Additional practical tips**
 

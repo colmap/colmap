@@ -375,7 +375,10 @@ available as ``colmap [command]``:
 
 - ``bundle_adjuster``: Run global bundle adjustment on a reconstructed scene,
   e.g., when a refinement of the intrinsics is needed or
-  after running the ``image_registrator``.
+  after running the ``image_registrator``. The solver backend is selected via
+  ``--BundleAdjustment.backend`` (``CERES`` or ``CASPAR``). Caspar [caspar]_ is
+  an experimental GPU-accelerated backend; see :doc:`faq` for details and
+  limitations.
 
 - ``database_cleaner``: Clean specific or all database tables.
 
