@@ -13,10 +13,13 @@ New Features
   backends. Caspar is often 1-2 orders of magnitude faster than the Ceres CUDA
   backend for medium- to large-scale problems, leading to drastic speedups
   especially for the incremental mapper.
-* Added EUCM (Enhanced Unified Camera Model) camera model.
-* Added spherical (equirectangular) camera model. The ``panorama_sfm`` example
-  now converts perspective cameras back to equirectangular and supports
-  switching between incremental and global mapping.
+* Added spherical (equirectangular) camera to natively model equirectangular
+  images throughout the whole pipeline. The ``panorama_sfm`` example script
+  now supports this new camera model as well as the existing approach of
+  rendering a virtual perspective camera rig. The script now also converts
+  the perspective camera rig back to a reconstruction with spherical cameras
+  as well as supports switching between incremental and global mapping.
+* Added Enhanced Unified Camera Model (EUCM).
 * Added advancing-front surface reconstruction meshing.
 * Added support for extracting gravity pose priors from EXIF orientation tags.
 * Added ``CamRayFromImg`` bearing-vector unprojection interface and bindings.
