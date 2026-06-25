@@ -25,9 +25,7 @@ def test_rotation_averaging_reweighting_enum():
 def test_rotation_estimator_options_default_init():
     options = pycolmap.RotationEstimatorOptions()
     assert options is not None
-    assert (
-        options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
-    )
+    assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
 
 
 def test_rotation_estimator_options_reweighting_readwrite():
