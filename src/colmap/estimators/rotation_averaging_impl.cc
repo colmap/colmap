@@ -825,9 +825,6 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
     weights.segment<3>(problem.NumResiduals() - 3).setConstant(1);
   }
 
-  // Robust-loss weights only: residual-space reweighting (W) is applied
-  // structurally in SolveIRLS, not folded in here. For future covariance
-  // weighting the loss should use the reweighted (Mahalanobis) residual.
   return weights;
 }
 
