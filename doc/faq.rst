@@ -143,10 +143,10 @@ the ``pose_prior_mapper``::
         --output_path $PROJECT_PATH/sparse
 
 The ``pose_prior_mapper`` is essentially the incremental mapper with prior
-position constraints enabled. You can control the prior covariance (uncertainty)
-using ``--prior_position_std_x``, ``--prior_position_std_y``, and
-``--prior_position_std_z`` (default: 1.0 meter each), or override all priors'
-covariance with ``--overwrite_priors_covariance``.
+position constraints enabled. You can override the priors covariance (uncertainty)
+using ``--overwrite_priors_covariance``.  The new covariance will be built based 
+on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
+``--prior_position_std_z`` (default: 1.0 meter each).
 
 For geo-registration of an already reconstructed model (without using priors
 during mapping), see the `Geo-registration`_ section.
