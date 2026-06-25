@@ -819,6 +819,13 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
     weights.segment<3>(problem.NumResiduals() - 3).setConstant(1);
   }
 
+  // Fold the residual-space reweighting W into the IRLS weights so the solver
+  // can operate on the plain constraint matrix, scaling each robust weight by W
+  // (gauge-fixing rows have W = 1 and are left unchanged).
+  if (const auto& reweighting = problem.ResidualReweighting()) {
+    weights.array() *= reweighting->array();
+  }
+
   return weights;
 }
 
@@ -828,12 +835,12 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
 
   const double sigma = DegToRad(options_.irls_loss_parameter_sigma);
 
-  // Operate on the (optionally) reweighted system min ||W (A x - b)||. W*A is
-  // constant across iterations (only the robust weights change), so compute it
-  // once. Works generically for diagonal or block W; without weighting W*A ==
-  // A.
-  const Eigen::SparseMatrix<double> weighted_matrix =
-      problem.WeightedConstraintMatrix();
+  // The constraint matrix A is constant across iterations; only the per-row
+  // weights change. ComputeIRLSWeights folds the optional residual-space
+  // reweighting W into the robust weights, so we solve the normal equations
+  // A^T D A x = A^T D b directly with the plain constraint matrix.
+  const Eigen::SparseMatrix<double>& constraint_matrix =
+      problem.ConstraintMatrix();
 
   Eigen::SparseMatrix<double> at_weight;
   Eigen::SparseMatrix<double> at_weight_a;
@@ -852,8 +859,8 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     // Optionally add a small Tikhonov ridge to stabilize poorly conditioned
     // but mathematically PD systems. When zero (default), no regularization
     // is added.
-    at_weight = weighted_matrix.transpose() * weights_irls->asDiagonal();
-    at_weight_a = at_weight * weighted_matrix;
+    at_weight = constraint_matrix.transpose() * weights_irls->asDiagonal();
+    at_weight_a = at_weight * constraint_matrix;
     if (options_.ridge_regularization > 0) {
       for (int i = 0; i < at_weight_a.cols(); ++i) {
         at_weight_a.coeffRef(i, i) += options_.ridge_regularization;
@@ -870,8 +877,7 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
       return false;
     }
 
-    const Eigen::VectorXd at_weight_residuals =
-        at_weight * problem.WeightedResiduals();
+    const Eigen::VectorXd at_weight_residuals = at_weight * problem.Residuals();
     if (!solver.Solve(at_weight_residuals, &step) ||
         step.array().isNaN().any()) {
       LOG(ERROR) << "IRLS solve failed (iteration " << iteration << ")";
