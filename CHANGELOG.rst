@@ -8,14 +8,17 @@ COLMAP 4.1.0 (25/06/2026)
 New Features
 ------------
 * Added Caspar, a GPU-accelerated bundle adjustment backend, selectable as an
-  alternative to the Ceres solver. Includes rig support, GPU device selection,
-  and pycolmap bindings for choosing the bundle adjustment and mapper backends.
+  alternative to the default Ceres solver. Includes rig support, GPU device
+  selection, and pycolmap bindings for choosing the bundle adjustment and mapper
+  backends. Caspar is often 1-2 orders of magnitude faster than the Ceres CUDA
+  backend for medium- to large-scale problems, leading to drastic speedups
+  especially for the incremental mapper.
 * Added EUCM (Enhanced Unified Camera Model) camera model.
 * Added spherical (equirectangular) camera model. The ``panorama_sfm`` example
-  can now convert perspective cameras back to equirectangular and supports
-  incremental and global mapping.
+  now converts perspective cameras back to equirectangular and supports
+  switching between incremental and global mapping.
 * Added advancing-front surface reconstruction meshing.
-* Added gravity-only pose priors.
+* Added support for extracting gravity pose priors from EXIF orientation tags.
 * Added ``CamRayFromImg`` bearing-vector unprojection interface and bindings.
 * Estimate separate ``fx``/``fy`` in the p4pf solver for two-focal camera models.
 * Added a new ``version`` CLI command to print the COLMAP version.
@@ -32,11 +35,11 @@ Improvements
 ------------
 * Accelerated the exhaustive matcher by using ``IndexIVFScalarQuantizer``
   instead of ``IndexIVFFlat``.
-* Parallelized color extraction across all images.
-* Added and updated sensor specs to the camera database.
-* Avoided a forced copy in ``mvs::Image::SetBitmap``.
+* Faster color extraction through parallelization across all images.
 * Faster incremental triangulator through reused BFS allocations and
   simplified ``merge_trials_`` in the
+* Added and updated sensor specs to the camera database.
+* Avoided a forced copy in ``mvs::Image::SetBitmap``.
 * Support incremental ``CorrespondenceGraph`` and ``ObservationManager``
   construction, decoupling ``reg_stats`` from ``ObservationManager``.
 * Return ``std::optional`` from ``Bitmap::GetPixel``/``Interpolate*``.
@@ -50,6 +53,7 @@ Improvements
   better parallelism and per-step logging, per-dataset/overall summary rows,
   GT-covisibility-based filtering, and dynamic scheduling.
 * Added compiler warning flags and a ``WERROR`` option to the pycolmap build.
+* Robustified gravity-aligned rotation averaging against 180deg flips.
 * Various tutorial and docstring improvements.
 * For other minor improvements, see the full list of changes below.
 
@@ -70,9 +74,7 @@ Bug Fixes
 * Fix applying ``refine_sensor_from_rig`` to all stages of the global mapper.
 * Fix ``mesh_texturer`` occlusion check edge case.
 * Fix SIGABRT in ``RegisterNextStructureLessImage`` when ``NumRegImages < 2``.
-* Fix MSVC build for Caspar.
-* Fix CMake missing ``COMPONENTS`` keyword in ``find_package(Qt)``.
-* Fix pool worker processes crashing on shutdown.
+* Fix thread pool worker processes crashing on shutdown.
 * Fix onnxruntime DLL copy error in ``Findonnxruntime.cmake``.
 * Change ``std::filesystem::relative`` to ``lexically_relative`` for
   ``NormalizePath``.
@@ -83,8 +85,7 @@ Bug Fixes
 * Fix locale-dependent float parsing/formatting.
 * Fix thread oversubscription in the hierarchical mapper.
 * Fix mask usage log never printing in the feature writer thread.
-* Fix ``pyceres`` ``.problem`` attribute on ``CeresBundleAdjuster`` factory
-  functions.
+* Fix ``pyceres`` ``.problem`` attribute on ``CeresBundleAdjuster`` factory.
 * Fix conditional Eigen alignment for the 3.4.0 pre-release version.
 * Fix optional access in guided matching.
 * Fix reading of dynamic matrices in the SQLite database.
