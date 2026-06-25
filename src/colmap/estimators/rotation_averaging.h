@@ -15,12 +15,12 @@
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace colmap {
 
-// Weighting scheme applied to the relative-rotation constraints.
-//   NONE: all constraints are weighted equally.
+// Reweighting scheme applied to the relative-rotation constraints.
+//   UNIFORM: all constraints are weighted equally.
 //   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
 //     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
 //     edge, normalized to (0, 1].
-MAKE_ENUM_CLASS(RotationAveragingWeighting, 0, NONE, INLIER_MATCH_COUNT);
+MAKE_ENUM_CLASS(RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT);
 
 struct RotationEstimatorOptions {
   // PRNG seed for stochastic methods during rotation averaging.
@@ -88,10 +88,11 @@ struct RotationEstimatorOptions {
   // pre-calibrated constant
   bool refine_sensor_from_rig = true;
 
-  // Weighting scheme for the relative-rotation constraints. Weights are
+  // Reweighting scheme for the relative-rotation constraints. Weights are
   // applied as a block-diagonal scaling of the linear system, so a noise-free
-  // (consistent) system yields an identical solution regardless of weighting.
-  RotationAveragingWeighting weighting = RotationAveragingWeighting::NONE;
+  // (consistent) system yields an identical solution regardless of reweighting.
+  RotationAveragingReweighting reweighting =
+      RotationAveragingReweighting::UNIFORM;
 };
 
 // High-level interface for rotation averaging.

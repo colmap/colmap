@@ -449,9 +449,11 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   // Optionally build the residual-space reweighting operator W (see
   // residual_reweighting_). Weights are normalized to (0, 1] for numerical
-  // stability (a global scale leaves the minimizer unchanged); gauge-fixing
-  // rows keep weight 1.
-  if (options_.weighting == RotationAveragingWeighting::INLIER_MATCH_COUNT) {
+  // stability (a global scale leaves the minimizer unchanged). Only the rows
+  // owned by a pair constraint are reweighted below; the gauge-fixing rows
+  // (which are not part of pair_constraints_) retain their default weight of 1.
+  if (options_.reweighting ==
+      RotationAveragingReweighting::INLIER_MATCH_COUNT) {
     double max_num_matches = 0;
     for (const auto& [pair_id, constraint] : pair_constraints_) {
       max_num_matches = std::max(

@@ -60,21 +60,21 @@ class RotationAveragingProblem {
     return constraint_matrix_;
   }
   const Eigen::VectorXd& Residuals() const { return residuals_; }
-  // Whether a residual-space weighting operator is configured (i.e. the
-  // weighting scheme is not NONE).
+  // Whether a residual-space reweighting operator is configured (i.e. the
+  // reweighting scheme is not UNIFORM).
   bool HasResidualReweighting() const {
     return residual_reweighting_.has_value();
   }
   // Diagonal of the residual-space reweighting operator W (one weight per
-  // residual row), or nullopt when no weighting is configured.
+  // residual row), or nullopt when no reweighting is configured.
   const std::optional<Eigen::VectorXd>& ResidualReweighting() const {
     return residual_reweighting_;
   }
   // Constraint matrix A with the reweighting operator applied to its rows
-  // (W * A), or the plain constraint matrix when no weighting is configured.
+  // (W * A), or the plain constraint matrix when no reweighting is configured.
   Eigen::SparseMatrix<double> WeightedConstraintMatrix() const;
   // Residual vector b with the reweighting operator applied (W * b), or the
-  // plain residuals when no weighting is configured.
+  // plain residuals when no reweighting is configured.
   Eigen::VectorXd WeightedResiduals() const;
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
@@ -111,8 +111,8 @@ class RotationAveragingProblem {
 
   // Optional reweighting operator W applied to the residual space (rows of A
   // and b); the solver works on the reweighted system min ||W (A x - b)||.
-  // Populated when the weighting scheme is not NONE. Stored as the diagonal of
-  // W (one weight per residual row).
+  // Populated when the reweighting scheme is not UNIFORM. Stored as the
+  // diagonal of W (one weight per residual row).
   std::optional<Eigen::VectorXd> residual_reweighting_;
 
   // Current rotation estimates in tangent space (angle-axis).
