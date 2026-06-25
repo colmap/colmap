@@ -204,7 +204,7 @@ TEST(RotationAveraging, WeightedNoiseFreeMatchesInvariant) {
     PoseGraph pose_graph_unweighted = data.pose_graph;
     RotationEstimatorOptions options_unweighted =
         CreateRATestOptions(use_gravity);
-    options_unweighted.weight_by_num_matches = false;
+    options_unweighted.weighting = RotationAveragingWeighting::NONE;
     RunRotationAveraging(options_unweighted,
                          pose_graph_unweighted,
                          recon_unweighted,
@@ -215,7 +215,7 @@ TEST(RotationAveraging, WeightedNoiseFreeMatchesInvariant) {
     PoseGraph pose_graph_weighted = data.pose_graph;
     RotationEstimatorOptions options_weighted =
         CreateRATestOptions(use_gravity);
-    options_weighted.weight_by_num_matches = true;
+    options_weighted.weighting = RotationAveragingWeighting::INLIER_MATCH_COUNT;
     RunRotationAveraging(options_weighted,
                          pose_graph_weighted,
                          recon_weighted,
@@ -269,12 +269,12 @@ TEST(RotationAveraging, WeightedReducesErrorWithNoisyLowMatchEdges) {
     }
   }
 
-  const auto run = [&](bool weight_by_num_matches) {
+  const auto run = [&](RotationAveragingWeighting weighting) {
     Reconstruction reconstruction = data.reconstruction;
     PoseGraph pose_graph = data.pose_graph;
     RotationEstimatorOptions options =
         CreateRATestOptions(/*use_gravity=*/false);
-    options.weight_by_num_matches = weight_by_num_matches;
+    options.weighting = weighting;
     options.random_seed = 0;             // Deterministic solve.
     options.max_rotation_error_deg = 0;  // Disable post-solve edge filtering so
                                          // only the solver weighting differs.
@@ -282,8 +282,9 @@ TEST(RotationAveraging, WeightedReducesErrorWithNoisyLowMatchEdges) {
     return MeanRelativeRotationErrorDeg(data.gt_reconstruction, reconstruction);
   };
 
-  const double error_unweighted = run(/*weight_by_num_matches=*/false);
-  const double error_weighted = run(/*weight_by_num_matches=*/true);
+  const double error_unweighted = run(RotationAveragingWeighting::NONE);
+  const double error_weighted =
+      run(RotationAveragingWeighting::INLIER_MATCH_COUNT);
 
   EXPECT_LT(error_weighted, error_unweighted);
 }

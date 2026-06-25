@@ -121,6 +121,13 @@ void BindRotationEstimator(py::module& m) {
                           .value("HALF_NORM", WeightType::HALF_NORM);
   AddStringToEnumConstructor(PyWeightType);
 
+  auto PyRotationAveragingWeighting =
+      py::enum_<RotationAveragingWeighting>(m, "RotationAveragingWeighting")
+          .value("NONE", RotationAveragingWeighting::NONE)
+          .value("INLIER_MATCH_COUNT",
+                 RotationAveragingWeighting::INLIER_MATCH_COUNT);
+  AddStringToEnumConstructor(PyRotationAveragingWeighting);
+
   auto PyRotationEstimatorOptions =
       py::classh<RotationEstimatorOptions>(m, "RotationEstimatorOptions")
           .def(py::init<>())
@@ -184,10 +191,10 @@ void BindRotationEstimator(py::module& m) {
               "When False, treat each non-ref sensor's cam_from_rig as a "
               "pre-calibrated constant.")
           .def_readwrite(
-              "weight_by_num_matches",
-              &RotationEstimatorOptions::weight_by_num_matches,
-              "Weight each constraint by its edge's number of two-view "
-              "matches.");
+              "weighting",
+              &RotationEstimatorOptions::weighting,
+              "Weighting scheme for relative-rotation constraints: NONE or "
+              "INLIER_MATCH_COUNT.");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(
