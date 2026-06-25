@@ -304,6 +304,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     const std::optional<double> altitude = bitmap->ExifAltitude();
     if (latitude.has_value() && longitude.has_value() && altitude.has_value()) {
       pose_prior->position = Eigen::Vector3d(*latitude, *longitude, *altitude);
+      pose_prior->position_covariance = Eigen::Matrix3d::Identity();
       pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
 
