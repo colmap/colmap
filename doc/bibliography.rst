@@ -10,7 +10,8 @@ Bibliography
 
 .. [caspar] Martens, Emil and Miller, Aaron and Varnum, Matias and Stahl,
     Annette. "Caspar: CUDA Accelerator for Symbolic Programming with Adaptive
-    Reordering." arXiv preprint arXiv:2605.30583, 2026.
+    Reordering." International Conference on Robotics and Automation (ICRA),
+    2026.
 
 .. [cohen-steiner2004] Cohen-Steiner, David, and Da, Franck.
     "A greedy Delaunay-based surface reconstruction algorithm."
