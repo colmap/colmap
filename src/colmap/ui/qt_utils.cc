@@ -36,6 +36,7 @@
 #include <QPainter>
 #include <QPalette>
 #include <QPixmap>
+
 #include <QtSvg/QSvgRenderer>
 
 namespace colmap {

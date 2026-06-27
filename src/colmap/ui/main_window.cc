@@ -374,37 +374,39 @@ void MainWindow::CreateActions() {
   // File actions
   //////////////////////////////////////////////////////////////////////////////
 
-  action_project_new_ =
-      new QAction(ThemedIcon(":/media/project-new.svg"), tr("New project"), this);
+  action_project_new_ = new QAction(
+      ThemedIcon(":/media/project-new.svg"), tr("New project"), this);
   action_project_new_->setShortcuts(QKeySequence::New);
   connect(
       action_project_new_, &QAction::triggered, this, &MainWindow::ProjectNew);
 
-  action_project_open_ =
-      new QAction(ThemedIcon(":/media/project-open.svg"), tr("Open project"), this);
+  action_project_open_ = new QAction(
+      ThemedIcon(":/media/project-open.svg"), tr("Open project"), this);
   action_project_open_->setShortcuts(QKeySequence::Open);
   connect(action_project_open_,
           &QAction::triggered,
           this,
           &MainWindow::ProjectOpen);
 
-  action_project_edit_ =
-      new QAction(ThemedIcon(":/media/project-edit.svg"), tr("Edit project"), this);
+  action_project_edit_ = new QAction(
+      ThemedIcon(":/media/project-edit.svg"), tr("Edit project"), this);
   connect(action_project_edit_,
           &QAction::triggered,
           this,
           &MainWindow::ProjectEdit);
 
-  action_project_save_ =
-      new QAction(ThemedIcon(":/media/project-save.svg"), tr("Save project"), this);
+  action_project_save_ = new QAction(
+      ThemedIcon(":/media/project-save.svg"), tr("Save project"), this);
   action_project_save_->setShortcuts(QKeySequence::Save);
   connect(action_project_save_,
           &QAction::triggered,
           this,
           &MainWindow::ProjectSave);
 
-  action_project_save_as_ = new QAction(
-      ThemedIcon(":/media/project-save-as.svg"), tr("Save project as..."), this);
+  action_project_save_as_ =
+      new QAction(ThemedIcon(":/media/project-save-as.svg"),
+                  tr("Save project as..."),
+                  this);
   action_project_save_as_->setShortcuts(QKeySequence::SaveAs);
   connect(action_project_save_as_,
           &QAction::triggered,
@@ -442,8 +444,9 @@ void MainWindow::CreateActions() {
   connect(action_export_as_, &QAction::triggered, this, &MainWindow::ExportAs);
   blocking_actions_.push_back(action_export_as_);
 
-  action_export_as_text_ = new QAction(
-      ThemedIcon(":/media/export-as-text.svg"), tr("Export model as text"), this);
+  action_export_as_text_ = new QAction(ThemedIcon(":/media/export-as-text.svg"),
+                                       tr("Export model as text"),
+                                       this);
   connect(action_export_as_text_,
           &QAction::triggered,
           this,
@@ -457,8 +460,10 @@ void MainWindow::CreateActions() {
   // Processing action
   //////////////////////////////////////////////////////////////////////////////
 
-  action_feature_extraction_ = new QAction(
-      ThemedIcon(":/media/feature-extraction.svg"), tr("Feature extraction"), this);
+  action_feature_extraction_ =
+      new QAction(ThemedIcon(":/media/feature-extraction.svg"),
+                  tr("Feature extraction"),
+                  this);
   connect(action_feature_extraction_,
           &QAction::triggered,
           this,
@@ -556,8 +561,10 @@ void MainWindow::CreateActions() {
           &MainWindow::ReconstructionOptions);
   blocking_actions_.push_back(action_reconstruction_options_);
 
-  action_bundle_adjustment_ = new QAction(
-      ThemedIcon(":/media/bundle-adjustment.svg"), tr("Bundle adjustment"), this);
+  action_bundle_adjustment_ =
+      new QAction(ThemedIcon(":/media/bundle-adjustment.svg"),
+                  tr("Bundle adjustment"),
+                  this);
   connect(action_bundle_adjustment_,
           &QAction::triggered,
           this,
@@ -641,8 +648,8 @@ void MainWindow::CreateActions() {
           model_viewer_widget_,
           &ModelViewerWidget::GrabMovie);
 
-  action_undistort_ =
-      new QAction(ThemedIcon(":/media/undistort.svg"), tr("Undistortion"), this);
+  action_undistort_ = new QAction(
+      ThemedIcon(":/media/undistort.svg"), tr("Undistortion"), this);
   connect(action_undistort_,
           &QAction::triggered,
           this,
