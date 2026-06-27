@@ -207,9 +207,8 @@ class IncrementalTriangulator {
   // Cache for tried track merges to avoid duplicate merge trials. Keyed on
   // a canonical (min, max) pair of 3D-point ids so each attempted merge is
   // recorded once with a single hashmap operation in either direction.
-  // Uses the std::hash<std::pair<uint64_t, uint64_t>> specialization in
-  // colmap/util/types.h.
-  std::unordered_set<std::pair<point3D_t, point3D_t>> merge_trials_;
+  // Uses the colmap::PairHash functor from colmap/util/types.h.
+  std::unordered_set<std::pair<point3D_t, point3D_t>, PairHash> merge_trials_;
 
   // Cache for found correspondences in the graph.
   std::vector<CorrespondenceGraph::Correspondence> found_corrs_;

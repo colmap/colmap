@@ -164,7 +164,7 @@ TEST(FeatureMatchHashing, Deterministic) {
 }
 
 TEST(Point3DPairHashing, Nominal) {
-  std::unordered_set<std::pair<point3D_t, point3D_t>> set;
+  std::unordered_set<std::pair<point3D_t, point3D_t>, PairHash> set;
   set.emplace(1, 2);
   EXPECT_EQ(set.size(), 1);
   set.emplace(1, 2);
@@ -182,7 +182,7 @@ TEST(Point3DPairHashing, Nominal) {
 TEST(Point3DPairHashing, LargeValues) {
   const point3D_t hi = std::numeric_limits<point3D_t>::max();
   const point3D_t lo = 1;
-  std::unordered_set<std::pair<point3D_t, point3D_t>> set;
+  std::unordered_set<std::pair<point3D_t, point3D_t>, PairHash> set;
   set.emplace(hi, lo);
   set.emplace(lo, hi);
   set.emplace(hi, hi);
@@ -195,7 +195,7 @@ TEST(Point3DPairHashing, LargeValues) {
 }
 
 TEST(Point3DPairHashing, Deterministic) {
-  std::hash<std::pair<point3D_t, point3D_t>> h;
+  PairHash h;
   EXPECT_EQ(h(std::make_pair<point3D_t, point3D_t>(42, 99)),
             h(std::make_pair<point3D_t, point3D_t>(42, 99)));
   EXPECT_NE(h(std::make_pair<point3D_t, point3D_t>(42, 99)),
