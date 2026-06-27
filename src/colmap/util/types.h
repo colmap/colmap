@@ -339,6 +339,22 @@ struct filter_view {
 template <typename>
 struct always_false : std::false_type {};
 
+// Hash functor for std::pair, e.g., for use with unordered containers keyed on
+// e.g., std::pair<point3D_t, point3D_t>. Provided as an explicit functor
+// (passed to the container) rather than a std::hash<std::pair<...>>
+// specialization, since specializing std::hash for the std-owned std::pair type
+// is a global ODR hazard: a downstream translation unit that implicitly
+// instantiates the primary template first would make the later explicit
+// specialization ill-formed.
+struct PairHash {
+  template <typename T1, typename T2>
+  std::size_t operator()(const std::pair<T1, T2>& p) const {
+    const std::size_t h1 = std::hash<T1>{}(p.first);
+    const std::size_t h2 = std::hash<T2>{}(p.second);
+    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+  }
+};
+
 }  // namespace colmap
 
 // This file provides specializations of the templated hash function for
@@ -351,16 +367,6 @@ struct hash<std::pair<uint32_t, uint32_t>> {
     const uint64_t s = (static_cast<uint64_t>(p.first) << 32) +
                        static_cast<uint64_t>(p.second);
     return std::hash<uint64_t>()(s);
-  }
-};
-
-// Hash function specialization for uint64_t pairs, e.g., point3D_t.
-template <>
-struct hash<std::pair<uint64_t, uint64_t>> {
-  std::size_t operator()(const std::pair<uint64_t, uint64_t>& p) const {
-    const std::size_t h1 = std::hash<uint64_t>{}(p.first);
-    const std::size_t h2 = std::hash<uint64_t>{}(p.second);
-    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
   }
 };
 
