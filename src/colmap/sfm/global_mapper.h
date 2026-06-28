@@ -27,7 +27,7 @@ struct GlobalMapperOptions {
   // If not specified, all point colors will be black.
   std::filesystem::path image_path;
 
-  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated
+  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated.
   bool refine_sensor_from_rig = true;
 
   // Whether to use priors on the camera positions.
@@ -40,7 +40,7 @@ struct GlobalMapperOptions {
   // (chi2 for 3DOF at 95% = 7.815).
   double prior_position_loss_scale = 7.815;
 
-  // Options for each component
+  // Options for each component.
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
   BundleAdjustmentOptions bundle_adjustment = [] {
@@ -52,14 +52,12 @@ struct GlobalMapperOptions {
           CeresBundleAdjustmentOptions::LossFunctionType::HUBER;
       options.ceres->use_gpu = true;
       // TODO: Investigate whether disabling auto solver selection and using
-      // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global
-      // SfM, or if we can just rely on COLMAP's auto selection.
+      // explicit SPARSE_SCHUR is necessary for global SfM, or if we can just
+      // rely on COLMAP's auto selection.
       options.ceres->auto_select_solver_type = false;
       options.ceres->solver_options.function_tolerance = 1e-5;
       options.ceres->solver_options.max_num_iterations = 200;
       options.ceres->solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-      options.ceres->solver_options.preconditioner_type =
-          ceres::CLUSTER_TRIDIAGONAL;
     }
     return options;
   }();
@@ -78,11 +76,19 @@ struct GlobalMapperOptions {
   int track_required_tracks_per_view = std::numeric_limits<int>::max();
   // Minimum number of views per track.
   int track_min_num_views_per_track = 3;
+  // Maximum total number of tracks to establish. Tracks are selected in order
+  // of decreasing length, so the longest tracks are kept. Use this to bound
+  // memory usage on large datasets. By default, there is no limit.
+  int keep_max_num_tracks = std::numeric_limits<int>::max();
 
   // Thresholds for each component.
   double max_angular_reproj_error_deg = 1.;   // for global positioning
   double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
   double min_tri_angle_deg = 1.;              // for triangulation
+
+  // GPU device index for bundle adjustment, shared by the Ceres and Caspar
+  // backends (-1 = auto-select).
+  std::string ba_gpu_index = "-1";
 
   // Control the number of iterations for bundle adjustment.
   int ba_num_iterations = 3;

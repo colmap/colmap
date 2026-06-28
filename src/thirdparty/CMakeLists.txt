@@ -37,8 +37,8 @@ endif()
 if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(poselib
-        URL https://github.com/PoseLib/PoseLib/archive/v2.0.5.zip
-        URL_HASH SHA256=3d8d71d94813da8e0c3a6df11ec3591614ad2e731e73f3de4982b9297321a38d
+        URL https://github.com/PoseLib/PoseLib/archive/fa7280fee27f97aff31ae7f98bab7f583fac7d08.zip
+        URL_HASH SHA256=5408d4ae8ce367cb2f076bc6c5f0f6f78abd3573d2c015304b04e46f23455f5b
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
@@ -132,6 +132,17 @@ if(CASPAR_ENABLED AND CUDA_ENABLED)
         $<$<COMPILE_LANGUAGE:CUDA>:-Xcudafe=--diag_suppress=550>
         $<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>>
     )
+    if(IS_MSVC)
+        set(_MSVC_COMPACT_HEADER "${CASPAR_GEN_DIR}/../../msvc_compact.h")
+        set(_MSVC_CUDA_COMPACT_HEADER "${CASPAR_GEN_DIR}/../../msvc_cuda_compact.h")
+        target_compile_options(caspar_lib_core PRIVATE
+            $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:/FI"${_MSVC_COMPACT_HEADER}">
+            # Keep CUDA pre-includes minimal and use NVCC's native pre-include
+            # option to avoid forcing C++ standard library headers into NVCC's
+            # MSVC host pass.
+            $<$<COMPILE_LANGUAGE:CUDA>:--pre-include="${_MSVC_CUDA_COMPACT_HEADER}">
+        )
+    endif()
     message(STATUS "Configuring Caspar... done")
 
     message(STATUS "Caspar precision:  ${_caspar_precision}")

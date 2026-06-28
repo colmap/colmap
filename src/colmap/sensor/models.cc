@@ -33,15 +33,21 @@
 
 namespace colmap {
 
-// Initialize params_info, focal_length_idxs, principal_point_idxs,
-// extra_params_idxs
+// Define the static members shared by all camera models.
+#define CAMERA_MODEL_CASE(CameraModel)           \
+  constexpr CameraModelId CameraModel::model_id; \
+  const std::string CameraModel::model_name =    \
+      CameraModel::InitializeModelName();        \
+  constexpr size_t CameraModel::num_params;      \
+  const std::string CameraModel::params_info =   \
+      CameraModel::InitializeParamsInfo();
+
+CAMERA_MODEL_CASES
+
+#undef CAMERA_MODEL_CASE
+
+// Define the parameter-group members specific to perspective models.
 #define CAMERA_MODEL_CASE(CameraModel)                    \
-  constexpr CameraModelId CameraModel::model_id;          \
-  const std::string CameraModel::model_name =             \
-      CameraModel::InitializeModelName();                 \
-  constexpr size_t CameraModel::num_params;               \
-  const std::string CameraModel::params_info =            \
-      CameraModel::InitializeParamsInfo();                \
   const std::array<size_t, CameraModel::num_focal_params> \
       CameraModel::focal_length_idxs =                    \
           CameraModel::InitializeFocalLengthIdxs();       \
@@ -52,7 +58,17 @@ namespace colmap {
       CameraModel::extra_params_idxs =                    \
           CameraModel::InitializeExtraParamsIdxs();
 
-CAMERA_MODEL_CASES
+PERSPECTIVE_CAMERA_MODEL_CASES
+
+#undef CAMERA_MODEL_CASE
+
+// Define the parameter-group members specific to spherical models.
+#define CAMERA_MODEL_CASE(CameraModel)                       \
+  const std::array<size_t, CameraModel::num_metadata_params> \
+      CameraModel::metadata_idxs =                           \
+          CameraModel::InitializeMetaDataParamsIdxs();
+
+SPHERICAL_CAMERA_MODEL_CASES
 
 #undef CAMERA_MODEL_CASE
 
@@ -155,49 +171,84 @@ const std::string& CameraModelParamsInfo(const CameraModelId model_id) {
 
 span<const size_t> CameraModelFocalLengthIdxs(const CameraModelId model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)              \
-  case CameraModel::model_id:                       \
-    return {CameraModel::focal_length_idxs.data(),  \
-            CameraModel::focal_length_idxs.size()}; \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
+    // Only perspective models have focal-length parameters; spherical models
+    // have none. Unknown models throw via the default case.
+#define CAMERA_MODEL_CASE(CameraModel)             \
+  case CameraModel::model_id:                      \
+    return {CameraModel::focal_length_idxs.data(), \
+            CameraModel::focal_length_idxs.size()};
+    PERSPECTIVE_CAMERA_MODEL_CASES
 #undef CAMERA_MODEL_CASE
+#define CAMERA_MODEL_CASE(CameraModel) \
+  case CameraModel::model_id:          \
+    return {nullptr, 0};
+    SPHERICAL_CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+    default:
+      CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION
   }
-
   return {nullptr, 0};
 }
 
 span<const size_t> CameraModelPrincipalPointIdxs(const CameraModelId model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                 \
-  case CameraModel::model_id:                          \
-    return {CameraModel::principal_point_idxs.data(),  \
-            CameraModel::principal_point_idxs.size()}; \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
+    // Only perspective models have principal-point parameters; spherical models
+    // have none. Unknown models throw via the default case.
+#define CAMERA_MODEL_CASE(CameraModel)                \
+  case CameraModel::model_id:                         \
+    return {CameraModel::principal_point_idxs.data(), \
+            CameraModel::principal_point_idxs.size()};
+    PERSPECTIVE_CAMERA_MODEL_CASES
 #undef CAMERA_MODEL_CASE
+#define CAMERA_MODEL_CASE(CameraModel) \
+  case CameraModel::model_id:          \
+    return {nullptr, 0};
+    SPHERICAL_CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+    default:
+      CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION
   }
-
   return {nullptr, 0};
 }
 
 span<const size_t> CameraModelExtraParamsIdxs(const CameraModelId model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)              \
-  case CameraModel::model_id:                       \
-    return {CameraModel::extra_params_idxs.data(),  \
-            CameraModel::extra_params_idxs.size()}; \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
+    // Only perspective models have extra parameters; spherical models have
+    // none. Unknown models throw via the default case.
+#define CAMERA_MODEL_CASE(CameraModel)             \
+  case CameraModel::model_id:                      \
+    return {CameraModel::extra_params_idxs.data(), \
+            CameraModel::extra_params_idxs.size()};
+    PERSPECTIVE_CAMERA_MODEL_CASES
 #undef CAMERA_MODEL_CASE
+#define CAMERA_MODEL_CASE(CameraModel) \
+  case CameraModel::model_id:          \
+    return {nullptr, 0};
+    SPHERICAL_CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+    default:
+      CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION
   }
+  return {nullptr, 0};
+}
 
+span<const size_t> CameraModelMetaDataParamsIdxs(const CameraModelId model_id) {
+  switch (model_id) {
+    // Only spherical models have metadata parameters; perspective models have
+    // none. Unknown models throw via the default case.
+#define CAMERA_MODEL_CASE(CameraModel)         \
+  case CameraModel::model_id:                  \
+    return {CameraModel::metadata_idxs.data(), \
+            CameraModel::metadata_idxs.size()};
+    SPHERICAL_CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+#define CAMERA_MODEL_CASE(CameraModel) case CameraModel::model_id:
+    PERSPECTIVE_CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+    return {nullptr, 0};
+    default:
+      CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION
+  }
   return {nullptr, 0};
 }
 

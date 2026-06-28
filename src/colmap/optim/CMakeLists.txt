@@ -37,6 +37,7 @@ COLMAP_ADD_LIBRARY(
         least_absolute_deviations.h least_absolute_deviations.cc
         progressive_sampler.h progressive_sampler.cc
         random_sampler.h random_sampler.cc
+        sparse_cholesky.h sparse_cholesky.cc
         sprt.h sprt.cc
         support_measurement.h support_measurement.cc
     PUBLIC_LINK_LIBS
@@ -77,6 +78,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME ransac_test
     SRCS ransac_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME sparse_cholesky_test
+    SRCS sparse_cholesky_test.cc
     LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(

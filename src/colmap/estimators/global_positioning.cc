@@ -174,10 +174,10 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     Image& image = reconstruction.Image(observation.image_id);
     if (!image.HasPose()) continue;
 
-    const std::optional<Eigen::Vector2d> cam_point =
-        image.CameraPtr()->CamFromImg(
+    const std::optional<Eigen::Vector3d> cam_ray =
+        image.CameraPtr()->CamRayFromImg(
             image.Point2D(observation.point2D_idx).xy);
-    if (!cam_point.has_value()) {
+    if (!cam_ray.has_value()) {
       LOG(WARNING)
           << "Ignoring feature because it failed to project: point3D_id="
           << point3D_id << ", image_id=" << observation.image_id
@@ -186,8 +186,7 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     }
 
     const Eigen::Vector3d cam_from_point3D_dir =
-        image.CamFromWorld().rotation().inverse() *
-        cam_point->homogeneous().normalized();
+        image.CamFromWorld().rotation().inverse() * (*cam_ray);
 
     CHECK_GE(scales_.capacity(), scales_.size())
         << "Not enough capacity was reserved for the scales.";
@@ -414,13 +413,9 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
 
   // Set up the options for the solver
   // Do not use iterative solvers, for its suboptimal performance.
-  if (reconstruction.NumPoints3D() > 0) {
-    options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-    options_.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
-  } else {
-    options_.solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    options_.solver_options.preconditioner_type = ceres::JACOBI;
-  }
+  // TODO: Investigate whether the direct solver should be chosen
+  // adaptively based on problem scale.
+  options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
 }
 
 void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {

@@ -6,9 +6,11 @@
 namespace caspar {
 
 void SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointResJacFirst(
-    float* focal_and_distortion,
-    unsigned int focal_and_distortion_num_alloc,
-    SharedIndex* focal_and_distortion_indices,
+    float* sensor_from_rig,
+    unsigned int sensor_from_rig_num_alloc,
+    float* focal_and_extra,
+    unsigned int focal_and_extra_num_alloc,
+    SharedIndex* focal_and_extra_indices,
     float* pixel,
     unsigned int pixel_num_alloc,
     float* pose,
@@ -20,12 +22,12 @@ void SimpleRadialSplitFixedPoseFixedPrincipalPointFixedPointResJacFirst(
     float* out_res,
     unsigned int out_res_num_alloc,
     float* const out_rTr,
-    float* const out_focal_and_distortion_njtr,
-    unsigned int out_focal_and_distortion_njtr_num_alloc,
-    float* const out_focal_and_distortion_precond_diag,
-    unsigned int out_focal_and_distortion_precond_diag_num_alloc,
-    float* const out_focal_and_distortion_precond_tril,
-    unsigned int out_focal_and_distortion_precond_tril_num_alloc,
+    float* const out_focal_and_extra_njtr,
+    unsigned int out_focal_and_extra_njtr_num_alloc,
+    float* const out_focal_and_extra_precond_diag,
+    unsigned int out_focal_and_extra_precond_diag_num_alloc,
+    float* const out_focal_and_extra_precond_tril,
+    unsigned int out_focal_and_extra_precond_tril_num_alloc,
     size_t problem_size);
 
 }  // namespace caspar

@@ -39,6 +39,22 @@
 
 namespace colmap {
 
+// Periodic (azimuthal) camera models such as EQUIRECTANGULAR wrap the x image
+// coordinate at the ±π seam, so a raw pixel residual can jump by ~width across
+// the seam (e.g. an observation at x ≈ 0 whose 3D point reprojects to
+// x ≈ width). Wrap the x-residual into [-width/2, width/2) so the
+// bundle-adjustment cost stays continuous across the seam. The offset is
+// locally constant, so it does not perturb the residual's derivatives. No-op
+// for non-periodic camera models. (Elevation has no wrap, so y is untouched.)
+template <typename CameraModel, typename T>
+inline void WrapEquirectangularHorizontalSeam(const T* camera_params,
+                                              T* residuals) {
+  if constexpr (CameraModel::model_id == CameraModelId::kEquirectangular) {
+    const T width = camera_params[0];
+    residuals[0] -= width * ceres::floor(residuals[0] / width + T(0.5));
+  }
+}
+
 // Rotates the point and computes the Jacobian of R(q) * p with respect to Eigen
 // quaternions. J_out is a 3x4 matrix in row-major order.
 inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
@@ -169,6 +185,9 @@ class AnalyticalReprojErrorCostFunction
     }
 
     residuals_vec -= point2D_;
+    // No-op for non-periodic models. The offset is locally constant, so the
+    // analytic Jacobians below are unaffected.
+    WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
 
     if (J_point) {
       J_point_mat =
@@ -217,6 +236,7 @@ class ReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }
@@ -323,6 +343,7 @@ class RigReprojErrorCostFunctor
                                 &residuals[0],
                                 &residuals[1])) {
       residuals_vec -= point2D_.cast<T>();
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
     } else {
       residuals_vec.setZero();
     }
@@ -366,6 +387,26 @@ class RigReprojErrorConstantRigCostFunctor
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
+// Creates the analytical reprojection error cost function for camera models
+// that implement ImgFromCamWithJac(). The overloads are selected via SFINAE so
+// that AnalyticalReprojErrorCostFunction<CameraModel> is only ever named (and
+// thus instantiated) for qualifying models. This avoids instantiating its
+// virtual Evaluate() member for models without an analytical Jacobian, which
+// would reference the SFINAE-disabled ImgFromCamWithJac() overload.
+template <typename CameraModel, typename... Args>
+std::enable_if_t<CameraModel::has_img_from_cam_with_jac, ceres::CostFunction*>
+CreateAnalyticalReprojErrorCostFunction(Args&&... args) {
+  return new AnalyticalReprojErrorCostFunction<CameraModel>(
+      std::forward<Args>(args)...);
+}
+
+template <typename CameraModel, typename... Args>
+std::enable_if_t<!CameraModel::has_img_from_cam_with_jac, ceres::CostFunction*>
+CreateAnalyticalReprojErrorCostFunction(Args&&... /*args*/) {
+  // Unreachable: callers guard on has_img_from_cam_with_jac.
+  return nullptr;
+}
+
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
@@ -376,7 +417,7 @@ ceres::CostFunction* CreateCameraCostFunction(
     if constexpr (std::is_same<CostFunctor<CameraModel>,                      \
                                ReprojErrorCostFunctor<CameraModel>>::value && \
                   CameraModel::has_img_from_cam_with_jac) {                   \
-      return new AnalyticalReprojErrorCostFunction<CameraModel>(              \
+      return CreateAnalyticalReprojErrorCostFunction<CameraModel>(            \
           std::forward<Args>(args)...);                                       \
     } else {                                                                  \
       return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);   \

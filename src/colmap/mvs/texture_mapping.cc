@@ -236,10 +236,12 @@ struct OcclusionTester {
     const Eigen::Vector3f dir = vertex - camera_center;
     const float dist = dir.norm();
     if (dist < kEps) return false;
+    const Eigen::Vector3f target_offset = vertex - (kEps / dist) * dir;
 
     const CGALPoint origin(
         camera_center.x(), camera_center.y(), camera_center.z());
-    const CGALPoint target(vertex.x(), vertex.y(), vertex.z());
+    const CGALPoint target(
+        target_offset.x(), target_offset.y(), target_offset.z());
     const CGALSegment segment(origin, target);
 
     const auto intersection = tree.any_intersection(segment);

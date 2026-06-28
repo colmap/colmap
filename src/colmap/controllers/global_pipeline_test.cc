@@ -65,10 +65,19 @@ TEST(GlobalPipeline, Nominal) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto reconstruction = reconstruction_manager->Get(0);
   EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction_manager->Get(0),
+              ReconstructionNear(*reconstruction,
                                  /*max_rotation_error_deg=*/1e-2,
                                  /*max_proj_center_error=*/1e-4));
+
+  // After the pipeline runs, point3D.error must be in pixel units, i.e.
+  // equal to what UpdatePoint3DErrors would recompute.
+  ASSERT_GT(reconstruction->NumPoints3D(), 0u);
+  const double mean_after_run = reconstruction->ComputeMeanReprojectionError();
+  reconstruction->UpdatePoint3DErrors();
+  EXPECT_DOUBLE_EQ(mean_after_run,
+                   reconstruction->ComputeMeanReprojectionError());
 }
 
 TEST(GlobalPipeline, SfMWithRandomSeedStability) {

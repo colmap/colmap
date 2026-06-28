@@ -574,5 +574,25 @@ void WritePointsVisibility(
   }
 }
 
+std::vector<std::vector<int>> ReadPointsVisibility(
+    const std::filesystem::path& path, size_t num_points) {
+  std::fstream file(path, std::ios::in | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+
+  const size_t file_num_points = ReadBinaryLittleEndian<uint64_t>(&file);
+  THROW_CHECK_EQ(file_num_points, num_points);
+
+  std::vector<std::vector<int>> visibility(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const uint32_t num_visible = ReadBinaryLittleEndian<uint32_t>(&file);
+    visibility[i].resize(num_visible);
+    for (uint32_t j = 0; j < num_visible; ++j) {
+      visibility[i][j] =
+          static_cast<int>(ReadBinaryLittleEndian<uint32_t>(&file));
+    }
+  }
+  return visibility;
+}
+
 }  // namespace mvs
 }  // namespace colmap

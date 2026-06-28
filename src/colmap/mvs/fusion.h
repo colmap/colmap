@@ -177,5 +177,11 @@ void WritePointsVisibility(
     const std::filesystem::path& path,
     const std::vector<std::vector<int>>& points_visibility);
 
+// Read per-point visibility data from a binary .vis file produced by the
+// stereo fusion pipeline. Returns a vector of per-point image index lists.
+// The format matches WritePointsVisibility().
+std::vector<std::vector<int>> ReadPointsVisibility(
+    const std::filesystem::path& path, size_t num_points);
+
 }  // namespace mvs
 }  // namespace colmap

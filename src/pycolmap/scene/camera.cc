@@ -83,6 +83,10 @@ void BindCamera(py::module& m) {
       .def("extra_params_idxs",
            &Camera::ExtraParamsIdxs,
            "Indices of extra parameters in params property.")
+      .def("metadata_params_idxs",
+           &Camera::MetaDataParamsIdxs,
+           "Indices of metadata parameters in params property (only "
+           "spherical models have these; empty for perspective models).")
       .def("calibration_matrix",
            &Camera::CalibrationMatrix,
            "Compute calibration matrix from params.")
@@ -122,6 +126,16 @@ void BindCamera(py::module& m) {
       .def("is_undistorted",
            &Camera::IsUndistorted,
            "Check whether camera is already undistorted.")
+      .def("is_perspective",
+           &Camera::IsPerspective,
+           "Whether the camera model is perspective, i.e. has a focal length "
+           "and a finite pinhole image plane (so positive-depth cheirality "
+           "applies). Omnidirectional models such as EQUIRECTANGULAR are not "
+           "perspective.")
+      .def("is_spherical",
+           &Camera::IsSpherical,
+           "Whether the camera model is spherical (equirectangular "
+           "omnidirectional panorama).")
       .def("cam_from_img",
            &Camera::CamFromImg,
            "image_point"_a,
@@ -163,6 +177,51 @@ void BindCamera(py::module& m) {
           },
           "image_points"_a,
           "Unproject list of points in image plane to camera frame.")
+      .def("cam_ray_from_img",
+           &Camera::CamRayFromImg,
+           "image_point"_a,
+           "Unproject point in image plane to a unit bearing vector in the "
+           "camera frame. Unlike cam_from_img, this supports back-facing rays "
+           "of omnidirectional cameras.")
+      .def(
+          "cam_ray_from_img",
+          [](const Camera& self,
+             const py::EigenDRef<const Eigen::MatrixX2d>& image_points) {
+            std::vector<Eigen::Vector3d> cam_rays(image_points.rows());
+            for (Eigen::Index i = 0; i < image_points.rows(); ++i) {
+              const std::optional<Eigen::Vector3d> cam_ray =
+                  self.CamRayFromImg(image_points.row(i));
+              if (cam_ray) {
+                cam_rays[i] = *cam_ray;
+              } else {
+                cam_rays[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
+            }
+            return cam_rays;
+          },
+          "image_points"_a,
+          "Unproject list of points in image plane to unit bearing vectors in "
+          "the camera frame.")
+      .def(
+          "cam_ray_from_img",
+          [](const Camera& self, const Point2DVector& image_points) {
+            std::vector<Eigen::Vector3d> cam_rays(image_points.size());
+            for (size_t i = 0; i < image_points.size(); ++i) {
+              const std::optional<Eigen::Vector3d> cam_ray =
+                  self.CamRayFromImg(image_points[i].xy);
+              if (cam_ray) {
+                cam_rays[i] = *cam_ray;
+              } else {
+                cam_rays[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
+            }
+            return cam_rays;
+          },
+          "image_points"_a,
+          "Unproject list of points in image plane to unit bearing vectors in "
+          "the camera frame.")
       .def("cam_from_img_threshold",
            &Camera::CamFromImgThreshold,
            "threshold"_a,

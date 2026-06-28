@@ -34,9 +34,9 @@
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #define THROW_CHECK_FILE_EXISTS(path)                 \

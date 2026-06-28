@@ -5,7 +5,9 @@
 
 namespace caspar {
 
-void PinholeFixedPoseScore(double* calib,
+void PinholeFixedPoseScore(double* sensor_from_rig,
+                           unsigned int sensor_from_rig_num_alloc,
+                           double* calib,
                            unsigned int calib_num_alloc,
                            SharedIndex* calib_indices,
                            double* point,

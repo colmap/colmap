@@ -1,6 +1,6 @@
 #include "colmap/sfm/global_mapper.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/math/union_find.h"
@@ -85,6 +85,10 @@ BundleAdjustmentOptions GlobalMapperOptions::BundleAdjustment() const {
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
   if (opts.ceres) {
     opts.ceres->solver_options.num_threads = num_threads;
+    opts.ceres->gpu_index = ba_gpu_index;
+  }
+  if (opts.caspar) {
+    opts.caspar->gpu_index = ba_gpu_index;
   }
   return opts;
 }
@@ -255,7 +259,13 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
 
   std::unordered_map<image_t, size_t> tracks_per_image;
   size_t images_left = image_id_to_keypoints.size();
+  const size_t max_num_tracks =
+      static_cast<size_t>(options.keep_max_num_tracks);
   for (const auto& [track_length, point3D_id] : track_lengths) {
+    // Stop once the global track budget is exhausted. As tracks are sorted by
+    // decreasing length, this keeps the longest tracks and bounds memory usage.
+    if (reconstruction_->NumPoints3D() >= max_num_tracks) break;
+
     auto& point3D = candidate_points3D.at(point3D_id);
 
     // Check if any image in this track still needs more observations.
@@ -617,6 +627,11 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
     LOG(INFO) << "Iterative retriangulation and refinement done in "
               << run_timer.ElapsedSeconds() << " seconds";
   }
+
+  // Filter passes here use NORMALIZED/ANGULAR error, so point3D.error is
+  // left in non-pixel units. Recompute in pixels for consistent reporting
+  // in model_analyzer.
+  reconstruction_->UpdatePoint3DErrors();
 
   return true;
 }

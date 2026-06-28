@@ -43,10 +43,12 @@
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #if defined(COLMAP_MVS_ENABLED)
+#include "colmap/mvs/advancing_front_meshing.h"
+#include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/mesh_simplification.h"
-#include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/mvs/poisson_meshing.h"
 #include "colmap/mvs/texture_mapping.h"
 #endif
 #include "colmap/scene/reconstruction_clustering.h"
@@ -81,6 +83,8 @@ OptionManager::OptionManager(bool add_project_options)
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
+  advancing_front_meshing =
+      std::make_shared<mvs::AdvancingFrontMeshingOptions>();
   mesh_texture_mapping = std::make_shared<mvs::MeshTextureMappingOptions>();
   mesh_simplification = std::make_shared<mvs::MeshSimplificationOptions>();
 #endif
@@ -205,6 +209,7 @@ void OptionManager::AddAllOptions() {
   AddStereoFusionOptions();
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
+  AddAdvancingFrontMeshingOptions();
   AddMeshTextureMappingOptions();
   AddMeshSimplificationOptions();
 #endif
@@ -760,6 +765,8 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.track_required_tracks_per_view);
   AddDefaultOption("GlobalMapper.track_min_num_views_per_track",
                    &global_mapper->mapper.track_min_num_views_per_track);
+  AddDefaultOption("GlobalMapper.keep_max_num_tracks",
+                   &global_mapper->mapper.keep_max_num_tracks);
 
   // Global positioning options.
   AddDefaultOption("GlobalMapper.gp_use_gpu",
@@ -799,11 +806,15 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.bundle_adjustment.refine_points3D);
   AddDefaultOption("GlobalMapper.ba_min_track_length",
                    &global_mapper->mapper.bundle_adjustment.min_track_length);
+  AddDefaultEnumOption("GlobalMapper.ba_backend",
+                       &global_mapper->mapper.bundle_adjustment.backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
+  AddDefaultOption("GlobalMapper.ba_gpu_index",
+                   &global_mapper->mapper.ba_gpu_index);
   // Bundle adjustment options (Ceres-specific).
   AddDefaultOption("GlobalMapper.ba_ceres_use_gpu",
                    &global_mapper->mapper.bundle_adjustment.ceres->use_gpu);
-  AddDefaultOption("GlobalMapper.ba_ceres_gpu_index",
-                   &global_mapper->mapper.bundle_adjustment.ceres->gpu_index);
   AddDefaultOption(
       "GlobalMapper.ba_ceres_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.ceres->loss_function_scale);
@@ -995,6 +1006,31 @@ void OptionManager::AddDelaunayMeshingOptions() {
                    &delaunay_meshing->num_threads);
 }
 
+void OptionManager::AddAdvancingFrontMeshingOptions() {
+  if (added_advancing_front_meshing_options_) {
+    return;
+  }
+  added_advancing_front_meshing_options_ = true;
+
+  AddDefaultOption("AdvancingFrontMeshing.max_edge_length",
+                   &advancing_front_meshing->max_edge_length);
+  AddDefaultOption("AdvancingFrontMeshing.visibility_filtering",
+                   &advancing_front_meshing->visibility_filtering);
+  AddDefaultOption(
+      "AdvancingFrontMeshing.visibility_filtering_max_intersections",
+      &advancing_front_meshing->visibility_filtering_max_intersections);
+  AddDefaultOption("AdvancingFrontMeshing.visibility_post_filtering",
+                   &advancing_front_meshing->visibility_post_filtering);
+  AddDefaultOption("AdvancingFrontMeshing.visibility_ray_trim_offset",
+                   &advancing_front_meshing->visibility_ray_trim_offset);
+  AddDefaultOption("AdvancingFrontMeshing.block_size",
+                   &advancing_front_meshing->block_size);
+  AddDefaultOption("AdvancingFrontMeshing.block_overlap",
+                   &advancing_front_meshing->block_overlap);
+  AddDefaultOption("AdvancingFrontMeshing.num_threads",
+                   &advancing_front_meshing->num_threads);
+}
+
 void OptionManager::AddMeshTextureMappingOptions() {
   if (added_mesh_texture_mapping_options_) {
     return;
@@ -1076,6 +1112,7 @@ void OptionManager::Reset(bool reset_logging) {
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
   added_delaunay_meshing_options_ = false;
+  added_advancing_front_meshing_options_ = false;
   added_mesh_texture_mapping_options_ = false;
   added_mesh_simplification_options_ = false;
 #endif

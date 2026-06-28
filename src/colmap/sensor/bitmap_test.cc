@@ -401,6 +401,49 @@ TEST(Bitmap, RescaleGrey) {
   EXPECT_EQ(bitmap2.Channels(), 1);
 }
 
+TEST(Bitmap, Thumbnail) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  // Landscape: width is the limiting dimension.
+  Bitmap landscape = bitmap.Clone();
+  const double landscape_scale = landscape.Thumbnail(/*max_image_size=*/50);
+  EXPECT_DOUBLE_EQ(landscape_scale, 0.5);
+  EXPECT_EQ(landscape.Width(), 50);
+  EXPECT_EQ(landscape.Height(), 40);
+
+  // Portrait: height is the limiting dimension.
+  Bitmap portrait(80, 100, /*as_rgb=*/true);
+  const double portrait_scale = portrait.Thumbnail(/*max_image_size=*/50);
+  EXPECT_DOUBLE_EQ(portrait_scale, 0.5);
+  EXPECT_EQ(portrait.Width(), 40);
+  EXPECT_EQ(portrait.Height(), 50);
+
+  // Non-integer scale: dimensions are rounded to the nearest integer, so the
+  // limiting dimension fits exactly into max_image_size (300 * 100/300 rounds
+  // to 100 rather than truncating to 99) and the other is rounded (200 *
+  // 100/300 = 66.67 rounds to 67).
+  Bitmap non_integer(300, 200, /*as_rgb=*/true);
+  non_integer.Thumbnail(/*max_image_size=*/100);
+  EXPECT_EQ(non_integer.Width(), 100);
+  EXPECT_EQ(non_integer.Height(), 67);
+}
+
+TEST(Bitmap, ThumbnailNoOp) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/false);
+
+  // Bound larger than both dimensions leaves the image unchanged.
+  Bitmap larger = bitmap.Clone();
+  EXPECT_DOUBLE_EQ(larger.Thumbnail(/*max_image_size=*/200), 1.0);
+  EXPECT_EQ(larger.Width(), 100);
+  EXPECT_EQ(larger.Height(), 80);
+
+  // Bound equal to the largest dimension is also a no-op.
+  Bitmap equal = bitmap.Clone();
+  EXPECT_DOUBLE_EQ(equal.Thumbnail(/*max_image_size=*/100), 1.0);
+  EXPECT_EQ(equal.Width(), 100);
+  EXPECT_EQ(equal.Height(), 80);
+}
+
 TEST(Bitmap, Rot90) {
   Bitmap bitmap(10, 5, /*as_rgb=*/false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
@@ -795,6 +838,26 @@ TEST(Bitmap, ReadWriteAsRGB) {
   EXPECT_EQ(read_bitmap.Channels(), 1);
   EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.CloneAsGrey().RowMajorData());
+}
+
+TEST(Bitmap, ReadWriteUnicodePath) {
+  Bitmap bitmap(2, 3, /*as_rgb=*/true);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(40, 50, 60));
+
+  // Use a non-ASCII filename to ensure the path is round-tripped through OIIO
+  // as UTF-8. On Windows, path.string() would mangle these characters using
+  // the system locale and the read/write would fail.
+  const std::filesystem::path filename =
+      CreateTestDir() / std::filesystem::u8path(u8"éü中文-bitmap.png");
+
+  EXPECT_TRUE(bitmap.Write(filename));
+
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
 }
 
 TEST(Bitmap, ReadWriteAsGrey) {

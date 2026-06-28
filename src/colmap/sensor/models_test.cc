@@ -104,6 +104,26 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   }
 }
 
+// Round-trip a pixel through the 3D bearing interface: CamRayFromImg yields a
+// unit ray, ImgFromCam must project it back to the same pixel.
+template <typename CameraModel>
+void TestCamRayFromImgToImg(const std::vector<double>& params,
+                            const double x0,
+                            const double y0) {
+  const std::optional<Eigen::Vector3d> ray = CameraModelCamRayFromImg(
+      CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
+  ASSERT_TRUE(ray.has_value());
+  EXPECT_NEAR(ray->norm(), 1.0, 1e-12);
+  const std::optional<Eigen::Vector2d> xy =
+      CameraModelImgFromCam(CameraModel::model_id, params, *ray);
+  ASSERT_TRUE(xy.has_value());
+  // The pixel round-trip is floored by the iterative Newton undistortion in
+  // CamFromImg (~1e-7 worst case); matches the tolerance of the sibling
+  // CamFromImg/ImgFromCam round-trip in TestCamFromImgToImg.
+  EXPECT_NEAR(xy->x(), x0, 1e-6);
+  EXPECT_NEAR(xy->y(), y0, 1e-6);
+}
+
 // Validate ImgFromCamWithJac against ImgFromCam using Ceres Jets.
 template <typename CameraModel>
 void TestImgFromCamWithJac(const std::vector<double>& params,
@@ -184,6 +204,7 @@ void TestModel(const std::vector<double>& params) {
                 CameraModelExtraParamsIdxs(CameraModel::model_id).end()),
             std::vector<size_t>(CameraModel::extra_params_idxs.begin(),
                                 CameraModel::extra_params_idxs.end()));
+  EXPECT_TRUE(CameraModelMetaDataParamsIdxs(CameraModel::model_id).empty());
   EXPECT_EQ(CameraModelNumParams(CameraModel::model_id),
             CameraModel::num_params);
 
@@ -236,11 +257,14 @@ void TestModel(const std::vector<double>& params) {
         continue;
       }
       TestCamFromImgToImg<CameraModel>(params, x, y);
+      TestCamRayFromImgToImg<CameraModel>(params, x, y);
     }
   }
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
   TestCamFromImgToImg<CameraModel>(
+      params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
+  TestCamRayFromImgToImg<CameraModel>(
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 
   if constexpr (CameraModel::has_img_from_cam_with_jac) {
@@ -262,6 +286,76 @@ TEST(SimplePinhole, Nominal) {
 
 TEST(Pinhole, Nominal) {
   TestModel<PinholeCameraModel>({651.123, 655.123, 386.123, 511.123});
+}
+
+TEST(Spherical, Nominal) {
+  // params = (w, h) of the equirectangular image.
+  const std::vector<double> params = {800, 400};
+  EXPECT_TRUE(
+      CameraModelVerifyParams(EquirectangularCameraModel::model_id, params));
+
+  EXPECT_EQ(CameraModelParamsInfo(EquirectangularCameraModel::model_id), "w,h");
+  EXPECT_TRUE(
+      CameraModelFocalLengthIdxs(EquirectangularCameraModel::model_id).empty());
+  EXPECT_TRUE(
+      CameraModelPrincipalPointIdxs(EquirectangularCameraModel::model_id)
+          .empty());
+  EXPECT_TRUE(
+      CameraModelExtraParamsIdxs(EquirectangularCameraModel::model_id).empty());
+  EXPECT_EQ(
+      std::vector<size_t>(
+          CameraModelMetaDataParamsIdxs(EquirectangularCameraModel::model_id)
+              .begin(),
+          CameraModelMetaDataParamsIdxs(EquirectangularCameraModel::model_id)
+              .end()),
+      (std::vector<size_t>{0, 1}));
+  EXPECT_EQ(CameraModelNumParams(EquirectangularCameraModel::model_id), 2u);
+
+  // Perspective models have no metadata parameters.
+  EXPECT_TRUE(
+      CameraModelMetaDataParamsIdxs(PinholeCameraModel::model_id).empty());
+
+  // EQUIRECTANGULAR is non-perspective, spherical, and never has bogus
+  // parameters.
+  EXPECT_FALSE(CameraModelIsPerspective(EquirectangularCameraModel::model_id));
+  EXPECT_TRUE(CameraModelIsPerspective(PinholeCameraModel::model_id));
+  EXPECT_TRUE(CameraModelIsSpherical(EquirectangularCameraModel::model_id));
+  EXPECT_FALSE(CameraModelIsSpherical(PinholeCameraModel::model_id));
+  EXPECT_FALSE(CameraModelIsSpherical(OpenCVFisheyeCameraModel::model_id));
+  EXPECT_FALSE(CameraModelHasBogusParams(
+      EquirectangularCameraModel::model_id, params, 800, 400, 0.1, 2.0, 1.0));
+
+  // InitializeParams ignores the focal length and returns (w, h).
+  EXPECT_EQ(
+      CameraModelInitializeParams(
+          EquirectangularCameraModel::model_id, /*focal_length=*/123, 800, 400),
+      params);
+
+  // Full-sphere bearing round-trip CamRayFromImg -> ImgFromCam over the image
+  // interior (avoiding the azimuth seam at x in {0, w} and the poles at
+  // y in {0, h}, where the azimuth is undefined).
+  for (int xi = 40; xi <= 760; xi += 40) {
+    for (int yi = 40; yi <= 360; yi += 40) {
+      TestCamRayFromImgToImg<EquirectangularCameraModel>(
+          params, static_cast<double>(xi), static_cast<double>(yi));
+    }
+  }
+
+  // Back-hemisphere pixels (azimuth near +/-pi) have no forward 2D
+  // representation, so the 2D CamFromImg fails there while CamRayFromImg still
+  // yields a valid unit bearing.
+  EXPECT_FALSE(CameraModelCamFromImg(EquirectangularCameraModel::model_id,
+                                     params,
+                                     Eigen::Vector2d(0, 200))
+                   .has_value());
+  EXPECT_TRUE(CameraModelCamRayFromImg(EquirectangularCameraModel::model_id,
+                                       params,
+                                       Eigen::Vector2d(0, 200))
+                  .has_value());
+
+  // A forward-hemisphere pixel (azimuth ~0, image center column) also
+  // round-trips through the 2D CamFromImg / ImgFromCam path.
+  TestCamFromImgToImg<EquirectangularCameraModel>(params, 400, 200);
 }
 
 TEST(SimpleRadial, Nominal) {
@@ -378,6 +472,89 @@ TEST(SimpleFisheyeCamera, Nominal) {
 
 TEST(FisheyeCamera, Nominal) {
   TestModel<FisheyeCameraModel>({651.123, 655.123, 386.123, 511.123});
+}
+
+TEST(EUCMCamera, Nominal) {
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.56, 0.87});
+  TestModel<EUCMCameraModel>({400, 400, 400, 400, 0.88, 0.64});
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.0, 1.0});
+  TestModel<EUCMCameraModel>({651.123, 655.123, 386.123, 511.123, 0.5, 1.0});
+}
+
+TEST(EUCMCamera, RejectsInvalidExtraParams) {
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, -0.01, 0.87},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 1.01, 0.87},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 0.56, 0.00},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+  EXPECT_TRUE(CameraModelHasBogusParams(
+      EUCMCameraModel::model_id,
+      {651.123, 655.123, 386.123, 511.123, 0.56, -0.3},
+      1000,
+      1000,
+      0.1,
+      2.0,
+      1.0));
+}
+
+TEST(CameraModelRescale, Perspective) {
+  // Distinct per-axis scale factors to verify each is applied to the right
+  // parameter; all results are exactly representable.
+  const double scale_x = 2.0;
+  const double scale_y = 3.0;
+
+  // Two focal lengths (fx, fy): each scales along its own axis, as does the
+  // principal point (cx, cy).
+  {
+    std::vector<double> params = {100, 200, 50, 80};  // fx, fy, cx, cy
+    CameraModelRescale(PinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{200, 600, 100, 240}));
+  }
+
+  // Single shared focal length scales by the mean of the two factors.
+  {
+    std::vector<double> params = {100, 50, 80};  // f, cx, cy
+    CameraModelRescale(
+        SimplePinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{250, 100, 240}));  // f *= 2.5
+  }
+
+  // Extra (distortion) parameters are resolution independent and untouched.
+  {
+    std::vector<double> params = {100, 50, 80, 0.3};  // f, cx, cy, k
+    CameraModelRescale(
+        SimpleRadialCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{250, 100, 240, 0.3}));
+  }
+}
+
+TEST(CameraModelRescale, Spherical) {
+  // The (w, h) image-size parameters track the rescaled image dimensions.
+  std::vector<double> params = {800, 400};  // w, h
+  CameraModelRescale(EquirectangularCameraModel::model_id,
+                     /*scale_x=*/2.0,
+                     /*scale_y=*/0.5,
+                     params);
+  EXPECT_EQ(params, (std::vector<double>{1600, 200}));
 }
 
 }  // namespace

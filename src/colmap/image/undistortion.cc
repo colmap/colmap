@@ -49,6 +49,12 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   THROW_CHECK_LT(options.roi_min_x, options.roi_max_x);
   THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
 
+  // Undistortion produces a pinhole image, which is only well-defined for
+  // perspective cameras. Omnidirectional models (e.g. EQUIRECTANGULAR) have no
+  // pinhole image plane and cannot be undistorted; callers skip them, but guard
+  // here too rather than dereferencing the (empty) focal-length parameters.
+  THROW_CHECK(camera.IsPerspective());
+
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
   undistorted_camera.width = camera.width;
@@ -103,6 +109,17 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   // Scale in order to match the boundary of the undistorted image.
   if (roi_enabled || (camera.model_id != SimplePinholeCameraModel::model_id &&
                       camera.model_id != PinholeCameraModel::model_id)) {
+    // For fisheye camera, CamFromImg returns perspective-normalized coords
+    // where |cam_point| = tan(theta). Near theta = pi/2, tan(theta) diverges:
+    // border pixels outside the valid fisheye circle (common with off-center
+    // principal points) produce extreme coordinates that blow up the output
+    // dimensions. Skip any cam_point whose norm exceeds the threshold.
+    THROW_CHECK_NE(options.max_cam_point_norm, 0);
+    const double max_cam_point_norm_sq =
+        options.max_cam_point_norm < 0
+            ? std::numeric_limits<double>::infinity()
+            : options.max_cam_point_norm * options.max_cam_point_norm;
+
     // Determine min/max coordinates along top / bottom image border.
 
     double left_min_x = std::numeric_limits<double>::max();
@@ -114,7 +131,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Left border.
       if (const std::optional<Eigen::Vector2d> cam_point1 =
               camera.CamFromImg(Eigen::Vector2d(0.5, y + 0.5));
-          cam_point1.has_value()) {
+          cam_point1.has_value() &&
+          cam_point1->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point1 =
                 undistorted_camera.ImgFromCam(cam_point1->homogeneous());
             undistorted_point1) {
@@ -125,7 +143,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Right border.
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               camera.CamFromImg(Eigen::Vector2d(camera.width - 0.5, y + 0.5));
-          cam_point2.has_value()) {
+          cam_point2.has_value() &&
+          cam_point2->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point2 =
                 undistorted_camera.ImgFromCam(cam_point2->homogeneous());
             undistorted_point2) {
@@ -146,7 +165,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Top border.
       if (const std::optional<Eigen::Vector2d> cam_point1 =
               camera.CamFromImg(Eigen::Vector2d(x + 0.5, 0.5));
-          cam_point1) {
+          cam_point1.has_value() &&
+          cam_point1->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point1 =
                 undistorted_camera.ImgFromCam(cam_point1->homogeneous());
             undistorted_point1) {
@@ -157,7 +177,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Bottom border.
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               camera.CamFromImg(Eigen::Vector2d(x + 0.5, camera.height - 0.5));
-          cam_point2) {
+          cam_point2.has_value() &&
+          cam_point2->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point2 =
                 undistorted_camera.ImgFromCam(cam_point2->homogeneous());
             undistorted_point2) {
@@ -253,6 +274,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   const std::unordered_map<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
+    // IsUndistorted() is true for non-perspective cameras (e.g.
+    // EQUIRECTANGULAR), which cannot be undistorted to a pinhole, so they are
+    // left unchanged.
     if (camera.second.IsUndistorted()) {
       continue;
     }
@@ -263,6 +287,12 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   for (const auto& distorted_image : reconstruction->Images()) {
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
+    // Cameras left unchanged above (undistorted perspective cameras and all
+    // non-perspective cameras, e.g. EQUIRECTANGULAR) need no observation
+    // rewrite.
+    if (distorted_camera.IsUndistorted()) {
+      continue;
+    }
     const Camera& undistorted_camera = *image.CameraPtr();
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {

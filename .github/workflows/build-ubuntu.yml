@@ -149,7 +149,14 @@ jobs:
           if [ "${{ matrix.config.qtVersion }}" == "5" ]; then
             qt_packages="qtbase5-dev libqt5opengl5-dev libqt5svg5-dev libcgal-qt5-dev"
           elif [ "${{ matrix.config.qtVersion }}" == "6" ]; then
-            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6 libqt6svg6-dev"
+            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6"
+            # The Svg dev package is named qt6-svg-dev on Ubuntu 24.04+ but
+            # libqt6svg6-dev on Ubuntu 22.04.
+            if [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+              qt_packages="$qt_packages libqt6svg6-dev"
+            else
+              qt_packages="$qt_packages qt6-svg-dev"
+            fi
           fi
 
           sudo apt-get update && sudo apt-get install -y \

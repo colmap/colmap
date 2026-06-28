@@ -72,9 +72,12 @@ void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
       points2D, points3D, cam_from_world, img_from_cam_func_, residuals);
 }
 
+P4PFEstimator::P4PFEstimator(bool share_focal_length)
+    : share_focal_length_(share_focal_length) {}
+
 void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
-                             std::vector<M_t>* models) {
+                             std::vector<M_t>* models) const {
   THROW_CHECK_EQ(points2D.size(), 4);
   THROW_CHECK_EQ(points3D.size(), 4);
   THROW_CHECK_NOTNULL(models);
@@ -82,14 +85,30 @@ void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
   models->clear();
 
   std::vector<poselib::CameraPose> poses;
-  std::vector<double> focals;
-  const int num_poses = poselib::p4pf(
-      points2D, points3D, &poses, &focals, /*filter_solutions=*/true);
+  std::vector<double> focals_x;
+  std::vector<double> focals_y;
+  int num_poses;
+  if (share_focal_length_) {
+    // Estimate a single shared focal length. filter_solutions additionally
+    // removes solutions whose aspect ratio (fx/fy) is far from 1.
+    num_poses = poselib::p4pf(
+        points2D, points3D, &poses, &focals_x, /*filter_solutions=*/true);
+    focals_y = focals_x;
+  } else {
+    // Estimate separate focal lengths for x and y. filter_solutions only
+    // removes solutions with non-positive focal lengths.
+    num_poses = poselib::p4pf(points2D,
+                              points3D,
+                              &poses,
+                              &focals_x,
+                              &focals_y,
+                              /*filter_solutions=*/true);
+  }
 
   models->resize(num_poses);
   for (int i = 0; i < num_poses; ++i) {
     (*models)[i].cam_from_world = poses[i].Rt();
-    (*models)[i].focal_length = focals[i];
+    (*models)[i].focal_lengths = Eigen::Vector2d(focals_x[i], focals_y[i]);
   }
 }
 
@@ -106,7 +125,8 @@ void P4PFEstimator::Residuals(const std::vector<X_t>& points2D,
     // Check if 3D point is in front of camera.
     if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
       (*residuals)[i] =
-          (model.focal_length * point3D_in_cam.hnormalized() - points2D[i])
+          (model.focal_lengths.cwiseProduct(point3D_in_cam.hnormalized()) -
+           points2D[i])
               .squaredNorm();
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();

@@ -139,3 +139,19 @@ def test_incremental_pipeline_options_get_global_bundle_adjustment():
     options = pycolmap.IncrementalPipelineOptions()
     bundle_adjustment_options = options.get_global_bundle_adjustment()
     assert bundle_adjustment_options is not None
+
+
+def test_incremental_pipeline_options_ba_local_backend_readwrite():
+    options = pycolmap.IncrementalPipelineOptions()
+    options.ba_local_backend = pycolmap.BundleAdjustmentBackend.CERES
+    assert options.ba_local_backend == pycolmap.BundleAdjustmentBackend.CERES
+    options.ba_local_backend = pycolmap.BundleAdjustmentBackend.CASPAR
+    assert options.ba_local_backend == pycolmap.BundleAdjustmentBackend.CASPAR
+
+
+def test_incremental_pipeline_options_ba_global_backend_readwrite():
+    options = pycolmap.IncrementalPipelineOptions()
+    options.ba_global_backend = pycolmap.BundleAdjustmentBackend.CERES
+    assert options.ba_global_backend == pycolmap.BundleAdjustmentBackend.CERES
+    options.ba_global_backend = pycolmap.BundleAdjustmentBackend.CASPAR
+    assert options.ba_global_backend == pycolmap.BundleAdjustmentBackend.CASPAR

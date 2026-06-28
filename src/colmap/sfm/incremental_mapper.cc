@@ -355,6 +355,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     if (!options.abs_pose_refine_extra_params) {
       abs_pose_refinement_options.refine_extra_params = false;
     }
+
+    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no focal length, and
+    // their parameters (e.g. image dimensions) are not distortion coefficients
+    // to be refined during registration.
+    if (!camera.IsPerspective()) {
+      abs_pose_options.estimate_focal_length = false;
+      abs_pose_refinement_options.refine_focal_length = false;
+      abs_pose_refinement_options.refine_extra_params = false;
+    }
   }
 
   // If any of the cameras in the same rig has bogus cameras, reset them to the
@@ -618,7 +627,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                                        const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
-  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
+  if (reconstruction_->NumRegImages() < 2) {
+    VLOG(2) << "Structure-less registration requires at least 2 registered "
+               "images; only "
+            << reconstruction_->NumRegImages() << " available";
+    return false;
+  }
 
   THROW_CHECK(options.Check());
 
