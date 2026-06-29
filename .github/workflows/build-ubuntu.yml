@@ -28,6 +28,7 @@ jobs:
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
+            casparEnabled: false,
             e2eTests: false,
             checkCodeFormat: true,
             coverageEnabled: true,
@@ -39,6 +40,7 @@ jobs:
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
+            casparEnabled: false,
             e2eTests: true,
             checkCodeFormat: true,
             coverageEnabled: false,
@@ -50,6 +52,7 @@ jobs:
             asanEnabled: false,
             guiEnabled: false,
             cudaEnabled: true,
+            casparEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
@@ -61,6 +64,7 @@ jobs:
             asanEnabled: true,
             guiEnabled: false,
             cudaEnabled: false,
+            casparEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
@@ -72,6 +76,7 @@ jobs:
             asanEnabled: false,
             guiEnabled: false,
             cudaEnabled: false,
+            casparEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
@@ -144,7 +149,14 @@ jobs:
           if [ "${{ matrix.config.qtVersion }}" == "5" ]; then
             qt_packages="qtbase5-dev libqt5opengl5-dev libqt5svg5-dev libcgal-qt5-dev"
           elif [ "${{ matrix.config.qtVersion }}" == "6" ]; then
-            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6 libqt6svg6-dev"
+            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6"
+            # The Svg dev package is named qt6-svg-dev on Ubuntu 24.04+ but
+            # libqt6svg6-dev on Ubuntu 22.04.
+            if [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+              qt_packages="$qt_packages libqt6svg6-dev"
+            else
+              qt_packages="$qt_packages qt6-svg-dev"
+            fi
           fi
 
           sudo apt-get update && sudo apt-get install -y \
@@ -216,10 +228,11 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
-            -DCMAKE_CUDA_ARCHITECTURES=50 \
+            -DCMAKE_CUDA_ARCHITECTURES=75 \
             -DTESTS_ENABLED=ON \
             -DWERROR_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
+            -DCASPAR_ENABLED=${{ matrix.config.casparEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
@@ -239,7 +252,7 @@ jobs:
           export colmap_DIR=${{ github.workspace }}/build/install/share/colmap
           cmake .. \
             -GNinja \
-            -DCMAKE_CUDA_ARCHITECTURES=50
+            -DCMAKE_CUDA_ARCHITECTURES=75
           ninja
           ./hello_world --message "world"
 
@@ -248,6 +261,9 @@ jobs:
         run: |
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             ctestExclusions="(feature/sift_test)|(mvs/gpu_mat_test)"
+          fi
+          if [ "${{ matrix.config.casparEnabled }}" == "true" ]; then
+            ctestExclusions="${ctestExclusions}|(estimators/bundle_adjustment_caspar_test)"
           fi
 
           export DISPLAY=":99.0"

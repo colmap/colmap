@@ -98,7 +98,10 @@ COLMAP offers three SfM pipelines:
 
 - **Incremental mapper** (``mapper``, default): Reconstructs the scene by
   incrementally adding one image at a time. This is the most robust and
-  well-tested pipeline, but can become slow for large image collections.
+  well-tested pipeline, but can become slow for large image collections, where
+  repeated bundle adjustment is often the bottleneck. This can be accelerated
+  substantially with the GPU-based Caspar backend (see
+  :ref:`Speedup bundle adjustment <speedup-bundle-adjustment>`).
 
 - **Global mapper** (``global_mapper``): Solves for all camera poses
   simultaneously using rotation averaging and global positioning. This can be
@@ -140,10 +143,10 @@ the ``pose_prior_mapper``::
         --output_path $PROJECT_PATH/sparse
 
 The ``pose_prior_mapper`` is essentially the incremental mapper with prior
-position constraints enabled. You can control the prior covariance (uncertainty)
-using ``--prior_position_std_x``, ``--prior_position_std_y``, and
-``--prior_position_std_z`` (default: 1.0 meter each), or override all priors'
-covariance with ``--overwrite_priors_covariance``.
+position constraints enabled. You can override the priors covariance (uncertainty)
+using ``--overwrite_priors_covariance``.  The new covariance will be built based 
+on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
+``--prior_position_std_z`` (default: 1.0 meter each).
 
 For geo-registration of an already reconstructed model (without using priors
 during mapping), see the `Geo-registration`_ section.
@@ -520,6 +523,8 @@ required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
 
 
+.. _speedup-bundle-adjustment:
+
 Speedup bundle adjustment
 -------------------------
 
@@ -561,6 +566,34 @@ The following describes practical ways to reduce bundle adjustment runtime.
 
   - High image covisibility
   - Shared camera intrinsics.
+
+- **Use the Caspar GPU bundle adjustment backend**
+
+  COLMAP includes Caspar [caspar]_, an experimental GPU-accelerated bundle
+  adjustment backend that can be one to two orders of magnitude faster than the
+  Ceres CUDA solver for medium- to large-scale problems, leading to drastic
+  speedups especially for the incremental mapper. Caspar requires CUDA and is
+  disabled by default; it must be enabled at build time by configuring COLMAP
+  with ``-DCASPAR_ENABLED=ON``.
+
+  Caspar is selected through the bundle adjustment ``backend`` option, which
+  accepts ``CERES`` (default) or ``CASPAR``:
+
+  - Standalone ``bundle_adjuster``: ``--BundleAdjustment.backend CASPAR``.
+  - Incremental ``mapper``: ``--Mapper.ba_local_backend CASPAR`` and/or
+    ``--Mapper.ba_global_backend CASPAR``. The GPU device is selected via
+    ``--Mapper.ba_gpu_index``.
+
+  The solver behavior and GPU device of the standalone backend can be tuned via
+  the ``--BundleAdjustmentCaspar.*`` options, e.g. ``--BundleAdjustmentCaspar.gpu_index``
+  (default ``-1`` auto-selects the best CUDA device).
+
+  .. Attention:: Caspar is experimental and currently supports only the
+     ``SIMPLE_RADIAL`` and ``PINHOLE`` camera models; observations using other
+     camera models are skipped. It does not support pose priors or refining
+     ``sensor_from_rig`` for non-reference rig sensors, and requires
+     ``refine_focal_length`` and ``refine_extra_params`` to be equal. The
+     ``global_mapper`` does not expose a Caspar backend selector.
 
 - **Additional practical tips**
 
@@ -609,22 +642,30 @@ filtering threshold for the photometric consistency cost
 Surface mesh reconstruction
 ---------------------------
 
-COLMAP supports two types of surface reconstruction algorithms. Poisson surface
-reconstruction [kazhdan2013]_ and graph-cut based surface extraction from a
-Delaunay triangulation. Poisson surface reconstruction typically requires an
-almost outlier-free input point cloud and it often produces bad surfaces in the
-presence of outliers or large holes in the input data. The Delaunay
-triangulation based meshing algorithm is more robust to outliers and in general
-more scalable to large datasets than the Poisson algorithm, but it usually
-produces less smooth surfaces. Furthermore, the Delaunay based meshing can be
-applied to sparse and dense reconstruction results. To increase the smoothness
-of the surface as a post-processing step, you could use Laplacian smoothing, as
-e.g. implemented in Meshlab.
+COLMAP supports three surface reconstruction algorithms:
 
-Note that the two algorithms can also be combined by first running the Delaunay
-meshing to robustly filter outliers from the sparse or dense point cloud and
-then, in the second step, performing Poisson surface reconstruction to obtain a
-smooth surface.
+- **Poisson surface reconstruction** [kazhdan2013]_ typically requires an almost
+  outlier-free input point cloud and often produces bad surfaces in the presence
+  of outliers or large holes in the input data.
+
+- **Delaunay triangulation** based meshing is more robust to outliers and in
+  general more scalable to large datasets than the Poisson algorithm, but it
+  usually produces less smooth surfaces. It can be applied to both sparse and
+  dense reconstruction results.
+
+- **Advancing front surface reconstruction** [cohen-steiner2004]_ incrementally
+  grows a surface mesh from a Delaunay triangulation of the input points.
+  It supports visibility-based filtering to remove faces that violate free-space
+  constraints and block-wise parallel processing for large-scale scenes. It uses
+  a float32 CGAL kernel for memory efficiency.
+
+To increase the smoothness of the surface as a post-processing step, you could
+use Laplacian smoothing, as e.g. implemented in Meshlab.
+
+Note that Poisson and Delaunay meshing can also be combined by first running the
+Delaunay meshing to robustly filter outliers from the sparse or dense point
+cloud and then, in the second step, performing Poisson surface reconstruction to
+obtain a smooth surface.
 
 After meshing, the ``mesh_texturer`` command can be used to produce a textured
 mesh with a texture atlas [waechter2014]_. This assigns each mesh face to the

@@ -67,14 +67,14 @@ master_doc = "index"
 
 # General information about the project.
 project = "COLMAP"
-copyright = "2025, Johannes L. Schoenberger"
+copyright = "2026, COLMAP Team"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "4.1.0.dev0" + " | " + get_git_revision()
+version = "4.2.0.dev0" + " | " + get_git_revision()
 # The full version, including alpha/beta/rc tags.
 release = version
 

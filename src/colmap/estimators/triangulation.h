@@ -57,14 +57,16 @@ class TriangulationEstimator {
   };
 
   struct PointData {
-    PointData() {}
-    PointData(const Eigen::Vector2d& img_point,
-              const Eigen::Vector2d& cam_point)
-        : img_point(img_point), cam_point(cam_point) {}
+    PointData() = default;
+    PointData(const Eigen::Vector2d& img_point, const Eigen::Vector3d& cam_ray)
+        : img_point(img_point), cam_ray(cam_ray) {}
     // Image observation in pixels. Only needs to be set for REPROJECTION_ERROR.
-    Eigen::Vector2d img_point;
-    // Normalized camera coordinates. Must always be set.
-    Eigen::Vector2d cam_point;
+    Eigen::Vector2d img_point = Eigen::Vector2d::Zero();
+    // Unit bearing vector in the camera frame (Camera::CamRayFromImg). The
+    // canonical observation representation for all camera models, including
+    // omnidirectional (EQUIRECTANGULAR) back-hemisphere rays that the 2D
+    // normalized representation cannot encode.
+    Eigen::Vector3d cam_ray = Eigen::Vector3d::Zero();
   };
 
   struct PoseData {
@@ -94,8 +96,8 @@ class TriangulationEstimator {
 
   // Estimate a 3D point from a two-view observation.
   //
-  // @param point_data        Image measurement.
-  // @param point_data        Camera poses.
+  // @param point_data        Image measurements.
+  // @param pose_data         Camera poses.
   //
   // @return                  Triangulated point if successful, otherwise none.
   void Estimate(const std::vector<X_t>& point_data,
@@ -105,7 +107,7 @@ class TriangulationEstimator {
   // Calculate residuals in terms of squared reprojection or angular error.
   //
   // @param point_data        Image measurements.
-  // @param point_data        Camera poses.
+  // @param pose_data         Camera poses.
   // @param xyz               3D point.
   //
   // @return                  Residual for each observation.

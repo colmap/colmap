@@ -73,31 +73,51 @@ std::vector<image_pair_t> ExtractExhaustiveImagePairs(
   return image_pairs;
 }
 
+// Fill the configuration, essential matrix, and (for perspective pairs)
+// fundamental matrix of a synthetic two-view geometry.
+void SetTwoViewGeometryModel(const Camera& camera1,
+                             const Camera& camera2,
+                             const Rigid3d& cam2_from_cam1,
+                             TwoViewGeometry* two_view_geometry) {
+  two_view_geometry->E = EssentialMatrixFromPose(cam2_from_cam1);
+  if (camera1.IsSpherical() || camera2.IsSpherical()) {
+    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no pinhole
+    // calibration matrix, so the fundamental matrix is undefined; they are
+    // always calibrated and use the bearing-based essential-matrix
+    // configuration.
+    two_view_geometry->config = TwoViewGeometry::CALIBRATED;
+    return;
+  }
+  const bool is_calibrated =
+      camera1.has_prior_focal_length && camera2.has_prior_focal_length;
+  two_view_geometry->config = is_calibrated ? TwoViewGeometry::CALIBRATED
+                                            : TwoViewGeometry::UNCALIBRATED;
+  two_view_geometry->F =
+      FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
+                                     *two_view_geometry->E,
+                                     camera1.CalibrationMatrix());
+}
+
 TwoViewGeometry BuildTwoViewGeometry(bool has_relative_pose,
                                      const Reconstruction& reconstruction,
                                      const image_pair_t pair_id) {
   const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
 
   const auto& image1 = reconstruction.Image(image_id1);
-  const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
   const auto num_points2D1 = image1.NumPoints2D();
   const auto& image2 = reconstruction.Image(image_id2);
-  const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
   const auto num_points2D2 = image2.NumPoints2D();
 
   TwoViewGeometry two_view_geometry;
-  const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
-                             image2.CameraPtr()->has_prior_focal_length;
-  two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
-                                           : TwoViewGeometry::UNCALIBRATED;
   const Rigid3d cam2_from_cam1 =
       image2.CamFromWorld() * Inverse(image1.CamFromWorld());
   if (has_relative_pose) {
     two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
   }
-  two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
-  two_view_geometry.F =
-      FundamentalFromEssentialMatrix(K2, two_view_geometry.E.value(), K1);
+  SetTwoViewGeometryModel(*image1.CameraPtr(),
+                          *image2.CameraPtr(),
+                          cam2_from_cam1,
+                          &two_view_geometry);
 
   for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
        ++point2D_idx1) {
@@ -191,20 +211,13 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
     const auto& camera1 = *image1.CameraPtr();
     const auto& image2 = reconstruction->Image(image_id2);
     const auto& camera2 = *image2.CameraPtr();
-    const bool is_calibrated =
-        camera1.has_prior_focal_length && camera2.has_prior_focal_length;
-    two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
-                                             : TwoViewGeometry::UNCALIBRATED;
     const Rigid3d cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());
     if (has_relative_pose) {
       two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
     }
-    two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
-    two_view_geometry.F =
-        FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
-                                       two_view_geometry.E.value(),
-                                       camera1.CalibrationMatrix());
+    SetTwoViewGeometryModel(
+        camera1, camera2, cam2_from_cam1, &two_view_geometry);
 
     WriteTwoViewGeometryToDatabase(pair_id,
                                    two_view_geometry,

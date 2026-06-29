@@ -101,7 +101,8 @@ void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
   const size_t kNumPoints2D = 10;
 
-  Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
   reconstruction->AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);

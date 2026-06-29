@@ -36,6 +36,9 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 
+#include <map>
+#include <utility>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -275,8 +278,60 @@ TEST(RotationAveraging, DeterministicRandomSeed) {
   EXPECT_TRUE(RunRotationAveraging(
       options, pose_graph2, reconstruction2, data.pose_priors));
 
-  ExpectEqualRotations(
-      reconstruction1, reconstruction2, /*max_rotation_error_deg=*/0);
+  for (const image_t image_id : reconstruction1.RegImageIds()) {
+    const Eigen::Quaterniond q1 =
+        reconstruction1.Image(image_id).CamFromWorld().rotation();
+    const Eigen::Quaterniond q2 =
+        reconstruction2.Image(image_id).CamFromWorld().rotation();
+    // In the presence of optimizations like FMA, q.angularDistance(q) can be
+    // near-zero instead of zero, so check equality explicitly instead of with
+    // ExpectEqualRotations.
+    EXPECT_EQ(q1.coeffs(), q2.coeffs());
+  }
+}
+
+TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
+  SetPRNGSeed(1);
+
+  // Use a noisy multi-rig setup to make the solution non-trivial and the
+  // regularization's effect non-degenerate.
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.prior_gravity_stddev = 3e-1;
+  auto data =
+      CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
+
+  RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
+  options.random_seed = 42;
+
+  // Run once with no regularization.
+  Reconstruction reconstruction_no_ridge = data.reconstruction;
+  PoseGraph pose_graph_no_ridge = data.pose_graph;
+  options.ridge_regularization = 0;
+  ASSERT_TRUE(RunRotationAveraging(
+      options, pose_graph_no_ridge, reconstruction_no_ridge, data.pose_priors));
+
+  // Run again with the same default ridge that the global mapper uses. The
+  // option must flow through L1 and IRLS without biasing the solution.
+  Reconstruction reconstruction_ridge = data.reconstruction;
+  PoseGraph pose_graph_ridge = data.pose_graph;
+  options.ridge_regularization = 1e-9;
+  ASSERT_TRUE(RunRotationAveraging(
+      options, pose_graph_ridge, reconstruction_ridge, data.pose_priors));
+
+  // The two solutions should be effectively identical since 1e-9 is far below
+  // any meaningful residual scale in the optimization.
+  ExpectEqualRotations(reconstruction_no_ridge,
+                       reconstruction_ridge,
+                       /*max_rotation_error_deg=*/1e-12);
 }
 
 TEST(RotationAveraging, EmptyPoseGraph) {
@@ -298,6 +353,72 @@ TEST(RotationAveraging, EmptyPoseGraph) {
   RotationEstimatorOptions options = CreateRATestOptions();
   EXPECT_FALSE(RunRotationAveraging(
       options, data.pose_graph, data.reconstruction, data.pose_priors));
+}
+
+TEST(RotationAveraging, MultiImageRigFrameDeregisterDoesNotCrashOnSecondVisit) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  std::vector<frame_t> frame_ids;
+  for (const auto& [fid, _] : data.reconstruction.Frames()) {
+    frame_ids.push_back(fid);
+  }
+  std::sort(frame_ids.begin(), frame_ids.end());
+  ASSERT_EQ(frame_ids.size(), 4);
+  const frame_t isolated_frame_id = frame_ids.back();
+
+  // 1. Collect every image_id that belongs to the isolated frame.
+  std::unordered_set<image_t> isolated_image_ids;
+  for (const auto& data_id :
+       data.reconstruction.Frame(isolated_frame_id).ImageIds()) {
+    isolated_image_ids.insert(data_id.id);
+  }
+
+  // 2. Strip every pose-graph edge touching the isolated frame. After
+  //    this the frame is unreachable from any other frame in the
+  //    pose-graph CC.
+  std::vector<std::pair<image_t, image_t>> edges_to_remove;
+  for (const auto& [pair_id, edge] : data.pose_graph.Edges()) {
+    const auto [id1, id2] = PairIdToImagePair(pair_id);
+    if (isolated_image_ids.count(id1) || isolated_image_ids.count(id2)) {
+      edges_to_remove.emplace_back(id1, id2);
+    }
+  }
+  ASSERT_FALSE(edges_to_remove.empty());
+  for (const auto& [id1, id2] : edges_to_remove) {
+    data.pose_graph.DeleteEdge(id1, id2);
+  }
+
+  // 3. Pre-register the isolated frame with its GT pose. This puts it
+  //    into reg_frame_ids_ even though no edges touch it.
+  ASSERT_TRUE(data.gt_reconstruction.Frame(isolated_frame_id).HasPose());
+  data.reconstruction.Frame(isolated_frame_id)
+      .SetRigFromWorld(
+          data.gt_reconstruction.Frame(isolated_frame_id).RigFromWorld());
+  data.reconstruction.RegisterFrame(isolated_frame_id);
+
+  RotationEstimatorOptions options = CreateRATestOptions();
+  options.max_rotation_error_deg = 1.0;
+
+  EXPECT_TRUE(RunRotationAveraging(
+      options, data.pose_graph, data.reconstruction, data.pose_priors));
+
+  // Post-condition: the isolated frame was deregistered cleanly.
+  // The other frames remain registered with poses recovered by RA.
+  EXPECT_FALSE(data.reconstruction.Frame(isolated_frame_id).HasPose());
+  for (size_t i = 0; i + 1 < frame_ids.size(); ++i) {
+    EXPECT_TRUE(data.reconstruction.Frame(frame_ids[i]).HasPose())
+        << "Frame " << frame_ids[i]
+        << " should remain registered after deregistration of the "
+        << "isolated frame.";
+  }
 }
 
 TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
@@ -370,6 +491,97 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
                         .SensorFromRig(sensor_id)
                         .rotation()),
                 1e-6);
+    }
+  }
+}
+
+// When a sensor_from_rig is already fully calibrated (valid rotation AND
+// translation), InitializeRigRotationsFromImages must preserve it rather than
+// resetting the translation to NaN.
+TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
+    if (image.HasPose()) {
+      cams_from_world[image_id] = image.CamFromWorld();
+    }
+  }
+
+  // Snapshot the (already-calibrated) rig BEFORE initialization.
+  std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig.has_value());
+      snapshot[{rig_id, sensor_id}] = *sensor_from_rig;
+    }
+  }
+  ASSERT_GT(snapshot.size(), 0u);
+
+  EXPECT_TRUE(
+      InitializeRigRotationsFromImages(cams_from_world, data.reconstruction));
+
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+    }
+  }
+}
+
+TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
+  SetPRNGSeed(1);
+
+  // A non-trivial multi-camera rig so both rotation AND translation are
+  // non-zero
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  // Snapshot the rig BEFORE RA so we can compare element-wise.
+  std::map<std::pair<rig_t, sensor_t>, Rigid3d> snapshot;
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sfr] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sfr.has_value());
+      snapshot[{rig_id, sensor_id}] = *sfr;
+    }
+  }
+  // Sanity check: at least one sensor should have a non-zero translation
+  // so the test would actually catch the old "reset to zero" behaviour.
+  ASSERT_GT(snapshot.size(), 0u);
+
+  // Run RA with refine_sensor_from_rig=false.
+  RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
+  options.refine_sensor_from_rig = false;
+  ASSERT_TRUE(RunRotationAveraging(
+      options, data.pose_graph, data.reconstruction, data.pose_priors));
+
+  // Every sensor_from_rig must match the snapshot exactly.
+  for (const auto& [rig_id, rig] : data.reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig_after] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig_after.has_value())
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+      const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
+      EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
+          << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
     }
   }
 }

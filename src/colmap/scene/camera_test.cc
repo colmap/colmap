@@ -46,6 +46,9 @@ TEST(Camera, Empty) {
   EXPECT_EQ(camera.height, 0);
   EXPECT_FALSE(camera.has_prior_focal_length);
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
+  EXPECT_THROW(camera.PrincipalPointIdxs(), std::domain_error);
+  EXPECT_THROW(camera.ExtraParamsIdxs(), std::domain_error);
+  EXPECT_THROW(camera.MetaDataParamsIdxs(), std::domain_error);
   EXPECT_THROW(camera.ParamsInfo(), std::domain_error);
   EXPECT_EQ(camera.ParamsToString(), "");
   EXPECT_EQ(camera.params.size(), 0);
@@ -132,10 +135,12 @@ TEST(Camera, ParamIdxs) {
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
   EXPECT_THROW(camera.PrincipalPointIdxs(), std::domain_error);
   EXPECT_THROW(camera.ExtraParamsIdxs(), std::domain_error);
+  EXPECT_THROW(camera.MetaDataParamsIdxs(), std::domain_error);
   camera.model_id = FullOpenCVCameraModel::model_id;
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 2);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 8);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
 }
 
 TEST(Camera, CalibrationMatrix) {
@@ -237,6 +242,7 @@ TEST(Camera, CreateFromModelId) {
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
   EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
@@ -262,6 +268,7 @@ TEST(Camera, CreateFromModelName) {
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
   EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
@@ -279,7 +286,8 @@ TEST(Camera, CreateFromModelName) {
 TEST(Camera, CamFromImg) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImg(Eigen::Vector2d::Zero()), std::domain_error);
-  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0)).value(),
             Eigen::Vector2d(-0.5, -0.5));
   EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5)).value(),
@@ -289,12 +297,13 @@ TEST(Camera, CamFromImg) {
 TEST(Camera, CamFromImgThreshold) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImgThreshold(0), std::domain_error);
-  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   EXPECT_EQ(camera.CamFromImgThreshold(0), 0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 1);
   camera.SetFocalLength(2.0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 1, 1);
   camera.SetFocalLengthY(3.0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
 }
@@ -302,7 +311,8 @@ TEST(Camera, CamFromImgThreshold) {
 TEST(Camera, ImgFromCam) {
   Camera camera;
   EXPECT_THROW(camera.ImgFromCam(Eigen::Vector3d::Zero()), std::domain_error);
-  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(0.0, 0.0, 1)).value(),
             Eigen::Vector2d(0.5, 0.5));
   EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(-0.5, -0.5, 1)).value(),
@@ -310,7 +320,8 @@ TEST(Camera, ImgFromCam) {
 }
 
 TEST(Camera, Rescale) {
-  Camera camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
   camera.Rescale(2.0);
   EXPECT_EQ(camera.width, 2);
   EXPECT_EQ(camera.height, 2);
@@ -318,7 +329,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 1);
   EXPECT_EQ(camera.PrincipalPointY(), 1);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 1, 1);
   camera.Rescale(2.0);
   EXPECT_EQ(camera.width, 2);
   EXPECT_EQ(camera.height, 2);
@@ -327,7 +338,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 1);
   EXPECT_EQ(camera.PrincipalPointY(), 1);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 2, 2);
   camera.Rescale(0.5);
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
@@ -336,7 +347,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 2, 2);
   camera.Rescale(1, 1);
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
@@ -345,7 +356,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
 
-  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1.0, 2, 2);
   camera.Rescale(4, 4);
   EXPECT_EQ(camera.width, 4);
   EXPECT_EQ(camera.height, 4);
@@ -353,6 +364,39 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.FocalLengthY(), 2);
   EXPECT_EQ(camera.PrincipalPointX(), 2);
   EXPECT_EQ(camera.PrincipalPointY(), 2);
+}
+
+TEST(Camera, Spherical) {
+  Camera camera = Camera::CreateFromModelId(
+      1, EquirectangularCameraModel::model_id, /*focal_length=*/0.0, 1000, 500);
+  EXPECT_EQ(camera.params, std::vector<double>({1000, 500}));
+  EXPECT_FALSE(camera.IsPerspective());
+  EXPECT_TRUE(camera.IsSpherical());
+
+  // No focal length / pinhole image plane. The (w, h) parameters form the
+  // metadata group; there is no principal point or extra (distortion).
+  EXPECT_TRUE(camera.FocalLengthIdxs().empty());
+  EXPECT_TRUE(camera.PrincipalPointIdxs().empty());
+  EXPECT_TRUE(camera.ExtraParamsIdxs().empty());
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 2);
+  EXPECT_EQ(camera.MeanFocalLength(), 0.0);
+  // CalibrationMatrix is undefined without a focal length.
+  EXPECT_ANY_THROW(camera.CalibrationMatrix());
+  // Spherical images have no lens distortion to undistort.
+  EXPECT_TRUE(camera.IsUndistorted());
+
+  // Rescaling keeps the (w, h) parameters consistent with the dimensions.
+  camera.Rescale(0.5);
+  EXPECT_EQ(camera.width, 500);
+  EXPECT_EQ(camera.height, 250);
+  EXPECT_EQ(camera.params, std::vector<double>({500, 250}));
+  EXPECT_TRUE(camera.IsSpherical());
+
+  // A perspective camera is not spherical.
+  const Camera pinhole =
+      Camera::CreateFromModelId(2, PinholeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(pinhole.IsPerspective());
+  EXPECT_FALSE(pinhole.IsSpherical());
 }
 
 }  // namespace

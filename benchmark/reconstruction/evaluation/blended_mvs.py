@@ -68,6 +68,7 @@ class DatasetBlendedMVS(Dataset):
                 )
                 image_path = scene_path / "blended_images"
                 image_list_path = scene_path / "images.txt"
+                num_images = 0
                 with open(image_list_path, "w") as fid:
                     for filepath in sorted(image_path.iterdir()):
                         image_name = str(filepath.name)
@@ -76,6 +77,7 @@ class DatasetBlendedMVS(Dataset):
                             and "masked" not in image_name
                         ):
                             fid.write(image_name + "\n")
+                            num_images += 1
 
                 sparse_gt_path = scene_path / "sparse_gt"
                 colmap_extra_args = ["--image_list_path", image_list_path]
@@ -84,6 +86,7 @@ class DatasetBlendedMVS(Dataset):
                     dataset="blended-mvs",
                     category=category,
                     scene=scene,
+                    num_images=num_images,
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
@@ -135,14 +138,16 @@ class DatasetBlendedMVS(Dataset):
                 image_id=i,
                 camera_id=i,
                 name=image_name,
-                cam_from_world=pycolmap.Rigid3d(extrinsic),
             )
+            image.frame_id = i
             frame = pycolmap.Frame(frame_id=i)
+            frame.rig_id = i
             frame.add_data_id(image.data_id)
+            frame.rig_from_world = pycolmap.Rigid3d(extrinsic)
             sparse_gt.add_camera(camera)
             sparse_gt.add_rig(rig)
-            sparse_gt.add_image(image)
             sparse_gt.add_frame(frame)
+            sparse_gt.add_image(image)
 
         scene_info.sparse_gt_path.mkdir(exist_ok=True)
         sparse_gt.write(scene_info.sparse_gt_path)

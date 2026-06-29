@@ -577,6 +577,24 @@ TEST_F(IncrementalMapperLargeDatasetTest, FilterFramesRegStatsConsistency) {
   }
 }
 
+// Reproduces the crash when FilterFrames aggressively deregisters frames,
+// leaving fewer than 2 images for a subsequent AdjustGlobalBundle call.
+TEST_F(IncrementalMapperLargeDatasetTest,
+       AdjustGlobalBundleReturnsFalseWithInsufficientFrames) {
+  BeginWithSynthesizedReconstruction();
+
+  ASSERT_GE(reconstruction_->NumRegFrames(), 20);
+
+  for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+    DeleteAllObservationsInFrame(frame_id);
+  }
+
+  mapper_->FilterFrames(options_);
+  ASSERT_LT(reconstruction_->NumRegImages(), 2);
+
+  EXPECT_FALSE(mapper_->AdjustGlobalBundle(options_, /*ba_options=*/{}));
+}
+
 TEST_F(IncrementalMapperTest, RegStatsResetBetweenReconstructions) {
   BeginWithSynthesizedReconstruction();
 

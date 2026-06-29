@@ -564,13 +564,17 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
                   reinterpret_cast<const void*>(image.descriptors->data.data()),
                   image.descriptors->data.size());
     } else {
-      // SIFT descriptors: stored as uint8, cast to float32 and root-normalize.
+      // SIFT descriptors: stored as uint8, cast to float32 and L2-normalize.
+      // LightGlue was trained on root-normalized (RootSIFT) descriptors. The
+      // SIFT extractor already root-normalizes them before quantizing to uint8
+      // (scaled by 512), so here we only need to undo that quantization scale
+      // via L2-normalization to recover the unit-norm RootSIFT vectors. Do NOT
+      // apply L1RootNormalize again, as that would root-normalize twice.
       const int descriptor_dim = image.descriptors->data.cols();
       THROW_CHECK_GT(descriptor_dim, 0);
 
-      // LightGlue was trained on root-normalized descriptors.
       FeatureDescriptorsFloat descriptors_float = image.descriptors->ToFloat();
-      L1RootNormalizeFeatureDescriptors(&descriptors_float.data);
+      L2NormalizeFeatureDescriptors(&descriptors_float.data);
 
       features.descriptors_shape = {1, num_keypoints, descriptor_dim};
       features.descriptors_data.resize(num_keypoints * descriptor_dim);
@@ -578,7 +582,7 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
                      features.descriptors_data.size());
       std::memcpy(features.descriptors_data.data(),
                   reinterpret_cast<const void*>(descriptors_float.data.data()),
-                  descriptors_float.data.size());
+                  descriptors_float.data.size() * sizeof(float));
 
       // Extract scale and orientation from keypoints.
       features.scales_shape = {1, num_keypoints};

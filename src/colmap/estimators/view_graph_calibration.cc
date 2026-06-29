@@ -206,7 +206,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
     return result;
   }
 
-  // Initialize focal lengths from cameras.
+  // Initialize focal lengths from all perspective cameras.
   struct FocalLengthState {
     double optimized = 0.0;
     double initial = 0.0;
@@ -214,8 +214,10 @@ FocalLengthCalibResult CalibrateFocalLengths(
   std::unordered_map<camera_t, FocalLengthState> focal_lengths;
   focal_lengths.reserve(cameras.size());
   for (const auto& [camera_id, camera] : cameras) {
-    const double focal = camera.MeanFocalLength();
-    focal_lengths[camera_id] = {focal, focal};
+    if (camera.IsPerspective()) {
+      const double focal = camera.MeanFocalLength();
+      focal_lengths[camera_id] = {focal, focal};
+    }
   }
 
   // Build Ceres problem.
@@ -225,6 +227,10 @@ FocalLengthCalibResult CalibrateFocalLengths(
   auto loss_function = options.CreateLossFunction();
 
   for (const auto& input : inputs) {
+    if (!cameras.at(input.camera_id1).IsPerspective() ||
+        !cameras.at(input.camera_id2).IsPerspective()) {
+      continue;
+    }
     if (input.camera_id1 == input.camera_id2) {
       problem.AddResidualBlock(
           FetzerFocalLengthSameCameraCostFunctor::Create(
@@ -246,6 +252,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Parameterize cameras (fix those with prior, set lower bound).
   size_t num_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
+    if (!camera.IsPerspective()) continue;
     double* focal_ptr = &focal_lengths[camera_id].optimized;
     if (!problem.HasParameterBlock(focal_ptr)) continue;
 
@@ -291,6 +298,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Validate focal lengths and revert degenerate ones.
   size_t rejected_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
+    if (!camera.IsPerspective()) continue;
     auto& focal = focal_lengths[camera_id];
     if (!problem.HasParameterBlock(&focal.optimized)) continue;
 
@@ -382,6 +390,9 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
+    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+      continue;
+    }
     tvg.F = FundamentalFromEssentialMatrix(
         camera2.CalibrationMatrix(),
         EssentialMatrixFromPose(*tvg.cam2_from_cam1),
@@ -392,13 +403,16 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   std::vector<FocalLengthCalibInput> inputs;
   inputs.reserve(pairs.size());
   for (const auto& [pair_id, tvg] : pairs) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const Camera& camera1 = *image_id_to_camera.at(image_id1);
+    const Camera& camera2 = *image_id_to_camera.at(image_id2);
+    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+      continue;
+    }
     THROW_CHECK(tvg.F.has_value())
         << "Two-view geometry must have F matrix for focal length calibration";
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    inputs.push_back({pair_id,
-                      image_id_to_camera.at(image_id1)->camera_id,
-                      image_id_to_camera.at(image_id2)->camera_id,
-                      tvg.F.value()});
+    inputs.push_back(
+        {pair_id, camera1.camera_id, camera2.camera_id, tvg.F.value()});
   }
 
   const FocalLengthCalibResult calib_result =

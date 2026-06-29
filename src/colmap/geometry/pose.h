@@ -82,7 +82,7 @@ Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w);
 
 // Convert 3D rotation matrix to Euler angles.
 //
-// The convention `R = Rx * Ry * Rz` is used,
+// The convention `R = Rz * Ry * Rx` is used,
 // using a right-handed coordinate system.
 //
 // @param R              3x3 rotation matrix.

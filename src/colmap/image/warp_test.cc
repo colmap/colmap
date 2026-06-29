@@ -90,7 +90,8 @@ void CheckBitmapsTransposed(const Bitmap& bitmap1, const Bitmap& bitmap2) {
 }  // namespace
 
 TEST(Warp, IdenticalCameras) {
-  const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
+  const Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 100, 100);
   const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
   Bitmap target_image_gray;
   WarpImageBetweenCameras(
@@ -104,7 +105,7 @@ TEST(Warp, IdenticalCameras) {
 
 TEST(Warp, ShiftedCameras) {
   const Camera source_camera =
-      Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 100, 100);
   Camera target_camera = source_camera;
   target_camera.SetPrincipalPointX(0.0);
   const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, true);
@@ -157,7 +158,8 @@ TEST(Warp, WarpImageWithHomographyTransposed) {
 }
 
 TEST(Warp, WarpImageWithHomographyBetweenCamerasIdentity) {
-  const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
+  const Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 100, 100);
   const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
   Bitmap target_image_gray;
   WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
@@ -178,7 +180,8 @@ TEST(Warp, WarpImageWithHomographyBetweenCamerasIdentity) {
 }
 
 TEST(Warp, WarpImageWithHomographyBetweenCamerasTransposed) {
-  const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
+  const Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 100, 100);
 
   Eigen::Matrix3d H;
   H << 0, 1, 0, 1, 0, 0, 0, 0, 1;

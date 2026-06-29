@@ -424,6 +424,13 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
       std::vector<int> const_camera_params;
       const_camera_params.reserve(camera.params.size());
 
+      {
+        // Metadata parameters (e.g. the (w, h) image dimensions of spherical
+        // models) are sensor properties and are never optimized.
+        const span<const size_t> params_idxs = camera.MetaDataParamsIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
       if (!options.refine_focal_length) {
         const span<const size_t> params_idxs = camera.FocalLengthIdxs();
         const_camera_params.insert(
@@ -440,7 +447,9 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
             const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
 
-      if (!const_camera_params.empty()) {
+      if (const_camera_params.size() == camera.params.size()) {
+        problem.SetParameterBlockConstant(camera.params.data());
+      } else if (!const_camera_params.empty()) {
         SetManifold(
             &problem,
             camera.params.data(),

@@ -180,6 +180,12 @@ void BindSfM(py::module& m) {
             .def(py::init<>())
             .def_readwrite("num_threads", &Opts::num_threads)
             .def_readwrite("random_seed", &Opts::random_seed)
+            .def_readwrite("refine_sensor_from_rig",
+                           &Opts::refine_sensor_from_rig,
+                           "When False, treat each non-ref sensor's "
+                           "cam_from_rig as a pre-calibrated constant across "
+                           "rotation averaging, global positioning and "
+                           "bundle adjustment.")
             .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
             .def_readwrite("global_positioning", &Opts::global_positioning)
             .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)
@@ -190,6 +196,7 @@ void BindSfM(py::module& m) {
                            &Opts::track_required_tracks_per_view)
             .def_readwrite("track_min_num_views_per_track",
                            &Opts::track_min_num_views_per_track)
+            .def_readwrite("keep_max_num_tracks", &Opts::keep_max_num_tracks)
             .def_readwrite("max_angular_reproj_error_deg",
                            &Opts::max_angular_reproj_error_deg)
             .def_readwrite("max_normalized_reproj_error",

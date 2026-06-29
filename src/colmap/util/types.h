@@ -246,6 +246,7 @@ class span {
   T const& operator[](size_t i) const noexcept { return ptr_[i]; }
 
   size_t size() const noexcept { return size_; }
+  bool empty() const noexcept { return size_ == 0; }
 
   T* begin() noexcept { return ptr_; }
   T* end() noexcept { return ptr_ + size_; }
@@ -344,6 +345,22 @@ struct filter_view {
 
 template <typename>
 struct always_false : std::false_type {};
+
+// Hash functor for std::pair, e.g., for use with unordered containers keyed on
+// e.g., std::pair<point3D_t, point3D_t>. Provided as an explicit functor
+// (passed to the container) rather than a std::hash<std::pair<...>>
+// specialization, since specializing std::hash for the std-owned std::pair type
+// is a global ODR hazard: a downstream translation unit that implicitly
+// instantiates the primary template first would make the later explicit
+// specialization ill-formed.
+struct PairHash {
+  template <typename T1, typename T2>
+  std::size_t operator()(const std::pair<T1, T2>& p) const {
+    const std::size_t h1 = std::hash<T1>{}(p.first);
+    const std::size_t h2 = std::hash<T2>{}(p.second);
+    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+  }
+};
 
 }  // namespace colmap
 

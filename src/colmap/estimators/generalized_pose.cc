@@ -153,13 +153,9 @@ bool EstimateGeneralizedAbsolutePose(
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
-    if (const std::optional<Eigen::Vector2d> cam_point =
-            cameras[camera_idx].CamFromImg(points2D[i]);
-        cam_point) {
-      rig_points2D[i].ray_in_cam = cam_point->homogeneous().normalized();
-    } else {
-      rig_points2D[i].ray_in_cam.setZero();
-    }
+    rig_points2D[i].ray_in_cam = cameras[camera_idx]
+                                     .CamRayFromImg(points2D[i])
+                                     .value_or(Eigen::Vector3d::Zero());
     rig_points2D[i].cam_from_rig = cams_from_rig_matrices[camera_idx];
   }
 
@@ -229,24 +225,16 @@ bool EstimateGeneralizedRelativePose(
     std::vector<Eigen::Vector3d> cam_rays2(num_points);
     for (size_t i = 0; i < num_points; ++i) {
       const size_t camera_idx1 = camera_idxs1[i];
-      if (const std::optional<Eigen::Vector2d> cam_point1 =
-              cameras[camera_idx1].CamFromImg(points2D1[i]);
-          cam_point1.has_value()) {
-        cam_rays1[i] = cams_from_rig[camera_idx1].rotation().inverse() *
-                       cam_point1->homogeneous().normalized();
-      } else {
-        cam_rays1[i].setZero();
-      }
+      cam_rays1[i] = cams_from_rig[camera_idx1].rotation().inverse() *
+                     cameras[camera_idx1]
+                         .CamRayFromImg(points2D1[i])
+                         .value_or(Eigen::Vector3d::Zero());
 
       const size_t camera_idx2 = camera_idxs2[i];
-      if (const std::optional<Eigen::Vector2d> cam_point2 =
-              cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
-          cam_point2.has_value()) {
-        cam_rays2[i] = cams_from_rig[camera_idx2].rotation().inverse() *
-                       cam_point2->homogeneous().normalized();
-      } else {
-        cam_rays2[i].setZero();
-      }
+      cam_rays2[i] = cams_from_rig[camera_idx2].rotation().inverse() *
+                     cameras[camera_idx2]
+                         .CamRayFromImg(points2D2[i])
+                         .value_or(Eigen::Vector3d::Zero());
     }
     if (EstimateRelativePose(normalized_ransac_options,
                              cam_rays1,
@@ -264,22 +252,14 @@ bool EstimateGeneralizedRelativePose(
   std::vector<GRNPObservation> points2(num_points);
   for (size_t i = 0; i < num_points; ++i) {
     points1[i].cam_from_rig = cams_from_rig[camera_idxs1[i]];
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            cameras[camera_idxs1[i]].CamFromImg(points2D1[i]);
-        cam_point1.has_value()) {
-      points1[i].ray_in_cam = cam_point1->homogeneous().normalized();
-    } else {
-      points1[i].ray_in_cam.setZero();
-    }
+    points1[i].ray_in_cam = cameras[camera_idxs1[i]]
+                                .CamRayFromImg(points2D1[i])
+                                .value_or(Eigen::Vector3d::Zero());
 
     points2[i].cam_from_rig = cams_from_rig[camera_idxs2[i]];
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
-        cam_point2.has_value()) {
-      points2[i].ray_in_cam = cam_point2->homogeneous().normalized();
-    } else {
-      points2[i].ray_in_cam.setZero();
-    }
+    points2[i].ray_in_cam = cameras[camera_idxs2[i]]
+                                .CamRayFromImg(points2D2[i])
+                                .value_or(Eigen::Vector3d::Zero());
   }
 
   LORANSAC<GR6PEstimator, GR8PEstimator> ransac(normalized_ransac_options);
@@ -407,6 +387,11 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         }
       }
     }
+
+    SetManifold(&problem,
+                rig_from_world->params.data(),
+                CreateProductManifold(CreateEigenQuaternionManifold(),
+                                      CreateEuclideanManifold<3>()));
   }
 
   ceres::Solver::Options solver_options;
@@ -470,22 +455,13 @@ bool EstimateStructureLessAbsolutePose(
   for (size_t i = 0; i < num_points; ++i) {
     const size_t world_camera_idx = world_camera_idxs[i];
     world_obs[i].cam_from_rig = world_cams_from_world[world_camera_idx];
-    if (const std::optional<Eigen::Vector2d> world_cam_point =
-            world_cameras[world_camera_idx].CamFromImg(world_points2D[i]);
-        world_cam_point.has_value()) {
-      world_obs[i].ray_in_cam = world_cam_point->homogeneous().normalized();
-    } else {
-      world_obs[i].ray_in_cam.setZero();
-    }
+    world_obs[i].ray_in_cam = world_cameras[world_camera_idx]
+                                  .CamRayFromImg(world_points2D[i])
+                                  .value_or(Eigen::Vector3d::Zero());
 
     query_obs[i].cam_from_rig = Rigid3d();
-    if (const std::optional<Eigen::Vector2d> query_cam_point =
-            query_camera.CamFromImg(query_points2D[i]);
-        query_cam_point.has_value()) {
-      query_obs[i].ray_in_cam = query_cam_point->homogeneous().normalized();
-    } else {
-      query_obs[i].ray_in_cam.setZero();
-    }
+    query_obs[i].ray_in_cam = query_camera.CamRayFromImg(query_points2D[i])
+                                  .value_or(Eigen::Vector3d::Zero());
   }
 
   auto custom_ransac_options = options.ransac_options;

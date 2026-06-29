@@ -4,10 +4,9 @@
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/least_absolute_deviations.h"
+#include "colmap/optim/sparse_cholesky.h"
 
 #include <limits>
-
-#include <Eigen/CholmodSupport>
 
 namespace colmap {
 namespace {
@@ -113,21 +112,23 @@ size_t RotationAveragingProblem::AllocateParameters(
   // Identify cameras that need cam_from_rig estimation
   // (non-reference cameras without calibrated extrinsics).
   std::unordered_map<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
-  for (const auto& [camera_id, rig_id] : camera_id_to_rig_id_) {
-    sensor_t sensor_id(SensorType::CAMERA, camera_id);
-    if (reconstruction.Rig(rig_id).IsRefSensor(sensor_id)) continue;
+  if (options_.refine_sensor_from_rig) {
+    for (const auto& [camera_id, rig_id] : camera_id_to_rig_id_) {
+      const sensor_t sensor_id(SensorType::CAMERA, camera_id);
+      if (reconstruction.Rig(rig_id).IsRefSensor(sensor_id)) continue;
 
-    auto cam_from_rig =
-        reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
-    if (!cam_from_rig.has_value() ||
-        cam_from_rig.value().translation().hasNaN()) {
-      if (camera_id_to_param_idx_.find(camera_id) ==
-          camera_id_to_param_idx_.end()) {
-        // Mark for later allocation (actual index set below).
-        camera_id_to_param_idx_[camera_id] = -1;
-        if (cam_from_rig.has_value()) {
-          cam_from_rig_rotations[camera_id] =
-              Eigen::AngleAxisd(cam_from_rig->rotation());
+      const auto cam_from_rig =
+          reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
+      if (!cam_from_rig.has_value() ||
+          cam_from_rig.value().translation().hasNaN()) {
+        if (camera_id_to_param_idx_.find(camera_id) ==
+            camera_id_to_param_idx_.end()) {
+          // Mark for later allocation (actual index set below).
+          camera_id_to_param_idx_[camera_id] = -1;
+          if (cam_from_rig.has_value()) {
+            cam_from_rig_rotations[camera_id] =
+                Eigen::AngleAxisd(cam_from_rig->rotation());
+          }
         }
       }
     }
@@ -614,20 +615,21 @@ void RotationAveragingProblem::ApplyResultsToReconstruction(
     }
   }
 
-  // Add the estimated cam_from_rig rotations.
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
-      if (camera_id_to_param_idx_.find(sensor_id.id) ==
-          camera_id_to_param_idx_.end()) {
-        continue;  // Skip cameras that are not estimated.
+  if (options_.refine_sensor_from_rig) {
+    for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+      for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
+        if (camera_id_to_param_idx_.find(sensor_id.id) ==
+            camera_id_to_param_idx_.end()) {
+          continue;  // Skip cameras that are not estimated.
+        }
+        Rigid3d cam_from_rig;
+        cam_from_rig.rotation() =
+            AngleAxisToRotationMatrix(estimated_rotations_.segment<3>(
+                camera_id_to_param_idx_.at(sensor_id.id)));
+        cam_from_rig.translation().setConstant(
+            std::numeric_limits<double>::quiet_NaN());  // No translation yet.
+        reconstruction.Rig(rig_id).SetSensorFromRig(sensor_id, cam_from_rig);
       }
-      Rigid3d cam_from_rig;
-      cam_from_rig.rotation() =
-          AngleAxisToRotationMatrix(estimated_rotations_.segment<3>(
-              camera_id_to_param_idx_.at(sensor_id.id)));
-      cam_from_rig.translation().setConstant(
-          std::numeric_limits<double>::quiet_NaN());  // No translation yet.
-      reconstruction.Rig(rig_id).SetSensorFromRig(sensor_id, cam_from_rig);
     }
   }
 }
@@ -656,9 +658,15 @@ bool RotationAveragingSolver::SolveL1Regression(
   l1_solver_options.max_num_iterations = 10;
   l1_solver_options.solver_type =
       LeastAbsoluteDeviationSolver::Options::SolverType::SupernodalCholmodLLT;
+  l1_solver_options.ridge_regularization = options_.ridge_regularization;
 
   LeastAbsoluteDeviationSolver l1_solver(l1_solver_options,
                                          problem.ConstraintMatrix());
+  if (!l1_solver.Valid()) {
+    LOG(ERROR) << "L1 regression linear solver factorization failed";
+    return false;
+  }
+
   double prev_norm = 0;
   double curr_norm = 0;
 
@@ -674,9 +682,10 @@ bool RotationAveragingSolver::SolveL1Regression(
     prev_norm = curr_norm;
 
     step.setZero();
-    l1_solver.Solve(problem.Residuals(), &step);
-    if (step.array().isNaN().any()) {
-      LOG(ERROR) << "nan error";
+    if (!l1_solver.Solve(problem.Residuals(), &step) ||
+        step.array().isNaN().any()) {
+      LOG(ERROR) << "L1 regression solve failed (iteration " << iteration
+                 << ")";
       return false;
     }
 
@@ -764,14 +773,13 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
 }
 
 bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
-  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> llt;
-
-  llt.analyzePattern(problem.ConstraintMatrix().transpose() *
-                     problem.ConstraintMatrix());
+  SparseCholeskyWithFallbackSolver solver;
+  bool pattern_analyzed = false;
 
   const double sigma = DegToRad(options_.irls_loss_parameter_sigma);
 
   Eigen::SparseMatrix<double> at_weight;
+  Eigen::SparseMatrix<double> at_weight_a;
   Eigen::VectorXd step(problem.NumParameters());
 
   int iteration = 0;
@@ -779,27 +787,43 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
        iteration++) {
     problem.ComputeResiduals();
 
-    // Compute the weights for IRLS.
     auto weights_irls = ComputeIRLSWeights(problem, sigma);
     if (!weights_irls) {
       return false;
     }
 
-    // Update the factorization for the weighted values.
+    // Optionally add a small Tikhonov ridge to stabilize poorly conditioned
+    // but mathematically PD systems. When zero (default), no regularization
+    // is added.
     at_weight =
         problem.ConstraintMatrix().transpose() * weights_irls->asDiagonal();
+    at_weight_a = at_weight * problem.ConstraintMatrix();
+    if (options_.ridge_regularization > 0) {
+      for (int i = 0; i < at_weight_a.cols(); ++i) {
+        at_weight_a.coeffRef(i, i) += options_.ridge_regularization;
+      }
+    }
 
-    llt.factorize(at_weight * problem.ConstraintMatrix());
+    if (!pattern_analyzed) {
+      solver.AnalyzePattern(at_weight_a);
+      pattern_analyzed = true;
+    }
+    if (!solver.Factorize(at_weight_a)) {
+      LOG(ERROR) << "IRLS Cholesky factorization failed (iteration "
+                 << iteration << ")";
+      return false;
+    }
 
-    // Solve the least squares problem.
-    step.setZero();
-    step = llt.solve(at_weight * problem.Residuals());
+    if (!solver.Solve(at_weight * problem.Residuals(), &step) ||
+        step.array().isNaN().any()) {
+      LOG(ERROR) << "IRLS solve failed (iteration " << iteration << ")";
+      return false;
+    }
     problem.UpdateState(step);
 
     const double avg_step = problem.AverageStepSize(step);
     VLOG(2) << "IRLS iteration " << iteration << ", average step: " << avg_step;
 
-    // Check convergence.
     if (avg_step < options_.irls_step_convergence_threshold) {
       iteration++;
       break;

@@ -37,8 +37,8 @@ endif()
 if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(poselib
-        URL https://github.com/PoseLib/PoseLib/archive/v2.0.5.zip
-        URL_HASH SHA256=3d8d71d94813da8e0c3a6df11ec3591614ad2e731e73f3de4982b9297321a38d
+        URL https://github.com/PoseLib/PoseLib/archive/fa7280fee27f97aff31ae7f98bab7f583fac7d08.zip
+        URL_HASH SHA256=5408d4ae8ce367cb2f076bc6c5f0f6f78abd3573d2c015304b04e46f23455f5b
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
@@ -78,6 +78,75 @@ if(FETCH_FAISS)
         target_compile_definitions(faiss PUBLIC FAISS_MAIN_LIB)
     endif()
     message(STATUS "Configuring faiss... done")
+endif()
+
+if(CASPAR_ENABLED AND NOT CUDA_ENABLED)
+    message(FATAL_ERROR "Caspar requires CUDA")
+endif()
+
+if(CASPAR_ENABLED AND CUDA_ENABLED)
+
+    # TODO(tordnat): Make Caspar set CASPAR_MIN_ARCH when generating build files
+    set(CASPAR_MIN_ARCH 75)
+    foreach(_arch ${CMAKE_CUDA_ARCHITECTURES})
+        if(_arch LESS ${CASPAR_MIN_ARCH})
+            message(FATAL_ERROR "Caspar requires CUDA architecture >= ${CASPAR_MIN_ARCH}, but ${_arch} was requested. "
+                "Set CMAKE_CUDA_ARCHITECTURES to ${CASPAR_MIN_ARCH} or higher, or disable Caspar with -DCASPAR_ENABLED=OFF.")
+        endif()
+    endforeach()
+
+    message(STATUS "Enabling Caspar support")
+
+    if(CASPAR_USE_DOUBLE)
+        set(_caspar_precision "f64")
+    else()
+        set(_caspar_precision "f32")
+    endif()
+
+    set(CASPAR_GEN_DIR
+        "${CMAKE_SOURCE_DIR}/src/thirdparty/Symforce-Caspar/generated/${_caspar_precision}")
+
+    if(NOT EXISTS "${CASPAR_GEN_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "Caspar: pre-generated code not found for precision '${_caspar_precision}'.\n"
+            "Expected: ${CASPAR_GEN_DIR}/CMakeLists.txt\n"
+            "Re-run generate_caspar.py to regenerate.")
+    endif()
+
+    include(FetchContent)
+    FetchContent_Declare(caspar
+        SOURCE_DIR ${CASPAR_GEN_DIR}
+        ${_fetch_content_declare_args}
+    )
+    message(STATUS "Configuring Caspar...")
+    FetchContent_MakeAvailable(caspar)
+    # Wrap the source-tree include path in BUILD_INTERFACE so caspar_lib_core
+    # can be part of install(EXPORT). Caspar's generated CMakeLists.txt uses a
+    # raw ${CMAKE_CURRENT_SOURCE_DIR} which CMake rejects on exported targets.
+    set_target_properties(caspar_lib_core PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "$<BUILD_INTERFACE:${CASPAR_GEN_DIR}>")
+    # Silence warnings from auto-generated Caspar CUDA sources, matching the
+    # blanket `-w`/`/W0` policy applied to other thirdparty C++ code above.
+    target_compile_options(caspar_lib_core PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:-w>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcudafe=--diag_suppress=550>
+        $<$<COMPILE_LANGUAGE:CXX>:$<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>>
+    )
+    if(IS_MSVC)
+        set(_MSVC_COMPACT_HEADER "${CASPAR_GEN_DIR}/../../msvc_compact.h")
+        set(_MSVC_CUDA_COMPACT_HEADER "${CASPAR_GEN_DIR}/../../msvc_cuda_compact.h")
+        target_compile_options(caspar_lib_core PRIVATE
+            $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:/FI"${_MSVC_COMPACT_HEADER}">
+            # Keep CUDA pre-includes minimal and use NVCC's native pre-include
+            # option to avoid forcing C++ standard library headers into NVCC's
+            # MSVC host pass.
+            $<$<COMPILE_LANGUAGE:CUDA>:--pre-include="${_MSVC_CUDA_COMPACT_HEADER}">
+        )
+    endif()
+    message(STATUS "Configuring Caspar... done")
+
+    message(STATUS "Caspar precision:  ${_caspar_precision}")
+    message(STATUS "Caspar source dir: ${CASPAR_GEN_DIR}")
 endif()
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})

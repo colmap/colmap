@@ -148,6 +148,9 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   });
   AddWidgetRow("Image frame", select_image_frame_color_);
 
+  AddOptionBool(&options->render->show_camera_orientation,
+                "Camera orientation\n(top-left corner)");
+
   image_colormap_name_filter_layout_ = new QHBoxLayout();
   QPushButton* image_colormap_add_word = new QPushButton("Add", this);
   connect(image_colormap_add_word,

@@ -187,6 +187,8 @@ class ModelViewerWidget : public QOpenGLWidget,
   LinePainter image_line_painter_;
   TrianglePainter image_triangle_painter_;
   LinePainter image_connection_painter_;
+  // Thicker overlay lines for spherical cameras (image-center indicators).
+  LinePainter image_axis_painter_;
 
   LinePainter movie_grabber_path_painter_;
   LinePainter movie_grabber_line_painter_;

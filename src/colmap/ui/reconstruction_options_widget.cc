@@ -154,6 +154,43 @@ class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
                     1e-6,
                     6);
 
+#ifdef CASPAR_ENABLED
+    {
+      auto* backend_combo = new QComboBox(this);
+      backend_combo->addItem("CERES");
+      backend_combo->addItem("CASPAR");
+      backend_combo->setCurrentIndex(
+          static_cast<int>(options->mapper->ba_local_backend));
+      connect(backend_combo,
+              QOverload<int>::of(&QComboBox::currentIndexChanged),
+              [options](int idx) {
+                options->mapper->ba_local_backend =
+                    static_cast<BundleAdjustmentBackend>(idx);
+              });
+      AddWidgetRow("local_backend", backend_combo);
+    }
+#endif
+
+    AddSpacer();
+
+#ifdef CASPAR_ENABLED
+    AddSection("Global Bundle Adjustment Backend");
+    {
+      auto* backend_combo = new QComboBox(this);
+      backend_combo->addItem("CERES");
+      backend_combo->addItem("CASPAR");
+      backend_combo->setCurrentIndex(
+          static_cast<int>(options->mapper->ba_global_backend));
+      connect(backend_combo,
+              QOverload<int>::of(&QComboBox::currentIndexChanged),
+              [options](int idx) {
+                options->mapper->ba_global_backend =
+                    static_cast<BundleAdjustmentBackend>(idx);
+              });
+      AddWidgetRow("global_backend", backend_combo);
+    }
+#endif
+
     AddSpacer();
 
     AddSection("Global Bundle Adjustment");

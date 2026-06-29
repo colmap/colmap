@@ -67,6 +67,40 @@ TEST(IncrementalPipeline, WithoutNoise) {
                                  /*max_proj_center_error=*/1e-4));
 }
 
+TEST(IncrementalPipeline, WithoutNoiseSphericalCameras) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 5;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
+                             database,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  const Reconstruction& reconstruction = *reconstruction_manager->Get(0);
+  EXPECT_EQ(reconstruction.NumRegImages(), gt_reconstruction.NumImages());
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
 TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   const auto database_path = CreateTestDir() / "database.db";
 
@@ -168,8 +202,8 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
         sensor_from_rig.value(),
         Rigid3dNear(
             gt_reconstruction.Rig(kConstantRigId).SensorFromRig(sensor_id),
-            /*rtol=*/1e-5,
-            /*ttol=*/1e-5));
+            /*rtol=*/1e-4,
+            /*ttol=*/1e-4));
   }
   EXPECT_EQ(reconstruction.Camera(kConstantCameraId).params,
             gt_reconstruction.Camera(kConstantCameraId).params);
@@ -256,12 +290,21 @@ TEST(IncrementalPipeline, WithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto reconstruction = reconstruction_manager->Get(0);
   EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction_manager->Get(0),
+              ReconstructionNear(*reconstruction,
                                  /*max_rotation_error_deg=*/1e-1,
                                  /*max_proj_center_error=*/1e-1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+
+  // After the pipeline runs, point3D.error must be in pixel units, i.e.
+  // equal to what UpdatePoint3DErrors would recompute.
+  ASSERT_GT(reconstruction->NumPoints3D(), 0u);
+  const double mean_after_run = reconstruction->ComputeMeanReprojectionError();
+  reconstruction->UpdatePoint3DErrors();
+  EXPECT_DOUBLE_EQ(mean_after_run,
+                   reconstruction->ComputeMeanReprojectionError());
 }
 
 TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {

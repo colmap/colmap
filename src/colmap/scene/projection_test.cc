@@ -32,6 +32,8 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 
+#include <cmath>
+
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 
@@ -66,6 +68,56 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
   EXPECT_NEAR(CalculateSquaredReprojectionError(
                   point2D.array() + 1, point3D, cam_from_world_mat, camera),
               2,
+              1e-6);
+}
+
+TEST(CalculateSquaredReprojectionError, Spherical) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, EquirectangularCameraModel::model_id, /*focal_length=*/0.0, 1000, 500);
+  const Rigid3d cam_from_world;
+  const double px_per_rad =
+      static_cast<double>(camera.width) / (2.0 * EIGEN_PI);
+
+  // Exact observations have ~0 error, including a back-hemisphere match that
+  // straddles the azimuth seam (observed at x = 0, point projects to x = w),
+  // which a raw pixel error would penalize by ~width^2.
+  for (const Eigen::Vector3d& cam_point : {Eigen::Vector3d(0, 0, 1),
+                                           Eigen::Vector3d(0, 0, -1),
+                                           Eigen::Vector3d(1, 0, 0)}) {
+    const Eigen::Vector2d img_point = *camera.ImgFromCam(cam_point);
+    EXPECT_NEAR(CalculateSquaredReprojectionError(
+                    img_point, cam_point, cam_from_world, camera),
+                0.0,
+                1e-9);
+  }
+
+  // Check that the error is continuous across the seam.
+  EXPECT_NEAR(CalculateSquaredReprojectionError(
+                  Eigen::Vector2d(0.0, camera.height / 2.0),
+                  Eigen::Vector3d(0, 0, -1),
+                  cam_from_world,
+                  camera),
+              0.0,
+              1e-9);
+
+  // Pole invariance: the same angular offset yields the same squared error at
+  // the equator and near the pole. Raw equirectangular pixel error would
+  // diverge towards the pole, dropping otherwise-valid observations.
+  constexpr double kOffset = 0.01;  // radians
+  const Eigen::Vector3d equator_point(0, 0, 1);
+  const Eigen::Vector2d equator_obs = *camera.ImgFromCam(
+      Eigen::Vector3d(std::sin(kOffset), 0, std::cos(kOffset)));
+  const Eigen::Vector3d pole_point(0, -1, 0);
+  const Eigen::Vector2d pole_obs = *camera.ImgFromCam(
+      Eigen::Vector3d(0, -std::cos(kOffset), std::sin(kOffset)));
+  const double expected = (kOffset * px_per_rad) * (kOffset * px_per_rad);
+  EXPECT_NEAR(CalculateSquaredReprojectionError(
+                  equator_obs, equator_point, cam_from_world, camera),
+              expected,
+              1e-6);
+  EXPECT_NEAR(CalculateSquaredReprojectionError(
+                  pole_obs, pole_point, cam_from_world, camera),
+              expected,
               1e-6);
 }
 
