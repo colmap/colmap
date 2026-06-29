@@ -34,6 +34,9 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/Eigenvalues>
+#include <Eigen/Geometry>
+
 namespace colmap {
 
 Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
@@ -205,6 +208,37 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
   return Rigid3d(
       cam1_from_world.rotation().slerp(t, cam2_from_world.rotation()),
       cam1_from_world.translation() + translation12 * t);
+}
+
+namespace {
+constexpr double kSmallAngleThreshold = 1e-10;
+}  // namespace
+
+Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
+  const double theta = omega.norm();
+  if (theta < kSmallAngleThreshold) {
+    // First-order Taylor expansion preserving rotation direction.
+    return Eigen::Quaterniond(
+               1.0, 0.5 * omega.x(), 0.5 * omega.y(), 0.5 * omega.z())
+        .normalized();
+  }
+  return Eigen::Quaterniond(Eigen::AngleAxisd(theta, omega / theta));
+}
+
+Eigen::Matrix3d LeftJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
+  const double theta = omega.norm();
+  if (theta < kSmallAngleThreshold) {
+    return Eigen::Matrix3d::Identity() + 0.5 * CrossProductMatrix(omega);
+  }
+  const Eigen::Vector3d a = omega / theta;
+  const Eigen::Matrix3d a_x = CrossProductMatrix(a);
+  return std::sin(theta) / theta * Eigen::Matrix3d::Identity() +
+         (1.0 - std::sin(theta) / theta) * a * a.transpose() +
+         ((1.0 - std::cos(theta)) / theta) * a_x;
+}
+
+Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
+  return LeftJacobianFromAngleAxis(-omega);
 }
 
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
