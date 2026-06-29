@@ -44,10 +44,10 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
   if (use_priors) {
     PosePriorBundleAdjustmentOptions prior_options;
     if (use_robust_loss_on_prior_position) {
-      prior_options.ceres->prior_position_loss.type =
+      prior_options.ceres->prior_position_loss_function_type =
           CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
     }
-    prior_options.ceres->prior_position_loss.scale = prior_position_loss_scale;
+    prior_options.ceres->prior_position_loss_scale = prior_position_loss_scale;
     ba = CreatePosePriorBundleAdjuster(
         options, prior_options, ba_config, pose_priors, reconstruction);
   } else {
@@ -72,6 +72,9 @@ RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
 GlobalPositionerOptions GlobalMapperOptions::GlobalPositioning() const {
   GlobalPositionerOptions opts = global_positioning;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.use_prior_position = use_prior_position;
+  opts.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
+  opts.prior_position_loss_scale = prior_position_loss_scale;
   opts.solver_options.num_threads = num_threads;
   if (random_seed >= 0) {
     opts.random_seed = random_seed;
@@ -301,7 +304,11 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
                                      double max_normalized_reproj_error,
                                      double min_tri_angle_deg,
                                      bool use_prior_position) {
-  if (!RunGlobalPositioning(options, *pose_graph_, *reconstruction_)) {
+  const std::vector<PosePrior> empty_priors;
+  const std::vector<PosePrior>& pose_priors =
+      use_prior_position ? database_cache_->PosePriors() : empty_priors;
+  if (!RunGlobalPositioning(
+          options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
 

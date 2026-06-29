@@ -1,9 +1,13 @@
 #pragma once
 
+#include "colmap/geometry/pose_prior.h"
+#include "colmap/geometry/sim3.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 
 #include <string>
+#include <vector>
 
 #include <ceres/ceres.h>
 
@@ -24,6 +28,13 @@ struct GlobalPositionerOptions {
 
   // When false, treat sensor_from_rig as a fixed (pre-calibrated) parameter.
   bool refine_sensor_from_rig = true;
+
+  // Constrain frame positions toward pose priors through a jointly optimized
+  // similarity gauge that maps the global positioning frame to the prior frame.
+  bool use_prior_position = false;
+  bool use_robust_loss_on_prior_position = true;
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
+  double prior_position_fallback_stddev = 1.0;
 
   bool use_gpu = true;
   std::string gpu_index = "-1";
@@ -65,7 +76,9 @@ class GlobalPositioner {
   // Returns true if the optimization was a success, false if there was a
   // failure.
   // Assume tracks here are already filtered
-  bool Solve(const PoseGraph& pose_graph, Reconstruction& reconstruction);
+  bool Solve(const PoseGraph& pose_graph,
+             Reconstruction& reconstruction,
+             const std::vector<PosePrior>& pose_priors = {});
 
   GlobalPositionerOptions& GetOptions() { return options_; }
 
@@ -87,6 +100,16 @@ class GlobalPositioner {
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(Reconstruction& reconstruction);
 
+  // Estimate the similarity gauge mapping the current frame centers to the
+  // prior frame. Returns false if there are not enough valid priors.
+  bool InitializeGauge(const Reconstruction& reconstruction);
+
+  // Add prior-position residuals on frame centers through the gauge.
+  void AddPosePriorConstraints(const Reconstruction& reconstruction);
+
+  // RMSE of frame centers mapped through the gauge against their priors.
+  double PriorPositionRMSE(const Reconstruction& reconstruction) const;
+
   // Parameterize the variables, set some variables to be constant if desired
   void ParameterizeVariables(Reconstruction& reconstruction);
 
@@ -102,6 +125,14 @@ class GlobalPositioner {
   std::shared_ptr<ceres::LossFunction> loss_function_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_uncalibrated_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_calibrated_;
+  std::shared_ptr<ceres::LossFunction> prior_loss_function_;
+
+  // Camera position priors and the gauge mapping the global positioning frame
+  // to the prior frame, jointly optimized once the gauge is initialized.
+  std::vector<PosePrior> pose_priors_;
+  Sim3d prior_from_gp_;
+  bool gauge_initialized_ = false;
+  int frame_param_group_ = -1;
 
   // Auxiliary scale variables.
   std::vector<double> scales_;
@@ -119,6 +150,7 @@ class GlobalPositioner {
 // Solve global positioning using point-to-camera constraints.
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          Reconstruction& reconstruction);
+                          Reconstruction& reconstruction,
+                          const std::vector<PosePrior>& pose_priors = {});
 
 }  // namespace colmap
