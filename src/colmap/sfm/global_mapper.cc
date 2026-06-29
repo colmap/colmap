@@ -4,13 +4,15 @@
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
-#include "colmap/sfm/incremental_mapper.h"
+#include "colmap/sfm/incremental_triangulator.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <algorithm>
+#include <memory>
 
 namespace colmap {
 namespace {
@@ -422,17 +424,23 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     double min_tri_angle_deg) {
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
   reconstruction_->DeleteAllPoints2DAndPoints3D();
+  reconstruction_->Load(*database_cache_);
 
-  // Initialize mapper.
-  IncrementalMapper mapper(database_cache_);
-  mapper.BeginReconstruction(reconstruction_);
+  // Initialize ObservationManager and Triangulator.
+  auto obs_manager = std::make_shared<ObservationManager>(
+      *reconstruction_, database_cache_->CorrespondenceGraph());
+  auto triangulator = std::make_shared<IncrementalTriangulator>(
+      database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager);
 
   // Triangulate all registered images.
+  size_t num_triangulated = 0;
   for (const auto image_id : reconstruction_->RegImageIds()) {
-    mapper.TriangulateImage(options, image_id);
+    num_triangulated += triangulator->TriangulateImage(options, image_id);
   }
 
-  // Set up bundle adjustment options for colmap's incremental mapper.
+  LOG(INFO) << "Triangulated " << num_triangulated << " 3D points.";
+
+  // Set up bundle adjustment options for iterative refinement.
   BundleAdjustmentOptions custom_ba_options = ba_options;
   custom_ba_options.print_summary = false;
   if (custom_ba_options.ceres && ba_options.ceres) {
@@ -443,20 +451,60 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Iterative global refinement.
-  IncrementalMapper::Options mapper_options;
-  mapper_options.random_seed = options.random_seed;
-  mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
-                                   /*max_refinement_change=*/0.0005,
-                                   mapper_options,
-                                   custom_ba_options,
-                                   options,
-                                   /*normalize_reconstruction=*/true);
+  const size_t num_completed = triangulator->CompleteAllTracks(options);
+  const size_t num_merged = triangulator->MergeAllTracks(options);
+  const size_t num_retriangulated = triangulator->Retriangulate(options);
 
-  mapper.EndReconstruction(/*discard=*/false);
+  VLOG(1) << StringPrintf(
+      "Completed %zu observations, merged %zu observations, retriangulated %zu "
+      "observations.",
+      num_completed,
+      num_merged,
+      num_retriangulated);
+
+  constexpr int kMaxNumRefinements = 5;
+  constexpr double kMaxRefinementChange = 0.0005;
+  for (int i = 0; i < kMaxNumRefinements; ++i) {
+    const size_t num_observations = reconstruction_->ComputeNumObservations();
+
+    obs_manager->FilterObservationsWithNegativeDepth();
+    RunBundleAdjustment(custom_ba_options, *reconstruction_);
+
+    // Normalize the structure for numerical stability.
+    // TODO: Skip normalization when position priors are used (similar to
+    // incremental mapper's !use_prior_position condition).
+    reconstruction_->Normalize();
+
+    size_t num_completed = triangulator->CompleteAllTracks(options);
+    size_t num_merged = triangulator->MergeAllTracks(options);
+    size_t num_filtered = obs_manager->FilterPoints3DWithLargeReprojectionError(
+        max_normalized_reproj_error,
+        reconstruction_->Point3DIds(),
+        ReprojectionErrorType::NORMALIZED);
+    num_filtered += obs_manager->FilterPoints3DWithSmallTriangulationAngle(
+        min_tri_angle_deg, reconstruction_->Point3DIds());
+
+    const double changed =
+        num_observations == 0
+            ? 0
+            : static_cast<double>(num_completed + num_merged + num_filtered) /
+                  num_observations;
+
+    VLOG(1) << StringPrintf(
+        "Completed %zu observations, merged %zu observations, filtered "
+        "%zu observations, changed %.2f%% observations.",
+        num_completed,
+        num_merged,
+        num_filtered,
+        changed * 100);
+
+    if (changed < kMaxRefinementChange) {
+      break;
+    }
+  }
 
   // Final filtering and bundle adjustment.
-  ObservationManager obs_manager(*reconstruction_);
-  obs_manager.FilterPoints3DWithLargeReprojectionError(
+  obs_manager->FilterPoints3DWithLargeReprojectionError(
       max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
       ReprojectionErrorType::NORMALIZED);
@@ -470,11 +518,11 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   // incremental mapper's !use_prior_position condition).
   reconstruction_->Normalize();
 
-  obs_manager.FilterPoints3DWithLargeReprojectionError(
+  obs_manager->FilterPoints3DWithLargeReprojectionError(
       max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
       ReprojectionErrorType::NORMALIZED);
-  obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+  obs_manager->FilterPoints3DWithSmallTriangulationAngle(
       min_tri_angle_deg, reconstruction_->Point3DIds());
 
   return true;
