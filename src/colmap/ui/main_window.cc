@@ -29,6 +29,8 @@
 
 #include "colmap/ui/main_window.h"
 
+#include "colmap/controllers/global_pipeline.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/ui/render_options.h"
@@ -349,8 +351,8 @@ void MainWindow::CreateWidgets() {
   feature_matching_widget_ = new FeatureMatchingWidget(this, &options_);
   database_management_widget_ = new DatabaseManagementWidget(this, &options_);
   automatic_reconstruction_widget_ = new AutomaticReconstructionWidget(this);
-  reconstruction_options_widget_ =
-      new ReconstructionOptionsWidget(this, &options_);
+  reconstruction_options_widget_ = new ReconstructionOptionsWidget(
+      this, &options_, &mapper_type_, [this]() { UpdateMapperControls(); });
   bundle_adjustment_widget_ = new BundleAdjustmentWidget(this, &options_);
   dense_reconstruction_widget_ = new DenseReconstructionWidget(this, &options_);
   render_options_widget_ =
@@ -850,39 +852,80 @@ void MainWindow::CreateControllers() {
 
   options_.mapper->image_path = *options_.image_path;
 
-  mapper_controller_ = std::make_unique<ControllerThread<IncrementalPipeline>>(
-      std::make_shared<IncrementalPipeline>(
-          options_.mapper,
-          Database::Open(*options_.database_path),
-          reconstruction_manager_));
-  mapper_controller_->GetController()->AddCallback(
-      IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
-        if (!mapper_controller_->IsStopped()) {
-          action_render_now_->trigger();
-        }
-      });
-  mapper_controller_->GetController()->AddCallback(
-      IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK, [this]() {
-        if (!mapper_controller_->IsStopped()) {
-          action_render_->trigger();
-        }
-      });
-  mapper_controller_->GetController()->AddCallback(
-      IncrementalPipeline::LAST_IMAGE_REG_CALLBACK, [this]() {
-        if (!mapper_controller_->IsStopped()) {
-          action_render_now_->trigger();
-        }
-      });
-  mapper_controller_->AddCallback(
-      ControllerThread<IncrementalPipeline>::FINISHED_CALLBACK, [this]() {
-        if (!mapper_controller_->IsStopped()) {
-          action_render_now_->trigger();
-          action_reconstruction_finish_->trigger();
-        }
-        if (reconstruction_manager_->Size() == 0) {
-          action_reconstruction_reset_->trigger();
-        }
-      });
+  // Triggers an immediate render of the current reconstruction, unless the
+  // mapper is being stopped.
+  const auto render_now = [this]() {
+    if (!mapper_controller_->IsStopped()) {
+      action_render_now_->trigger();
+    }
+  };
+  // Triggers a rate-limited render of the current reconstruction.
+  const auto render = [this]() {
+    if (!mapper_controller_->IsStopped()) {
+      action_render_->trigger();
+    }
+  };
+
+  switch (mapper_type_) {
+    case MapperType::INCREMENTAL: {
+      auto controller = std::make_unique<ControllerThread<IncrementalPipeline>>(
+          std::make_shared<IncrementalPipeline>(
+              options_.mapper,
+              Database::Open(*options_.database_path),
+              reconstruction_manager_));
+      controller->GetController()->AddCallback(
+          IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK, render_now);
+      controller->GetController()->AddCallback(
+          IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK, render);
+      controller->GetController()->AddCallback(
+          IncrementalPipeline::LAST_IMAGE_REG_CALLBACK, render_now);
+      mapper_controller_ = std::move(controller);
+      break;
+    }
+    case MapperType::GLOBAL: {
+      GlobalPipelineOptions global_options = *options_.global_mapper;
+      global_options.image_path = *options_.image_path;
+      auto controller = std::make_unique<ControllerThread<GlobalPipeline>>(
+          std::make_shared<GlobalPipeline>(
+              std::move(global_options),
+              Database::Open(*options_.database_path),
+              reconstruction_manager_));
+      // The global mapper only renders after global positioning and each
+      // refinement, via this callback.
+      controller->GetController()->AddCallback(
+          GlobalPipeline::MODEL_UPDATE_CALLBACK, render_now);
+      mapper_controller_ = std::move(controller);
+      break;
+    }
+    case MapperType::HIERARCHICAL: {
+      HierarchicalPipelineOptions hierarchical_options =
+          *options_.hierarchical_mapper;
+      hierarchical_options.image_path = *options_.image_path;
+      hierarchical_options.incremental_options = *options_.mapper;
+      // The hierarchical mapper reconstructs clusters in separate managers and
+      // only populates the main reconstruction at the end, so no intermediate
+      // render callback is wired; only the finished callback below renders.
+      mapper_controller_ =
+          std::make_unique<ControllerThread<HierarchicalPipeline>>(
+              std::make_shared<HierarchicalPipeline>(
+                  hierarchical_options,
+                  Database::Open(*options_.database_path),
+                  reconstruction_manager_));
+      break;
+    }
+  }
+
+  mapper_controller_->AddCallback(Thread::FINISHED_CALLBACK, [this]() {
+    if (!mapper_controller_->IsStopped()) {
+      action_render_now_->trigger();
+      action_reconstruction_finish_->trigger();
+    }
+    if (reconstruction_manager_->Size() == 0) {
+      action_reconstruction_reset_->trigger();
+    }
+  });
+
+  UpdateMapperControls();
 }
 
 void MainWindow::HandleDragEvent(QDropEvent* event) {
@@ -1308,9 +1351,15 @@ void MainWindow::ReconstructionStart() {
 
   DisableBlockingActions();
   action_reconstruction_pause_->setEnabled(true);
+  UpdateMapperControls();
 }
 
 void MainWindow::ReconstructionStep() {
+  // Stepping is only supported for the incremental and global mappers.
+  if (mapper_type_ == MapperType::HIERARCHICAL) {
+    return;
+  }
+
   if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
     QMessageBox::critical(
         this, "", tr("Reset reconstruction before starting."));
@@ -1730,6 +1779,17 @@ void MainWindow::EnableBlockingActions() {
   for (auto& action : blocking_actions_) {
     action->setEnabled(true);
   }
+  UpdateMapperControls();
+}
+
+void MainWindow::UpdateMapperControls() {
+  // The hierarchical mapper runs as a single solve that cannot be stepped or
+  // paused, so disable both controls when it is selected.
+  const bool supports_stepping = mapper_type_ != MapperType::HIERARCHICAL;
+  action_reconstruction_step_->setEnabled(
+      supports_stepping && action_reconstruction_step_->isEnabled());
+  action_reconstruction_pause_->setEnabled(
+      supports_stepping && action_reconstruction_pause_->isEnabled());
 }
 
 void MainWindow::DisableBlockingActions() {
