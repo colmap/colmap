@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         manifold.h
         motion_averaging.h
         pose_prior.h
+        quaternion_utils.h
         reprojection_error.h
         sampson_error.h
         utils.h
@@ -82,4 +83,9 @@ COLMAP_ADD_TEST(
     NAME motion_averaging_test
     SRCS motion_averaging_test.cc
     LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
+    NAME quaternion_utils_test
+    SRCS quaternion_utils_test.cc
+    LINK_LIBS colmap_estimators_cost_functions colmap_math
 )
