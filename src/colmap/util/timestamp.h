@@ -31,16 +31,21 @@
 
 #include "colmap/util/types.h"
 
+#include <cmath>
+
 namespace colmap {
 
-// Convert a nanosecond timestamp to seconds.
+// Convert a nanosecond timestamp to seconds. Note that converting a large
+// absolute timestamp (magnitude > 2^53 ns) to double loses sub-nanosecond
+// precision; to difference absolute timestamps use TimestampDiffSeconds, which
+// subtracts in int64 first.
 inline double SecondsFromTimestamp(timestamp_t t) { return t * 1e-9; }
 
-// Convert seconds to a nanosecond timestamp. Truncates sub-nanosecond values.
-// Intended for small durations (e.g., config values), not large absolute
-// timestamps which should be parsed as int64 directly.
+// Convert seconds to a nanosecond timestamp, rounding to the nearest
+// nanosecond. Intended for small durations (e.g., config values), not large
+// absolute timestamps which should be parsed as int64 directly.
 inline timestamp_t TimestampFromSeconds(double s) {
-  return static_cast<timestamp_t>(s * 1e9);
+  return static_cast<timestamp_t>(std::round(s * 1e9));
 }
 
 // Compute the time difference (t1 - t0) in seconds with nanosecond precision.
