@@ -36,18 +36,18 @@
 namespace colmap {
 namespace {
 
-TEST(Timestamp, TimestampToSeconds) {
-  EXPECT_DOUBLE_EQ(TimestampToSeconds(0), 0.0);
-  EXPECT_DOUBLE_EQ(TimestampToSeconds(1000000000), 1.0);
-  EXPECT_DOUBLE_EQ(TimestampToSeconds(500000000), 0.5);
-  EXPECT_DOUBLE_EQ(TimestampToSeconds(-1000000000), -1.0);
+TEST(Timestamp, SecondsFromTimestamp) {
+  EXPECT_DOUBLE_EQ(SecondsFromTimestamp(0), 0.0);
+  EXPECT_DOUBLE_EQ(SecondsFromTimestamp(1000000000), 1.0);
+  EXPECT_DOUBLE_EQ(SecondsFromTimestamp(500000000), 0.5);
+  EXPECT_DOUBLE_EQ(SecondsFromTimestamp(-1000000000), -1.0);
 }
 
-TEST(Timestamp, SecondsToTimestamp) {
-  EXPECT_EQ(SecondsToTimestamp(0.0), 0);
-  EXPECT_EQ(SecondsToTimestamp(1.0), 1000000000);
-  EXPECT_EQ(SecondsToTimestamp(0.5), 500000000);
-  EXPECT_EQ(SecondsToTimestamp(0.005), 5000000);  // 5ms.
+TEST(Timestamp, TimestampFromSeconds) {
+  EXPECT_EQ(TimestampFromSeconds(0.0), 0);
+  EXPECT_EQ(TimestampFromSeconds(1.0), 1000000000);
+  EXPECT_EQ(TimestampFromSeconds(0.5), 500000000);
+  EXPECT_EQ(TimestampFromSeconds(0.005), 5000000);  // 5ms.
 }
 
 TEST(Timestamp, TimestampDiffSeconds) {
@@ -57,28 +57,28 @@ TEST(Timestamp, TimestampDiffSeconds) {
   EXPECT_DOUBLE_EQ(TimestampDiffSeconds(t0, t1), -0.005);
 }
 
-TEST(Timestamp, SecondsToTimestampPrecision) {
-  // SecondsToTimestamp is only used for config durations (small values),
+TEST(Timestamp, TimestampFromSecondsPrecision) {
+  // TimestampFromSeconds is only used for config durations (small values),
   // never for large absolute timestamps (which are parsed as int64 directly).
   // Verify nanosecond-level precision for realistic config values.
-  EXPECT_EQ(SecondsToTimestamp(0.005), 5000000);
-  EXPECT_EQ(SecondsToTimestamp(0.25), 250000000);
-  EXPECT_EQ(SecondsToTimestamp(9.81), 9810000000LL);
+  EXPECT_EQ(TimestampFromSeconds(0.005), 5000000);
+  EXPECT_EQ(TimestampFromSeconds(0.25), 250000000);
+  EXPECT_EQ(TimestampFromSeconds(9.81), 9810000000LL);
 
   // Verify that the conversion truncates (not rounds) sub-nanosecond values.
-  EXPECT_EQ(SecondsToTimestamp(0.1), 100000000);
+  EXPECT_EQ(TimestampFromSeconds(0.1), 100000000);
 
   // Differences of int64 timestamps converted back to seconds preserve
   // nanosecond precision, unlike subtracting two large doubles.
   timestamp_t t0 = 1403636579763555584LL;
-  timestamp_t t1 = t0 + SecondsToTimestamp(0.005);
+  timestamp_t t1 = t0 + TimestampFromSeconds(0.005);
   EXPECT_DOUBLE_EQ(TimestampDiffSeconds(t1, t0), 0.005);
 }
 
 TEST(Timestamp, LargeNanosecondValues) {
   // Typical EuRoC timestamp: 1403636579763555584 ns.
   timestamp_t t = 1403636579763555584LL;
-  double s = TimestampToSeconds(t);
+  double s = SecondsFromTimestamp(t);
   EXPECT_NEAR(s, 1403636579.763555584, 1e-3);
 
   // Difference between two timestamps (5ms apart).
