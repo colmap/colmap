@@ -36,11 +36,6 @@
 
 namespace colmap {
 
-template <typename T>
-using EigenVector3Map = Eigen::Map<const Eigen::Matrix<T, 3, 1>>;
-template <typename T>
-using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
-
 template <typename CostFunctor, int kNumResiduals, int... kParameterDims>
 ceres::CostFunction* CreateAutoDiffCostFunction(
     CostFunctor* functor, std::integer_sequence<int, kParameterDims...>) {
