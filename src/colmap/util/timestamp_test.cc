@@ -30,6 +30,7 @@
 #include "colmap/util/timestamp.h"
 
 #include <map>
+#include <stdexcept>
 
 #include <gtest/gtest.h>
 
@@ -40,7 +41,8 @@ TEST(Timestamp, SecondsFromTimestamp) {
   EXPECT_DOUBLE_EQ(SecondsFromTimestamp(0), 0.0);
   EXPECT_DOUBLE_EQ(SecondsFromTimestamp(1000000000), 1.0);
   EXPECT_DOUBLE_EQ(SecondsFromTimestamp(500000000), 0.5);
-  EXPECT_DOUBLE_EQ(SecondsFromTimestamp(-1000000000), -1.0);
+  // Negative timestamps are invalid.
+  EXPECT_THROW(SecondsFromTimestamp(-1000000000), std::invalid_argument);
 }
 
 TEST(Timestamp, TimestampFromSeconds) {
@@ -48,6 +50,8 @@ TEST(Timestamp, TimestampFromSeconds) {
   EXPECT_EQ(TimestampFromSeconds(1.0), 1000000000);
   EXPECT_EQ(TimestampFromSeconds(0.5), 500000000);
   EXPECT_EQ(TimestampFromSeconds(0.005), 5000000);  // 5ms.
+  // Negative durations are invalid.
+  EXPECT_THROW(TimestampFromSeconds(-1.0), std::invalid_argument);
 }
 
 TEST(Timestamp, TimestampDiffSeconds) {
@@ -65,8 +69,8 @@ TEST(Timestamp, TimestampFromSecondsPrecision) {
   EXPECT_EQ(TimestampFromSeconds(0.25), 250000000);
   EXPECT_EQ(TimestampFromSeconds(9.81), 9810000000LL);
 
-  // Verify that the conversion truncates (not rounds) sub-nanosecond values.
-  EXPECT_EQ(TimestampFromSeconds(0.1), 100000000);
+  // Verify rounding to the nearest nanosecond (0.666...e9 rounds up).
+  EXPECT_EQ(TimestampFromSeconds(2.0 / 3.0), 666666667);
 
   // Differences of int64 timestamps converted back to seconds preserve
   // nanosecond precision, unlike subtracting two large doubles.

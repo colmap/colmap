@@ -121,11 +121,12 @@ constexpr point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 using point3D_t = uint64_t;
 constexpr point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
-// Timestamp in nanoseconds. Using int64_t rather than double avoids
-// floating-point precision loss when comparing or differencing large absolute
-// timestamps (e.g., Unix epoch in nanoseconds), and enables exact equality
-// checks for use as map keys.
+// Timestamp in nanoseconds. Valid timestamps are non-negative; using int64_t
+// rather than double avoids floating-point precision loss when comparing or
+// differencing large absolute timestamps (e.g., Unix epoch in nanoseconds),
+// and enables exact equality checks for use as map keys.
 using timestamp_t = int64_t;
+// Sentinel for an unset/invalid timestamp; valid timestamps are >= 0.
 constexpr timestamp_t kInvalidTimestamp = -1;
 
 // Unique identifier for pose priors.

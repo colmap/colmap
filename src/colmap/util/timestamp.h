@@ -29,29 +29,37 @@
 
 #pragma once
 
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <cmath>
 
 namespace colmap {
 
-// Convert a nanosecond timestamp to seconds. Note that converting a large
-// absolute timestamp (magnitude > 2^53 ns) to double loses sub-nanosecond
-// precision; to difference absolute timestamps use TimestampDiffSeconds, which
-// subtracts in int64 first.
-inline double SecondsFromTimestamp(timestamp_t t) { return t * 1e-9; }
+// Convert a (non-negative) nanosecond timestamp to seconds. Note that
+// converting a large absolute timestamp (magnitude > 2^53 ns) to double loses
+// sub-nanosecond precision; to difference absolute timestamps use
+// TimestampDiffSeconds, which subtracts in int64 first.
+inline double SecondsFromTimestamp(timestamp_t t) {
+  THROW_CHECK_GE(t, 0);
+  return t * 1e-9;
+}
 
-// Convert seconds to a nanosecond timestamp, rounding to the nearest
-// nanosecond. Intended for small durations (e.g., config values), not large
-// absolute timestamps which should be parsed as int64 directly.
+// Convert (non-negative) seconds to a nanosecond timestamp, rounding to the
+// nearest nanosecond. Intended for small durations (e.g., config values), not
+// large absolute timestamps which should be parsed as int64 directly.
 inline timestamp_t TimestampFromSeconds(double s) {
+  THROW_CHECK_GE(s, 0.0);
   return static_cast<timestamp_t>(std::round(s * 1e9));
 }
 
 // Compute the time difference (t1 - t0) in seconds with nanosecond precision.
 // Unlike subtracting two large doubles, differencing int64 timestamps and then
-// converting preserves full precision.
+// converting preserves full precision. The result may be negative, but both
+// timestamps must be valid (non-negative).
 inline double TimestampDiffSeconds(timestamp_t t1, timestamp_t t0) {
+  THROW_CHECK_GE(t1, 0);
+  THROW_CHECK_GE(t0, 0);
   return (t1 - t0) * 1e-9;
 }
 
