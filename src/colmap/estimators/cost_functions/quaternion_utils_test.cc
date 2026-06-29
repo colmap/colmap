@@ -134,5 +134,23 @@ TEST(QuaternionRotatePointWithJac, Nominal) {
   }
 }
 
+TEST(EigenQuaternionAngleAxis, Roundtrip) {
+  SetPRNGSeed(42);
+  for (int i = 0; i < 100; ++i) {
+    const Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
+    const double q_arr[4] = {q.x(), q.y(), q.z(), q.w()};
+
+    // quaternion -> angle-axis -> quaternion recovers the original rotation.
+    double angle_axis[3];
+    AngleAxisFromEigenQuaternion(q_arr, angle_axis);
+    double q_out[4];
+    EigenQuaternionFromAngleAxis(angle_axis, q_out);
+
+    // Compare as rotations to avoid the quaternion double-cover sign ambiguity.
+    const Eigen::Quaterniond q_recovered(
+        q_out[3], q_out[0], q_out[1], q_out[2]);
+    EXPECT_NEAR(q.angularDistance(q_recovered), 0.0, 1e-10);
+  }
+}
 }  // namespace
 }  // namespace colmap

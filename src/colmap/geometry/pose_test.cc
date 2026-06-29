@@ -411,5 +411,28 @@ TEST(RightJacobianFromAngleAxis, NumericDerivative) {
   }
 }
 
+TEST(LeftJacobianFromAngleAxis, NumericDerivative) {
+  // Verify Jl by numeric differentiation of Exp(w + dw) ≈ Exp(Jl*dw) * Exp(w).
+  SetPRNGSeed(0);
+  const double eps = 1e-7;
+  for (int i = 0; i < 50; ++i) {
+    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::Vector3d omega = aa.angle() * aa.axis();
+    const Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(omega);
+    const Eigen::Matrix3d R = AngleAxisToRotationMatrix(omega);
+    Eigen::Matrix3d Jl_numeric;
+    for (int k = 0; k < 3; ++k) {
+      Eigen::Vector3d dw = Eigen::Vector3d::Zero();
+      dw(k) = eps;
+      const Eigen::Matrix3d R_perturbed = AngleAxisToRotationMatrix(omega + dw);
+      // R_perturbed ≈ Exp(Jl * dw) * R, so Exp(Jl*dw) ≈ R_perturbed * R^T.
+      const Eigen::Matrix3d dR = R_perturbed * R.transpose();
+      const Eigen::Vector3d log_dR = RotationMatrixToAngleAxis(dR);
+      Jl_numeric.col(k) = log_dR / eps;
+    }
+    EXPECT_THAT(Jl, EigenMatrixNear(Jl_numeric, 1e-5));
+  }
+}
+
 }  // namespace
 }  // namespace colmap
