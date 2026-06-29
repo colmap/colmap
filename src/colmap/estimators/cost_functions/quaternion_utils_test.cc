@@ -142,9 +142,9 @@ TEST(EigenQuaternionAngleAxis, Roundtrip) {
 
     // quaternion -> angle-axis -> quaternion recovers the original rotation.
     double angle_axis[3];
-    EigenQuaternionToAngleAxis(q_arr, angle_axis);
+    AngleAxisFromEigenQuaternion(q_arr, angle_axis);
     double q_out[4];
-    AngleAxisToEigenQuaternion(angle_axis, q_out);
+    EigenQuaternionFromAngleAxis(angle_axis, q_out);
 
     // Compare as rotations to avoid the quaternion double-cover sign ambiguity.
     const Eigen::Quaterniond q_recovered(

@@ -41,8 +41,8 @@ template <typename T>
 using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 
 template <typename T>
-inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
-                                       T* angle_axis) {
+inline void AngleAxisFromEigenQuaternion(const T* eigen_quaternion,
+                                         T* angle_axis) {
   const T quaternion[4] = {eigen_quaternion[3],
                            eigen_quaternion[0],
                            eigen_quaternion[1],
@@ -51,8 +51,8 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 }
 
 template <typename T>
-inline void AngleAxisToEigenQuaternion(const T* angle_axis,
-                                       T* eigen_quaternion) {
+inline void EigenQuaternionFromAngleAxis(const T* angle_axis,
+                                         T* eigen_quaternion) {
   T quaternion[4];
   ceres::AngleAxisToQuaternion(angle_axis, quaternion);
   eigen_quaternion[0] = quaternion[1];
