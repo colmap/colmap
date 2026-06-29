@@ -43,8 +43,8 @@ namespace {
 ImuPreintegrator MakeIntegrator(double T_seconds) {
   ImuPreintegrationOptions options;
   ImuCalibration calib;
-  timestamp_t t_start = SecondsToTimestamp(0.0);
-  timestamp_t t_end = SecondsToTimestamp(T_seconds);
+  timestamp_t t_start = TimestampFromSeconds(0.0);
+  timestamp_t t_end = TimestampFromSeconds(T_seconds);
   return ImuPreintegrator(options, calib, t_start, t_end);
 }
 
@@ -55,7 +55,8 @@ void FeedConstant(ImuPreintegrator& integrator,
                   int N,
                   double dt) {
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
+    integrator.FeedImu(
+        ImuMeasurement(TimestampFromSeconds(i * dt), gyro, accel));
   }
 }
 
@@ -215,12 +216,13 @@ TEST(ImuPreintegrator, CovariancePositiveDefiniteRK4) {
   opts.method = ImuIntegrationMethod::RK4;
   ImuCalibration calib;
   ImuPreintegrator integrator(
-      opts, calib, SecondsToTimestamp(0.0), SecondsToTimestamp(N * dt));
+      opts, calib, TimestampFromSeconds(0.0), TimestampFromSeconds(N * dt));
 
   Eigen::Vector3d accel(0.5, -0.3, 9.81);
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
+    integrator.FeedImu(
+        ImuMeasurement(TimestampFromSeconds(i * dt), gyro, accel));
   }
   PreintegratedImuData data = integrator.Extract();
 
@@ -240,12 +242,13 @@ PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
   ImuPreintegrationOptions options;
   options.method = method;
   ImuCalibration calib;
-  timestamp_t t_start = SecondsToTimestamp(0.0);
-  timestamp_t t_end = SecondsToTimestamp(N * dt);
+  timestamp_t t_start = TimestampFromSeconds(0.0);
+  timestamp_t t_end = TimestampFromSeconds(N * dt);
   ImuPreintegrator integrator(options, calib, t_start, t_end);
   integrator.SetLinearizationBiases(biases);
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(ImuMeasurement(SecondsToTimestamp(i * dt), gyro, accel));
+    integrator.FeedImu(
+        ImuMeasurement(TimestampFromSeconds(i * dt), gyro, accel));
   }
   return integrator.Extract();
 }
@@ -336,8 +339,8 @@ TEST(ImuReintegrationCallback, ReintegratesWhenBiasExceedsThreshold) {
   ImuCalibration calib;
   ImuPreintegrator integrator(ImuPreintegrationOptions{},
                               calib,
-                              SecondsToTimestamp(0.0),
-                              SecondsToTimestamp(N * dt));
+                              TimestampFromSeconds(0.0),
+                              TimestampFromSeconds(N * dt));
 
   Eigen::Vector3d accel(0.5, -0.3, 9.81);
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);
@@ -373,8 +376,8 @@ TEST(ImuReintegrationCallback, NoReintegrationWhenBiasBelowThreshold) {
   ImuCalibration calib;
   ImuPreintegrator integrator(ImuPreintegrationOptions{},
                               calib,
-                              SecondsToTimestamp(0.0),
-                              SecondsToTimestamp(N * dt));
+                              TimestampFromSeconds(0.0),
+                              TimestampFromSeconds(N * dt));
 
   Eigen::Vector3d accel(0.5, -0.3, 9.81);
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);

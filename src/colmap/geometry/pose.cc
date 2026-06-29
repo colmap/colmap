@@ -34,7 +34,6 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -232,8 +231,10 @@ Eigen::Matrix3d LeftJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
   }
   const Eigen::Vector3d a = omega / theta;
   const Eigen::Matrix3d a_x = CrossProductMatrix(a);
-  return std::sin(theta) / theta * Eigen::Matrix3d::Identity() +
-         (1.0 - std::sin(theta) / theta) * a * a.transpose() +
+  const double sin_theta = std::sin(theta);
+  const double sinc_theta = sin_theta / theta;
+  return sinc_theta * Eigen::Matrix3d::Identity() +
+         (1.0 - sinc_theta) * a * a.transpose() +
          ((1.0 - std::cos(theta)) / theta) * a_x;
 }
 

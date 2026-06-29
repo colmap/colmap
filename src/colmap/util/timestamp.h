@@ -34,12 +34,12 @@
 namespace colmap {
 
 // Convert a nanosecond timestamp to seconds.
-inline double TimestampToSeconds(timestamp_t t) { return t * 1e-9; }
+inline double SecondsFromTimestamp(timestamp_t t) { return t * 1e-9; }
 
 // Convert seconds to a nanosecond timestamp. Truncates sub-nanosecond values.
 // Intended for small durations (e.g., config values), not large absolute
 // timestamps which should be parsed as int64 directly.
-inline timestamp_t SecondsToTimestamp(double s) {
+inline timestamp_t TimestampFromSeconds(double s) {
   return static_cast<timestamp_t>(s * 1e9);
 }
 

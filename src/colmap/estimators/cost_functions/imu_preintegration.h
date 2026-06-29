@@ -119,7 +119,7 @@ class ImuPreintegrationCostFunctor {
     // First-order bias correction.
     Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
-    AngleAxisToEigenQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
+    EigenQuaternionFromAngleAxis(omega_bias.data(), Dq_bias.coeffs().data());
     const Eigen::Quaternion<T> delta_R_corrected =
         data_->delta_R.cast<T>() * Dq_bias;
     // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
@@ -507,7 +507,7 @@ class VisualCentricImuPreintegrationCostFunctor {
     // First-order bias correction.
     Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
-    AngleAxisToEigenQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
+    EigenQuaternionFromAngleAxis(omega_bias.data(), Dq_bias.coeffs().data());
     const Eigen::Quaternion<T> delta_R_corrected =
         data_->delta_R.cast<T>() * Dq_bias;
     // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
