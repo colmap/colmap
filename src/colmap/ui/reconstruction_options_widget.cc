@@ -443,6 +443,7 @@ ReconstructionOptionsWidget::ReconstructionOptionsWidget(
   mapper_combo->addItem("global");
   mapper_combo->setCurrentIndex(static_cast<int>(*mapper_type));
   auto* mapper_layout = new QHBoxLayout();
+  mapper_layout->addStretch(1);
   mapper_layout->addWidget(new QLabel(tr("mapper"), this));
   mapper_layout->addWidget(mapper_combo);
   mapper_layout->addStretch(1);
