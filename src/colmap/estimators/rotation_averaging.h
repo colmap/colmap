@@ -3,6 +3,7 @@
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_manager.h"
 
 #include <unordered_set>
 #include <vector>
@@ -142,5 +143,17 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           PoseGraph& pose_graph,
                           Reconstruction& reconstruction,
                           const std::vector<PosePrior>& pose_priors);
+
+// Multi-component rotation averaging. Reads the base reconstruction (frames,
+// cameras, rigs) from `reconstruction_manager.Get(0)`, solves rotation
+// averaging independently on each initial connected component of the view
+// graph, filters outlier pairs by relative rotation (without de-registering),
+// and repopulates the manager with one reconstruction per disjoint component of
+// the resulting filtered view graph.
+bool RunRotationAveragingMultiComponents(
+    const RotationEstimatorOptions& options,
+    PoseGraph& pose_graph,
+    ReconstructionManager& reconstruction_manager,
+    const std::vector<PosePrior>& pose_priors);
 
 }  // namespace colmap

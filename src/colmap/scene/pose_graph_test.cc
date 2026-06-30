@@ -351,6 +351,64 @@ TEST(PoseGraph, ComputeLargestConnectedFrameComponentEmpty) {
   EXPECT_TRUE(result.empty());
 }
 
+TEST(PoseGraph, ComputeConnectedFrameComponents) {
+  // Five single-frame rigs.
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 5;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 1;
+  synthetic_options.num_points3D = 10;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_options, &reconstruction);
+
+  const auto reg_image_ids = reconstruction.RegImageIds();
+  ASSERT_EQ(reg_image_ids.size(), 5);
+
+  // Component A: images 0, 1, 2 ; Component B: images 3, 4.
+  PoseGraph pose_graph;
+  pose_graph.AddEdge(reg_image_ids[0], reg_image_ids[1], SynthesizeEdge());
+  pose_graph.AddEdge(reg_image_ids[1], reg_image_ids[2], SynthesizeEdge());
+  pose_graph.AddEdge(reg_image_ids[3], reg_image_ids[4], SynthesizeEdge());
+
+  const frame_t frame0 = reconstruction.Image(reg_image_ids[0]).FrameId();
+  const frame_t frame1 = reconstruction.Image(reg_image_ids[1]).FrameId();
+  const frame_t frame2 = reconstruction.Image(reg_image_ids[2]).FrameId();
+  const frame_t frame3 = reconstruction.Image(reg_image_ids[3]).FrameId();
+  const frame_t frame4 = reconstruction.Image(reg_image_ids[4]).FrameId();
+
+  const std::vector<std::unordered_set<frame_t>> components =
+      pose_graph.ComputeConnectedFrameComponents(reconstruction);
+
+  ASSERT_EQ(components.size(), 2);
+  // Components are sorted by descending size.
+  EXPECT_EQ(components[0].size(), 3);
+  EXPECT_EQ(components[1].size(), 2);
+  EXPECT_THAT(components[0],
+              testing::UnorderedElementsAre(frame0, frame1, frame2));
+  EXPECT_THAT(components[1], testing::UnorderedElementsAre(frame3, frame4));
+
+  // The largest component must equal the first (largest) entry.
+  EXPECT_EQ(pose_graph.ComputeLargestConnectedFrameComponent(reconstruction),
+            components[0]);
+}
+
+TEST(PoseGraph, ComputeConnectedFrameComponentsEmpty) {
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 3;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 1;
+  synthetic_options.num_points3D = 10;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_options, &reconstruction);
+
+  // Pose graph with no edges yields no components.
+  PoseGraph pose_graph;
+  EXPECT_TRUE(pose_graph
+                  .ComputeConnectedFrameComponents(
+                      reconstruction, /*filter_unregistered=*/false)
+                  .empty());
+}
+
 TEST(PoseGraph, InvalidatePairsOutsideActiveImageIds) {
   PoseGraph pose_graph;
   pose_graph.AddEdge(1, 2, SynthesizeEdge());

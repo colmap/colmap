@@ -7,6 +7,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace colmap {
 
@@ -70,6 +71,12 @@ class PoseGraph {
         edges_.begin(),
         edges_.end());
   }
+
+  // Compute all connected components of frames, returned sorted by descending
+  // size. If filter_unregistered is true, only considers frames with HasPose().
+  std::vector<std::unordered_set<frame_t>> ComputeConnectedFrameComponents(
+      const Reconstruction& reconstruction,
+      bool filter_unregistered = true) const;
 
   // Compute the largest connected component of frames.
   // If filter_unregistered is true, only considers frames with HasPose().
