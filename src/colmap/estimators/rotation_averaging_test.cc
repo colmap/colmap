@@ -35,12 +35,15 @@
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"
+#include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
 
 #include <map>
+#include <unordered_set>
 #include <utility>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -157,6 +160,92 @@ void RunAndVerifyRotationAveraging(const Reconstruction& gt_reconstruction,
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, max_rotation_error_deg);
+  }
+}
+
+// Verifies relative rotations among the registered images of a single
+// (gauge-free) component against the ground truth.
+void ExpectEqualComponentRotations(const Reconstruction& gt,
+                                   const Reconstruction& computed,
+                                   const double max_rotation_error_deg) {
+  const double max_rotation_error_rad = DegToRad(max_rotation_error_deg);
+  const std::vector<image_t> reg_image_ids = computed.RegImageIds();
+  for (size_t i = 0; i < reg_image_ids.size(); i++) {
+    for (size_t j = 0; j < i; j++) {
+      const Eigen::Quaterniond cam2_from_cam1 =
+          computed.Image(reg_image_ids[j]).CamFromWorld().rotation() *
+          computed.Image(reg_image_ids[i]).CamFromWorld().rotation().inverse();
+      const Eigen::Quaterniond cam2_from_cam1_gt =
+          gt.Image(reg_image_ids[j]).CamFromWorld().rotation() *
+          gt.Image(reg_image_ids[i]).CamFromWorld().rotation().inverse();
+      EXPECT_LE(cam2_from_cam1.angularDistance(cam2_from_cam1_gt),
+                max_rotation_error_rad);
+    }
+  }
+}
+
+void RunAndVerifyRotationAveragingMultiComponents(
+    const Reconstruction& gt_reconstruction,
+    const Reconstruction& reconstruction,
+    const PoseGraph& pose_graph,
+    const std::vector<PosePrior>& pose_priors,
+    const std::vector<std::unordered_set<image_t>>& expected_components,
+    const std::vector<bool>& use_gravity_values,
+    const double max_rotation_error_deg) {
+  for (const bool use_gravity : use_gravity_values) {
+    PoseGraph pose_graph_copy = pose_graph;
+    ReconstructionManager reconstruction_manager;
+    *reconstruction_manager.Get(reconstruction_manager.Add()) = reconstruction;
+
+    ASSERT_TRUE(
+        RunRotationAveragingMultiComponents(CreateRATestOptions(use_gravity),
+                                            pose_graph_copy,
+                                            reconstruction_manager,
+                                            pose_priors));
+
+    // One reconstruction per disjoint component.
+    ASSERT_EQ(reconstruction_manager.Size(), expected_components.size());
+
+    std::vector<std::unordered_set<image_t>> recon_image_id_sets;
+    for (size_t i = 0; i < reconstruction_manager.Size(); ++i) {
+      const auto reconstruction_copy = reconstruction_manager.Get(i);
+      std::unordered_set<image_t> ids;
+      for (const image_t image_id : reconstruction_copy->RegImageIds()) {
+        ids.insert(image_id);
+      }
+      recon_image_id_sets.push_back(std::move(ids));
+
+      // Each output reconstruction must recover its component's rotations.
+      ExpectEqualComponentRotations(
+          gt_reconstruction, *reconstruction_copy, max_rotation_error_deg);
+    }
+
+    // The reconstructions must exactly partition the images into the components.
+    EXPECT_THAT(recon_image_id_sets,
+                testing::UnorderedElementsAreArray(expected_components));
+  }
+}
+
+// Splits the pose graph into disjoint components by removing all edges that
+// cross the given image groups.
+void DisconnectPoseGraphComponents(
+    const std::vector<std::unordered_set<image_t>>& groups,
+    PoseGraph& pose_graph) {
+  std::unordered_map<image_t, int> image_to_group;
+  for (int group = 0; group < static_cast<int>(groups.size()); ++group) {
+    for (const image_t image_id : groups[group]) {
+      image_to_group[image_id] = group;
+    }
+  }
+  std::vector<std::pair<image_t, image_t>> cross_edges;
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    const auto [id1, id2] = PairIdToImagePair(pair_id);
+    if (image_to_group.at(id1) != image_to_group.at(id2)) {
+      cross_edges.emplace_back(id1, id2);
+    }
+  }
+  for (const auto& [id1, id2] : cross_edges) {
+    pose_graph.DeleteEdge(id1, id2);
   }
 }
 
@@ -719,6 +808,98 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
           << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
     }
   }
+}
+
+TEST(RotationAveraging, MultiComponents) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 6;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  std::vector<image_t> image_ids = data.gt_reconstruction.RegImageIds();
+  std::sort(image_ids.begin(), image_ids.end());
+  ASSERT_EQ(image_ids.size(), 6);
+  const std::vector<std::unordered_set<image_t>> expected_components = {
+      {image_ids.begin(), image_ids.begin() + 3},
+      {image_ids.begin() + 3, image_ids.end()}};
+
+  // Split the pose graph into the two expected components.
+  DisconnectPoseGraphComponents(expected_components, data.pose_graph);
+
+  RunAndVerifyRotationAveragingMultiComponents(data.gt_reconstruction,
+                                               data.reconstruction,
+                                               data.pose_graph,
+                                               data.pose_priors,
+                                               expected_components,
+                                               {true, false},
+                                               /*max_rotation_error_deg=*/1e-2);
+}
+
+TEST(RotationAveraging, MultiComponentsWithNoiseAndOutliers) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.prior_gravity_stddev = 3e-1;
+  auto data =
+      CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
+
+  std::vector<image_t> image_ids = data.gt_reconstruction.RegImageIds();
+  std::sort(image_ids.begin(), image_ids.end());
+  ASSERT_EQ(image_ids.size(), 14);
+  const std::vector<std::unordered_set<image_t>> expected_components = {
+      {image_ids.begin(), image_ids.begin() + 7},
+      {image_ids.begin() + 7, image_ids.end()}};
+
+  // Split the pose graph into the two expected components.
+  DisconnectPoseGraphComponents(expected_components, data.pose_graph);
+
+  RunAndVerifyRotationAveragingMultiComponents(data.gt_reconstruction,
+                                               data.reconstruction,
+                                               data.pose_graph,
+                                               data.pose_priors,
+                                               expected_components,
+                                               {true, false},
+                                               /*max_rotation_error_deg=*/2.);
+}
+
+TEST(RotationAveraging, MultiComponentsEmptyPoseGraph) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 20;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  // Invalidate all edges so no connected components exist.
+  for (auto& [pair_id, edge] : data.pose_graph.Edges()) {
+    edge.valid = false;
+  }
+
+  ReconstructionManager reconstruction_manager;
+  *reconstruction_manager.Get(reconstruction_manager.Add()) =
+      data.reconstruction;
+
+  RotationEstimatorOptions options = CreateRATestOptions();
+  EXPECT_FALSE(RunRotationAveragingMultiComponents(
+      options, data.pose_graph, reconstruction_manager, data.pose_priors));
 }
 
 }  // namespace
