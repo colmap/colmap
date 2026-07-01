@@ -58,7 +58,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
     return;
   }
 
-  // Setup system of equations: [cam_rays2(i,:), 1]' * E * [cam_rays1(i,:), 1]'.
+  // Setup system of equations: cam_rays2(i)' * E * cam_rays1(i) = 0.
 
   Eigen::Matrix<double, Eigen::Dynamic, 9> Q(cam_rays1.size(), 9);
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
@@ -67,25 +67,21 @@ void EssentialMatrixFivePointEstimator::Estimate(
         cam_rays2[i].z() * cam_rays1[i].transpose();
   }
 
-  // Step 1: Extraction of the nullspace.
+  // Step 1: Extraction of the nullspace. The minimal case is handled by
+  // PoseLib above, so we always reach this with an over-determined system.
 
-  Eigen::Matrix<double, 9, 4> E;
-  if (cam_rays1.size() == 5) {
-    E = Q.transpose().fullPivHouseholderQr().matrixQ().rightCols<4>();
-  } else {
-    const Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        Q, Eigen::ComputeFullV);
-    E = svd.matrixV().rightCols<4>();
-  }
+  const Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
+      Q, Eigen::ComputeFullV);
+  const Eigen::Matrix<double, 9, 4> E = svd.matrixV().rightCols<4>();
 
-  // Step 3: Gauss-Jordan elimination with partial pivoting on A.
+  // Step 2: Gauss-Jordan elimination with partial pivoting on A.
 
   Eigen::Matrix<double, 10, 20> A;
 #include "colmap/estimators/solvers/essential_matrix_poly.h"
   const Eigen::Matrix<double, 10, 10> AA =
       A.block<10, 10>(0, 0).partialPivLu().solve(A.block<10, 10>(0, 10));
 
-  // Step 4: Expansion of the determinant polynomial of the 3x3 polynomial
+  // Step 3: Expansion of the determinant polynomial of the 3x3 polynomial
   //         matrix B to obtain the tenth degree polynomial.
 
   Eigen::Matrix<double, 13, 3> B;
@@ -101,7 +97,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
     B.block<4, 1>(8, i) -= AA.block<1, 4>(i * 2 + 5, 6);
   }
 
-  // Step 5: Extraction of roots from the degree 10 polynomial.
+  // Step 4: Extraction of roots from the degree 10 polynomial.
   Eigen::Matrix<double, 11, 1> coeffs;
 #include "colmap/estimators/solvers/essential_matrix_coeffs.h"
 
