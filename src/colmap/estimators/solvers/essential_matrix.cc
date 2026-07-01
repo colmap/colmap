@@ -37,6 +37,7 @@
 #include <Eigen/Geometry>
 #include <Eigen/LU>
 #include <Eigen/SVD>
+#include <PoseLib/solvers/relpose_5pt.h>
 
 namespace colmap {
 
@@ -49,6 +50,13 @@ void EssentialMatrixFivePointEstimator::Estimate(
   THROW_CHECK(models != nullptr);
 
   models->clear();
+
+  // PoseLib's 5-point solver only supports the minimal case; the non-minimal
+  // case falls through to the SVD-based solver below.
+  if (cam_rays1.size() == 5) {
+    poselib::relpose_5pt(cam_rays1, cam_rays2, models);
+    return;
+  }
 
   // Setup system of equations: [cam_rays2(i,:), 1]' * E * [cam_rays1(i,:), 1]'.
 
