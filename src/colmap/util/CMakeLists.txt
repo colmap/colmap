@@ -49,6 +49,7 @@ COLMAP_ADD_LIBRARY(
         string.h string.cc
         threading.h threading.cc
         timer.h timer.cc
+        timestamp.h
         types.h
         version.h version.cc
     PUBLIC_LINK_LIBS

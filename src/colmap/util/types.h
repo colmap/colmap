@@ -126,7 +126,10 @@ constexpr point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 // timestamps (e.g., Unix epoch in nanoseconds), and enables exact equality
 // checks for use as map keys.
 using timestamp_t = int64_t;
-constexpr timestamp_t kInvalidTimestamp = -1;
+// Sentinel for an unset/invalid timestamp. Chosen as INT64_MIN so that any
+// realistic timestamp (including negative ones) remains a valid value.
+constexpr timestamp_t kInvalidTimestamp =
+    std::numeric_limits<timestamp_t>::min();
 
 // Unique identifier for pose priors.
 using pose_prior_t = uint32_t;
