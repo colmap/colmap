@@ -59,11 +59,10 @@ void ExpectAtLeastOneValidModel(const Estimator& estimator,
                                 std::vector<Eigen::Matrix3d>& models,
                                 double E_eps = 1e-4,
                                 double r_eps = 1e-5) {
-  expected_E /= expected_E(2, 2);
+  expected_E.normalize();
   for (size_t i = 0; i < models.size(); ++i) {
-    Eigen::Matrix3d E = models[i];
-    E /= E(2, 2);
-    if (!E.isApprox(expected_E, E_eps)) {
+    const Eigen::Matrix3d E = models[i].normalized();
+    if (std::min((E - expected_E).norm(), (E + expected_E).norm()) > E_eps) {
       continue;
     }
 
@@ -82,6 +81,7 @@ class EssentialMatrixFivePointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
+  SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 100; ++k) {
     const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
@@ -107,6 +107,7 @@ class EssentialMatrixEightPointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
+  SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 1; ++k) {
     const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
