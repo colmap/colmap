@@ -49,6 +49,7 @@ COLMAP_ADD_LIBRARY(
         string.h string.cc
         threading.h threading.cc
         timer.h timer.cc
+        timestamp.h
         types.h
         version.h version.cc
     PUBLIC_LINK_LIBS
@@ -231,6 +232,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME timer_test
     SRCS timer_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME timestamp_test
+    SRCS timestamp_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
