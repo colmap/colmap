@@ -29,8 +29,8 @@
 
 #include "colmap/util/timestamp.h"
 
+#include <limits>
 #include <map>
-#include <stdexcept>
 
 #include <gtest/gtest.h>
 
@@ -41,8 +41,8 @@ TEST(Timestamp, SecondsFromTimestamp) {
   EXPECT_DOUBLE_EQ(SecondsFromTimestamp(0), 0.0);
   EXPECT_DOUBLE_EQ(SecondsFromTimestamp(1000000000), 1.0);
   EXPECT_DOUBLE_EQ(SecondsFromTimestamp(500000000), 0.5);
-  // Negative timestamps are invalid.
-  EXPECT_THROW(SecondsFromTimestamp(-1000000000), std::invalid_argument);
+  // Negative timestamps are allowed.
+  EXPECT_DOUBLE_EQ(SecondsFromTimestamp(-1000000000), -1.0);
 }
 
 TEST(Timestamp, TimestampFromSeconds) {
@@ -50,8 +50,8 @@ TEST(Timestamp, TimestampFromSeconds) {
   EXPECT_EQ(TimestampFromSeconds(1.0), 1000000000);
   EXPECT_EQ(TimestampFromSeconds(0.5), 500000000);
   EXPECT_EQ(TimestampFromSeconds(0.005), 5000000);  // 5ms.
-  // Negative durations are invalid.
-  EXPECT_THROW(TimestampFromSeconds(-1.0), std::invalid_argument);
+  // Negative durations are allowed.
+  EXPECT_EQ(TimestampFromSeconds(-1.0), -1000000000);
 }
 
 TEST(Timestamp, TimestampDiffSeconds) {
@@ -90,6 +90,18 @@ TEST(Timestamp, LargeNanosecondValues) {
   EXPECT_DOUBLE_EQ(TimestampDiffSeconds(t2, t), 0.005);
 }
 
+TEST(Timestamp, DiffExactAboveDoublePrecision) {
+  // Both timestamps are well above 2^53, where consecutive integers are no
+  // longer exactly representable as double (the ulp is hundreds of ns near
+  // 1.4e18), yet their difference is tiny.
+  timestamp_t t0 = 1403636579763555584LL;
+  timestamp_t t1 = t0 + 1;  // 1 ns apart.
+  ASSERT_GT(t0, timestamp_t{1} << 53);
+
+  // Differencing in int64 first preserves the exact 1 ns gap.
+  EXPECT_DOUBLE_EQ(TimestampDiffSeconds(t1, t0), 1e-9);
+}
+
 TEST(Timestamp, MapKeyExactEquality) {
   // int64 map keys support exact lookup, unlike double keys.
   std::map<timestamp_t, int> m;
@@ -102,8 +114,7 @@ TEST(Timestamp, MapKeyExactEquality) {
 }
 
 TEST(Timestamp, InvalidTimestamp) {
-  EXPECT_EQ(kInvalidTimestamp, -1);
-  EXPECT_LT(kInvalidTimestamp, 0);
+  EXPECT_EQ(kInvalidTimestamp, std::numeric_limits<timestamp_t>::min());
 }
 
 }  // namespace
