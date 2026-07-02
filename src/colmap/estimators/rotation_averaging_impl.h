@@ -60,11 +60,6 @@ class RotationAveragingProblem {
     return constraint_matrix_;
   }
   const Eigen::VectorXd& Residuals() const { return residuals_; }
-  // Whether a residual-space reweighting operator is configured (i.e. the
-  // reweighting scheme is not UNIFORM).
-  bool HasResidualReweighting() const {
-    return residual_reweighting_.has_value();
-  }
   // Diagonal of the residual-space reweighting operator W (one weight per
   // residual row), or nullopt when no reweighting is configured.
   const std::optional<Eigen::VectorXd>& ResidualReweighting() const {
