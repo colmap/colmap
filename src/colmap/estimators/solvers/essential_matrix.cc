@@ -244,6 +244,9 @@ bool FastRefineRelativePose(const std::vector<Eigen::Vector3d>& cam_rays1,
   Eigen::Matrix3d R;
   Eigen::Vector3d t;
   tangent.BoxPlus(x.data(), &R, &t);
+  if (!R.allFinite() || !t.allFinite()) {
+    return false;
+  }
   *cam2_from_cam1 = Rigid3d(Eigen::Quaterniond(R), t);
   return true;
 }
