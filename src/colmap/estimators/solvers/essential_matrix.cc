@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/solvers/essential_matrix.h"
 
+#include "colmap/estimators/cost_functions/tangent_sampson_error.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/polynomial.h"
 #include "colmap/util/eigen_alignment.h"
@@ -38,6 +39,8 @@
 #include <Eigen/LU>
 #include <Eigen/SVD>
 #include <PoseLib/solvers/relpose_5pt.h>
+#include <ceres/tiny_solver.h>
+#include <ceres/tiny_solver_autodiff_function.h>
 
 namespace colmap {
 
@@ -206,6 +209,101 @@ void EssentialMatrixEightPointEstimator::Residuals(
     const std::vector<Y_t>& cam_rays2,
     const M_t& E,
     std::vector<double>* residuals) {
+  ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
+}
+
+namespace {
+
+// Nonlinear Sampson refinement of a relative pose over the given rays via
+// ceres::TinySolver (fixed-size, allocation-free, autodiff). Plain least
+// squares: the rays are assumed to be the inlier set, so robustness comes from
+// the RANSAC inlier selection. Returns false, leaving the pose unchanged, on
+// degenerate input.
+bool FastRefineRelativePose(const std::vector<Eigen::Vector3d>& cam_rays1,
+                            const std::vector<Eigen::Vector3d>& cam_rays2,
+                            Rigid3d* cam2_from_cam1) {
+  if (cam_rays1.size() < 5) {
+    return false;
+  }
+  if (cam2_from_cam1->translation().squaredNorm() < 1e-24) {
+    return false;
+  }
+
+  const TangentRelativePose tangent(*cam2_from_cam1);
+  TangentSampsonErrorCostFunctor functor(tangent, cam_rays1, cam_rays2);
+  using AutoDiffFunction =
+      ceres::TinySolverAutoDiffFunction<TangentSampsonErrorCostFunctor,
+                                        Eigen::Dynamic,
+                                        5>;
+  AutoDiffFunction f(functor);
+  ceres::TinySolver<AutoDiffFunction> solver;
+  solver.options.max_num_iterations = 25;
+  Eigen::Matrix<double, 5, 1> x = Eigen::Matrix<double, 5, 1>::Zero();
+  solver.Solve(f, &x);
+
+  Eigen::Matrix3d R;
+  Eigen::Vector3d t;
+  tangent.BoxPlus(x.data(), &R, &t);
+  if (!R.allFinite() || !t.allFinite()) {
+    return false;
+  }
+  *cam2_from_cam1 = Rigid3d(Eigen::Quaterniond(R), t);
+  return true;
+}
+
+}  // namespace
+
+void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
+                                          const std::vector<Y_t>& cam_rays2,
+                                          std::vector<M_t>* models) {
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_GE(cam_rays1.size(),
+                 EssentialMatrixEightPointEstimator::kMinNumSamples);
+  THROW_CHECK(models != nullptr);
+
+  models->clear();
+
+  // Self-seed with the eight-point solver.
+  std::vector<M_t> init_models;
+  EssentialMatrixEightPointEstimator::Estimate(
+      cam_rays1, cam_rays2, &init_models);
+  if (init_models.empty()) {
+    return;
+  }
+
+  Estimate(cam_rays1, cam_rays2, init_models[0], models);
+}
+
+void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
+                                          const std::vector<Y_t>& cam_rays2,
+                                          const M_t& initial_E,
+                                          std::vector<M_t>* models) {
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
+  THROW_CHECK(models != nullptr);
+
+  models->clear();
+
+  // Decompose the initial essential matrix into a relative pose (resolving the
+  // four-fold ambiguity via cheirality over the given rays).
+  Rigid3d cam2_from_cam1;
+  std::vector<Eigen::Vector3d> points3D;
+  PoseFromEssentialMatrix(
+      initial_E, cam_rays1, cam_rays2, &cam2_from_cam1, &points3D);
+  if (points3D.empty()) {
+    // Degenerate configuration: keep the initial model unchanged.
+    models->push_back(initial_E);
+    return;
+  }
+
+  FastRefineRelativePose(cam_rays1, cam_rays2, &cam2_from_cam1);
+  models->push_back(EssentialMatrixFromPose(cam2_from_cam1));
+}
+
+void EssentialMatrixLMEstimator::Residuals(const std::vector<X_t>& cam_rays1,
+                                           const std::vector<Y_t>& cam_rays2,
+                                           const M_t& E,
+                                           std::vector<double>* residuals) {
   ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
 }
 

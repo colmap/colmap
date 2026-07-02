@@ -41,6 +41,7 @@ COLMAP_ADD_LIBRARY(
         quaternion_utils.h
         reprojection_error.h
         sampson_error.h
+        tangent_sampson_error.h
         utils.h
     INTERFACE_LINK_LIBS
         colmap_geometry
@@ -72,6 +73,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME sampson_error_test
     SRCS sampson_error_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
+    NAME tangent_sampson_error_test
+    SRCS tangent_sampson_error_test.cc
     LINK_LIBS colmap_estimators_cost_functions
 )
 COLMAP_ADD_TEST(
