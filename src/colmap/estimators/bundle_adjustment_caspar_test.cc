@@ -145,6 +145,70 @@ TEST(DefaultBundleAdjuster, Nominal) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
+TEST(DefaultBundleAdjuster, EquirectangularMatchesCeres) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  // EQUIRECTANGULAR has no tunable intrinsics; its (w, h) params are the image
+  // dimensions and are held constant in BA (only pose and point are optimized).
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1024;
+  synthetic_dataset_options.camera_height = 512;
+  synthetic_dataset_options.camera_params = {1024, 512};
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.3;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  // Fix the gauge so the two backends converge to the same coordinate frame and
+  // the recovered poses/points can be compared directly.
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+
+  Reconstruction reconstruction_ceres = reconstruction;
+  Reconstruction reconstruction_caspar = reconstruction;
+
+  std::unique_ptr<BundleAdjuster> ceres_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction_ceres);
+  ASSERT_NE(ceres_adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  std::unique_ptr<BundleAdjuster> caspar_adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction_caspar);
+  ASSERT_NE(caspar_adjuster->Solve()->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // The Caspar GPU solver must agree with the reference Ceres solver: the
+  // equirectangular reprojection residual is the only thing being optimized
+  // here (no tunable intrinsics), so any kernel discrepancy shows up directly
+  // in the recovered poses and points.
+  EXPECT_THAT(reconstruction_ceres,
+              ReconstructionNear(reconstruction_caspar,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
+
+  // The (w, h) intrinsics must be untouched by BA.
+  for (const auto& [camera_id, camera] : reconstruction_caspar.Cameras()) {
+    EXPECT_EQ(camera.params, reconstruction.Camera(camera_id).params);
+  }
+}
+
 TEST(DefaultBundleAdjuster, RigThrowsErrorOnVariableSensorFromRig) {
   SetPRNGSeed(0);
   Reconstruction reconstruction;

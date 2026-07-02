@@ -66,6 +66,14 @@ struct CasparSolverSizing {
   size_t num_pinhole_split_fixed_pose_fixed_focal_fixed_point = 0;
   size_t num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point = 0;
   size_t num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point = 0;
+
+  // Spherical: (w, h) are constant (no focal length, principal point, or
+  // distortion), so there is no calib pool — only a pose pool and the 3
+  // reachable pose/point fix variants (pose+point, point-only, pose-only).
+  size_t num_spherical_poses = 0;
+  size_t num_spherical = 0;
+  size_t num_spherical_fixed_pose = 0;
+  size_t num_spherical_fixed_point = 0;
 };
 
 // One implementation per camera model.
@@ -132,6 +140,12 @@ class ICasparModelAdapter {
   virtual void SetVariantFactors(caspar::GraphSolver& solver,
                                  FactorVariant variant,
                                  const VariantData& data) const = 0;
+
+  // Append model-specific per-factor constant parameters (e.g. SPHERICAL's
+  // (w, h)) into VariantData::const_camera_params. Default: nothing, for models
+  // whose intrinsics are either tunable nodes or absent.
+  virtual void AppendConstFactorParams(const Camera& /*camera*/,
+                                       VariantData& /*vd*/) const {}
 };
 
 // SimpleRadial implementation
@@ -901,6 +915,148 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 };
 
+// Spherical (equirectangular) implementation.
+//
+// params = [w, h] (image dimensions), held CONSTANT in BA — the model has no
+// focal length, principal point, or distortion. Hence there is no calib pool
+// and no tunable-intrinsics machinery: all focal/principal-point methods are
+// no-ops, (w, h) ride along as a per-factor constant node (VariantData::
+// const_camera_params), and only the pose and point are optimized.
+//
+// Only three FactorVariants are reachable for SPHERICAL. Because the model
+// reports FocalAndExtraSize() == PrincipalPointSize() == 0, the BA marshalling
+// always treats focal/principal-point as fixed, so the generic variant table
+// yields exactly: pose+point tunable, point-only, and pose-only — under the
+// FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT[...] names mapped below.
+class SphericalAdapter : public ICasparModelAdapter {
+ public:
+  CameraModelId ModelId() const override {
+    return CameraModelId::kEquirectangular;
+  }
+
+  size_t FocalAndExtraSize() const override { return 0; }
+  size_t PrincipalPointSize() const override { return 0; }
+  size_t CalibSize() const override { return 0; }
+
+  // No calib / focal / principal-point nodes exist for SPHERICAL.
+  void SetCalibNodes(caspar::GraphSolver&,
+                     StorageType*,
+                     size_t) const override {}
+  void GetCalibNodes(caspar::GraphSolver&,
+                     StorageType*,
+                     size_t) const override {}
+  void ExtractFocalAndExtra(const Camera&,
+                            std::vector<StorageType>&) const override {}
+  void ExtractPrincipalPoint(const Camera&,
+                             std::vector<StorageType>&) const override {}
+  void WriteFocalAndExtra(Camera&, const StorageType*, size_t) const override {}
+  void WritePrincipalPoint(Camera&, const StorageType*, size_t) const override {
+  }
+  void SetFocalAndExtraNodes(caspar::GraphSolver&,
+                             StorageType*,
+                             size_t) const override {}
+  void GetFocalAndExtraNodes(caspar::GraphSolver&,
+                             StorageType*,
+                             size_t) const override {}
+  void SetPrincipalPointNodes(caspar::GraphSolver&,
+                              StorageType*,
+                              size_t) const override {}
+  void GetPrincipalPointNodes(caspar::GraphSolver&,
+                              StorageType*,
+                              size_t) const override {}
+
+  void FillSizing(CasparSolverSizing& sz,
+                  const ModelData& md,
+                  size_t /*num_calibs*/) const override {
+    for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
+      const size_t n = md.variants[v].num_factors;
+      switch (static_cast<FactorVariant>(v)) {
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          sz.num_spherical = n;  // pose + point tunable
+          break;
+        case FactorVariant::
+            FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          sz.num_spherical_fixed_pose = n;  // point only
+          break;
+        case FactorVariant::
+            FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          sz.num_spherical_fixed_point = n;  // pose only
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  void SetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.SetSphericalPoseNodesFromStackedHost(data, 0, n);
+  }
+  void GetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.GetSphericalPoseNodesToStackedHost(data, 0, n);
+  }
+
+  // Append (w, h) for this camera as the per-factor constant node.
+  void AppendConstFactorParams(const Camera& camera,
+                               VariantData& vd) const override {
+    vd.const_camera_params.push_back(
+        static_cast<StorageType>(camera.params[0]));  // w
+    vd.const_camera_params.push_back(
+        static_cast<StorageType>(camera.params[1]));  // h
+  }
+
+  void SetVariantFactors(caspar::GraphSolver& s,
+                         FactorVariant variant,
+                         const VariantData& d) const override {
+    const size_t n = d.num_factors;
+    switch (variant) {
+      // pose + point tunable.
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetSphericalNum(n);
+        s.SetSphericalPoseIndicesFromHost(d.pose_indices.data(), n);
+        s.SetSphericalSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetSphericalWhDataFromStackedHost(d.const_camera_params.data(), 0, n);
+        s.SetSphericalPointIndicesFromHost(d.point_indices.data(), n);
+        s.SetSphericalPixelDataFromStackedHost(d.pixels.data(), 0, n);
+        break;
+      // point only (pose constant).
+      case FactorVariant::
+          FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetSphericalFixedPoseNum(n);
+        s.SetSphericalFixedPoseSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetSphericalFixedPoseWhDataFromStackedHost(
+            d.const_camera_params.data(), 0, n);
+        s.SetSphericalFixedPosePointIndicesFromHost(d.point_indices.data(), n);
+        s.SetSphericalFixedPosePoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetSphericalFixedPosePixelDataFromStackedHost(d.pixels.data(), 0, n);
+        break;
+      // pose only (point constant).
+      case FactorVariant::
+          FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        s.SetSphericalFixedPointNum(n);
+        s.SetSphericalFixedPointPoseIndicesFromHost(d.pose_indices.data(), n);
+        s.SetSphericalFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetSphericalFixedPointWhDataFromStackedHost(
+            d.const_camera_params.data(), 0, n);
+        s.SetSphericalFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetSphericalFixedPointPixelDataFromStackedHost(d.pixels.data(), 0, n);
+        break;
+      default:
+        // Other variants are unreachable for SPHERICAL (no tunable intrinsics,
+        // and fully-constant factors are skipped before reaching here).
+        break;
+    }
+  }
+};
+
 inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
     const CameraModelId model_id) {
   switch (model_id) {
@@ -908,6 +1064,8 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
       return std::make_unique<SimpleRadialAdapter>();
     case CameraModelId::kPinhole:
       return std::make_unique<PinholeAdapter>();
+    case CameraModelId::kEquirectangular:
+      return std::make_unique<SphericalAdapter>();
     default:
       return nullptr;
   }
@@ -942,6 +1100,7 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_simple_radial_poses,   // SimpleRadialPose
       sz.num_simple_radial_calibs,  // SimpleRadialPrincipalPoint      (split
                                     // pool)
+      sz.num_spherical_poses,       // SphericalPose
       // simple_radial factor counts (r=0..2 over {pose, point}):
       sz.num_simple_radial,                         // {}
       sz.num_simple_radial_fixed_pose,              // {pose}
@@ -980,6 +1139,11 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_split_fixed_pose_fixed_focal_fixed_point,            // r=3
       sz.num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
       sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point,  // r=3
+      // spherical factor counts (registered last; 3 variants over {pose,
+      // point} with constant (w, h)):
+      sz.num_spherical,              // {} pose + point tunable
+      sz.num_spherical_fixed_pose,   // {pose} point only
+      sz.num_spherical_fixed_point,  // {point} pose only
       device_id);
 }
 
