@@ -35,8 +35,6 @@
 
 #include <memory>
 
-#include <cuda_runtime.h>
-
 namespace colmap {
 namespace mvs {
 

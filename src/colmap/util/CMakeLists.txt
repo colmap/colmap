@@ -251,3 +251,21 @@ if(GUI_ENABLED)
         LINK_LIBS colmap_util
     )
 endif()
+
+
+if(HIP_ENABLED)
+    # On ROCm builds, cuda.cc / cudacc.cc compile with the host C++ compiler.
+    # They reference cudaXxx symbols, which the cuda_to_hip.h compatibility
+    # header (transitively included via cudacc.h) aliases to the hipXxx
+    # equivalents at preprocess time.
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_util_cuda
+        SRCS
+            cuda.h cuda.cc
+            cudacc.h cudacc.cc
+            cuda_to_hip.h
+        PUBLIC_LINK_LIBS
+            colmap_util
+            hip::host
+    )
+endif()
