@@ -31,7 +31,11 @@ import pickle
 
 from evaluation.blended_mvs import DatasetBlendedMVS
 from evaluation.eth3d import DatasetETH3D
-from evaluation.imc import DatasetIMC2023, DatasetIMC2024
+from evaluation.imc import (
+    DatasetIMC2023,
+    DatasetIMC2024,
+    DatasetIMC2025,
+)
 from evaluation.utils import (
     Dataset,
     create_result_table,
@@ -51,6 +55,7 @@ def main() -> None:
         "blended-mvs": DatasetBlendedMVS,
         "imc2023": DatasetIMC2023,
         "imc2024": DatasetIMC2024,
+        "imc2025": DatasetIMC2025,
     }
 
     metrics = {}
@@ -83,8 +88,7 @@ def main() -> None:
         metrics[dataset_name] = process_scenes(
             args=args,
             scene_infos=scene_infos,
-            prepare_scene=dataset.prepare_scene,
-            position_accuracy_gt=dataset.position_accuracy_gt,
+            dataset=dataset,
         )
 
     pycolmap.logging.info("Results:\n" + create_result_table(metrics))

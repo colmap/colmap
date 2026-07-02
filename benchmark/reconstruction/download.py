@@ -125,6 +125,29 @@ def download_imc2024(data_path: Path) -> None:
         shutil.move(scene, data_path / category_path)
 
 
+def download_imc2025(data_path: Path) -> None:
+    data_path.mkdir(parents=True, exist_ok=True)
+
+    pycolmap.logging.info("Downloading IMC2025")
+    subprocess.check_call(
+        [
+            "kaggle",
+            "competitions",
+            "download",
+            "-c",
+            "image-matching-challenge-2025",
+            "-p",
+            str(data_path),
+        ],
+    )
+
+    pycolmap.logging.info("Extracting IMC2025")
+    with zipfile.ZipFile(
+        data_path / "image-matching-challenge-2025.zip", mode="r"
+    ) as archive:
+        archive.extractall(path=data_path)
+
+
 # TODO: BlendedMVS+ and BlendedMVS++.
 def download_blended_mvs(data_path: Path) -> None:
     target_folder = data_path / "BlendedMVS"
@@ -167,6 +190,7 @@ DOWNLOADERS = {
     "eth3d": download_eth3d,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
+    "imc2025": download_imc2025,
     "blended-mvs": download_blended_mvs,
 }
 
