@@ -30,11 +30,16 @@
 #include "colmap/controllers/global_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/pose_graph.h"
+#include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/global_mapper.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
+
+#include <algorithm>
 
 namespace colmap {
 namespace {
@@ -86,22 +91,12 @@ GlobalPipeline::GlobalPipeline(
   }
 }
 
-void GlobalPipeline::Run() {
-  const bool has_insufficient_prior_focal_lengths =
-      HasInsufficientPriorFocalLengths(*database_cache_);
-  if (has_insufficient_prior_focal_lengths) {
-    WarnInsufficientPriorFocalLengths();
-  }
-
+std::shared_ptr<Reconstruction> GlobalPipeline::RunSingleReconstruction(
+    const std::shared_ptr<const DatabaseCache>& database_cache,
+    const GlobalMapperOptions& mapper_options) {
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  // Prepare mapper options with top-level options.
-  GlobalMapperOptions mapper_options = options_.mapper;
-  mapper_options.image_path = options_.image_path;
-  mapper_options.num_threads = options_.num_threads;
-  mapper_options.random_seed = options_.random_seed;
-
-  GlobalMapper global_mapper(database_cache_);
+  GlobalMapper global_mapper(database_cache);
   global_mapper.BeginReconstruction(reconstruction);
 
   Timer run_timer;
@@ -111,23 +106,128 @@ void GlobalPipeline::Run() {
             << " seconds";
 
   // Align reconstruction to the original metric scales in rig extrinsics.
-  AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+  AlignReconstructionToOrigRigScales(database_cache->Rigs(),
                                      reconstruction.get());
 
-  // Output the reconstruction.
-  Reconstruction& output_reconstruction =
-      *reconstruction_manager_->Get(reconstruction_manager_->Add());
-  output_reconstruction = *reconstruction;
-  if (!options_.image_path.empty()) {
-    LOG(INFO) << "Extracting colors ...";
-    output_reconstruction.ExtractColorsForAllImages(options_.image_path,
-                                                    options_.num_threads);
+  return reconstruction;
+}
+
+void GlobalPipeline::Run() {
+  const bool has_insufficient_prior_focal_lengths =
+      HasInsufficientPriorFocalLengths(*database_cache_);
+  if (has_insufficient_prior_focal_lengths) {
+    WarnInsufficientPriorFocalLengths();
   }
+
+  // Prepare mapper options with top-level options.
+  GlobalMapperOptions mapper_options = options_.mapper;
+  mapper_options.image_path = options_.image_path;
+  mapper_options.num_threads = options_.num_threads;
+  mapper_options.random_seed = options_.random_seed;
+
+  std::vector<std::shared_ptr<Reconstruction>> reconstructions;
+  if (options_.reconstruct_all_components) {
+    RunMultiComponents(mapper_options, &reconstructions);
+  } else {
+    reconstructions.push_back(
+        RunSingleReconstruction(database_cache_, mapper_options));
+  }
+
+  // Sort reconstructions by the number of registered frames (descending) and
+  // discard those that are too small.
+  std::sort(reconstructions.begin(),
+            reconstructions.end(),
+            [](const std::shared_ptr<Reconstruction>& lhs,
+               const std::shared_ptr<Reconstruction>& rhs) {
+              return lhs->NumRegFrames() > rhs->NumRegFrames();
+            });
+
+  size_t num_discarded = 0;
+  for (const auto& reconstruction : reconstructions) {
+    if (static_cast<int>(reconstruction->NumRegFrames()) <
+        options_.min_num_frames) {
+      ++num_discarded;
+      continue;
+    }
+
+    // Output the reconstruction.
+    Reconstruction& output_reconstruction =
+        *reconstruction_manager_->Get(reconstruction_manager_->Add());
+    output_reconstruction = *reconstruction;
+    if (!options_.image_path.empty()) {
+      LOG(INFO) << "Extracting colors ...";
+      output_reconstruction.ExtractColorsForAllImages(options_.image_path,
+                                                      options_.num_threads);
+    }
+  }
+
+  LOG(INFO) << "Kept " << reconstruction_manager_->Size()
+            << " reconstruction(s), discarded " << num_discarded
+            << " with fewer than " << options_.min_num_frames
+            << " registered frames";
 
   if (has_insufficient_prior_focal_lengths) {
     // Intentionally logging this warning before and after the reconstruction
     // to make sure it is not missed.
     WarnInsufficientPriorFocalLengths();
+  }
+}
+
+void GlobalPipeline::RunMultiComponents(
+    const GlobalMapperOptions& mapper_options,
+    std::vector<std::shared_ptr<Reconstruction>>* reconstructions) {
+  // Build the base reconstruction, pose graph, and pose priors from the cache.
+  auto base = std::make_shared<Reconstruction>();
+  base->Load(*database_cache_);
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache_->CorrespondenceGraph());
+  const std::vector<PosePrior>& pose_priors = database_cache_->PosePriors();
+
+  if (pose_graph.Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return;
+  }
+
+  // Partition the view graph into connected components via rotation averaging.
+  ReconstructionManager component_manager;
+  *component_manager.Get(component_manager.Add()) = *base;
+  if (!RunRotationAveragingMultiComponents(mapper_options.RotationAveraging(),
+                                           pose_graph,
+                                           component_manager,
+                                           pose_priors)) {
+    LOG(ERROR) << "Failed to compute connected components";
+    return;
+  }
+
+  LOG(INFO) << "Found " << component_manager.Size() << " connected component(s)";
+
+  // Run the full pipeline independently per component, restricted to that
+  // component's images.
+  for (size_t i = 0; i < component_manager.Size(); ++i) {
+    const auto component = component_manager.Get(i);
+
+    std::unordered_set<std::string> image_names;
+    for (const image_t image_id : component->RegImageIds()) {
+      image_names.insert(component->Image(image_id).Name());
+    }
+    if (image_names.empty()) {
+      continue;
+    }
+
+    LOG_HEADING1(StringPrintf("Reconstructing component %d / %d with %d images",
+                              static_cast<int>(i + 1),
+                              static_cast<int>(component_manager.Size()),
+                              static_cast<int>(image_names.size())));
+
+    DatabaseCache::Options cache_options;
+    cache_options.min_num_matches = options_.min_num_matches;
+    cache_options.ignore_watermarks = options_.ignore_watermarks;
+    cache_options.image_names = std::move(image_names);
+    std::shared_ptr<DatabaseCache> component_cache =
+        DatabaseCache::CreateFromCache(*database_cache_, cache_options);
+
+    reconstructions->push_back(
+        RunSingleReconstruction(component_cache, mapper_options));
   }
 }
 

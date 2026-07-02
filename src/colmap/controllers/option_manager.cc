@@ -744,6 +744,10 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.random_seed", &global_mapper->random_seed);
   AddDefaultOption("GlobalMapper.decompose_relative_pose",
                    &global_mapper->decompose_relative_pose);
+  AddDefaultOption("GlobalMapper.reconstruct_all_components",
+                   &global_mapper->reconstruct_all_components);
+  AddDefaultOption("GlobalMapper.min_num_frames",
+                   &global_mapper->min_num_frames);
   AddDefaultOption("GlobalMapper.ba_num_iterations",
                    &global_mapper->mapper.ba_num_iterations);
   AddDefaultOption("GlobalMapper.skip_rotation_averaging",
