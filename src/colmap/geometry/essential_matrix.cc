@@ -65,7 +65,7 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector3d>& cam_rays1,
                              const std::vector<Eigen::Vector3d>& cam_rays2,
                              Rigid3d* cam2_from_cam1,
-                             std::vector<Eigen::Vector3d>* points3D) {
+                             std::vector<int>* inlier_idxs) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
 
   Eigen::Matrix3d R1;
@@ -82,14 +82,14 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                                                  Rigid3d(quat1, -t),
                                                  Rigid3d(quat2, -t)}};
 
-  points3D->clear();
-  std::vector<Eigen::Vector3d> tentative_points3D;
+  inlier_idxs->clear();
+  std::vector<int> tentative_inlier_idxs;
   for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
     CheckCheirality(
-        cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_points3D);
-    if (tentative_points3D.size() >= points3D->size()) {
+        cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_inlier_idxs);
+    if (tentative_inlier_idxs.size() >= inlier_idxs->size()) {
       *cam2_from_cam1 = cams2_from_cams1[i];
-      std::swap(*points3D, tentative_points3D);
+      std::swap(*inlier_idxs, tentative_inlier_idxs);
     }
   }
 }

@@ -29,7 +29,6 @@
 
 #include "colmap/geometry/pose.h"
 
-#include "colmap/geometry/triangulation.h"
 #include "colmap/math/matrix.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -245,18 +244,25 @@ Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
-                     std::vector<Eigen::Vector3d>* points3D) {
+                     std::vector<int>* inlier_idxs) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  points3D->clear();
+  inlier_idxs->clear();
+  const Eigen::Matrix3d R = cam2_from_cam1.rotation().toRotationMatrix();
+  const Eigen::Vector3d t = cam2_from_cam1.translation();
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
-    Eigen::Vector3d point3D_in_cam1;
-    if (!TriangulateMidPoint(
-            cam2_from_cam1, cam_rays1[i], cam_rays2[i], &point3D_in_cam1)) {
-      continue;
+    // Solve the 2x2 system for the depths of the point along both rays; both
+    // must be positive for the point to lie in front of both cameras. The
+    // common positive factor 1 / (1 - a^2) is dropped since it does not affect
+    // the sign (a = cos angle between the rays, so |a| <= 1).
+    const Eigen::Vector3d ray1_in_cam2 = R * cam_rays1[i];
+    const double a = -ray1_in_cam2.dot(cam_rays2[i]);
+    const double b1 = -ray1_in_cam2.dot(t);
+    const double b2 = cam_rays2[i].dot(t);
+    if (b1 - a * b2 > 0.0 && b2 - a * b1 > 0.0) {
+      inlier_idxs->push_back(static_cast<int>(i));
     }
-    points3D->push_back(point3D_in_cam1);
   }
-  return !points3D->empty();
+  return !inlier_idxs->empty();
 }
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,

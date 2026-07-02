@@ -137,12 +137,12 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
     }
   }
 
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> inlier_idxs;
   PoseFromEssentialMatrix(report.model,
                           inlier_cam_rays1,
                           inlier_cam_rays2,
                           cam2_from_cam1,
-                          &points3D);
+                          &inlier_idxs);
 
   if (cam2_from_cam1->rotation().coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation().array().isNaN().any()) {
@@ -152,7 +152,7 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
   *num_inliers = report.support.num_inliers;
   *inlier_mask = std::move(report.inlier_mask);
 
-  return !points3D.empty();
+  return !inlier_idxs.empty();
 }
 
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -357,11 +357,11 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
 
   // Extract relative pose from essential matrix.
   Rigid3d cam2_from_cam1;
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> inlier_idxs;
   PoseFromEssentialMatrix(
-      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
+      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &inlier_idxs);
 
-  if (points3D.size() == 0) {
+  if (inlier_idxs.empty()) {
     return false;
   }
 
