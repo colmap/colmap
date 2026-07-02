@@ -276,9 +276,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
                     X_inlier, Y_inlier, &local_models);
               }
 
-              const size_t prev_best_num_inliers =
-                  local_best_support.num_inliers;
-
+              bool improved_support = false;
               for (const auto& local_model : local_models) {
                 thread_local_estimator.Residuals(X, Y, local_model, &residuals);
                 THROW_CHECK_EQ(residuals.size(), num_samples);
@@ -292,13 +290,13 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
                   local_best_support = local_support;
                   local_best_model = local_model;
                   local_best_is_local = true;
+                  improved_support = true;
                   std::swap(residuals, best_local_residuals);
                 }
               }
 
-              // Only continue recursive local optimization, if the inlier set
-              // size increased and we thus have a chance to further improve.
-              if (local_best_support.num_inliers <= prev_best_num_inliers) {
+              // Keep expanding only while the refit improves the support.
+              if (!improved_support) {
                 break;
               }
 
