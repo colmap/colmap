@@ -369,9 +369,14 @@ bool GlobalMapper::IterativeBundleAdjustment(
     reconstruction_->Normalize();
 
     // Report progress for this refinement iteration and stop early if
-    // requested.
-    if (on_progress && on_progress()) {
-      break;
+    // requested. The filter passes above leave point3D.error in normalized
+    // units, so recompute it in pixels first to keep intermediate
+    // visualizations consistent with the final reconstruction.
+    if (on_progress) {
+      reconstruction_->UpdatePoint3DErrors();
+      if (on_progress()) {
+        break;
+      }
     }
 
     // Filter tracks based on the estimation
@@ -493,14 +498,16 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Reports the current reconstruction and returns whether a stop was
-  // requested. On stop, point errors are recomputed in pixels for consistent
-  // reporting.
+  // requested. Point errors are recomputed in pixels before reporting because
+  // the preceding filter passes leave point3D.error in normalized units, which
+  // would otherwise make intermediate visualizations inconsistent with the
+  // final reconstruction.
   const auto report_and_check_stop = [&]() {
-    if (on_progress && on_progress()) {
-      reconstruction_->UpdatePoint3DErrors();
-      return true;
+    if (!on_progress) {
+      return false;
     }
-    return false;
+    reconstruction_->UpdatePoint3DErrors();
+    return on_progress();
   };
 
   // Run rotation averaging
