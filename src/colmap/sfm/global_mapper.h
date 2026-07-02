@@ -30,6 +30,16 @@ struct GlobalMapperOptions {
   // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated.
   bool refine_sensor_from_rig = true;
 
+  // Whether to use priors on the camera positions.
+  bool use_prior_position = false;
+
+  // Whether to use a robust loss on prior camera positions.
+  bool use_robust_loss_on_prior_position = false;
+
+  // Threshold on the residual for the robust position prior loss
+  // (chi2 for 3DOF at 95% = 7.815).
+  double prior_position_loss_scale = 7.815;
+
   // Options for each component.
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
@@ -130,7 +140,8 @@ class GlobalMapper {
   bool GlobalPositioning(const GlobalPositionerOptions& options,
                          double max_angular_reproj_error_deg,
                          double max_normalized_reproj_error,
-                         double min_tri_angle_deg);
+                         double min_tri_angle_deg,
+                         bool use_prior_position = false);
 
   // Run iterative bundle adjustment to refine poses and structure.
   bool IterativeBundleAdjustment(const BundleAdjustmentOptions& options,
@@ -138,14 +149,20 @@ class GlobalMapper {
                                  double min_tri_angle_deg,
                                  int num_iterations,
                                  bool skip_fixed_rotation_stage = false,
-                                 bool skip_joint_optimization_stage = false);
+                                 bool skip_joint_optimization_stage = false,
+                                 bool use_prior_position = false,
+                                 bool use_robust_loss_on_prior_position = false,
+                                 double prior_position_loss_scale = 7.815);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
       const IncrementalTriangulator::Options& options,
       const BundleAdjustmentOptions& ba_options,
       double max_normalized_reproj_error,
-      double min_tri_angle_deg);
+      double min_tri_angle_deg,
+      bool use_prior_position = false,
+      bool use_robust_loss_on_prior_position = false,
+      double prior_position_loss_scale = 7.815);
 
   // Getter functions.
   std::shared_ptr<class Reconstruction> Reconstruction() const;

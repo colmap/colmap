@@ -204,5 +204,56 @@ TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {
   }
 }
 
+TEST(GlobalPositioning, PriorBased) {
+  SetPRNGSeed(0);
+
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  DatabaseCache database_cache;
+  DatabaseCache::Options cache_options;
+  database_cache.Load(*database, cache_options);
+
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache.CorrespondenceGraph());
+
+  // Copy GT reconstruction and keep only rotations (reset translations).
+  Reconstruction reconstruction = gt_reconstruction;
+  for (const auto& [frame_id, _] : reconstruction.Frames()) {
+    Frame& frame = reconstruction.Frame(frame_id);
+    frame.SetRigFromWorld(
+        Rigid3d(frame.RigFromWorld().rotation(), Eigen::Vector3d::Zero()));
+  }
+
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  options.random_seed = 42;
+  options.solver_options.minimizer_progress_to_stdout = false;
+  options.use_prior_position = true;
+
+  ASSERT_TRUE(RunGlobalPositioning(
+      options, pose_graph, reconstruction, database_cache.PosePriors()));
+
+  // Priors anchor the absolute frame, so do not Sim3-align before comparing.
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0,
+                                 /*align=*/false));
+}
+
 }  // namespace
 }  // namespace colmap

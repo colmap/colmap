@@ -125,6 +125,33 @@ struct AbsoluteRigPosePositionPriorCostFunctor
   const Eigen::Vector3d position_in_world_prior_;
 };
 
+// 3-DoF error between a frame center mapped through a similarity gauge and a
+// position prior. The gauge transforms the center from the global positioning
+// frame to the prior frame as: scale * R * center + t. The gauge parameters
+// follow the Sim3d layout [qx, qy, qz, qw, tx, ty, tz, s].
+struct PositionPriorViaSim3CostFunctor
+    : public AutoDiffCostFunctor<PositionPriorViaSim3CostFunctor, 3, 3, 8> {
+ public:
+  explicit PositionPriorViaSim3CostFunctor(
+      const Eigen::Vector3d& position_in_world_prior)
+      : position_in_world_prior_(position_in_world_prior) {}
+
+  template <typename T>
+  bool operator()(const T* const center,
+                  const T* const prior_from_gp,
+                  T* residuals_ptr) const {
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = prior_from_gp[7] * (EigenQuaternionMap<T>(prior_from_gp) *
+                                    EigenVector3Map<T>(center)) +
+                EigenVector3Map<T>(prior_from_gp + 4) -
+                position_in_world_prior_.cast<T>();
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d position_in_world_prior_;
+};
+
 // 6-DoF error between two absolute camera poses based on a prior on their
 // relative pose, with identical scale for the translation. The residual is
 // computed in the frame of camera i. Its first and last three components

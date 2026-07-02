@@ -1,7 +1,11 @@
 #include "colmap/estimators/global_positioning.h"
 
+#include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/estimators/cost_functions/pose_prior.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/math/random.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
@@ -25,7 +29,8 @@ GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
 }
 
 bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
-                             Reconstruction& reconstruction) {
+                             Reconstruction& reconstruction,
+                             const std::vector<PosePrior>& pose_priors) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
@@ -33,6 +38,18 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   if (reconstruction.NumPoints3D() == 0) {
     LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
     return false;
+  }
+
+  gauge_initialized_ = false;
+  pose_priors_.clear();
+  if (options_.use_prior_position) {
+    for (const auto& pose_prior : pose_priors) {
+      if (pose_prior.HasPosition() &&
+          pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
+          reconstruction.ExistsImage(pose_prior.corr_data_id.id)) {
+        pose_priors_.push_back(pose_prior);
+      }
+    }
   }
 
   LOG(INFO) << "Setting up the global positioner problem";
@@ -67,6 +84,24 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
     LOG(INFO) << summary.FullReport();
   } else {
     LOG(INFO) << summary.BriefReport();
+  }
+
+  // Re-solve with prior-position constraints once the gauge mapping the
+  // estimated frame to the prior frame can be initialized from the structure.
+  if (!pose_priors_.empty() && InitializeGauge(reconstruction)) {
+    AddPosePriorConstraints(reconstruction);
+    gauge_initialized_ = true;
+    LOG(INFO) << "Re-solving global positioning with " << pose_priors_.size()
+              << " position priors (gauge scale=" << prior_from_gp_.scale()
+              << ", prior RMSE=" << PriorPositionRMSE(reconstruction) << ")";
+    ceres::Solve(options_.solver_options, problem_.get(), &summary);
+    if (VLOG_IS_ON(2)) {
+      LOG(INFO) << summary.FullReport();
+    } else {
+      LOG(INFO) << summary.BriefReport();
+    }
+    LOG(INFO) << "Global positioning prior RMSE after solve = "
+              << PriorPositionRMSE(reconstruction);
   }
 
   ConvertBackResults(reconstruction);
@@ -307,6 +342,8 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
       parameter_ordering->AddElementToGroup(center.data(), group_id);
     }
   }
+
+  frame_param_group_ = group_id;
 }
 
 void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
@@ -418,6 +455,111 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
   options_.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
 }
 
+bool GlobalPositioner::InitializeGauge(const Reconstruction& reconstruction) {
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  std::vector<double> rms_vars;
+  src.reserve(pose_priors_.size());
+  tgt.reserve(pose_priors_.size());
+  for (const auto& pose_prior : pose_priors_) {
+    const Image& image = reconstruction.Image(pose_prior.corr_data_id.id);
+    if (!image.IsRefInFrame()) {
+      continue;
+    }
+    const auto it = frame_centers_.find(image.FrameId());
+    if (it == frame_centers_.end()) {
+      continue;
+    }
+    src.push_back(it->second);
+    tgt.push_back(pose_prior.position);
+    if (pose_prior.HasPositionCov()) {
+      const double trace = pose_prior.position_covariance.trace();
+      if (trace > 0.0) {
+        rms_vars.push_back(trace / 3.0);
+      }
+    }
+  }
+
+  if (src.size() < 3) {
+    LOG(WARNING) << "Not enough valid pose priors to initialize the global "
+                    "positioning gauge";
+    return false;
+  }
+
+  if (rms_vars.empty()) {
+    rms_vars.push_back(options_.prior_position_fallback_stddev *
+                       options_.prior_position_fallback_stddev);
+  }
+  RANSACOptions ransac_options;
+  ransac_options.max_error = std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
+  return EstimateSim3dRobust(src, tgt, ransac_options, prior_from_gp_).success;
+}
+
+void GlobalPositioner::AddPosePriorConstraints(
+    const Reconstruction& reconstruction) {
+  if (options_.use_robust_loss_on_prior_position) {
+    prior_loss_function_ =
+        std::make_shared<ceres::CauchyLoss>(options_.prior_position_loss_scale);
+  }
+
+  for (const auto& pose_prior : pose_priors_) {
+    const Image& image = reconstruction.Image(pose_prior.corr_data_id.id);
+    if (!image.IsRefInFrame()) {
+      continue;
+    }
+    const auto it = frame_centers_.find(image.FrameId());
+    if (it == frame_centers_.end() ||
+        !problem_->HasParameterBlock(it->second.data())) {
+      continue;
+    }
+    const Eigen::Matrix3d position_cov =
+        pose_prior.HasPositionCov()
+            ? pose_prior.position_covariance
+            : (options_.prior_position_fallback_stddev *
+               options_.prior_position_fallback_stddev *
+               Eigen::Matrix3d::Identity());
+    problem_->AddResidualBlock(
+        CovarianceWeightedCostFunctor<PositionPriorViaSim3CostFunctor>::Create(
+            position_cov, pose_prior.position),
+        prior_loss_function_.get(),
+        it->second.data(),
+        prior_from_gp_.params.data());
+  }
+
+  SetManifold(problem_.get(),
+              prior_from_gp_.params.data(),
+              CreateProductManifold(CreateEigenQuaternionManifold(),
+                                    CreateEuclideanManifold<3>(),
+                                    CreateEuclideanManifold<1>()));
+
+  if (options_.use_parameter_block_ordering &&
+      options_.solver_options.linear_solver_ordering != nullptr &&
+      frame_param_group_ >= 0) {
+    options_.solver_options.linear_solver_ordering->AddElementToGroup(
+        prior_from_gp_.params.data(), frame_param_group_);
+  }
+}
+
+double GlobalPositioner::PriorPositionRMSE(
+    const Reconstruction& reconstruction) const {
+  double squared_error_sum = 0;
+  int num = 0;
+  for (const auto& pose_prior : pose_priors_) {
+    const Image& image = reconstruction.Image(pose_prior.corr_data_id.id);
+    if (!image.IsRefInFrame()) {
+      continue;
+    }
+    const auto it = frame_centers_.find(image.FrameId());
+    if (it == frame_centers_.end()) {
+      continue;
+    }
+    squared_error_sum +=
+        (prior_from_gp_ * it->second - pose_prior.position).squaredNorm();
+    ++num;
+  }
+  return num > 0 ? std::sqrt(squared_error_sum / num) : 0.0;
+}
+
 void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
   // Convert optimized frame centers back to rig_from_world translations.
   for (const auto& [frame_id, center] : frame_centers_) {
@@ -437,13 +579,19 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
       break;
     }
   }
+
+  // Move the reconstruction into the prior frame using the estimated gauge.
+  if (gauge_initialized_) {
+    reconstruction.Transform(prior_from_gp_);
+  }
 }
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          Reconstruction& reconstruction) {
+                          Reconstruction& reconstruction,
+                          const std::vector<PosePrior>& pose_priors) {
   GlobalPositioner positioner(options);
-  return positioner.Solve(pose_graph, reconstruction);
+  return positioner.Solve(pose_graph, reconstruction, pose_priors);
 }
 
 }  // namespace colmap
