@@ -44,6 +44,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
+#include <algorithm>
 #include <unordered_set>
 
 #include <Eigen/Geometry>
@@ -627,14 +628,15 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
   // CALIBRATED configuration (or DEGENERATE), so they are handled by the
   // CALIBRATED branch below and never reach the CalibrationMatrix() calls.
   Rigid3d cam2_from_cam1;
+  std::vector<int> valid_indices;
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     THROW_CHECK(geometry->E.has_value());
     PoseFromEssentialMatrix(*geometry->E,
                             inlier_cam_rays1,
                             inlier_cam_rays2,
                             &cam2_from_cam1,
-                            &points3D);
-    if (points3D.empty()) {
+                            &valid_indices);
+    if (valid_indices.empty()) {
       return false;
     }
   } else if (geometry->config ==
@@ -643,8 +645,8 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
         camera2.CalibrationMatrix(), *geometry->F, camera1.CalibrationMatrix());
     PoseFromEssentialMatrix(
-        E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
-    if (points3D.empty()) {
+        E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &valid_indices);
+    if (valid_indices.empty()) {
       return false;
     }
   } else if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR ||
@@ -685,7 +687,25 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
 
   geometry->cam2_from_cam1 = cam2_from_cam1;
 
-  if (!points3D.empty()) {
+  if (!valid_indices.empty()) {
+    // Essential-matrix paths (CALIBRATED / UNCALIBRATED): the triangulation
+    // angle is the parallax between the surviving corresponding rays, which
+    // needs no explicit triangulation.
+    const Eigen::Quaterniond cam1_from_cam2_rotation =
+        cam2_from_cam1.rotation().inverse();
+    std::vector<double> tri_angles;
+    tri_angles.reserve(valid_indices.size());
+    for (const int idx : valid_indices) {
+      const double angle = CalculateAngleBetweenVectors(
+          inlier_cam_rays1[idx],
+          cam1_from_cam2_rotation * inlier_cam_rays2[idx]);
+      tri_angles.push_back(
+          std::min(angle, static_cast<double>(EIGEN_PI) - angle));
+    }
+    geometry->tri_angle = Median(tri_angles);
+  } else if (!points3D.empty()) {
+    // Homography path (PLANAR): the triangulation angle is computed from the
+    // 3D points recovered by PoseFromHomographyMatrix.
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
     const Eigen::Vector3d proj_center2 = cam2_from_cam1.TgtOriginInSrc();
     geometry->tri_angle = Median(

@@ -87,12 +87,11 @@ TEST(PoseFromEssentialMatrix, Nominal) {
     rays2[i] = (cam2_from_world * points3D[i]).normalized();
   }
 
-  points3D.clear();
-
   Rigid3d cam2_from_cam1_est;
-  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1_est, &points3D);
+  std::vector<int> valid_indices;
+  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1_est, &valid_indices);
 
-  EXPECT_EQ(points3D.size(), 4);
+  EXPECT_EQ(valid_indices.size(), 4);
 
   EXPECT_THAT(cam2_from_cam1_est, Rigid3dNear(cam2_from_cam1));
 }
