@@ -29,49 +29,53 @@
 
 #pragma once
 
-#include "colmap/estimators/cost_functions/quaternion_utils.h"
+#include "colmap/geometry/rigid3.h"
 
 #include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <ceres/rotation.h>
 
 namespace colmap {
 
 // The 5-DoF minimal-tangent parameterization of a relative pose about a base
-// pose: rotation via quaternion boxplus and translation on the unit sphere,
+// pose: rotation via the SO(3) boxplus and translation on the unit sphere,
 // matching ProductManifold(EigenQuaternion, Sphere<3>). Shared by the cost
 // functor (to evaluate residuals) and the refinement harness (to recover the
 // refined pose from the solved tangent), so the boxplus lives in one place.
 class TangentRelativePose {
  public:
-  TangentRelativePose(const Eigen::Quaterniond& q0, const Eigen::Vector3d& t0)
-      : q0_(q0.normalized()), t0_(t0.normalized()) {
-    // Any orthonormal basis {b1, b2} of the plane orthogonal to t0.
-    b1_ = t0_.unitOrthogonal();
-    b2_ = t0_.cross(b1_);
-  }
+  explicit TangentRelativePose(const Rigid3d& cam2_from_cam1)
+      : base_rotation_(
+            cam2_from_cam1.rotation().normalized().toRotationMatrix()),
+        base_translation_(cam2_from_cam1.translation().normalized()),
+        // Any orthonormal basis {b1, b2} of the plane orthogonal to the base
+        // translation.
+        b1_(base_translation_.unitOrthogonal()),
+        b2_(base_translation_.cross(b1_)) {}
 
   // Boxplus (pose = base pose ⊞ params): applies the tangent increment
   // `params` = [omega(3), delta_sphere(2)] to the base pose, yielding the
-  // rotation quaternion and unit translation of the resulting pose.
+  // rotation matrix and unit translation of the resulting pose.
   template <typename T>
   void BoxPlus(const T* const params,
-               Eigen::Quaternion<T>* q,
+               Eigen::Matrix<T, 3, 3>* R,
                Eigen::Matrix<T, 3, 1>* t) const {
-    T dq_coeffs[4];
-    EigenQuaternionFromAngleAxis(params, dq_coeffs);
-    const Eigen::Map<const Eigen::Quaternion<T>> dq(dq_coeffs);
-    *q = q0_.cast<T>() * dq;
-    *t = (t0_.cast<T>() + params[3] * b1_.cast<T>() + params[4] * b2_.cast<T>())
+    T dR[9];
+    ceres::AngleAxisToRotationMatrix(params, dR);
+    *R =
+        base_rotation_.cast<T>() * Eigen::Map<const Eigen::Matrix<T, 3, 3>>(dR);
+    *t = (base_translation_.cast<T>() + params[3] * b1_.cast<T>() +
+          params[4] * b2_.cast<T>())
              .normalized();
   }
 
  private:
-  Eigen::Quaterniond q0_;
-  Eigen::Vector3d t0_;
-  Eigen::Vector3d b1_;
-  Eigen::Vector3d b2_;
+  const Eigen::Matrix3d base_rotation_;
+  const Eigen::Vector3d base_translation_;
+  const Eigen::Vector3d b1_;
+  const Eigen::Vector3d b2_;
 };
 
 // Sampson-error cost functor for fixed-size (ceres::TinySolver) refinement of a
@@ -94,10 +98,9 @@ class TangentSampsonErrorCostFunctor {
 
   template <typename T>
   bool operator()(const T* const params, T* residuals) const {
-    Eigen::Quaternion<T> q;
+    Eigen::Matrix<T, 3, 3> R;
     Eigen::Matrix<T, 3, 1> t;
-    tangent_.BoxPlus(params, &q, &t);
-    const Eigen::Matrix<T, 3, 3> R = q.toRotationMatrix();
+    tangent_.BoxPlus(params, &R, &t);
 
     // Essential matrix E = [t]_x R.
     Eigen::Matrix<T, 3, 3> t_x;

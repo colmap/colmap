@@ -137,17 +137,16 @@ class EssentialMatrixLMEstimator {
   using Y_t = Eigen::Vector3d;
   using M_t = Eigen::Matrix3d;
 
-  // The minimum number of samples needed to estimate a model. The self-seeding
-  // overload initializes with the eight-point solver, so it needs at least
-  // eight rays (and returns no model otherwise); the seeded overload requires
-  // the same, even though its refinement alone only constrains the five degrees
-  // of freedom of the essential matrix.
-  static const int kMinNumSamples = 8;
+  // The minimum number of samples needed to refine a model, i.e. the five
+  // degrees of freedom of the essential matrix. The self-seeding Estimate()
+  // overload additionally requires at least eight rays for its eight-point
+  // initialization.
+  static const int kMinNumSamples = 5;
 
   // Refine an essential matrix, self-seeded with the eight-point solver.
   //
-  // Returns a single refined model, or no model if there are fewer than eight
-  // rays or the initialization is degenerate.
+  // Returns a single refined model, or no model if the initialization is
+  // degenerate.
   //
   // @param cam_rays1  First set of corresponding rays.
   // @param cam_rays2  Second set of corresponding rays.

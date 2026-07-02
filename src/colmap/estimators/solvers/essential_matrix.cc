@@ -222,16 +222,14 @@ namespace {
 bool FastRefineRelativePose(const std::vector<Eigen::Vector3d>& cam_rays1,
                             const std::vector<Eigen::Vector3d>& cam_rays2,
                             Rigid3d* cam2_from_cam1) {
-  constexpr int kMaxNumIterations = 25;
   if (cam_rays1.size() < 5) {
     return false;
   }
-  const Eigen::Vector3d t0 = cam2_from_cam1->translation();
-  if (t0.norm() < 1e-12) {
+  if (cam2_from_cam1->translation().squaredNorm() < 1e-24) {
     return false;
   }
 
-  const TangentRelativePose tangent(cam2_from_cam1->rotation(), t0);
+  const TangentRelativePose tangent(*cam2_from_cam1);
   TangentSampsonErrorCostFunctor functor(tangent, cam_rays1, cam_rays2);
   using AutoDiffFunction =
       ceres::TinySolverAutoDiffFunction<TangentSampsonErrorCostFunctor,
@@ -239,14 +237,14 @@ bool FastRefineRelativePose(const std::vector<Eigen::Vector3d>& cam_rays1,
                                         5>;
   AutoDiffFunction f(functor);
   ceres::TinySolver<AutoDiffFunction> solver;
-  solver.options.max_num_iterations = kMaxNumIterations;
+  solver.options.max_num_iterations = 25;
   Eigen::Matrix<double, 5, 1> x = Eigen::Matrix<double, 5, 1>::Zero();
   solver.Solve(f, &x);
 
-  Eigen::Quaterniond q;
+  Eigen::Matrix3d R;
   Eigen::Vector3d t;
-  tangent.BoxPlus(x.data(), &q, &t);
-  *cam2_from_cam1 = Rigid3d(q.normalized(), t);
+  tangent.BoxPlus(x.data(), &R, &t);
+  *cam2_from_cam1 = Rigid3d(Eigen::Quaterniond(R), t);
   return true;
 }
 
@@ -256,14 +254,13 @@ void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
                                           const std::vector<Y_t>& cam_rays2,
                                           std::vector<M_t>* models) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_GE(cam_rays1.size(),
+                 EssentialMatrixEightPointEstimator::kMinNumSamples);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
-  // Self-seed with the eight-point solver, which needs at least eight rays.
-  if (cam_rays1.size() < EssentialMatrixEightPointEstimator::kMinNumSamples) {
-    return;
-  }
+  // Self-seed with the eight-point solver.
   std::vector<M_t> init_models;
   EssentialMatrixEightPointEstimator::Estimate(
       cam_rays1, cam_rays2, &init_models);
