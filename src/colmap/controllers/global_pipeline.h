@@ -61,6 +61,15 @@ struct GlobalPipelineOptions {
   // Whether to decompose relative poses from two-view geometries.
   bool decompose_relative_pose = true;
 
+  // If true, reconstruct every connected component of the view graph (one
+  // model per component). If false (default), reconstruct only the largest
+  // connected component.
+  bool reconstruct_all_components = false;
+
+  // Minimum number of registered frames for a reconstruction to be kept.
+  // Reconstructions with fewer registered frames are discarded.
+  int min_num_frames = 3;
+
   // Options for the global mapper.
   GlobalMapperOptions mapper;
 };
@@ -81,6 +90,19 @@ class GlobalPipeline : public BaseController {
   void Run() override;
 
  private:
+  // Run the full global SfM pipeline on the given database cache and return
+  // the resulting reconstruction.
+  std::shared_ptr<Reconstruction> RunSingleReconstruction(
+      const std::shared_ptr<const DatabaseCache>& database_cache,
+      const GlobalMapperOptions& mapper_options);
+
+  // Partition the view graph into connected components and run the full
+  // pipeline per component. Appends the resulting reconstructions to the
+  // given vector.
+  void RunMultiComponents(
+      const GlobalMapperOptions& mapper_options,
+      std::vector<std::shared_ptr<Reconstruction>>* reconstructions);
+
   const GlobalPipelineOptions options_;
   std::shared_ptr<DatabaseCache> database_cache_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
