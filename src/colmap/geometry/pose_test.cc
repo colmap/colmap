@@ -206,26 +206,26 @@ TEST(CheckCheirality, Nominal) {
 
   std::vector<Eigen::Vector3d> rays1;
   std::vector<Eigen::Vector3d> rays2;
-  std::vector<int> inlier_idxs;
+  std::vector<int> valid_indices;
 
   rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
   rays2.push_back(Eigen::Vector3d(0.1, 0, 1).normalized());
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &inlier_idxs));
-  EXPECT_EQ(inlier_idxs.size(), 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 1);
 
   rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
   rays2.push_back(Eigen::Vector3d(-0.1, 0, 1).normalized());
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &inlier_idxs));
-  EXPECT_EQ(inlier_idxs.size(), 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 1);
 
   rays2[1][0] = 0.2;
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &inlier_idxs));
-  EXPECT_EQ(inlier_idxs.size(), 2);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 2);
 
   rays2[0][0] = -0.2;
   rays2[1][0] = -0.2;
-  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &inlier_idxs));
-  EXPECT_EQ(inlier_idxs.size(), 0);
+  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 0);
 }
 
 TEST(AverageUnitVectors, Nominal) {

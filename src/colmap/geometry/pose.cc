@@ -244,9 +244,9 @@ Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
-                     std::vector<int>* inlier_idxs) {
+                     std::vector<int>* valid_indices) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  inlier_idxs->clear();
+  valid_indices->clear();
   const Eigen::Matrix3d R = cam2_from_cam1.rotation().toRotationMatrix();
   const Eigen::Vector3d t = cam2_from_cam1.translation();
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
@@ -259,10 +259,10 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
     const double b1 = -ray1_in_cam2.dot(t);
     const double b2 = cam_rays2[i].dot(t);
     if (b1 - a * b2 > 0.0 && b2 - a * b1 > 0.0) {
-      inlier_idxs->push_back(static_cast<int>(i));
+      valid_indices->push_back(static_cast<int>(i));
     }
   }
-  return !inlier_idxs->empty();
+  return !valid_indices->empty();
 }
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,

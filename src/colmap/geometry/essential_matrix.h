@@ -61,12 +61,12 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
 // @param cam_rays1       First set of corresponding rays.
 // @param cam_rays2       Second set of corresponding rays.
 // @param cam2_from_cam1  Relative camera transformation.
-// @param inlier_idxs     Indices of correspondences in front of both cameras.
+// @param valid_indices     Indices of correspondences in front of both cameras.
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector3d>& cam_rays1,
                              const std::vector<Eigen::Vector3d>& cam_rays2,
                              Rigid3d* cam2_from_cam1,
-                             std::vector<int>* inlier_idxs);
+                             std::vector<int>* valid_indices);
 
 // Compose essential matrix from relative camera poses.
 //

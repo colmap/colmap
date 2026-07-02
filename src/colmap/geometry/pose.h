@@ -149,13 +149,13 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
 // @param cam2_from_cam1  Relative camera transformation.
 // @param cam_rays1       First set of corresponding rays.
 // @param cam_rays2       Second set of corresponding rays.
-// @param inlier_idxs     Indices of correspondences in front of both cameras.
+// @param valid_indices     Indices of correspondences in front of both cameras.
 //
 // @return                Whether any correspondence lies in front of both.
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
-                     std::vector<int>* inlier_idxs);
+                     std::vector<int>* valid_indices);
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
                              const Rigid3d& cam_from_world);
