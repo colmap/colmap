@@ -1783,13 +1783,25 @@ void MainWindow::EnableBlockingActions() {
 }
 
 void MainWindow::UpdateMapperControls() {
+  // Derive the enabled state of the step/pause controls from the reconstruction
+  // lifecycle rather than from the controls' current state. This keeps them
+  // correct when the user toggles the mapper type back and forth (e.g. switch
+  // to hierarchical and back to incremental), which the previous
+  // preserve-current-state logic got wrong by permanently disabling stepping.
+  const bool started = mapper_controller_ && mapper_controller_->IsStarted();
+  const bool finished = mapper_controller_ && mapper_controller_->IsFinished();
+  const bool paused = mapper_controller_ && mapper_controller_->IsPaused();
+  const bool running = started && !paused && !finished;
+
   // The hierarchical mapper runs as a single solve that cannot be stepped or
-  // paused, so disable both controls when it is selected.
+  // paused, so both controls stay disabled while it is selected.
   const bool supports_stepping = mapper_type_ != MapperType::HIERARCHICAL;
-  action_reconstruction_step_->setEnabled(
-      supports_stepping && action_reconstruction_step_->isEnabled());
-  action_reconstruction_pause_->setEnabled(
-      supports_stepping && action_reconstruction_pause_->isEnabled());
+
+  // Stepping is available while the reconstruction is idle or paused (but not
+  // while running or finished); pausing is only available while running.
+  action_reconstruction_step_->setEnabled(supports_stepping && !running &&
+                                          !finished);
+  action_reconstruction_pause_->setEnabled(supports_stepping && running);
 }
 
 void MainWindow::DisableBlockingActions() {
