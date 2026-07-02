@@ -50,6 +50,7 @@ struct ExistingMatchedPairingOptions;
 struct BundleAdjustmentOptions;
 struct IncrementalPipelineOptions;
 struct GlobalPipelineOptions;
+struct HierarchicalPipelineOptions;
 struct RenderOptions;
 struct ReconstructionClusteringOptions;
 
@@ -101,6 +102,7 @@ class OptionManager : public BaseOptionManager {
   void AddBundleAdjustmentOptions();
   void AddMapperOptions();
   void AddGlobalMapperOptions();
+  void AddHierarchicalMapperOptions();
   void AddGravityRefinerOptions();
   void AddReconstructionClustererOptions();
 #if defined(COLMAP_MVS_ENABLED)
@@ -134,6 +136,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalPipelineOptions> mapper;
   std::shared_ptr<GlobalPipelineOptions> global_mapper;
+  std::shared_ptr<HierarchicalPipelineOptions> hierarchical_mapper;
   std::shared_ptr<ReconstructionClusteringOptions> reconstruction_clusterer;
   std::shared_ptr<GravityRefinerOptions> gravity_refiner;
 
@@ -170,6 +173,7 @@ class OptionManager : public BaseOptionManager {
   bool added_ba_options_ = false;
   bool added_mapper_options_ = false;
   bool added_global_mapper_options_ = false;
+  bool added_hierarchical_mapper_options_ = false;
   bool added_gravity_refiner_options_ = false;
   bool added_reconstruction_clusterer_options_ = false;
 #if defined(COLMAP_MVS_ENABLED)

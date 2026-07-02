@@ -345,7 +345,8 @@ bool GlobalMapper::IterativeBundleAdjustment(
     double min_tri_angle_deg,
     int num_iterations,
     bool skip_fixed_rotation_stage,
-    bool skip_joint_optimization_stage) {
+    bool skip_joint_optimization_stage,
+    const std::function<bool()>& on_progress) {
   for (int ite = 0; ite < num_iterations; ite++) {
     // Optional fixed-rotation stage: optimize positions only
     if (!skip_fixed_rotation_stage) {
@@ -371,6 +372,17 @@ bool GlobalMapper::IterativeBundleAdjustment(
     // TODO: Skip normalization when position priors are used (similar to
     // incremental mapper's !use_prior_position condition).
     reconstruction_->Normalize();
+
+    // Report progress for this refinement iteration and stop early if
+    // requested. The filter passes above leave point3D.error in normalized
+    // units, so recompute it in pixels first to keep intermediate
+    // visualizations consistent with the final reconstruction.
+    if (on_progress) {
+      reconstruction_->UpdatePoint3DErrors();
+      if (on_progress()) {
+        break;
+      }
+    }
 
     // Filter tracks based on the estimation
     // For the filtering, in each round, the criteria for outlier is
@@ -480,7 +492,8 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   return true;
 }
 
-bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
+bool GlobalMapper::Solve(const GlobalMapperOptions& options,
+                         const std::function<bool()>& on_progress) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
 
@@ -488,6 +501,19 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
     LOG(ERROR) << "Cannot continue with empty pose graph";
     return false;
   }
+
+  // Reports the current reconstruction and returns whether a stop was
+  // requested. Point errors are recomputed in pixels before reporting because
+  // the preceding filter passes leave point3D.error in normalized units, which
+  // would otherwise make intermediate visualizations inconsistent with the
+  // final reconstruction.
+  const auto report_and_check_stop = [&]() {
+    if (!on_progress) {
+      return false;
+    }
+    reconstruction_->UpdatePoint3DErrors();
+    return on_progress();
+  };
 
   // Run rotation averaging
   if (!options.skip_rotation_averaging) {
@@ -524,6 +550,12 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
               << " seconds";
+
+    // Report the first 3D view after global positioning and stop early if
+    // requested.
+    if (report_and_check_stop()) {
+      return true;
+    }
   }
 
   // Bundle adjustment
@@ -536,7 +568,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
                                    options.min_tri_angle_deg,
                                    options.ba_num_iterations,
                                    options.ba_skip_fixed_rotation_stage,
-                                   options.ba_skip_joint_optimization_stage)) {
+                                   options.ba_skip_joint_optimization_stage,
+                                   on_progress)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
@@ -556,6 +589,11 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
               << run_timer.ElapsedSeconds() << " seconds";
+
+    // Report the result after retriangulation and stop early if requested.
+    if (report_and_check_stop()) {
+      return true;
+    }
   }
 
   // Filter passes here use NORMALIZED/ANGULAR error, so point3D.error is
