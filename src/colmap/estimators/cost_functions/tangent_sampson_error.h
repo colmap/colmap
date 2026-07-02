@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 
-#include <cmath>
 #include <vector>
 
 #include <Eigen/Core>
@@ -48,12 +47,8 @@ class TangentRelativePose {
  public:
   TangentRelativePose(const Eigen::Quaterniond& q0, const Eigen::Vector3d& t0)
       : q0_(q0.normalized()), t0_(t0.normalized()) {
-    // Orthonormal basis {b1, b2} spanning the plane orthogonal to t0.
-    Eigen::Vector3d a = Eigen::Vector3d::UnitX();
-    if (std::abs(t0_.x()) > 0.9) {
-      a = Eigen::Vector3d::UnitY();
-    }
-    b1_ = (a - a.dot(t0_) * t0_).normalized();
+    // Any orthonormal basis {b1, b2} of the plane orthogonal to t0.
+    b1_ = t0_.unitOrthogonal();
     b2_ = t0_.cross(b1_);
   }
 

@@ -34,7 +34,6 @@
 #include <vector>
 
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 
 namespace colmap {
 
