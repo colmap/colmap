@@ -1,4 +1,5 @@
 #include "colmap/estimators/cost_functions/alignment.h"
+#include "colmap/estimators/cost_functions/imu_preintegration.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
@@ -189,4 +190,51 @@ void BindCostFunctions(py::module& m_parent) {
         "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform. "
         "with prior covariance");
+
+  m.def(
+      "ImuPreintegrationCost",
+      [](PreintegratedImuData& data, const Eigen::Vector3d& gravity) {
+        return ImuPreintegrationCostFunctor::Create(&data, gravity);
+      },
+      "preintegrated_imu_data"_a,
+      "gravity"_a,
+      py::keep_alive<0, 1>(),
+      "IMU preintegration cost function (body-centric, 4 parameter blocks). "
+      "The data object must outlive the cost function.");
+
+  m.def(
+      "AnalyticalImuPreintegrationCost",
+      [](PreintegratedImuData& data, const Eigen::Vector3d& gravity) {
+        return std::unique_ptr<ceres::CostFunction>(
+            new AnalyticalImuPreintegrationCostFunction(&data, gravity));
+      },
+      "preintegrated_imu_data"_a,
+      "gravity"_a,
+      py::keep_alive<0, 1>(),
+      "IMU preintegration cost function with analytical Jacobians "
+      "(body-centric, 4 parameter blocks). "
+      "The data object must outlive the cost function.");
+
+  m.def(
+      "VisualCentricImuPreintegrationCost",
+      [](PreintegratedImuData& data) {
+        return VisualCentricImuPreintegrationCostFunctor::Create(&data);
+      },
+      "preintegrated_imu_data"_a,
+      py::keep_alive<0, 1>(),
+      "IMU preintegration cost function for post-hoc SfM refinement "
+      "(7 parameter blocks: scale, gravity, extrinsics, poses, states). "
+      "The data object must outlive the cost function.");
+
+  m.def(
+      "AnalyticalVisualCentricImuPreintegrationCost",
+      [](PreintegratedImuData& data) {
+        return std::unique_ptr<ceres::CostFunction>(
+            new AnalyticalVisualCentricImuPreintegrationCostFunction(&data));
+      },
+      "preintegrated_imu_data"_a,
+      py::keep_alive<0, 1>(),
+      "IMU preintegration cost function with analytical Jacobians for "
+      "post-hoc SfM refinement (7 parameter blocks). "
+      "The data object must outlive the cost function.");
 }

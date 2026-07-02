@@ -32,6 +32,8 @@ void BindReconstruction(py::module& m);
 void BindReconstructionManager(py::module& m);
 void BindSynthetic(py::module& m);
 void BindTrack(py::module& m);
+void BindTwoViewGeometryScene(py::module& m);
+void BindImu(py::module& m);
 void BindPoseGraph(py::module& m);
 
 void BindScene(py::module& m) {
@@ -45,4 +47,8 @@ void BindScene(py::module& m) {
   BindSceneRig(m);
   BindSynthetic(m);
   BindPoseGraph(m);
+  BindImu(m);
+
+  // Must be defined here, see: https://github.com/colmap/colmap/pull/2558
+  py::implicitly_convertible<py::iterable, Point2DVector>();
 }

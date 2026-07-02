@@ -35,6 +35,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         bitmap.h bitmap.cc
         database.h database.cc
+        imu.h imu.cc
         models.h models.cc
         rig.h rig.cc
         specs.h specs.cc
@@ -59,6 +60,11 @@ endif()
 COLMAP_ADD_TEST(
     NAME database_test
     SRCS database_test.cc
+    LINK_LIBS colmap_sensor
+)
+COLMAP_ADD_TEST(
+    NAME imu_test
+    SRCS imu_test.cc
     LINK_LIBS colmap_sensor
 )
 COLMAP_ADD_TEST(

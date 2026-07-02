@@ -6,6 +6,7 @@
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/pose_graph.h"
+#include "colmap/sensor/imu.h"
 #include "colmap/util/types.h"
 
 #include <pybind11/eigen.h>

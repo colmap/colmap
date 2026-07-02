@@ -40,6 +40,7 @@ COLMAP_ADD_LIBRARY(
         pose_prior.h
         quaternion_utils.h
         reprojection_error.h
+        imu_preintegration.h
         sampson_error.h
         utils.h
     INTERFACE_LINK_LIBS
@@ -88,4 +89,9 @@ COLMAP_ADD_TEST(
     NAME quaternion_utils_test
     SRCS quaternion_utils_test.cc
     LINK_LIBS colmap_estimators_cost_functions colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME imu_preintegration_test
+    SRCS imu_preintegration_test.cc
+    LINK_LIBS colmap_estimators
 )
