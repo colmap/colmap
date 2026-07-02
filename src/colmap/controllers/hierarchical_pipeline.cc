@@ -102,7 +102,7 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
 
 }  // namespace
 
-bool HierarchicalPipeline::Options::Check() const {
+bool HierarchicalPipelineOptions::Check() const {
   CHECK_OPTION_GT(init_num_trials, -1);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(num_workers, -1);
@@ -113,7 +113,7 @@ bool HierarchicalPipeline::Options::Check() const {
 }
 
 HierarchicalPipeline::HierarchicalPipeline(
-    const Options& options,
+    const HierarchicalPipelineOptions& options,
     std::shared_ptr<Database> database,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
