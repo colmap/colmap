@@ -29,44 +29,42 @@
 
 #pragma once
 
-#include "colmap/estimators/cost_functions/quaternion_utils.h"
-#include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/types.h"
 
-#include <Eigen/Core>
-#include <ceres/ceres.h>
+#include <cmath>
 
 namespace colmap {
 
-// Cost function for aligning one 3D point with a reference 3D point with
-// covariance. The Residual is computed in frame b. Coordinate transformation
-// convention is equivalent to Sim3d.
-struct Point3DAlignmentCostFunctor
-    : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 8> {
- public:
-  explicit Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior,
-                                       bool use_log_scale = true)
-      : point_in_b_prior_(point_in_b_prior), use_log_scale_(use_log_scale) {}
+// Timestamps whose magnitude exceeds this bound (2^53 ns) can no longer be
+// represented exactly as double, so converting them to seconds loses
+// sub-nanosecond precision; differences within the bound stay exact.
+constexpr timestamp_t kMaxStableTimestamp = timestamp_t{1} << 53;
 
-  template <typename T>
-  bool operator()(const T* const point_in_a,
-                  const T* const b_from_a,
-                  T* residuals_ptr) const {
-    // Select whether to exponentiate
-    const T b_from_a_scale =
-        use_log_scale_ ? ceres::exp(b_from_a[7]) : b_from_a[7];
+// Convert a nanosecond timestamp to seconds. Note that converting a large
+// absolute timestamp (magnitude > 2^53 ns) to double loses sub-nanosecond
+// precision; to difference absolute timestamps use TimestampDiffSeconds, which
+// subtracts in int64 first.
+inline double SecondsFromTimestamp(timestamp_t t) {
+  VLOG_IF(2, t > kMaxStableTimestamp || t < -kMaxStableTimestamp)
+      << "Converting timestamp " << t
+      << " ns to seconds loses sub-nanosecond precision (magnitude > 2^53); "
+         "use TimestampDiffSeconds for precise differences.";
+  return t * 1e-9;
+}
 
-    const Eigen::Matrix<T, 3, 1> point_in_b =
-        EigenQuaternionMap<T>(b_from_a) * EigenVector3Map<T>(point_in_a) *
-            b_from_a_scale +
-        EigenVector3Map<T>(b_from_a + 4);
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
-    residuals = point_in_b - point_in_b_prior_.cast<T>();
-    return true;
-  }
+// Convert seconds to a nanosecond timestamp, rounding to the nearest
+// nanosecond. Intended for small durations (e.g., config values), not large
+// absolute timestamps which should be parsed as int64 directly.
+inline timestamp_t TimestampFromSeconds(double s) {
+  return static_cast<timestamp_t>(std::round(s * 1e9));
+}
 
- private:
-  const Eigen::Vector3d point_in_b_prior_;
-  const bool use_log_scale_;
-};
+// Compute the time difference (t1 - t0) in seconds with nanosecond precision.
+// Unlike subtracting two large doubles, differencing int64 timestamps and then
+// converting preserves full precision. The result may be negative.
+inline double TimestampDiffSeconds(timestamp_t t1, timestamp_t t0) {
+  return SecondsFromTimestamp(t1 - t0);
+}
 
 }  // namespace colmap

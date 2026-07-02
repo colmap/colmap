@@ -1,5 +1,6 @@
 #include "colmap/sfm/global_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
@@ -65,6 +66,10 @@ BundleAdjustmentOptions GlobalMapperOptions::BundleAdjustment() const {
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
   if (opts.ceres) {
     opts.ceres->solver_options.num_threads = num_threads;
+    opts.ceres->gpu_index = ba_gpu_index;
+  }
+  if (opts.caspar) {
+    opts.caspar->gpu_index = ba_gpu_index;
   }
   return opts;
 }

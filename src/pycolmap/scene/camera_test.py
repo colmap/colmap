@@ -141,6 +141,16 @@ def test_camera_extra_params_idxs(simple_camera):
     assert isinstance(idxs, list)
 
 
+def test_camera_metadata_params_idxs(simple_camera):
+    # Perspective models have no metadata parameters.
+    assert simple_camera.metadata_params_idxs() == []
+    # Spherical models carry their (w, h) image dimensions as metadata.
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.metadata_params_idxs() == [0, 1]
+
+
 def test_camera_calibration_matrix(simple_camera):
     matrix = simple_camera.calibration_matrix()
     assert matrix.shape == (3, 3)
@@ -198,6 +208,22 @@ def test_camera_verify_params(simple_camera):
 def test_camera_is_undistorted(simple_camera):
     result = simple_camera.is_undistorted()
     assert isinstance(result, bool)
+
+
+def test_camera_is_perspective(simple_camera):
+    assert simple_camera.is_perspective() is True
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.is_perspective() is False
+
+
+def test_camera_is_spherical(simple_camera):
+    assert simple_camera.is_spherical() is False
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.is_spherical() is True
 
 
 def test_camera_has_bogus_params(simple_camera):

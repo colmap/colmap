@@ -76,6 +76,10 @@ struct GlobalMapperOptions {
   double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
   double min_tri_angle_deg = 1.;              // for triangulation
 
+  // GPU device index for bundle adjustment, shared by the Ceres and Caspar
+  // backends (-1 = auto-select).
+  std::string ba_gpu_index = "-1";
+
   // Control the number of iterations for bundle adjustment.
   int ba_num_iterations = 3;
 

@@ -8,6 +8,11 @@ Bibliography
     "Accurate, dense, and robust multiview stereopsis."
     Transactions on Pattern Analysis and Machine Intelligence, 2010.
 
+.. [caspar] Martens, Emil and Miller, Aaron and Varnum, Matias and Stahl,
+    Annette. "Caspar: CUDA Accelerator for Symbolic Programming with Adaptive
+    Reordering." International Conference on Robotics and Automation (ICRA),
+    2026.
+
 .. [cohen-steiner2004] Cohen-Steiner, David, and Da, Franck.
     "A greedy Delaunay-based surface reconstruction algorithm."
     The Visual Computer, 2004.

@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/rigid3.h"
 
@@ -37,16 +38,6 @@
 #include <ceres/rotation.h>
 
 namespace colmap {
-
-template <typename T>
-inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
-                                       T* angle_axis) {
-  const T quaternion[4] = {eigen_quaternion[3],
-                           eigen_quaternion[0],
-                           eigen_quaternion[1],
-                           eigen_quaternion[2]};
-  ceres::QuaternionToAngleAxis(quaternion, angle_axis);
-}
 
 // 6-DoF error on the absolute sensor pose. The residual is the log of the error
 // pose, splitting SE(3) into SO(3) x R^3. The residual is computed in the
@@ -63,8 +54,8 @@ struct AbsolutePosePriorCostFunctor
     const Eigen::Quaternion<T> param_from_prior_rotation =
         EigenQuaternionMap<T>(sensor_from_world) *
         world_from_sensor_prior_.rotation().cast<T>();
-    EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
-                               residuals_ptr);
+    AngleAxisFromEigenQuaternion(param_from_prior_rotation.coeffs().data(),
+                                 residuals_ptr);
 
     Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_prior_translation(
         residuals_ptr + 3);
@@ -160,8 +151,8 @@ struct RelativePosePriorCostFunctor
         EigenQuaternionMap<T>(j_from_world).inverse();
     const Eigen::Quaternion<T> param_from_prior_rotation =
         i_from_j_rotation * j_from_i_prior_.rotation().template cast<T>();
-    EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
-                               residuals_ptr);
+    AngleAxisFromEigenQuaternion(param_from_prior_rotation.coeffs().data(),
+                                 residuals_ptr);
 
     const Eigen::Matrix<T, 3, 1> j_from_i_prior_translation =
         j_from_i_prior_.translation().cast<T>() -
