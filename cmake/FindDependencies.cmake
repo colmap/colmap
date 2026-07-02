@@ -189,6 +189,34 @@ if(CUDA_ENABLED AND CUDA_FOUND)
         set(CMAKE_CUDA_ARCHITECTURES "native")
     endif()
 
+    # Caspar's Symforce-generated kernels use cooperative_groups::labeled_partition
+    # and atomicAdd_block, which require compute capability >= 7.0. Fail early with
+    # a clear message instead of a cryptic nvcc error deep in the kernel build. The
+    # numeric check handles list entries and -real/-virtual suffixes; the special
+    # values native/all/all-major cannot be resolved statically here, so they only
+    # get a warning (nvcc may fall back to an older default arch in build
+    # environments without a visible GPU >= 7.0, e.g. containerized builds).
+    if(CASPAR_ENABLED)
+        foreach(_caspar_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
+            string(REGEX MATCH "^([0-9]+)" _caspar_arch_num "${_caspar_arch}")
+            if(_caspar_arch_num AND _caspar_arch_num LESS 70)
+                message(FATAL_ERROR
+                    "CASPAR_ENABLED requires CUDA architecture >= 70 (compute "
+                    "capability 7.0), but CMAKE_CUDA_ARCHITECTURES contains "
+                    "'${_caspar_arch}'. Set -DCMAKE_CUDA_ARCHITECTURES to 70+.")
+            endif()
+        endforeach()
+        if(CMAKE_CUDA_ARCHITECTURES MATCHES "native|all|all-major")
+            message(WARNING
+                "CASPAR_ENABLED with CMAKE_CUDA_ARCHITECTURES='${CMAKE_CUDA_ARCHITECTURES}': "
+                "Caspar requires compute capability >= 7.0, which cannot be "
+                "verified statically for this value. In an environment without a "
+                "visible GPU >= 7.0 (e.g. containerized builds) nvcc may fall back "
+                "to an older default arch and fail with cryptic kernel errors. "
+                "Set -DCMAKE_CUDA_ARCHITECTURES explicitly (e.g. 75, 86).")
+        endif()
+    endif()
+
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUDA_ENABLED)
 
     # Do not show warnings if the architectures are deprecated.
