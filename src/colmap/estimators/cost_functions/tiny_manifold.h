@@ -170,27 +170,30 @@ struct ProductManifold<Head, Tail...> {
 
   void PlusJacobian(const double* x, double* jacobian) const {
     // Row-major (kAmbientSize x kTangentSize), block-diagonal: the head block
-    // sits in the top-left, the rest block in the bottom-right.
-    for (int i = 0; i < kAmbientSize * kTangentSize; ++i) {
-      jacobian[i] = 0.0;
-    }
-    double head_jacobian[Head::kAmbientSize * Head::kTangentSize];
-    head.PlusJacobian(x, head_jacobian);
-    for (int r = 0; r < Head::kAmbientSize; ++r) {
-      for (int c = 0; c < Head::kTangentSize; ++c) {
-        jacobian[r * kTangentSize + c] =
-            head_jacobian[r * Head::kTangentSize + c];
-      }
-    }
-    double rest_jacobian[Rest::kAmbientSize * Rest::kTangentSize];
-    rest.PlusJacobian(x + Head::kAmbientSize, rest_jacobian);
-    for (int r = 0; r < Rest::kAmbientSize; ++r) {
-      for (int c = 0; c < Rest::kTangentSize; ++c) {
-        jacobian[(Head::kAmbientSize + r) * kTangentSize +
-                 (Head::kTangentSize + c)] =
-            rest_jacobian[r * Rest::kTangentSize + c];
-      }
-    }
+    // sits in the top-left, the rest block in the bottom-right. A row-major
+    // Eigen matrix with a single column is ill-formed, so single-tangent blocks
+    // are stored column-major (identical layout for one column).
+    constexpr int kOrder =
+        kTangentSize == 1 ? Eigen::ColMajor : Eigen::RowMajor;
+    Eigen::Map<Eigen::Matrix<double, kAmbientSize, kTangentSize, kOrder>> J(
+        jacobian);
+    J.setZero();
+
+    constexpr int kHeadOrder =
+        Head::kTangentSize == 1 ? Eigen::ColMajor : Eigen::RowMajor;
+    Eigen::Matrix<double, Head::kAmbientSize, Head::kTangentSize, kHeadOrder>
+        head_jacobian;
+    head.PlusJacobian(x, head_jacobian.data());
+    J.template topLeftCorner<Head::kAmbientSize, Head::kTangentSize>() =
+        head_jacobian;
+
+    constexpr int kRestOrder =
+        Rest::kTangentSize == 1 ? Eigen::ColMajor : Eigen::RowMajor;
+    Eigen::Matrix<double, Rest::kAmbientSize, Rest::kTangentSize, kRestOrder>
+        rest_jacobian;
+    rest.PlusJacobian(x + Head::kAmbientSize, rest_jacobian.data());
+    J.template bottomRightCorner<Rest::kAmbientSize, Rest::kTangentSize>() =
+        rest_jacobian;
   }
 };
 

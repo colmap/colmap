@@ -63,9 +63,7 @@ struct SupportsRefineWithInitialModel<
     std::void_t<decltype(std::declval<Estimator&>().Refine(
         std::declval<const std::vector<typename Estimator::X_t>&>(),
         std::declval<const std::vector<typename Estimator::Y_t>&>(),
-        std::declval<const typename Estimator::M_t&>(),
-        std::declval<std::vector<typename Estimator::M_t>*>()))>>
-    : std::true_type {};
+        std::declval<typename Estimator::M_t*>()))>> : std::true_type {};
 
 }  // namespace internal
 
@@ -267,10 +265,13 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
               local_models.clear();
               if constexpr (internal::SupportsRefineWithInitialModel<
                                 LocalEstimator>::value) {
-                // Initialize the local optimization with the current best
-                // model.
-                thread_local_estimator.Refine(
-                    X_inlier, Y_inlier, *local_best_model, &local_models);
+                // Initialize the local optimization with the current best model
+                // and refine it in place.
+                typename LocalEstimator::M_t refined_model = *local_best_model;
+                if (thread_local_estimator.Refine(
+                        X_inlier, Y_inlier, &refined_model)) {
+                  local_models.push_back(refined_model);
+                }
               } else {
                 thread_local_estimator.Estimate(
                     X_inlier, Y_inlier, &local_models);

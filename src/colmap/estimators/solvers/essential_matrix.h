@@ -155,21 +155,19 @@ class EssentialMatrixLMEstimator {
                        const std::vector<Y_t>& cam_rays2,
                        std::vector<M_t>* models);
 
-  // Refine an essential matrix starting from an initial model. This is the
-  // entry point used by LO-RANSAC for local optimization (see
+  // Refine an essential matrix in place, starting from *E. This is the entry
+  // point used by LO-RANSAC for local optimization (see
   // SupportsRefineWithInitialModel in loransac.h).
   //
-  // Returns a single refined model. On a degenerate decomposition the initial
-  // model is returned unchanged.
+  // Returns true and overwrites *E with the refined model on success. On a
+  // degenerate decomposition it returns false and leaves *E unchanged.
   //
   // @param cam_rays1  First set of corresponding rays.
   // @param cam_rays2  Second set of corresponding rays.
-  // @param initial_E  Initial essential matrix to refine from.
-  // @param models     Output refined essential matrix (1 model).
-  static void Refine(const std::vector<X_t>& cam_rays1,
+  // @param E          Essential matrix to refine in place.
+  static bool Refine(const std::vector<X_t>& cam_rays1,
                      const std::vector<Y_t>& cam_rays2,
-                     const M_t& initial_E,
-                     std::vector<M_t>* models);
+                     M_t* E);
 
   // Calculate the residuals of a set of corresponding rays and a given
   // essential matrix. Residuals are defined as the squared Sampson error.

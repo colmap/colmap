@@ -180,12 +180,12 @@ TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
         EssentialMatrixFromPose(Rigid3d(seed_rotation, seed_translation));
 
     EssentialMatrixLMEstimator estimator;
-    std::vector<Eigen::Matrix3d> models;
-    estimator.Refine(rays1, rays2, seed_E, &models);
-    ASSERT_EQ(models.size(), 1);
+    Eigen::Matrix3d refined_E = seed_E;
+    ASSERT_TRUE(estimator.Refine(rays1, rays2, &refined_E));
 
     // The refined model must match the ground truth, i.e. the refinement pulled
     // the perturbed seed (which does not) back to the true essential matrix.
+    std::vector<Eigen::Matrix3d> models = {refined_E};
     ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
   }
 }

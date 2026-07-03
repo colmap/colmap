@@ -99,5 +99,9 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME tiny_solver_test
     SRCS tiny_solver_test.cc
-    LINK_LIBS colmap_optim Ceres::ceres Eigen3::Eigen
+    LINK_LIBS
+        colmap_optim
+        colmap_estimators_cost_functions
+        Ceres::ceres
+        Eigen3::Eigen
 )

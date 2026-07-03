@@ -222,49 +222,6 @@ void EssentialMatrixEightPointEstimator::Residuals(
   ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
 }
 
-namespace {
-
-// Nonlinear Sampson refinement of a relative pose over the given rays via
-// ceres::TinySolver (fixed-size, allocation-free, autodiff). Plain least
-// squares: the rays are assumed to be the inlier set, so robustness comes from
-// the RANSAC inlier selection. Returns false, leaving the pose unchanged, on
-// degenerate input.
-bool FastRefineRelativePose(const std::vector<Eigen::Vector3d>& cam_rays1,
-                            const std::vector<Eigen::Vector3d>& cam_rays2,
-                            Rigid3d* cam2_from_cam1) {
-  if (cam_rays1.size() < 5) {
-    return false;
-  }
-  if (cam2_from_cam1->translation().squaredNorm() < 1e-24) {
-    return false;
-  }
-
-  // Refine the full 7-parameter pose directly; the solver applies the relative
-  // pose manifold (rotation on SO(3), translation on the unit sphere).
-  TinySampsonErrorCostFunctor functor(cam_rays1, cam_rays2);
-  using AutoDiffFunction =
-      ceres::TinySolverAutoDiffFunction<TinySampsonErrorCostFunctor,
-                                        Eigen::Dynamic,
-                                        7>;
-  AutoDiffFunction f(functor);
-  colmap::TinySolver<AutoDiffFunction, RelativePoseManifold> solver;
-  solver.options.max_num_iterations = 25;
-
-  Eigen::Matrix<double, 7, 1> x;
-  x.head<4>() = cam2_from_cam1->rotation().normalized().coeffs();
-  x.tail<3>() = cam2_from_cam1->translation().normalized();
-  solver.Solve(f, &x);
-
-  if (!x.allFinite()) {
-    return false;
-  }
-  const Eigen::Quaterniond rotation(x.data());
-  *cam2_from_cam1 = Rigid3d(rotation.normalized(), x.tail<3>());
-  return true;
-}
-
-}  // namespace
-
 void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
                                           const std::vector<Y_t>& cam_rays2,
                                           std::vector<M_t>* models) {
@@ -283,33 +240,60 @@ void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
     return;
   }
 
-  Refine(cam_rays1, cam_rays2, init_models[0], models);
+  // Refine the seed in place. On a degenerate decomposition Refine leaves the
+  // model unchanged, so the eight-point seed is returned either way.
+  M_t E = init_models[0];
+  Refine(cam_rays1, cam_rays2, &E);
+  models->push_back(E);
 }
 
-void EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
+bool EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
                                         const std::vector<Y_t>& cam_rays2,
-                                        const M_t& initial_E,
-                                        std::vector<M_t>* models) {
+                                        M_t* E) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
-  THROW_CHECK(models != nullptr);
-
-  models->clear();
+  THROW_CHECK_NOTNULL(E);
 
   // Decompose the initial essential matrix into a relative pose (resolving the
   // four-fold ambiguity via cheirality over the given rays).
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
-      initial_E, cam_rays1, cam_rays2, &cam2_from_cam1, &valid_indices);
+      *E, cam_rays1, cam_rays2, &cam2_from_cam1, &valid_indices);
   if (valid_indices.empty()) {
-    // Degenerate configuration: keep the initial model unchanged.
-    models->push_back(initial_E);
-    return;
+    // Degenerate configuration: leave the initial model unchanged.
+    return false;
   }
 
-  FastRefineRelativePose(cam_rays1, cam_rays2, &cam2_from_cam1);
-  models->push_back(EssentialMatrixFromPose(cam2_from_cam1));
+  // Nonlinear Sampson refinement of the full 7-parameter pose via
+  // ceres::TinySolver (fixed-size, allocation-free, autodiff), applying the
+  // relative pose manifold (rotation on SO(3), translation on the unit sphere).
+  // Plain least squares: the rays are assumed to be the inlier set, so
+  // robustness comes from the RANSAC inlier selection.
+  TinySampsonErrorCostFunctor functor(cam_rays1, cam_rays2);
+  using AutoDiffFunction =
+      ceres::TinySolverAutoDiffFunction<TinySampsonErrorCostFunctor,
+                                        Eigen::Dynamic,
+                                        7>;
+  AutoDiffFunction f(functor);
+  using Solver = TinySolver<AutoDiffFunction, RelativePoseManifold>;
+  Solver solver;
+  Solver::Options options;
+  options.max_num_iterations = 25;
+
+  Eigen::Matrix<double, 7, 1> x;
+  x.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
+  x.tail<3>() = cam2_from_cam1.translation().normalized();
+  solver.Solve(f, &x, options);
+
+  // Keep the refined pose only if the solve stayed finite; otherwise fall back
+  // to the decomposed pose.
+  if (x.allFinite()) {
+    cam2_from_cam1 =
+        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), x.tail<3>());
+  }
+  *E = EssentialMatrixFromPose(cam2_from_cam1);
+  return true;
 }
 
 void EssentialMatrixLMEstimator::Residuals(const std::vector<X_t>& cam_rays1,

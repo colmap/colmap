@@ -63,7 +63,8 @@
 
 #pragma once
 
-#include <cassert>
+#include "colmap/util/logging.h"
+
 #include <cmath>
 
 #include <Eigen/Dense>
@@ -137,6 +138,7 @@ template <typename Function,
               Eigen::LDLT<Eigen::Matrix<typename Function::Scalar,  //
                                         Manifold::kTangentSize,     //
                                         Manifold::kTangentSize>>>
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 class TinySolver {
  public:
   enum {
@@ -191,6 +193,15 @@ class TinySolver {
     Scalar cost_threshold = std::numeric_limits<Scalar>::epsilon();
 
     Scalar initial_trust_region_radius = 1e4;
+
+    void Check() const {
+      THROW_CHECK_GT(max_num_iterations, 0);
+      THROW_CHECK_GE(gradient_tolerance, 0);
+      THROW_CHECK_GE(parameter_tolerance, 0);
+      THROW_CHECK_GE(function_tolerance, 0);
+      THROW_CHECK_GE(cost_threshold, 0);
+      THROW_CHECK_GT(initial_trust_region_radius, 0);
+    }
   };
 
   struct Summary {
@@ -204,84 +215,41 @@ class TinySolver {
     Status status = HIT_MAX_ITERATIONS;
   };
 
-  bool Update(const Function& function, const Parameters& x) {
-    // Evaluate the residuals and the Jacobian with respect to the ambient
-    // parameters, then project it into the tangent space of the manifold at x:
-    // J_tangent = J_ambient * d(Plus(x, delta))/d(delta) |_{delta = 0}.
-    if constexpr (Manifold::kIsEuclidean) {
-      // The tangent space equals the ambient space, so the cost function writes
-      // its Jacobian straight into jacobian_ (no projection, no copy).
-      if (!function(x.data(), residuals_.data(), jacobian_.data())) {
-        return false;
-      }
-      residuals_ = -residuals_;
-    } else {
-      if (!function(x.data(), residuals_.data(), jacobian_ambient_.data())) {
-        return false;
-      }
-      residuals_ = -residuals_;
-      // PlusJacobian writes a row-major (ambient x tangent) matrix.
-      constexpr int kOrder =
-          (NUM_TANGENT == 1) ? Eigen::ColMajor : Eigen::RowMajor;
-      Eigen::Matrix<Scalar, NUM_PARAMETERS, NUM_TANGENT, kOrder> plus_jacobian;
-      manifold.PlusJacobian(x.data(), plus_jacobian.data());
-      jacobian_ = jacobian_ambient_ * plus_jacobian;
-    }
-
-    // On the first iteration, compute a diagonal (Jacobi) scaling
-    // matrix, which we store as a vector.
-    if (summary.iterations == 0) {
-      // jacobi_scaling = 1 / (1 + diagonal(J'J))
-      //
-      // 1 is added to the denominator to regularize small diagonal
-      // entries.
-      jacobi_scaling_ = 1.0 / (1.0 + jacobian_.colwise().norm().array());
-    }
-
-    // This explicitly computes the normal equations, which is numerically
-    // unstable. Nevertheless, it is often good enough and is fast.
-    //
-    // TODO: Refactor this to allow for DenseQR factorization.
-    jacobian_ = jacobian_ * jacobi_scaling_.asDiagonal();
-    jtj_ = jacobian_.transpose() * jacobian_;
-    g_ = jacobian_.transpose() * residuals_;
-    summary.gradient_max_norm = g_.array().abs().maxCoeff();
-    cost_ = residuals_.squaredNorm() / 2;
-    return true;
-  }
-
-  const Summary& Solve(const Function& function, Parameters* x_and_min) {
+  const Summary& Solve(const Function& function,
+                       Parameters* x_and_min,
+                       const Options& options = Options()) {
+    THROW_CHECK_NOTNULL(x_and_min);
+    options.Check();
     Initialize(function);
-    assert(x_and_min);
     Parameters& x = *x_and_min;
-    summary = Summary();
-    summary.iterations = 0;
+    summary_ = Summary();
+    summary_.iterations = 0;
 
     // Bail out cleanly if the cost function cannot be evaluated at the initial
     // point; there is nothing meaningful the solver can do in that case.
     if (!Update(function, x)) {
-      summary.status = COST_FUNCTION_FAILED;
-      return summary;
+      summary_.status = COST_FUNCTION_FAILED;
+      return summary_;
     }
-    summary.initial_cost = cost_;
-    summary.final_cost = cost_;
+    summary_.initial_cost = cost_;
+    summary_.final_cost = cost_;
 
-    if (summary.gradient_max_norm < options.gradient_tolerance) {
-      summary.status = GRADIENT_TOO_SMALL;
-      return summary;
+    if (summary_.gradient_max_norm < options.gradient_tolerance) {
+      summary_.status = GRADIENT_TOO_SMALL;
+      return summary_;
     }
 
     if (cost_ < options.cost_threshold) {
-      summary.status = COST_TOO_SMALL;
-      return summary;
+      summary_.status = COST_TOO_SMALL;
+      return summary_;
     }
 
     Scalar u = 1.0 / options.initial_trust_region_radius;
     Scalar v = 2;
 
-    for (summary.iterations = 1;
-         summary.iterations < options.max_num_iterations;
-         summary.iterations++) {
+    for (summary_.iterations = 1;
+         summary_.iterations < options.max_num_iterations;
+         summary_.iterations++) {
       jtj_regularized_ = jtj_;
       const Scalar min_diagonal = 1e-6;
       const Scalar max_diagonal = 1e32;
@@ -308,10 +276,10 @@ class TinySolver {
           options.parameter_tolerance *
           (x.norm() + options.parameter_tolerance);
       if (dx_.norm() < parameter_tolerance) {
-        summary.status = RELATIVE_STEP_SIZE_TOO_SMALL;
+        summary_.status = RELATIVE_STEP_SIZE_TOO_SMALL;
         break;
       }
-      manifold.Plus(x.data(), dx_.data(), x_new_.data());
+      manifold_.Plus(x.data(), dx_.data(), x_new_.data());
 
       // If the cost function fails to evaluate at the trial point, reject the
       // step and shrink the trust region rather than acting on garbage.
@@ -336,7 +304,7 @@ class TinySolver {
 
         if (std::abs(cost_change) < options.function_tolerance) {
           cost_ = f_x_new_.squaredNorm() / 2;
-          summary.status = COST_CHANGE_TOO_SMALL;
+          summary_.status = COST_CHANGE_TOO_SMALL;
           break;
         }
 
@@ -344,16 +312,16 @@ class TinySolver {
         // above, so re-evaluating (now also for the Jacobian) is not expected
         // to fail; guard against it regardless.
         if (!Update(function, x)) {
-          summary.status = COST_FUNCTION_FAILED;
+          summary_.status = COST_FUNCTION_FAILED;
           break;
         }
-        if (summary.gradient_max_norm < options.gradient_tolerance) {
-          summary.status = GRADIENT_TOO_SMALL;
+        if (summary_.gradient_max_norm < options.gradient_tolerance) {
+          summary_.status = GRADIENT_TOO_SMALL;
           break;
         }
 
         if (cost_ < options.cost_threshold) {
-          summary.status = COST_TOO_SMALL;
+          summary_.status = COST_TOO_SMALL;
           break;
         }
 
@@ -368,7 +336,7 @@ class TinySolver {
         // Additionally if the cost change is too small, then terminate.
         if (std::abs(cost_change) < options.function_tolerance) {
           // Terminate
-          summary.status = COST_CHANGE_TOO_SMALL;
+          summary_.status = COST_CHANGE_TOO_SMALL;
           break;
         }
 
@@ -378,18 +346,57 @@ class TinySolver {
       }
     }
 
-    summary.final_cost = cost_;
-    return summary;
+    summary_.final_cost = cost_;
+    return summary_;
   }
 
-  Options options;
-  Summary summary;
-  // The manifold is stateless for the parameterizations used here, so the
-  // default-constructed instance is sufficient. It is kept public so callers
-  // that need a stateful manifold can assign one before solving.
-  Manifold manifold;
-
  private:
+  bool Update(const Function& function, const Parameters& x) {
+    // Evaluate the residuals and the Jacobian with respect to the ambient
+    // parameters, then project it into the tangent space of the manifold at x:
+    // J_tangent = J_ambient * d(Plus(x, delta))/d(delta) |_{delta = 0}.
+    if constexpr (Manifold::kIsEuclidean) {
+      // The tangent space equals the ambient space, so the cost function writes
+      // its Jacobian straight into jacobian_ (no projection, no copy).
+      if (!function(x.data(), residuals_.data(), jacobian_.data())) {
+        return false;
+      }
+      residuals_ = -residuals_;
+    } else {
+      if (!function(x.data(), residuals_.data(), jacobian_ambient_.data())) {
+        return false;
+      }
+      residuals_ = -residuals_;
+      // PlusJacobian writes a row-major (ambient x tangent) matrix.
+      constexpr int kOrder =
+          (NUM_TANGENT == 1) ? Eigen::ColMajor : Eigen::RowMajor;
+      Eigen::Matrix<Scalar, NUM_PARAMETERS, NUM_TANGENT, kOrder> plus_jacobian;
+      manifold_.PlusJacobian(x.data(), plus_jacobian.data());
+      jacobian_ = jacobian_ambient_ * plus_jacobian;
+    }
+
+    // On the first iteration, compute a diagonal (Jacobi) scaling
+    // matrix, which we store as a vector.
+    if (summary_.iterations == 0) {
+      // jacobi_scaling = 1 / (1 + diagonal(J'J))
+      //
+      // 1 is added to the denominator to regularize small diagonal
+      // entries.
+      jacobi_scaling_ = 1.0 / (1.0 + jacobian_.colwise().norm().array());
+    }
+
+    // This explicitly computes the normal equations, which is numerically
+    // unstable. Nevertheless, it is often good enough and is fast.
+    //
+    // TODO: Refactor this to allow for DenseQR factorization.
+    jacobian_ = jacobian_ * jacobi_scaling_.asDiagonal();
+    jtj_ = jacobian_.transpose() * jacobian_;
+    g_ = jacobian_.transpose() * residuals_;
+    summary_.gradient_max_norm = g_.array().abs().maxCoeff();
+    cost_ = residuals_.squaredNorm() / 2;
+    return true;
+  }
+
   // Preallocate everything, including temporary storage needed for solving the
   // linear system. This allows reusing the intermediate storage across solves.
   //
@@ -411,6 +418,10 @@ class TinySolver {
   Eigen::Matrix<Scalar, NUM_TANGENT, NUM_TANGENT> jtj_, jtj_regularized_;
   LinearSolver linear_solver_;
   Scalar cost_;
+  Summary summary_;
+  // The manifold is stateless for the parameterizations used here, so the
+  // default-constructed instance is sufficient.
+  Manifold manifold_;
 
   // Only the number of residuals may be dynamically sized; the parameter and
   // tangent dimensions are static, so nothing else needs allocation.

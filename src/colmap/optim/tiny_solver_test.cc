@@ -29,6 +29,8 @@
 
 #include "colmap/optim/tiny_solver.h"
 
+#include "colmap/estimators/cost_functions/tiny_manifold.h"
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <ceres/tiny_solver_autodiff_function.h>
@@ -68,44 +70,17 @@ TEST(TinySolver, EuclideanConvergesToNormalEquationsSolution) {
       (A.transpose() * A).ldlt().solve(A.transpose() * b);
 
   TinySolver<LinearResidual> solver;
-  solver.options.gradient_tolerance = 0;
-  solver.options.parameter_tolerance = 0;
-  solver.options.function_tolerance = 0;
-  solver.options.max_num_iterations = 100;
+  TinySolver<LinearResidual>::Options options;
+  options.gradient_tolerance = 0;
+  options.parameter_tolerance = 0;
+  options.function_tolerance = 0;
+  options.max_num_iterations = 100;
   Eigen::Vector2d x(0, 0);
-  const auto& summary = solver.Solve(LinearResidual(), &x);
+  const auto& summary = solver.Solve(LinearResidual(), &x, options);
 
   EXPECT_NE(summary.status, TinySolver<LinearResidual>::COST_FUNCTION_FAILED);
   EXPECT_LT((x - expected).norm(), 1e-9);
 }
-
-// Minimal 3->2 unit-sphere manifold used to exercise the solver's manifold
-// projection path independently of the cost_functions library.
-struct TestSphereManifold {
-  static constexpr int kAmbientSize = 3;
-  static constexpr int kTangentSize = 2;
-  [[maybe_unused]] static constexpr bool kIsEuclidean = false;
-
-  void Plus(const double* x, const double* delta, double* x_plus) const {
-    const Eigen::Map<const Eigen::Vector3d> xv(x);
-    const Eigen::Vector3d x_hat = xv.normalized();
-    const Eigen::Vector3d b1 = x_hat.unitOrthogonal();
-    const Eigen::Vector3d b2 = x_hat.cross(b1);
-    Eigen::Map<Eigen::Vector3d> out(x_plus);
-    out = (xv + delta[0] * b1 + delta[1] * b2).normalized();
-  }
-
-  void PlusJacobian(const double* x, double* jacobian) const {
-    const Eigen::Map<const Eigen::Vector3d> xv(x);
-    const Eigen::Vector3d x_hat = xv.normalized();
-    const Eigen::Vector3d b1 = x_hat.unitOrthogonal();
-    const Eigen::Vector3d b2 = x_hat.cross(b1);
-    for (int r = 0; r < 3; ++r) {
-      jacobian[r * 2 + 0] = b1(r);
-      jacobian[r * 2 + 1] = b2(r);
-    }
-  }
-};
 
 // Autodiff functor minimizing ||x - target||^2; on the unit sphere the optimum
 // is target.normalized().
@@ -127,13 +102,15 @@ TEST(TinySolver, ManifoldConvergesAndStaysOnManifold) {
   using AutoDiff = ceres::TinySolverAutoDiffFunction<SphereFitResidual, 3, 3>;
   AutoDiff f(functor);
 
-  TinySolver<AutoDiff, TestSphereManifold> solver;
-  solver.options.gradient_tolerance = 0;
-  solver.options.parameter_tolerance = 0;
-  solver.options.function_tolerance = 0;
-  solver.options.max_num_iterations = 100;
+  using Solver = TinySolver<AutoDiff, SphereManifold<3>>;
+  Solver solver;
+  Solver::Options options;
+  options.gradient_tolerance = 0;
+  options.parameter_tolerance = 0;
+  options.function_tolerance = 0;
+  options.max_num_iterations = 100;
   Eigen::Vector3d x = Eigen::Vector3d(1, 0, 0);  // Unit seed.
-  solver.Solve(f, &x);
+  solver.Solve(f, &x, options);
 
   EXPECT_NEAR(x.norm(), 1.0, 1e-9);
   EXPECT_LT((x - functor.target.normalized()).norm(), 1e-6);
