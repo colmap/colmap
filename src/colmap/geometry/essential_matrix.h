@@ -169,4 +169,26 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
 
+// Calculate the residuals of a set of corresponding rays and a given essential
+// matrix, additionally enforcing the cheirality constraint.
+//
+// Residuals are the squared Sampson error, except that correspondences which
+// triangulate behind either camera are assigned an infinite residual. The
+// relative pose is recovered from E (resolving the four-fold decomposition
+// ambiguity by cheirality voting), so an epipolar-consistent correspondence
+// with the wrong depth sign is rejected even when its Sampson error is small.
+//
+// Only meaningful for essential matrices (calibrated rays); the plain
+// ComputeSquaredSampsonError should be used for fundamental matrices.
+//
+// @param rays1       Corresponding rays.
+// @param rays2       Corresponding rays.
+// @param E           3x3 essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredSampsonErrorWithCheirality(
+    const std::vector<Eigen::Vector3d>& rays1,
+    const std::vector<Eigen::Vector3d>& rays2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals);
+
 }  // namespace colmap
