@@ -1393,6 +1393,9 @@ void MainWindow::ReconstructionStep() {
 }
 
 void MainWindow::ReconstructionPause() {
+  if (!mapper_controller_) {
+    return;
+  }
   timer_.Pause();
   mapper_controller_->Pause();
   EnableBlockingActions();
