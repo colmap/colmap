@@ -760,8 +760,7 @@ class TestComputeGroupedRelErrors:
         names = sorted(image.name for image in reconstruction.images.values())
         outlier = names[0]
         image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0)
-            for name in names
+            name: (OUTLIER_RECON_ID if name == outlier else 0) for name in names
         }
 
         errors = compute_grouped_rel_errors(
@@ -814,8 +813,7 @@ class TestComputeGroupedRelErrors:
         names = sorted(image.name for image in reconstruction.images.values())
         outlier = names[0]
         image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0)
-            for name in names
+            name: (OUTLIER_RECON_ID if name == outlier else 0) for name in names
         }
 
         errors = compute_grouped_rel_errors(
@@ -863,7 +861,9 @@ class TestComputeGroupedAbsErrors:
         gt_reconstruction = create_test_reconstruction()
         reconstruction = create_test_reconstruction()
 
-        names = sorted(image.name for image in gt_reconstruction.images.values())
+        names = sorted(
+            image.name for image in gt_reconstruction.images.values()
+        )
         half = len(names) // 2
         image_name_to_gt_recon_ids = {
             name: (0 if i < half else 1) for i, name in enumerate(names)
@@ -915,8 +915,7 @@ class TestComputeGroupedAbsErrors:
         names = sorted(image.name for image in reconstruction.images.values())
         outlier = names[0]
         image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0)
-            for name in names
+            name: (OUTLIER_RECON_ID if name == outlier else 0) for name in names
         }
 
         errors = compute_grouped_abs_errors(
@@ -952,7 +951,7 @@ class TestComputeGroupedAbsErrors:
         # Every GT image is registered exactly once, so errors map 1:1 to
         # gt_names in order.
         assert len(errors) == reconstruction.num_images()
-        error_by_name = dict(zip(gt_names, errors))
+        error_by_name = dict(zip(gt_names, errors, strict=True))
         assert not np.isfinite(error_by_name[outlier])
         others = [v for n, v in error_by_name.items() if n != outlier]
         np.testing.assert_allclose(others, 0.0, atol=1e-10)
@@ -965,7 +964,9 @@ class TestComputeGroupedAbsErrors:
         sub_model_0 = create_test_reconstruction()
         sub_model_1 = create_test_reconstruction()
 
-        names = sorted(image.name for image in gt_reconstruction.images.values())
+        names = sorted(
+            image.name for image in gt_reconstruction.images.values()
+        )
         half = len(names) // 2
         image_name_to_gt_recon_ids = {
             name: (0 if i < half else 1) for i, name in enumerate(names)
@@ -1043,7 +1044,7 @@ class TestComputeGroupedAbsErrors:
         # error, emitted in sparse_gt image order.
         assert len(errors) == reconstruction.num_images()
         gt_names = [image.name for image in reconstruction.images.values()]
-        error_by_name = dict(zip(gt_names, errors))
+        error_by_name = dict(zip(gt_names, errors, strict=True))
         # Cluster 0 (first third) credited by sub_model_0.
         for name in names[:third]:
             np.testing.assert_allclose(error_by_name[name], 0.0, atol=1e-10)

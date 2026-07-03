@@ -1126,7 +1126,8 @@ def compute_grouped_rel_errors(
     # Pass 2: add the B - A pairs (grouped in GT but not jointly estimated).
     names_by_recon: dict[int, list[str]] = collections.defaultdict(list)
     for name, recon_id in image_name_to_gt_recon_ids.items():
-        # Outliers never belong to a GT reconstruction, so they form no GT edges.
+        # Outliers never belong to a GT reconstruction, so they form no
+        # GT edges.
         if recon_id == OUTLIER_RECON_ID:
             continue
         names_by_recon[recon_id].append(name)
@@ -1199,7 +1200,7 @@ def compute_abs_errors(
     # Mean finite translational error per cluster; outliers and images missing
     # from the mapping never form a selectable cluster.
     errors_by_recon: dict[int, list[float]] = collections.defaultdict(list)
-    for name, dt in zip(names, dts):
+    for name, dt in zip(names, dts, strict=True):
         recon_id = image_name_to_gt_recon_ids.get(name)
         if (
             recon_id is not None
@@ -1267,7 +1268,7 @@ def compute_grouped_abs_errors(
             for image in sub_model.images.values()
             if image.name in gt_name_set
         ]
-        for name, dt in zip(sub_names, sub_dts):
+        for name, dt in zip(sub_names, sub_dts, strict=True):
             errors_by_name[name].append(float(dt))
 
     # Images not registered in any sub-model count as a single failure.
