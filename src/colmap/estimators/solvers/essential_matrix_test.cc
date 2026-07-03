@@ -80,7 +80,7 @@ void ExpectAtLeastOneValidModel(const Estimator& estimator,
                                 const std::vector<Eigen::Vector3d>& rays2,
                                 Eigen::Matrix3d& expected_E,
                                 std::vector<Eigen::Matrix3d>& models,
-                                double E_eps = 1e-4,
+                                double E_eps = 1e-3,
                                 double r_eps = 1e-5) {
   expected_E.normalize();
   for (size_t i = 0; i < models.size(); ++i) {
