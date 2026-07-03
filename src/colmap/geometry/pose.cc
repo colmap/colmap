@@ -247,17 +247,18 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      std::vector<int>* valid_indices) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   valid_indices->clear();
-  const Eigen::Matrix3d R = cam2_from_cam1.rotation().toRotationMatrix();
-  const Eigen::Vector3d t = cam2_from_cam1.translation();
+  const Eigen::Matrix3d cam2_from_cam1_rot =
+      cam2_from_cam1.rotation().toRotationMatrix();
+  const auto& cam2_from_cam1_translation = cam2_from_cam1.translation();
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
     // Solve the 2x2 system for the depths of the point along both rays; both
     // must be positive for the point to lie in front of both cameras. The
     // common positive factor 1 / (1 - a^2) is dropped since it does not affect
     // the sign (a = cos angle between the rays, so |a| <= 1).
-    const Eigen::Vector3d ray1_in_cam2 = R * cam_rays1[i];
+    const Eigen::Vector3d ray1_in_cam2 = cam2_from_cam1_rot * cam_rays1[i];
     const double a = -ray1_in_cam2.dot(cam_rays2[i]);
-    const double b1 = -ray1_in_cam2.dot(t);
-    const double b2 = cam_rays2[i].dot(t);
+    const double b1 = -ray1_in_cam2.dot(cam2_from_cam1_translation);
+    const double b2 = cam_rays2[i].dot(cam2_from_cam1_translation);
     if (b1 - a * b2 > 0.0 && b2 - a * b1 > 0.0) {
       valid_indices->push_back(static_cast<int>(i));
     }
