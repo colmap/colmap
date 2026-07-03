@@ -47,14 +47,14 @@ void EssentialMatrixFivePointEstimator::Estimate(
     const std::vector<Y_t>& cam_rays2,
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_GE(cam_rays1.size(), 5);
+  THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
   // PoseLib's 5-point solver only supports the minimal case; the non-minimal
   // case falls through to the SVD-based solver below.
-  if (cam_rays1.size() == 5) {
+  if (cam_rays1.size() == kMinNumSamples) {
     std::vector<M_t> candidate_models;
     poselib::relpose_5pt(cam_rays1, cam_rays2, &candidate_models);
     // Keep only hypotheses whose minimal sample is in front of both cameras,
@@ -67,7 +67,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
                               cam_rays2,
                               &cam2_from_cam1,
                               &valid_indices);
-      if (valid_indices.size() == 5) {
+      if (valid_indices.size() == kMinNumSamples) {
         models->push_back(candidate_model);
       }
     }
