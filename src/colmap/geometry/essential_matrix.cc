@@ -206,4 +206,33 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& ray1,
   }
 }
 
+void ComputeSquaredSampsonErrorWithCheirality(
+    const std::vector<Eigen::Vector3d>& ray1,
+    const std::vector<Eigen::Vector3d>& ray2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals) {
+  const size_t num_ray1 = ray1.size();
+  THROW_CHECK_EQ(num_ray1, ray2.size());
+  residuals->resize(num_ray1);
+
+  // Recover the relative pose from E (resolving the four-fold decomposition
+  // ambiguity by cheirality voting) and flag which correspondences triangulate
+  // in front of both cameras.
+  Rigid3d cam2_from_cam1;
+  std::vector<int> valid_indices;
+  PoseFromEssentialMatrix(E, ray1, ray2, &cam2_from_cam1, &valid_indices);
+  std::vector<bool> is_cheiral(num_ray1, false);
+  for (const int idx : valid_indices) {
+    is_cheiral[idx] = true;
+  }
+
+  // Correspondences behind either camera are not valid inliers for the relative
+  // pose regardless of their Sampson error, so they get an infinite residual.
+  for (size_t i = 0; i < num_ray1; ++i) {
+    (*residuals)[i] = is_cheiral[i]
+                          ? ComputeSquaredSampsonError(ray1[i], ray2[i], E)
+                          : std::numeric_limits<double>::max();
+  }
+}
+
 }  // namespace colmap
