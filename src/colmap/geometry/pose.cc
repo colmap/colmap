@@ -249,7 +249,6 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
   valid_indices->clear();
   const Eigen::Matrix3d cam2_from_cam1_rot =
       cam2_from_cam1.rotation().toRotationMatrix();
-  const auto& cam2_from_cam1_translation = cam2_from_cam1.translation();
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
     // Solve the 2x2 system for the depths of the point along both rays; both
     // must be positive for the point to lie in front of both cameras. The
@@ -257,8 +256,8 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
     // the sign (a = cos angle between the rays, so |a| <= 1).
     const Eigen::Vector3d ray1_in_cam2 = cam2_from_cam1_rot * cam_rays1[i];
     const double a = -ray1_in_cam2.dot(cam_rays2[i]);
-    const double b1 = -ray1_in_cam2.dot(cam2_from_cam1_translation);
-    const double b2 = cam_rays2[i].dot(cam2_from_cam1_translation);
+    const double b1 = -ray1_in_cam2.dot(cam2_from_cam1.translation());
+    const double b2 = cam_rays2[i].dot(cam2_from_cam1.translation());
     if (b1 - a * b2 > 0.0 && b2 - a * b1 > 0.0) {
       valid_indices->push_back(static_cast<int>(i));
     }
