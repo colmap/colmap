@@ -184,7 +184,10 @@ MainWindow::MainWindow(OptionManager options)
   CreateMenus();
   CreateToolbar();
   CreateStatusbar();
-  CreateControllers();
+  // The mapper controller (and its database cache) is created lazily when a
+  // reconstruction is actually started, so opening the GUI does not read the
+  // database. Just initialize the control states here.
+  UpdateMapperControls();
 
   ShowLog();
 
@@ -852,11 +855,8 @@ void MainWindow::CreateStatusbar() {
   statusBar()->addWidget(model_viewer_widget_->statusbar_status_label, 1);
 }
 
-void MainWindow::CreateControllers() {
-  if (mapper_controller_) {
-    mapper_controller_->Stop();
-    mapper_controller_->Wait();
-  }
+void MainWindow::CreateMapperController() {
+  StopMapperController();
 
   options_.mapper->image_path = *options_.image_path;
 
@@ -933,6 +933,22 @@ void MainWindow::CreateControllers() {
     }
   });
 
+  UpdateMapperControls();
+}
+
+void MainWindow::StopMapperController() {
+  if (mapper_controller_) {
+    mapper_controller_->Stop();
+    mapper_controller_->Wait();
+    mapper_controller_.reset();
+  }
+}
+
+void MainWindow::ResetMapperController() {
+  // Tear down any existing controller without building a new one (which would
+  // eagerly read the database). A fresh controller is created lazily in
+  // ReconstructionStart().
+  StopMapperController();
   UpdateMapperControls();
 }
 
@@ -1334,24 +1350,27 @@ void MainWindow::AutomaticReconstruction() {
 }
 
 void MainWindow::ReconstructionStart() {
-  if (!mapper_controller_->IsStarted() && !options_.Check()) {
+  const bool started = mapper_controller_ && mapper_controller_->IsStarted();
+  const bool finished = mapper_controller_ && mapper_controller_->IsFinished();
+
+  if (!started && !options_.Check()) {
     ShowInvalidProjectError();
     return;
   }
 
-  if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
+  if (finished && HasSelectedReconstruction()) {
     QMessageBox::critical(
         this, "", tr("Reset reconstruction before starting."));
     return;
   }
 
-  if (mapper_controller_->IsStarted()) {
+  if (started) {
     // Resume existing reconstruction.
     timer_.Resume();
     mapper_controller_->Resume();
   } else {
     // Start new reconstruction.
-    CreateControllers();
+    CreateMapperController();
     timer_.Restart();
     mapper_controller_->Start();
     action_reconstruction_start_->setText(tr("Resume reconstruction"));
@@ -1368,7 +1387,8 @@ void MainWindow::ReconstructionStep() {
     return;
   }
 
-  if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
+  if (mapper_controller_ && mapper_controller_->IsFinished() &&
+      HasSelectedReconstruction()) {
     QMessageBox::critical(
         this, "", tr("Reset reconstruction before starting."));
     return;
@@ -1381,6 +1401,9 @@ void MainWindow::ReconstructionStep() {
 }
 
 void MainWindow::ReconstructionPause() {
+  if (!mapper_controller_) {
+    return;
+  }
   timer_.Pause();
   mapper_controller_->Pause();
   EnableBlockingActions();
@@ -1402,7 +1425,7 @@ void MainWindow::ReconstructionFinish() {
 }
 
 void MainWindow::ReconstructionReset() {
-  CreateControllers();
+  ResetMapperController();
 
   reconstruction_manager_->Clear();
   reconstruction_manager_widget_->Update();
