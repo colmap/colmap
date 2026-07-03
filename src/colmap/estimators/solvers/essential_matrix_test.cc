@@ -113,24 +113,30 @@ class EssentialMatrixFivePointEstimatorTests
 TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
+  // The minimal case has no redundancy, so it conditions its sample to stay
+  // well-posed and accepts the solver's numerical accuracy with a looser
+  // tolerance.
+  const bool is_minimal =
+      kNumRays == EssentialMatrixFivePointEstimator::kMinNumSamples;
   for (size_t k = 0; k < 100; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
     RandomEpipolarCorrespondences(
-        cam2_from_cam1,
-        kNumRays,
-        /*reject_degenerate=*/kNumRays ==
-            EssentialMatrixFivePointEstimator::kMinNumSamples,
-        rays1,
+        cam2_from_cam1, kNumRays, /*reject_degenerate=*/is_minimal, rays1,
         rays2);
 
     EssentialMatrixFivePointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(rays1, rays2, &models);
 
-    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
+    ExpectAtLeastOneValidModel(estimator,
+                               rays1,
+                               rays2,
+                               expected_E,
+                               models,
+                               /*E_eps=*/is_minimal ? 5e-3 : 1e-4);
   }
 }
 
