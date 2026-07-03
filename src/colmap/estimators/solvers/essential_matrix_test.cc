@@ -39,15 +39,38 @@
 namespace colmap {
 namespace {
 
+// Minimum depth in front of either camera. Correspondences closer than this to
+// a camera center are numerically ill-conditioned for the cheirality check: the
+// depth collapses to ~0 and its sign becomes ambiguous, so a valid essential
+// matrix estimated from such a minimal sample may be spuriously pruned.
+constexpr double kMinDepth = 0.2;
+
+// Generates a random relative pose with a unit-norm baseline. Bounding the
+// baseline away from zero avoids the (near) pure-rotation degeneracy, where the
+// essential matrix vanishes and the cheirality of every correspondence becomes
+// ill-defined.
+Rigid3d TestCam2FromCam1() {
+  return Rigid3d(Eigen::Quaterniond::UnitRandom(),
+                 Eigen::Vector3d::Random().normalized());
+}
+
 void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
                                    size_t num_rays,
                                    std::vector<Eigen::Vector3d>& rays1,
                                    std::vector<Eigen::Vector3d>& rays2) {
   for (size_t i = 0; i < num_rays; ++i) {
-    rays1.push_back(Eigen::Vector3d::Random().normalized());
-    const double random_depth = RandomUniformReal<double>(0.2, 2.0);
-    rays2.push_back(
-        (cam2_from_cam1 * (random_depth * rays1.back())).normalized());
+    // Reject correspondences whose 3D point lands too close to either camera
+    // center, keeping the synthesized minimal sample non-degenerate so that the
+    // true essential matrix is always cheirality-consistent.
+    Eigen::Vector3d ray1;
+    Eigen::Vector3d point_in_cam2;
+    do {
+      ray1 = Eigen::Vector3d::Random().normalized();
+      const double random_depth = RandomUniformReal<double>(kMinDepth, 2.0);
+      point_in_cam2 = cam2_from_cam1 * (random_depth * ray1);
+    } while (point_in_cam2.norm() < kMinDepth);
+    rays1.push_back(ray1);
+    rays2.push_back(point_in_cam2.normalized());
   }
 }
 
@@ -84,8 +107,7 @@ TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 100; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
@@ -110,8 +132,7 @@ TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 1; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
