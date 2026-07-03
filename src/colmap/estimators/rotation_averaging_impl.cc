@@ -6,6 +6,7 @@
 #include "colmap/optim/least_absolute_deviations.h"
 #include "colmap/optim/sparse_cholesky.h"
 
+#include <algorithm>
 #include <limits>
 
 namespace colmap {
@@ -445,6 +446,53 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   // Initialize residual vector.
   residuals_.resize(curr_row);
+
+  // Optionally build the residual-space reweighting operator W (see
+  // residual_reweighting_). Weights are normalized to (0, 1] for numerical
+  // stability (a global scale leaves the minimizer unchanged). Only the rows
+  // owned by a pair constraint are reweighted below; the gauge-fixing rows
+  // (which are not part of pair_constraints_) retain their default weight of 1.
+  if (options_.reweighting ==
+      RotationAveragingReweighting::INLIER_MATCH_COUNT) {
+    double max_num_matches = 0;
+    for (const auto& [pair_id, constraint] : pair_constraints_) {
+      max_num_matches = std::max(
+          max_num_matches,
+          static_cast<double>(pose_graph.Edges().at(pair_id).num_matches));
+    }
+    // The inlier match count (normalized to (0, 1]) is used directly as the
+    // diagonal reweighting entry.
+    Eigen::VectorXd reweighting_diagonal = Eigen::VectorXd::Ones(curr_row);
+    if (max_num_matches > 0) {
+      for (const auto& [pair_id, constraint] : pair_constraints_) {
+        const double reweighting =
+            static_cast<double>(pose_graph.Edges().at(pair_id).num_matches) /
+            max_num_matches;
+        if (std::holds_alternative<GravityAligned1DOF>(constraint.constraint)) {
+          reweighting_diagonal[constraint.row_index] = reweighting;
+        } else {
+          reweighting_diagonal.segment<3>(constraint.row_index)
+              .setConstant(reweighting);
+        }
+      }
+    }
+    residual_reweighting_ = std::move(reweighting_diagonal);
+  }
+}
+
+Eigen::SparseMatrix<double> RotationAveragingProblem::WeightedConstraintMatrix()
+    const {
+  if (residual_reweighting_.has_value()) {
+    return residual_reweighting_->asDiagonal() * constraint_matrix_;
+  }
+  return constraint_matrix_;
+}
+
+Eigen::VectorXd RotationAveragingProblem::WeightedResiduals() const {
+  if (residual_reweighting_.has_value()) {
+    return residual_reweighting_->cwiseProduct(residuals_);
+  }
+  return residuals_;
 }
 
 void RotationAveragingProblem::ComputeResiduals() {
@@ -660,8 +708,12 @@ bool RotationAveragingSolver::SolveL1Regression(
       LeastAbsoluteDeviationSolver::Options::SolverType::SupernodalCholmodLLT;
   l1_solver_options.ridge_regularization = options_.ridge_regularization;
 
-  LeastAbsoluteDeviationSolver l1_solver(l1_solver_options,
-                                         problem.ConstraintMatrix());
+  // For weighted rotation averaging, the row-scaled constraint matrix and
+  // residuals solve the weighted problem min ||D(Ax-b)||_1 = sum_i w_i |r_i|.
+  const Eigen::SparseMatrix<double> l1_matrix =
+      problem.WeightedConstraintMatrix();
+
+  LeastAbsoluteDeviationSolver l1_solver(l1_solver_options, l1_matrix);
   if (!l1_solver.Valid()) {
     LOG(ERROR) << "L1 regression linear solver factorization failed";
     return false;
@@ -682,7 +734,7 @@ bool RotationAveragingSolver::SolveL1Regression(
     prev_norm = curr_norm;
 
     step.setZero();
-    if (!l1_solver.Solve(problem.Residuals(), &step) ||
+    if (!l1_solver.Solve(problem.WeightedResiduals(), &step) ||
         step.array().isNaN().any()) {
       LOG(ERROR) << "L1 regression solve failed (iteration " << iteration
                  << ")";
@@ -769,6 +821,13 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
     weights.segment<3>(problem.NumResiduals() - 3).setConstant(1);
   }
 
+  // Fold the residual-space reweighting W into the IRLS weights so the solver
+  // can operate on the plain constraint matrix, scaling each robust weight by W
+  // (gauge-fixing rows have W = 1 and are left unchanged).
+  if (const auto& reweighting = problem.ResidualReweighting()) {
+    weights.array() *= reweighting->array();
+  }
+
   return weights;
 }
 
@@ -777,6 +836,13 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   bool pattern_analyzed = false;
 
   const double sigma = DegToRad(options_.irls_loss_parameter_sigma);
+
+  // The constraint matrix A is constant across iterations; only the per-row
+  // weights change. ComputeIRLSWeights folds the optional residual-space
+  // reweighting W into the robust weights, so we solve the normal equations
+  // A^T D A x = A^T D b directly with the plain constraint matrix.
+  const Eigen::SparseMatrix<double>& constraint_matrix =
+      problem.ConstraintMatrix();
 
   Eigen::SparseMatrix<double> at_weight;
   Eigen::SparseMatrix<double> at_weight_a;
@@ -795,9 +861,8 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     // Optionally add a small Tikhonov ridge to stabilize poorly conditioned
     // but mathematically PD systems. When zero (default), no regularization
     // is added.
-    at_weight =
-        problem.ConstraintMatrix().transpose() * weights_irls->asDiagonal();
-    at_weight_a = at_weight * problem.ConstraintMatrix();
+    at_weight = constraint_matrix.transpose() * weights_irls->asDiagonal();
+    at_weight_a = at_weight * constraint_matrix;
     if (options_.ridge_regularization > 0) {
       for (int i = 0; i < at_weight_a.cols(); ++i) {
         at_weight_a.coeffRef(i, i) += options_.ridge_regularization;
@@ -814,7 +879,8 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
       return false;
     }
 
-    if (!solver.Solve(at_weight * problem.Residuals(), &step) ||
+    const Eigen::VectorXd at_weight_residuals = at_weight * problem.Residuals();
+    if (!solver.Solve(at_weight_residuals, &step) ||
         step.array().isNaN().any()) {
       LOG(ERROR) << "IRLS solve failed (iteration " << iteration << ")";
       return false;

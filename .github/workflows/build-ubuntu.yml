@@ -95,20 +95,20 @@ jobs:
       GLOG_logtostderr: 1
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check code format
         if: matrix.config.checkCodeFormat
         run: |
           set +x -euo pipefail
-          python -m pip install ruff==0.15.7 clang-format==22.1.1
+          python -m pip install ruff==0.15.20 clang-format==22.1.5
           ./scripts/format/c++.sh --all
           ./scripts/format/python.sh --all
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
       - name: Restore Compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
@@ -116,7 +116,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -133,11 +133,11 @@ jobs:
           fi
 
           set -x
-          wget https://github.com/ccache/ccache/releases/download/v4.12.2/ccache-4.12.2-linux-x86_64.tar.xz
-          echo "630c34ec94d451b200f5b14a6a25580d6a45bc80c394b7e0b93e33556eee5d32  ccache-4.12.2-linux-x86_64.tar.xz" | sha256sum --check
-          tar xfv ccache-4.12.2-linux-x86_64.tar.xz
+          wget https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-x86_64-glibc.tar.xz
+          echo "508b2a1217dc6e04a23e967c7b95a0fb45d8a7e16fde9e180919698f2e2be060  ccache-4.13.6-linux-x86_64-glibc.tar.xz" | sha256sum --check
+          tar xfv ccache-4.13.6-linux-x86_64-glibc.tar.xz
           mkdir -p "$COMPILER_CACHE_DIR/bin"
-          mv ./ccache-4.12.2-linux-x86_64/ccache "$COMPILER_CACHE_DIR/bin"
+          mv ./ccache-4.13.6-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
           ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
           wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
           echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
@@ -300,7 +300,7 @@ jobs:
           ../scripts/shell/generate_coverage_report.sh
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.config.coverageEnabled
         with:
           name: code-coverage

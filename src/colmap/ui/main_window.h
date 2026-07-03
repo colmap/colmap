@@ -79,7 +79,9 @@ class MainWindow : public QMainWindow {
   void CreateMenus();
   void CreateToolbar();
   void CreateStatusbar();
-  void CreateControllers();
+  void CreateMapperController();
+  void StopMapperController();
+  void ResetMapperController();
 
   void HandleDragEvent(QDropEvent* event);
 

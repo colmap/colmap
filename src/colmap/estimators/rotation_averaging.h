@@ -3,6 +3,7 @@
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/enum_utils.h"
 
 #include <unordered_set>
 #include <vector>
@@ -13,6 +14,13 @@
 // (http://www.theia-sfm.org/). For gravity aligned rotation averaging, refer
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace colmap {
+
+// Reweighting scheme applied to the relative-rotation constraints.
+//   UNIFORM: all constraints are weighted equally.
+//   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
+//     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
+//     edge, normalized to (0, 1].
+MAKE_ENUM_CLASS(RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT);
 
 struct RotationEstimatorOptions {
   // PRNG seed for stochastic methods during rotation averaging.
@@ -79,6 +87,12 @@ struct RotationEstimatorOptions {
   // When false, treat each non-ref sensor's cam_from_rig rotation as a
   // pre-calibrated constant
   bool refine_sensor_from_rig = true;
+
+  // Reweighting scheme for the relative-rotation constraints. Weights are
+  // applied as a block-diagonal scaling of the linear system, so a noise-free
+  // (consistent) system yields an identical solution regardless of reweighting.
+  RotationAveragingReweighting reweighting =
+      RotationAveragingReweighting::UNIFORM;
 };
 
 // High-level interface for rotation averaging.
