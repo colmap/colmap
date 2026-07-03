@@ -245,8 +245,7 @@ class TinySolver {
     // This explicitly computes the normal equations, which is numerically
     // unstable. Nevertheless, it is often good enough and is fast.
     //
-    // TODO(sameeragarwal): Refactor this to allow for DenseQR
-    // factorization.
+    // TODO: Refactor this to allow for DenseQR factorization.
     jacobian_ = jacobian_ * jacobi_scaling_.asDiagonal();
     jtj_ = jacobian_.transpose() * jacobian_;
     g_ = jacobian_.transpose() * residuals_;
@@ -327,7 +326,7 @@ class TinySolver {
       }
 
       const Scalar cost_change = (2 * cost_ - f_x_new_.squaredNorm());
-      // TODO(sameeragarwal): Better more numerically stable evaluation.
+      // TODO: Better more numerically stable evaluation.
       const Scalar model_cost_change = lm_step_.dot(2 * g_ - jtj_ * lm_step_);
 
       // rho is the ratio of the actual reduction in error to the reduction
@@ -397,8 +396,10 @@ class TinySolver {
  private:
   // Preallocate everything, including temporary storage needed for solving the
   // linear system. This allows reusing the intermediate storage across solves.
-  LinearSolver linear_solver_;
-  Scalar cost_;
+  //
+  // The (potentially over-aligned) fixed-size Eigen members are declared first
+  // and the scalars last so the compiler does not insert padding between an
+  // aligned matrix and a scalar (clang-analyzer-optin.performance.Padding).
   Parameters x_new_;
   Tangent dx_, g_, jacobi_scaling_, lm_step_;
   Eigen::Matrix<Scalar, NUM_RESIDUALS, 1> residuals_, f_x_new_;
@@ -412,6 +413,8 @@ class TinySolver {
   Eigen::Matrix<Scalar, NUM_RESIDUALS, kAmbientJacobianCols> jacobian_ambient_;
   Eigen::Matrix<Scalar, NUM_RESIDUALS, NUM_TANGENT> jacobian_;
   Eigen::Matrix<Scalar, NUM_TANGENT, NUM_TANGENT> jtj_, jtj_regularized_;
+  LinearSolver linear_solver_;
+  Scalar cost_;
 
   // Only the number of residuals may be dynamically sized; the parameter and
   // tangent dimensions are static, so nothing else needs allocation.
