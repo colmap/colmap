@@ -174,5 +174,56 @@ TEST(ProductManifold, SizesAndBlockStructure) {
   EXPECT_LT(bottom_left_norm, 1e-12);
 }
 
+// A three-way product exercises the variadic recursion (depth 3). The two
+// manifolds already in this file suffice; the blocks are laid out in argument
+// order and the Plus Jacobian stays block-diagonal.
+TEST(ProductManifold, ThreeWaySizesAndBlockStructure) {
+  using ThreeWayManifold = ProductManifold<EigenQuaternionManifold,
+                                           SphereManifold<3>,
+                                           EigenQuaternionManifold>;
+  static_assert(ThreeWayManifold::kAmbientSize == 4 + 3 + 4);
+  static_assert(ThreeWayManifold::kTangentSize == 3 + 2 + 3);
+  constexpr int kAmbient = ThreeWayManifold::kAmbientSize;
+  constexpr int kTangent = ThreeWayManifold::kTangentSize;
+
+  const Eigen::Quaterniond q0(
+      Eigen::AngleAxisd(0.9, Eigen::Vector3d(-1, 0.5, 2).normalized()));
+  const Eigen::Vector3d t = Eigen::Vector3d(1.0, -2.0, 0.5).normalized();
+  const Eigen::Quaterniond q1(
+      Eigen::AngleAxisd(0.3, Eigen::Vector3d(0.2, -1, 0.7).normalized()));
+  double x[kAmbient] = {q0.x(),
+                        q0.y(),
+                        q0.z(),
+                        q0.w(),
+                        t.x(),
+                        t.y(),
+                        t.z(),
+                        q1.x(),
+                        q1.y(),
+                        q1.z(),
+                        q1.w()};
+
+  const ThreeWayManifold manifold;
+
+  // Plus at zero recovers the point.
+  const double zero[kTangent] = {0, 0, 0, 0, 0, 0, 0, 0};
+  double x_plus[kAmbient];
+  manifold.Plus(x, zero, x_plus);
+  using AmbientVec = Eigen::Matrix<double, kAmbient, 1>;
+  const AmbientVec x_plus_vec = Eigen::Map<const AmbientVec>(x_plus);
+  const AmbientVec x_vec = Eigen::Map<const AmbientVec>(x);
+  EXPECT_THAT(x_plus_vec, EigenMatrixNear(x_vec, 1e-12));
+
+  // The analytic Jacobian matches finite differences.
+  Eigen::MatrixXd J = AnalyticPlusJacobian(manifold, x);
+  EXPECT_THAT(J, EigenMatrixNear(NumericPlusJacobian(manifold, x), 1e-6));
+
+  // Everything outside the three diagonal blocks (4x3, 3x2, 4x3) is zero.
+  J.block(0, 0, 4, 3).setZero();
+  J.block(4, 3, 3, 2).setZero();
+  J.block(7, 5, 4, 3).setZero();
+  EXPECT_LT(J.norm(), 1e-12);
+}
+
 }  // namespace
 }  // namespace colmap

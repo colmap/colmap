@@ -122,47 +122,73 @@ struct SphereManifold {
   }
 };
 
-// Product of two manifolds acting on adjacent parameter blocks. Nest to combine
-// more than two, e.g. ProductManifold<A, ProductManifold<B, C>>.
-template <typename Manifold1, typename Manifold2>
-struct ProductManifold {
-  static constexpr int kAmbientSize =
-      Manifold1::kAmbientSize + Manifold2::kAmbientSize;
-  static constexpr int kTangentSize =
-      Manifold1::kTangentSize + Manifold2::kTangentSize;
-  [[maybe_unused]] static constexpr bool kIsEuclidean =
-      Manifold1::kIsEuclidean && Manifold2::kIsEuclidean;
+// Product of one or more manifolds acting on adjacent parameter blocks, e.g.
+// ProductManifold<EigenQuaternionManifold, SphereManifold<3>,
+// EuclideanManifold<1>> for a relative pose plus a shared focal length.
+// Variadic, mirroring ceres::ProductManifold. The ambient/tangent blocks are
+// laid out in argument order and the Plus Jacobian is block-diagonal.
+template <typename... Manifolds>
+struct ProductManifold;
 
-  Manifold1 manifold1;
-  Manifold2 manifold2;
+// Base case: a single manifold. The product degenerates to a thin wrapper.
+template <typename Manifold>
+struct ProductManifold<Manifold> {
+  static constexpr int kAmbientSize = Manifold::kAmbientSize;
+  static constexpr int kTangentSize = Manifold::kTangentSize;
+  [[maybe_unused]] static constexpr bool kIsEuclidean = Manifold::kIsEuclidean;
+
+  Manifold manifold;
 
   void Plus(const double* x, const double* delta, double* x_plus) const {
-    manifold1.Plus(x, delta, x_plus);
-    manifold2.Plus(x + Manifold1::kAmbientSize,
-                   delta + Manifold1::kTangentSize,
-                   x_plus + Manifold1::kAmbientSize);
+    manifold.Plus(x, delta, x_plus);
   }
 
   void PlusJacobian(const double* x, double* jacobian) const {
-    // Row-major (kAmbientSize x kTangentSize), block-diagonal.
+    manifold.PlusJacobian(x, jacobian);
+  }
+};
+
+// Recursive case: split into the head manifold and the product of the rest.
+template <typename Head, typename... Tail>
+struct ProductManifold<Head, Tail...> {
+  using Rest = ProductManifold<Tail...>;
+
+  static constexpr int kAmbientSize = Head::kAmbientSize + Rest::kAmbientSize;
+  static constexpr int kTangentSize = Head::kTangentSize + Rest::kTangentSize;
+  [[maybe_unused]] static constexpr bool kIsEuclidean =
+      Head::kIsEuclidean && Rest::kIsEuclidean;
+
+  Head head;
+  Rest rest;
+
+  void Plus(const double* x, const double* delta, double* x_plus) const {
+    head.Plus(x, delta, x_plus);
+    rest.Plus(x + Head::kAmbientSize,
+              delta + Head::kTangentSize,
+              x_plus + Head::kAmbientSize);
+  }
+
+  void PlusJacobian(const double* x, double* jacobian) const {
+    // Row-major (kAmbientSize x kTangentSize), block-diagonal: the head block
+    // sits in the top-left, the rest block in the bottom-right.
     for (int i = 0; i < kAmbientSize * kTangentSize; ++i) {
       jacobian[i] = 0.0;
     }
-    double jacobian1[Manifold1::kAmbientSize * Manifold1::kTangentSize];
-    manifold1.PlusJacobian(x, jacobian1);
-    for (int r = 0; r < Manifold1::kAmbientSize; ++r) {
-      for (int c = 0; c < Manifold1::kTangentSize; ++c) {
+    double head_jacobian[Head::kAmbientSize * Head::kTangentSize];
+    head.PlusJacobian(x, head_jacobian);
+    for (int r = 0; r < Head::kAmbientSize; ++r) {
+      for (int c = 0; c < Head::kTangentSize; ++c) {
         jacobian[r * kTangentSize + c] =
-            jacobian1[r * Manifold1::kTangentSize + c];
+            head_jacobian[r * Head::kTangentSize + c];
       }
     }
-    double jacobian2[Manifold2::kAmbientSize * Manifold2::kTangentSize];
-    manifold2.PlusJacobian(x + Manifold1::kAmbientSize, jacobian2);
-    for (int r = 0; r < Manifold2::kAmbientSize; ++r) {
-      for (int c = 0; c < Manifold2::kTangentSize; ++c) {
-        jacobian[(Manifold1::kAmbientSize + r) * kTangentSize +
-                 (Manifold1::kTangentSize + c)] =
-            jacobian2[r * Manifold2::kTangentSize + c];
+    double rest_jacobian[Rest::kAmbientSize * Rest::kTangentSize];
+    rest.PlusJacobian(x + Head::kAmbientSize, rest_jacobian);
+    for (int r = 0; r < Rest::kAmbientSize; ++r) {
+      for (int c = 0; c < Rest::kTangentSize; ++c) {
+        jacobian[(Head::kAmbientSize + r) * kTangentSize +
+                 (Head::kTangentSize + c)] =
+            rest_jacobian[r * Rest::kTangentSize + c];
       }
     }
   }
