@@ -33,7 +33,7 @@
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/polynomial.h"
-#include "colmap/math/tiny_solver.h"
+#include "colmap/optim/tiny_solver.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 

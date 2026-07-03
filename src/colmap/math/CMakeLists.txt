@@ -40,7 +40,6 @@ COLMAP_ADD_LIBRARY(
         polynomial.h polynomial.cc
         random.h random.cc
         spanning_tree.h spanning_tree.cc
-        tiny_solver.h
         union_find.h
     PUBLIC_LINK_LIBS
         colmap_util
@@ -90,9 +89,4 @@ COLMAP_ADD_TEST(
     NAME spanning_tree_test
     SRCS spanning_tree_test.cc
     LINK_LIBS colmap_math
-)
-COLMAP_ADD_TEST(
-    NAME tiny_solver_test
-    SRCS tiny_solver_test.cc
-    LINK_LIBS colmap_math Ceres::ceres Eigen3::Eigen
 )
