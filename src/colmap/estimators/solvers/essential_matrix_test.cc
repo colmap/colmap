@@ -123,9 +123,11 @@ TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(
-        cam2_from_cam1, kNumRays, /*reject_degenerate=*/is_minimal, rays1,
-        rays2);
+    RandomEpipolarCorrespondences(cam2_from_cam1,
+                                  kNumRays,
+                                  /*reject_degenerate=*/is_minimal,
+                                  rays1,
+                                  rays2);
 
     EssentialMatrixFivePointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
