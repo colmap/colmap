@@ -299,10 +299,10 @@ void EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
   // Decompose the initial essential matrix into a relative pose (resolving the
   // four-fold ambiguity via cheirality over the given rays).
   Rigid3d cam2_from_cam1;
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
-      initial_E, cam_rays1, cam_rays2, &cam2_from_cam1, &points3D);
-  if (points3D.empty()) {
+      initial_E, cam_rays1, cam_rays2, &cam2_from_cam1, &valid_indices);
+  if (valid_indices.empty()) {
     // Degenerate configuration: keep the initial model unchanged.
     models->push_back(initial_E);
     return;
