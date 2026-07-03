@@ -147,6 +147,14 @@ def download_imc2025(data_path: Path) -> None:
     ) as archive:
         archive.extractall(path=data_path)
 
+    # Move all scenes to the "all" category sub-folder.
+    category_path = data_path / "train/all"
+    category_path.mkdir(parents=True, exist_ok=True)
+    for scene in (data_path / "train").iterdir():
+        if str(scene).endswith("/all"):
+            continue
+        shutil.move(scene, data_path / category_path)
+
 
 # TODO: BlendedMVS+ and BlendedMVS++.
 def download_blended_mvs(data_path: Path) -> None:
