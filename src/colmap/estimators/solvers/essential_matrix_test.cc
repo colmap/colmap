@@ -39,13 +39,6 @@
 namespace colmap {
 namespace {
 
-// Rejection thresholds used by RandomEpipolarCorrespondences to condition a
-// minimal sample: minimum depth in front of either camera, and minimum parallax
-// between the two rays as sin^2 of their angle (1 - a^2 in the cheirality
-// form).
-constexpr double kMinDepth = 0.2;
-constexpr double kMinParallax = 1e-2;  // ~5.7 degrees.
-
 // Generates a random relative pose with a unit-norm baseline. Bounding the
 // baseline away from zero avoids the (near) pure-rotation degeneracy, where the
 // essential matrix vanishes and the cheirality of every correspondence becomes
@@ -55,29 +48,15 @@ Rigid3d TestCam2FromCam1() {
                  Eigen::Vector3d::Random().normalized());
 }
 
-// When reject_degenerate is set, resamples correspondences that make a minimal
-// 5-point solve ill-conditioned (near-zero depth or near-parallel rays). Only
-// the minimal case needs this; larger samples are robust to such points.
 void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
                                    size_t num_rays,
-                                   bool reject_degenerate,
                                    std::vector<Eigen::Vector3d>& rays1,
                                    std::vector<Eigen::Vector3d>& rays2) {
   for (size_t i = 0; i < num_rays; ++i) {
-    Eigen::Vector3d ray1;
-    Eigen::Vector3d point_in_cam2;
-    bool degenerate;
-    do {
-      ray1 = Eigen::Vector3d::Random().normalized();
-      const double random_depth = RandomUniformReal<double>(kMinDepth, 2.0);
-      point_in_cam2 = cam2_from_cam1 * (random_depth * ray1);
-      const Eigen::Vector3d ray1_in_cam2 = cam2_from_cam1.rotation() * ray1;
-      const double cos_parallax = ray1_in_cam2.dot(point_in_cam2.normalized());
-      degenerate = point_in_cam2.norm() < kMinDepth ||
-                   1.0 - cos_parallax * cos_parallax < kMinParallax;
-    } while (reject_degenerate && degenerate);
-    rays1.push_back(ray1);
-    rays2.push_back(point_in_cam2.normalized());
+    rays1.push_back(Eigen::Vector3d::Random().normalized());
+    const double random_depth = RandomUniformReal<double>(0.2, 2.0);
+    rays2.push_back(
+        (cam2_from_cam1 * (random_depth * rays1.back())).normalized());
   }
 }
 
@@ -113,9 +92,8 @@ class EssentialMatrixFivePointEstimatorTests
 TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
-  // The minimal case has no redundancy, so it conditions its sample to stay
-  // well-posed and accepts the solver's numerical accuracy with a looser
-  // tolerance.
+  // The minimal case has no redundancy, so its recovered E is only accurate to
+  // the solver's numerical limit and is checked with a looser tolerance.
   const bool is_minimal =
       kNumRays == EssentialMatrixFivePointEstimator::kMinNumSamples;
   for (size_t k = 0; k < 100; ++k) {
@@ -123,11 +101,7 @@ TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(cam2_from_cam1,
-                                  kNumRays,
-                                  /*reject_degenerate=*/is_minimal,
-                                  rays1,
-                                  rays2);
+    RandomEpipolarCorrespondences(cam2_from_cam1, kNumRays, rays1, rays2);
 
     EssentialMatrixFivePointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
@@ -157,8 +131,7 @@ TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(
-        cam2_from_cam1, kNumRays, /*reject_degenerate=*/false, rays1, rays2);
+    RandomEpipolarCorrespondences(cam2_from_cam1, kNumRays, rays1, rays2);
 
     EssentialMatrixEightPointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
