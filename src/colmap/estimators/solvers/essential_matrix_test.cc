@@ -44,7 +44,7 @@ void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
                                    std::vector<Eigen::Vector3d>& rays1,
                                    std::vector<Eigen::Vector3d>& rays2) {
   for (size_t i = 0; i < num_rays; ++i) {
-    rays1.push_back(Eigen::Vector3d::Random());
+    rays1.push_back(Eigen::Vector3d::Random().normalized());
     const double random_depth = RandomUniformReal<double>(0.2, 2.0);
     rays2.push_back(
         (cam2_from_cam1 * (random_depth * rays1.back())).normalized());
