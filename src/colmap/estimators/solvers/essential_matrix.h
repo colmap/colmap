@@ -139,7 +139,7 @@ class EssentialMatrixLMEstimator {
 
   // The minimum number of samples needed to refine a model, i.e. the five
   // degrees of freedom of the essential matrix. The self-seeding Estimate()
-  // overload additionally requires at least eight rays for its eight-point
+  // method additionally requires at least eight rays for its eight-point
   // initialization.
   static const int kMinNumSamples = 5;
 
@@ -155,7 +155,9 @@ class EssentialMatrixLMEstimator {
                        const std::vector<Y_t>& cam_rays2,
                        std::vector<M_t>* models);
 
-  // Refine an essential matrix starting from an initial model.
+  // Refine an essential matrix starting from an initial model. This is the
+  // entry point used by LO-RANSAC for local optimization (see
+  // SupportsRefineWithInitialModel in loransac.h).
   //
   // Returns a single refined model. On a degenerate decomposition the initial
   // model is returned unchanged.
@@ -164,10 +166,10 @@ class EssentialMatrixLMEstimator {
   // @param cam_rays2  Second set of corresponding rays.
   // @param initial_E  Initial essential matrix to refine from.
   // @param models     Output refined essential matrix (1 model).
-  static void Estimate(const std::vector<X_t>& cam_rays1,
-                       const std::vector<Y_t>& cam_rays2,
-                       const M_t& initial_E,
-                       std::vector<M_t>* models);
+  static void Refine(const std::vector<X_t>& cam_rays1,
+                     const std::vector<Y_t>& cam_rays2,
+                     const M_t& initial_E,
+                     std::vector<M_t>* models);
 
   // Calculate the residuals of a set of corresponding rays and a given
   // essential matrix. Residuals are defined as the squared Sampson error.

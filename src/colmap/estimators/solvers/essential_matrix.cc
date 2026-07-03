@@ -283,13 +283,13 @@ void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
     return;
   }
 
-  Estimate(cam_rays1, cam_rays2, init_models[0], models);
+  Refine(cam_rays1, cam_rays2, init_models[0], models);
 }
 
-void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
-                                          const std::vector<Y_t>& cam_rays2,
-                                          const M_t& initial_E,
-                                          std::vector<M_t>* models) {
+void EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
+                                        const std::vector<Y_t>& cam_rays2,
+                                        const M_t& initial_E,
+                                        std::vector<M_t>* models) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
   THROW_CHECK(models != nullptr);

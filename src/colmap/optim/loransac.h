@@ -49,18 +49,18 @@ namespace colmap {
 
 namespace internal {
 
-// Detects whether a local estimator provides an Estimate overload that takes an
-// initial model: `Estimate(X, Y, initial_model, models)`. If so, LO-RANSAC
-// passes the current best model as the initial value for the local optimization
-// (e.g. a nonlinear refiner that starts from the current model). Estimators
-// without this overload use `Estimate(X, Y, models)` and are unaffected.
+// Detects whether a local estimator provides a Refine method that takes an
+// initial model: `Refine(X, Y, initial_model, models)`. If so, LO-RANSAC passes
+// the current best model as the initial value for the local optimization (e.g.
+// a nonlinear refiner that starts from the current model). Estimators without a
+// Refine method use `Estimate(X, Y, models)` and are unaffected.
 template <typename Estimator, typename = void>
-struct SupportsEstimateWithInitialModel : std::false_type {};
+struct SupportsRefineWithInitialModel : std::false_type {};
 
 template <typename Estimator>
-struct SupportsEstimateWithInitialModel<
+struct SupportsRefineWithInitialModel<
     Estimator,
-    std::void_t<decltype(std::declval<Estimator&>().Estimate(
+    std::void_t<decltype(std::declval<Estimator&>().Refine(
         std::declval<const std::vector<typename Estimator::X_t>&>(),
         std::declval<const std::vector<typename Estimator::Y_t>&>(),
         std::declval<const typename Estimator::M_t&>(),
@@ -265,11 +265,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
               }
 
               local_models.clear();
-              if constexpr (internal::SupportsEstimateWithInitialModel<
+              if constexpr (internal::SupportsRefineWithInitialModel<
                                 LocalEstimator>::value) {
                 // Initialize the local optimization with the current best
                 // model.
-                thread_local_estimator.Estimate(
+                thread_local_estimator.Refine(
                     X_inlier, Y_inlier, *local_best_model, &local_models);
               } else {
                 thread_local_estimator.Estimate(

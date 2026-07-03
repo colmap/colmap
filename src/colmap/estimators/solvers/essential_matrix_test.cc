@@ -181,7 +181,7 @@ TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
 
     EssentialMatrixLMEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
-    estimator.Estimate(rays1, rays2, seed_E, &models);
+    estimator.Refine(rays1, rays2, seed_E, &models);
     ASSERT_EQ(models.size(), 1);
 
     // The refined model must match the ground truth, i.e. the refinement pulled
