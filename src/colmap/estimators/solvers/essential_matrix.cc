@@ -29,9 +29,11 @@
 
 #include "colmap/estimators/solvers/essential_matrix.h"
 
-#include "colmap/estimators/cost_functions/tangent_sampson_error.h"
+#include "colmap/estimators/cost_functions/tiny_manifold.h"
+#include "colmap/estimators/cost_functions/tiny_sampson_error.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/polynomial.h"
+#include "colmap/math/tiny_solver.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
@@ -39,10 +41,18 @@
 #include <Eigen/LU>
 #include <Eigen/SVD>
 #include <PoseLib/solvers/relpose_5pt.h>
-#include <ceres/tiny_solver.h>
 #include <ceres/tiny_solver_autodiff_function.h>
 
 namespace colmap {
+namespace {
+
+// The 5-DoF manifold of a relative pose (rotation on SO(3), translation on the
+// unit sphere), matching the block layout of Rigid3d::params
+// ([qx, qy, qz, qw, tx, ty, tz]).
+using RelativePoseManifold =
+    ProductManifold<EigenQuaternionManifold, SphereManifold<3>>;
+
+}  // namespace
 
 void EssentialMatrixFivePointEstimator::Estimate(
     const std::vector<X_t>& cam_rays1,
@@ -229,25 +239,27 @@ bool FastRefineRelativePose(const std::vector<Eigen::Vector3d>& cam_rays1,
     return false;
   }
 
-  const TangentRelativePose tangent(*cam2_from_cam1);
-  TangentSampsonErrorCostFunctor functor(tangent, cam_rays1, cam_rays2);
+  // Refine the full 7-parameter pose directly; the solver applies the relative
+  // pose manifold (rotation on SO(3), translation on the unit sphere).
+  TinySampsonErrorCostFunctor functor(cam_rays1, cam_rays2);
   using AutoDiffFunction =
-      ceres::TinySolverAutoDiffFunction<TangentSampsonErrorCostFunctor,
+      ceres::TinySolverAutoDiffFunction<TinySampsonErrorCostFunctor,
                                         Eigen::Dynamic,
-                                        5>;
+                                        7>;
   AutoDiffFunction f(functor);
-  ceres::TinySolver<AutoDiffFunction> solver;
+  colmap::TinySolver<AutoDiffFunction, RelativePoseManifold> solver;
   solver.options.max_num_iterations = 25;
-  Eigen::Matrix<double, 5, 1> x = Eigen::Matrix<double, 5, 1>::Zero();
+
+  Eigen::Matrix<double, 7, 1> x;
+  x.head<4>() = cam2_from_cam1->rotation().normalized().coeffs();
+  x.tail<3>() = cam2_from_cam1->translation().normalized();
   solver.Solve(f, &x);
 
-  Eigen::Matrix3d R;
-  Eigen::Vector3d t;
-  tangent.BoxPlus(x.data(), &R, &t);
-  if (!R.allFinite() || !t.allFinite()) {
+  if (!x.allFinite()) {
     return false;
   }
-  *cam2_from_cam1 = Rigid3d(Eigen::Quaterniond(R), t);
+  const Eigen::Quaterniond rotation(x.data());
+  *cam2_from_cam1 = Rigid3d(rotation.normalized(), x.tail<3>());
   return true;
 }
 
