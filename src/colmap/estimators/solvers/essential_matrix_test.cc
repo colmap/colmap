@@ -187,7 +187,8 @@ TEST_P(EssentialMatrixLMEstimatorTests, Nominal) {
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(cam2_from_cam1, kNumRays, rays1, rays2);
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, kNumRays, /*reject_degenerate=*/false, rays1, rays2);
 
     EssentialMatrixLMEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
@@ -210,7 +211,8 @@ TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(cam2_from_cam1, 50, rays1, rays2);
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, 50, /*reject_degenerate=*/false, rays1, rays2);
 
     // Build a seed model by perturbing the ground-truth pose.
     const Eigen::Quaterniond seed_rotation =
