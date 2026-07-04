@@ -251,9 +251,10 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
       cam2_from_cam1.rotation().toRotationMatrix();
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
     // Solve the 2x2 system for the depths of the point along both rays; both
-    // must be positive for the point to lie in front of both cameras. The
-    // common positive factor 1 / (1 - a^2) is dropped since it does not affect
-    // the sign (a = cos angle between the rays, so |a| <= 1).
+    // must be positive for the point to lie in front of both cameras. This
+    // assumes unit-norm rays: the common positive factor 1 / (1 - a^2) is
+    // dropped since it does not affect the sign (a = cos angle between the
+    // rays, so |a| <= 1).
     const Eigen::Vector3d ray1_in_cam2 = cam2_from_cam1_rot * cam_rays1[i];
     const double a = -ray1_in_cam2.dot(cam_rays2[i]);
     const double b1 = -ray1_in_cam2.dot(cam2_from_cam1.translation());
