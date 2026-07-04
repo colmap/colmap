@@ -316,7 +316,7 @@ void EssentialMatrixLMEstimator::Residuals(const std::vector<X_t>& cam_rays1,
                                            const std::vector<Y_t>& cam_rays2,
                                            const M_t& E,
                                            std::vector<double>* residuals) {
-  ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
+  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
 }
 
 }  // namespace colmap
