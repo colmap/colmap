@@ -148,6 +148,112 @@ implementation of BLAS. If you decide to compile against OpenBLAS instead of
 MKL, you must install and select the OpenMP version under Debian/Ubuntu because
 of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
 
+Fedora
+------
+
+*Recommended dependencies:* CUDA (at least version 11.X)
+
+Dependencies from the default Fedora repositories::
+
+    sudo dnf install -y \
+        git \
+        cmake \
+        ninja-build \
+        gcc-c++ \
+        boost-devel \
+        eigen3-devel \
+        flann-devel \
+        freeimage-devel \
+        OpenImageIO-devel \
+        metis-devel \
+        glog-devel \
+        gflags-devel \
+        sqlite-devel \
+        lz4-devel \
+        glew-devel \
+        qt5-qtbase-devel \
+        qt5-qtsvg-devel \
+        CGAL-devel \
+        ceres-solver-devel \
+        suitesparse-devel \
+        suitesparse-static \
+        blas-devel \
+        lapack-devel
+
+A few Fedora-specific notes on the above:
+
+- CGAL is packaged as ``CGAL-devel`` (capitalized), unlike Debian/Ubuntu's
+  ``libcgal-dev``.
+- COLMAP 4.1.0+ requires OpenImageIO instead of FreeImage; on Fedora this is
+  ``OpenImageIO-devel``.
+- ``suitesparse-static`` is required even for a dynamic build. Fedora splits
+  static libraries into separate ``-static`` subpackages, but the SuiteSparse
+  CMake config shipped on Fedora unconditionally references the static
+  targets file regardless of link type, causing a CMake configure error
+  (``CAMDTargets_static.cmake`` / ``CCOLAMDTargets_static.cmake`` not found)
+  if the subpackage isn't installed. This should be resolved as Fedora's
+  package catches up with SuiteSparse >= 7.11.0's separated static config.
+
+To compile with **CUDA support**, install the CUDA toolkit from NVIDIA's
+official Fedora repository (this preserves an existing NVIDIA driver
+installation, unlike the plain ``cuda`` meta-package)::
+
+    sudo dnf config-manager addrepo --from-repofile=https://developer.download.nvidia.com/compute/cuda/repos/fedora<VERSION>/x86_64/cuda-fedora<VERSION>.repo
+    sudo dnf clean expire-cache
+    sudo dnf install -y cuda-toolkit
+
+    echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
+    echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+    source ~/.bashrc
+
+Replace ``<VERSION>`` with your Fedora release number (e.g. ``43``). During
+CMake configuration, specify ``-DCMAKE_CUDA_ARCHITECTURES=native`` to target
+only your current GPU, or a specific compute capability such as ``89``.
+
+**Known issue:** Ceres 2.2's bundled ``FindGlog.cmake`` module can fail with::
+
+    CMake Error at /usr/lib64/cmake/Ceres/FindGlog.cmake:349 (add_library):
+      add_library cannot create imported target "glog::glog" because another
+      target with the same name already exists.
+
+This happens because glog's own exported CMake config already creates the
+``glog::glog`` target before Ceres's bundled module unconditionally tries to
+create it again. Until this is fixed upstream in Ceres, patch the file to
+guard the ``add_library`` call::
+
+    sudo cp /usr/lib64/cmake/Ceres/FindGlog.cmake /usr/lib64/cmake/Ceres/FindGlog.cmake.bak
+
+Change::
+
+      add_library(glog::glog INTERFACE IMPORTED)
+      target_include_directories(glog::glog INTERFACE ${GLOG_INCLUDE_DIRS})
+      target_link_libraries(glog::glog INTERFACE ${GLOG_LIBRARY})
+      glog_reset_find_library_prefix()
+
+to::
+
+      if (NOT TARGET glog::glog)
+      add_library(glog::glog INTERFACE IMPORTED)
+      target_include_directories(glog::glog INTERFACE ${GLOG_INCLUDE_DIRS})
+      target_link_libraries(glog::glog INTERFACE ${GLOG_LIBRARY})
+      endif()
+      glog_reset_find_library_prefix()
+
+Configure and compile COLMAP::
+
+    git clone https://github.com/colmap/colmap.git
+    cd colmap
+    mkdir build
+    cd build
+    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=native
+    ninja
+    sudo ninja install
+
+Run COLMAP::
+
+    colmap -h
+    colmap gui
+
 Mac
 ---
 
