@@ -37,7 +37,7 @@ double ComputeGravityAligned1DOFResidual(double angle_12,
 }
 
 std::unordered_map<frame_t, const PosePrior*> ExtractFrameToPosePrior(
-    const std::unordered_map<image_t, Image>& images,
+    const NodeHashMap<image_t, Image>& images,
     const std::vector<PosePrior>& pose_priors) {
   std::unordered_map<image_t, frame_t> image_to_frame;
   image_to_frame.reserve(images.size());

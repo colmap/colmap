@@ -27,42 +27,59 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/util/memory.h"
 
-#include "colmap/scene/reconstruction.h"
+#include <cstring>
+#include <memory>
 
-#include <functional>
-#include <unordered_map>
-#include <vector>
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-// Helper method to extract sorted camera, image, point3D identifiers.
-// We sort the identifiers before writing to the stream, such that we produce
-// deterministic output independent of standard library dependent ordering of
-// the unordered map container.
-template <typename ID_TYPE, typename DATA_TYPE>
-std::vector<ID_TYPE> ExtractSortedIds(
-    const NodeHashMap<ID_TYPE, DATA_TYPE>& data,
-    const std::function<bool(const DATA_TYPE&)>& filter = nullptr) {
-  std::vector<ID_TYPE> ids;
-  ids.reserve(data.size());
-  for (const auto& [id, d] : data) {
-    if (filter == nullptr || filter(d)) {
-      ids.push_back(id);
-    }
-  }
-  std::sort(ids.begin(), ids.end());
-  return ids;
+// On supported platforms the peak RSS should be a plausible non-zero value.
+// On unsupported platforms the helper returns 0, which we tolerate.
+TEST(Memory, PeakRSSIsPlausibleOrZero) {
+  const size_t peak = GetPeakRSSBytes();
+#if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
+  EXPECT_GT(peak, 0u);
+  // A running test process uses more than 1 MB but far less than 1 TB.
+  EXPECT_LT(peak, size_t{1} << 40);
+#else
+  EXPECT_EQ(peak, 0u);
+#endif
 }
 
-void CreateOneRigPerCamera(Reconstruction& reconstruction);
+TEST(Memory, PeakRSSDoesNotDecreaseAfterLargeAllocation) {
+#if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
+  const size_t before = GetPeakRSSBytes();
+  ASSERT_GT(before, 0u);
 
-void CreateFrameForImage(const Image& image,
-                         const Rigid3d& cam_from_world,
-                         Reconstruction& reconstruction);
+  // Allocate and touch ~256 MB so the pages become resident.
+  constexpr size_t kNumBytes = size_t{256} << 20;
+  auto buffer = std::make_unique<char[]>(kNumBytes);
+  std::memset(buffer.get(), 1, kNumBytes);
+  // Prevent the compiler from optimizing the allocation away.
+  volatile char sink = buffer[kNumBytes - 1];
+  (void)sink;
 
-std::unordered_map<image_t, Frame*> ExtractImageToFramePtr(
-    Reconstruction& reconstruction);
+  const size_t after = GetPeakRSSBytes();
+  // Peak RSS is a high-water mark, so it must never decrease.
+  EXPECT_GE(after, before);
+#else
+  GTEST_SKIP() << "GetPeakRSSBytes not supported on this platform.";
+#endif
+}
 
+TEST(Memory, CurrentRSSIsPlausibleOrZero) {
+  const size_t current = GetCurrentRSSBytes();
+#if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
+  EXPECT_GT(current, 0u);
+  EXPECT_LE(current, GetPeakRSSBytes());
+#else
+  EXPECT_EQ(current, 0u);
+#endif
+}
+
+}  // namespace
 }  // namespace colmap

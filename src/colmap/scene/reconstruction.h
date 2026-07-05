@@ -36,6 +36,7 @@
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
 #include "colmap/sensor/rig.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -86,12 +87,12 @@ class Reconstruction {
   inline struct Point3D& Point3D(point3D_t point3D_id);
 
   // Get reference to all objects.
-  inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
-  inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
-  inline const std::unordered_map<frame_t, class Frame>& Frames() const;
+  inline const NodeHashMap<rig_t, class Rig>& Rigs() const;
+  inline const NodeHashMap<camera_t, struct Camera>& Cameras() const;
+  inline const NodeHashMap<frame_t, class Frame>& Frames() const;
   inline const std::vector<frame_t>& RegFrameIds() const;
-  inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
+  inline const NodeHashMap<image_t, class Image>& Images() const;
+  inline const NodeHashMap<point3D_t, struct Point3D>& Points3D() const;
 
   // Identifiers of all registered images.
   std::vector<image_t> RegImageIds() const;
@@ -290,11 +291,11 @@ class Reconstruction {
   std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
       double min_percentile, double max_percentile, bool use_images) const;
 
-  std::unordered_map<rig_t, class Rig> rigs_;
-  std::unordered_map<camera_t, struct Camera> cameras_;
-  std::unordered_map<frame_t, class Frame> frames_;
-  std::unordered_map<image_t, class Image> images_;
-  std::unordered_map<point3D_t, struct Point3D> points3D_;
+  NodeHashMap<rig_t, class Rig> rigs_;
+  NodeHashMap<camera_t, struct Camera> cameras_;
+  NodeHashMap<frame_t, class Frame> frames_;
+  NodeHashMap<image_t, class Image> images_;
+  NodeHashMap<point3D_t, struct Point3D> points3D_;
 
   // Unique set of frame_ids where `Frame(frame_id).HasPose() == true`.
   // Note that we intentionally use a vector instead of a set here leading
@@ -419,19 +420,17 @@ struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
   }
 }
 
-const std::unordered_map<rig_t, Rig>& Reconstruction::Rigs() const {
-  return rigs_;
-}
+const NodeHashMap<rig_t, Rig>& Reconstruction::Rigs() const { return rigs_; }
 
-const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
+const NodeHashMap<camera_t, Camera>& Reconstruction::Cameras() const {
   return cameras_;
 }
 
-const std::unordered_map<frame_t, class Frame>& Reconstruction::Frames() const {
+const NodeHashMap<frame_t, class Frame>& Reconstruction::Frames() const {
   return frames_;
 }
 
-const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
+const NodeHashMap<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
@@ -439,7 +438,7 @@ const std::vector<frame_t>& Reconstruction::RegFrameIds() const {
   return reg_frame_ids_;
 }
 
-const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
+const NodeHashMap<point3D_t, Point3D>& Reconstruction::Points3D() const {
   return points3D_;
 }
 

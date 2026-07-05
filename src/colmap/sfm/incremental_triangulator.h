@@ -32,6 +32,7 @@
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/containers.h"
 
 #include <memory>
 
@@ -143,6 +144,8 @@ class IncrementalTriangulator {
   void AddModifiedPoint3D(point3D_t point3D_id);
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
+  // Kept as std::unordered_set (not a flat alias) because it flows into the
+  // broad point3D-id filtering API (ObservationManager::FilterPoints3D*, etc.).
   const std::unordered_set<point3D_t>& GetModifiedPoints3D();
 
   // Clear the collection of changed 3D points.
@@ -202,13 +205,13 @@ class IncrementalTriangulator {
   std::shared_ptr<ObservationManager> obs_manager_;
 
   // Cache for cameras with bogus parameters.
-  std::unordered_map<camera_t, bool> camera_has_bogus_params_;
+  FlatHashMap<camera_t, bool> camera_has_bogus_params_;
 
   // Cache for tried track merges to avoid duplicate merge trials. Keyed on
   // a canonical (min, max) pair of 3D-point ids so each attempted merge is
   // recorded once with a single hashmap operation in either direction.
   // Uses the colmap::PairHash functor from colmap/util/types.h.
-  std::unordered_set<std::pair<point3D_t, point3D_t>, PairHash> merge_trials_;
+  FlatHashSet<std::pair<point3D_t, point3D_t>, PairHash> merge_trials_;
 
   // Cache for found correspondences in the graph.
   std::vector<CorrespondenceGraph::Correspondence> found_corrs_;
@@ -222,13 +225,15 @@ class IncrementalTriangulator {
   // shared across multiple parents at the same transitivity level. Uses
   // the std::hash<std::pair<uint32_t, uint32_t>> specialization in
   // colmap/util/types.h.
-  std::unordered_set<std::pair<image_t, point2D_t>> complete_visited_;
+  FlatHashSet<std::pair<image_t, point2D_t>> complete_visited_;
 
   // Number of trials to retriangulate image pair.
-  std::unordered_map<image_pair_t, int> re_num_trials_;
+  FlatHashMap<image_pair_t, int> re_num_trials_;
 
   // Changed 3D points, i.e. if a 3D point is modified (created, continued,
-  // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called.
+  // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called. Kept as
+  // std::unordered_set: it is returned by GetModifiedPoints3D() and passed into
+  // the point3D-id filtering API, which uses std::unordered_set throughout.
   std::unordered_set<point3D_t> modified_point3D_ids_;
 };
 

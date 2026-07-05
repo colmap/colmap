@@ -133,7 +133,7 @@ class DelaunayMeshingInput {
     uint32_t num_visible_images = 0;
   };
 
-  std::unordered_map<camera_t, Camera> cameras;
+  NodeHashMap<camera_t, Camera> cameras;
   std::vector<Image> images;
   std::vector<Point> points;
 

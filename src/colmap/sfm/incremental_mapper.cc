@@ -91,8 +91,8 @@ void IncrementalMapper::BeginReconstruction(
   }
 
   existing_frame_ids_ =
-      std::unordered_set<image_t>(reconstruction->RegFrameIds().begin(),
-                                  reconstruction->RegFrameIds().end());
+      FlatHashSet<frame_t>(reconstruction->RegFrameIds().begin(),
+                           reconstruction->RegFrameIds().end());
 
   filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
@@ -1330,11 +1330,11 @@ IncrementalTriangulator& IncrementalMapper::Triangulator() const {
   return *triangulator_;
 }
 
-const std::unordered_set<frame_t>& IncrementalMapper::FilteredFrames() const {
+const FlatHashSet<frame_t>& IncrementalMapper::FilteredFrames() const {
   return filtered_frames_;
 }
 
-const std::unordered_set<image_t>& IncrementalMapper::ExistingFrameIds() const {
+const FlatHashSet<frame_t>& IncrementalMapper::ExistingFrameIds() const {
   return existing_frame_ids_;
 }
 
@@ -1343,12 +1343,11 @@ void IncrementalMapper::ResetInitializationStats() {
   reg_stats_.init_num_reg_trials.clear();
 }
 
-const std::unordered_map<rig_t, size_t>& IncrementalMapper::NumRegFramesPerRig()
-    const {
+const FlatHashMap<rig_t, size_t>& IncrementalMapper::NumRegFramesPerRig() const {
   return reg_stats_.num_reg_frames_per_rig;
 }
 
-const std::unordered_map<camera_t, size_t>&
+const FlatHashMap<camera_t, size_t>&
 IncrementalMapper::NumRegImagesPerCamera() const {
   return reg_stats_.num_reg_images_per_camera;
 }

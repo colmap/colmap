@@ -59,6 +59,18 @@
                 "gtest"
             ]
         },
+        "hashmap-boost": {
+            "description": "Dependencies for the boost::unordered hash map backend (COLMAP_HASH_MAP_BACKEND=BOOST).",
+            "dependencies": [
+                "boost-unordered"
+            ]
+        },
+        "hashmap-absl": {
+            "description": "Dependencies for the Abseil hash map backend (COLMAP_HASH_MAP_BACKEND=ABSL).",
+            "dependencies": [
+                "abseil"
+            ]
+        },
         "cuda": {
             "description": "Build with CUDA support.",
             "dependencies": [

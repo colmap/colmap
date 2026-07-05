@@ -65,9 +65,9 @@ float PointColormapBase::AdjustScale(const float gray) {
 }
 
 void PointColormapPhotometric::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
+    NodeHashMap<camera_t, Camera>& cameras,
+    NodeHashMap<image_t, Image>& images,
+    NodeHashMap<point3D_t, Point3D>& points3D,
     std::vector<image_t>& reg_image_ids) {}
 
 Eigen::Vector4f PointColormapPhotometric::ComputeColor(
@@ -79,9 +79,9 @@ Eigen::Vector4f PointColormapPhotometric::ComputeColor(
 }
 
 void PointColormapError::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
+    NodeHashMap<camera_t, Camera>& cameras,
+    NodeHashMap<image_t, Image>& images,
+    NodeHashMap<point3D_t, Point3D>& points3D,
     std::vector<image_t>& reg_image_ids) {
   std::vector<float> errors;
   errors.reserve(points3D.size());
@@ -103,9 +103,9 @@ Eigen::Vector4f PointColormapError::ComputeColor(const point3D_t point3D_id,
 }
 
 void PointColormapTrackLen::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
+    NodeHashMap<camera_t, Camera>& cameras,
+    NodeHashMap<image_t, Image>& images,
+    NodeHashMap<point3D_t, Point3D>& points3D,
     std::vector<image_t>& reg_image_ids) {
   std::vector<float> track_lengths;
   track_lengths.reserve(points3D.size());
@@ -127,9 +127,9 @@ Eigen::Vector4f PointColormapTrackLen::ComputeColor(const point3D_t point3D_id,
 }
 
 void PointColormapGroundResolution::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
+    NodeHashMap<camera_t, Camera>& cameras,
+    NodeHashMap<image_t, Image>& images,
+    NodeHashMap<point3D_t, Point3D>& points3D,
     std::vector<image_t>& reg_image_ids) {
   std::vector<float> resolutions;
   resolutions.reserve(points3D.size());
@@ -217,9 +217,9 @@ const Eigen::Vector4f ImageColormapBase::kDefaultFrameColor = {
 ImageColormapBase::ImageColormapBase() {}
 
 void ImageColormapUniform::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
+    NodeHashMap<camera_t, Camera>& cameras,
+    NodeHashMap<image_t, Image>& images,
+    NodeHashMap<point3D_t, Point3D>& points3D,
     std::vector<image_t>& reg_image_ids) {}
 
 void ImageColormapUniform::ComputeColor(const Image& image,
@@ -230,9 +230,9 @@ void ImageColormapUniform::ComputeColor(const Image& image,
 }
 
 void ImageColormapNameFilter::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
+    NodeHashMap<camera_t, Camera>& cameras,
+    NodeHashMap<image_t, Image>& images,
+    NodeHashMap<point3D_t, Point3D>& points3D,
     std::vector<image_t>& reg_image_ids) {}
 
 void ImageColormapNameFilter::AddColorForWord(

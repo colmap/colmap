@@ -104,8 +104,8 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const IncrementalMapper::Options& options,
     const CorrespondenceGraph& correspondence_graph,
     const Reconstruction& reconstruction,
-    const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-    const std::unordered_map<image_t, size_t>& num_registrations) {
+    const FlatHashMap<image_t, size_t>& init_num_reg_trials,
+    const FlatHashMap<image_t, size_t>& num_registrations) {
   const size_t init_max_reg_trials =
       static_cast<size_t>(options.init_max_reg_trials);
 
@@ -148,7 +148,7 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     image_t image_id1,
     const CorrespondenceGraph& correspondence_graph,
     const Reconstruction& reconstruction,
-    const std::unordered_map<image_t, size_t>& num_registrations) {
+    const FlatHashMap<image_t, size_t>& num_registrations) {
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
   const class Image& image1 = reconstruction.Image(image_id1);
@@ -189,9 +189,9 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
     const DatabaseCache& database_cache,
     const Reconstruction& reconstruction,
-    const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-    const std::unordered_map<image_t, size_t>& num_registrations,
-    std::unordered_set<image_pair_t>& init_image_pairs,
+    const FlatHashMap<image_t, size_t>& init_num_reg_trials,
+    const FlatHashMap<image_t, size_t>& num_registrations,
+    FlatHashSet<image_pair_t>& init_image_pairs,
     image_t& image_id1,
     image_t& image_id2,
     Rigid3d& cam2_from_cam1) {
@@ -309,8 +309,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
     const ObservationManager& obs_manager,
-    const std::unordered_set<frame_t>& filtered_frames,
-    std::unordered_map<image_t, size_t>& num_reg_trials,
+    const FlatHashSet<frame_t>& filtered_frames,
+    FlatHashMap<image_t, size_t>& num_reg_trials,
     bool structure_less) {
   THROW_CHECK(options.Check());
   const Reconstruction& reconstruction = obs_manager.Reconstruction();

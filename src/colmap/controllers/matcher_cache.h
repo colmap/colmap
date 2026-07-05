@@ -36,6 +36,7 @@
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/cache.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/types.h"
 
 #include <memory>
@@ -101,9 +102,9 @@ class FeatureMatcherCache {
   const size_t cache_size_;
   const std::shared_ptr<Database> database_;
   std::mutex database_mutex_;
-  std::unique_ptr<std::unordered_map<camera_t, Camera>> cameras_cache_;
-  std::unique_ptr<std::unordered_map<frame_t, Frame>> frames_cache_;
-  std::unique_ptr<std::unordered_map<image_t, Image>> images_cache_;
+  std::unique_ptr<NodeHashMap<camera_t, Camera>> cameras_cache_;
+  std::unique_ptr<NodeHashMap<frame_t, Frame>> frames_cache_;
+  std::unique_ptr<NodeHashMap<image_t, Image>> images_cache_;
   std::unique_ptr<std::unordered_map<image_t, PosePrior>> pose_priors_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureKeypoints>>
       keypoints_cache_;

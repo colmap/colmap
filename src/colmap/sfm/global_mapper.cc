@@ -185,7 +185,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
             << uf.Parents().size() << " observations";
 
   // Validate tracks, check consistency, and collect valid ones with lengths.
-  std::unordered_map<point3D_t, Point3D> candidate_points3D;
+  NodeHashMap<point3D_t, Point3D> candidate_points3D;
   std::vector<std::pair<size_t, point3D_t>> track_lengths;
   size_t discarded_counter = 0;
   point3D_t next_point3D_id = 0;

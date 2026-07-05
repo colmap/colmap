@@ -198,7 +198,7 @@ void ReestimateRelativePoses(
 FocalLengthCalibResult CalibrateFocalLengths(
     const ViewGraphCalibrationOptions& options,
     const std::vector<FocalLengthCalibInput>& inputs,
-    const std::unordered_map<camera_t, Camera>& cameras) {
+    const NodeHashMap<camera_t, Camera>& cameras) {
   FocalLengthCalibResult result;
 
   if (inputs.empty()) {
@@ -351,7 +351,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   THROW_CHECK_NOTNULL(database);
 
   // Read cameras and build image_id -> camera mapping.
-  std::unordered_map<camera_t, Camera> cameras;
+  NodeHashMap<camera_t, Camera> cameras;
   for (Camera& camera : database->ReadAllCameras()) {
     cameras[camera.camera_id] = std::move(camera);
   }

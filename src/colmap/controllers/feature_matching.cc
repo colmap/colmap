@@ -47,7 +47,7 @@ void RigVerification(const std::shared_ptr<Database>& database,
                      const std::shared_ptr<FeatureMatcherCache>& cache,
                      const TwoViewGeometryOptions& geometry_options,
                      const int num_threads) {
-  std::unordered_map<rig_t, Rig> rigs;
+  NodeHashMap<rig_t, Rig> rigs;
   for (auto& rig : database->ReadAllRigs()) {
     rigs[rig.RigId()] = std::move(rig);
   }
@@ -100,9 +100,9 @@ void RigVerification(const std::shared_ptr<Database>& database,
       const Rig& rig1 = rigs.at(frame1.RigId());
       const Rig& rig2 = rigs.at(frame2.RigId());
 
-      std::unordered_map<image_t, Image> images;
+      NodeHashMap<image_t, Image> images;
       images.reserve(frame1.NumDataIds() + frame2.NumDataIds());
-      std::unordered_map<camera_t, Camera> cameras;
+      NodeHashMap<camera_t, Camera> cameras;
       cameras.reserve(images.size());
       auto add_images_and_cameras = [&cache, &images, &cameras](
                                         const Frame& frame) {

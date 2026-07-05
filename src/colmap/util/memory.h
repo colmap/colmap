@@ -29,40 +29,19 @@
 
 #pragma once
 
-#include "colmap/scene/reconstruction.h"
-
-#include <functional>
-#include <unordered_map>
-#include <vector>
+#include <cstddef>
 
 namespace colmap {
 
-// Helper method to extract sorted camera, image, point3D identifiers.
-// We sort the identifiers before writing to the stream, such that we produce
-// deterministic output independent of standard library dependent ordering of
-// the unordered map container.
-template <typename ID_TYPE, typename DATA_TYPE>
-std::vector<ID_TYPE> ExtractSortedIds(
-    const NodeHashMap<ID_TYPE, DATA_TYPE>& data,
-    const std::function<bool(const DATA_TYPE&)>& filter = nullptr) {
-  std::vector<ID_TYPE> ids;
-  ids.reserve(data.size());
-  for (const auto& [id, d] : data) {
-    if (filter == nullptr || filter(d)) {
-      ids.push_back(id);
-    }
-  }
-  std::sort(ids.begin(), ids.end());
-  return ids;
-}
+// Peak resident set size (high-water mark of physical memory) of the current
+// process, in bytes. Returns 0 if the value cannot be determined on the current
+// platform. Used to measure the memory footprint of the reconstruction in
+// benchmarks. Supported: macOS (mach), Linux (getrusage/procfs), Windows
+// (GetProcessMemoryInfo).
+size_t GetPeakRSSBytes();
 
-void CreateOneRigPerCamera(Reconstruction& reconstruction);
-
-void CreateFrameForImage(const Image& image,
-                         const Rigid3d& cam_from_world,
-                         Reconstruction& reconstruction);
-
-std::unordered_map<image_t, Frame*> ExtractImageToFramePtr(
-    Reconstruction& reconstruction);
+// Current (instantaneous) resident set size of the current process, in bytes.
+// Returns 0 if it cannot be determined.
+size_t GetCurrentRSSBytes();
 
 }  // namespace colmap

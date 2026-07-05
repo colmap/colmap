@@ -31,6 +31,7 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
@@ -186,8 +187,12 @@ class CorrespondenceGraph {
   };
 
   bool finalized_ = false;
-  std::unordered_map<image_t, Image> images_;
-  std::unordered_map<image_pair_t, ImagePair> image_pairs_;
+  // image_pairs_ is only inserted into during graph construction and is
+  // read-only after Finalize(), so a flat (open-addressing) map is safe and
+  // faster. images_ hands out const Image& references during correspondence
+  // traversal, so it uses a node-based map to keep those references stable.
+  NodeHashMap<image_t, Image> images_;
+  FlatHashMap<image_pair_t, ImagePair> image_pairs_;
 };
 
 std::ostream& operator<<(

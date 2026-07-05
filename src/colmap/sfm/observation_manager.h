@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
 #include "colmap/scene/visibility_pyramid.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
@@ -65,8 +66,7 @@ class ObservationManager {
   inline const class Reconstruction& Reconstruction() const;
   inline class Reconstruction& Reconstruction();
 
-  inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
-      const;
+  inline const FlatHashMap<image_pair_t, ImagePairStat>& ImagePairs() const;
 
   // Add image stats for streaming/online SfM, so that the image can be
   // registered and triangulated without rebuilding the ObservationManager.
@@ -226,8 +226,11 @@ class ObservationManager {
 
   class Reconstruction& reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
-  std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
-  std::unordered_map<image_t, ImageStat> image_stats_;
+  // These stat maps are fully populated at construction and only their values
+  // are mutated thereafter (no key insert/erase during mapping), so a flat map
+  // is safe and faster.
+  FlatHashMap<image_pair_t, ImagePairStat> image_pair_stats_;
+  FlatHashMap<image_t, ImageStat> image_stats_;
 };
 
 std::ostream& operator<<(std::ostream& stream,
@@ -241,7 +244,7 @@ class Reconstruction& ObservationManager::Reconstruction() {
   return reconstruction_;
 }
 
-const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
+const FlatHashMap<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {
   return image_pair_stats_;
 }

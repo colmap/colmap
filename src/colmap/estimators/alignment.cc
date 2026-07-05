@@ -549,7 +549,7 @@ bool MergeReconstructions(const double max_reproj_error,
 }
 
 bool AlignReconstructionToOrigRigScales(
-    const std::unordered_map<rig_t, Rig>& orig_rigs,
+    const NodeHashMap<rig_t, Rig>& orig_rigs,
     Reconstruction* reconstruction) {
   double scale_sum = 0;
   int scale_count = 0;

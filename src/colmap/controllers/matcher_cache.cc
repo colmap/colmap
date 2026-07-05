@@ -247,7 +247,7 @@ void FeatureMatcherCache::MaybeLoadCameras() {
   }
 
   std::vector<Camera> cameras = database_->ReadAllCameras();
-  cameras_cache_ = std::make_unique<std::unordered_map<camera_t, Camera>>();
+  cameras_cache_ = std::make_unique<NodeHashMap<camera_t, Camera>>();
   cameras_cache_->reserve(cameras.size());
   for (Camera& camera : cameras) {
     cameras_cache_->emplace(camera.camera_id, std::move(camera));
@@ -261,7 +261,7 @@ void FeatureMatcherCache::MaybeLoadFrames() {
   }
 
   std::vector<Frame> frames = database_->ReadAllFrames();
-  frames_cache_ = std::make_unique<std::unordered_map<frame_t, Frame>>();
+  frames_cache_ = std::make_unique<NodeHashMap<frame_t, Frame>>();
   frames_cache_->reserve(frames.size());
   for (Frame& frame : frames) {
     frames_cache_->emplace(frame.FrameId(), std::move(frame));
@@ -277,7 +277,7 @@ void FeatureMatcherCache::MaybeLoadImages() {
   }
 
   std::vector<Image> images = database_->ReadAllImages();
-  images_cache_ = std::make_unique<std::unordered_map<image_t, Image>>();
+  images_cache_ = std::make_unique<NodeHashMap<image_t, Image>>();
   images_cache_->reserve(images.size());
   for (Image& image : images) {
     images_cache_->emplace(image.ImageId(), std::move(image));

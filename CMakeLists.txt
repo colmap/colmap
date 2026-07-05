@@ -65,6 +65,14 @@ option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for V
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
 
+# Hash map backend used by the performance-critical scene/SfM containers (see
+# src/colmap/util/containers.h). One of: STD, BOOST, ABSL, ANKERL. Intended for
+# benchmarking the impact of the container implementation on the mapper.
+set(COLMAP_HASH_MAP_BACKEND "STD" CACHE STRING
+    "Hash map backend for scene/SfM containers: STD, BOOST, ABSL or ANKERL")
+set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS
+    STD BOOST ABSL ANKERL)
+
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
     if(CASPAR_USE_DOUBLE)

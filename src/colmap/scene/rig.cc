@@ -138,13 +138,13 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
                                      Reconstruction* reconstruction) {
   const std::vector<Frame> database_frames = database.ReadAllFrames();
 
-  std::unordered_map<rig_t, Rig> database_rigs;
+  NodeHashMap<rig_t, Rig> database_rigs;
   database_rigs.reserve(database.NumRigs());
   for (auto& rig : database.ReadAllRigs()) {
     database_rigs.emplace(rig.RigId(), std::move(rig));
   }
 
-  std::unordered_map<rig_t, Rig> reconstruction_rigs;
+  NodeHashMap<rig_t, Rig> reconstruction_rigs;
   reconstruction_rigs.reserve(database_rigs.size());
 
   // Create O(1) lookup table from image names to images.
@@ -213,7 +213,7 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
   });
 
   // Update reconstruction frames.
-  std::unordered_map<frame_t, Frame> reconstruction_frames;
+  NodeHashMap<frame_t, Frame> reconstruction_frames;
   reconstruction_frames.reserve(database_frames.size());
   visit_frame_data([&](const Frame& database_frame,
                        const Image& database_image,

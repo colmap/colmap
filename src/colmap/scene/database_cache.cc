@@ -206,10 +206,13 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
     const std::unordered_set<frame_t>& load_frame_ids =
         options.load_all_images ? frame_ids : connected_frame_ids;
 
-    // Remove frames that should not be loaded.
+    // Remove frames that should not be loaded. Use erase(it++) rather than
+    // it = erase(it) so the code is portable across hash map backends (some,
+    // e.g. Abseil, return void from erase()); frames_ is node-based, so
+    // advancing past the erased element first is safe.
     for (auto it = frames_.begin(); it != frames_.end();) {
       if (load_frame_ids.count(it->first) == 0) {
-        it = frames_.erase(it);
+        frames_.erase(it++);
       } else {
         ++it;
       }

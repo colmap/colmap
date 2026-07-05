@@ -233,7 +233,7 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  std::unordered_map<rig_t, Rig> orig_rigs = reconstruction.Rigs();
+  NodeHashMap<rig_t, Rig> orig_rigs = reconstruction.Rigs();
 
   reconstruction.Transform(TestSim3d());
   AlignReconstructionToOrigRigScales(orig_rigs, &reconstruction);

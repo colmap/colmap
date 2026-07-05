@@ -25,7 +25,7 @@ bool UseGravity(const RotationEstimatorOptions& options,
   return options.use_gravity && HasGravityPriors(pose_priors);
 }
 
-bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
+bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
   bool all_known = true;
   for (const auto& [rig_id, rig] : rigs) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {

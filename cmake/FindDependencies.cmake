@@ -21,6 +21,35 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              OPTIONAL_COMPONENTS
              system)
 
+# Hash map backend selection for the scene/SfM containers. Adds the compile
+# definition consumed by src/colmap/util/containers.h and pulls in the backend's
+# dependency (include path and/or link libraries). See COLMAP_HASH_MAP_BACKEND.
+string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
+set(COLMAP_HASH_MAP_LINK_LIBS "")
+set(COLMAP_HASH_MAP_INCLUDE_DIRS "")
+if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
+elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
+    # boost-unordered is header-only and provided by the Boost::boost target.
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_BOOST)
+elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "ABSL")
+    find_package(absl ${COLMAP_FIND_TYPE})
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_ABSL)
+    set(COLMAP_HASH_MAP_LINK_LIBS
+        absl::flat_hash_map
+        absl::flat_hash_set
+        absl::node_hash_map
+        absl::node_hash_set)
+elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "ANKERL")
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_ANKERL)
+    set(COLMAP_HASH_MAP_INCLUDE_DIRS
+        ${CMAKE_SOURCE_DIR}/src/thirdparty/unordered_dense)
+else()
+    message(FATAL_ERROR "Unknown COLMAP_HASH_MAP_BACKEND "
+            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST, ABSL or ANKERL)")
+endif()
+message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend")
+
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
 find_package(OpenImageIO ${COLMAP_FIND_TYPE})

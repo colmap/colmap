@@ -35,6 +35,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         base_controller.h base_controller.cc
         cache.h
+        containers.h
         controller_thread.h
         eigen_alignment.h
         endian.h endian.cc
@@ -42,6 +43,7 @@ COLMAP_ADD_LIBRARY(
         file.h file.cc
         logging.h logging.cc
         glog_macros.h
+        memory.h memory.cc
         misc.h misc.cc
         oiio_utils.h oiio_utils.cc
         opengl_utils.h opengl_utils.cc
@@ -60,6 +62,20 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
+# Hash map backend dependency (see containers.h). PUBLIC so the backend's
+# headers/libraries propagate to every module that transitively includes
+# containers.h through colmap_util.
+if(COLMAP_HASH_MAP_LINK_LIBS)
+    target_link_libraries(colmap_util PUBLIC ${COLMAP_HASH_MAP_LINK_LIBS})
+endif()
+if(COLMAP_HASH_MAP_INCLUDE_DIRS)
+    # Wrap in BUILD_INTERFACE because the vendored path lives in the source tree
+    # and colmap_util is an exported target.
+    foreach(_hash_inc ${COLMAP_HASH_MAP_INCLUDE_DIRS})
+        target_include_directories(colmap_util SYSTEM PUBLIC
+            $<BUILD_INTERFACE:${_hash_inc}>)
+    endforeach()
+endif()
 if(DOWNLOAD_ENABLED)
     target_link_libraries(colmap_util PRIVATE CURL::libcurl)
     if(TARGET cryptopp::cryptopp)
@@ -195,6 +211,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME logging_test
     SRCS logging_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME memory_test
+    SRCS memory_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(

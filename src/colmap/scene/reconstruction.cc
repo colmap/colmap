@@ -362,7 +362,9 @@ void Reconstruction::TearDown() {
       keep_rig_ids.insert(frame_it->second.RigId());
       ++frame_it;
     } else {
-      frame_it = frames_.erase(frame_it);
+      // erase(it++) rather than it = erase(it): portable across hash map
+      // backends (Abseil's erase() returns void); frames_ is node-based.
+      frames_.erase(frame_it++);
     }
   }
 
@@ -379,7 +381,7 @@ void Reconstruction::TearDown() {
             break;
         }
       }
-      it = rigs_.erase(it);
+      rigs_.erase(it++);
     } else {
       ++it;
     }
@@ -871,7 +873,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   std::unordered_map<image_t, image_t> old_to_new_image_ids;
   old_to_new_image_ids.reserve(NumImages());
 
-  std::unordered_map<image_t, class Image> new_images;
+  NodeHashMap<image_t, class Image> new_images;
   new_images.reserve(NumImages());
 
   for (auto& [_, image] : images_) {

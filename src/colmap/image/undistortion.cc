@@ -271,7 +271,7 @@ void UndistortImage(const UndistortCameraOptions& options,
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
-  const std::unordered_map<camera_t, Camera> distorted_cameras =
+  const NodeHashMap<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
     // IsUndistorted() is true for non-perspective cameras (e.g.
