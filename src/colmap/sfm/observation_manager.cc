@@ -34,7 +34,7 @@
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <cassert>

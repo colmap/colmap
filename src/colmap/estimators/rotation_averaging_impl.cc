@@ -5,7 +5,7 @@
 #include "colmap/math/random.h"
 #include "colmap/optim/least_absolute_deviations.h"
 #include "colmap/optim/sparse_cholesky.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <algorithm>
 #include <limits>

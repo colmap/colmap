@@ -2,8 +2,8 @@
 
 #include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/math/random.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 

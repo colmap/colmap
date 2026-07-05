@@ -33,8 +33,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
 #include "colmap/scene/visibility_pyramid.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/enum_utils.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 namespace colmap {

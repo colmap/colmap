@@ -29,10 +29,9 @@
 
 #include "colmap/util/types.h"
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <limits>
-#include <unordered_set>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

@@ -29,10 +29,9 @@
 
 #pragma once
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace colmap {

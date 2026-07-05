@@ -3,11 +3,8 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
-
-#include <unordered_map>
-#include <unordered_set>
 
 namespace colmap {
 

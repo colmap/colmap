@@ -2,7 +2,7 @@
 
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <string>
 

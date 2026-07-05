@@ -34,8 +34,8 @@
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 

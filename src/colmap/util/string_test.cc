@@ -29,7 +29,7 @@
 
 #include "colmap/util/string.h"
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <locale>
 

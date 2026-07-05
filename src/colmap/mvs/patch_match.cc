@@ -33,15 +33,14 @@
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/patch_match_cuda.h"
 #include "colmap/mvs/workspace.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
 #include <numeric>
 #include <set>
-#include <unordered_set>
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl
 

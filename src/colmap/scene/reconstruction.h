@@ -36,13 +36,11 @@
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
 #include "colmap/sensor/rig.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>

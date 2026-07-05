@@ -29,7 +29,7 @@
 
 #include "colmap/scene/reconstruction_io_utils.h"
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 

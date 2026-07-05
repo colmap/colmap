@@ -32,12 +32,11 @@
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 namespace colmap {

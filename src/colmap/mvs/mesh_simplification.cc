@@ -30,7 +30,7 @@
 #include "colmap/mvs/mesh_simplification.h"
 
 #include "colmap/math/math.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
@@ -38,7 +38,6 @@
 #include <array>
 #include <cmath>
 #include <queue>
-#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Dense>

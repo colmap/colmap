@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/timer.h"
 
 #include <climits>
@@ -40,7 +40,6 @@
 #include <string>
 #include <thread>
 #include <type_traits>
-#include <unordered_map>
 
 namespace colmap {
 

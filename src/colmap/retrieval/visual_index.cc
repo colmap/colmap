@@ -31,9 +31,9 @@
 
 #include "colmap/retrieval/inverted_index.h"
 #include "colmap/retrieval/vote_and_verify.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 

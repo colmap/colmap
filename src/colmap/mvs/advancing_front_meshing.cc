@@ -29,7 +29,7 @@
 
 #include "colmap/mvs/advancing_front_meshing.h"
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #if defined(COLMAP_CGAL_ENABLED)
@@ -56,7 +56,6 @@
 #include <atomic>
 #include <cstdint>
 #include <limits>
-#include <unordered_map>
 #include <vector>
 
 #include <CGAL/AABB_face_graph_triangle_primitive.h>

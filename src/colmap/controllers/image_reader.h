@@ -31,11 +31,9 @@
 
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <filesystem>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace colmap {

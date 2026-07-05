@@ -32,7 +32,7 @@
 #include "colmap/math/connected_components.h"
 #include "colmap/math/math.h"
 #include "colmap/math/union_find.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {

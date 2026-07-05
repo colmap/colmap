@@ -41,12 +41,11 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
 #include <algorithm>
-#include <unordered_set>
 
 #include <Eigen/Geometry>
 

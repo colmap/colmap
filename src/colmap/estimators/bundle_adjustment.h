@@ -31,12 +31,11 @@
 
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
+#include "colmap/util/hash_containers.h"
 
 #include <memory>
-#include <unordered_set>
 
 #include <Eigen/Core>
 

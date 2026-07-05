@@ -33,14 +33,12 @@
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 
 #include <Eigen/Core>
 

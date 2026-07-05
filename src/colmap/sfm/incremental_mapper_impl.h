@@ -33,7 +33,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 

@@ -31,7 +31,7 @@
 
 #include "colmap/optim/random_sampler.h"
 #include "colmap/scene/database_sqlite.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <numeric>
 

@@ -36,9 +36,9 @@
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>

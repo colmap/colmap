@@ -31,7 +31,7 @@
 
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/projection.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 namespace {
@@ -411,10 +411,10 @@ void IncrementalTriangulator::AddModifiedPoint3D(const point3D_t point3D_id) {
 
 const FlatHashSet<point3D_t>& IncrementalTriangulator::GetModifiedPoints3D() {
   // First remove any missing 3D points from the set. Collect the ids to remove
-  // and erase them by key rather than via an iterator loop: erase-by-key is
-  // portable across all hash map backends, whereas iterator-based erase in a
-  // loop has backend-specific semantics for flat containers (e.g. Abseil's
-  // erase() returns void, ankerl swap-removes and invalidates iterators).
+  // and erase them by key rather than via an iterator loop:
+  // modified_point3D_ids_ is a flat (open-addressing) set whose erase can
+  // invalidate other iterators, so an iterator-based erase loop would be
+  // unsafe. Erase-by-key is safe.
   std::vector<point3D_t> missing_point3D_ids;
   for (const point3D_t point3D_id : modified_point3D_ids_) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {

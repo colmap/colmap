@@ -33,8 +33,8 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 
 #include <fstream>
 #include <locale>

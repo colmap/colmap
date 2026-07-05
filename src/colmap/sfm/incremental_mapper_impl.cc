@@ -33,7 +33,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 
 #include <array>

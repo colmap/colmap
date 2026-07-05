@@ -35,7 +35,7 @@
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <map>
 #include <utility>

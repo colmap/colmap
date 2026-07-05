@@ -3,7 +3,7 @@
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 

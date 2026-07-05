@@ -29,10 +29,8 @@
 
 #include "colmap/optim/support_measurement.h"
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
-
-#include <unordered_set>
 
 namespace colmap {
 

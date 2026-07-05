@@ -29,7 +29,7 @@
 
 #include "colmap/mvs/texture_mapping.h"
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
@@ -38,7 +38,6 @@
 #include <cmath>
 #include <cstdint>
 #include <queue>
-#include <unordered_map>
 #include <variant>
 
 #include <Eigen/Core>

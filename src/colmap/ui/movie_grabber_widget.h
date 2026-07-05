@@ -30,12 +30,11 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
-#include <unordered_map>
 
 namespace colmap {
 

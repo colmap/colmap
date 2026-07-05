@@ -29,11 +29,9 @@
 
 #include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <queue>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace colmap {

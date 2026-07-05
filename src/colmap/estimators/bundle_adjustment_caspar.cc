@@ -5,8 +5,8 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar/caspar_model_adapter.h"

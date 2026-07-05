@@ -36,13 +36,12 @@
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/cache.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <unordered_map>
 
 namespace colmap {
 

@@ -31,7 +31,7 @@
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <gmock/gmock.h>

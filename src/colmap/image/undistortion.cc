@@ -32,7 +32,7 @@
 #include "colmap/image/warp.h"
 #include "colmap/math/math.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 

@@ -32,12 +32,11 @@
 #include "colmap/controllers/matcher_cache.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
-#include <unordered_set>
 
 namespace colmap {
 

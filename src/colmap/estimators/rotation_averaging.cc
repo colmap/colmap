@@ -4,7 +4,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <algorithm>
 #include <queue>

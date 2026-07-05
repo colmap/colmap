@@ -6,7 +6,7 @@
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/pose_graph.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <pybind11/eigen.h>
@@ -16,9 +16,9 @@
 namespace py = pybind11;
 
 // The scene element stores use colmap::NodeHashMap, whose concrete type depends
-// on the selected hash map backend (see colmap/util/containers.h). Alias the
-// opaque bound map types to match so the Reconstruction/DatabaseCache accessors
-// bind correctly under any backend.
+// on the selected hash map backend (see colmap/util/hash_containers.h). Alias
+// the opaque bound map types to match so the Reconstruction/DatabaseCache
+// accessors bind correctly under any backend.
 using RigMap = colmap::NodeHashMap<colmap::rig_t, colmap::Rig>;
 PYBIND11_MAKE_OPAQUE(RigMap);
 
@@ -45,10 +45,11 @@ PYBIND11_MAKE_OPAQUE(PoseGraphEdgeMap);
 // casters for the colmap flat/node hash aliases used by non-opaque bindings
 // (e.g. ObservationManager::ImagePairs, IncrementalMapper::FilteredFrames,
 // BundleAdjustmentConfig::VariablePoints, the FilterPoints3D* parameters).
-// These are only needed when an alias resolves to a non-std container; for the
-// STD backend the aliases are std:: types already covered by pybind11.
-#if defined(COLMAP_HASH_BOOST) || defined(COLMAP_HASH_ABSL) || \
-    defined(COLMAP_HASH_ANKERL)
+// These are only needed for the BOOST backend; for the STD backend the aliases
+// are std:: types already covered by pybind11. The opaque bound maps
+// (RigMap/CameraMap/... via PYBIND11_MAKE_OPAQUE above) are full
+// specializations that take precedence over the generic NodeHashMap caster.
+#if defined(COLMAP_HASH_BOOST)
 namespace pybind11 {
 namespace detail {
 
@@ -59,18 +60,6 @@ struct type_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>>
 template <typename Key, typename Hash, typename Equal>
 struct type_caster<colmap::FlatHashSet<Key, Hash, Equal>>
     : set_caster<colmap::FlatHashSet<Key, Hash, Equal>, Key> {};
-
-}  // namespace detail
-}  // namespace pybind11
-#endif
-
-// boost/abseil provide distinct node-based containers; ankerl has no node
-// variant so its Node* aliases resolve to std:: (already handled by pybind11).
-// The opaque bound maps (RigMap/CameraMap/... via PYBIND11_MAKE_OPAQUE above)
-// are full specializations that take precedence over these generic casters.
-#if defined(COLMAP_HASH_BOOST) || defined(COLMAP_HASH_ABSL)
-namespace pybind11 {
-namespace detail {
 
 template <typename Key, typename Value, typename Hash, typename Equal>
 struct type_caster<colmap::NodeHashMap<Key, Value, Hash, Equal>>

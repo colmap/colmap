@@ -33,16 +33,14 @@
 #include "colmap/retrieval/geometry.h"
 #include "colmap/retrieval/inverted_file_entry.h"
 #include "colmap/retrieval/utils.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <algorithm>
 #include <bitset>
 #include <cstdint>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>

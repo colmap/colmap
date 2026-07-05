@@ -31,7 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/ui/render_options.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 using RGBAColor = Eigen::Matrix<uint8_t, 4, 1>;
 

@@ -31,7 +31,7 @@
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 

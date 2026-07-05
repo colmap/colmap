@@ -40,14 +40,13 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sfm/observation_manager.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
 #include <fstream>
 #include <locale>
-#include <unordered_map>
 
 namespace colmap {
 namespace {

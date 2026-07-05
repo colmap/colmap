@@ -30,7 +30,7 @@
 #include "colmap/scene/scene_clustering.h"
 
 #include "colmap/math/graph_cut.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <set>
 

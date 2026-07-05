@@ -36,7 +36,7 @@
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sfm/incremental_mapper_impl.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <array>
 

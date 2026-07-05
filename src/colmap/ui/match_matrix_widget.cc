@@ -29,7 +29,7 @@
 
 #include "colmap/ui/match_matrix_widget.h"
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 

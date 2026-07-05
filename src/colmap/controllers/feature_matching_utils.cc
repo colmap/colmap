@@ -32,15 +32,13 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 
 #if defined(COLMAP_CUDA_ENABLED)
 #include <cuda_runtime.h>
 #endif
-
-#include <unordered_set>
 
 namespace colmap {
 

@@ -32,10 +32,9 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <optional>
-#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>

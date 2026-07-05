@@ -35,8 +35,8 @@
 #include "colmap/math/random.h"
 #include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 
 #include <Eigen/Geometry>
 

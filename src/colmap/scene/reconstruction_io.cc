@@ -29,8 +29,8 @@
 
 #include "colmap/scene/reconstruction_io.h"
 
-#include "colmap/util/containers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
 

@@ -34,8 +34,8 @@
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/utils.h"
 #include "colmap/scene/database.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 

@@ -29,10 +29,9 @@
 
 #pragma once
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
-#include <unordered_map>
 #include <vector>
 
 #if defined(__GNUC__) && !defined(__clang__)

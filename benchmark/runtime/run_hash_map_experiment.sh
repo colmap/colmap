@@ -2,10 +2,10 @@
 #
 # Build-matrix driver for the hash map backend experiment.
 #
-# For each backend (STD, BOOST, ABSL, ANKERL) this script configures a dedicated
-# Release build directory, builds the incremental mapping benchmark, and runs it,
-# emitting one JSON result file per backend. It then prints a comparison of
-# end-to-end runtime and peak RSS relative to the STD baseline.
+# For each backend (STD, BOOST) this script configures a dedicated Release build
+# directory, builds the incremental mapping benchmark, and runs it, emitting one
+# JSON result file per backend. It then prints a comparison of end-to-end
+# runtime and peak RSS relative to the STD baseline.
 #
 # Usage:
 #   benchmark/runtime/run_hash_map_experiment.sh [backend ...]
@@ -13,7 +13,7 @@
 # Environment:
 #   COLMAP_BENCHMARK_DATABASE_PATH  Real database to benchmark
 #                                   (default: ~/data/south-building/database.db)
-#   BACKENDS                        Space-separated backends (default: all four)
+#   BACKENDS                        Space-separated backends (default: STD BOOST)
 #   BENCH_FILTER                    Google-benchmark --benchmark_filter regex
 #   CMAKE_EXTRA_ARGS                Extra args forwarded to the configure step
 #
@@ -24,7 +24,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${REPO_ROOT}"
 
-BACKENDS="${*:-${BACKENDS:-STD BOOST ABSL ANKERL}}"
+BACKENDS="${*:-${BACKENDS:-STD BOOST}}"
 RESULT_DIR="${REPO_ROOT}/benchmark_hashmap_results"
 mkdir -p "${RESULT_DIR}"
 

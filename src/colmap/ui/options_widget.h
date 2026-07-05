@@ -29,12 +29,11 @@
 
 #pragma once
 
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <QtCore>
 #include <QtWidgets>
 #include <filesystem>
-#include <unordered_map>
 
 namespace colmap {
 

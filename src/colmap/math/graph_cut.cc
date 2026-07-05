@@ -29,9 +29,7 @@
 
 #include "colmap/math/graph_cut.h"
 
-#include "colmap/util/containers.h"
-
-#include <unordered_map>
+#include "colmap/util/hash_containers.h"
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push

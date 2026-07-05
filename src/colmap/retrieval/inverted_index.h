@@ -31,14 +31,12 @@
 
 #include "colmap/math/random.h"
 #include "colmap/retrieval/inverted_file.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/hash_containers.h"
 
 #include <bitset>
 #include <cstdint>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>

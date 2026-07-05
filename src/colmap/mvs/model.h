@@ -30,12 +30,11 @@
 #pragma once
 
 #include "colmap/mvs/image.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <filesystem>
 #include <map>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace colmap {

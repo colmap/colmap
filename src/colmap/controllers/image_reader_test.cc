@@ -31,8 +31,8 @@
 
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>

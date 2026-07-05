@@ -31,11 +31,10 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/scene/two_view_geometry.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
-#include <unordered_map>
 #include <vector>
 
 namespace colmap {

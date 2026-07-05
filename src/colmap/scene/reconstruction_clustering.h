@@ -30,11 +30,9 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
-
-#include <unordered_map>
 
 namespace colmap {
 

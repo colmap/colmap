@@ -30,10 +30,8 @@
 #pragma once
 
 #include "colmap/math/union_find.h"
-#include "colmap/util/containers.h"
+#include "colmap/util/hash_containers.h"
 
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace colmap {

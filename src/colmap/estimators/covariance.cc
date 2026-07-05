@@ -30,9 +30,7 @@
 #include "colmap/estimators/covariance.h"
 
 #include "colmap/estimators/cost_functions/manifold.h"
-#include "colmap/util/containers.h"
-
-#include <unordered_set>
+#include "colmap/util/hash_containers.h"
 
 #include <ceres/crs_matrix.h>
 

@@ -29,9 +29,7 @@
 
 #include "colmap/optim/progressive_sampler.h"
 
-#include "colmap/util/containers.h"
-
-#include <unordered_set>
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 

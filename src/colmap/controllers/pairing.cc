@@ -32,15 +32,13 @@
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/retrieval/resources.h"
-#include "colmap/util/containers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <faiss/IndexFlat.h>
