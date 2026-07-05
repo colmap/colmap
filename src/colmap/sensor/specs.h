@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "colmap/util/containers.h"
+
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -37,7 +39,7 @@ namespace colmap {
 
 // { make1 : ({ model1 : sensor-width in mm }, ...), ... }
 using camera_make_specs_t = std::vector<std::pair<std::string, float>>;
-using camera_specs_t = std::unordered_map<std::string, camera_make_specs_t>;
+using camera_specs_t = NodeHashMap<std::string, camera_make_specs_t>;
 
 camera_specs_t InitializeCameraSpecs();
 

@@ -97,7 +97,7 @@ class Reconstruction {
   // Identifiers of all registered images.
   std::vector<image_t> RegImageIds() const;
   // Identifiers of all 3D points.
-  std::unordered_set<point3D_t> Point3DIds() const;
+  FlatHashSet<point3D_t> Point3DIds() const;
 
   // Check whether specific object exists.
   inline bool ExistsRig(rig_t rig_id) const;

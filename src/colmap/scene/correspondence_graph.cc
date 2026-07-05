@@ -29,6 +29,7 @@
 
 #include "colmap/scene/correspondence_graph.h"
 
+#include "colmap/util/containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 
@@ -37,9 +38,9 @@
 
 namespace colmap {
 
-std::unordered_map<image_pair_t, point2D_t>
+NodeHashMap<image_pair_t, point2D_t>
 CorrespondenceGraph::NumMatchesBetweenAllImages() const {
-  std::unordered_map<image_pair_t, point2D_t> num_matches_between_images;
+  NodeHashMap<image_pair_t, point2D_t> num_matches_between_images;
   num_matches_between_images.reserve(image_pairs_.size());
   for (const auto& [pair_id, pair] : image_pairs_) {
     num_matches_between_images.emplace(pair_id, pair.num_matches);

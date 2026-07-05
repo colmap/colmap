@@ -33,6 +33,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
@@ -56,9 +57,9 @@ struct FocalLengthCalibInput {
 // Result of focal length calibration.
 struct FocalLengthCalibResult {
   // Optimized focal lengths per camera.
-  std::unordered_map<camera_t, double> focal_lengths;
+  NodeHashMap<camera_t, double> focal_lengths;
   // Squared calibration error per image pair (unitless, relative error).
-  std::unordered_map<image_pair_t, double> calibration_errors_sq;
+  NodeHashMap<image_pair_t, double> calibration_errors_sq;
   // Whether the calibration succeeded.
   bool success = false;
 };
@@ -68,11 +69,11 @@ struct FocalLengthCalibResult {
 // CALIBRATED if both cameras have reliable priors.
 void CrossValidatePriorFocalLengths(
     double min_calibrated_pair_ratio,
-    const std::unordered_map<image_t, const Camera*>& image_id_to_camera,
+    const NodeHashMap<image_t, const Camera*>& image_id_to_camera,
     std::vector<std::pair<image_pair_t, TwoViewGeometry>>& pairs) {
   // For each camera, count the number of calibrated vs uncalibrated pairs.
   // first: total count, second: calibrated count.
-  std::unordered_map<camera_t, std::pair<int, int>> camera_counter;
+  NodeHashMap<camera_t, std::pair<int, int>> camera_counter;
   for (const auto& [pair_id, tvg] : pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
@@ -92,7 +93,7 @@ void CrossValidatePriorFocalLengths(
   }
 
   // Camera is valid if the ratio of calibrated pairs exceeds threshold.
-  std::unordered_map<camera_t, bool> camera_validity;
+  NodeHashMap<camera_t, bool> camera_validity;
   camera_validity.reserve(camera_counter.size());
   for (const auto& [camera_id, counter] : camera_counter) {
     const auto [total, calibrated] = counter;
@@ -132,7 +133,7 @@ void CrossValidatePriorFocalLengths(
 void ReestimateRelativePoses(
     const ViewGraphCalibrationOptions& options,
     std::vector<std::pair<image_pair_t, TwoViewGeometry>>& pairs,
-    const std::unordered_map<image_t, const Camera*>& image_id_to_camera,
+    const NodeHashMap<image_t, const Camera*>& image_id_to_camera,
     Database* database) {
   LOG(INFO) << "Re-estimating relative poses for " << pairs.size() << " pairs";
 
@@ -144,7 +145,7 @@ void ReestimateRelativePoses(
   two_view_options.ransac_options.random_seed = options.random_seed;
 
   // Pre-read all keypoints from database.
-  std::unordered_set<image_t> image_ids;
+  FlatHashSet<image_t> image_ids;
   image_ids.reserve(2 * pairs.size());
   for (const auto& [pair_id, tvg] : pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -152,7 +153,7 @@ void ReestimateRelativePoses(
     image_ids.insert(image_id2);
   }
 
-  std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_points;
+  NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_points;
   image_points.reserve(image_ids.size());
   for (const image_t image_id : image_ids) {
     const FeatureKeypoints keypoints = database->ReadKeypoints(image_id);
@@ -211,7 +212,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
     double optimized = 0.0;
     double initial = 0.0;
   };
-  std::unordered_map<camera_t, FocalLengthState> focal_lengths;
+  NodeHashMap<camera_t, FocalLengthState> focal_lengths;
   focal_lengths.reserve(cameras.size());
   for (const auto& [camera_id, camera] : cameras) {
     if (camera.IsPerspective()) {
@@ -355,7 +356,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   for (Camera& camera : database->ReadAllCameras()) {
     cameras[camera.camera_id] = std::move(camera);
   }
-  std::unordered_map<image_t, const Camera*> image_id_to_camera;
+  NodeHashMap<image_t, const Camera*> image_id_to_camera;
   for (const Image& image : database->ReadAllImages()) {
     image_id_to_camera[image.ImageId()] = &cameras.at(image.CameraId());
   }

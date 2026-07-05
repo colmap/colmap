@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "colmap/util/containers.h"
+
 #include <functional>
 #include <list>
 #include <unordered_map>
@@ -66,7 +68,7 @@ class BaseController {
 
  private:
   // list of callbacks
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
+  NodeHashMap<int, std::list<std::function<void()>>> callbacks_;
   // check_if_stop function
   std::function<bool()> check_if_stopped_fn_;
 };

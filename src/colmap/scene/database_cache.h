@@ -60,7 +60,7 @@ class DatabaseCache {
     // Whether to use only load the data for a subset of the images. Notice
     // that if one image of a frame is included, all other images in the same
     // frame will also be included. All images are used if empty.
-    std::unordered_set<std::string> image_names;
+    FlatHashSet<std::string> image_names;
 
     // Whether to load all candidate images regardless of whether they have
     // correspondences. If false (default), only images that participate in at

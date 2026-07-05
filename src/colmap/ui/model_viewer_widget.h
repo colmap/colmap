@@ -39,6 +39,7 @@
 #include "colmap/ui/point_painter.h"
 #include "colmap/ui/point_viewer_widget.h"
 #include "colmap/ui/triangle_painter.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/ply.h"
 
 #include <QOpenGLFunctions_3_2_Core>

@@ -35,6 +35,7 @@
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/containers.h"
 
 #include <unordered_map>
 #include <vector>

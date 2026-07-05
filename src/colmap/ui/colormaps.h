@@ -113,7 +113,7 @@ class PointColormapGroundResolution : public PointColormapBase {
                                const Point3D& point3D) override;
 
  private:
-  std::unordered_map<point3D_t, float> resolutions_;
+  FlatHashMap<point3D_t, float> resolutions_;
 };
 
 // Base class for image color mapping.

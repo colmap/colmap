@@ -29,6 +29,8 @@
 
 #include "colmap/controllers/matcher_cache.h"
 
+#include "colmap/util/containers.h"
+
 namespace colmap {
 
 FeatureMatcherCache::FeatureMatcherCache(
@@ -294,8 +296,7 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
   }
 
   std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
-  pose_priors_cache_ =
-      std::make_unique<std::unordered_map<image_t, PosePrior>>();
+  pose_priors_cache_ = std::make_unique<NodeHashMap<image_t, PosePrior>>();
   pose_priors_cache_->reserve(pose_priors.size());
   for (PosePrior& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {

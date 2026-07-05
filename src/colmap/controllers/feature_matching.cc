@@ -34,6 +34,7 @@
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/utils.h"
 #include "colmap/scene/database.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -52,7 +53,7 @@ void RigVerification(const std::shared_ptr<Database>& database,
     rigs[rig.RigId()] = std::move(rig);
   }
 
-  std::unordered_map<image_t, frame_t> image_to_frame_ids;
+  NodeHashMap<image_t, frame_t> image_to_frame_ids;
   for (const auto& frame : database->ReadAllFrames()) {
     for (const data_t& data_id : frame.ImageIds()) {
       image_to_frame_ids[data_id.id] = frame.FrameId();
@@ -405,7 +406,7 @@ class FeaturePairsFeatureMatcher : public Thread {
     Timer run_timer;
     run_timer.Start();
 
-    std::unordered_map<std::string, const Image*> image_name_to_image;
+    NodeHashMap<std::string, const Image*> image_name_to_image;
     image_name_to_image.reserve(cache_->GetImageIds().size());
     for (const auto image_id : cache_->GetImageIds()) {
       const auto& image = cache_->GetImage(image_id);

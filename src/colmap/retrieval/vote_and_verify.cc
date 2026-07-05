@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/solvers/affine_transform.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
@@ -248,7 +249,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   // Fill the multi-resolution voting histogram.
   //////////////////////////////////////////////////////////////////////////////
 
-  std::vector<std::unordered_map<size_t, VotingBin>> bins(options.num_levels);
+  std::vector<NodeHashMap<size_t, VotingBin>> bins(options.num_levels);
   for (auto& levelBins : bins) {
     levelBins.reserve(num_matches);
   }

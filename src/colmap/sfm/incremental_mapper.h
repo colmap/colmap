@@ -134,11 +134,11 @@ class IncrementalMapper {
 
     // List of rigs for which to fix the sensor_from_rig transformation,
     // independent of ba_refine_sensor_from_rig.
-    std::unordered_set<rig_t> constant_rigs;
+    FlatHashSet<rig_t> constant_rigs;
 
     // List of cameras for which to fix the camera parameters independent
     // of refine_focal_length, refine_principal_point, and refine_extra_params.
-    std::unordered_set<camera_t> constant_cameras;
+    FlatHashSet<camera_t> constant_cameras;
 
     // Whether to use prior camera positions
     bool use_prior_position = false;
@@ -256,7 +256,7 @@ class IncrementalMapper {
       const BundleAdjustmentOptions& ba_options,
       const IncrementalTriangulator::Options& tri_options,
       image_t image_id,
-      const std::unordered_set<point3D_t>& point3D_ids);
+      const FlatHashSet<point3D_t>& point3D_ids);
 
   // Global bundle adjustment using Ceres Solver.
   bool AdjustGlobalBundle(const Options& options,
@@ -306,7 +306,7 @@ class IncrementalMapper {
   size_t NumSharedRegImages() const;
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
-  const std::unordered_set<point3D_t>& GetModifiedPoints3D();
+  const FlatHashSet<point3D_t>& GetModifiedPoints3D();
 
   // Clear the collection of changed 3D points.
   void ClearModifiedPoints3D();

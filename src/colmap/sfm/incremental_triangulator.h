@@ -117,7 +117,7 @@ class IncrementalTriangulator {
   // have failed to triangulate before due to inaccurate poses, etc.
   // Returns the number of completed observations.
   size_t CompleteTracks(const Options& options,
-                        const std::unordered_set<point3D_t>& point3D_ids);
+                        const FlatHashSet<point3D_t>& point3D_ids);
 
   // Complete tracks of all 3D points.
   // Returns the number of completed observations.
@@ -126,7 +126,7 @@ class IncrementalTriangulator {
   // Merge tracks of for specific 3D points.
   // Returns the number of merged observations.
   size_t MergeTracks(const Options& options,
-                     const std::unordered_set<point3D_t>& point3D_ids);
+                     const FlatHashSet<point3D_t>& point3D_ids);
 
   // Merge tracks of all 3D points.
   // Returns the number of merged observations.
@@ -144,9 +144,7 @@ class IncrementalTriangulator {
   void AddModifiedPoint3D(point3D_t point3D_id);
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
-  // Kept as std::unordered_set (not a flat alias) because it flows into the
-  // broad point3D-id filtering API (ObservationManager::FilterPoints3D*, etc.).
-  const std::unordered_set<point3D_t>& GetModifiedPoints3D();
+  const FlatHashSet<point3D_t>& GetModifiedPoints3D();
 
   // Clear the collection of changed 3D points.
   void ClearModifiedPoints3D();
@@ -231,10 +229,8 @@ class IncrementalTriangulator {
   FlatHashMap<image_pair_t, int> re_num_trials_;
 
   // Changed 3D points, i.e. if a 3D point is modified (created, continued,
-  // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called. Kept as
-  // std::unordered_set: it is returned by GetModifiedPoints3D() and passed into
-  // the point3D-id filtering API, which uses std::unordered_set throughout.
-  std::unordered_set<point3D_t> modified_point3D_ids_;
+  // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called.
+  FlatHashSet<point3D_t> modified_point3D_ids_;
 };
 
 std::ostream& operator<<(std::ostream& stream,

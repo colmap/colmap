@@ -3,6 +3,7 @@
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/enum_utils.h"
 
 #include <unordered_set>
@@ -110,7 +111,7 @@ class RotationEstimator {
   // Returns true on successful estimation.
   bool EstimateRotations(const PoseGraph& pose_graph,
                          const std::vector<PosePrior>& pose_priors,
-                         const std::unordered_set<image_t>& active_image_ids,
+                         const FlatHashSet<image_t>& active_image_ids,
                          Reconstruction& reconstruction);
 
  private:
@@ -119,20 +120,19 @@ class RotationEstimator {
   bool MaybeSolveGravityAlignedSubset(
       const PoseGraph& pose_graph,
       const std::vector<PosePrior>& pose_priors,
-      const std::unordered_set<image_t>& active_image_ids,
+      const FlatHashSet<image_t>& active_image_ids,
       Reconstruction& reconstruction);
 
   // Core rotation averaging solver.
-  bool SolveRotationAveraging(
-      const PoseGraph& pose_graph,
-      const std::vector<PosePrior>& pose_priors,
-      const std::unordered_set<image_t>& active_image_ids,
-      Reconstruction& reconstruction);
+  bool SolveRotationAveraging(const PoseGraph& pose_graph,
+                              const std::vector<PosePrior>& pose_priors,
+                              const FlatHashSet<image_t>& active_image_ids,
+                              Reconstruction& reconstruction);
 
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
       const PoseGraph& pose_graph,
-      const std::unordered_set<image_t>& active_image_ids,
+      const FlatHashSet<image_t>& active_image_ids,
       Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
@@ -144,7 +144,7 @@ class RotationEstimator {
 // When refine_sensor_from_rig is false, the per-sensor cam_from_rig
 // values are left untouched.
 bool InitializeRigRotationsFromImages(
-    const std::unordered_map<image_t, Rigid3d>& cams_from_world,
+    const NodeHashMap<image_t, Rigid3d>& cams_from_world,
     Reconstruction& reconstruction,
     bool refine_sensor_from_rig = true);
 

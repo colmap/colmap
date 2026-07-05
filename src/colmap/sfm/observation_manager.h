@@ -104,10 +104,10 @@ class ObservationManager {
   // @return                    The number of filtered observations.
   size_t FilterPoints3D(double max_reproj_error,
                         double min_tri_angle,
-                        const std::unordered_set<point3D_t>& point3D_ids);
+                        const FlatHashSet<point3D_t>& point3D_ids);
   size_t FilterPoints3DInImages(double max_reproj_error,
                                 double min_tri_angle,
-                                const std::unordered_set<image_t>& image_ids);
+                                const FlatHashSet<image_t>& image_ids);
   size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
 
   // Filter points with track length below threshold.
@@ -123,7 +123,7 @@ class ObservationManager {
   size_t FilterObservationsWithNegativeDepth();
 
   size_t FilterPoints3DWithSmallTriangulationAngle(
-      double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
+      double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids);
 
   // Filter observations with large reprojection error.
   //
@@ -136,7 +136,7 @@ class ObservationManager {
   // @return                The number of filtered observations.
   size_t FilterPoints3DWithLargeReprojectionError(
       double max_error,
-      const std::unordered_set<point3D_t>& point3D_ids,
+      const FlatHashSet<point3D_t>& point3D_ids,
       ReprojectionErrorType error_type = ReprojectionErrorType::PIXEL);
 
   // Find frames that should be filtered due to having no observations or

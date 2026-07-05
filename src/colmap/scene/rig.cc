@@ -30,6 +30,7 @@
 #include "colmap/scene/rig.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/util/containers.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -49,9 +50,8 @@ void UpdateRigAndCameraCalibsFromReconstruction(
         frame_name_to_images,
     Rig& rig,
     Database& database) {
-  std::unordered_map<
-      camera_t,
-      std::pair<std::vector<Eigen::Quaterniond>, Eigen::Vector3d>>
+  NodeHashMap<camera_t,
+              std::pair<std::vector<Eigen::Quaterniond>, Eigen::Vector3d>>
       rig_from_cams;
   std::set<camera_t> updated_cameras;
   for (auto& [_, images] : frame_name_to_images) {
@@ -148,7 +148,7 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
   reconstruction_rigs.reserve(database_rigs.size());
 
   // Create O(1) lookup table from image names to images.
-  std::unordered_map<std::string, const Image*> image_name_to_image;
+  NodeHashMap<std::string, const Image*> image_name_to_image;
   image_name_to_image.reserve(reconstruction->NumImages());
   for (const auto& [_, image] : reconstruction->Images()) {
     image_name_to_image.emplace(image.Name(), &image);
@@ -427,7 +427,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
 
   // Create trivial rigs/frames for images without configuration.
   // This is necessary because we clear rigs/frames above.
-  std::unordered_map<camera_t, rig_t> camera_to_rig_id;
+  NodeHashMap<camera_t, rig_t> camera_to_rig_id;
   for (const Image& image : images) {
     if (configured_image_ids.count(image.ImageId()) > 0) {
       continue;

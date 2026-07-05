@@ -92,8 +92,7 @@ class CorrespondenceGraph {
                                            image_t image_id2) const;
 
   // Get the number of matches between all images.
-  std::unordered_map<image_pair_t, point2D_t> NumMatchesBetweenAllImages()
-      const;
+  NodeHashMap<image_pair_t, point2D_t> NumMatchesBetweenAllImages() const;
 
   // Check whether image exists.
   inline bool ExistsImage(image_t image_id) const;

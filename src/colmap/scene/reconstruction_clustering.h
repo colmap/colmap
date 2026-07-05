@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -81,7 +82,7 @@ struct ReconstructionClusteringOptions {
 // Returns:
 //   Map from frame_id to cluster_id for all registered frames. Cluster IDs are
 //   sorted by number of frames (largest cluster has ID 0).
-std::unordered_map<frame_t, int> ClusterReconstructionFrames(
+NodeHashMap<frame_t, int> ClusterReconstructionFrames(
     const ReconstructionClusteringOptions& options,
     Reconstruction& reconstruction);
 

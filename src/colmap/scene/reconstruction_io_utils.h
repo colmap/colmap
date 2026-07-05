@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/containers.h"
 
 #include <functional>
 #include <unordered_map>
@@ -62,7 +63,7 @@ void CreateFrameForImage(const Image& image,
                          const Rigid3d& cam_from_world,
                          Reconstruction& reconstruction);
 
-std::unordered_map<image_t, Frame*> ExtractImageToFramePtr(
+NodeHashMap<image_t, Frame*> ExtractImageToFramePtr(
     Reconstruction& reconstruction);
 
 }  // namespace colmap

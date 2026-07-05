@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/math/union_find.h"
+#include "colmap/util/containers.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -44,8 +45,7 @@ namespace colmap {
 // @return        Vector of components, each component is a vector of nodes.
 template <typename T>
 std::vector<std::vector<T>> FindConnectedComponents(
-    const std::unordered_set<T>& nodes,
-    const std::vector<std::pair<T, T>>& edges) {
+    const FlatHashSet<T>& nodes, const std::vector<std::pair<T, T>>& edges) {
   UnionFind<T> uf;
   uf.Reserve(nodes.size());
 
@@ -53,7 +53,7 @@ std::vector<std::vector<T>> FindConnectedComponents(
     uf.Union(node1, node2);
   }
 
-  std::unordered_map<T, std::vector<T>> components;
+  NodeHashMap<T, std::vector<T>> components;
   for (const T& node : nodes) {
     components[uf.Find(node)].push_back(node);
   }
@@ -74,8 +74,7 @@ std::vector<std::vector<T>> FindConnectedComponents(
 // @return        Vector of nodes in the largest connected component.
 template <typename T>
 std::vector<T> FindLargestConnectedComponent(
-    const std::unordered_set<T>& nodes,
-    const std::vector<std::pair<T, T>>& edges) {
+    const FlatHashSet<T>& nodes, const std::vector<std::pair<T, T>>& edges) {
   UnionFind<T> uf;
   uf.Reserve(nodes.size());
 
@@ -83,7 +82,7 @@ std::vector<T> FindLargestConnectedComponent(
     uf.Union(node1, node2);
   }
 
-  std::unordered_map<T, std::vector<T>> components;
+  NodeHashMap<T, std::vector<T>> components;
   for (const T& node : nodes) {
     components[uf.Find(node)].push_back(node);
   }

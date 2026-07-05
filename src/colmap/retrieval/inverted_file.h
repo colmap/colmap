@@ -33,6 +33,7 @@
 #include "colmap/retrieval/geometry.h"
 #include "colmap/retrieval/inverted_file_entry.h"
 #include "colmap/retrieval/utils.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
@@ -126,14 +127,14 @@ class InvertedFile {
                     std::vector<ImageScore>* image_scores) const;
 
   // Get the identifiers of all indexed images in this file.
-  void GetImageIds(std::unordered_set<int>* ids) const;
+  void GetImageIds(FlatHashSet<int>* ids) const;
 
   // For each image in the inverted file, computes the self-similarity of each
   // image in the file (the part caused by this word) and adds the weight to the
   // entry corresponding to that image. This function is useful to determine the
   // normalization factor for each image that is used during retrieval.
   void ComputeImageSelfSimilarities(
-      std::unordered_map<int, double>* self_similarities) const;
+      NodeHashMap<int, double>* self_similarities) const;
 
   // Read/write the inverted file from/to a binary file.
   void Read(std::istream* in);
@@ -261,7 +262,7 @@ void InvertedFile<kEmbeddingDim>::ComputeIDFWeight(const int num_total_images) {
     return;
   }
 
-  std::unordered_set<int> image_ids;
+  FlatHashSet<int> image_ids;
   GetImageIds(&image_ids);
 
   const float idf_weight = std::log(static_cast<double>(num_total_images) /
@@ -356,8 +357,7 @@ void InvertedFile<kEmbeddingDim>::ScoreFeature(
 }
 
 template <int kEmbeddingDim>
-void InvertedFile<kEmbeddingDim>::GetImageIds(
-    std::unordered_set<int>* ids) const {
+void InvertedFile<kEmbeddingDim>::GetImageIds(FlatHashSet<int>* ids) const {
   for (const EntryType& entry : entries_) {
     ids->insert(entry.image_id);
   }
@@ -365,7 +365,7 @@ void InvertedFile<kEmbeddingDim>::GetImageIds(
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ComputeImageSelfSimilarities(
-    std::unordered_map<int, double>* self_similarities) const {
+    NodeHashMap<int, double>* self_similarities) const {
   for (const auto& entry : entries_) {
     (*self_similarities)[entry.image_id] += squared_idf_weight_;
   }

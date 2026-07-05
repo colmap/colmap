@@ -30,6 +30,7 @@
 #include "colmap/mvs/fusion.h"
 
 #include "colmap/math/math.h"
+#include "colmap/util/containers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
@@ -387,7 +388,7 @@ void StereoFusion::Fuse(const int thread_id,
   std::vector<uint8_t> fused_point_r;
   std::vector<uint8_t> fused_point_g;
   std::vector<uint8_t> fused_point_b;
-  std::unordered_set<int> fused_point_visibility;
+  FlatHashSet<int> fused_point_visibility;
 
   while (!fusion_queue.empty()) {
     const auto data = fusion_queue.back();

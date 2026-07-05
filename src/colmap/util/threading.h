@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/util/containers.h"
 #include "colmap/util/timer.h"
 
 #include <climits>
@@ -176,7 +177,7 @@ class Thread {
   bool setup_;
   bool setup_valid_;
 
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
+  NodeHashMap<int, std::list<std::function<void()>>> callbacks_;
 };
 
 // Exception that aggregates multiple exceptions from parallel tasks.
@@ -278,7 +279,7 @@ class ThreadPool {
   bool stopped_;
   int num_active_workers_;
 
-  std::unordered_map<std::thread::id, int> thread_id_to_index_;
+  NodeHashMap<std::thread::id, int> thread_id_to_index_;
 };
 
 // A job queue class for the producer-consumer paradigm.

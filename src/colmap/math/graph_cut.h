@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/util/containers.h"
 #include "colmap/util/logging.h"
 
 #include <unordered_map>
@@ -59,7 +60,7 @@ void ComputeMinGraphCutStoerWagner(
 
 // Compute the normalized min-cut of an undirected graph using Metis.
 // Partitions the graph into clusters and returns the cluster labels per vertex.
-std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
+NodeHashMap<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
     int num_parts);

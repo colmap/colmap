@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/containers.h"
 
 #include <QtCore>
 #include <QtGui>
@@ -84,7 +85,7 @@ class MovieGrabberWidget : public QWidget {
   QCheckBox* smooth_cb_;
   QDoubleSpinBox* smoothness_sb_;
 
-  std::unordered_map<const QTableWidgetItem*, ViewData> view_data_;
+  NodeHashMap<const QTableWidgetItem*, ViewData> view_data_;
 };
 
 }  // namespace colmap
