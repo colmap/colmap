@@ -43,7 +43,6 @@ COLMAP_ADD_LIBRARY(
         file.h file.cc
         logging.h logging.cc
         glog_macros.h
-        memory.h memory.cc
         misc.h misc.cc
         oiio_utils.h oiio_utils.cc
         opengl_utils.h opengl_utils.cc
@@ -197,11 +196,6 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME logging_test
     SRCS logging_test.cc
-    LINK_LIBS colmap_util
-)
-COLMAP_ADD_TEST(
-    NAME memory_test
-    SRCS memory_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
