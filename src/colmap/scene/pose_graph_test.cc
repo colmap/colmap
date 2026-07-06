@@ -31,6 +31,7 @@
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <gmock/gmock.h>
@@ -301,7 +302,7 @@ TEST(PoseGraph, MarkConnectedComponents) {
   pose_graph.AddEdge(reg_image_ids[3], reg_image_ids[4], SynthesizeEdge());
 
   // MarkConnectedComponents with no minimum
-  std::unordered_map<frame_t, int> cluster_ids;
+  NodeHashMap<frame_t, int> cluster_ids;
   int num_components =
       pose_graph.MarkConnectedComponents(reconstruction, cluster_ids);
   EXPECT_EQ(num_components, 2);

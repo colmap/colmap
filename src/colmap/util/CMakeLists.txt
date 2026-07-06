@@ -35,6 +35,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         base_controller.h base_controller.cc
         cache.h
+        hash_containers.h
         controller_thread.h
         eigen_alignment.h
         endian.h endian.cc

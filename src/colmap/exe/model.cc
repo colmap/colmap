@@ -41,12 +41,12 @@
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
 #include <fstream>
 #include <locale>
-#include <unordered_map>
 
 namespace colmap {
 namespace {
@@ -154,7 +154,7 @@ void ReadDatabaseCameraLocations(const std::filesystem::path& database_path,
   auto database = Database::Open(database_path);
 
   // Index pose priors by their associated data ID.
-  std::unordered_map<data_t, PosePrior> pose_priors_by_data_id;
+  NodeHashMap<data_t, PosePrior> pose_priors_by_data_id;
   for (const auto& pose_prior : database->ReadAllPosePriors()) {
     pose_priors_by_data_id.emplace(pose_prior.corr_data_id, pose_prior);
   }
@@ -287,7 +287,7 @@ int RunModelAligner(int argc, char** argv) {
   }
 
   StringToLower(&alignment_type);
-  const std::unordered_set<std::string> alignment_options{
+  const FlatHashSet<std::string> alignment_options{
       "plane", "ecef", "enu", "enu-plane", "enu-plane-unscaled", "custom"};
   if (alignment_options.count(alignment_type) == 0) {
     LOG(ERROR) << "Invalid `alignment_type` - supported values are "

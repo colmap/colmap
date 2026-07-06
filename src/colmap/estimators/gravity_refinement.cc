@@ -3,6 +3,7 @@
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
@@ -13,7 +14,7 @@ using GravityCostFunctor = NormalPriorCostFunctor<3>;
 namespace {
 
 Eigen::Vector3d* GetImageGravityOrNull(
-    const std::unordered_map<image_t, PosePrior*>& image_to_pose_prior,
+    const NodeHashMap<image_t, PosePrior*>& image_to_pose_prior,
     image_t image_id) {
   auto it = image_to_pose_prior.find(image_id);
   if (it == image_to_pose_prior.end() || !it->second->HasGravity()) {
@@ -22,9 +23,9 @@ Eigen::Vector3d* GetImageGravityOrNull(
   return &it->second->gravity;
 }
 
-std::unordered_map<image_t, std::unordered_set<image_t>>
-CreateImageAdjacencyList(const PoseGraph& pose_graph) {
-  std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
+NodeHashMap<image_t, FlatHashSet<image_t>> CreateImageAdjacencyList(
+    const PoseGraph& pose_graph) {
+  NodeHashMap<image_t, FlatHashSet<image_t>> adjacency_list;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     adjacency_list[image_id1].insert(image_id2);
@@ -38,15 +39,15 @@ CreateImageAdjacencyList(const PoseGraph& pose_graph) {
 void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
                                    const Reconstruction& reconstruction,
                                    std::vector<PosePrior>& pose_priors) {
-  const std::unordered_map<image_t, std::unordered_set<image_t>>
-      adjacency_list = CreateImageAdjacencyList(pose_graph);
+  const NodeHashMap<image_t, FlatHashSet<image_t>> adjacency_list =
+      CreateImageAdjacencyList(pose_graph);
   if (adjacency_list.empty()) {
     LOG(INFO) << "Adjacency list not established";
     return;
   }
 
-  std::unordered_map<image_t, PosePrior*> image_to_pose_prior;
-  std::unordered_map<frame_t, PosePrior*> frame_to_pose_prior;
+  NodeHashMap<image_t, PosePrior*> image_to_pose_prior;
+  NodeHashMap<frame_t, PosePrior*> frame_to_pose_prior;
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
@@ -64,7 +65,7 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
 
   // Identify the images that are error prone
   int counter_rect = 0;
-  std::unordered_set<frame_t> error_prone_frames;
+  FlatHashSet<frame_t> error_prone_frames;
   IdentifyErrorProneGravity(
       pose_graph, reconstruction, image_to_pose_prior, error_prone_frames);
 
@@ -74,7 +75,7 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
   }
 
   // Get the relevant pair ids for frames
-  std::unordered_map<frame_t, std::unordered_set<image_pair_t>>
+  NodeHashMap<frame_t, FlatHashSet<image_pair_t>>
       adjacency_list_frames_to_pair_id;
   for (const auto& [image_id, neighbors] : adjacency_list) {
     for (const auto& neighbor : neighbors) {
@@ -87,7 +88,7 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
 
   // Iterate through the error prone images
   for (const frame_t frame_id : error_prone_frames) {
-    const std::unordered_set<image_pair_t>& neighbors =
+    const FlatHashSet<image_pair_t>& neighbors =
         adjacency_list_frames_to_pair_id.at(frame_id);
     std::vector<Eigen::Vector3d> gravities;
     gravities.reserve(neighbors.size());
@@ -184,14 +185,14 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
 void GravityRefiner::IdentifyErrorProneGravity(
     const PoseGraph& pose_graph,
     const Reconstruction& reconstruction,
-    std::unordered_map<image_t, PosePrior*>& image_to_pose_prior,
-    std::unordered_set<frame_t>& error_prone_frames) {
+    NodeHashMap<image_t, PosePrior*>& image_to_pose_prior,
+    FlatHashSet<frame_t>& error_prone_frames) {
   error_prone_frames.clear();
 
   const double max_gravity_error_rad = DegToRad(options_.max_gravity_error);
 
   // image_id: (mistake, total)
-  std::unordered_map<frame_t, std::pair<int, int>> frame_counter;
+  NodeHashMap<frame_t, std::pair<int, int>> frame_counter;
   frame_counter.reserve(reconstruction.NumFrames());
   // Set the counter of all images to 0
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {

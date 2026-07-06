@@ -29,8 +29,9 @@
 
 #include "colmap/util/types.h"
 
+#include "colmap/util/hash_containers.h"
+
 #include <limits>
-#include <unordered_set>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -125,7 +126,7 @@ TEST(FilterView, RangeExpression) {
 }
 
 TEST(FeatureMatchHashing, Nominal) {
-  std::unordered_set<std::pair<point2D_t, point2D_t>, PairHash> set;
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> set;
   set.emplace(1, 2);
   EXPECT_EQ(set.size(), 1);
   set.emplace(1, 2);
@@ -143,7 +144,7 @@ TEST(FeatureMatchHashing, Nominal) {
 TEST(FeatureMatchHashing, LargeValues) {
   const point2D_t hi = std::numeric_limits<point2D_t>::max();
   const point2D_t lo = 1;
-  std::unordered_set<std::pair<point2D_t, point2D_t>, PairHash> set;
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> set;
   set.emplace(hi, lo);
   set.emplace(lo, hi);
   set.emplace(hi, hi);
@@ -164,7 +165,7 @@ TEST(FeatureMatchHashing, Deterministic) {
 }
 
 TEST(Point3DPairHashing, Nominal) {
-  std::unordered_set<std::pair<point3D_t, point3D_t>, PairHash> set;
+  FlatHashSet<std::pair<point3D_t, point3D_t>, PairHash> set;
   set.emplace(1, 2);
   EXPECT_EQ(set.size(), 1);
   set.emplace(1, 2);
@@ -182,7 +183,7 @@ TEST(Point3DPairHashing, Nominal) {
 TEST(Point3DPairHashing, LargeValues) {
   const point3D_t hi = std::numeric_limits<point3D_t>::max();
   const point3D_t lo = 1;
-  std::unordered_set<std::pair<point3D_t, point3D_t>, PairHash> set;
+  FlatHashSet<std::pair<point3D_t, point3D_t>, PairHash> set;
   set.emplace(hi, lo);
   set.emplace(lo, hi);
   set.emplace(hi, hi);
