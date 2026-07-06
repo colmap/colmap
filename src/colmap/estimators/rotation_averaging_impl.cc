@@ -5,6 +5,7 @@
 #include "colmap/math/random.h"
 #include "colmap/optim/least_absolute_deviations.h"
 #include "colmap/optim/sparse_cholesky.h"
+#include "colmap/util/hash_containers.h"
 
 #include <algorithm>
 #include <limits>
@@ -36,16 +37,16 @@ double ComputeGravityAligned1DOFResidual(double angle_12,
   return residual;
 }
 
-std::unordered_map<frame_t, const PosePrior*> ExtractFrameToPosePrior(
-    const std::unordered_map<image_t, Image>& images,
+NodeHashMap<frame_t, const PosePrior*> ExtractFrameToPosePrior(
+    const NodeHashMap<image_t, Image>& images,
     const std::vector<PosePrior>& pose_priors) {
-  std::unordered_map<image_t, frame_t> image_to_frame;
+  NodeHashMap<image_t, frame_t> image_to_frame;
   image_to_frame.reserve(images.size());
   for (const auto& [image_id, image] : images) {
     image_to_frame[image_id] = image.FrameId();
   }
 
-  std::unordered_map<frame_t, const PosePrior*> frame_to_pose_prior;
+  NodeHashMap<frame_t, const PosePrior*> frame_to_pose_prior;
   for (const auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
@@ -64,7 +65,7 @@ std::unordered_map<frame_t, const PosePrior*> ExtractFrameToPosePrior(
 }
 
 const Eigen::Vector3d* GetFrameGravityOrNull(
-    const std::unordered_map<frame_t, const PosePrior*>& frame_to_pose_prior,
+    const NodeHashMap<frame_t, const PosePrior*>& frame_to_pose_prior,
     frame_t frame_id) {
   auto it = frame_to_pose_prior.find(frame_id);
   if (it == frame_to_pose_prior.end() || !it->second->HasGravity()) {
@@ -79,7 +80,7 @@ RotationAveragingProblem::RotationAveragingProblem(
     const PoseGraph& pose_graph,
     const std::vector<PosePrior>& pose_priors,
     const RotationEstimatorOptions& options,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction)
     : options_(options) {
   // Derive active_frame_ids from active_image_ids, and cache mappings.
@@ -112,7 +113,7 @@ size_t RotationAveragingProblem::AllocateParameters(
 
   // Identify cameras that need cam_from_rig estimation
   // (non-reference cameras without calibrated extrinsics).
-  std::unordered_map<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
+  NodeHashMap<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
   if (options_.refine_sensor_from_rig) {
     for (const auto& [camera_id, rig_id] : camera_id_to_rig_id_) {
       const sensor_t sensor_id(SensorType::CAMERA, camera_id);
@@ -592,7 +593,7 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
   }
 
   // Compute current frame rotations for cam_from_rig averaging.
-  std::unordered_map<frame_t, Eigen::Matrix3d> frame_rotations;
+  NodeHashMap<frame_t, Eigen::Matrix3d> frame_rotations;
   for (const auto& [frame_id, frame_param_idx] : frame_id_to_param_idx_) {
     if (!HasFrameGravity(frame_id)) {
       frame_rotations[frame_id] = AngleAxisToRotationMatrix(

@@ -34,9 +34,8 @@
 #include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
-
-#include <unordered_map>
 
 namespace colmap {
 namespace {
@@ -195,7 +194,7 @@ bool AlignReconstructionToLocations(
 
   // Find out which images are contained in the reconstruction and get the
   // positions of their camera centers.
-  std::unordered_set<image_t> common_image_ids;
+  FlatHashSet<image_t> common_image_ids;
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
   for (size_t i = 0; i < tgt_image_names.size(); ++i) {
@@ -248,7 +247,7 @@ bool AlignReconstructionToPosePriors(
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
 
-  std::unordered_map<image_t, PosePrior> tgt_image_to_pose_prior;
+  NodeHashMap<image_t, PosePrior> tgt_image_to_pose_prior;
   for (const auto& pose_prior : tgt_pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
         pose_prior.HasPosition()) {
@@ -391,7 +390,7 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
 
   std::vector<Eigen::Vector3d> src_xyz;
   std::vector<Eigen::Vector3d> tgt_xyz;
-  std::unordered_map<point3D_t, size_t> counts;
+  FlatHashMap<point3D_t, size_t> counts;
   // Associate 3D points using point2D_idx
   for (const auto& src_point3D : src_reconstruction.Points3D()) {
     counts.clear();
@@ -484,9 +483,9 @@ bool MergeReconstructions(const double max_reproj_error,
   }
 
   // Find common and missing images in the two reconstructions.
-  std::unordered_set<image_t> common_image_ids;
+  FlatHashSet<image_t> common_image_ids;
   common_image_ids.reserve(src_reconstruction.NumRegImages());
-  std::unordered_set<image_t> missing_image_ids;
+  FlatHashSet<image_t> missing_image_ids;
   missing_image_ids.reserve(src_reconstruction.NumRegImages());
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
     if (tgt_reconstruction.ExistsImage(image_id)) {
@@ -513,7 +512,7 @@ bool MergeReconstructions(const double max_reproj_error,
   for (const auto& [_, point3D] : src_reconstruction.Points3D()) {
     Track new_track;
     Track old_track;
-    std::unordered_set<point3D_t> old_point3D_ids;
+    FlatHashSet<point3D_t> old_point3D_ids;
     for (const auto& track_el : point3D.track.Elements()) {
       if (common_image_ids.count(track_el.image_id) > 0) {
         const auto& point2D = tgt_reconstruction.Image(track_el.image_id)
@@ -549,8 +548,7 @@ bool MergeReconstructions(const double max_reproj_error,
 }
 
 bool AlignReconstructionToOrigRigScales(
-    const std::unordered_map<rig_t, Rig>& orig_rigs,
-    Reconstruction* reconstruction) {
+    const NodeHashMap<rig_t, Rig>& orig_rigs, Reconstruction* reconstruction) {
   double scale_sum = 0;
   int scale_count = 0;
   for (const auto& [rig_id, orig_rig] : orig_rigs) {

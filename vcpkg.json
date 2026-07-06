@@ -11,6 +11,7 @@
         "boost-program-options",
         "boost-property-map",
         "boost-property-tree",
+        "boost-unordered",
         {
             "name": "ceres",
             "features": [

@@ -31,6 +31,7 @@
 
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -427,7 +428,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
   size_t image_idx = 0;
   for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
-    std::unordered_set<image_t> visible_image_ids;
+    FlatHashSet<image_t> visible_image_ids;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);

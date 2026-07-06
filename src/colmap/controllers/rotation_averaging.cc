@@ -34,6 +34,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/scene/pose_graph.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -104,11 +105,11 @@ void RotationAveragingPipeline::Run() {
   if (options.refine_gravity && !pose_priors.empty()) {
     // Compute largest connected component and invalidate pairs before gravity
     // refinement.
-    const std::unordered_set<frame_t> active_frame_ids =
+    const FlatHashSet<frame_t> active_frame_ids =
         pose_graph.ComputeLargestConnectedFrameComponent(
             *reconstruction_,
             /*filter_unregistered=*/false);
-    std::unordered_set<image_t> active_image_ids;
+    FlatHashSet<image_t> active_image_ids;
     for (const auto& [image_id, image] : reconstruction_->Images()) {
       if (active_frame_ids.count(image.FrameId())) {
         active_image_ids.insert(image_id);

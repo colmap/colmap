@@ -35,6 +35,7 @@
 #include "colmap/feature/utils.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
@@ -47,12 +48,12 @@ void RigVerification(const std::shared_ptr<Database>& database,
                      const std::shared_ptr<FeatureMatcherCache>& cache,
                      const TwoViewGeometryOptions& geometry_options,
                      const int num_threads) {
-  std::unordered_map<rig_t, Rig> rigs;
+  NodeHashMap<rig_t, Rig> rigs;
   for (auto& rig : database->ReadAllRigs()) {
     rigs[rig.RigId()] = std::move(rig);
   }
 
-  std::unordered_map<image_t, frame_t> image_to_frame_ids;
+  NodeHashMap<image_t, frame_t> image_to_frame_ids;
   for (const auto& frame : database->ReadAllFrames()) {
     for (const data_t& data_id : frame.ImageIds()) {
       image_to_frame_ids[data_id.id] = frame.FrameId();
@@ -100,9 +101,9 @@ void RigVerification(const std::shared_ptr<Database>& database,
       const Rig& rig1 = rigs.at(frame1.RigId());
       const Rig& rig2 = rigs.at(frame2.RigId());
 
-      std::unordered_map<image_t, Image> images;
+      NodeHashMap<image_t, Image> images;
       images.reserve(frame1.NumDataIds() + frame2.NumDataIds());
-      std::unordered_map<camera_t, Camera> cameras;
+      NodeHashMap<camera_t, Camera> cameras;
       cameras.reserve(images.size());
       auto add_images_and_cameras = [&cache, &images, &cameras](
                                         const Frame& frame) {
@@ -405,7 +406,7 @@ class FeaturePairsFeatureMatcher : public Thread {
     Timer run_timer;
     run_timer.Start();
 
-    std::unordered_map<std::string, const Image*> image_name_to_image;
+    NodeHashMap<std::string, const Image*> image_name_to_image;
     image_name_to_image.reserve(cache_->GetImageIds().size());
     for (const auto image_id : cache_->GetImageIds()) {
       const auto& image = cache_->GetImage(image_id);

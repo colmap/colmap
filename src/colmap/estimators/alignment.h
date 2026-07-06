@@ -32,6 +32,7 @@
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/hash_containers.h"
 
 #include <vector>
 
@@ -124,7 +125,6 @@ bool MergeReconstructions(double max_reproj_error,
 // Align reconstruction to the original metric scales in rig extrinsics. Returns
 // false if there is no available non-panoramic rig in the alignment process.
 bool AlignReconstructionToOrigRigScales(
-    const std::unordered_map<rig_t, Rig>& orig_rigs,
-    Reconstruction* reconstruction);
+    const NodeHashMap<rig_t, Rig>& orig_rigs, Reconstruction* reconstruction);
 
 }  // namespace colmap
