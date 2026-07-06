@@ -129,7 +129,8 @@ void BM_ImuVisualCentric(benchmark::State& state, Impl impl) {
           ? std::unique_ptr<ceres::CostFunction>(
                 VisualCentricImuPreintegrationCostFunctor::Create(&data))
           : std::unique_ptr<ceres::CostFunction>(
-                new AnalyticalVisualCentricImuPreintegrationCostFunction(&data));
+                new AnalyticalVisualCentricImuPreintegrationCostFunction(
+                    &data));
 
   for (auto _ : state) {
     cost_function->Evaluate(parameters, residuals, jacobians);
