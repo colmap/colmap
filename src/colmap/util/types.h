@@ -371,10 +371,18 @@ struct PairHash {
   std::size_t operator()(const std::pair<T1, T2>& p) const {
     // Pack into disjoint bits when possible (collision-free, unlike
     // HashCombine); otherwise fall back to mixing.
-    if constexpr (std::is_unsigned_v<T1> && std::is_unsigned_v<T2> &&
+    if constexpr (std::is_integral_v<T1> && std::is_integral_v<T2> &&
+                  !std::is_same_v<T1, bool> && !std::is_same_v<T2, bool> &&
                   sizeof(T1) + sizeof(T2) <= sizeof(std::size_t)) {
-      return (static_cast<std::size_t>(p.first) << (8 * sizeof(T2))) |
-             static_cast<std::size_t>(p.second);
+      // Convert through the unsigned counterpart: the signed->unsigned cast
+      // is a bijection modulo 2^n, so negatives map losslessly into exactly
+      // their low 8*sizeof(T) bits. Both halves then occupy disjoint bit
+      // ranges, making the pack collision-free (unlike HashCombine).
+      return (static_cast<std::size_t>(
+                  static_cast<std::make_unsigned_t<T1>>(p.first))
+              << (8 * sizeof(T2))) |
+             static_cast<std::size_t>(
+                 static_cast<std::make_unsigned_t<T2>>(p.second));
     } else {
       return HashCombine(std::hash<T1>{}(p.first), std::hash<T2>{}(p.second));
     }
