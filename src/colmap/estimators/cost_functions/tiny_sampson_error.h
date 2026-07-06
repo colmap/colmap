@@ -64,7 +64,7 @@ class TinySampsonErrorCostFunctor {
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1, T* residuals) const {
-    // Build E = [t]_x R once and reuse it across all correspondences.
+    // Build E once and reuse it across all correspondences.
     const Eigen::Matrix<T, 3, 3> E =
         EssentialMatrixFromPoseParams(cam2_from_cam1);
     for (size_t i = 0; i < cam_rays1_.size(); ++i) {
