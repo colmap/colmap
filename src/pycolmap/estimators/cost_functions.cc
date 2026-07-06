@@ -1,9 +1,9 @@
 #include "colmap/estimators/cost_functions/alignment.h"
-#include "colmap/estimators/cost_functions/imu_preintegration.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/estimators/imu_preintegration_cost.h"
 #include "colmap/geometry/rigid3.h"
 
 #include "pycolmap/helpers.h"

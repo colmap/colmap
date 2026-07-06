@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/cost_functions/imu_preintegration.h"
+#include "colmap/estimators/imu_preintegration_cost.h"
 
 #include "colmap/estimators/imu_preintegration.h"
 #include "colmap/geometry/rigid3.h"
