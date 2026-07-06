@@ -1,6 +1,7 @@
 """
 An example for iterative VI optimization with IMU preintegration factors.
-Data was initialized and rectified with online MPS service from Project Aria.
+Data was initialized and rectified with the online MPS service from
+Project Aria 1: https://facebookresearch.github.io/projectaria_tools/docs/intro
 """
 
 import os
