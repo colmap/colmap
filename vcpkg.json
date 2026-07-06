@@ -11,6 +11,7 @@
         "boost-program-options",
         "boost-property-map",
         "boost-property-tree",
+        "boost-unordered",
         {
             "name": "ceres",
             "features": [
@@ -57,12 +58,6 @@
             "description": "Build all tests.",
             "dependencies": [
                 "gtest"
-            ]
-        },
-        "hashmap-boost": {
-            "description": "Dependencies for the boost::unordered hash map backend (COLMAP_HASH_MAP_BACKEND=BOOST).",
-            "dependencies": [
-                "boost-unordered"
             ]
         },
         "cuda": {

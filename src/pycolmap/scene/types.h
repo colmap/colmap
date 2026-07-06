@@ -41,25 +41,16 @@ using PoseGraphEdgeMap =
     colmap::NodeHashMap<colmap::image_pair_t, colmap::PoseGraph::Edge>;
 PYBIND11_MAKE_OPAQUE(PoseGraphEdgeMap);
 
-// pybind11's built-in STL casters only recognize std:: containers, so provide
-// casters for the colmap flat/node hash aliases used by non-opaque bindings
-// (e.g. ObservationManager::ImagePairs, IncrementalMapper::FilteredFrames,
-// BundleAdjustmentConfig::VariablePoints, the FilterPoints3D* parameters).
-// These are only needed for the BOOST backend; for the STD backend the aliases
-// are std:: types already covered by pybind11. The opaque bound maps
-// (RigMap/CameraMap/... via PYBIND11_MAKE_OPAQUE above) are full
-// specializations that take precedence over the generic NodeHashMap caster.
+// Generic caster for non-opaque NodeHashMap returns (e.g.
+// CorrespondenceGraph::NumMatchesBetweenAllImages). Only needed for the BOOST
+// backend; for STD the alias is std::unordered_map, handled by pybind11. Kept
+// here next to the PYBIND11_MAKE_OPAQUE element-store aliases above so that the
+// opaque full specializations always take precedence over this partial one (the
+// flat casters, which never collide with opaque types, live in
+// pycolmap/pybind11_extension.h). Requires <pybind11/stl.h> for map_caster.
 #if defined(COLMAP_HASH_BOOST)
 namespace pybind11 {
 namespace detail {
-
-template <typename Key, typename Value, typename Hash, typename Equal>
-struct type_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>>
-    : map_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>, Key, Value> {};
-
-template <typename Key, typename Hash, typename Equal>
-struct type_caster<colmap::FlatHashSet<Key, Hash, Equal>>
-    : set_caster<colmap::FlatHashSet<Key, Hash, Equal>, Key> {};
 
 template <typename Key, typename Value, typename Hash, typename Equal>
 struct type_caster<colmap::NodeHashMap<Key, Value, Hash, Equal>>

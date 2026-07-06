@@ -22,9 +22,15 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              system)
 
 # Hash map backend selection for the scene/SfM containers. Adds the compile
-# definition consumed by src/colmap/util/containers.h. See
+# definition consumed by src/colmap/util/hash_containers.h. See
 # COLMAP_HASH_MAP_BACKEND. Both backends are header-only (boost-unordered is
 # provided by the Boost::boost target), so no extra linking is required.
+# This file is also re-run by downstream consumers via find_package(colmap),
+# where COLMAP_HASH_MAP_BACKEND is unset; default it to STD there (the exported
+# colmap targets already carry the COLMAP_HASH_* definition they were built with).
+if(NOT COLMAP_HASH_MAP_BACKEND)
+    set(COLMAP_HASH_MAP_BACKEND "STD")
+endif()
 string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
 if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
