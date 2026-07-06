@@ -32,7 +32,6 @@ void BindReconstruction(py::module& m);
 void BindReconstructionManager(py::module& m);
 void BindSynthetic(py::module& m);
 void BindTrack(py::module& m);
-void BindTwoViewGeometryScene(py::module& m);
 void BindImu(py::module& m);
 void BindPoseGraph(py::module& m);
 

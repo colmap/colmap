@@ -37,9 +37,12 @@ ImuMeasurements ImuMeasurements::ExtractMeasurementsContainEdge(
     timestamp_t t1, timestamp_t t2) const {
   THROW_CHECK(!Empty()) << "Cannot query measurements from empty container.";
   THROW_CHECK_LT(t1, t2) << "t1 must be less than t2.";
-  THROW_CHECK_GE(t1, front().timestamp)
-      << "t1 is before the first measurement.";
-  THROW_CHECK_LE(t2, back().timestamp) << "t2 is after the last measurement.";
+  // The edge cannot be bracketed if it extends beyond the available samples
+  // (e.g. the first/last image edge or across an IMU gap). Return empty so
+  // callers can skip this edge rather than treating it as a fatal error.
+  if (t1 < front().timestamp || t2 > back().timestamp) {
+    return ImuMeasurements();
+  }
   auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
     return m1.timestamp < m2.timestamp;
   };

@@ -214,8 +214,10 @@ TEST(ImuMeasurements, ExtractMeasurementsContainEdge) {
   EXPECT_ANY_THROW(empty.ExtractMeasurementsContainEdge(100, 200));
   EXPECT_ANY_THROW(ms.ExtractMeasurementsContainEdge(300, 200));
   EXPECT_ANY_THROW(ms.ExtractMeasurementsContainEdge(200, 200));
-  EXPECT_ANY_THROW(ms.ExtractMeasurementsContainEdge(50, 300));
-  EXPECT_ANY_THROW(ms.ExtractMeasurementsContainEdge(200, 600));
+  // Ranges that extend beyond the available samples cannot bracket the edge
+  // and return empty rather than throwing.
+  EXPECT_TRUE(ms.ExtractMeasurementsContainEdge(50, 300).Empty());
+  EXPECT_TRUE(ms.ExtractMeasurementsContainEdge(200, 600).Empty());
 }
 
 }  // namespace

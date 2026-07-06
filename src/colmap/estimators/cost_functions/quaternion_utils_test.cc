@@ -152,5 +152,6 @@ TEST(EigenQuaternionAngleAxis, Roundtrip) {
     EXPECT_NEAR(q.angularDistance(q_recovered), 0.0, 1e-10);
   }
 }
+
 }  // namespace
 }  // namespace colmap

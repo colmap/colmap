@@ -116,7 +116,7 @@ struct PreintegratedImuData {
   // Compute sqrt_information from covariance. max_condition_number limits
   // the condition number of the information matrix by clamping small
   // eigenvalues. Set to -1 to disable clamping.
-  void Finalize(double max_condition_number = 1e4);
+  void Finalize(double max_condition_number = -1);
 };
 
 // Algorithm class that performs IMU preintegration.

@@ -20,13 +20,15 @@ void BindImuPreintegration(py::module& m) {
           .value("RK4", ImuIntegrationMethod::RK4);
   AddStringToEnumConstructor(PyImuIntegrationMethod);
 
-  using ImuPreintegrationOptions = ImuPreintegrationOptions;
   py::classh<ImuPreintegrationOptions> PyImuPreintegrationOptions(
       m, "ImuPreintegrationOptions");
   PyImuPreintegrationOptions.def(py::init<>())
       .def_readwrite("method", &ImuPreintegrationOptions::method)
       .def_readwrite("integration_noise_density",
-                     &ImuPreintegrationOptions::integration_noise_density);
+                     &ImuPreintegrationOptions::integration_noise_density)
+      .def_readwrite("max_condition_number",
+                     &ImuPreintegrationOptions::max_condition_number);
+  MakeDataclass(PyImuPreintegrationOptions);
 
   py::classh<ImuReintegrationOptions> PyImuReintegrationOptions(
       m, "ImuReintegrationOptions");
@@ -55,7 +57,9 @@ void BindImuPreintegration(py::module& m) {
                      &PreintegratedImuData::sqrt_information)
       .def_readwrite("gravity_magnitude",
                      &PreintegratedImuData::gravity_magnitude)
-      .def("finalize", &PreintegratedImuData::Finalize);
+      .def("finalize",
+           &PreintegratedImuData::Finalize,
+           "max_condition_number"_a = -1.0);
 
   py::classh<ImuPreintegrator> PyImuPreintegrator(m, "ImuPreintegrator");
   PyImuPreintegrator
