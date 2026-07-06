@@ -219,10 +219,8 @@ class IncrementalTriangulator {
   std::vector<TrackElement> complete_next_queue_;
   // Dedupes (image_id, point2D_idx) pairs reached by Complete()'s BFS so
   // the inner reprojection-error check is not redone for correspondences
-  // shared across multiple parents at the same transitivity level. Uses
-  // the std::hash<std::pair<uint32_t, uint32_t>> specialization in
-  // colmap/util/types.h.
-  std::unordered_set<std::pair<image_t, point2D_t>> complete_visited_;
+  // shared across multiple parents at the same transitivity level.
+  std::unordered_set<std::pair<image_t, point2D_t>, PairHash> complete_visited_;
 
   // Number of trials to retriangulate image pair.
   std::unordered_map<image_pair_t, int> re_num_trials_;
