@@ -3,6 +3,9 @@ find_package(benchmark REQUIRED)
 add_executable(benchmark_cost_functions cost_functions.cc)
 target_link_libraries(benchmark_cost_functions PRIVATE colmap_estimators benchmark::benchmark)
 
+add_executable(benchmark_imu_preintegration_cost_function imu_preintegration_cost_function.cc)
+target_link_libraries(benchmark_imu_preintegration_cost_function PRIVATE colmap_estimators benchmark::benchmark)
+
 add_executable(benchmark_bundle_adjustment bundle_adjustment.cc)
 target_link_libraries(benchmark_bundle_adjustment PRIVATE colmap_estimators colmap_scene benchmark::benchmark)
 
