@@ -827,6 +827,29 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_real * (num_real - 1)
         np.testing.assert_allclose(errors, 180.0)
 
+    def test_gt_names_absent_from_sparse_gt_form_no_edges(self):
+        # A name in image_name_to_gt_recon_ids that does not exist in sparse_gt
+        # cannot form a measurable GT edge and must not add spurious B - A
+        # edges. Nothing is registered, so every scored pair comes from B - A.
+        reconstruction = create_test_reconstruction()
+        names = sorted(image.name for image in reconstruction.images.values())
+        phantom = "phantom_not_in_sparse_gt"
+        assert phantom not in names
+        image_name_to_gt_recon_ids = {name: 0 for name in names}
+        image_name_to_gt_recon_ids[phantom] = 0
+
+        errors = compute_grouped_rel_errors(
+            sparse_gt=reconstruction,
+            sub_models=[],
+            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            min_proj_center_dist=0.01,
+        )
+
+        # Only edges among the real images count; the phantom adds none.
+        num_real = len(names)
+        assert len(errors) == num_real * (num_real - 1)
+        np.testing.assert_allclose(errors, 180.0)
+
 
 class TestComputeGroupedAbsErrors:
     def test_identical_single_cluster(self):

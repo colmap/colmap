@@ -34,6 +34,7 @@ import ctypes
 import dataclasses
 import datetime
 import functools
+import itertools
 import multiprocessing
 import platform
 import shutil
@@ -1067,77 +1068,62 @@ def compute_grouped_rel_errors(
     fragmented registrations) we assign the maximum error of 180 degrees. The
     returned error array covers all pairs in A u B.
 
-    Sets A and B are never materialized: B membership is decided on the fly
-    from image_name_to_gt_recon_ids, and A is tracked with a visited set so the
-    B - A pairs can be found in a second pass.
+    A and B are materialized as flat collections and scored in a single pass.
+    A is a multiset (est_edges): an image may appear in several sub-models, so
+    the same edge can carry several estimated relative poses, each contributing
+    one error entry.
     """
     gt_cam_from_world = {
         image.name: image.cam_from_world()
         for image in sparse_gt.images.values()
     }
 
-    def same_gt_recon(name_a: str, name_b: str) -> bool:
-        recon_a = image_name_to_gt_recon_ids.get(name_a)
-        return (
-            recon_a is not None
-            and recon_a != OUTLIER_RECON_ID
-            and recon_a == image_name_to_gt_recon_ids.get(name_b)
-        )
-
-    visited: set[tuple[str, str]] = set()
-    errors: list[float] = []
-
-    # Pass 1: walk set A (ordered pairs within each estimated sub-model). An
-    # image may appear in several sub-models, so the same edge can be visited
-    # (and scored) multiple times; each estimate contributes an error.
+    # A: ordered estimated edges -> list of relative poses (one per sub-model
+    # containing both endpoints). Keeping a list makes A a multiset.
+    est_edges: dict[tuple[str, str], list[pycolmap.Rigid3d]] = (
+        collections.defaultdict(list)
+    )
     for sub_model in sub_models:
         cam_from_world = {
             image.name: image.cam_from_world()
             for image in sub_model.images.values()
         }
-        names = list(cam_from_world)
-        for name_i in names:
-            for name_j in names:
-                if name_i == name_j:
-                    continue
-                visited.add((name_i, name_j))
-                if (
-                    same_gt_recon(name_i, name_j)
-                    and name_i in gt_cam_from_world
-                    and name_j in gt_cam_from_world
-                ):
-                    # Edge in A n B: measure the relative pose error.
-                    rel_est = (
-                        cam_from_world[name_j]
-                        * cam_from_world[name_i].inverse()
-                    )
-                    rel_gt = (
-                        gt_cam_from_world[name_j]
-                        * gt_cam_from_world[name_i].inverse()
-                    )
-                    dt, dR = relative_pose_error_deg(
-                        rel_est, rel_gt, min_proj_center_dist
-                    )
-                    errors.append(max(dt, dR))
-                else:
-                    # Edge in A - B: wrong merge or registered outlier.
-                    errors.append(180.0)
+        for name_i, name_j in itertools.permutations(cam_from_world, 2):
+            rel_est = cam_from_world[name_j] * cam_from_world[name_i].inverse()
+            est_edges[(name_i, name_j)].append(rel_est)
 
-    # Pass 2: add the B - A pairs (grouped in GT but not jointly estimated).
+    # B: ordered GT edges grouped by GT reconstruction id. Outliers never
+    # belong to a GT reconstruction, and names absent from sparse_gt cannot
+    # form a measurable GT edge, so both are excluded here.
     names_by_recon: dict[int, list[str]] = collections.defaultdict(list)
     for name, recon_id in image_name_to_gt_recon_ids.items():
-        # Outliers never belong to a GT reconstruction, so they form no
-        # GT edges.
-        if recon_id == OUTLIER_RECON_ID:
+        if recon_id == OUTLIER_RECON_ID or name not in gt_cam_from_world:
             continue
         names_by_recon[recon_id].append(name)
+    gt_edges: set[tuple[str, str]] = set()
     for group_names in names_by_recon.values():
-        for name_i in group_names:
-            for name_j in group_names:
-                if name_i == name_j:
-                    continue
-                if (name_i, name_j) not in visited:
-                    errors.append(180.0)
+        gt_edges.update(itertools.permutations(group_names, 2))
+
+    errors: list[float] = []
+    for edge in set(est_edges) | gt_edges:
+        name_i, name_j = edge
+        rel_ests = est_edges.get(edge, [])
+        if edge in gt_edges:
+            rel_gt = (
+                gt_cam_from_world[name_j] * gt_cam_from_world[name_i].inverse()
+            )
+            if not rel_ests:
+                # Edge in B - A: failed / fragmented registration.
+                errors.append(180.0)
+            for rel_est in rel_ests:
+                # Edge in A n B: measure the relative pose error.
+                dt, dR = relative_pose_error_deg(
+                    rel_est, rel_gt, min_proj_center_dist
+                )
+                errors.append(max(dt, dR))
+        else:
+            # Edge in A - B: wrong merge or registered outlier.
+            errors.extend(180.0 for _ in rel_ests)
 
     if not errors:
         # No evaluable pairs (e.g. only singleton GT reconstructions). Report
@@ -1197,9 +1183,34 @@ def compute_abs_errors(
     if image_name_to_gt_recon_ids is None:
         return dts, dRs
 
-    # Mean finite translational error per cluster; outliers and images missing
-    # from the mapping never form a selectable cluster.
-    errors_by_recon: dict[int, list[float]] = collections.defaultdict(list)
+    best_recon_id = _best_gt_cluster(names, dts, image_name_to_gt_recon_ids)
+
+    # Keep only the best cluster intact; max out every other image (other
+    # clusters, outliers, or names missing from the mapping). When no cluster
+    # is selectable (best_recon_id is None) every image is maxed out.
+    for i, name in enumerate(names):
+        in_best_cluster = (
+            best_recon_id is not None
+            and image_name_to_gt_recon_ids.get(name) == best_recon_id
+        )
+        if not in_best_cluster:
+            dts[i] = np.inf
+            dRs[i] = 180
+
+    return dts, dRs
+
+
+def _best_gt_cluster(
+    names: list[str],
+    dts: npt.NDArray[np.floating],
+    image_name_to_gt_recon_ids: dict[str, int],
+) -> int | None:
+    """GT recon id with the smallest mean finite translational error.
+
+    Returns None when no image maps to a selectable cluster. Outliers and
+    names missing from the mapping never form a selectable cluster.
+    """
+    finite_dts_by_recon: dict[int, list[float]] = collections.defaultdict(list)
     for name, dt in zip(names, dts, strict=True):
         recon_id = image_name_to_gt_recon_ids.get(name)
         if (
@@ -1207,28 +1218,13 @@ def compute_abs_errors(
             and recon_id != OUTLIER_RECON_ID
             and np.isfinite(dt)
         ):
-            errors_by_recon[recon_id].append(float(dt))
-
-    best_recon_id = None
-    best_mean = np.inf
-    for recon_id, errs in errors_by_recon.items():
-        mean = float(np.mean(errs))
-        if mean < best_mean:
-            best_mean = mean
-            best_recon_id = recon_id
-
-    # Keep only the best cluster intact; max out every other image.
-    for i, name in enumerate(names):
-        recon_id = image_name_to_gt_recon_ids.get(name)
-        if not (
-            recon_id is not None
-            and recon_id != OUTLIER_RECON_ID
-            and recon_id == best_recon_id
-        ):
-            dts[i] = np.inf
-            dRs[i] = 180
-
-    return dts, dRs
+            finite_dts_by_recon[recon_id].append(float(dt))
+    if not finite_dts_by_recon:
+        return None
+    return min(
+        finite_dts_by_recon,
+        key=lambda recon_id: float(np.mean(finite_dts_by_recon[recon_id])),
+    )
 
 
 def compute_grouped_abs_errors(
@@ -1251,12 +1247,14 @@ def compute_grouped_abs_errors(
     gt_names = [image.name for image in sparse_gt.images.values()]
     gt_name_set = set(gt_names)
 
-    # Collect one error per (image, sub-model) registration. compute_abs_errors
-    # returns errors aligned to the sub-model's images that also exist in the
-    # GT, in sub_model.images.values() order, so we rebuild the matching names
-    # with the same filter/order. Registered images outside a sub-model's best
-    # cluster are maxed out (inf) yet still contribute an error.
-    errors_by_name: dict[str, list[float]] = {name: [] for name in gt_names}
+    # Flat node multiset keyed by GT image name: one translational error per
+    # (GT image, sub-model) registration. compute_abs_errors keeps each
+    # sub-model's best GT cluster intact and maxes out (inf) every other
+    # registered image, which still contributes an error. Its returned errors
+    # are aligned to the sub-model's images that also exist in the GT, in
+    # sub_model.images.values() order, so we rebuild the names with the same
+    # filter/order.
+    errors_by_name: dict[str, list[float]] = collections.defaultdict(list)
     for sub_model in sub_models:
         sub_dts, _ = compute_abs_errors(
             sparse_gt=sparse_gt,
@@ -1271,16 +1269,13 @@ def compute_grouped_abs_errors(
         for name, dt in zip(sub_names, sub_dts, strict=True):
             errors_by_name[name].append(float(dt))
 
-    # Images not registered in any sub-model count as a single failure.
+    # A GT image registered in no sub-model counts as a single failure.
     for name in gt_names:
         if not errors_by_name[name]:
             errors_by_name[name].append(np.inf)
 
-    errors: list[float] = []
-    for name in gt_names:
-        errors.extend(errors_by_name[name])
-
-    return np.array(errors)
+    # Flatten the node dict in GT image order.
+    return np.array([dt for name in gt_names for dt in errors_by_name[name]])
 
 
 def compute_auc(
