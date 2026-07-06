@@ -21,6 +21,55 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              OPTIONAL_COMPONENTS
              system)
 
+# Hash map backend selection for the scene/SfM containers. Adds the compile
+# definition consumed by src/colmap/util/hash_containers.h. Both backends are
+# header-only (boost-unordered is provided by the Boost::boost target), so no
+# extra linking is required.
+#
+# BOOST (boost::unordered_flat/node maps) is preferred, but its node maps
+# (boost::unordered_node_map) require Boost >= 1.84. When COLMAP_HASH_MAP_BACKEND
+# is empty we auto-select BOOST if the found Boost is new enough, else STD (so
+# e.g. builds against the system Boost on older distributions keep working).
+#
+# Note: downstream consumers re-run this file via find_package(colmap) with
+# COLMAP_HASH_MAP_BACKEND unset; they get the actual COLMAP_HASH_* macro from the
+# exported colmap targets, so the value re-derived here is only used to keep the
+# selection message and any local sources consistent.
+set(COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION "1.84.0")
+if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
+    set(_colmap_boost_version "${Boost_VERSION_STRING}")
+else()
+    set(_colmap_boost_version "${Boost_VERSION}")
+endif()
+string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
+if(NOT COLMAP_HASH_MAP_BACKEND)
+    if(_colmap_boost_version VERSION_GREATER_EQUAL
+       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
+        set(COLMAP_HASH_MAP_BACKEND "BOOST")
+    else()
+        set(COLMAP_HASH_MAP_BACKEND "STD")
+    endif()
+endif()
+if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
+elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
+    if(_colmap_boost_version VERSION_LESS
+       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
+        message(FATAL_ERROR
+                "COLMAP_HASH_MAP_BACKEND=BOOST requires Boost >= "
+                "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION} "
+                "(boost::unordered_node_map), but found Boost "
+                "${_colmap_boost_version}. Upgrade Boost or set "
+                "-DCOLMAP_HASH_MAP_BACKEND=STD.")
+    endif()
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_BOOST)
+else()
+    message(FATAL_ERROR "Unknown COLMAP_HASH_MAP_BACKEND "
+            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST or empty)")
+endif()
+message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend "
+        "(Boost ${_colmap_boost_version})")
+
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
 find_package(OpenImageIO ${COLMAP_FIND_TYPE})
@@ -187,6 +236,34 @@ endif()
 if(CUDA_ENABLED AND CUDA_FOUND)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
         set(CMAKE_CUDA_ARCHITECTURES "native")
+    endif()
+
+    # Caspar's Symforce-generated kernels use cooperative_groups::labeled_partition
+    # and atomicAdd_block, which require compute capability >= 7.0. Fail early with
+    # a clear message instead of a cryptic nvcc error deep in the kernel build. The
+    # numeric check handles list entries and -real/-virtual suffixes; the special
+    # values native/all/all-major cannot be resolved statically here, so they only
+    # get a warning (nvcc may fall back to an older default arch in build
+    # environments without a visible GPU >= 7.0, e.g. containerized builds).
+    if(CASPAR_ENABLED)
+        foreach(_caspar_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
+            string(REGEX MATCH "^([0-9]+)" _caspar_arch_num "${_caspar_arch}")
+            if(_caspar_arch_num AND _caspar_arch_num LESS 70)
+                message(FATAL_ERROR
+                    "CASPAR_ENABLED requires CUDA architecture >= 70 (compute "
+                    "capability 7.0), but CMAKE_CUDA_ARCHITECTURES contains "
+                    "'${_caspar_arch}'. Set -DCMAKE_CUDA_ARCHITECTURES to 70+.")
+            endif()
+        endforeach()
+        if(CMAKE_CUDA_ARCHITECTURES MATCHES "native|all|all-major")
+            message(WARNING
+                "CASPAR_ENABLED with CMAKE_CUDA_ARCHITECTURES='${CMAKE_CUDA_ARCHITECTURES}': "
+                "Caspar requires compute capability >= 7.0, which cannot be "
+                "verified statically for this value. In an environment without a "
+                "visible GPU >= 7.0 (e.g. containerized builds) nvcc may fall back "
+                "to an older default arch and fail with cryptic kernel errors. "
+                "Set -DCMAKE_CUDA_ARCHITECTURES explicitly (e.g. 75, 86).")
+        endif()
     endif()
 
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUDA_ENABLED)

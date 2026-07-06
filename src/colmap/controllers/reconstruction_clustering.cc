@@ -31,6 +31,7 @@
 
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -43,7 +44,7 @@ namespace {
 // specified cluster.
 std::shared_ptr<Reconstruction> SubReconstructionByClusterId(
     const Reconstruction& reconstruction,
-    const std::unordered_map<frame_t, int>& cluster_ids,
+    const NodeHashMap<frame_t, int>& cluster_ids,
     int cluster_id) {
   // Helper to get cluster id for a frame
   auto get_cluster_id = [&cluster_ids](frame_t frame_id) -> int {
@@ -91,7 +92,7 @@ void ReconstructionClustererController::Run() {
   LOG_HEADING1("Pruning weakly connected frames");
   Timer timer;
   timer.Start();
-  std::unordered_map<frame_t, int> cluster_ids =
+  NodeHashMap<frame_t, int> cluster_ids =
       ClusterReconstructionFrames(options_, *reconstruction_);
   LOG(INFO) << "Pruning done in " << timer.ElapsedSeconds() << " seconds";
 

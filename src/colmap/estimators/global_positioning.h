@@ -2,6 +2,7 @@
 
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/hash_containers.h"
 
 #include <string>
 
@@ -109,11 +110,11 @@ class GlobalPositioner {
   // Temporary storage for frame centers (world coordinates) during
   // optimization. This allows keeping RigFromWorld().translation() in
   // cam_from_world convention.
-  std::unordered_map<frame_t, Eigen::Vector3d> frame_centers_;
+  NodeHashMap<frame_t, Eigen::Vector3d> frame_centers_;
 
   // Temporary storage for camera-in-rig positions when cam_from_rig is unknown
   // and needs to be estimated.
-  std::unordered_map<sensor_t, Eigen::Vector3d> cams_in_rig_;
+  NodeHashMap<sensor_t, Eigen::Vector3d> cams_in_rig_;
 };
 
 // Solve global positioning using point-to-camera constraints.

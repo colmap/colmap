@@ -35,6 +35,7 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 
@@ -59,7 +60,7 @@ TEST(CalibrateViewGraph, Nominal) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   // Store ground truth focal lengths.
-  std::unordered_map<camera_t, double> gt_focals;
+  NodeHashMap<camera_t, double> gt_focals;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     gt_focals[camera_id] = camera.MeanFocalLength();
   }
@@ -114,7 +115,7 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   // Store original focal lengths (which have priors).
-  std::unordered_map<camera_t, double> original_focals;
+  NodeHashMap<camera_t, double> original_focals;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     original_focals[camera_id] = camera.MeanFocalLength();
   }
@@ -148,7 +149,7 @@ TEST(CalibrateViewGraph, ConfigTagging) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   // Add large noise to F matrices for 3 pairs to ensure they become degenerate.
-  std::unordered_set<image_pair_t> perturbed_pairs;
+  FlatHashSet<image_pair_t> perturbed_pairs;
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     if (perturbed_pairs.size() >= 3) break;
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -193,7 +194,7 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
   // Store ground truth relative poses and perturb them in the database.
   // The perturbation must exceed test thresholds (0.1 rad rotation, 0.1
   // normalized translation error) to ensure re-estimation actually runs.
-  std::unordered_map<image_pair_t, Rigid3d> gt_poses;
+  NodeHashMap<image_pair_t, Rigid3d> gt_poses;
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
@@ -263,7 +264,7 @@ TEST(CalibrateViewGraph, SphericalCamerasAreIgnored) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   // Store original camera parameters to verify they remain untouched.
-  std::unordered_map<camera_t, std::vector<double>> original_params;
+  NodeHashMap<camera_t, std::vector<double>> original_params;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     original_params[camera_id] = camera.params;
   }

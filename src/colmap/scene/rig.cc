@@ -30,6 +30,7 @@
 #include "colmap/scene/rig.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/util/hash_containers.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -49,9 +50,8 @@ void UpdateRigAndCameraCalibsFromReconstruction(
         frame_name_to_images,
     Rig& rig,
     Database& database) {
-  std::unordered_map<
-      camera_t,
-      std::pair<std::vector<Eigen::Quaterniond>, Eigen::Vector3d>>
+  NodeHashMap<camera_t,
+              std::pair<std::vector<Eigen::Quaterniond>, Eigen::Vector3d>>
       rig_from_cams;
   std::set<camera_t> updated_cameras;
   for (auto& [_, images] : frame_name_to_images) {
@@ -138,17 +138,17 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
                                      Reconstruction* reconstruction) {
   const std::vector<Frame> database_frames = database.ReadAllFrames();
 
-  std::unordered_map<rig_t, Rig> database_rigs;
+  NodeHashMap<rig_t, Rig> database_rigs;
   database_rigs.reserve(database.NumRigs());
   for (auto& rig : database.ReadAllRigs()) {
     database_rigs.emplace(rig.RigId(), std::move(rig));
   }
 
-  std::unordered_map<rig_t, Rig> reconstruction_rigs;
+  NodeHashMap<rig_t, Rig> reconstruction_rigs;
   reconstruction_rigs.reserve(database_rigs.size());
 
   // Create O(1) lookup table from image names to images.
-  std::unordered_map<std::string, const Image*> image_name_to_image;
+  NodeHashMap<std::string, const Image*> image_name_to_image;
   image_name_to_image.reserve(reconstruction->NumImages());
   for (const auto& [_, image] : reconstruction->Images()) {
     image_name_to_image.emplace(image.Name(), &image);
@@ -213,7 +213,7 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
   });
 
   // Update reconstruction frames.
-  std::unordered_map<frame_t, Frame> reconstruction_frames;
+  NodeHashMap<frame_t, Frame> reconstruction_frames;
   reconstruction_frames.reserve(database_frames.size());
   visit_frame_data([&](const Frame& database_frame,
                        const Image& database_image,
@@ -427,7 +427,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
 
   // Create trivial rigs/frames for images without configuration.
   // This is necessary because we clear rigs/frames above.
-  std::unordered_map<camera_t, rig_t> camera_to_rig_id;
+  NodeHashMap<camera_t, rig_t> camera_to_rig_id;
   for (const Image& image : images) {
     if (configured_image_ids.count(image.ImageId()) > 0) {
       continue;

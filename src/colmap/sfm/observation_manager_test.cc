@@ -29,6 +29,8 @@
 
 #include "colmap/sfm/observation_manager.h"
 
+#include "colmap/util/hash_containers.h"
+
 #include <memory>
 
 #include <gtest/gtest.h>
@@ -88,46 +90,45 @@ TEST(ObservationManager, FilterPoints3D) {
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(
-      obs_manager.FilterPoints3D(0.0, 0.0, std::unordered_set<point3D_t>{}), 0);
+  EXPECT_EQ(obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id1 + 1}),
+                0.0, 0.0, FlatHashSet<point3D_t>{point3D_id1 + 1}),
             0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{point3D_id1}),
+      2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id2 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id2}),
-            1);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{point3D_id2}),
+      1);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id3 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.5, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id3, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id3, TrackElement(2, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id3}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{point3D_id3}),
+      0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 1e-3, std::unordered_set<point3D_t>{point3D_id3}),
+                0.0, 1e-3, FlatHashSet<point3D_t>{point3D_id3}),
             2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.6, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id4, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id4, TrackElement(2, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.1, 0.0, std::unordered_set<point3D_t>{point3D_id4}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.1, 0.0, FlatHashSet<point3D_t>{point3D_id4}),
+      0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.09, 0.0, std::unordered_set<point3D_t>{point3D_id4}),
+                0.09, 0.0, FlatHashSet<point3D_t>{point3D_id4}),
             2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
@@ -275,51 +276,45 @@ TEST(ObservationManager, FilterPoints3DInImages) {
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{1}), 2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 
   const point3D_t point3D_id2 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.4, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{2}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{2}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{1}),
-            1);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{1}), 1);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id3 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.5, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id3, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id3, TrackElement(2, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{1}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{1}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
 
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 1e-3, std::unordered_set<image_t>{1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 1e-3, FlatHashSet<image_t>{1}),
+      2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.6, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id4, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id4, TrackElement(2, 0));
 
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.1, 0.0, std::unordered_set<image_t>{1}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.1, 0.0, FlatHashSet<image_t>{1}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.09, 0.0, std::unordered_set<image_t>{1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.09, 0.0, FlatHashSet<image_t>{1}),
+      2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 

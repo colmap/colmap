@@ -30,6 +30,7 @@
 #include "colmap/estimators/solvers/essential_matrix.h"
 
 #include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/math/polynomial.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -37,6 +38,7 @@
 #include <Eigen/Geometry>
 #include <Eigen/LU>
 #include <Eigen/SVD>
+#include <PoseLib/solvers/relpose_5pt.h>
 
 namespace colmap {
 
@@ -45,12 +47,34 @@ void EssentialMatrixFivePointEstimator::Estimate(
     const std::vector<Y_t>& cam_rays2,
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_GE(cam_rays1.size(), 5);
+  THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
-  // Setup system of equations: [cam_rays2(i,:), 1]' * E * [cam_rays1(i,:), 1]'.
+  // PoseLib's 5-point solver only supports the minimal case; the non-minimal
+  // case falls through to the SVD-based solver below.
+  if (cam_rays1.size() == kMinNumSamples) {
+    std::vector<M_t> candidate_models;
+    poselib::relpose_5pt(cam_rays1, cam_rays2, &candidate_models);
+    // Keep only hypotheses whose minimal sample is in front of both cameras,
+    // pruning geometrically invalid essential matrices before they are scored.
+    Rigid3d cam2_from_cam1;
+    std::vector<int> valid_indices;
+    for (const M_t& candidate_model : candidate_models) {
+      PoseFromEssentialMatrix(candidate_model,
+                              cam_rays1,
+                              cam_rays2,
+                              &cam2_from_cam1,
+                              &valid_indices);
+      if (valid_indices.size() == kMinNumSamples) {
+        models->push_back(candidate_model);
+      }
+    }
+    return;
+  }
+
+  // Setup system of equations: cam_rays2(i)' * E * cam_rays1(i) = 0.
 
   Eigen::Matrix<double, Eigen::Dynamic, 9> Q(cam_rays1.size(), 9);
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
@@ -59,25 +83,21 @@ void EssentialMatrixFivePointEstimator::Estimate(
         cam_rays2[i].z() * cam_rays1[i].transpose();
   }
 
-  // Step 1: Extraction of the nullspace.
+  // Step 1: Extraction of the nullspace. The minimal case is handled by
+  // PoseLib above, so we always reach this with an over-determined system.
 
-  Eigen::Matrix<double, 9, 4> E;
-  if (cam_rays1.size() == 5) {
-    E = Q.transpose().fullPivHouseholderQr().matrixQ().rightCols<4>();
-  } else {
-    const Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        Q, Eigen::ComputeFullV);
-    E = svd.matrixV().rightCols<4>();
-  }
+  const Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
+      Q, Eigen::ComputeFullV);
+  const Eigen::Matrix<double, 9, 4> E = svd.matrixV().rightCols<4>();
 
-  // Step 3: Gauss-Jordan elimination with partial pivoting on A.
+  // Step 2: Gauss-Jordan elimination with partial pivoting on A.
 
   Eigen::Matrix<double, 10, 20> A;
 #include "colmap/estimators/solvers/essential_matrix_poly.h"
   const Eigen::Matrix<double, 10, 10> AA =
       A.block<10, 10>(0, 0).partialPivLu().solve(A.block<10, 10>(0, 10));
 
-  // Step 4: Expansion of the determinant polynomial of the 3x3 polynomial
+  // Step 3: Expansion of the determinant polynomial of the 3x3 polynomial
   //         matrix B to obtain the tenth degree polynomial.
 
   Eigen::Matrix<double, 13, 3> B;
@@ -93,7 +113,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
     B.block<4, 1>(8, i) -= AA.block<1, 4>(i * 2 + 5, 6);
   }
 
-  // Step 5: Extraction of roots from the degree 10 polynomial.
+  // Step 4: Extraction of roots from the degree 10 polynomial.
   Eigen::Matrix<double, 11, 1> coeffs;
 #include "colmap/estimators/solvers/essential_matrix_coeffs.h"
 
@@ -149,7 +169,7 @@ void EssentialMatrixFivePointEstimator::Residuals(
     const std::vector<Y_t>& cam_rays2,
     const M_t& E,
     std::vector<double>* residuals) {
-  ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
+  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
 }
 
 void EssentialMatrixEightPointEstimator::Estimate(
@@ -202,7 +222,7 @@ void EssentialMatrixEightPointEstimator::Residuals(
     const std::vector<Y_t>& cam_rays2,
     const M_t& E,
     std::vector<double>* residuals) {
-  ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
+  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
 }
 
 }  // namespace colmap

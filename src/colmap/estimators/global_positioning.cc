@@ -3,6 +3,7 @@
 #include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -97,7 +98,7 @@ void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
 
 void GlobalPositioner::InitializeRandomPositions(
     const PoseGraph& pose_graph, Reconstruction& reconstruction) {
-  std::unordered_set<frame_t> constrained_positions;
+  FlatHashSet<frame_t> constrained_positions;
   constrained_positions.reserve(reconstruction.NumFrames());
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);

@@ -32,11 +32,11 @@
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
+#include "colmap/util/hash_containers.h"
 
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 namespace colmap {
@@ -181,11 +181,11 @@ struct IncrementalPipelineOptions {
 
   // List of rigs for which to fix the sensor_from_rig transformation,
   // independent of ba_refine_sensor_from_rig.
-  std::unordered_set<rig_t> constant_rigs;
+  FlatHashSet<rig_t> constant_rigs;
 
   // List of cameras for which to fix the camera parameters independent
   // of refine_focal_length, refine_principal_point, and refine_extra_params.
-  std::unordered_set<camera_t> constant_cameras;
+  FlatHashSet<camera_t> constant_cameras;
 
   // Maximum runtime in seconds for the reconstruction process.
   // If set to a non-positive value, the process will run until completion.

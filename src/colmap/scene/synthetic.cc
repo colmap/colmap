@@ -36,6 +36,7 @@
 #include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 
 #include <Eigen/Geometry>
 
@@ -179,7 +180,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
                               bool has_relative_pose,
                               Reconstruction* reconstruction,
                               Database* database) {
-  std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
+  NodeHashMap<image_pair_t, TwoViewGeometry> two_view_geometries;
   for (const auto& point3D : reconstruction->Points3D()) {
     std::vector<TrackElement> track_elements = point3D.second.track.Elements();
     std::sort(track_elements.begin(),
@@ -367,7 +368,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   }
 
   // Synthesize 3D points on unit sphere centered at origin.
-  std::unordered_set<point3D_t> new_points3D_ids;
+  FlatHashSet<point3D_t> new_points3D_ids;
   new_points3D_ids.reserve(options.num_points3D);
   for (int point3D_idx = 0; point3D_idx < options.num_points3D; ++point3D_idx) {
     new_points3D_ids.insert(

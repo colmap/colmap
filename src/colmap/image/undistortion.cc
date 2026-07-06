@@ -32,6 +32,7 @@
 #include "colmap/image/warp.h"
 #include "colmap/math/math.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 
@@ -271,7 +272,7 @@ void UndistortImage(const UndistortCameraOptions& options,
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
-  const std::unordered_map<camera_t, Camera> distorted_cameras =
+  const NodeHashMap<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
     // IsUndistorted() is true for non-perspective cameras (e.g.

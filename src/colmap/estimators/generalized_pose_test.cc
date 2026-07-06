@@ -38,6 +38,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <numeric>
 
@@ -102,7 +103,7 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   std::iota(shuffled_idxs.begin(), shuffled_idxs.end(), 0);
   std::shuffle(shuffled_idxs.begin(), shuffled_idxs.end(), *PRNG);
 
-  std::unordered_set<size_t> unique_inlier_ids;
+  FlatHashSet<size_t> unique_inlier_ids;
   unique_inlier_ids.reserve(gt_num_inliers);
   for (size_t i = 0; i < gt_num_inliers; ++i) {
     unique_inlier_ids.insert(problem.point3D_ids[shuffled_idxs[i]]);
@@ -300,7 +301,7 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
   problem.gt_rig2_from_rig1 =
       frame2.RigFromWorld() * Inverse(frame1.RigFromWorld());
 
-  std::unordered_map<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
+  FlatHashMap<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
       observations2;
   for (const data_t& data_id : frame2.ImageIds()) {
     const auto& image = reconstruction.Image(data_id.id);
@@ -316,7 +317,7 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
     }
   }
 
-  std::unordered_map<camera_t, size_t> camera_id_to_idx;
+  NodeHashMap<camera_t, size_t> camera_id_to_idx;
   for (const data_t& data_id : frame1.ImageIds()) {
     const auto& image1 = reconstruction.Image(data_id.id);
     for (size_t point2D_idx1 = 0; point2D_idx1 < image1.NumPoints2D();
@@ -446,8 +447,8 @@ StructureLessAbsolutePoseProblem BuildStructureLessAbsolutePoseProblem(
   problem.query_camera = *query_image.CameraPtr();
 
   // Build mapping of world cameras
-  std::unordered_map<image_t, size_t> world_image_id_to_camera_idx;
-  std::unordered_map<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
+  NodeHashMap<image_t, size_t> world_image_id_to_camera_idx;
+  FlatHashMap<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
       world_obs;
 
   for (const image_t world_image_id : reconstruction.RegImageIds()) {

@@ -35,8 +35,8 @@
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/hash_containers.h"
 
-#include <unordered_map>
 #include <vector>
 
 namespace colmap {
@@ -158,8 +158,8 @@ std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
 EstimateRigTwoViewGeometries(
     const Rig& rig1,
     const Rig& rig2,
-    const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const NodeHashMap<image_t, Image>& images,
+    const NodeHashMap<camera_t, Camera>& cameras,
     const std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>&
         matches,
     const TwoViewGeometryOptions& options);

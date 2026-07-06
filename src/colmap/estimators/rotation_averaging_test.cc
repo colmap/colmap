@@ -35,6 +35,7 @@
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <map>
 #include <utility>
@@ -107,6 +108,28 @@ void ExpectEqualRotations(const Reconstruction& gt,
   }
 }
 
+// Gauge-invariant mean rotation error (in degrees) over all registered image
+// pairs, comparing the computed relative rotations against the ground truth.
+double MeanRelativeRotationErrorDeg(const Reconstruction& gt,
+                                    const Reconstruction& computed) {
+  const std::vector<image_t> reg_image_ids = gt.RegImageIds();
+  double total_error_rad = 0;
+  int count = 0;
+  for (size_t i = 0; i < reg_image_ids.size(); i++) {
+    for (size_t j = 0; j < i; j++) {
+      const Eigen::Quaterniond rel =
+          computed.Image(reg_image_ids[j]).CamFromWorld().rotation() *
+          computed.Image(reg_image_ids[i]).CamFromWorld().rotation().inverse();
+      const Eigen::Quaterniond rel_gt =
+          gt.Image(reg_image_ids[j]).CamFromWorld().rotation() *
+          gt.Image(reg_image_ids[i]).CamFromWorld().rotation().inverse();
+      total_error_rad += rel.angularDistance(rel_gt);
+      count++;
+    }
+  }
+  return RadToDeg(total_error_rad / count);
+}
+
 void ResetSensorsFromRig(Reconstruction& reconstruction) {
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
@@ -155,6 +178,117 @@ TEST(RotationAveraging, WithoutNoise) {
                                 data.pose_priors,
                                 {true, false},
                                 /*max_rotation_error_deg=*/1e-2);
+}
+
+TEST(RotationAveraging, WeightedNoiseFreeMatchesInvariant) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  // Assign varying positive match counts so the edge weighting is non-trivial.
+  int counter = 1;
+  for (auto& [pair_id, edge] : data.pose_graph.Edges()) {
+    edge.num_matches = 10 * (counter++ % 7) + 1;
+  }
+
+  for (const bool use_gravity : {true, false}) {
+    // Unweighted baseline.
+    Reconstruction recon_unweighted = data.reconstruction;
+    PoseGraph pose_graph_unweighted = data.pose_graph;
+    RotationEstimatorOptions options_unweighted =
+        CreateRATestOptions(use_gravity);
+    options_unweighted.reweighting = RotationAveragingReweighting::UNIFORM;
+    RunRotationAveraging(options_unweighted,
+                         pose_graph_unweighted,
+                         recon_unweighted,
+                         data.pose_priors);
+
+    // Weighted.
+    Reconstruction recon_weighted = data.reconstruction;
+    PoseGraph pose_graph_weighted = data.pose_graph;
+    RotationEstimatorOptions options_weighted =
+        CreateRATestOptions(use_gravity);
+    options_weighted.reweighting =
+        RotationAveragingReweighting::INLIER_MATCH_COUNT;
+    RunRotationAveraging(options_weighted,
+                         pose_graph_weighted,
+                         recon_weighted,
+                         data.pose_priors);
+
+    // The weighted solution recovers the ground truth and, for a noise-free
+    // system, is identical to the unweighted solution.
+    ExpectEqualRotations(data.gt_reconstruction,
+                         recon_weighted,
+                         /*max_rotation_error_deg=*/1e-2);
+    ExpectEqualRotations(
+        recon_unweighted, recon_weighted, /*max_rotation_error_deg=*/1e-2);
+  }
+}
+
+TEST(RotationAveraging, WeightedReducesErrorWithNoisyLowMatchEdges) {
+  SetPRNGSeed(42);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 15;
+  synthetic_dataset_options.num_points3D = 150;
+  synthetic_dataset_options.prior_gravity = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  auto data = CreateTestData(synthetic_dataset_options);
+
+  // Inject controlled rotation noise into each relative pose and halve the
+  // match count of the noisy edges. A uniform baseline match count ensures the
+  // only weight difference between runs is the halving of the noisy edges.
+  constexpr double kNoiseThresholdDeg = 5.0;
+  constexpr int kBaselineMatches = 100;
+  for (auto& [pair_id, edge] : data.pose_graph.Edges()) {
+    // Range kept just above the 5 deg threshold: noisy edges (5-8 deg) still
+    // carry meaningful IRLS weight (sigma = 5 deg), so the 2x down-weighting
+    // has real leverage; sub-5 deg edges anchor the solution.
+    const double noise_deg = RandomUniformReal(0.0, 8.0);
+    // Seeded isotropic axis (Eigen::Vector3d::Random() is NOT seeded by
+    // SetPRNGSeed).
+    Eigen::Vector3d axis(RandomGaussian(0.0, 1.0),
+                         RandomGaussian(0.0, 1.0),
+                         RandomGaussian(0.0, 1.0));
+    axis.normalize();
+    const Eigen::Quaterniond perturb(
+        Eigen::AngleAxisd(DegToRad(noise_deg), axis));
+    edge.cam2_from_cam1.rotation() =
+        perturb * Eigen::Quaterniond(edge.cam2_from_cam1.rotation());
+    edge.num_matches = kBaselineMatches;
+    if (noise_deg > kNoiseThresholdDeg) {
+      edge.num_matches /= 2;  // Down-weight noisy edges.
+    }
+  }
+
+  const auto run = [&](RotationAveragingReweighting reweighting) {
+    Reconstruction reconstruction = data.reconstruction;
+    PoseGraph pose_graph = data.pose_graph;
+    RotationEstimatorOptions options =
+        CreateRATestOptions(/*use_gravity=*/false);
+    options.reweighting = reweighting;
+    options.random_seed = 0;             // Deterministic solve.
+    options.max_rotation_error_deg = 0;  // Disable post-solve edge filtering so
+                                         // only the solver reweighting differs.
+    RunRotationAveraging(options, pose_graph, reconstruction, data.pose_priors);
+    return MeanRelativeRotationErrorDeg(data.gt_reconstruction, reconstruction);
+  };
+
+  const double error_unweighted = run(RotationAveragingReweighting::UNIFORM);
+  const double error_weighted =
+      run(RotationAveragingReweighting::INLIER_MATCH_COUNT);
+
+  EXPECT_LT(error_weighted, error_unweighted);
 }
 
 TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
@@ -375,7 +509,7 @@ TEST(RotationAveraging, MultiImageRigFrameDeregisterDoesNotCrashOnSecondVisit) {
   const frame_t isolated_frame_id = frame_ids.back();
 
   // 1. Collect every image_id that belongs to the isolated frame.
-  std::unordered_set<image_t> isolated_image_ids;
+  FlatHashSet<image_t> isolated_image_ids;
   for (const auto& data_id :
        data.reconstruction.Frame(isolated_frame_id).ImageIds()) {
     isolated_image_ids.insert(data_id.id);
@@ -444,7 +578,7 @@ TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
   // AllSensorsFromRigKnown check, we use RotationEstimator directly.
   RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
 
-  std::unordered_set<image_t> active_image_ids;
+  FlatHashSet<image_t> active_image_ids;
   for (const auto& [image_id, image] : data.reconstruction.Images()) {
     active_image_ids.insert(image_id);
   }
@@ -472,7 +606,7 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
   auto data = CreateTestData(synthetic_dataset_options);
 
   // Build cams_from_world from the ground truth.
-  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  NodeHashMap<image_t, Rigid3d> cams_from_world;
   for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
     if (image.HasPose()) {
       cams_from_world[image_id] = image.CamFromWorld();
@@ -510,7 +644,7 @@ TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   auto data = CreateTestData(synthetic_dataset_options);
 
-  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  NodeHashMap<image_t, Rigid3d> cams_from_world;
   for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
     if (image.HasPose()) {
       cams_from_world[image_id] = image.CamFromWorld();
