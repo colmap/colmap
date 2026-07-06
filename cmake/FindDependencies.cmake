@@ -22,25 +22,53 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              system)
 
 # Hash map backend selection for the scene/SfM containers. Adds the compile
-# definition consumed by src/colmap/util/hash_containers.h. See
-# COLMAP_HASH_MAP_BACKEND. Both backends are header-only (boost-unordered is
-# provided by the Boost::boost target), so no extra linking is required.
-# This file is also re-run by downstream consumers via find_package(colmap),
-# where COLMAP_HASH_MAP_BACKEND is unset; default it to STD there (the exported
-# colmap targets already carry the COLMAP_HASH_* definition they were built with).
-if(NOT COLMAP_HASH_MAP_BACKEND)
-    set(COLMAP_HASH_MAP_BACKEND "STD")
+# definition consumed by src/colmap/util/hash_containers.h. Both backends are
+# header-only (boost-unordered is provided by the Boost::boost target), so no
+# extra linking is required.
+#
+# BOOST (boost::unordered_flat/node maps) is preferred, but its node maps
+# (boost::unordered_node_map) require Boost >= 1.84. When COLMAP_HASH_MAP_BACKEND
+# is empty we auto-select BOOST if the found Boost is new enough, else STD (so
+# e.g. builds against the system Boost on older distributions keep working).
+#
+# Note: downstream consumers re-run this file via find_package(colmap) with
+# COLMAP_HASH_MAP_BACKEND unset; they get the actual COLMAP_HASH_* macro from the
+# exported colmap targets, so the value re-derived here is only used to keep the
+# selection message and any local sources consistent.
+set(COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION "1.84.0")
+if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
+    set(_colmap_boost_version "${Boost_VERSION_STRING}")
+else()
+    set(_colmap_boost_version "${Boost_VERSION}")
 endif()
 string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
+if(NOT COLMAP_HASH_MAP_BACKEND)
+    if(_colmap_boost_version VERSION_GREATER_EQUAL
+       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
+        set(COLMAP_HASH_MAP_BACKEND "BOOST")
+    else()
+        set(COLMAP_HASH_MAP_BACKEND "STD")
+    endif()
+endif()
 if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
 elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
+    if(_colmap_boost_version VERSION_LESS
+       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
+        message(FATAL_ERROR
+                "COLMAP_HASH_MAP_BACKEND=BOOST requires Boost >= "
+                "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION} "
+                "(boost::unordered_node_map), but found Boost "
+                "${_colmap_boost_version}. Upgrade Boost or set "
+                "-DCOLMAP_HASH_MAP_BACKEND=STD.")
+    endif()
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_BOOST)
 else()
     message(FATAL_ERROR "Unknown COLMAP_HASH_MAP_BACKEND "
-            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD or BOOST)")
+            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST or empty)")
 endif()
-message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend")
+message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend "
+        "(Boost ${_colmap_boost_version})")
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
