@@ -300,7 +300,7 @@ void UndistortImage(const UndistortCameraOptions& options,
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
-  const std::unordered_map<camera_t, Camera> distorted_cameras =
+  const NodeHashMap<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
   // Leave a camera unchanged exactly when the image undistortion also copies
   // its images through unchanged, so that the reconstruction stays consistent
@@ -314,18 +314,18 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   const auto keep_unchanged = [&options](const Camera& camera) {
     return camera.IsUndistorted() && options.max_image_size < 0;
   };
-  for (const auto& camera : distorted_cameras) {
-    if (keep_unchanged(camera.second)) {
+  for (const auto& [camera_id, distorted_camera] : distorted_cameras) {
+    if (keep_unchanged(distorted_camera)) {
       continue;
     }
-    Camera& undistorted_camera = reconstruction->Camera(camera.first);
-    if (camera.second.IsSpherical()) {
+    Camera& undistorted_camera = reconstruction->Camera(camera_id);
+    if (distorted_camera.IsSpherical()) {
       // Only reached with a max_image_size: resize the spherical camera in
       // place, keeping its model.
-      undistorted_camera = camera.second;
+      undistorted_camera = distorted_camera;
       RescaleToMaxImageSize(options, &undistorted_camera);
     } else {
-      undistorted_camera = UndistortCamera(options, camera.second);
+      undistorted_camera = UndistortCamera(options, distorted_camera);
     }
   }
 
