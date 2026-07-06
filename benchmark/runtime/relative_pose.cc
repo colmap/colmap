@@ -24,9 +24,9 @@
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/estimators/solvers/poselib_utils.h"
 #include "colmap/geometry/essential_matrix.h"
-#include "colmap/optim/loransac.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/util/eigen_alignment.h"
@@ -43,19 +43,19 @@
 
 using namespace colmap;
 
-// Defined in the (locally instrumented) PoseLib build; counts cheirality checks,
-// model-scoring calls, and total points scored during MSAC scoring.
+// Defined in the (locally instrumented) PoseLib build; counts cheirality
+// checks, model-scoring calls, and total points scored during MSAC scoring.
 namespace poselib {
 extern unsigned long long g_poselib_cheirality_calls;
 extern unsigned long long g_poselib_score_calls;
 extern unsigned long long g_poselib_point_evals;
-}
+}  // namespace poselib
 // Defined in colmap_geometry; counts ray-based ComputeSquaredSampsonError calls
 // (model-scorings) and total points scored.
 namespace colmap {
 extern unsigned long long g_colmap_score_calls;
 extern unsigned long long g_colmap_point_evals;
-}
+}  // namespace colmap
 
 namespace {
 
@@ -65,9 +65,9 @@ namespace {
 
 // Common inlier threshold (Sampson error in normalized image coordinates) and
 // per-point noise, shared by both estimators for a fair comparison.
-constexpr double kMaxError = 0.005;      // ~5px at focal length 1000.
-constexpr double kInlierNoise = 0.002;   // ~2px at focal length 1000.
-constexpr int kNumProblems = 100;        // Batch size for accuracy statistics.
+constexpr double kMaxError = 0.005;     // ~5px at focal length 1000.
+constexpr double kInlierNoise = 0.002;  // ~2px at focal length 1000.
+constexpr int kNumProblems = 100;       // Batch size for accuracy statistics.
 constexpr unsigned kSeed = 42;
 
 struct Problem {
@@ -87,16 +87,14 @@ Eigen::Quaterniond RandomSmallRotation() {
                              RandomUniformReal<double>(-1.0, 1.0),
                              RandomUniformReal<double>(-1.0, 1.0));
   const double angle = RandomUniformReal<double>(0.0, 0.5);  // radians.
-  return Eigen::Quaterniond(
-      Eigen::AngleAxisd(angle, axis.normalized()));
+  return Eigen::Quaterniond(Eigen::AngleAxisd(angle, axis.normalized()));
 }
 
 Problem GenerateProblem(int num_points, double inlier_ratio) {
   Problem problem;
-  const Eigen::Vector3d gt_translation(
-      RandomUniformReal<double>(-1.0, 1.0),
-      RandomUniformReal<double>(-1.0, 1.0),
-      RandomUniformReal<double>(-1.0, 1.0));
+  const Eigen::Vector3d gt_translation(RandomUniformReal<double>(-1.0, 1.0),
+                                       RandomUniformReal<double>(-1.0, 1.0),
+                                       RandomUniformReal<double>(-1.0, 1.0));
   problem.gt_cam2_from_cam1 =
       Rigid3d(RandomSmallRotation(), gt_translation.normalized());
 
@@ -161,10 +159,8 @@ std::vector<Problem> GenerateProblems(int num_points, double inlier_ratio) {
 // ---------------------------------------------------------------------------
 
 double RotationErrorDeg(const Rigid3d& gt, const Rigid3d& est) {
-  const Eigen::Quaterniond dq =
-      gt.rotation() * est.rotation().inverse();
-  const double angle =
-      2.0 * std::atan2(dq.vec().norm(), std::abs(dq.w()));
+  const Eigen::Quaterniond dq = gt.rotation() * est.rotation().inverse();
+  const double angle = 2.0 * std::atan2(dq.vec().norm(), std::abs(dq.w()));
   return angle * 180.0 / M_PI;
 }
 
@@ -213,8 +209,8 @@ struct EssentialMatrixLMEstimatorNoCheirality
 
 // Variant of the five-point minimal estimator that gates its hypotheses by
 // cheirality on the sample rays: an essential matrix is only returned if the
-// five sample correspondences triangulate in front of both cameras. This mirrors
-// how PoseLib's relpose_5pt (CameraPose overload) filters via
+// five sample correspondences triangulate in front of both cameras. This
+// mirrors how PoseLib's relpose_5pt (CameraPose overload) filters via
 // motion_from_essential, and it prunes geometrically impossible hypotheses -
 // dominant on contaminated samples - before they reach the expensive full-N
 // scoring, cutting scoring *volume* rather than per-scoring cost.
@@ -321,19 +317,24 @@ bool RunPoseLib(const Problem& problem,
       poselib::g_poselib_cheirality_calls;
   const unsigned long long score_calls_before = poselib::g_poselib_score_calls;
   const unsigned long long point_evals_before = poselib::g_poselib_point_evals;
-  const poselib::RansacStats pl_stats = poselib::estimate_relative_pose(
-      problem.points1, problem.points2, camera, camera, options, &pose,
-      &inliers);
+  const poselib::RansacStats pl_stats =
+      poselib::estimate_relative_pose(problem.points1,
+                                      problem.points2,
+                                      camera,
+                                      camera,
+                                      options,
+                                      &pose,
+                                      &inliers);
   if (stats != nullptr) {
     stats->num_trials = static_cast<double>(pl_stats.iterations);
     stats->num_inliers = static_cast<double>(pl_stats.num_inliers);
     stats->num_refinements = static_cast<double>(pl_stats.refinements);
     stats->num_cheirality = static_cast<double>(
         poselib::g_poselib_cheirality_calls - cheirality_before);
-    stats->num_score_calls =
-        static_cast<double>(poselib::g_poselib_score_calls - score_calls_before);
-    stats->num_point_evals =
-        static_cast<double>(poselib::g_poselib_point_evals - point_evals_before);
+    stats->num_score_calls = static_cast<double>(
+        poselib::g_poselib_score_calls - score_calls_before);
+    stats->num_point_evals = static_cast<double>(
+        poselib::g_poselib_point_evals - point_evals_before);
   }
   if (pl_stats.num_inliers == 0) {
     return false;
@@ -349,14 +350,16 @@ bool RunPoseLib(const Problem& problem,
 // The colmap methods form a 2x2 over {5-point algebraic LO, in-loop LM LO} x
 // {InlierSupportMeasurer (count-primary), MEstimatorSupportMeasurer (MSAC)}.
 //
-// kColmap     : 5-point minimal + 5-point algebraic LO, count support (shipping).
-// kColmap8pt  : 5-point minimal + 8-point linear LO, count support.
+// kColmap     : 5-point minimal + 5-point algebraic LO, count support
+// (shipping). kColmap8pt  : 5-point minimal + 8-point linear LO, count support.
 // kColmapMsac : 5-point minimal + 5-point algebraic LO, MSAC support.
 // kColmapLM   : 5-point minimal + in-loop EssentialMatrixLMEstimator LO, count
 //               support (LM refit handicapped by the count-primary measure).
 // kColmapLMMsac: 5-point minimal + in-loop EssentialMatrixLMEstimator LO, MSAC
-//               support (the intended configuration, cheirality-aware residual).
-// kColmapLMMsacNoCheiral: identical to kColmapLMMsac but the LO estimator scores
+//               support (the intended configuration, cheirality-aware
+//               residual).
+// kColmapLMMsacNoCheiral: identical to kColmapLMMsac but the LO estimator
+// scores
 //               support with the plain Sampson error (no cheirality), isolating
 //               the effect of the cheirality-aware residual.
 // kColmapGated: identical to kColmap but the minimal + local estimators gate
@@ -408,8 +411,8 @@ bool Run(Method method,
       // full inlier set, where an "all points in front" gate would spuriously
       // reject valid refits and disable local optimization.
       return RunColmapRansac<EssentialMatrixFivePointGatedEstimator,
-                             EssentialMatrixFivePointEstimator>(problem, est,
-                                                                stats);
+                             EssentialMatrixFivePointEstimator>(
+          problem, est, stats);
     case Method::kPoseLib:
       return RunPoseLib(problem, camera, est, stats);
   }
@@ -497,44 +500,61 @@ void BM_RelativePose(benchmark::State& state,
 }
 
 // Registers all methods back-to-back for each {num_points, inlier_ratio} case,
-// so the output interleaves the methods per case rather than grouping by method.
+// so the output interleaves the methods per case rather than grouping by
+// method.
 int RegisterBenchmarks() {
   for (int num_points : {100, 500, 1000}) {
     for (int inlier_pct : {100, 80, 50}) {
       const double inlier_ratio = inlier_pct / 100.0;
       const std::string suffix =
           "/" + std::to_string(num_points) + "/" + std::to_string(inlier_pct);
-      benchmark::RegisterBenchmark(
-          "colmap" + suffix, BM_RelativePose, Method::kColmap, num_points,
-          inlier_ratio)
+      benchmark::RegisterBenchmark("colmap" + suffix,
+                                   BM_RelativePose,
+                                   Method::kColmap,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
-      benchmark::RegisterBenchmark(
-          "colmap8pt" + suffix, BM_RelativePose, Method::kColmap8pt, num_points,
-          inlier_ratio)
+      benchmark::RegisterBenchmark("colmap8pt" + suffix,
+                                   BM_RelativePose,
+                                   Method::kColmap8pt,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
-      benchmark::RegisterBenchmark(
-          "colmap_msac" + suffix, BM_RelativePose, Method::kColmapMsac,
-          num_points, inlier_ratio)
+      benchmark::RegisterBenchmark("colmap_msac" + suffix,
+                                   BM_RelativePose,
+                                   Method::kColmapMsac,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
-      benchmark::RegisterBenchmark(
-          "colmap_lm" + suffix, BM_RelativePose, Method::kColmapLM, num_points,
-          inlier_ratio)
+      benchmark::RegisterBenchmark("colmap_lm" + suffix,
+                                   BM_RelativePose,
+                                   Method::kColmapLM,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
-      benchmark::RegisterBenchmark(
-          "colmap_lm_msac" + suffix, BM_RelativePose, Method::kColmapLMMsac,
-          num_points, inlier_ratio)
+      benchmark::RegisterBenchmark("colmap_lm_msac" + suffix,
+                                   BM_RelativePose,
+                                   Method::kColmapLMMsac,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
-      benchmark::RegisterBenchmark(
-          "colmap_lm_msac_nocheiral" + suffix, BM_RelativePose,
-          Method::kColmapLMMsacNoCheiral, num_points, inlier_ratio)
+      benchmark::RegisterBenchmark("colmap_lm_msac_nocheiral" + suffix,
+                                   BM_RelativePose,
+                                   Method::kColmapLMMsacNoCheiral,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
-      benchmark::RegisterBenchmark(
-          "colmap_gated" + suffix, BM_RelativePose, Method::kColmapGated,
-          num_points, inlier_ratio)
+      benchmark::RegisterBenchmark("colmap_gated" + suffix,
+                                   BM_RelativePose,
+                                   Method::kColmapGated,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
-      benchmark::RegisterBenchmark(
-          "poselib" + suffix, BM_RelativePose, Method::kPoseLib, num_points,
-          inlier_ratio)
+      benchmark::RegisterBenchmark("poselib" + suffix,
+                                   BM_RelativePose,
+                                   Method::kPoseLib,
+                                   num_points,
+                                   inlier_ratio)
           ->Unit(benchmark::kMillisecond);
     }
   }
