@@ -137,6 +137,77 @@ class AnalyticalReprojErrorCostFunction
   const Eigen::Vector2d point2D_;
 };
 
+// Reprojection error cost function with analytical Jacobians for a fixed camera
+// pose (variable point and camera calibration). Analytical counterpart of
+// ReprojErrorConstantPoseCostFunctor. Requires camera model to implement
+// ImgFromCamWithJac().
+template <typename CameraModel>
+class AnalyticalReprojErrorConstantPoseCostFunction
+    : public ceres::SizedCostFunction<2, 3, CameraModel::num_params> {
+ public:
+  AnalyticalReprojErrorConstantPoseCostFunction(const Eigen::Vector2d& point2D,
+                                                const Rigid3d& cam_from_world)
+      : point2D_(point2D),
+        cam_from_world_rotation_(cam_from_world.rotation().toRotationMatrix()),
+        cam_from_world_translation_(cam_from_world.translation()) {}
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    const Eigen::Map<const Eigen::Vector3d> point3D_in_world(parameters[0]);
+    const double* camera_params = parameters[1];
+
+    double* J_point = jacobians ? jacobians[0] : nullptr;
+    double* J_params = jacobians ? jacobians[1] : nullptr;
+
+    Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
+    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_point_mat(
+        J_point);
+    Eigen::Map<
+        Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
+        J_params_mat(J_params);
+    Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
+
+    const Eigen::Vector3d point3D_in_cam =
+        cam_from_world_rotation_ * point3D_in_world +
+        cam_from_world_translation_;
+
+    if (!CameraModel::ImgFromCamWithJac(camera_params,
+                                        point3D_in_cam[0],
+                                        point3D_in_cam[1],
+                                        point3D_in_cam[2],
+                                        &residuals[0],
+                                        &residuals[1],
+                                        J_params,
+                                        J_point ? J_uvw_mat.data() : nullptr)) {
+      residuals_vec.setZero();
+      if (J_point) {
+        J_point_mat.setZero();
+      }
+      if (J_params) {
+        J_params_mat.setZero();
+      }
+      return true;
+    }
+
+    residuals_vec -= point2D_;
+    // No-op for non-periodic models. The offset is locally constant, so the
+    // analytic Jacobian below is unaffected.
+    WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
+
+    if (J_point) {
+      J_point_mat = J_uvw_mat * cam_from_world_rotation_;
+    }
+
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+  const Eigen::Matrix3d cam_from_world_rotation_;
+  const Eigen::Vector3d cam_from_world_translation_;
+};
+
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
@@ -191,21 +262,37 @@ class ReprojErrorConstantPoseCostFunctor
  public:
   ReprojErrorConstantPoseCostFunctor(const Eigen::Vector2d& point2D,
                                      const Rigid3d& cam_from_world)
-      : cam_from_world_(cam_from_world), reproj_cost_(point2D) {}
+      : point2D_(point2D),
+        cam_from_world_rotation_(cam_from_world.rotation().toRotationMatrix()),
+        cam_from_world_translation_(cam_from_world.translation()) {}
 
   template <typename T>
   bool operator()(const T* const point3D_in_world,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 7, 1> cam_from_world =
-        cam_from_world_.params.cast<T>();
-    return reproj_cost_(
-        point3D_in_world, cam_from_world.data(), camera_params, residuals);
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        cam_from_world_rotation_.cast<T>() *
+            EigenVector3Map<T>(point3D_in_world) +
+        cam_from_world_translation_.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
+    if (CameraModel::ImgFromCam(camera_params,
+                                point3D_in_cam[0],
+                                point3D_in_cam[1],
+                                point3D_in_cam[2],
+                                &residuals[0],
+                                &residuals[1])) {
+      residuals_vec -= point2D_.cast<T>();
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
+    } else {
+      residuals_vec.setZero();
+    }
+    return true;
   }
 
  private:
-  const Rigid3d cam_from_world_;
-  const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
+  const Eigen::Vector2d point2D_;
+  const Eigen::Matrix3d cam_from_world_rotation_;
+  const Eigen::Vector3d cam_from_world_translation_;
 };
 
 // Bundle adjustment cost function for variable
@@ -338,21 +425,43 @@ CreateAnalyticalReprojErrorCostFunction(Args&&... /*args*/) {
   return nullptr;
 }
 
+// Same SFINAE pattern as CreateAnalyticalReprojErrorCostFunction, for the
+// fixed-pose analytical cost function.
+template <typename CameraModel, typename... Args>
+std::enable_if_t<CameraModel::has_img_from_cam_with_jac, ceres::CostFunction*>
+CreateAnalyticalReprojErrorConstantPoseCostFunction(Args&&... args) {
+  return new AnalyticalReprojErrorConstantPoseCostFunction<CameraModel>(
+      std::forward<Args>(args)...);
+}
+
+template <typename CameraModel, typename... Args>
+std::enable_if_t<!CameraModel::has_img_from_cam_with_jac, ceres::CostFunction*>
+CreateAnalyticalReprojErrorConstantPoseCostFunction(Args&&... /*args*/) {
+  // Unreachable: callers guard on has_img_from_cam_with_jac.
+  return nullptr;
+}
+
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
   // NOLINTBEGIN(bugprone-macro-parentheses)
   switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    if constexpr (std::is_same<CostFunctor<CameraModel>,                      \
-                               ReprojErrorCostFunctor<CameraModel>>::value && \
-                  CameraModel::has_img_from_cam_with_jac) {                   \
-      return CreateAnalyticalReprojErrorCostFunction<CameraModel>(            \
-          std::forward<Args>(args)...);                                       \
-    } else {                                                                  \
-      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);   \
-    }                                                                         \
+#define CAMERA_MODEL_CASE(CameraModel)                                         \
+  case CameraModel::model_id:                                                  \
+    if constexpr (std::is_same<CostFunctor<CameraModel>,                       \
+                               ReprojErrorCostFunctor<CameraModel>>::value &&  \
+                  CameraModel::has_img_from_cam_with_jac) {                    \
+      return CreateAnalyticalReprojErrorCostFunction<CameraModel>(             \
+          std::forward<Args>(args)...);                                        \
+    } else if constexpr (std::is_same<CostFunctor<CameraModel>,                \
+                                      ReprojErrorConstantPoseCostFunctor<      \
+                                          CameraModel>>::value &&              \
+                         CameraModel::has_img_from_cam_with_jac) {             \
+      return CreateAnalyticalReprojErrorConstantPoseCostFunction<CameraModel>( \
+          std::forward<Args>(args)...);                                        \
+    } else {                                                                   \
+      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);    \
+    }                                                                          \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
