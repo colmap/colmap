@@ -7,19 +7,18 @@
 # comparison of end-to-end runtime and peak RSS per benchmark, relative to the
 # STD baseline.
 #
-# Usage: summarize_hash_map_experiment.py results_STD.json results_BOOST.json ...
+# Usage: summarize_hash_map_experiment.py results_*.json
 
 import json
 import os
 import sys
-from collections import defaultdict
 
 
 def backend_from_path(path):
     name = os.path.basename(path)
     for prefix, suffix in (("results_", ".json"),):
         if name.startswith(prefix) and name.endswith(suffix):
-            return name[len(prefix):-len(suffix)]
+            return name[len(prefix) : -len(suffix)]
     return name
 
 
@@ -36,13 +35,12 @@ def load(path):
         aggregate = bench.get("aggregate_name", "")
         is_mean = aggregate == "mean"
         is_plain = bench.get("run_type", "iteration") == "iteration"
-        if run_name not in chosen or is_mean:
-            if is_mean or (is_plain and run_name not in chosen):
-                chosen[run_name] = {
-                    "time_ms": bench.get("real_time", float("nan")),
-                    "peak_rss_mb": bench.get("peak_rss_mb", float("nan")),
-                    "num_reg_images": bench.get("num_reg_images", float("nan")),
-                }
+        if is_mean or (is_plain and run_name not in chosen):
+            chosen[run_name] = {
+                "time_ms": bench.get("real_time", float("nan")),
+                "peak_rss_mb": bench.get("peak_rss_mb", float("nan")),
+                "num_reg_images": bench.get("num_reg_images", float("nan")),
+            }
     return chosen
 
 
@@ -65,8 +63,10 @@ def main(paths):
     for bench in benches:
         print(bench)
         base = results.get(baseline, {}).get(bench)
-        header = f"  {'backend':<8} {'time_ms':>12} {'vs base':>9} " \
-                 f"{'peak_rss_mb':>12} {'vs base':>9} {'reg_imgs':>9}"
+        header = (
+            f"  {'backend':<8} {'time_ms':>12} {'vs base':>9} "
+            f"{'peak_rss_mb':>12} {'vs base':>9} {'reg_imgs':>9}"
+        )
         print(header)
         for backend in backends:
             m = results[backend].get(bench)
