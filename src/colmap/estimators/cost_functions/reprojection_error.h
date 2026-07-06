@@ -265,6 +265,12 @@ class ReprojErrorConstantPoseCostFunctor
           3,
           CameraModel::num_params> {
  public:
+  // The pose is fixed, so precompute and store the rotation as a 3x3 matrix
+  // instead of a quaternion: rotating a point with a matrix is faster than
+  // quaternion rotation, and the conversion is done once here rather than on
+  // every evaluation. (The analytical variant reuses this matrix directly as
+  // the point Jacobian, which additionally avoids a quaternion-to-matrix
+  // conversion there.)
   ReprojErrorConstantPoseCostFunctor(const Eigen::Vector2d& point2D,
                                      const Rigid3d& cam_from_world)
       : point2D_(point2D),

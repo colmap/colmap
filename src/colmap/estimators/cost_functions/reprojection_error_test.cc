@@ -93,7 +93,7 @@ ceres::GradientChecker MakeGradientChecker(
 // (Ridders) Jacobian comparison uses a looser tolerance than the residual
 // comparison, since finite differences on higher-order distortion models do
 // not reach full double precision; the exact analytical Jacobians are verified
-// separately against Ceres Jets in sensor/models_test.
+// separately against Ceres Jets in sensor/models_jacobian_test.
 template <typename CameraModel>
 void TestAnalyticalReprojError(const std::vector<double>& camera_params) {
   SetPRNGSeed(42);
@@ -122,7 +122,7 @@ void TestAnalyticalReprojError(const std::vector<double>& camera_params) {
         // only well-conditioned for moderate normalized radii, where the
         // finite-difference (Ridders) gradient check is reliable; the exact
         // analytical Jacobians are validated over the full range against Ceres
-        // Jets in sensor/models_test.
+        // Jets in sensor/models_jacobian_test.
         const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
         if (point3D_in_cam.z() < 0.5 ||
             point3D_in_cam.hnormalized().norm() > 0.8) {
@@ -176,7 +176,7 @@ void TestAnalyticalReprojErrorConstantPose(
         // only well-conditioned for moderate normalized radii, where the
         // finite-difference (Ridders) gradient check is reliable; the exact
         // analytical Jacobians are validated over the full range against Ceres
-        // Jets in sensor/models_test.
+        // Jets in sensor/models_jacobian_test.
         const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
         if (point3D_in_cam.z() < 0.5 ||
             point3D_in_cam.hnormalized().norm() > 0.8) {
