@@ -273,11 +273,20 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
   const std::unordered_map<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
+  // Leave a camera unchanged exactly when the image undistortion also copies
+  // its images through unchanged, so that the reconstruction stays consistent
+  // with the output images (see COLMAPUndistorter::Undistort):
+  //  * Spherical cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane to
+  //    undistort to.
+  //  * Already-undistorted perspective cameras are copied through as-is, unless
+  //    a max_image_size is requested, in which case they are still rescaled to
+  //    match the resized images.
+  const auto keep_unchanged = [&options](const Camera& camera) {
+    return camera.IsSpherical() ||
+           (camera.IsUndistorted() && options.max_image_size < 0);
+  };
   for (const auto& camera : distorted_cameras) {
-    // IsUndistorted() is true for non-perspective cameras (e.g.
-    // EQUIRECTANGULAR), which cannot be undistorted to a pinhole, so they are
-    // left unchanged.
-    if (camera.second.IsUndistorted()) {
+    if (keep_unchanged(camera.second)) {
       continue;
     }
     reconstruction->Camera(camera.first) =
@@ -287,10 +296,8 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   for (const auto& distorted_image : reconstruction->Images()) {
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
-    // Cameras left unchanged above (undistorted perspective cameras and all
-    // non-perspective cameras, e.g. EQUIRECTANGULAR) need no observation
-    // rewrite.
-    if (distorted_camera.IsUndistorted()) {
+    // Cameras left unchanged above need no observation rewrite.
+    if (keep_unchanged(distorted_camera)) {
       continue;
     }
     const Camera& undistorted_camera = *image.CameraPtr();
