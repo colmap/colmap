@@ -159,6 +159,10 @@ jobs:
             fi
           fi
 
+          # Ubuntu's apt Boost (1.74 on 22.04, 1.83 on 24.04) predates
+          # boost::unordered_node_map (Boost >= 1.84), so COLMAP auto-selects the
+          # STD hash map backend here. The BOOST backend is exercised on the
+          # macOS (brew) and Windows (vcpkg) jobs. See COLMAP_HASH_MAP_BACKEND.
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
             cmake \

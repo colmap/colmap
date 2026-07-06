@@ -29,7 +29,7 @@
 
 #include "colmap/optim/progressive_sampler.h"
 
-#include <unordered_set>
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 
@@ -44,8 +44,7 @@ TEST(ProgressiveSampler, LessSamples) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
     EXPECT_EQ(samples.size(), 2);
-    EXPECT_EQ(std::unordered_set<size_t>(samples.begin(), samples.end()).size(),
-              2);
+    EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 2);
   }
 }
 
@@ -57,8 +56,7 @@ TEST(ProgressiveSampler, EqualSamples) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
     EXPECT_EQ(samples.size(), 5);
-    EXPECT_EQ(std::unordered_set<size_t>(samples.begin(), samples.end()).size(),
-              5);
+    EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 5);
   }
 }
 

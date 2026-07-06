@@ -29,9 +29,10 @@
 
 #pragma once
 
+#include "colmap/util/hash_containers.h"
+
 #include <cstddef>
 #include <optional>
-#include <unordered_map>
 
 namespace colmap {
 
@@ -84,11 +85,11 @@ class UnionFind {
   }
 
   // Access all elements and their parents in the union-find structure.
-  const std::unordered_map<T, T>& Parents() const { return parent_; }
+  const NodeHashMap<T, T>& Parents() const { return parent_; }
 
  private:
   // Map to store the parent of each element.
-  std::unordered_map<T, T> parent_;
+  NodeHashMap<T, T> parent_;
 };
 
 }  // namespace colmap

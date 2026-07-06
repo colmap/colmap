@@ -36,6 +36,7 @@
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sfm/incremental_mapper_impl.h"
+#include "colmap/util/hash_containers.h"
 
 #include <array>
 
@@ -91,8 +92,8 @@ void IncrementalMapper::BeginReconstruction(
   }
 
   existing_frame_ids_ =
-      std::unordered_set<image_t>(reconstruction->RegFrameIds().begin(),
-                                  reconstruction->RegFrameIds().end());
+      FlatHashSet<frame_t>(reconstruction->RegFrameIds().begin(),
+                           reconstruction->RegFrameIds().end());
 
   filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
@@ -247,7 +248,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
       database_cache_->CorrespondenceGraph();
 
-  std::unordered_set<point3D_t> corr_point3D_ids;
+  FlatHashSet<point3D_t> corr_point3D_ids;
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
        ++point2D_idx) {
     const Point2D& point2D = image.Point2D(point2D_idx);
@@ -483,7 +484,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
     reg_stats_.num_reg_trials[image_id] += 1;
 
-    std::unordered_set<point3D_t> corr_point3D_ids;
+    FlatHashSet<point3D_t> corr_point3D_ids;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
@@ -664,7 +665,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   std::vector<size_t> world_camera_idxs;
   std::vector<Rigid3d> world_cams_from_world;
   std::vector<Camera> world_cameras;
-  std::unordered_map<image_t, size_t> world_image_id_to_camera_idx;
+  FlatHashMap<image_t, size_t> world_image_id_to_camera_idx;
 
   const point2D_t num_points2D = image.NumPoints2D();
   for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -948,7 +949,7 @@ IncrementalMapper::AdjustLocalBundle(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id,
-    const std::unordered_set<point3D_t>& point3D_ids) {
+    const FlatHashSet<point3D_t>& point3D_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
@@ -960,13 +961,13 @@ IncrementalMapper::AdjustLocalBundle(
 
   // Do the bundle adjustment only if there is any connected images.
   BundleAdjustmentConfig ba_config;
-  std::unordered_set<image_t> image_ids;
+  FlatHashSet<image_t> image_ids;
   if (local_bundle.size() > 0) {
     ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
     // Insert the images of all local frames.
     const Image& image = reconstruction_->Image(image_id);
-    std::set<frame_t> frame_ids;
+    FlatHashSet<frame_t> frame_ids;
     frame_ids.insert(image.FrameId());
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
       ba_config.AddImage(data_id.id);
@@ -989,7 +990,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Fix rig poses, if not all frames within the local bundle.
-    std::unordered_map<rig_t, size_t> num_frames_per_rig;
+    FlatHashMap<rig_t, size_t> num_frames_per_rig;
     num_frames_per_rig.reserve(frame_ids.size());
     for (const frame_t frame_id : frame_ids) {
       const Frame& frame = reconstruction_->Frame(frame_id);
@@ -1006,7 +1007,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Fix camera intrinsics, if not all registered images within local bundle.
-    std::unordered_map<camera_t, size_t> num_images_per_camera;
+    FlatHashMap<camera_t, size_t> num_images_per_camera;
     num_images_per_camera.reserve(ba_config.NumImages());
     for (const image_t image_id : ba_config.Images()) {
       const Image& image = reconstruction_->Image(image_id);
@@ -1024,7 +1025,7 @@ IncrementalMapper::AdjustLocalBundle(
     // long track 3D points as they are usually already very stable and adding
     // to them to bundle adjustment and track merging/completion would slow
     // down the local bundle adjustment significantly.
-    std::unordered_set<point3D_t> variable_point3D_ids;
+    FlatHashSet<point3D_t> variable_point3D_ids;
     for (const point3D_t point3D_id : point3D_ids) {
       const Point3D& point3D = reconstruction_->Point3D(point3D_id);
       constexpr size_t kMaxTrackLength = 15;
@@ -1330,11 +1331,11 @@ IncrementalTriangulator& IncrementalMapper::Triangulator() const {
   return *triangulator_;
 }
 
-const std::unordered_set<frame_t>& IncrementalMapper::FilteredFrames() const {
+const FlatHashSet<frame_t>& IncrementalMapper::FilteredFrames() const {
   return filtered_frames_;
 }
 
-const std::unordered_set<image_t>& IncrementalMapper::ExistingFrameIds() const {
+const FlatHashSet<frame_t>& IncrementalMapper::ExistingFrameIds() const {
   return existing_frame_ids_;
 }
 
@@ -1343,13 +1344,13 @@ void IncrementalMapper::ResetInitializationStats() {
   reg_stats_.init_num_reg_trials.clear();
 }
 
-const std::unordered_map<rig_t, size_t>& IncrementalMapper::NumRegFramesPerRig()
+const FlatHashMap<rig_t, size_t>& IncrementalMapper::NumRegFramesPerRig()
     const {
   return reg_stats_.num_reg_frames_per_rig;
 }
 
-const std::unordered_map<camera_t, size_t>&
-IncrementalMapper::NumRegImagesPerCamera() const {
+const FlatHashMap<camera_t, size_t>& IncrementalMapper::NumRegImagesPerCamera()
+    const {
   return reg_stats_.num_reg_images_per_camera;
 }
 
@@ -1361,7 +1362,7 @@ size_t IncrementalMapper::NumSharedRegImages() const {
   return reg_stats_.num_shared_reg_images;
 }
 
-const std::unordered_set<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
+const FlatHashSet<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
   return triangulator_->GetModifiedPoints3D();
 }
 

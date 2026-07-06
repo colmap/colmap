@@ -41,11 +41,11 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
 #include <algorithm>
-#include <unordered_set>
 
 #include <Eigen/Geometry>
 
@@ -70,7 +70,7 @@ FeatureMatches ExtractOutlierMatches(const FeatureMatches& matches,
                                      const FeatureMatches& inlier_matches) {
   THROW_CHECK_GE(matches.size(), inlier_matches.size());
 
-  std::unordered_set<std::pair<point2D_t, point2D_t>> inlier_matches_set;
+  FlatHashSet<std::pair<point2D_t, point2D_t>> inlier_matches_set;
   inlier_matches_set.reserve(inlier_matches.size());
   for (const auto& match : inlier_matches) {
     inlier_matches_set.emplace(match.point2D_idx1, match.point2D_idx2);
@@ -447,8 +447,8 @@ std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
 EstimateRigTwoViewGeometries(
     const Rig& rig1,
     const Rig& rig2,
-    const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const NodeHashMap<image_t, Image>& images,
+    const NodeHashMap<camera_t, Camera>& cameras,
     const std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>&
         matches,
     const TwoViewGeometryOptions& options) {
@@ -462,7 +462,7 @@ EstimateRigTwoViewGeometries(
   cameras_vec.reserve(cams_from_rig.size());
   std::vector<std::tuple<image_t, point2D_t, image_t, point2D_t>> corrs;
 
-  std::unordered_map<camera_t, std::pair<rig_t, size_t>>
+  NodeHashMap<camera_t, std::pair<rig_t, size_t>>
       camera_id_to_rig_and_camera_idx;
   auto maybe_add_camera =
       [&cameras_vec, &cams_from_rig, &camera_id_to_rig_and_camera_idx](
@@ -483,7 +483,7 @@ EstimateRigTwoViewGeometries(
         return it->second.second;
       };
 
-  std::unordered_set<image_pair_t> image_pairs;
+  FlatHashSet<image_pair_t> image_pairs;
   image_pairs.reserve(matches.size());
   for (const auto& [image_pair, pair_matches] : matches) {
     const auto& [image_id1, image_id2] = image_pair;
