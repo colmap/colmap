@@ -82,8 +82,7 @@ void RunPipelineAndReport(benchmark::State& state,
   std::shared_ptr<const Reconstruction> largest;
   for (auto _ : state) {
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-    IncrementalPipeline mapper(
-        MakeOptions(), database, reconstruction_manager);
+    IncrementalPipeline mapper(MakeOptions(), database, reconstruction_manager);
     mapper.Run();
 
     state.PauseTiming();
@@ -189,10 +188,9 @@ void BM_IncrementalMapping_RealDatabase(benchmark::State& state) {
 
   const std::filesystem::path database_path = RealDatabasePath();
   if (!std::filesystem::exists(database_path)) {
-    state.SkipWithError(
-        ("Database not found: " + database_path.string() +
-         " (set COLMAP_BENCHMARK_DATABASE_PATH to override)")
-            .c_str());
+    state.SkipWithError(("Database not found: " + database_path.string() +
+                         " (set COLMAP_BENCHMARK_DATABASE_PATH to override)")
+                            .c_str());
     return;
   }
 
@@ -202,8 +200,9 @@ void BM_IncrementalMapping_RealDatabase(benchmark::State& state) {
   const std::filesystem::path tmp_path =
       std::filesystem::temp_directory_path() / "colmap_benchmark_database.db";
   std::filesystem::remove(tmp_path);
-  std::filesystem::copy_file(
-      database_path, tmp_path, std::filesystem::copy_options::overwrite_existing);
+  std::filesystem::copy_file(database_path,
+                             tmp_path,
+                             std::filesystem::copy_options::overwrite_existing);
 
   auto database = Database::Open(tmp_path);
   RunPipelineAndReport(state, database);

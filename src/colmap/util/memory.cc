@@ -36,10 +36,10 @@
 #elif defined(__APPLE__)
 #include <mach/mach.h>
 #elif defined(__linux__)
+#include <cstdio>
+
 #include <sys/resource.h>
 #include <unistd.h>
-
-#include <cstdio>
 #endif
 
 namespace colmap {
