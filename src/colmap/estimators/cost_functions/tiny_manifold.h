@@ -81,8 +81,7 @@ struct EigenQuaternionManifold {
   }
 };
 
-// Unit-sphere manifold in R^N (the point is only defined up to scale). Used for
-// the essential matrix translation direction. Retraction:
+// Unit-sphere manifold in R^N. Retraction:
 // x_plus = normalize(x + B * delta), where B is an orthonormal basis of the
 // tangent plane at x / ||x||. Only the 2-sphere (N = 3) is implemented, which
 // is all that is currently needed; the closed-form basis keeps the solver
