@@ -369,6 +369,8 @@ inline std::size_t HashCombine(std::size_t seed, std::size_t value) {
 struct PairHash {
   template <typename T1, typename T2>
   std::size_t operator()(const std::pair<T1, T2>& p) const {
+    // Pack into disjoint bits when possible (collision-free, unlike
+    // HashCombine); otherwise fall back to mixing.
     if constexpr (std::is_unsigned_v<T1> && std::is_unsigned_v<T2> &&
                   sizeof(T1) + sizeof(T2) <= sizeof(std::size_t)) {
       return (static_cast<std::size_t>(p.first) << (8 * sizeof(T2))) |
