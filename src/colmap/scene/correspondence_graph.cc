@@ -248,8 +248,12 @@ void CorrespondenceGraph::ExtractTransitiveCorrespondences(
   // Push requested image point on queue to visit. Will be removed later.
   corrs->emplace_back(image_id, point2D_idx);
 
-  std::map<image_t, std::set<point2D_t>> image_corrs;
-  image_corrs[image_id].insert(point2D_idx);
+  // Visited (image, point2D) observations, for deduplication only; the
+  // iteration order is never observed (the output is the discovery-ordered
+  // `corrs` vector), so a flat hash set is both correct and faster than the
+  // tree-based std::map<image_t, std::set<point2D_t>> it replaces.
+  FlatHashSet<std::pair<image_t, point2D_t>> image_corrs;
+  image_corrs.insert({image_id, point2D_idx});
 
   size_t corr_queue_beg = 0;
   size_t corr_queue_end = 1;
@@ -265,8 +269,7 @@ void CorrespondenceGraph::ExtractTransitiveCorrespondences(
            corr < ref_corr_range.end;
            ++corr) {
         // Check if correspondence already collected, otherwise collect.
-        auto& corr_image_corrs = image_corrs[corr->image_id];
-        if (corr_image_corrs.insert(corr->point2D_idx).second) {
+        if (image_corrs.insert({corr->image_id, corr->point2D_idx}).second) {
           corrs->emplace_back(corr->image_id, corr->point2D_idx);
         }
       }
