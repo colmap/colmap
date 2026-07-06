@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <ceres/tiny_solver_autodiff_function.h>
 
 namespace colmap {
 
@@ -55,6 +56,13 @@ class TinySampsonErrorCostFunctor {
     NUM_RESIDUALS = Eigen::Dynamic,
     NUM_PARAMETERS = 7,
   };
+
+  // ceres::TinySolver-compatible autodiff wrapper for this functor. Note that
+  // it stores the functor by reference, so the wrapped functor must outlive it.
+  using AutoDiffFunction =
+      ceres::TinySolverAutoDiffFunction<TinySampsonErrorCostFunctor,
+                                        NUM_RESIDUALS,
+                                        NUM_PARAMETERS>;
 
   TinySampsonErrorCostFunctor(const std::vector<Eigen::Vector3d>& cam_rays1,
                               const std::vector<Eigen::Vector3d>& cam_rays2)

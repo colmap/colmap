@@ -42,7 +42,6 @@
 #include <Eigen/LU>
 #include <Eigen/SVD>
 #include <PoseLib/solvers/relpose_5pt.h>
-#include <ceres/tiny_solver_autodiff_function.h>
 
 namespace colmap {
 namespace {
@@ -61,9 +60,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
-  THROW_CHECK(models != nullptr);
-
-  models->clear();
+  THROW_CHECK_NOTNULL(models)->clear();
 
   // PoseLib's 5-point solver only supports the minimal case; the non-minimal
   // case falls through to the SVD-based solver below.
@@ -191,9 +188,7 @@ void EssentialMatrixEightPointEstimator::Estimate(
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   THROW_CHECK_GE(cam_rays1.size(), 8);
-  THROW_CHECK(models != nullptr);
-
-  models->clear();
+  THROW_CHECK_NOTNULL(models)->clear();
 
   // Setup homogeneous linear equation as x2' * E * x1 = 0.
   Eigen::Matrix<double, Eigen::Dynamic, 9> A(cam_rays1.size(), 9);
@@ -244,9 +239,7 @@ void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   THROW_CHECK_GE(cam_rays1.size(),
                  EssentialMatrixEightPointEstimator::kMinNumSamples);
-  THROW_CHECK(models != nullptr);
-
-  models->clear();
+  THROW_CHECK_NOTNULL(models)->clear();
 
   // Self-seed with the eight-point solver.
   std::vector<M_t> init_models;
@@ -287,12 +280,8 @@ bool EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
   // Plain least squares: the rays are assumed to be the inlier set, so
   // robustness comes from the RANSAC inlier selection.
   TinySampsonErrorCostFunctor functor(cam_rays1, cam_rays2);
-  using AutoDiffFunction =
-      ceres::TinySolverAutoDiffFunction<TinySampsonErrorCostFunctor,
-                                        Eigen::Dynamic,
-                                        7>;
-  AutoDiffFunction f(functor);
-  using Solver = TinySolver<AutoDiffFunction, RelativePoseManifold>;
+  TinySampsonErrorCostFunctor::AutoDiffFunction f(functor);
+  using Solver = TinySolver<decltype(f), RelativePoseManifold>;
   Solver solver;
   Solver::Options options;
   options.max_num_iterations = 25;
