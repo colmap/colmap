@@ -163,6 +163,36 @@ pytest                             # All Python tests (config in pyproject.toml)
 - Generic indexes: int, size_t
 - Special identifiers: camera_t, image_t, image_pair_t, frame_t, rig_t, point2D_t, point3D_t, sensor_t, data_t, pose_prior_t
 
+### Hash containers (util/hash_containers.h)
+
+Do NOT use `std::unordered_map` / `std::unordered_set` directly. Use the COLMAP
+aliases from `colmap/util/hash_containers.h`, which route through a compile-time
+backend (`COLMAP_HASH_MAP_BACKEND=STD|BOOST`; call sites are backend-agnostic):
+
+- `FlatHashMap` / `FlatHashSet` — open-addressing; fastest and lowest-memory.
+  **They invalidate references, pointers, and iterators to elements on any
+  insert (rehash) and on erase.** Use them by default, but only where no
+  long-lived reference to a stored element is held across a mutation of the same
+  container. Do not write iterator-based erase loops on them — erase by key
+  (collect keys first, then erase), since flat iterator-erase is not portable
+  across backends.
+- `NodeHashMap` / `NodeHashSet` — node-based, with `std::unordered_*` reference
+  stability (element references/pointers stay valid across insert/erase of other
+  elements). Use these for containers that hand out long-lived element
+  references — e.g. the scene element stores like `Reconstruction::points3D_`.
+
+Guidance:
+- Prefer `Flat*`; switch a map/set to `Node*` only when code holds a
+  reference/pointer/iterator to an element across a mutation of the same
+  container.
+- Sets of ids or `.count()`/`.insert().second` membership checks are almost
+  always `FlatHashSet`.
+- Custom key types reuse the `std::hash` specializations and `colmap::PairHash`
+  in `util/types.h` (the aliases default to `std::hash<Key>`).
+- Keep `std::map` / `std::set` only when **sorted** iteration is actually
+  required — e.g. deterministic serialized output, Ceres parameter-block
+  construction order, or `lower_bound`/`upper_bound` queries.
+
 ### Formatting
 
 ```bash
