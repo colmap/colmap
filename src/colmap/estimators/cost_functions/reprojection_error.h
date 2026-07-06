@@ -140,7 +140,10 @@ class AnalyticalReprojErrorCostFunction
 // Reprojection error cost function with analytical Jacobians for a fixed camera
 // pose (variable point and camera calibration). Analytical counterpart of
 // ReprojErrorConstantPoseCostFunctor. Requires camera model to implement
-// ImgFromCamWithJac().
+// ImgFromCamWithJac(). As in that functor, the fixed pose is stored as a
+// precomputed rotation matrix and translation; besides the faster matrix-vector
+// transform, the rotation matrix is reused directly for the point Jacobian,
+// avoiding a quaternion-to-matrix conversion on every evaluation.
 template <typename CameraModel>
 class AnalyticalReprojErrorConstantPoseCostFunction
     : public ceres::SizedCostFunction<2, 3, CameraModel::num_params> {
@@ -249,9 +252,11 @@ class ReprojErrorCostFunctor
   const Eigen::Vector2d point2D_;
 };
 
-// Bundle adjustment cost function for variable
-// camera calibration and point parameters, and fixed camera pose.
-
+// Bundle adjustment cost function for variable camera calibration and point
+// parameters, and fixed camera pose. Since the pose is constant, it is stored
+// as a precomputed rotation matrix and translation rather than a quaternion:
+// applying a fixed rotation as a matrix-vector product is faster than a
+// quaternion rotation on every evaluation.
 template <typename CameraModel>
 class ReprojErrorConstantPoseCostFunctor
     : public AutoDiffCostFunctor<
