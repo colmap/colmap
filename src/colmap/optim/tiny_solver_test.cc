@@ -80,6 +80,14 @@ TEST(TinySolver, EuclideanConvergesToNormalEquationsSolution) {
 
   EXPECT_NE(summary.status, TinySolver<LinearResidual>::COST_FUNCTION_FAILED);
   EXPECT_LT((x - expected).norm(), 1e-9);
+  // Started from x = 0, so initial_cost = 0.5 * ||b||^2 = 0.5 * 21.
+  EXPECT_NEAR(summary.initial_cost, 10.5, 1e-9);
+  // Cost must not increase, and at the least-squares optimum J'f(x) vanishes.
+  EXPECT_GE(summary.final_cost, 0.0);
+  EXPECT_LE(summary.final_cost, summary.initial_cost);
+  EXPECT_NEAR(summary.gradient_max_norm, 0.0, 1e-6);
+  EXPECT_GE(summary.iterations, 1);
+  EXPECT_LE(summary.iterations, options.max_num_iterations);
 }
 
 // Autodiff functor minimizing ||x - target||^2; on the unit sphere the optimum

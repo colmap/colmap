@@ -88,6 +88,9 @@ struct EigenQuaternionManifold {
 // allocation-free.
 template <int N>
 struct SphereManifold {
+  // TODO: To generalize to N > 3, replace TangentBasis()'s R^3-specific closed
+  // form (unitOrthogonal + cross) with a (less efficient) QR/Householder
+  // orthonormalization of the tangent space.
   static_assert(N == 3, "SphereManifold is only implemented for the 2-sphere.");
   static constexpr int kAmbientSize = N;
   static constexpr int kTangentSize = N - 1;
