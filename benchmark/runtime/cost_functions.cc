@@ -3,11 +3,15 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 
+#include <memory>
+#include <vector>
+
 #include <benchmark/benchmark.h>
 #include <ceres/ceres.h>
 
 using namespace colmap;
-using camera_model = SimpleRadialCameraModel;
+
+namespace {
 
 struct ReprojErrorData {
   Rigid3d cam_from_world;
@@ -16,94 +20,122 @@ struct ReprojErrorData {
   std::vector<double> camera_params;
 };
 
-static ReprojErrorData CreateReprojErrorData() {
-  ReprojErrorData data{
-      Rigid3d(Eigen::Quaterniond(0.9, 0.1, 0.1, 0.1), Eigen::Vector3d::Zero()),
-      Eigen::Vector3d(1, 2, 10),
-      Eigen::Vector2d(0.1, 0.2),
-      {1, 0, 0, 0.1},
-  };
-  CHECK_EQ(data.camera_params.size(), camera_model::num_params);
-  return std::move(data);
+// Nominal, in-frame camera parameters for each model. The 3D point is chosen so
+// that its normalized coordinates are small and valid for all models.
+template <typename CameraModel>
+std::vector<double> NominalCameraParams();
+template <>
+std::vector<double> NominalCameraParams<SimplePinholeCameraModel>() {
+  return {1000, 320, 240};
+}
+template <>
+std::vector<double> NominalCameraParams<PinholeCameraModel>() {
+  return {1000, 1000, 320, 240};
+}
+template <>
+std::vector<double> NominalCameraParams<SimpleRadialCameraModel>() {
+  return {1000, 320, 240, 0.01};
+}
+template <>
+std::vector<double> NominalCameraParams<RadialCameraModel>() {
+  return {1000, 320, 240, 0.01, 0.001};
+}
+template <>
+std::vector<double> NominalCameraParams<OpenCVCameraModel>() {
+  return {1000, 1000, 320, 240, 0.01, 0.001, 0.0001, 0.0001};
+}
+template <>
+std::vector<double> NominalCameraParams<FullOpenCVCameraModel>() {
+  return {1000,
+          1000,
+          320,
+          240,
+          0.01,
+          0.001,
+          0.0001,
+          0.0001,
+          0.001,
+          0.0005,
+          -0.0005,
+          0.0001};
 }
 
-class BM_ReprojErrorCostFunction : public benchmark::Fixture {
- public:
-  void SetUp(::benchmark::State& state) {
-    cost_function.reset(
-        ReprojErrorCostFunctor<camera_model>::Create(data.point2D));
-  }
+template <typename CameraModel>
+ReprojErrorData CreateReprojErrorData() {
+  ReprojErrorData data{
+      Rigid3d(Eigen::Quaterniond(0.9, 0.1, 0.1, 0.1).normalized(),
+              Eigen::Vector3d(0.1, 0.2, 0.3)),
+      Eigen::Vector3d(1, 2, 10),
+      Eigen::Vector2d(320.1, 240.2),
+      NominalCameraParams<CameraModel>(),
+  };
+  CHECK_EQ(data.camera_params.size(), CameraModel::num_params);
+  return data;
+}
 
-  ReprojErrorData data = CreateReprojErrorData();
-  const double* parameters[4] = {data.cam_from_world.rotation().coeffs().data(),
-                                 data.cam_from_world.translation().data(),
-                                 data.point3D.data(),
+// Fully-variable reprojection error (point, pose, calibration).
+// The autodiff variant is obtained directly from the functor; the analytic
+// variant is obtained through the production dispatch, which routes to the
+// hand-written Jacobian for models that implement ImgFromCamWithJac().
+template <typename CameraModel>
+void BM_ReprojError(benchmark::State& state, bool analytic) {
+  ReprojErrorData data = CreateReprojErrorData<CameraModel>();
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      analytic ? CreateCameraCostFunction<ReprojErrorCostFunctor>(
+                     CameraModel::model_id, data.point2D)
+               : ReprojErrorCostFunctor<CameraModel>::Create(data.point2D));
+
+  const double* parameters[3] = {data.point3D.data(),
+                                 data.cam_from_world.params.data(),
                                  data.camera_params.data()};
   double residuals[2];
-  double jacobian_q[2 * 4];
-  double jacobian_t[2 * 3];
-  double jacobian_p[2 * 3];
-  double jacobian_params[2 * camera_model::num_params];
-  double* jacobians[4] = {jacobian_q, jacobian_t, jacobian_p, jacobian_params};
-  std::unique_ptr<ceres::CostFunction> cost_function;
-};
+  double jacobian_point[2 * 3];
+  double jacobian_pose[2 * 7];
+  double jacobian_params[2 * CameraModel::num_params];
+  double* jacobians[3] = {jacobian_point, jacobian_pose, jacobian_params};
 
-BENCHMARK_F(BM_ReprojErrorCostFunction, Run)(benchmark::State& state) {
   for (auto _ : state) {
     cost_function->Evaluate(parameters, residuals, jacobians);
   }
 }
 
-class BM_ReprojErrorConstantPoseCostFunction : public benchmark::Fixture {
- public:
-  void SetUp(::benchmark::State& state) {
-    cost_function.reset(
-        ReprojErrorConstantPoseCostFunctor<camera_model>::Create(
-            data.point2D, data.cam_from_world));
-  }
+// Fixed-pose reprojection error (point, calibration), the local-BA hot path.
+template <typename CameraModel>
+void BM_ReprojErrorConstantPose(benchmark::State& state, bool analytic) {
+  ReprojErrorData data = CreateReprojErrorData<CameraModel>();
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      analytic ? CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                     CameraModel::model_id, data.point2D, data.cam_from_world)
+               : ReprojErrorConstantPoseCostFunctor<CameraModel>::Create(
+                     data.point2D, data.cam_from_world));
 
-  ReprojErrorData data = CreateReprojErrorData();
   const double* parameters[2] = {data.point3D.data(),
                                  data.camera_params.data()};
   double residuals[2];
-  double jacobian_p[2 * 3];
-  double jacobian_params[2 * camera_model::num_params];
-  double* jacobians[2] = {jacobian_p, jacobian_params};
-  std::unique_ptr<ceres::CostFunction> cost_function;
-};
+  double jacobian_point[2 * 3];
+  double jacobian_params[2 * CameraModel::num_params];
+  double* jacobians[2] = {jacobian_point, jacobian_params};
 
-BENCHMARK_F(BM_ReprojErrorConstantPoseCostFunction, Run)
-(benchmark::State& state) {
   for (auto _ : state) {
     cost_function->Evaluate(parameters, residuals, jacobians);
   }
 }
 
-class BM_ReprojErrorConstantPoint3DCostFunction : public benchmark::Fixture {
- public:
-  void SetUp(::benchmark::State& state) {
-    cost_function.reset(
-        ReprojErrorConstantPoint3DCostFunctor<camera_model>::Create(
-            data.point2D, data.point3D));
-  }
+}  // namespace
 
-  ReprojErrorData data = CreateReprojErrorData();
-  const double* parameters[3] = {data.cam_from_world.rotation().coeffs().data(),
-                                 data.cam_from_world.translation().data(),
-                                 data.camera_params.data()};
-  double residuals[2];
-  double jacobian_q[2 * 4];
-  double jacobian_t[2 * 3];
-  double jacobian_params[2 * camera_model::num_params];
-  double* jacobians[3] = {jacobian_q, jacobian_t, jacobian_params};
-  std::unique_ptr<ceres::CostFunction> cost_function;
-};
+#define REGISTER_MODEL(Model)                                                \
+  BENCHMARK_CAPTURE(BM_ReprojError<Model>, Model##_AutoDiff, false);         \
+  BENCHMARK_CAPTURE(BM_ReprojError<Model>, Model##_Analytic, true);          \
+  BENCHMARK_CAPTURE(                                                         \
+      BM_ReprojErrorConstantPose<Model>, Model##_ConstPose_AutoDiff, false); \
+  BENCHMARK_CAPTURE(                                                         \
+      BM_ReprojErrorConstantPose<Model>, Model##_ConstPose_Analytic, true);
 
-BENCHMARK_F(BM_ReprojErrorConstantPoint3DCostFunction, Run)
-(benchmark::State& state) {
-  for (auto _ : state) {
-    cost_function->Evaluate(parameters, residuals, jacobians);
-  }
-}
+REGISTER_MODEL(SimplePinholeCameraModel)
+REGISTER_MODEL(PinholeCameraModel)
+REGISTER_MODEL(SimpleRadialCameraModel)
+REGISTER_MODEL(RadialCameraModel)
+REGISTER_MODEL(OpenCVCameraModel)
+REGISTER_MODEL(FullOpenCVCameraModel)
 
 BENCHMARK_MAIN();
