@@ -38,6 +38,7 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -129,7 +130,7 @@ TEST(SynthesizeDataset, Nominal) {
   // angle. No points or observations should be filtered.
   const double kMaxReprojError = 1e-3;
   const double kMinTriAngleDeg = 0.4;
-  std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
+  NodeHashMap<image_t, Eigen::Vector3d> proj_centers;
   for (const auto& point3D_id : reconstruction.Point3DIds()) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
@@ -218,7 +219,7 @@ TEST(SynthesizeDataset, WithPriors) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  std::unordered_map<image_t, const PosePrior*> image_to_prior;
+  NodeHashMap<image_t, const PosePrior*> image_to_prior;
   for (const auto& pose_prior : pose_priors) {
     EXPECT_EQ(pose_prior.corr_data_id.sensor_id.type, SensorType::CAMERA);
     image_to_prior[pose_prior.corr_data_id.id] = &pose_prior;
@@ -451,8 +452,8 @@ TEST(SynthesizeNoise, RigFromWorldNoise) {
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 }
 
-std::unordered_map<pose_prior_t, PosePrior> ReadPosePriors(Database& database) {
-  std::unordered_map<pose_prior_t, PosePrior> pose_priors;
+NodeHashMap<pose_prior_t, PosePrior> ReadPosePriors(Database& database) {
+  NodeHashMap<pose_prior_t, PosePrior> pose_priors;
   for (auto& pose_prior : database.ReadAllPosePriors()) {
     pose_priors.emplace(pose_prior.pose_prior_id, std::move(pose_prior));
   }
@@ -467,7 +468,7 @@ TEST(SynthesizeNoise, PriorPositionNoise) {
   options.prior_position_coordinate_system = PosePrior::CoordinateSystem::WGS84;
 
   SynthesizeDataset(options, &reconstruction, database.get());
-  const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
+  const NodeHashMap<pose_prior_t, PosePrior> orig_pose_priors =
       ReadPosePriors(*database);
 
   SyntheticNoiseOptions synthetic_noise_options;
@@ -498,7 +499,7 @@ TEST(SynthesizeNoise, PriorGravityNoise) {
   options.prior_gravity = true;
 
   SynthesizeDataset(options, &reconstruction, database.get());
-  const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
+  const NodeHashMap<pose_prior_t, PosePrior> orig_pose_priors =
       ReadPosePriors(*database);
 
   SyntheticNoiseOptions synthetic_noise_options;

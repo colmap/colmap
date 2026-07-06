@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/feature/opaque_types.h"
@@ -146,6 +147,25 @@ struct type_caster<std::vector<Eigen::Matrix<Scalar, Size, 1>>> {
         mat, return_value_policy::copy, h);
   }
 };
+
+// pybind11's built-in STL casters only recognize std:: containers, so provide
+// casters for the colmap flat hash aliases used across the bindings (e.g.
+// ObservationManager::ImagePairs, IncrementalMapper::FilteredFrames,
+// BundleAdjustmentConfig::VariablePoints, the FilterPoints3D* parameters). Only
+// needed for the BOOST backend; for STD the aliases are std:: types pybind11
+// already handles. Flat containers are never PYBIND11_MAKE_OPAQUE, so these
+// generic casters cannot collide with opaque bound types. (The NodeHashMap
+// caster lives in pycolmap/scene/types.h next to the opaque element-store
+// maps.)
+#if defined(COLMAP_HASH_BOOST)
+template <typename Key, typename Value, typename Hash, typename Equal>
+struct type_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>>
+    : map_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>, Key, Value> {};
+
+template <typename Key, typename Hash, typename Equal>
+struct type_caster<colmap::FlatHashSet<Key, Hash, Equal>>
+    : set_caster<colmap::FlatHashSet<Key, Hash, Equal>, Key> {};
+#endif
 
 }  // namespace detail
 

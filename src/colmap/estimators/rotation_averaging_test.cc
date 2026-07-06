@@ -35,6 +35,7 @@
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <map>
 #include <utility>
@@ -508,7 +509,7 @@ TEST(RotationAveraging, MultiImageRigFrameDeregisterDoesNotCrashOnSecondVisit) {
   const frame_t isolated_frame_id = frame_ids.back();
 
   // 1. Collect every image_id that belongs to the isolated frame.
-  std::unordered_set<image_t> isolated_image_ids;
+  FlatHashSet<image_t> isolated_image_ids;
   for (const auto& data_id :
        data.reconstruction.Frame(isolated_frame_id).ImageIds()) {
     isolated_image_ids.insert(data_id.id);
@@ -577,7 +578,7 @@ TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
   // AllSensorsFromRigKnown check, we use RotationEstimator directly.
   RotationEstimatorOptions options = CreateRATestOptions(/*use_gravity=*/true);
 
-  std::unordered_set<image_t> active_image_ids;
+  FlatHashSet<image_t> active_image_ids;
   for (const auto& [image_id, image] : data.reconstruction.Images()) {
     active_image_ids.insert(image_id);
   }
@@ -605,7 +606,7 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
   auto data = CreateTestData(synthetic_dataset_options);
 
   // Build cams_from_world from the ground truth.
-  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  NodeHashMap<image_t, Rigid3d> cams_from_world;
   for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
     if (image.HasPose()) {
       cams_from_world[image_id] = image.CamFromWorld();
@@ -643,7 +644,7 @@ TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   auto data = CreateTestData(synthetic_dataset_options);
 
-  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  NodeHashMap<image_t, Rigid3d> cams_from_world;
   for (const auto& [image_id, image] : data.gt_reconstruction.Images()) {
     if (image.HasPose()) {
       cams_from_world[image_id] = image.CamFromWorld();

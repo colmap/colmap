@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 
@@ -46,8 +47,8 @@ class IncrementalMapperImpl {
       const IncrementalMapper::Options& options,
       const CorrespondenceGraph& correspondence_graph,
       const Reconstruction& reconstruction,
-      const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-      const std::unordered_map<image_t, size_t>& num_registrations);
+      const FlatHashMap<image_t, size_t>& init_num_reg_trials,
+      const FlatHashMap<image_t, size_t>& num_registrations);
 
   // For a given first seed image, find other images that are connected to the
   // first image. Suitable second images have a large number of correspondences
@@ -58,16 +59,16 @@ class IncrementalMapperImpl {
       image_t image_id1,
       const CorrespondenceGraph& correspondence_graph,
       const Reconstruction& reconstruction,
-      const std::unordered_map<image_t, size_t>& num_registrations);
+      const FlatHashMap<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
   static bool FindInitialImagePair(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       const Reconstruction& reconstruction,
-      const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-      const std::unordered_map<image_t, size_t>& num_registrations,
-      std::unordered_set<image_pair_t>& init_image_pairs,
+      const FlatHashMap<image_t, size_t>& init_num_reg_trials,
+      const FlatHashMap<image_t, size_t>& num_registrations,
+      FlatHashSet<image_pair_t>& init_image_pairs,
       image_t& image_id1,
       image_t& image_id2,
       Rigid3d& cam2_from_cam1);
@@ -76,8 +77,8 @@ class IncrementalMapperImpl {
   static std::vector<image_t> FindNextImages(
       const IncrementalMapper::Options& options,
       const ObservationManager& obs_manager,
-      const std::unordered_set<frame_t>& filtered_frames,
-      std::unordered_map<image_t, size_t>& num_reg_trials,
+      const FlatHashSet<frame_t>& filtered_frames,
+      FlatHashMap<image_t, size_t>& num_reg_trials,
       bool structure_less = false);
 
   // Implement IncrementalMapper::FindLocalBundle

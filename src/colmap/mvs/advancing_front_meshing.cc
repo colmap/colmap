@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/advancing_front_meshing.h"
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #if defined(COLMAP_CGAL_ENABLED)
@@ -55,7 +56,6 @@
 #include <atomic>
 #include <cstdint>
 #include <limits>
-#include <unordered_map>
 #include <vector>
 
 #include <CGAL/AABB_face_graph_triangle_primitive.h>
@@ -96,9 +96,9 @@ using AABBTree = CGAL::AABB_tree<AABBTraits>;
 
 // Visibility counter: maps triangulation facets to intersection counts.
 using VisibilityCounter =
-    std::unordered_map<AFSRTriangulation::Facet,
-                       int,
-                       boost::hash<AFSRTriangulation::Facet>>;
+    colmap::NodeHashMap<AFSRTriangulation::Facet,
+                        int,
+                        boost::hash<AFSRTriangulation::Facet>>;
 
 // Priority functor for the advancing front surface reconstruction.
 // Controls which facets are accepted based on edge length and visibility.
@@ -467,7 +467,7 @@ colmap::PlyMesh ReconstructBlock(
     AABBTree tree(faces(mesh).first, faces(mesh).second, mesh);
     const int num_omp_threads = omp_get_max_threads();
     using FaceIndex = SurfaceMesh::Face_index;
-    std::vector<std::unordered_map<FaceIndex, int>> thread_counters(
+    std::vector<colmap::NodeHashMap<FaceIndex, int>> thread_counters(
         num_omp_threads);
 #pragma omp parallel
     {

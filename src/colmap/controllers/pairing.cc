@@ -33,13 +33,12 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <faiss/IndexFlat.h>
@@ -50,13 +49,13 @@ namespace {
 
 std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
     const std::filesystem::path& path,
-    const std::unordered_map<std::string, image_t>& image_name_to_image_id) {
+    const NodeHashMap<std::string, image_t>& image_name_to_image_id) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
 
   std::string line;
   std::vector<std::pair<image_t, image_t>> image_pairs;
-  std::unordered_set<image_pair_t> image_pairs_set;
+  FlatHashSet<image_pair_t> image_pairs_set;
   while (std::getline(file, line)) {
     StringTrim(&line);
 
@@ -252,7 +251,7 @@ VocabTreePairGenerator::VocabTreePairGenerator(
     query_image_ids_ = cache_->GetImageIds();
   } else {
     // Map image names to image identifiers.
-    std::unordered_map<std::string, image_t> image_name_to_image_id;
+    NodeHashMap<std::string, image_t> image_name_to_image_id;
     image_name_to_image_id.reserve(all_image_ids.size());
     for (const auto image_id : all_image_ids) {
       const auto& image = cache_->GetImage(image_id);
@@ -821,7 +820,7 @@ ImportedPairGenerator::ImportedPairGenerator(
 
   LOG(INFO) << "Importing image pairs...";
   const std::vector<image_t> image_ids = cache->GetImageIds();
-  std::unordered_map<std::string, image_t> image_name_to_image_id;
+  NodeHashMap<std::string, image_t> image_name_to_image_id;
   image_name_to_image_id.reserve(image_ids.size());
   for (const auto image_id : image_ids) {
     const auto& image = cache->GetImage(image_id);

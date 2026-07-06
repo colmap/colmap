@@ -33,6 +33,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 
 #include <array>
@@ -104,8 +105,8 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const IncrementalMapper::Options& options,
     const CorrespondenceGraph& correspondence_graph,
     const Reconstruction& reconstruction,
-    const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-    const std::unordered_map<image_t, size_t>& num_registrations) {
+    const FlatHashMap<image_t, size_t>& init_num_reg_trials,
+    const FlatHashMap<image_t, size_t>& num_registrations) {
   const size_t init_max_reg_trials =
       static_cast<size_t>(options.init_max_reg_trials);
 
@@ -148,11 +149,11 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     image_t image_id1,
     const CorrespondenceGraph& correspondence_graph,
     const Reconstruction& reconstruction,
-    const std::unordered_map<image_t, size_t>& num_registrations) {
+    const FlatHashMap<image_t, size_t>& num_registrations) {
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
   const class Image& image1 = reconstruction.Image(image_id1);
-  std::unordered_map<image_t, point2D_t> num_correspondences;
+  FlatHashMap<image_t, point2D_t> num_correspondences;
   for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
        ++point2D_idx) {
     const auto corr_range =
@@ -189,9 +190,9 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
     const DatabaseCache& database_cache,
     const Reconstruction& reconstruction,
-    const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-    const std::unordered_map<image_t, size_t>& num_registrations,
-    std::unordered_set<image_pair_t>& init_image_pairs,
+    const FlatHashMap<image_t, size_t>& init_num_reg_trials,
+    const FlatHashMap<image_t, size_t>& num_registrations,
+    FlatHashSet<image_pair_t>& init_image_pairs,
     image_t& image_id1,
     image_t& image_id2,
     Rigid3d& cam2_from_cam1) {
@@ -309,8 +310,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
     const ObservationManager& obs_manager,
-    const std::unordered_set<frame_t>& filtered_frames,
-    std::unordered_map<image_t, size_t>& num_reg_trials,
+    const FlatHashSet<frame_t>& filtered_frames,
+    FlatHashMap<image_t, size_t>& num_reg_trials,
     bool structure_less) {
   THROW_CHECK(options.Check());
   const Reconstruction& reconstruction = obs_manager.Reconstruction();
@@ -390,9 +391,9 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   // Extract all images that have at least one 3D point with the query image
   // in common, and simultaneously count the number of common 3D points.
 
-  std::unordered_map<image_t, size_t> shared_observations;
+  FlatHashMap<image_t, size_t> shared_observations;
 
-  std::unordered_set<point3D_t> point3D_ids;
+  FlatHashSet<point3D_t> point3D_ids;
   point3D_ids.reserve(image.NumPoints3D());
 
   for (const Point2D& point2D : image.Points2D()) {
@@ -570,7 +571,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   std::vector<Rigid3d> cams_from_rig;
   std::vector<Camera> cameras;
 
-  std::unordered_map<camera_t, size_t> camera_id_to_idx;
+  FlatHashMap<camera_t, size_t> camera_id_to_idx;
   auto maybe_add_camera = [&cameras, &cams_from_rig, &camera_id_to_idx](
                               const Rig& rig, const Camera& camera) {
     const auto [it, inserted] =

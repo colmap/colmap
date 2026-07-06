@@ -29,10 +29,11 @@
 
 #pragma once
 
+#include "colmap/util/hash_containers.h"
+
 #include <QtCore>
 #include <QtWidgets>
 #include <filesystem>
-#include <unordered_map>
 
 namespace colmap {
 
@@ -98,9 +99,9 @@ class OptionsWidget : public QWidget {
 
   QGridLayout* grid_layout_;
 
-  std::unordered_map<void*, std::pair<QLabel*, QWidget*>> option_rows_;
-  std::unordered_map<QWidget*, std::pair<QLabel*, QWidget*>> widget_rows_;
-  std::unordered_map<QLayout*, std::pair<QLabel*, QWidget*>> layout_rows_;
+  NodeHashMap<void*, std::pair<QLabel*, QWidget*>> option_rows_;
+  NodeHashMap<QWidget*, std::pair<QLabel*, QWidget*>> widget_rows_;
+  NodeHashMap<QLayout*, std::pair<QLabel*, QWidget*>> layout_rows_;
 
   std::vector<std::pair<QSpinBox*, int*>> options_int_;
   std::vector<std::pair<QSpinBox*, int*>> options_int_unlimited_;

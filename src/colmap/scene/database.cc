@@ -31,6 +31,7 @@
 
 #include "colmap/optim/random_sampler.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/util/hash_containers.h"
 
 #include <numeric>
 
@@ -62,13 +63,13 @@ void Database::Merge(const Database& database1,
                      Database* merged_database) {
   // Merge the cameras.
 
-  std::unordered_map<camera_t, camera_t> new_camera_ids1;
+  NodeHashMap<camera_t, camera_t> new_camera_ids1;
   for (const auto& camera : database1.ReadAllCameras()) {
     const camera_t new_camera_id = merged_database->WriteCamera(camera);
     new_camera_ids1.emplace(camera.camera_id, new_camera_id);
   }
 
-  std::unordered_map<camera_t, camera_t> new_camera_ids2;
+  NodeHashMap<camera_t, camera_t> new_camera_ids2;
   for (const auto& camera : database2.ReadAllCameras()) {
     const camera_t new_camera_id = merged_database->WriteCamera(camera);
     new_camera_ids2.emplace(camera.camera_id, new_camera_id);
@@ -76,37 +77,36 @@ void Database::Merge(const Database& database1,
 
   // Merge the rigs.
 
-  auto update_rig =
-      [](const Rig& rig,
-         const std::unordered_map<camera_t, camera_t>& new_camera_ids) {
-        if (rig.NumSensors() == 0) {
-          return rig;
-        }
-        Rig updated_rig;
-        updated_rig.SetRigId(rig.RigId());
-        sensor_t ref_sensor_id = rig.RefSensorId();
-        if (ref_sensor_id.type == SensorType::CAMERA) {
-          ref_sensor_id.id = new_camera_ids.at(ref_sensor_id.id);
-        }
-        updated_rig.AddRefSensor(ref_sensor_id);
-        for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
-          sensor_t updated_sensor_id = sensor_id;
-          if (sensor_id.type == SensorType::CAMERA) {
-            updated_sensor_id.id = new_camera_ids.at(sensor_id.id);
-          }
-          updated_rig.AddSensor(updated_sensor_id, sensor_from_rig);
-        }
-        return updated_rig;
-      };
+  auto update_rig = [](const Rig& rig,
+                       const NodeHashMap<camera_t, camera_t>& new_camera_ids) {
+    if (rig.NumSensors() == 0) {
+      return rig;
+    }
+    Rig updated_rig;
+    updated_rig.SetRigId(rig.RigId());
+    sensor_t ref_sensor_id = rig.RefSensorId();
+    if (ref_sensor_id.type == SensorType::CAMERA) {
+      ref_sensor_id.id = new_camera_ids.at(ref_sensor_id.id);
+    }
+    updated_rig.AddRefSensor(ref_sensor_id);
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      sensor_t updated_sensor_id = sensor_id;
+      if (sensor_id.type == SensorType::CAMERA) {
+        updated_sensor_id.id = new_camera_ids.at(sensor_id.id);
+      }
+      updated_rig.AddSensor(updated_sensor_id, sensor_from_rig);
+    }
+    return updated_rig;
+  };
 
-  std::unordered_map<rig_t, rig_t> new_rig_ids1;
+  NodeHashMap<rig_t, rig_t> new_rig_ids1;
   for (auto& rig : database1.ReadAllRigs()) {
     const rig_t new_rig_id =
         merged_database->WriteRig(update_rig(rig, new_camera_ids1));
     new_rig_ids1.emplace(rig.RigId(), new_rig_id);
   }
 
-  std::unordered_map<rig_t, rig_t> new_rig_ids2;
+  NodeHashMap<rig_t, rig_t> new_rig_ids2;
   for (auto& rig : database2.ReadAllRigs()) {
     const rig_t new_rig_id =
         merged_database->WriteRig(update_rig(rig, new_camera_ids2));
@@ -115,7 +115,7 @@ void Database::Merge(const Database& database1,
 
   // Merge the images.
 
-  std::unordered_map<image_t, image_t> new_image_ids1;
+  NodeHashMap<image_t, image_t> new_image_ids1;
   for (auto& image : database1.ReadAllImages()) {
     image.SetCameraId(new_camera_ids1.at(image.CameraId()));
     image.SetFrameId(kInvalidFrameId);
@@ -131,7 +131,7 @@ void Database::Merge(const Database& database1,
     merged_database->WriteDescriptors(new_image_id, descriptors);
   }
 
-  std::unordered_map<image_t, image_t> new_image_ids2;
+  NodeHashMap<image_t, image_t> new_image_ids2;
   for (auto& image : database2.ReadAllImages()) {
     image.SetCameraId(new_camera_ids2.at(image.CameraId()));
     image.SetFrameId(kInvalidFrameId);
@@ -149,29 +149,28 @@ void Database::Merge(const Database& database1,
 
   // Merge the frames.
 
-  auto update_frame =
-      [](const Frame& frame,
-         const std::unordered_map<rig_t, rig_t>& new_rig_ids,
-         const std::unordered_map<camera_t, camera_t>& new_camera_ids,
-         const std::unordered_map<image_t, image_t>& new_image_ids) {
-        Frame updated_frame = frame;
-        updated_frame.SetRigId(new_rig_ids.at(frame.RigId()));
-        updated_frame.ClearDataIds();
-        for (data_t data_id : frame.DataIds()) {
-          switch (data_id.sensor_id.type) {
-            case SensorType::CAMERA:
-              data_id.id = new_image_ids.at(data_id.id);
-              data_id.sensor_id.id = new_camera_ids.at(data_id.sensor_id.id);
-              break;
-            default:
-              std::ostringstream error;
-              error << "Data type not supported: " << data_id.sensor_id.type;
-              throw std::runtime_error(error.str());
-          }
-          updated_frame.AddDataId(data_id);
-        }
-        return updated_frame;
-      };
+  auto update_frame = [](const Frame& frame,
+                         const NodeHashMap<rig_t, rig_t>& new_rig_ids,
+                         const NodeHashMap<camera_t, camera_t>& new_camera_ids,
+                         const NodeHashMap<image_t, image_t>& new_image_ids) {
+    Frame updated_frame = frame;
+    updated_frame.SetRigId(new_rig_ids.at(frame.RigId()));
+    updated_frame.ClearDataIds();
+    for (data_t data_id : frame.DataIds()) {
+      switch (data_id.sensor_id.type) {
+        case SensorType::CAMERA:
+          data_id.id = new_image_ids.at(data_id.id);
+          data_id.sensor_id.id = new_camera_ids.at(data_id.sensor_id.id);
+          break;
+        default:
+          std::ostringstream error;
+          error << "Data type not supported: " << data_id.sensor_id.type;
+          throw std::runtime_error(error.str());
+      }
+      updated_frame.AddDataId(data_id);
+    }
+    return updated_frame;
+  };
 
   for (Frame& frame : database1.ReadAllFrames()) {
     merged_database->WriteFrame(
@@ -187,8 +186,8 @@ void Database::Merge(const Database& database1,
 
   auto update_pose_prior =
       [](const PosePrior& pose_prior,
-         const std::unordered_map<camera_t, camera_t>& new_camera_ids,
-         const std::unordered_map<image_t, image_t>& new_image_ids) {
+         const NodeHashMap<camera_t, camera_t>& new_camera_ids,
+         const NodeHashMap<image_t, image_t>& new_image_ids) {
         PosePrior updated_pose_prior = pose_prior;
         switch (pose_prior.corr_data_id.sensor_id.type) {
           case SensorType::CAMERA:

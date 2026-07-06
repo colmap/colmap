@@ -31,6 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/ui/render_options.h"
+#include "colmap/util/hash_containers.h"
 
 using RGBAColor = Eigen::Matrix<uint8_t, 4, 1>;
 
@@ -1350,7 +1351,7 @@ void ModelViewerWidget::UploadImageConnectionData() {
             .cast<float>();
 
     // Collect all connected images
-    std::unordered_set<image_t> conn_image_ids;
+    FlatHashSet<image_t> conn_image_ids;
 
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {

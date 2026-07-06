@@ -39,6 +39,7 @@
 #include "colmap/ui/point_painter.h"
 #include "colmap/ui/point_viewer_widget.h"
 #include "colmap/ui/triangle_painter.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/ply.h"
 
 #include <QOpenGLFunctions_3_2_Core>
@@ -121,11 +122,11 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   // Copy of current scene data that is displayed
   std::shared_ptr<Reconstruction> reconstruction;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> points3D;
+  NodeHashMap<rig_t, Rig> rigs;
+  NodeHashMap<camera_t, Camera> cameras;
+  NodeHashMap<frame_t, Frame> frames;
+  NodeHashMap<image_t, Image> images;
+  NodeHashMap<point3D_t, Point3D> points3D;
   std::vector<image_t> reg_image_ids;
 
   std::optional<std::vector<PlyPoint>> point_cloud;
