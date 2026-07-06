@@ -665,7 +665,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   std::vector<size_t> world_camera_idxs;
   std::vector<Rigid3d> world_cams_from_world;
   std::vector<Camera> world_cameras;
-  NodeHashMap<image_t, size_t> world_image_id_to_camera_idx;
+  FlatHashMap<image_t, size_t> world_image_id_to_camera_idx;
 
   const point2D_t num_points2D = image.NumPoints2D();
   for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -990,7 +990,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Fix rig poses, if not all frames within the local bundle.
-    NodeHashMap<rig_t, size_t> num_frames_per_rig;
+    FlatHashMap<rig_t, size_t> num_frames_per_rig;
     num_frames_per_rig.reserve(frame_ids.size());
     for (const frame_t frame_id : frame_ids) {
       const Frame& frame = reconstruction_->Frame(frame_id);
@@ -1007,7 +1007,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Fix camera intrinsics, if not all registered images within local bundle.
-    NodeHashMap<camera_t, size_t> num_images_per_camera;
+    FlatHashMap<camera_t, size_t> num_images_per_camera;
     num_images_per_camera.reserve(ba_config.NumImages());
     for (const image_t image_id : ba_config.Images()) {
       const Image& image = reconstruction_->Image(image_id);

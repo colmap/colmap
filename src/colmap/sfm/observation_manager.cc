@@ -441,7 +441,7 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
   // Cache for image projection centers.
-  NodeHashMap<image_t, Eigen::Vector3d> proj_centers;
+  FlatHashMap<image_t, Eigen::Vector3d> proj_centers;
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
