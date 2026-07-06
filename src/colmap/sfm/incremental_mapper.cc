@@ -967,7 +967,7 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Insert the images of all local frames.
     const Image& image = reconstruction_->Image(image_id);
-    std::set<frame_t> frame_ids;
+    FlatHashSet<frame_t> frame_ids;
     frame_ids.insert(image.FrameId());
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
       ba_config.AddImage(data_id.id);

@@ -33,9 +33,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 
-#include <map>
-#include <set>
-
 namespace colmap {
 
 NodeHashMap<image_pair_t, point2D_t>
