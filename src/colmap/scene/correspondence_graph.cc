@@ -249,7 +249,7 @@ void CorrespondenceGraph::ExtractTransitiveCorrespondences(
   // iteration order is never observed (the output is the discovery-ordered
   // `corrs` vector), so a flat hash set is both correct and faster than the
   // tree-based std::map<image_t, std::set<point2D_t>> it replaces.
-  FlatHashSet<std::pair<image_t, point2D_t>> image_corrs;
+  FlatHashSet<std::pair<image_t, point2D_t>, PairHash> image_corrs;
   image_corrs.insert({image_id, point2D_idx});
 
   size_t corr_queue_beg = 0;
