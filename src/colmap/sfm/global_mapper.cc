@@ -155,7 +155,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   auto corr_graph = database_cache_->CorrespondenceGraph();
 
   // Union all matching observations.
-  UnionFind<Observation> uf;
+  UnionFind<Observation, PairHash> uf;
   FeatureMatches matches;
   for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -177,7 +177,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
 
   // Group observations by their root.
   uf.Compress();
-  NodeHashMap<Observation, std::vector<Observation>> track_map;
+  NodeHashMap<Observation, std::vector<Observation>, PairHash> track_map;
   for (const auto& [obs, root] : uf.Parents()) {
     track_map[root].push_back(obs);
   }

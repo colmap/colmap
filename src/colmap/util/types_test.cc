@@ -126,7 +126,7 @@ TEST(FilterView, RangeExpression) {
 }
 
 TEST(FeatureMatchHashing, Nominal) {
-  FlatHashSet<std::pair<point2D_t, point2D_t>> set;
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> set;
   set.emplace(1, 2);
   EXPECT_EQ(set.size(), 1);
   set.emplace(1, 2);
@@ -144,7 +144,7 @@ TEST(FeatureMatchHashing, Nominal) {
 TEST(FeatureMatchHashing, LargeValues) {
   const point2D_t hi = std::numeric_limits<point2D_t>::max();
   const point2D_t lo = 1;
-  FlatHashSet<std::pair<point2D_t, point2D_t>> set;
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> set;
   set.emplace(hi, lo);
   set.emplace(lo, hi);
   set.emplace(hi, hi);
@@ -157,11 +157,37 @@ TEST(FeatureMatchHashing, LargeValues) {
 }
 
 TEST(FeatureMatchHashing, Deterministic) {
-  std::hash<std::pair<point2D_t, point2D_t>> h;
+  PairHash h;
   EXPECT_EQ(h(std::make_pair<point2D_t, point2D_t>(42, 99)),
             h(std::make_pair<point2D_t, point2D_t>(42, 99)));
   EXPECT_NE(h(std::make_pair<point2D_t, point2D_t>(42, 99)),
             h(std::make_pair<point2D_t, point2D_t>(99, 42)));
+}
+
+TEST(SignedPairHashing, LargeValues) {
+  const int32_t hi = std::numeric_limits<int32_t>::max();
+  const int32_t lo = std::numeric_limits<int32_t>::min();
+  FlatHashSet<std::pair<int32_t, int32_t>, PairHash> set;
+  set.emplace(hi, lo);
+  set.emplace(lo, hi);
+  set.emplace(hi, hi);
+  set.emplace(lo, lo);
+  EXPECT_EQ(set.size(), 4);
+  EXPECT_EQ(set.count(std::make_pair(hi, lo)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(hi, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, lo)), 1);
+}
+
+TEST(SignedPairHashing, Deterministic) {
+  PairHash h;
+  EXPECT_EQ(h(std::make_pair<int32_t, int32_t>(-42, 99)),
+            h(std::make_pair<int32_t, int32_t>(-42, 99)));
+  EXPECT_NE(h(std::make_pair<int32_t, int32_t>(-42, 99)),
+            h(std::make_pair<int32_t, int32_t>(99, -42)));
+  // Distinct negatives that share low bits with positives must not collide.
+  EXPECT_NE(h(std::make_pair<int32_t, int32_t>(-1, 0)),
+            h(std::make_pair<int32_t, int32_t>(0, -1)));
 }
 
 TEST(Point3DPairHashing, Nominal) {
