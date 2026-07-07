@@ -14,5 +14,4 @@ void BindConstants(py::module& m) {
   m.attr("INVALID_POSE_PRIOR_ID") = colmap::kInvalidPosePriorId;
   m.attr("INVALID_SENSOR_ID") = colmap::kInvalidSensorId;
   m.attr("INVALID_DATA_ID") = colmap::kInvalidDataId;
-  m.attr("INVALID_TIMESTAMP") = colmap::kInvalidTimestamp;
 }
