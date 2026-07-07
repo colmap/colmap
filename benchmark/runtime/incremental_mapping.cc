@@ -78,12 +78,11 @@ void RunPipelineAndReport(benchmark::State& state,
     mapper.Run();
 
     state.PauseTiming();
-    size_t best_size = 0;
     largest = nullptr;
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
       const auto& reconstruction = reconstruction_manager->Get(i);
-      if (reconstruction->NumRegImages() >= best_size) {
-        best_size = reconstruction->NumRegImages();
+      if (largest == nullptr ||
+          reconstruction->NumRegImages() > largest->NumRegImages()) {
         largest = reconstruction;
       }
     }
@@ -151,7 +150,8 @@ void AddArguments(::benchmark::Benchmark* b) {
   }
   b->Unit(benchmark::kMillisecond)
       ->Iterations(1)
-      ->Repetitions(1)
+      ->Repetitions(5)
+      ->ReportAggregatesOnly(true)
       ->UseRealTime();
 }
 
