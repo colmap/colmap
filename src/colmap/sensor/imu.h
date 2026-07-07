@@ -65,7 +65,7 @@ struct ImuCalibration {
   /// Norm of the Gravitational acceleration. [m/s^2]
   double gravity_magnitude = 9.81007;
 
-  /// Expected IMU Rate [1/s]
+  /// Expected IMU rate. [1/s]
   double imu_rate = 20.0;
 
   /// Rectification matrices correcting axis misalignment and scale.
