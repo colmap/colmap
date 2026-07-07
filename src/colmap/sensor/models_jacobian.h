@@ -1284,7 +1284,10 @@ bool SimpleDivisionCameraModel::ImgFromCamWithJac(const double* params,
   const double c2 = params[2];
   const double k = params[3];
 
-  double r, dr_du, dr_dv, dr_dw, dr_dk;
+  // The derivatives are only written when a Jacobian is requested; initialize
+  // them so the value-only path does not trip -Wmaybe-uninitialized.
+  double r;
+  double dr_du = 0.0, dr_dv = 0.0, dr_dw = 0.0, dr_dk = 0.0;
   const bool with_jac = J_uvw || J_params;
   if (!internal::DivisionScaleWithJac(u,
                                       v,
@@ -1340,7 +1343,10 @@ bool DivisionCameraModel::ImgFromCamWithJac(const double* params,
   const double c2 = params[3];
   const double k = params[4];
 
-  double r, dr_du, dr_dv, dr_dw, dr_dk;
+  // The derivatives are only written when a Jacobian is requested; initialize
+  // them so the value-only path does not trip -Wmaybe-uninitialized.
+  double r;
+  double dr_du = 0.0, dr_dv = 0.0, dr_dw = 0.0, dr_dk = 0.0;
   const bool with_jac = J_uvw || J_params;
   if (!internal::DivisionScaleWithJac(u,
                                       v,
