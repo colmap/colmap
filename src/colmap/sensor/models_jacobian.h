@@ -673,11 +673,14 @@ bool FOVCameraModel::ImgFromCamWithJac(const double* params,
     const double arg = 2.0 * radius * t;
     const double atan_arg = std::atan(arg);
     const double denom_arg = 1.0 + arg * arg;
+    // denom_arg divides both derivative numerators; hoist its reciprocal.
+    const double inv_denom_arg = 1.0 / denom_arg;
     factor = atan_arg / (radius * omega);
-    factor_r = (2.0 * t * radius / denom_arg - atan_arg) /
+    factor_r = (2.0 * t * radius * inv_denom_arg - atan_arg) /
                (2.0 * radius2 * radius * omega);
-    factor_omega = (radius * omega * (1.0 + t * t) / denom_arg - atan_arg) /
-                   (radius * omega2);
+    factor_omega =
+        (radius * omega * (1.0 + t * t) * inv_denom_arg - atan_arg) /
+        (radius * omega2);
   }
 
   const double du = a * factor;
@@ -1498,13 +1501,19 @@ bool EquirectangularCameraModel::ImgFromCamWithJac(const double* params,
   if (J_uvw) {
     const double R2 = horizontal * horizontal;  // horizontal^2
     const double N2 = R2 + v * v;               // full squared norm
+    // Hoist the shared reciprocals: R2 and N2*horizontal each divide more than
+    // one derivative, and without -ffast-math the compiler cannot factor the
+    // repeated runtime division out on its own.
+    const double inv_R2 = 1.0 / R2;
+    const double inv_N2 = 1.0 / N2;
+    const double inv_N2_horizontal = inv_N2 / horizontal;
     // theta = atan2(u, w).
-    const double dtheta_du = w / R2;
-    const double dtheta_dw = -u / R2;
+    const double dtheta_du = w * inv_R2;
+    const double dtheta_dw = -u * inv_R2;
     // phi = atan2(-v, horizontal), horizontal = sqrt(u^2 + w^2).
-    const double dphi_du = u * v / (N2 * horizontal);
-    const double dphi_dv = -horizontal / N2;
-    const double dphi_dw = v * w / (N2 * horizontal);
+    const double dphi_du = u * v * inv_N2_horizontal;
+    const double dphi_dv = -horizontal * inv_N2;
+    const double dphi_dw = v * w * inv_N2_horizontal;
 
     J_uvw[0] = width * kInv2Pi * dtheta_du;
     J_uvw[1] = 0.0;
