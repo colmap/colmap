@@ -219,6 +219,47 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
       {200, 210, 100, 120, -0.1, 0.05, -0.001, 0.002});
   TestAnalyticalReprojError<FullOpenCVCameraModel>(
       {200, 210, 100, 120, -0.1, 0.05, -0.001, 0.002, 0.01, 0.02, -0.02, 0.01});
+  TestAnalyticalReprojError<FOVCameraModel>({200, 210, 100, 120, 0.9});
+  TestAnalyticalReprojError<SimpleRadialFisheyeCameraModel>(
+      {200, 100, 120, 0.1});
+  TestAnalyticalReprojError<RadialFisheyeCameraModel>(
+      {200, 100, 120, 0.1, 0.02});
+  TestAnalyticalReprojError<OpenCVFisheyeCameraModel>(
+      {200, 210, 100, 120, -0.05, 0.02, -0.001, 0.001});
+  TestAnalyticalReprojError<ThinPrismFisheyeCameraModel>({200,
+                                                          210,
+                                                          100,
+                                                          120,
+                                                          -0.05,
+                                                          0.02,
+                                                          -0.001,
+                                                          0.001,
+                                                          0.001,
+                                                          0.002,
+                                                          0.001,
+                                                          -0.001});
+  TestAnalyticalReprojError<RadTanThinPrismFisheyeModel>({200,
+                                                          210,
+                                                          100,
+                                                          120,
+                                                          -0.05,
+                                                          0.02,
+                                                          -0.005,
+                                                          0.001,
+                                                          0.0005,
+                                                          0.0002,
+                                                          -0.001,
+                                                          0.001,
+                                                          0.001,
+                                                          -0.001,
+                                                          0.0005,
+                                                          -0.0005});
+  TestAnalyticalReprojError<SimpleFisheyeCameraModel>({200, 100, 120});
+  TestAnalyticalReprojError<FisheyeCameraModel>({200, 210, 100, 120});
+  TestAnalyticalReprojError<SimpleDivisionCameraModel>({200, 100, 120, 0.1});
+  TestAnalyticalReprojError<DivisionCameraModel>({200, 210, 100, 120, 0.1});
+  TestAnalyticalReprojError<EUCMCameraModel>({200, 210, 100, 120, 0.6, 1.2});
+  TestAnalyticalReprojError<EquirectangularCameraModel>({1000, 500});
 }
 
 TEST(ReprojErrorConstantPoseCostFunctor, AnalyticalVersusAutoDiff) {
@@ -234,6 +275,54 @@ TEST(ReprojErrorConstantPoseCostFunctor, AnalyticalVersusAutoDiff) {
       {200, 210, 100, 120, -0.1, 0.05, -0.001, 0.002});
   TestAnalyticalReprojErrorConstantPose<FullOpenCVCameraModel>(
       {200, 210, 100, 120, -0.1, 0.05, -0.001, 0.002, 0.01, 0.02, -0.02, 0.01});
+  TestAnalyticalReprojErrorConstantPose<FOVCameraModel>(
+      {200, 210, 100, 120, 0.9});
+  TestAnalyticalReprojErrorConstantPose<SimpleRadialFisheyeCameraModel>(
+      {200, 100, 120, 0.1});
+  TestAnalyticalReprojErrorConstantPose<RadialFisheyeCameraModel>(
+      {200, 100, 120, 0.1, 0.02});
+  TestAnalyticalReprojErrorConstantPose<OpenCVFisheyeCameraModel>(
+      {200, 210, 100, 120, -0.05, 0.02, -0.001, 0.001});
+  TestAnalyticalReprojErrorConstantPose<ThinPrismFisheyeCameraModel>({200,
+                                                                      210,
+                                                                      100,
+                                                                      120,
+                                                                      -0.05,
+                                                                      0.02,
+                                                                      -0.001,
+                                                                      0.001,
+                                                                      0.001,
+                                                                      0.002,
+                                                                      0.001,
+                                                                      -0.001});
+  TestAnalyticalReprojErrorConstantPose<RadTanThinPrismFisheyeModel>({200,
+                                                                      210,
+                                                                      100,
+                                                                      120,
+                                                                      -0.05,
+                                                                      0.02,
+                                                                      -0.005,
+                                                                      0.001,
+                                                                      0.0005,
+                                                                      0.0002,
+                                                                      -0.001,
+                                                                      0.001,
+                                                                      0.001,
+                                                                      -0.001,
+                                                                      0.0005,
+                                                                      -0.0005});
+  TestAnalyticalReprojErrorConstantPose<SimpleFisheyeCameraModel>(
+      {200, 100, 120});
+  TestAnalyticalReprojErrorConstantPose<FisheyeCameraModel>(
+      {200, 210, 100, 120});
+  TestAnalyticalReprojErrorConstantPose<SimpleDivisionCameraModel>(
+      {200, 100, 120, 0.1});
+  TestAnalyticalReprojErrorConstantPose<DivisionCameraModel>(
+      {200, 210, 100, 120, 0.1});
+  TestAnalyticalReprojErrorConstantPose<EUCMCameraModel>(
+      {200, 210, 100, 120, 0.6, 1.2});
+  TestAnalyticalReprojErrorConstantPose<EquirectangularCameraModel>(
+      {1000, 500});
 }
 
 TEST(ReprojErrorConstantPoseCostFunctor, Nominal) {
