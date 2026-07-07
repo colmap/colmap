@@ -51,6 +51,7 @@ COLMAP_ADD_LIBRARY(
         colmap_geometry
         colmap_scene
         colmap_optim
+        colmap_estimators_cost_functions
         Eigen3::Eigen
         Ceres::ceres
         PoseLib::PoseLib

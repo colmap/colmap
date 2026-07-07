@@ -36,7 +36,7 @@ COLMAP_ADD_LIBRARY(
         camera.h camera.cc
         frame.h frame.cc
         image.h image.cc
-        imu.h
+        imu.h imu.cc
         point2d.h point2d.cc
         two_view_geometry.h two_view_geometry.cc
     PUBLIC_LINK_LIBS
@@ -122,6 +122,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME image_test
     SRCS image_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME imu_test
+    SRCS imu_test.cc
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(

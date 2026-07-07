@@ -33,6 +33,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
+#include <memory>
 #include <vector>
 
 #include <Eigen/Core>
@@ -121,6 +122,33 @@ struct PreintegratedImuData {
   void Finalize(double max_condition_number = -1);
 };
 
+// Strategy interface for the per-step IMU integration algorithm.
+//
+// Integrators are stateless: each Integrate() call advances `data` by a single
+// measurement interval, reading all configuration from the arguments. This lets
+// the integration methods be unit-tested (e.g. parameterized over the method)
+// and mocked independently of ImuPreintegrator. Obtain a concrete integrator
+// via Create().
+class ImuIntegrator {
+ public:
+  static std::unique_ptr<const ImuIntegrator> Create(
+      ImuIntegrationMethod method);
+
+  virtual ~ImuIntegrator() = default;
+
+  // Advance `data` by integrating one measurement interval of length `dt`
+  // seconds using the bias-corrected, rectified accel/gyro at the interval
+  // midpoint. The noise densities may be inflated by the caller on saturation.
+  virtual void Integrate(const ImuPreintegrationOptions& options,
+                         const ImuCalibration& calib,
+                         const Eigen::Vector3d& accel_true,
+                         const Eigen::Vector3d& gyro_true,
+                         double dt,
+                         double accel_noise_density,
+                         double gyro_noise_density,
+                         PreintegratedImuData* data) const = 0;
+};
+
 // Algorithm class that performs IMU preintegration.
 // Owns the raw measurements, calibration, and integration options.
 // Produces a PreintegratedImuData data struct via Extract().
@@ -167,18 +195,6 @@ class ImuPreintegrator {
   void IntegrateOneMeasurement(const ImuMeasurement& prev,
                                const ImuMeasurement& curr);
 
-  void IntegrateMidpoint(const Eigen::Vector3d& accel_true,
-                         const Eigen::Vector3d& gyro_true,
-                         double dt,
-                         double accel_noise_density,
-                         double gyro_noise_density);
-
-  void IntegrateRK4(const Eigen::Vector3d& accel_true,
-                    const Eigen::Vector3d& gyro_true,
-                    double dt,
-                    double accel_noise_density,
-                    double gyro_noise_density);
-
   // Integration time window. [nanoseconds]
   timestamp_t t_start_ = kInvalidTimestamp;
   timestamp_t t_end_ = kInvalidTimestamp;
@@ -194,6 +210,9 @@ class ImuPreintegrator {
 
   // Options
   const ImuPreintegrationOptions options_;
+
+  // Per-step integration strategy, selected from options_.method.
+  std::unique_ptr<const ImuIntegrator> integrator_;
 
   // IMU Calibration.
   const ImuCalibration calib_;
