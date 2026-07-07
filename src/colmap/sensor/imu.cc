@@ -33,7 +33,7 @@
 
 namespace colmap {
 
-ImuMeasurements ImuMeasurements::ExtractMeasurementsContainEdge(
+ImuMeasurements ImuMeasurements::ExtractMeasurementsInRange(
     timestamp_t t1, timestamp_t t2) const {
   THROW_CHECK(!Empty()) << "Cannot query measurements from empty container.";
   THROW_CHECK_LT(t1, t2) << "t1 must be less than t2.";
@@ -46,11 +46,11 @@ ImuMeasurements ImuMeasurements::ExtractMeasurementsContainEdge(
   auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
     return m1.timestamp < m2.timestamp;
   };
-  ImuMeasurement dummy;
-  dummy.timestamp = t1;
-  auto it1 = std::upper_bound(begin(), end(), dummy, cmp);
-  dummy.timestamp = t2;
-  auto it2 = std::lower_bound(begin(), end(), dummy, cmp);
+  ImuMeasurement range;
+  range.timestamp = t1;
+  auto it1 = std::upper_bound(begin(), end(), range, cmp);
+  range.timestamp = t2;
+  auto it2 = std::lower_bound(begin(), end(), range, cmp);
   // Range: sample at/before t1 through sample at/after t2.
   ImuMeasurements result;
   result.InsertSorted(std::vector<ImuMeasurement>(it1 - 1, it2 + 1));

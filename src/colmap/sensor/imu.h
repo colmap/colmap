@@ -108,10 +108,6 @@ class ImuMeasurements {
       measurements_.push_back(m);
       return;
     }
-    if (m.timestamp == measurements_.back().timestamp) {
-      throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
-                                  std::to_string(m.timestamp));
-    }
     auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
       return m1.timestamp < m2.timestamp;
     };
@@ -125,17 +121,13 @@ class ImuMeasurements {
   }
 
   void Insert(const std::vector<ImuMeasurement>& ms) {
-    if (Empty()) {
-      measurements_ = ms;
-      std::sort(measurements_.begin(),
-                measurements_.end(),
-                [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-                  return m1.timestamp < m2.timestamp;
-                });
-      ThrowIfHasDuplicates(measurements_);
-    } else {
-      for (auto it = ms.begin(); it != ms.end(); ++it) Insert(*it);
-    }
+    std::vector<ImuMeasurement> sorted = ms;
+    std::sort(sorted.begin(),
+              sorted.end(),
+              [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+                return m1.timestamp < m2.timestamp;
+              });
+    InsertSorted(sorted);
   }
 
   void Insert(const ImuMeasurements& ms) {
@@ -215,8 +207,8 @@ class ImuMeasurements {
   // sample at or just before t1 to the sample at or just after t2. This
   // ensures the returned range brackets both endpoints, which is required
   // for correct IMU preintegration when t1/t2 fall between samples.
-  ImuMeasurements ExtractMeasurementsContainEdge(timestamp_t t1,
-                                                 timestamp_t t2) const;
+  ImuMeasurements ExtractMeasurementsInRange(timestamp_t t1,
+                                             timestamp_t t2) const;
 
  private:
   static void ThrowIfHasDuplicates(const std::vector<ImuMeasurement>& ms) {

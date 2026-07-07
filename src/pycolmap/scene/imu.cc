@@ -74,8 +74,8 @@ void BindImu(py::module& m) {
       .def("empty", &ImuMeasurements::Empty)
       .def("__len__", &ImuMeasurements::Size)
       .def("__getitem__", &ImuMeasurements::operator[])
-      .def("extract_measurements_contain_edge",
-           &ImuMeasurements::ExtractMeasurementsContainEdge,
+      .def("extract_measurements_in_range",
+           &ImuMeasurements::ExtractMeasurementsInRange,
            "t1"_a,
            "t2"_a)
       .def(

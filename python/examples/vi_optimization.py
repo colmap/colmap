@@ -376,7 +376,7 @@ def run() -> None:
     for i in range(1, num_images - 1):
         t1, t2 = image_timestamps[i], image_timestamps[i + 1]
         # Timestamps are in nanoseconds (int64).
-        ms = imu_measurements.extract_measurements_contain_edge(t1, t2)
+        ms = imu_measurements.extract_measurements_in_range(t1, t2)
         if len(ms) == 0:
             continue
         integrators[i] = pycolmap.ImuPreintegrator(options, imu_calib, t1, t2)
