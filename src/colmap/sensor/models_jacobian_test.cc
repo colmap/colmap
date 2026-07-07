@@ -154,5 +154,110 @@ TEST(FullOpenCV, ImgFromCamWithJac) {
                                                      0.001});
 }
 
+TEST(FOV, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<FOVCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.9});
+  TestModelImgFromCamWithJac<FOVCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.5});
+}
+
+TEST(SimpleRadialFisheye, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<SimpleRadialFisheyeCameraModel>(
+      {651.123, 386.123, 511.123, 0});
+  TestModelImgFromCamWithJac<SimpleRadialFisheyeCameraModel>(
+      {651.123, 386.123, 511.123, 0.1});
+}
+
+TEST(RadialFisheye, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<RadialFisheyeCameraModel>(
+      {651.123, 386.123, 511.123, 0, 0});
+  TestModelImgFromCamWithJac<RadialFisheyeCameraModel>(
+      {651.123, 386.123, 511.123, 0.1, 0.02});
+}
+
+TEST(OpenCVFisheye, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<OpenCVFisheyeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0, 0, 0, 0});
+  TestModelImgFromCamWithJac<OpenCVFisheyeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, -0.05, 0.02, -0.001, 0.001});
+}
+
+TEST(ThinPrismFisheye, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<ThinPrismFisheyeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestModelImgFromCamWithJac<ThinPrismFisheyeCameraModel>({651.123,
+                                                           655.123,
+                                                           386.123,
+                                                           511.123,
+                                                           -0.05,
+                                                           0.02,
+                                                           -0.001,
+                                                           0.001,
+                                                           0.001,
+                                                           0.002,
+                                                           0.001,
+                                                           -0.001});
+}
+
+TEST(RadTanThinPrismFisheye, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<RadTanThinPrismFisheyeModel>(
+      {651.123, 655.123, 386.123, 511.123, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestModelImgFromCamWithJac<RadTanThinPrismFisheyeModel>({651.123,
+                                                           655.123,
+                                                           386.123,
+                                                           511.123,
+                                                           -0.05,
+                                                           0.02,
+                                                           -0.005,
+                                                           0.001,
+                                                           0.0005,
+                                                           0.0002,
+                                                           -0.001,
+                                                           0.001,
+                                                           0.001,
+                                                           -0.001,
+                                                           0.0005,
+                                                           -0.0005});
+}
+
+TEST(SimpleFisheye, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<SimpleFisheyeCameraModel>(
+      {651.123, 386.123, 511.123});
+}
+
+TEST(Fisheye, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<FisheyeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123});
+}
+
+TEST(SimpleDivision, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<SimpleDivisionCameraModel>(
+      {651.123, 386.123, 511.123, 0});
+  TestModelImgFromCamWithJac<SimpleDivisionCameraModel>(
+      {651.123, 386.123, 511.123, 0.1});
+  TestModelImgFromCamWithJac<SimpleDivisionCameraModel>(
+      {651.123, 386.123, 511.123, -0.1});
+}
+
+TEST(Division, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<DivisionCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0});
+  TestModelImgFromCamWithJac<DivisionCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.1});
+  TestModelImgFromCamWithJac<DivisionCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, -0.1});
+}
+
+TEST(EUCM, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<EUCMCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.0, 1.0});
+  TestModelImgFromCamWithJac<EUCMCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.6, 1.2});
+}
+
+TEST(Equirectangular, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<EquirectangularCameraModel>({1000, 500});
+}
+
 }  // namespace
 }  // namespace colmap

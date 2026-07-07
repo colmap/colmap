@@ -517,7 +517,7 @@ struct OpenCVCameraModel
 struct OpenCVFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<OpenCVFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, false)
+      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -554,7 +554,7 @@ struct FullOpenCVCameraModel
 // environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BasePerspectiveCameraModel<FOVCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFOV, "FOV", 2, 2, 1, false)
+      CameraModelId::kFOV, "FOV", 2, 2, 1, true)
 
   template <typename T>
   static void Undistortion(const T* extra_params, T u, T v, T* du, T* dv);
@@ -577,7 +577,7 @@ struct SimpleRadialFisheyeCameraModel
                                        1,
                                        2,
                                        1,
-                                       false)
+                                       true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -594,7 +594,7 @@ struct SimpleRadialFisheyeCameraModel
 struct RadialFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<RadialFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, false)
+      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -613,7 +613,7 @@ struct RadialFisheyeCameraModel
 struct ThinPrismFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<ThinPrismFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, false)
+      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -636,7 +636,7 @@ struct RadTanThinPrismFisheyeModel
                                        2,
                                        2,
                                        12,
-                                       false)
+                                       true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -655,7 +655,7 @@ struct RadTanThinPrismFisheyeModel
 struct SimpleDivisionCameraModel
     : public BasePerspectiveCameraModel<SimpleDivisionCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, false)
+      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, true)
 };
 
 // Division camera model.
@@ -673,7 +673,7 @@ struct SimpleDivisionCameraModel
 struct DivisionCameraModel
     : public BasePerspectiveCameraModel<DivisionCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
+      CameraModelId::kDivision, "DIVISION", 2, 2, 1, true)
 };
 
 // Simple equidistant fisheye camera model.
@@ -689,7 +689,7 @@ struct DivisionCameraModel
 struct SimpleFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<SimpleFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, false)
+      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -706,7 +706,7 @@ struct SimpleFisheyeCameraModel
 struct FisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<FisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
+      CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -723,7 +723,7 @@ struct FisheyeCameraModel
 //
 struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kEUCM, "EUCM", 2, 2, 2, false)
+      CameraModelId::kEUCM, "EUCM", 2, 2, 2, true)
 
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
@@ -749,7 +749,7 @@ struct EquirectangularCameraModel
   SPHERICAL_CAMERA_MODEL_DEFINITIONS(CameraModelId::kEquirectangular,
                                      "EQUIRECTANGULAR",
                                      /*num_metadata_params=*/2,
-                                     false)
+                                     true)
 
   template <typename T>
   static inline bool HasBogusParams(const std::vector<T>& /*params*/,

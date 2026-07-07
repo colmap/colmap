@@ -59,6 +59,80 @@ std::vector<double> NominalCameraParams<FullOpenCVCameraModel>() {
           -0.0005,
           0.0001};
 }
+template <>
+std::vector<double> NominalCameraParams<FOVCameraModel>() {
+  return {1000, 1000, 320, 240, 0.5};
+}
+template <>
+std::vector<double> NominalCameraParams<SimpleRadialFisheyeCameraModel>() {
+  return {1000, 320, 240, 0.01};
+}
+template <>
+std::vector<double> NominalCameraParams<RadialFisheyeCameraModel>() {
+  return {1000, 320, 240, 0.01, 0.001};
+}
+template <>
+std::vector<double> NominalCameraParams<OpenCVFisheyeCameraModel>() {
+  return {1000, 1000, 320, 240, 0.01, 0.001, 0.0001, 0.0001};
+}
+template <>
+std::vector<double> NominalCameraParams<ThinPrismFisheyeCameraModel>() {
+  return {1000,
+          1000,
+          320,
+          240,
+          0.01,
+          0.001,
+          0.0001,
+          0.0001,
+          0.001,
+          0.0005,
+          0.0001,
+          0.0001};
+}
+template <>
+std::vector<double> NominalCameraParams<RadTanThinPrismFisheyeModel>() {
+  return {1000,
+          1000,
+          320,
+          240,
+          0.01,
+          0.001,
+          0.0001,
+          0.00001,
+          0.000001,
+          0.0000001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.00005,
+          0.0001,
+          0.00005};
+}
+template <>
+std::vector<double> NominalCameraParams<SimpleDivisionCameraModel>() {
+  return {1000, 320, 240, 0.01};
+}
+template <>
+std::vector<double> NominalCameraParams<DivisionCameraModel>() {
+  return {1000, 1000, 320, 240, 0.01};
+}
+template <>
+std::vector<double> NominalCameraParams<SimpleFisheyeCameraModel>() {
+  return {1000, 320, 240};
+}
+template <>
+std::vector<double> NominalCameraParams<FisheyeCameraModel>() {
+  return {1000, 1000, 320, 240};
+}
+template <>
+std::vector<double> NominalCameraParams<EUCMCameraModel>() {
+  return {1000, 1000, 320, 240, 0.5, 1.0};
+}
+template <>
+std::vector<double> NominalCameraParams<EquirectangularCameraModel>() {
+  return {640, 480};
+}
 
 template <typename CameraModel>
 ReprojErrorData CreateReprojErrorData() {
@@ -137,5 +211,17 @@ REGISTER_MODEL(SimpleRadialCameraModel)
 REGISTER_MODEL(RadialCameraModel)
 REGISTER_MODEL(OpenCVCameraModel)
 REGISTER_MODEL(FullOpenCVCameraModel)
+REGISTER_MODEL(FOVCameraModel)
+REGISTER_MODEL(SimpleRadialFisheyeCameraModel)
+REGISTER_MODEL(RadialFisheyeCameraModel)
+REGISTER_MODEL(OpenCVFisheyeCameraModel)
+REGISTER_MODEL(ThinPrismFisheyeCameraModel)
+REGISTER_MODEL(RadTanThinPrismFisheyeModel)
+REGISTER_MODEL(SimpleDivisionCameraModel)
+REGISTER_MODEL(DivisionCameraModel)
+REGISTER_MODEL(SimpleFisheyeCameraModel)
+REGISTER_MODEL(FisheyeCameraModel)
+REGISTER_MODEL(EUCMCameraModel)
+REGISTER_MODEL(EquirectangularCameraModel)
 
 BENCHMARK_MAIN();
