@@ -44,7 +44,7 @@ namespace colmap {
 // https://github.com/uzh-rpg/rpg_svo_pro_open/blob/master/svo_common/include/svo/common/imu_calibration.h
 // Default parameters are for ADIS16448 IMU.
 struct ImuCalibration {
-  /// Gyro noise density (sigma). [rad/s*1/sqrt(Hz)]
+  // Gyro noise density (sigma). [rad/s*1/sqrt(Hz)]
   double gyro_noise_density = 0.00073088444;
 
   /// Accelerometer noise density (sigma). [m/s^2*1/sqrt(Hz)]
