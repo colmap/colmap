@@ -216,8 +216,10 @@ class ImuPreintegrator {
 
   // IMU Calibration.
   const ImuCalibration calib_;
-  Eigen::Matrix3d accel_rect_mat_inv_ = Eigen::Matrix3d::Identity();
-  Eigen::Matrix3d gyro_rect_mat_inv_ = Eigen::Matrix3d::Identity();
+  // Inverse rectification (true_from_measured): maps a bias-corrected raw
+  // reading to the true value, true = M^{-1} * (measured - bias).
+  Eigen::Matrix3d accel_true_from_measured_ = Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d gyro_true_from_measured_ = Eigen::Matrix3d::Identity();
   Eigen::Vector6d biases_ =
       Eigen::Vector6d::Zero();  // [bias_gyro(3), bias_accel(3)]
 };

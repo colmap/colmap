@@ -68,8 +68,14 @@ struct ImuCalibration {
   /// Expected IMU rate. [1/s]
   double imu_rate = 20.0;
 
-  /// Rectification matrices correcting axis misalignment and scale.
-  /// m_true = M^{-1}(m - b). Identity if data is already rectified.
+  /// Rectification matrices correcting axis misalignment and scale. Each matrix
+  /// M is measured_from_true: it maps the true (rectified) value to the raw
+  /// sensor reading,
+  ///     measured = M * true + bias,
+  /// so a raw reading is rectified by inverting the relation,
+  ///     true = M^{-1} * (measured - bias),
+  /// where `measured` is the raw gyro/accel reading and `bias` the sensor bias.
+  /// Identity if the data is already rectified.
   /// TODO: Support online calibration by making these optimizable
   /// as parameter blocks in the IMU cost function.
   Eigen::Matrix3d gyro_rectification = Eigen::Matrix3d::Identity();
