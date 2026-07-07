@@ -90,24 +90,14 @@ ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
       accel_rect_mat_inv_(calib.accel_rectification.inverse()),
       gyro_rect_mat_inv_(calib.gyro_rectification.inverse()) {
   THROW_CHECK_LT(t_start, t_end);
-  data_.gravity_magnitude = calib.gravity_magnitude;
   Reset();
 }
 
 void ImuPreintegrator::Reset() {
-  data_.delta_R = Eigen::Quaterniond::Identity();
-  data_.delta_p = Eigen::Vector3d::Zero();
-  data_.delta_v = Eigen::Vector3d::Zero();
-  data_.delta_t = 0;
-  data_.dR_dbg = Eigen::Matrix3d::Zero();
-  data_.dp_dbg = Eigen::Matrix3d::Zero();
-  data_.dv_dbg = Eigen::Matrix3d::Zero();
-  data_.dp_dba = Eigen::Matrix3d::Zero();
-  data_.dv_dba = Eigen::Matrix3d::Zero();
-  data_.covariance = Eigen::Matrix<double, 15, 15>::Zero();
-  data_.sqrt_information = Eigen::Matrix<double, 15, 15>::Zero();
+  data_ = PreintegratedImuData();
+  // Restore the fields that are not zero-initialized defaults.
   data_.biases = biases_;
-
+  data_.gravity_magnitude = calib_.gravity_magnitude;
   has_started_ = false;
 }
 
