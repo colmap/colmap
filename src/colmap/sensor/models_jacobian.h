@@ -678,9 +678,8 @@ bool FOVCameraModel::ImgFromCamWithJac(const double* params,
     factor = atan_arg / (radius * omega);
     factor_r = (2.0 * t * radius * inv_denom_arg - atan_arg) /
                (2.0 * radius2 * radius * omega);
-    factor_omega =
-        (radius * omega * (1.0 + t * t) * inv_denom_arg - atan_arg) /
-        (radius * omega2);
+    factor_omega = (radius * omega * (1.0 + t * t) * inv_denom_arg - atan_arg) /
+                   (radius * omega2);
   }
 
   const double du = a * factor;
