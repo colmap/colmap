@@ -11,3 +11,6 @@ target_link_libraries(benchmark_bundle_adjustment_convergence PRIVATE colmap_est
 
 add_executable(benchmark_global_positioning global_positioning.cc)
 target_link_libraries(benchmark_global_positioning PRIVATE colmap_estimators colmap_scene benchmark::benchmark)
+
+add_executable(benchmark_incremental_mapping incremental_mapping.cc)
+target_link_libraries(benchmark_incremental_mapping PRIVATE colmap_controllers colmap_scene benchmark::benchmark)
