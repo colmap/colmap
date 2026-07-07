@@ -70,7 +70,7 @@ FeatureMatches ExtractOutlierMatches(const FeatureMatches& matches,
                                      const FeatureMatches& inlier_matches) {
   THROW_CHECK_GE(matches.size(), inlier_matches.size());
 
-  FlatHashSet<std::pair<point2D_t, point2D_t>> inlier_matches_set;
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> inlier_matches_set;
   inlier_matches_set.reserve(inlier_matches.size());
   for (const auto& match : inlier_matches) {
     inlier_matches_set.emplace(match.point2D_idx1, match.point2D_idx2);
