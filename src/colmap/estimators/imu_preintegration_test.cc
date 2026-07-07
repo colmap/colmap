@@ -56,7 +56,7 @@ void FeedConstant(ImuPreintegrator& integrator,
                   int N,
                   double dt) {
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(
+    integrator.Integrate(
         ImuMeasurement(TimestampFromSeconds(i * dt), gyro, accel));
   }
 }
@@ -233,7 +233,7 @@ PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
   ImuPreintegrator integrator(options, calib, t_start, t_end);
   integrator.SetLinearizationBiases(biases);
   for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(
+    integrator.Integrate(
         ImuMeasurement(TimestampFromSeconds(i * dt), gyro, accel));
   }
   return integrator.Extract();

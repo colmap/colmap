@@ -380,7 +380,7 @@ def run() -> None:
         if len(ms) == 0:
             continue
         integrators[i] = pycolmap.ImuPreintegrator(options, imu_calib, t1, t2)
-        integrators[i].feed_imu(ms)
+        integrators[i].integrate(ms)
         preintegrated[i] = integrators[i].extract()
 
     # Set up variables.

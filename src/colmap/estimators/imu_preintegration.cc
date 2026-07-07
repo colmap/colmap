@@ -525,7 +525,7 @@ void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
                          &data_);
 }
 
-void ImuPreintegrator::FeedImu(const ImuMeasurement& m) {
+void ImuPreintegrator::Integrate(const ImuMeasurement& m) {
   // Check if this is the first measurement
   if (!HasStarted()) {
     THROW_CHECK_LE(m.timestamp, t_start_)
@@ -557,9 +557,9 @@ void ImuPreintegrator::FeedImu(const ImuMeasurement& m) {
   IntegrateOneMeasurement(last_measurement, m);
 }
 
-void ImuPreintegrator::FeedImu(const ImuMeasurements& ms) {
+void ImuPreintegrator::Integrate(const ImuMeasurements& ms) {
   for (const auto& m : ms) {
-    FeedImu(m);
+    Integrate(m);
   }
 }
 

@@ -19,7 +19,7 @@ def _make_integrator(method, t_end_seconds):
 
 def _feed_constant(integrator, accel, gyro, num_steps, dt):
     for i in range(num_steps + 1):
-        integrator.feed_imu(
+        integrator.integrate(
             pycolmap.ImuMeasurement(
                 _ts(i * dt), np.asarray(gyro), np.asarray(accel)
             )
@@ -89,7 +89,7 @@ def test_preintegration_constant_acceleration(method):
     "method",
     [pycolmap.ImuIntegrationMethod.MIDPOINT, pycolmap.ImuIntegrationMethod.RK4],
 )
-def test_feed_imu_measurements_batch(method):
+def test_integrate_measurements_batch(method):
     num_steps, dt = 10, 0.01
     T = num_steps * dt
     accel = [0.0, 0.0, 9.81]
@@ -109,7 +109,7 @@ def test_feed_imu_measurements_batch(method):
                 _ts(i * dt), np.asarray(gyro), np.asarray(accel)
             )
         )
-    integrator_batch.feed_imu(ms)
+    integrator_batch.integrate(ms)
     data_batch = integrator_batch.extract()
 
     np.testing.assert_allclose(

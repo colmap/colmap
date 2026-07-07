@@ -164,12 +164,12 @@ class ImuPreintegrator {
 
   // Set the bias linearization point [bias_gyro(3), bias_accel(3)].
   // These biases are subtracted from raw IMU measurements during integration.
-  // Must be called before FeedImu() if nonzero biases are expected.
+  // Must be called before Integrate() if nonzero biases are expected.
   void SetLinearizationBiases(const Eigen::Vector6d& biases);
 
-  // Feed measurements. Must be added in chronological order.
-  void FeedImu(const ImuMeasurement& m);
-  void FeedImu(const ImuMeasurements& ms);
+  // Integrate measurements. Must be added in chronological order.
+  void Integrate(const ImuMeasurement& m);
+  void Integrate(const ImuMeasurements& ms);
 
   // Extract the preintegrated data struct. Calls Finalize() internally.
   PreintegratedImuData Extract();
@@ -205,7 +205,7 @@ class ImuPreintegrator {
   PreintegratedImuData data_;
 
   // Raw measurements, sorted by timestamp. Chronological order is enforced
-  // by FeedImu() via THROW_CHECK_GT on consecutive timestamps.
+  // by Integrate() via THROW_CHECK_GT on consecutive timestamps.
   ImuMeasurements measurements_;
 
   // Options

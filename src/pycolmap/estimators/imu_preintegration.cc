@@ -76,13 +76,14 @@ void BindImuPreintegration(py::module& m) {
       .def("set_linearization_biases",
            &ImuPreintegrator::SetLinearizationBiases,
            "biases"_a)
-      .def("feed_imu",
-           py::overload_cast<const ImuMeasurement&>(&ImuPreintegrator::FeedImu),
+      .def("integrate",
+           py::overload_cast<const ImuMeasurement&>(
+               &ImuPreintegrator::Integrate),
            "measurement"_a)
-      .def(
-          "feed_imu",
-          py::overload_cast<const ImuMeasurements&>(&ImuPreintegrator::FeedImu),
-          "measurements"_a)
+      .def("integrate",
+           py::overload_cast<const ImuMeasurements&>(
+               &ImuPreintegrator::Integrate),
+           "measurements"_a)
       .def("extract", &ImuPreintegrator::Extract)
       .def(
           "update",
