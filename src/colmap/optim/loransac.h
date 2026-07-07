@@ -38,6 +38,7 @@
 #include <atomic>
 #include <cfloat>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 #ifdef _OPENMP
@@ -45,6 +46,26 @@
 #endif
 
 namespace colmap {
+
+namespace internal {
+
+// Detects whether a local estimator provides a Refine method that takes an
+// initial model: `Refine(X, Y, initial_model, models)`. If so, LO-RANSAC passes
+// the current best model as the initial value for the local optimization (e.g.
+// a nonlinear refiner that starts from the current model). Estimators without a
+// Refine method use `Estimate(X, Y, models)` and are unaffected.
+template <typename Estimator, typename = void>
+struct SupportsRefineWithInitialModel : std::false_type {};
+
+template <typename Estimator>
+struct SupportsRefineWithInitialModel<
+    Estimator,
+    std::void_t<decltype(std::declval<Estimator&>().Refine(
+        std::declval<const std::vector<typename Estimator::X_t>&>(),
+        std::declval<const std::vector<typename Estimator::Y_t>&>(),
+        std::declval<typename Estimator::M_t*>()))>> : std::true_type {};
+
+}  // namespace internal
 
 // Implementation of LO-RANSAC (Locally Optimized RANSAC).
 //
@@ -242,8 +263,19 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
               }
 
               local_models.clear();
-              thread_local_estimator.Estimate(
-                  X_inlier, Y_inlier, &local_models);
+              if constexpr (internal::SupportsRefineWithInitialModel<
+                                LocalEstimator>::value) {
+                // Initialize the local optimization with the current best model
+                // and refine it in place.
+                typename LocalEstimator::M_t refined_model = *local_best_model;
+                if (thread_local_estimator.Refine(
+                        X_inlier, Y_inlier, &refined_model)) {
+                  local_models.push_back(refined_model);
+                }
+              } else {
+                thread_local_estimator.Estimate(
+                    X_inlier, Y_inlier, &local_models);
+              }
 
               bool improved_support = false;
               for (const auto& local_model : local_models) {
