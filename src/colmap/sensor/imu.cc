@@ -31,7 +31,107 @@
 
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+#include <iterator>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
 namespace colmap {
+namespace {
+
+void ThrowIfHasDuplicates(const std::vector<ImuMeasurement>& ms) {
+  for (size_t i = 1; i < ms.size(); ++i) {
+    if (ms[i].timestamp == ms[i - 1].timestamp) {
+      throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
+                                  std::to_string(ms[i].timestamp));
+    }
+  }
+}
+
+}  // namespace
+
+void ImuMeasurements::Insert(const ImuMeasurement& m) {
+  // Fast path: append if empty or new measurement comes after all existing.
+  if (Empty() || m.timestamp > measurements_.back().timestamp) {
+    measurements_.push_back(m);
+    return;
+  }
+  auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+    return m1.timestamp < m2.timestamp;
+  };
+  auto it =
+      std::lower_bound(measurements_.begin(), measurements_.end(), m, cmp);
+  if (it != measurements_.end() && it->timestamp == m.timestamp) {
+    throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
+                                std::to_string(m.timestamp));
+  }
+  measurements_.insert(it, m);
+}
+
+void ImuMeasurements::Insert(const std::vector<ImuMeasurement>& ms) {
+  std::vector<ImuMeasurement> sorted = ms;
+  std::sort(sorted.begin(),
+            sorted.end(),
+            [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+              return m1.timestamp < m2.timestamp;
+            });
+  InsertSorted(sorted);
+}
+
+void ImuMeasurements::Insert(const ImuMeasurements& ms) {
+  if (Empty()) {
+    measurements_ = ms.Data();
+  } else {
+    InsertSorted(ms.Data());
+  }
+}
+
+void ImuMeasurements::InsertSorted(
+    const std::vector<ImuMeasurement>& sorted_ms) {
+  if (sorted_ms.empty()) return;
+  ThrowIfHasDuplicates(sorted_ms);
+  if (Empty()) {
+    measurements_ = sorted_ms;
+    return;
+  }
+  if (sorted_ms.front().timestamp > measurements_.back().timestamp) {
+    measurements_.insert(
+        measurements_.end(), sorted_ms.begin(), sorted_ms.end());
+    return;
+  }
+  if (sorted_ms.front().timestamp == measurements_.back().timestamp) {
+    throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
+                                std::to_string(sorted_ms.front().timestamp));
+  }
+  std::vector<ImuMeasurement> merged;
+  merged.reserve(measurements_.size() + sorted_ms.size());
+  std::merge(measurements_.begin(),
+             measurements_.end(),
+             sorted_ms.begin(),
+             sorted_ms.end(),
+             std::back_inserter(merged),
+             [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+               return m1.timestamp < m2.timestamp;
+             });
+  // Check for cross-range duplicates after merge.
+  ThrowIfHasDuplicates(merged);
+  measurements_ = std::move(merged);
+}
+
+void ImuMeasurements::Remove(const ImuMeasurement& m) {
+  auto it =
+      std::lower_bound(measurements_.begin(),
+                       measurements_.end(),
+                       m,
+                       [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+                         return m1.timestamp < m2.timestamp;
+                       });
+  if (it != measurements_.end() && it->timestamp == m.timestamp)
+    measurements_.erase(it);
+  else
+    throw std::invalid_argument("Element not found in the list");
+}
 
 ImuMeasurements ImuMeasurements::ExtractMeasurementsInRange(
     timestamp_t t1, timestamp_t t2) const {
