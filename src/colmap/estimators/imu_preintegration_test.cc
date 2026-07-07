@@ -39,9 +39,10 @@
 namespace colmap {
 namespace {
 
-// Helper: create a default integrator with a time window [0, T] seconds.
-ImuPreintegrator MakeIntegrator(double T_seconds) {
+// Helper: create an integrator with a time window [0, T] seconds and method.
+ImuPreintegrator MakeIntegrator(double T_seconds, ImuIntegrationMethod method) {
   ImuPreintegrationOptions options;
+  options.method = method;
   ImuCalibration calib;
   timestamp_t t_start = TimestampFromSeconds(0.0);
   timestamp_t t_end = TimestampFromSeconds(T_seconds);
@@ -60,10 +61,14 @@ void FeedConstant(ImuPreintegrator& integrator,
   }
 }
 
-TEST(ImuPreintegrator, ZeroRotation) {
+// Fixture for tests that should hold for every integration method.
+class ImuPreintegratorTest
+    : public ::testing::TestWithParam<ImuIntegrationMethod> {};
+
+TEST_P(ImuPreintegratorTest, ZeroRotation) {
   const int N = 10;
   const double dt = 0.01;
-  auto integrator = MakeIntegrator(N * dt);
+  auto integrator = MakeIntegrator(N * dt, GetParam());
 
   Eigen::Vector3d accel(0, 0, 9.81);
   Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
@@ -84,10 +89,10 @@ TEST(ImuPreintegrator, ZeroRotation) {
   EXPECT_NEAR(data.delta_p(2), 0.5 * 9.81 * T * T, 1e-10);
 }
 
-TEST(ImuPreintegrator, ConstantAcceleration) {
+TEST_P(ImuPreintegratorTest, ConstantAcceleration) {
   const int N = 20;
   const double dt = 0.01;
-  auto integrator = MakeIntegrator(N * dt);
+  auto integrator = MakeIntegrator(N * dt, GetParam());
 
   Eigen::Vector3d accel(2.0, -1.0, 0.5);
   Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
@@ -105,10 +110,10 @@ TEST(ImuPreintegrator, ConstantAcceleration) {
   EXPECT_THAT(data.delta_p, EigenMatrixNear(expected_p, 1e-10));
 }
 
-TEST(ImuPreintegrator, ConstantRotation) {
+TEST_P(ImuPreintegratorTest, ConstantRotation) {
   const int N = 10;
   const double dt = 0.01;
-  auto integrator = MakeIntegrator(N * dt);
+  auto integrator = MakeIntegrator(N * dt, GetParam());
 
   Eigen::Vector3d accel = Eigen::Vector3d::Zero();
   Eigen::Vector3d gyro(0.1, 0.0, 0.0);  // rotate around x-axis
@@ -123,10 +128,10 @@ TEST(ImuPreintegrator, ConstantRotation) {
       data.delta_R.angularDistance(Eigen::Quaterniond(expected_aa)), 0.0, 1e-6);
 }
 
-TEST(ImuPreintegrator, Reset) {
+TEST_P(ImuPreintegratorTest, Reset) {
   const int N = 5;
   const double dt = 0.01;
-  auto integrator = MakeIntegrator(N * dt);
+  auto integrator = MakeIntegrator(N * dt, GetParam());
 
   Eigen::Vector3d accel(1.0, 2.0, 9.81);
   Eigen::Vector3d gyro(0.1, -0.2, 0.05);
@@ -141,19 +146,19 @@ TEST(ImuPreintegrator, Reset) {
       data.delta_R.angularDistance(Eigen::Quaterniond::Identity()), 0.0, 1e-15);
 }
 
-TEST(ImuPreintegrator, ReintegrateMatchesFresh) {
+TEST_P(ImuPreintegratorTest, ReintegrateMatchesFresh) {
   const int N = 10;
   const double dt = 0.01;
 
   // Fresh integration.
-  auto integrator_fresh = MakeIntegrator(N * dt);
+  auto integrator_fresh = MakeIntegrator(N * dt, GetParam());
   Eigen::Vector3d accel(1.0, 0.0, 9.81);
   Eigen::Vector3d gyro(0.0, 0.1, 0.0);
   FeedConstant(integrator_fresh, accel, gyro, N, dt);
   PreintegratedImuData data_fresh = integrator_fresh.Extract();
 
   // Integrate, then reintegrate with same biases.
-  auto integrator = MakeIntegrator(N * dt);
+  auto integrator = MakeIntegrator(N * dt, GetParam());
   FeedConstant(integrator, accel, gyro, N, dt);
   integrator.Reintegrate();
   PreintegratedImuData data_reint = integrator.Extract();
@@ -165,10 +170,10 @@ TEST(ImuPreintegrator, ReintegrateMatchesFresh) {
       data_fresh.delta_R.angularDistance(data_reint.delta_R), 0.0, 1e-12);
 }
 
-TEST(ImuPreintegrator, ExtractAndUpdateConsistent) {
+TEST_P(ImuPreintegratorTest, ExtractAndUpdateConsistent) {
   const int N = 10;
   const double dt = 0.01;
-  auto integrator = MakeIntegrator(N * dt);
+  auto integrator = MakeIntegrator(N * dt, GetParam());
 
   Eigen::Vector3d accel(1.0, -0.5, 9.81);
   Eigen::Vector3d gyro(0.05, 0.1, -0.02);
@@ -190,10 +195,10 @@ TEST(ImuPreintegrator, ExtractAndUpdateConsistent) {
               EigenMatrixNear(data_update.sqrt_information, 1e-10));
 }
 
-TEST(ImuPreintegrator, CovariancePositiveDefinite) {
+TEST_P(ImuPreintegratorTest, CovariancePositiveDefinite) {
   const int N = 20;
   const double dt = 0.01;
-  auto integrator = MakeIntegrator(N * dt);
+  auto integrator = MakeIntegrator(N * dt, GetParam());
 
   Eigen::Vector3d accel(0.5, -0.3, 9.81);
   Eigen::Vector3d gyro(0.1, -0.05, 0.02);
@@ -208,29 +213,10 @@ TEST(ImuPreintegrator, CovariancePositiveDefinite) {
   EXPECT_GT(solver.eigenvalues().minCoeff(), 0.0);
 }
 
-TEST(ImuPreintegrator, CovariancePositiveDefiniteRK4) {
-  const int N = 20;
-  const double dt = 0.005;
-
-  ImuPreintegrationOptions opts;
-  opts.method = ImuIntegrationMethod::RK4;
-  ImuCalibration calib;
-  ImuPreintegrator integrator(
-      opts, calib, TimestampFromSeconds(0.0), TimestampFromSeconds(N * dt));
-
-  Eigen::Vector3d accel(0.5, -0.3, 9.81);
-  Eigen::Vector3d gyro(0.1, -0.05, 0.02);
-  for (int i = 0; i <= N; ++i) {
-    integrator.FeedImu(
-        ImuMeasurement(TimestampFromSeconds(i * dt), gyro, accel));
-  }
-  PreintegratedImuData data = integrator.Extract();
-
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>> solver(
-      data.covariance);
-  EXPECT_TRUE(solver.info() == Eigen::Success);
-  EXPECT_GT(solver.eigenvalues().minCoeff(), 0.0);
-}
+INSTANTIATE_TEST_SUITE_P(ImuPreintegrator,
+                         ImuPreintegratorTest,
+                         ::testing::Values(ImuIntegrationMethod::MIDPOINT,
+                                           ImuIntegrationMethod::RK4));
 
 // Helper: integrate with given biases and method, return extracted data.
 PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
