@@ -9,6 +9,7 @@
 #include "colmap/sfm/incremental_triangulator.h"
 
 #include <filesystem>
+#include <functional>
 #include <limits>
 
 namespace colmap {
@@ -76,6 +77,10 @@ struct GlobalMapperOptions {
   double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
   double min_tri_angle_deg = 1.;              // for triangulation
 
+  // GPU device index for bundle adjustment, shared by the Ceres and Caspar
+  // backends (-1 = auto-select).
+  std::string ba_gpu_index = "-1";
+
   // Control the number of iterations for bundle adjustment.
   int ba_num_iterations = 3;
 
@@ -113,8 +118,12 @@ class GlobalMapper {
   void BeginReconstruction(
       const std::shared_ptr<Reconstruction>& reconstruction);
 
-  // Run the global SfM pipeline.
-  bool Solve(const GlobalMapperOptions& options);
+  // Run the global SfM pipeline. The optional `on_progress` callback is invoked
+  // after global positioning, after each bundle-adjustment iteration, and after
+  // retriangulation/refinement; it returns true if a stop has been requested,
+  // in which case the pipeline terminates early and keeps the current result.
+  bool Solve(const GlobalMapperOptions& options,
+             const std::function<bool()>& on_progress = {});
 
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options);
@@ -128,13 +137,16 @@ class GlobalMapper {
                          double max_normalized_reproj_error,
                          double min_tri_angle_deg);
 
-  // Run iterative bundle adjustment to refine poses and structure.
+  // Run iterative bundle adjustment to refine poses and structure. The optional
+  // `on_progress` callback is invoked after each iteration and returns true if
+  // a stop has been requested, in which case the iteration terminates early.
   bool IterativeBundleAdjustment(const BundleAdjustmentOptions& options,
                                  double max_normalized_reproj_error,
                                  double min_tri_angle_deg,
                                  int num_iterations,
                                  bool skip_fixed_rotation_stage = false,
-                                 bool skip_joint_optimization_stage = false);
+                                 bool skip_joint_optimization_stage = false,
+                                 const std::function<bool()>& on_progress = {});
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(

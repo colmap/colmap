@@ -115,22 +115,50 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights);
 
+// Compute a quaternion from Lie algebra.
+//
+// @param omega         The angles in so(3).
+//
+// @return              The quaternion corresponding to omega in so(3).
+Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega);
+
+// Compute the left Jacobian J_l from lie algebra.
+// Used for bias Jacobian propagation in IMU preintegration.
+//
+// @param omega         The angles in so(3)
+//
+// @return              The left jacobian of the angle J_l(omega)
+Eigen::Matrix3d LeftJacobianFromAngleAxis(const Eigen::Vector3d& omega);
+
+// Compute the right Jacobian J_r from lie algebra.
+// Defined as J_r(omega) = J_l(-omega).
+//
+// @param omega         The angles in so(3)
+//
+// @return              The right jacobian of the angle J_r(omega)
+Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega);
+
 // Linearly interpolate camera pose.
 Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
                                const Rigid3d& cam2_from_world,
                                double t);
 
-// Perform cheirality constraint test, i.e., determine which of the triangulated
-// correspondences lie in front of both cameras.
+// Perform cheirality constraint test, i.e., determine which corresponding rays
+// triangulate to a point in front of both cameras.
+//
+// NOTE: The closed-form depth test assumes both rays are unit-normalized;
+// passing rays of arbitrary scale yields incorrect cheirality results.
 //
 // @param cam2_from_cam1  Relative camera transformation.
-// @param cam_rays1       First set of corresponding rays.
-// @param cam_rays2       Second set of corresponding rays.
-// @param points3D        Points that lie in front of both cameras.
+// @param cam_rays1       First set of corresponding rays (must be unit-norm).
+// @param cam_rays2       Second set of corresponding rays (must be unit-norm).
+// @param valid_indices   Indices of correspondences in front of both cameras.
+//
+// @return                Whether any correspondence lies in front of both.
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
-                     std::vector<Eigen::Vector3d>* points3D);
+                     std::vector<int>* valid_indices);
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
                              const Rigid3d& cam_from_world);

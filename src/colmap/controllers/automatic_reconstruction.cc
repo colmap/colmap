@@ -326,7 +326,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::HIERARCHICAL: {
-      HierarchicalPipeline::Options options;
+      HierarchicalPipelineOptions options;
       options.image_path = *option_manager_.image_path;
       options.incremental_options = *option_manager_.mapper;
       mapper = std::make_unique<HierarchicalPipeline>(

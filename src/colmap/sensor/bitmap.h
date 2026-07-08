@@ -148,6 +148,13 @@ class Bitmap {
                int new_height,
                RescaleFilter filter = RescaleFilter::kBilinear);
 
+  // Downscale the image in place so that neither dimension exceeds
+  // `max_image_size`, preserving the aspect ratio. Images that already fit
+  // within the bound are left unchanged. Returns the scale factor that was
+  // applied (1 if no rescaling was necessary).
+  double Thumbnail(int max_image_size,
+                   RescaleFilter filter = RescaleFilter::kBilinear);
+
   // Rotate image by k * 90 degrees counter-clockwise.
   void Rot90(int k);
 

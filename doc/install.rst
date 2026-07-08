@@ -92,7 +92,7 @@ Dependencies from the default Ubuntu repositories::
         qt6-base-dev \
         libqt6opengl6-dev \
         libqt6openglwidgets6 \
-        libqt6svg6-dev \
+        qt6-svg-dev \
         libcgal-dev \
         libceres-dev \
         libsuitesparse-dev \
@@ -150,6 +150,19 @@ Configure and compile COLMAP::
     cmake .. -GNinja -DBLA_VENDOR=Intel10_64lp
     ninja
     sudo ninja install
+
+.. note::
+
+    COLMAP can use ``boost::unordered`` flat/node hash maps for the
+    performance-critical scene and SfM containers, selected via
+    ``-DCOLMAP_HASH_MAP_BACKEND=BOOST|STD`` (default: auto). Auto selects
+    ``BOOST`` when Boost is recent enough (``boost::unordered_node_map`` requires
+    **Boost >= 1.84**) and falls back to ``STD`` (``std::unordered_map``)
+    otherwise. Ubuntu's default Boost is older than 1.84, so apt-based builds use
+    ``STD``; to use the faster ``BOOST`` backend, build against a newer Boost
+    (e.g. via vcpkg, which installs ``boost-unordered`` automatically) or install
+    Boost >= 1.84 manually. Explicitly requesting ``-DCOLMAP_HASH_MAP_BACKEND=BOOST``
+    with an older Boost is a configuration error.
 
 Run COLMAP::
 

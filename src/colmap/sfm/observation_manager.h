@@ -34,6 +34,7 @@
 #include "colmap/scene/track.h"
 #include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/enum_utils.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -65,8 +66,7 @@ class ObservationManager {
   inline const class Reconstruction& Reconstruction() const;
   inline class Reconstruction& Reconstruction();
 
-  inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
-      const;
+  inline const FlatHashMap<image_pair_t, ImagePairStat>& ImagePairs() const;
 
   // Add image stats for streaming/online SfM, so that the image can be
   // registered and triangulated without rebuilding the ObservationManager.
@@ -104,10 +104,10 @@ class ObservationManager {
   // @return                    The number of filtered observations.
   size_t FilterPoints3D(double max_reproj_error,
                         double min_tri_angle,
-                        const std::unordered_set<point3D_t>& point3D_ids);
+                        const FlatHashSet<point3D_t>& point3D_ids);
   size_t FilterPoints3DInImages(double max_reproj_error,
                                 double min_tri_angle,
-                                const std::unordered_set<image_t>& image_ids);
+                                const FlatHashSet<image_t>& image_ids);
   size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
 
   // Filter points with track length below threshold.
@@ -123,7 +123,7 @@ class ObservationManager {
   size_t FilterObservationsWithNegativeDepth();
 
   size_t FilterPoints3DWithSmallTriangulationAngle(
-      double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
+      double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids);
 
   // Filter observations with large reprojection error.
   //
@@ -136,7 +136,7 @@ class ObservationManager {
   // @return                The number of filtered observations.
   size_t FilterPoints3DWithLargeReprojectionError(
       double max_error,
-      const std::unordered_set<point3D_t>& point3D_ids,
+      const FlatHashSet<point3D_t>& point3D_ids,
       ReprojectionErrorType error_type = ReprojectionErrorType::PIXEL);
 
   // Find frames that should be filtered due to having no observations or
@@ -226,8 +226,11 @@ class ObservationManager {
 
   class Reconstruction& reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
-  std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
-  std::unordered_map<image_t, ImageStat> image_stats_;
+  // These stat maps are fully populated at construction and only their values
+  // are mutated thereafter (no key insert/erase during mapping), so a flat map
+  // is safe and faster.
+  FlatHashMap<image_pair_t, ImagePairStat> image_pair_stats_;
+  FlatHashMap<image_t, ImageStat> image_stats_;
 };
 
 std::ostream& operator<<(std::ostream& stream,
@@ -241,7 +244,7 @@ class Reconstruction& ObservationManager::Reconstruction() {
   return reconstruction_;
 }
 
-const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
+const FlatHashMap<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {
   return image_pair_stats_;
 }

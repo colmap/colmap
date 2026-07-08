@@ -29,7 +29,6 @@
 
 #include "colmap/sensor/models.h"
 
-#include <ceres/ceres.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -124,61 +123,6 @@ void TestCamRayFromImgToImg(const std::vector<double>& params,
   EXPECT_NEAR(xy->y(), y0, 1e-6);
 }
 
-// Validate ImgFromCamWithJac against ImgFromCam using Ceres Jets.
-template <typename CameraModel>
-void TestImgFromCamWithJac(const std::vector<double>& params,
-                           const double u,
-                           const double v,
-                           const double w) {
-  constexpr size_t kNumParams = CameraModel::num_params;
-  constexpr size_t kNumUvw = 3;
-  constexpr size_t kNumDerivs = kNumParams + kNumUvw;
-
-  // Compute using ImgFromCamWithJac
-  double x_jac = 0, y_jac = 0;
-  double J_params[2 * kNumParams];
-  double J_uvw[2 * kNumUvw];
-  ASSERT_TRUE(CameraModel::ImgFromCamWithJac(
-      params.data(), u, v, w, &x_jac, &y_jac, J_params, J_uvw));
-
-  // Compute using ImgFromCam with Ceres Jets for auto-differentiation
-  // Jets track derivatives: first kNumParams for params, next 3 for u, v, w.
-  using JetT = ceres::Jet<double, kNumDerivs>;
-
-  JetT params_jet[kNumParams];
-  for (size_t i = 0; i < kNumParams; ++i) {
-    params_jet[i] = JetT(params[i], i);
-  }
-
-  JetT u_jet(u, kNumParams);
-  JetT v_jet(v, kNumParams + 1);
-  JetT w_jet(w, kNumParams + 2);
-
-  JetT x_jet, y_jet;
-  ASSERT_TRUE(
-      CameraModel::ImgFromCam(params_jet, u_jet, v_jet, w_jet, &x_jet, &y_jet));
-
-  // Compare function values
-  EXPECT_NEAR(x_jac, x_jet.a, 1e-10);
-  EXPECT_NEAR(y_jac, y_jet.a, 1e-10);
-
-  // Compare Jacobian w.r.t. params (2 x num_params, row-major)
-  for (size_t i = 0; i < kNumParams; ++i) {
-    EXPECT_NEAR(J_params[i], x_jet.v[i], 1e-10)
-        << "J_params mismatch at dx/dparam[" << i << "]";
-    EXPECT_NEAR(J_params[kNumParams + i], y_jet.v[i], 1e-10)
-        << "J_params mismatch at dy/dparam[" << i << "]";
-  }
-
-  // Compare Jacobian w.r.t. uvw (2 x 3, row-major)
-  for (size_t i = 0; i < kNumUvw; ++i) {
-    EXPECT_NEAR(J_uvw[i], x_jet.v[kNumParams + i], 1e-10)
-        << "J_uvw mismatch at dx/d(uvw)[" << i << "]";
-    EXPECT_NEAR(J_uvw[kNumUvw + i], y_jet.v[kNumParams + i], 1e-10)
-        << "J_uvw mismatch at dy/d(uvw)[" << i << "]";
-  }
-}
-
 template <typename CameraModel>
 void TestModel(const std::vector<double>& params) {
   EXPECT_TRUE(CameraModelVerifyParams(CameraModel::model_id, params));
@@ -204,6 +148,7 @@ void TestModel(const std::vector<double>& params) {
                 CameraModelExtraParamsIdxs(CameraModel::model_id).end()),
             std::vector<size_t>(CameraModel::extra_params_idxs.begin(),
                                 CameraModel::extra_params_idxs.end()));
+  EXPECT_TRUE(CameraModelMetaDataParamsIdxs(CameraModel::model_id).empty());
   EXPECT_EQ(CameraModelNumParams(CameraModel::model_id),
             CameraModel::num_params);
 
@@ -266,17 +211,8 @@ void TestModel(const std::vector<double>& params) {
   TestCamRayFromImgToImg<CameraModel>(
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 
-  if constexpr (CameraModel::has_img_from_cam_with_jac) {
-    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-    for (double u = -0.5; u <= 0.5; u += 0.1) {
-      // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-      for (double v = -0.5; v <= 0.5; v += 0.1) {
-        for (const double w : {0.5, 1.0, 2.0}) {
-          TestImgFromCamWithJac<CameraModel>(params, u, v, w);
-        }
-      }
-    }
-  }
+  // Analytic ImgFromCamWithJac is validated separately in
+  // models_jacobian_test.cc.
 }
 
 TEST(SimplePinhole, Nominal) {
@@ -285,6 +221,76 @@ TEST(SimplePinhole, Nominal) {
 
 TEST(Pinhole, Nominal) {
   TestModel<PinholeCameraModel>({651.123, 655.123, 386.123, 511.123});
+}
+
+TEST(Spherical, Nominal) {
+  // params = (w, h) of the equirectangular image.
+  const std::vector<double> params = {800, 400};
+  EXPECT_TRUE(
+      CameraModelVerifyParams(EquirectangularCameraModel::model_id, params));
+
+  EXPECT_EQ(CameraModelParamsInfo(EquirectangularCameraModel::model_id), "w,h");
+  EXPECT_TRUE(
+      CameraModelFocalLengthIdxs(EquirectangularCameraModel::model_id).empty());
+  EXPECT_TRUE(
+      CameraModelPrincipalPointIdxs(EquirectangularCameraModel::model_id)
+          .empty());
+  EXPECT_TRUE(
+      CameraModelExtraParamsIdxs(EquirectangularCameraModel::model_id).empty());
+  EXPECT_EQ(
+      std::vector<size_t>(
+          CameraModelMetaDataParamsIdxs(EquirectangularCameraModel::model_id)
+              .begin(),
+          CameraModelMetaDataParamsIdxs(EquirectangularCameraModel::model_id)
+              .end()),
+      (std::vector<size_t>{0, 1}));
+  EXPECT_EQ(CameraModelNumParams(EquirectangularCameraModel::model_id), 2u);
+
+  // Perspective models have no metadata parameters.
+  EXPECT_TRUE(
+      CameraModelMetaDataParamsIdxs(PinholeCameraModel::model_id).empty());
+
+  // EQUIRECTANGULAR is non-perspective, spherical, and never has bogus
+  // parameters.
+  EXPECT_FALSE(CameraModelIsPerspective(EquirectangularCameraModel::model_id));
+  EXPECT_TRUE(CameraModelIsPerspective(PinholeCameraModel::model_id));
+  EXPECT_TRUE(CameraModelIsSpherical(EquirectangularCameraModel::model_id));
+  EXPECT_FALSE(CameraModelIsSpherical(PinholeCameraModel::model_id));
+  EXPECT_FALSE(CameraModelIsSpherical(OpenCVFisheyeCameraModel::model_id));
+  EXPECT_FALSE(CameraModelHasBogusParams(
+      EquirectangularCameraModel::model_id, params, 800, 400, 0.1, 2.0, 1.0));
+
+  // InitializeParams ignores the focal length and returns (w, h).
+  EXPECT_EQ(
+      CameraModelInitializeParams(
+          EquirectangularCameraModel::model_id, /*focal_length=*/123, 800, 400),
+      params);
+
+  // Full-sphere bearing round-trip CamRayFromImg -> ImgFromCam over the image
+  // interior (avoiding the azimuth seam at x in {0, w} and the poles at
+  // y in {0, h}, where the azimuth is undefined).
+  for (int xi = 40; xi <= 760; xi += 40) {
+    for (int yi = 40; yi <= 360; yi += 40) {
+      TestCamRayFromImgToImg<EquirectangularCameraModel>(
+          params, static_cast<double>(xi), static_cast<double>(yi));
+    }
+  }
+
+  // Back-hemisphere pixels (azimuth near +/-pi) have no forward 2D
+  // representation, so the 2D CamFromImg fails there while CamRayFromImg still
+  // yields a valid unit bearing.
+  EXPECT_FALSE(CameraModelCamFromImg(EquirectangularCameraModel::model_id,
+                                     params,
+                                     Eigen::Vector2d(0, 200))
+                   .has_value());
+  EXPECT_TRUE(CameraModelCamRayFromImg(EquirectangularCameraModel::model_id,
+                                       params,
+                                       Eigen::Vector2d(0, 200))
+                  .has_value());
+
+  // A forward-hemisphere pixel (azimuth ~0, image center column) also
+  // round-trips through the 2D CamFromImg / ImgFromCam path.
+  TestCamFromImgToImg<EquirectangularCameraModel>(params, 400, 200);
 }
 
 TEST(SimpleRadial, Nominal) {
@@ -443,6 +449,47 @@ TEST(EUCMCamera, RejectsInvalidExtraParams) {
       0.1,
       2.0,
       1.0));
+}
+
+TEST(CameraModelRescale, Perspective) {
+  // Distinct per-axis scale factors to verify each is applied to the right
+  // parameter; all results are exactly representable.
+  const double scale_x = 2.0;
+  const double scale_y = 3.0;
+
+  // Two focal lengths (fx, fy): each scales along its own axis, as does the
+  // principal point (cx, cy).
+  {
+    std::vector<double> params = {100, 200, 50, 80};  // fx, fy, cx, cy
+    CameraModelRescale(PinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{200, 600, 100, 240}));
+  }
+
+  // Single shared focal length scales by the mean of the two factors.
+  {
+    std::vector<double> params = {100, 50, 80};  // f, cx, cy
+    CameraModelRescale(
+        SimplePinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{250, 100, 240}));  // f *= 2.5
+  }
+
+  // Extra (distortion) parameters are resolution independent and untouched.
+  {
+    std::vector<double> params = {100, 50, 80, 0.3};  // f, cx, cy, k
+    CameraModelRescale(
+        SimpleRadialCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{250, 100, 240, 0.3}));
+  }
+}
+
+TEST(CameraModelRescale, Spherical) {
+  // The (w, h) image-size parameters track the rescaled image dimensions.
+  std::vector<double> params = {800, 400};  // w, h
+  CameraModelRescale(EquirectangularCameraModel::model_id,
+                     /*scale_x=*/2.0,
+                     /*scale_y=*/0.5,
+                     params);
+  EXPECT_EQ(params, (std::vector<double>{1600, 200}));
 }
 
 }  // namespace

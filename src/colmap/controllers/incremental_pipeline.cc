@@ -34,6 +34,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
@@ -111,7 +112,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
 }
 
 bool HasUnknownSensorFromRig(const Reconstruction& reconstruction) {
-  std::unordered_set<const Rig*> parameterized_rigs;
+  FlatHashSet<const Rig*> parameterized_rigs;
   for (const auto& [_, image] : reconstruction.Images()) {
     parameterized_rigs.insert(image.FramePtr()->RigPtr());
   }

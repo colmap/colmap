@@ -32,7 +32,36 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 
+#include <QApplication>
+#include <QPainter>
+#include <QPalette>
+#include <QPixmap>
+
+#include <QtSvg/QSvgRenderer>
+
 namespace colmap {
+
+QIcon ThemedIcon(const QString& resource_path) {
+  QSvgRenderer renderer(resource_path);
+  if (!renderer.isValid()) {
+    return QIcon(resource_path);
+  }
+
+  // Render at a generous base size so that QIcon produces crisp icons at any
+  // toolbar/menu size, including on high-DPI displays.
+  QPixmap pixmap(64, 64);
+  pixmap.fill(Qt::transparent);
+  QPainter painter(&pixmap);
+  renderer.render(&painter);
+  // The :/media SVGs are flat black silhouettes; recolor them to the palette
+  // foreground color so they stay legible under both light and dark themes.
+  // Qt derives the disabled appearance from this pixmap automatically.
+  painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+  painter.fillRect(pixmap.rect(),
+                   QApplication::palette().color(QPalette::WindowText));
+  painter.end();
+  return QIcon(pixmap);
+}
 
 Eigen::Matrix4f QMatrixToEigen(const QMatrix4x4& matrix) {
   Eigen::Matrix4f eigen;

@@ -66,14 +66,17 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     for (size_t i = 0; i < points2D.size(); ++i) {
       points2D_centered[i] = points2D[i] - principal_point;
     }
-    RANSAC<P4PFEstimator> ransac(options.ransac_options);
+    const span<const size_t> focal_length_idxs = camera->FocalLengthIdxs();
+    RANSAC<P4PFEstimator> ransac(
+        options.ransac_options,
+        P4PFEstimator(/*share_focal_length=*/focal_length_idxs.size() == 1));
     auto report = ransac.Estimate(points2D_centered, points3D);
     if (report.success) {
       *cam_from_world =
           Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
                   report.model.cam_from_world.col(3));
-      for (const size_t idx : camera->FocalLengthIdxs()) {
-        camera->params[idx] = report.model.focal_length;
+      for (size_t k = 0; k < focal_length_idxs.size(); ++k) {
+        camera->params[focal_length_idxs[k]] = report.model.focal_lengths[k];
       }
       *num_inliers = report.support.num_inliers;
       *inlier_mask = std::move(report.inlier_mask);
@@ -134,12 +137,12 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
     }
   }
 
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> valid_indices;
   PoseFromEssentialMatrix(report.model,
                           inlier_cam_rays1,
                           inlier_cam_rays2,
                           cam2_from_cam1,
-                          &points3D);
+                          &valid_indices);
 
   if (cam2_from_cam1->rotation().coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation().array().isNaN().any()) {
@@ -149,7 +152,7 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
   *num_inliers = report.support.num_inliers;
   *inlier_mask = std::move(report.inlier_mask);
 
-  return !points3D.empty();
+  return !valid_indices.empty();
 }
 
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -354,11 +357,11 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
 
   // Extract relative pose from essential matrix.
   Rigid3d cam2_from_cam1;
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
-      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
+      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &valid_indices);
 
-  if (points3D.size() == 0) {
+  if (valid_indices.empty()) {
     return false;
   }
 

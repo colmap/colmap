@@ -206,26 +206,26 @@ TEST(CheckCheirality, Nominal) {
 
   std::vector<Eigen::Vector3d> rays1;
   std::vector<Eigen::Vector3d> rays2;
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> valid_indices;
 
   rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
   rays2.push_back(Eigen::Vector3d(0.1, 0, 1).normalized());
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 1);
 
   rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
   rays2.push_back(Eigen::Vector3d(-0.1, 0, 1).normalized());
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 1);
 
   rays2[1][0] = 0.2;
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 2);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 2);
 
   rays2[0][0] = -0.2;
   rays2[1][0] = -0.2;
-  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 0);
+  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 0);
 }
 
 TEST(AverageUnitVectors, Nominal) {
@@ -323,6 +323,115 @@ TEST(RotationFromYAxisAngle, Nominal) {
   EXPECT_THAT(
       Eigen::Vector3d(R * Eigen::Vector3d::UnitX()),
       EigenMatrixNear(Eigen::Vector3d(-Eigen::Vector3d::UnitZ()), 1e-6));
+}
+
+TEST(QuaternionFromAngleAxis, Zero) {
+  const Eigen::Quaterniond q = QuaternionFromAngleAxis(Eigen::Vector3d::Zero());
+  EXPECT_NEAR(q.w(), 1.0, 1e-12);
+  EXPECT_NEAR(q.vec().norm(), 0.0, 1e-12);
+}
+
+TEST(QuaternionFromAngleAxis, SmallAngle) {
+  // Just above and below the threshold — results should be continuous.
+  const Eigen::Vector3d axis = Eigen::Vector3d(1, 2, 3).normalized();
+  const double theta_small = 1e-11;
+  const double theta_medium = 1e-9;
+  const Eigen::Quaterniond q_small =
+      QuaternionFromAngleAxis(axis * theta_small);
+  const Eigen::Quaterniond q_medium =
+      QuaternionFromAngleAxis(axis * theta_medium);
+  // Both should be near identity but preserve direction.
+  EXPECT_NEAR(q_small.angularDistance(q_medium), 0.0, 1e-8);
+  // Small angle should NOT snap to identity — it should preserve direction.
+  const Eigen::Vector3d recovered =
+      Eigen::AngleAxisd(q_small).axis().normalized();
+  EXPECT_NEAR(std::abs(recovered.dot(axis)), 1.0, 1e-6);
+}
+
+TEST(QuaternionFromAngleAxis, Roundtrip) {
+  SetPRNGSeed(0);
+  for (int i = 0; i < 100; ++i) {
+    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::Vector3d omega = aa.angle() * aa.axis();
+    const Eigen::Quaterniond q = QuaternionFromAngleAxis(omega);
+    const Eigen::Matrix3d R_expected = aa.toRotationMatrix();
+    const Eigen::Matrix3d R_actual = q.toRotationMatrix();
+    EXPECT_THAT(R_actual, EigenMatrixNear(R_expected, 1e-10));
+  }
+}
+
+TEST(LeftJacobianFromAngleAxis, IdentityAtZero) {
+  const Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(Eigen::Vector3d::Zero());
+  const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+  EXPECT_THAT(Jl, EigenMatrixNear(I, 1e-10));
+}
+
+TEST(LeftJacobianFromAngleAxis, RelationToRight) {
+  // Jr(w) = Jl(-w) for all w.
+  SetPRNGSeed(0);
+  for (int i = 0; i < 100; ++i) {
+    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::Vector3d omega = aa.angle() * aa.axis();
+    const Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(omega);
+    const Eigen::Matrix3d Jl_neg = LeftJacobianFromAngleAxis(-omega);
+    EXPECT_THAT(Jr, EigenMatrixNear(Jl_neg, 1e-10));
+  }
+}
+
+TEST(RightJacobianFromAngleAxis, SmallAngle) {
+  // Near zero, Jr ≈ I - 0.5 * [w]_x.
+  const Eigen::Vector3d omega(1e-12, 2e-12, 3e-12);
+  const Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(omega);
+  Eigen::Matrix3d expected = Eigen::Matrix3d::Identity();
+  expected -= 0.5 * CrossProductMatrix(omega);
+  EXPECT_THAT(Jr, EigenMatrixNear(expected, 1e-10));
+}
+
+TEST(RightJacobianFromAngleAxis, NumericDerivative) {
+  // Verify Jr by numeric differentiation of Exp(w + dw) ≈ Exp(w) * Exp(Jr*dw).
+  SetPRNGSeed(0);
+  const double eps = 1e-7;
+  for (int i = 0; i < 50; ++i) {
+    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::Vector3d omega = aa.angle() * aa.axis();
+    const Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(omega);
+    const Eigen::Matrix3d R = AngleAxisToRotationMatrix(omega);
+    // Numeric: d/dw_k Exp(w) ≈ (Exp(w + eps*e_k) - Exp(w)) / eps
+    Eigen::Matrix3d Jr_numeric;
+    for (int k = 0; k < 3; ++k) {
+      Eigen::Vector3d dw = Eigen::Vector3d::Zero();
+      dw(k) = eps;
+      const Eigen::Matrix3d R_perturbed = AngleAxisToRotationMatrix(omega + dw);
+      // R_perturbed ≈ R * Exp(Jr * dw), so Exp(Jr*dw) ≈ R^T * R_perturbed
+      const Eigen::Matrix3d dR = R.transpose() * R_perturbed;
+      const Eigen::Vector3d log_dR = RotationMatrixToAngleAxis(dR);
+      Jr_numeric.col(k) = log_dR / eps;
+    }
+    EXPECT_THAT(Jr, EigenMatrixNear(Jr_numeric, 1e-5));
+  }
+}
+
+TEST(LeftJacobianFromAngleAxis, NumericDerivative) {
+  // Verify Jl by numeric differentiation of Exp(w + dw) ≈ Exp(Jl*dw) * Exp(w).
+  SetPRNGSeed(0);
+  const double eps = 1e-7;
+  for (int i = 0; i < 50; ++i) {
+    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::Vector3d omega = aa.angle() * aa.axis();
+    const Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(omega);
+    const Eigen::Matrix3d R = AngleAxisToRotationMatrix(omega);
+    Eigen::Matrix3d Jl_numeric;
+    for (int k = 0; k < 3; ++k) {
+      Eigen::Vector3d dw = Eigen::Vector3d::Zero();
+      dw(k) = eps;
+      const Eigen::Matrix3d R_perturbed = AngleAxisToRotationMatrix(omega + dw);
+      // R_perturbed ≈ Exp(Jl * dw) * R, so Exp(Jl*dw) ≈ R_perturbed * R^T.
+      const Eigen::Matrix3d dR = R_perturbed * R.transpose();
+      const Eigen::Vector3d log_dR = RotationMatrixToAngleAxis(dR);
+      Jl_numeric.col(k) = log_dR / eps;
+    }
+    EXPECT_THAT(Jl, EigenMatrixNear(Jl_numeric, 1e-5));
+  }
 }
 
 }  // namespace

@@ -42,6 +42,7 @@
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>
@@ -62,7 +63,8 @@ void ThrowCheckCameras(const std::vector<size_t>& camera_idxs,
 
 bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
                     const std::vector<Rigid3d>& cams_from_rig) {
-  const std::set<size_t> camera_idx_set(camera_idxs.begin(), camera_idxs.end());
+  const FlatHashSet<size_t> camera_idx_set(camera_idxs.begin(),
+                                           camera_idxs.end());
   const size_t first_camera_idx = *camera_idx_set.begin();
   const Eigen::Vector3d first_origin_in_rig =
       cams_from_rig[first_camera_idx].TgtOriginInSrc();

@@ -29,12 +29,48 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 
 namespace colmap {
+
+// Builds the essential matrix E = [t]_x R from a relative pose given in the
+// Rigid3d parameter layout [qx, qy, qz, qw, tx, ty, tz]. Templated on the
+// scalar so it works under Ceres autodiff.
+template <typename T>
+Eigen::Matrix<T, 3, 3> EssentialMatrixFromPoseParams(
+    const T* const cam2_from_cam1) {
+  const Eigen::Matrix<T, 3, 3> R =
+      EigenQuaternionMap<T>(cam2_from_cam1).toRotationMatrix();
+  // Matrix representation of the cross product t x R.
+  Eigen::Matrix<T, 3, 3> t_x;
+  t_x << T(0), -cam2_from_cam1[6], cam2_from_cam1[5], cam2_from_cam1[6], T(0),
+      -cam2_from_cam1[4], -cam2_from_cam1[5], cam2_from_cam1[4], T(0);
+  return t_x * R;
+}
+
+// Signed Sampson error of a single correspondence (cam_ray1, cam_ray2) under
+// the essential matrix E. Returns 0 when the normalization denominator
+// vanishes.
+template <typename T>
+T SampsonError(const Eigen::Matrix<T, 3, 3>& E,
+               const Eigen::Matrix<T, 3, 1>& cam_ray1,
+               const Eigen::Matrix<T, 3, 1>& cam_ray2) {
+  const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * cam_ray1;
+  const T num = cam_ray2.dot(epipolar_line1);
+  const Eigen::Matrix<T, 4, 1> denom(cam_ray2.dot(E.col(0)),
+                                     cam_ray2.dot(E.col(1)),
+                                     epipolar_line1.x(),
+                                     epipolar_line1.y());
+  const T denom_norm = denom.norm();
+  if (denom_norm == static_cast<T>(0)) {
+    return static_cast<T>(0);
+  }
+  return num / denom_norm;
+}
 
 // Cost function for refining two-view geometry based on the Sampson-Error.
 //
@@ -52,32 +88,9 @@ class SampsonErrorCostFunctor
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1, T* residuals) const {
-    const Eigen::Matrix<T, 3, 3> R =
-        EigenQuaternionMap<T>(cam2_from_cam1).toRotationMatrix();
-
-    // Matrix representation of the cross product t x R.
-    Eigen::Matrix<T, 3, 3> t_x;
-    t_x << T(0), -cam2_from_cam1[6], cam2_from_cam1[5], cam2_from_cam1[6], T(0),
-        -cam2_from_cam1[4], -cam2_from_cam1[5], cam2_from_cam1[4], T(0);
-
-    // Essential matrix.
-    const Eigen::Matrix<T, 3, 3> E = t_x * R;
-
-    // Squared sampson error.
-    const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * cam_ray1_.cast<T>();
-    const Eigen::Matrix<T, 3, 1> cam_ray2 = cam_ray2_.cast<T>();
-    const T num = cam_ray2.dot(epipolar_line1);
-    const Eigen::Matrix<T, 4, 1> denom(cam_ray2.dot(E.col(0)),
-                                       cam_ray2.dot(E.col(1)),
-                                       epipolar_line1.x(),
-                                       epipolar_line1.y());
-    const T denom_norm = denom.norm();
-    if (denom_norm == static_cast<T>(0)) {
-      residuals[0] = static_cast<T>(0);
-    } else {
-      residuals[0] = num / denom_norm;
-    }
-
+    const Eigen::Matrix<T, 3, 3> E =
+        EssentialMatrixFromPoseParams(cam2_from_cam1);
+    residuals[0] = SampsonError<T>(E, cam_ray1_.cast<T>(), cam_ray2_.cast<T>());
     return true;
   }
 

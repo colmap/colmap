@@ -47,18 +47,22 @@ struct AbsolutePoseProblem {
   std::vector<Eigen::Vector3d> points3D;
 };
 
-AbsolutePoseProblem CreateAbsolutePoseTestData() {
+AbsolutePoseProblem CreateAbsolutePoseTestData(
+    CameraModelId camera_model_id = CameraModelId::kSimpleRadial,
+    const std::vector<double>& camera_params = {1280, 512, 384, 0.05}) {
   AbsolutePoseProblem problem;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 2;
   synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_model_id = camera_model_id;
+  synthetic_dataset_options.camera_params = camera_params;
   SynthesizeDataset(synthetic_dataset_options, &problem.reconstruction);
 
   problem.image = problem.reconstruction.Image(1);
   problem.camera = *problem.image.CameraPtr();
-  CHECK_EQ(problem.camera.model_id, CameraModelId::kSimpleRadial);
+  CHECK_EQ(problem.camera.model_id, camera_model_id);
   for (const auto& point2D : problem.image.Points2D()) {
     if (point2D.HasPoint3D()) {
       problem.points2D.push_back(point2D.xy);
@@ -115,6 +119,33 @@ TEST(EstimateAbsolutePose, EstimateFocalLength) {
   EXPECT_NEAR(camera.FocalLength(), problem.camera.FocalLength(), 5);
   camera.SetFocalLength(problem.camera.FocalLength());
   EXPECT_EQ(camera, problem.camera);
+  EXPECT_EQ(num_inliers, problem.points2D.size());
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+}
+
+TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
+  // PINHOLE camera with distinct fx and fy (fx, fy, cx, cy).
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData(
+      CameraModelId::kPinhole, {1280, 1000, 512, 384});
+
+  AbsolutePoseEstimationOptions options;
+  options.estimate_focal_length = true;
+  Rigid3d cam_from_world;
+  size_t num_inliers = 0;
+  std::vector<char> inlier_mask;
+  Camera camera = problem.camera;
+  EXPECT_TRUE(EstimateAbsolutePose(options,
+                                   problem.points2D,
+                                   problem.points3D,
+                                   &cam_from_world,
+                                   &camera,
+                                   &num_inliers,
+                                   &inlier_mask));
+  EXPECT_THAT(
+      cam_from_world,
+      Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-3, /*ttol=*/1e-2));
+  EXPECT_NEAR(camera.FocalLengthX(), problem.camera.FocalLengthX(), 5);
+  EXPECT_NEAR(camera.FocalLengthY(), problem.camera.FocalLengthY(), 5);
   EXPECT_EQ(num_inliers, problem.points2D.size());
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
 }
@@ -277,7 +308,7 @@ TEST(RefineAbsolutePose, PositionPriorCovariance) {
   AbsolutePoseRefinementOptions strong_prior_options = weak_prior_options;
   // Small covariance = strong prior (low uncertainty).
   strong_prior_options.position_prior_covariance =
-      0.01 * Eigen::Matrix3d::Identity();
+      0.0001 * Eigen::Matrix3d::Identity();
 
   const Rigid3d initial_cam_from_world(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX())),
