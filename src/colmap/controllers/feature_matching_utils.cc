@@ -33,13 +33,12 @@
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 
 #if defined(COLMAP_CUDA_ENABLED)
 #include <cuda_runtime.h>
 #endif
-
-#include <unordered_set>
 
 namespace colmap {
 
@@ -434,7 +433,7 @@ void FeatureMatcherController::Match(
   // Match the image pairs
   //////////////////////////////////////////////////////////////////////////////
 
-  std::unordered_set<image_pair_t> image_pair_ids;
+  FlatHashSet<image_pair_t> image_pair_ids;
   image_pair_ids.reserve(image_pairs.size());
 
   size_t num_outputs = 0;
@@ -587,7 +586,7 @@ void GeometricVerifierController::Verify(
   // Verify the matches from the image pairs
   //////////////////////////////////////////////////////////////////////////////
 
-  std::unordered_set<image_pair_t> image_pair_ids;
+  FlatHashSet<image_pair_t> image_pair_ids;
   image_pair_ids.reserve(image_pairs.size());
 
   size_t num_outputs = 0;

@@ -32,6 +32,7 @@
 #include "colmap/math/connected_components.h"
 #include "colmap/math/math.h"
 #include "colmap/math/union_find.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {
@@ -45,10 +46,10 @@ using frame_pair_t = image_pair_t;
 // Algorithm:
 //   Merge nodes connected by strong edges (weight > threshold).
 //
-std::unordered_map<frame_t, int> EstablishStrongClusters(
+NodeHashMap<frame_t, int> EstablishStrongClusters(
     const ReconstructionClusteringOptions& options,
-    const std::unordered_set<frame_t>& nodes,
-    const std::unordered_map<frame_pair_t, int>& edge_weights,
+    const FlatHashSet<frame_t>& nodes,
+    const NodeHashMap<frame_pair_t, int>& edge_weights,
     double edge_weight_threshold) {
   UnionFind<frame_t> uf;
   uf.Reserve(nodes.size());
@@ -65,7 +66,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
   // Assign sequential cluster IDs (largest cluster gets ID 0).
   uf.Compress();
-  std::unordered_map<frame_t, std::vector<frame_t>> root_to_nodes;
+  NodeHashMap<frame_t, std::vector<frame_t>> root_to_nodes;
   for (const auto& [node, root] : uf.Parents()) {
     root_to_nodes[root].push_back(node);
   }
@@ -82,7 +83,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
             [](const auto& a, const auto& b) { return a.size() > b.size(); });
 
   // Assign cluster IDs based on sorted order.
-  std::unordered_map<frame_t, int> cluster_ids;
+  NodeHashMap<frame_t, int> cluster_ids;
   int num_valid_clusters = 0;
   for (size_t cluster_id = 0; cluster_id < sorted_clusters.size();
        ++cluster_id) {
@@ -113,7 +114,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
 }  // namespace
 
-std::unordered_map<frame_t, int> ClusterReconstructionFrames(
+NodeHashMap<frame_t, int> ClusterReconstructionFrames(
     const ReconstructionClusteringOptions& options,
     Reconstruction& reconstruction) {
   options.Check();
@@ -121,8 +122,8 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
   // Step 1: Compute covisibility counts between all frame pairs.
   // For each 3D point, increment the count for every pair of frames that sees
   // it.
-  std::unordered_map<frame_pair_t, int> frame_covisibility_count;
-  std::unordered_set<frame_t> nodes;
+  NodeHashMap<frame_pair_t, int> frame_covisibility_count;
+  FlatHashSet<frame_t> nodes;
   // Insert all registered frames to the nodes set.
   for (const frame_t frame_id : reconstruction.RegFrameIds()) {
     nodes.insert(frame_id);
@@ -150,7 +151,7 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
   }
 
   // Filter edges to keep only reliable connections.
-  std::unordered_map<frame_pair_t, int> edge_weights;
+  NodeHashMap<frame_pair_t, int> edge_weights;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
     if (count < options.min_covisibility_count) continue;
     edge_weights[pair_id] = count;

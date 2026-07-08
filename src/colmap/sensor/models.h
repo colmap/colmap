@@ -433,7 +433,7 @@ struct BasePerspectiveFisheyeCameraModel
 struct SimplePinholeCameraModel
     : public BasePerspectiveCameraModel<SimplePinholeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0, false)
+      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0, true)
 };
 
 // Pinhole camera model.
@@ -448,7 +448,7 @@ struct SimplePinholeCameraModel
 struct PinholeCameraModel
     : public BasePerspectiveCameraModel<PinholeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kPinhole, "PINHOLE", 2, 2, 0, false)
+      CameraModelId::kPinhole, "PINHOLE", 2, 2, 0, true)
 };
 
 // Simple camera model with one focal length and one radial distortion
@@ -481,7 +481,7 @@ struct SimpleRadialCameraModel
 struct RadialCameraModel
     : public BasePerspectiveCameraModel<RadialCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kRadial, "RADIAL", 1, 2, 2, false)
+      CameraModelId::kRadial, "RADIAL", 1, 2, 2, true)
 };
 
 // OpenCV camera model.
@@ -499,7 +499,7 @@ struct RadialCameraModel
 struct OpenCVCameraModel
     : public BasePerspectiveCameraModel<OpenCVCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kOpenCV, "OPENCV", 2, 2, 4, false)
+      CameraModelId::kOpenCV, "OPENCV", 2, 2, 4, true)
 };
 
 // OpenCV fish-eye camera model.
@@ -517,7 +517,7 @@ struct OpenCVCameraModel
 struct OpenCVFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<OpenCVFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, false)
+      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -535,7 +535,7 @@ struct OpenCVFisheyeCameraModel
 struct FullOpenCVCameraModel
     : public BasePerspectiveCameraModel<FullOpenCVCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8, false)
+      CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8, true)
 };
 
 // FOV camera model.
@@ -554,7 +554,7 @@ struct FullOpenCVCameraModel
 // environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BasePerspectiveCameraModel<FOVCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFOV, "FOV", 2, 2, 1, false)
+      CameraModelId::kFOV, "FOV", 2, 2, 1, true)
 
   template <typename T>
   static void Undistortion(const T* extra_params, T u, T v, T* du, T* dv);
@@ -577,7 +577,7 @@ struct SimpleRadialFisheyeCameraModel
                                        1,
                                        2,
                                        1,
-                                       false)
+                                       true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -594,7 +594,7 @@ struct SimpleRadialFisheyeCameraModel
 struct RadialFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<RadialFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, false)
+      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -613,7 +613,7 @@ struct RadialFisheyeCameraModel
 struct ThinPrismFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<ThinPrismFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, false)
+      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -636,7 +636,7 @@ struct RadTanThinPrismFisheyeModel
                                        2,
                                        2,
                                        12,
-                                       false)
+                                       true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -655,7 +655,7 @@ struct RadTanThinPrismFisheyeModel
 struct SimpleDivisionCameraModel
     : public BasePerspectiveCameraModel<SimpleDivisionCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, false)
+      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, true)
 };
 
 // Division camera model.
@@ -673,7 +673,7 @@ struct SimpleDivisionCameraModel
 struct DivisionCameraModel
     : public BasePerspectiveCameraModel<DivisionCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
+      CameraModelId::kDivision, "DIVISION", 2, 2, 1, true)
 };
 
 // Simple equidistant fisheye camera model.
@@ -689,7 +689,7 @@ struct DivisionCameraModel
 struct SimpleFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<SimpleFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, false)
+      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -706,7 +706,7 @@ struct SimpleFisheyeCameraModel
 struct FisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<FisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
+      CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, true)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -723,7 +723,7 @@ struct FisheyeCameraModel
 //
 struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kEUCM, "EUCM", 2, 2, 2, false)
+      CameraModelId::kEUCM, "EUCM", 2, 2, 2, true)
 
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
@@ -749,7 +749,7 @@ struct EquirectangularCameraModel
   SPHERICAL_CAMERA_MODEL_DEFINITIONS(CameraModelId::kEquirectangular,
                                      "EQUIRECTANGULAR",
                                      /*num_metadata_params=*/2,
-                                     false)
+                                     true)
 
   template <typename T>
   static inline bool HasBogusParams(const std::vector<T>& /*params*/,
@@ -1263,87 +1263,6 @@ bool SimpleRadialCameraModel::ImgFromCam(
   // Transform to image coordinates
   *x = f * *x + c1;
   *y = f * *y + c2;
-
-  return true;
-}
-
-template <bool Enable, typename std::enable_if<Enable, int>::type>
-bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
-                                                const double& u,
-                                                const double& v,
-                                                const double& w,
-                                                double* x,
-                                                double* y,
-                                                double* J_params,
-                                                double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
-    return false;
-  }
-
-  const double f = params[0];
-  const double c1 = params[1];
-  const double c2 = params[2];
-  const double k = params[3];
-
-  const double inv_w = 1.0 / w;
-  const double uu = u * inv_w;
-  const double vv = v * inv_w;
-
-  const double uu2 = uu * uu;
-  const double vv2 = vv * vv;
-  const double r2 = uu2 + vv2;
-  const double k_r2 = k * r2;
-  const double alpha = 1.0 + k_r2;
-  const double xd = alpha * uu;
-  const double yd = alpha * vv;
-
-  *x = f * xd + c1;
-  *y = f * yd + c2;
-
-  if (J_uvw) {
-    // J_uvw is a 2x3 matrix (row-major): d(x, y) / d(u, v, w)
-    //
-    // x = f * alpha * uu + c1, y = f * alpha * vv + c2
-    // where alpha = 1 + k * r2, r2 = uu^2 + vv^2, uu = u/w, vv = v/w
-    //
-    // Using chain rule:
-    // dx/du = f/w * (alpha + 2*k*uu^2)
-    // dx/dv = f/w * 2*k*uu*vv
-    // dx/dw = -f*uu/w * (1 + 3*k*r2)
-    // dy/du = f/w * 2*k*uu*vv
-    // dy/dv = f/w * (alpha + 2*k*vv^2)
-    // dy/dw = -f*vv/w * (1 + 3*k*r2)
-
-    const double two_k = 2.0 * k;
-    const double f_inv_w = f * inv_w;
-    const double beta = 1.0 + 3.0 * k_r2;
-    const double two_k_uu_vv = two_k * uu * vv;
-
-    J_uvw[0] = f_inv_w * (alpha + two_k * uu2);
-    J_uvw[1] = f_inv_w * two_k_uu_vv;
-    J_uvw[2] = -f_inv_w * uu * beta;
-    J_uvw[3] = f_inv_w * two_k_uu_vv;
-    J_uvw[4] = f_inv_w * (alpha + two_k * vv2);
-    J_uvw[5] = -f_inv_w * vv * beta;
-  }
-
-  if (J_params) {
-    // J_params is a 2x4 matrix (row-major): d(x, y) / d(f, cx, cy, k)
-    //
-    // x = f * alpha * uu + cx, y = f * alpha * vv + cy
-    //
-    // dx/df = alpha * uu, dx/dcx = 1, dx/dcy = 0, dx/dk = f * uu * r2
-    // dy/df = alpha * vv, dy/dcx = 0, dy/dcy = 1, dy/dk = f * vv * r2
-
-    J_params[0] = xd;
-    J_params[1] = 1.0;
-    J_params[2] = 0.0;
-    J_params[3] = f * uu * r2;
-    J_params[4] = yd;
-    J_params[5] = 0.0;
-    J_params[6] = 1.0;
-    J_params[7] = f * vv * r2;
-  }
 
   return true;
 }
@@ -2950,3 +2869,5 @@ void CameraModelRescale(const CameraModelId model_id,
 }
 
 }  // namespace colmap
+
+#include "colmap/sensor/models_jacobian.h"

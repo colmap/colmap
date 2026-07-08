@@ -34,6 +34,7 @@
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <cassert>
@@ -352,7 +353,7 @@ point3D_t ObservationManager::MergePoints3D(const point3D_t point3D_id1,
 size_t ObservationManager::FilterPoints3D(
     const double max_reproj_error,
     const double min_tri_angle,
-    const std::unordered_set<point3D_t>& point3D_ids) {
+    const FlatHashSet<point3D_t>& point3D_ids) {
   size_t num_filtered_observations = 0;
   num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
@@ -364,8 +365,8 @@ size_t ObservationManager::FilterPoints3D(
 size_t ObservationManager::FilterPoints3DInImages(
     const double max_reproj_error,
     const double min_tri_angle,
-    const std::unordered_set<image_t>& image_ids) {
-  std::unordered_set<point3D_t> point3D_ids;
+    const FlatHashSet<image_t>& image_ids) {
+  FlatHashSet<point3D_t> point3D_ids;
   for (const image_t image_id : image_ids) {
     const Image& image = reconstruction_.Image(image_id);
     for (const Point2D& point2D : image.Points2D()) {
@@ -382,8 +383,7 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
   // Important: First filter observations and points with large reprojection
   // error, so that observations with large reprojection error do not make
   // a point stable through a large triangulation angle.
-  const std::unordered_set<point3D_t> point3D_ids =
-      reconstruction_.Point3DIds();
+  const FlatHashSet<point3D_t> point3D_ids = reconstruction_.Point3DIds();
   size_t num_filtered_observations = 0;
   num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
@@ -395,8 +395,7 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
 size_t ObservationManager::FilterPoints3DWithShortTracks(
     const size_t min_track_length) {
   size_t num_filtered_observations = 0;
-  const std::unordered_set<point3D_t> point3D_ids =
-      reconstruction_.Point3DIds();
+  const FlatHashSet<point3D_t> point3D_ids = reconstruction_.Point3DIds();
   for (const point3D_t point3D_id : point3D_ids) {
     const struct Point3D& point3D = reconstruction_.Point3D(point3D_id);
     if (point3D.track.Length() < min_track_length) {
@@ -434,8 +433,7 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
 }
 
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
-    const double min_tri_angle,
-    const std::unordered_set<point3D_t>& point3D_ids) {
+    const double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) {
   // Number of filtered observations.
   size_t num_filtered_observations = 0;
 
@@ -443,7 +441,7 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
   // Cache for image projection centers.
-  std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
+  FlatHashMap<image_t, Eigen::Vector3d> proj_centers;
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
@@ -497,7 +495,7 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
 
 size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     const double max_error,
-    const std::unordered_set<point3D_t>& point3D_ids,
+    const FlatHashSet<point3D_t>& point3D_ids,
     const ReprojectionErrorType error_type) {
   size_t num_filtered_observations = 0;
 

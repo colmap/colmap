@@ -29,9 +29,8 @@
 
 #include "colmap/optim/support_measurement.h"
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
-
-#include <unordered_set>
 
 namespace colmap {
 
@@ -73,7 +72,7 @@ UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
   support.num_unique_inliers = 0;
   support.residual_sum = 0;
 
-  std::unordered_set<size_t> inlier_point_ids;
+  FlatHashSet<size_t> inlier_point_ids;
   for (size_t idx = 0; idx < residuals.size(); ++idx) {
     if (residuals[idx] <= max_residual) {
       support.num_inliers += 1;

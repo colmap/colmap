@@ -31,6 +31,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 
@@ -64,10 +65,10 @@ void CreateTwoWeaklyConnectedClusters(Reconstruction* reconstruction,
   std::sort(all_frames.begin(), all_frames.end());
 
   const size_t half = all_frames.size() / 2;
-  std::unordered_set<frame_t> cluster1_frames(all_frames.begin(),
-                                              all_frames.begin() + half);
-  std::unordered_set<frame_t> cluster2_frames(all_frames.begin() + half,
-                                              all_frames.end());
+  FlatHashSet<frame_t> cluster1_frames(all_frames.begin(),
+                                       all_frames.begin() + half);
+  FlatHashSet<frame_t> cluster2_frames(all_frames.begin() + half,
+                                       all_frames.end());
 
   // For each 3D point, randomly assign it to one cluster and remove all
   // observations from the other cluster. Keep a few points as weak links.
@@ -190,7 +191,7 @@ TEST(ReconstructionClustererController, SingleClusterWithOutlierFrames) {
                                      reconstruction->RegFrameIds().end());
   std::sort(all_frame_ids.begin(), all_frame_ids.end());
 
-  std::unordered_set<frame_t> outlier_frame_ids;
+  FlatHashSet<frame_t> outlier_frame_ids;
   for (size_t i = total_frames - kNumOutliers; i < total_frames; i++) {
     outlier_frame_ids.insert(all_frame_ids[i]);
   }

@@ -399,8 +399,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--filter_covisibility",
         default=True,
-        action="store_true",
-        help="Filter out non-covisible image pairs based on GT camera poses.",
+        action=argparse.BooleanOptionalAction,
+        help="Filter out non-covisible image pairs based on GT camera poses. "
+        "Use --no-filter_covisibility to disable.",
     )
     parser.add_argument(
         "--covisibility_frustum_near",

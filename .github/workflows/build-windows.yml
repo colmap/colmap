@@ -51,7 +51,7 @@ jobs:
       CUDA_PATCH_VERSION: 0
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # We define the vcpkg binary sources using separate variables for read and
       # write operations:
@@ -77,7 +77,7 @@ jobs:
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
@@ -85,7 +85,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -196,7 +196,22 @@ jobs:
           ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
-          cp -r vcpkg_export/colmap/installed/x64-windows/Qt6/plugins install
+          # Deploy the Qt plugins from the x64-windows-release triplet, which is
+          # the triplet COLMAP is actually built against. qtsvg is only installed
+          # for that triplet, so copying from x64-windows would miss the SVG
+          # plugins (imageformats/qsvg.dll and iconengines/qsvgicon.dll) that Qt
+          # needs to render the SVG toolbar/menu icons, leaving them blank.
+          cp -r vcpkg_export/colmap/installed/x64-windows-release/Qt6/plugins install
+
+          # Fail loudly if the SVG plugins are missing: without them Qt cannot
+          # render the SVG icons and the toolbar/menu icons show up blank, but
+          # the build itself succeeds, so the regression is otherwise silent.
+          if (-not (Test-Path install/plugins/iconengines/qsvgicon.dll)) {
+              throw "Missing Qt SVG icon engine plugin (iconengines/qsvgicon.dll); SVG icons would not render."
+          }
+          if (-not (Test-Path install/plugins/imageformats/qsvg.dll)) {
+              throw "Missing Qt SVG image format plugin (imageformats/qsvg.dll); SVG icons would not render."
+          }
           if ($${{ matrix.config.cudaEnabled }}) {
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
@@ -204,14 +219,14 @@ jobs:
           Remove-Item -Recurse -Force -ErrorAction SilentlyContinue install/include,install/lib,install/share
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ matrix.config.exportPackage && matrix.config.cudaEnabled }}
         with:
           name: colmap-x64-windows-cuda
           path: build/install
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ matrix.config.exportPackage && !matrix.config.cudaEnabled }}
         with:
           name: colmap-x64-windows-nocuda
