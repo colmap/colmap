@@ -1146,7 +1146,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
          two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG) &&
         two_view_geometry->E.has_value();
     const bool use_fundamental_matrix =
-        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED &&
+        (two_view_geometry->config == TwoViewGeometry::UNCALIBRATED ||
+         two_view_geometry->config ==
+             TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL) &&
         two_view_geometry->F.has_value();
     const bool use_homography =
         (two_view_geometry->config == TwoViewGeometry::PLANAR ||
@@ -1471,7 +1473,9 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     float* H_ptr = nullptr;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
         two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
-        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
+        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED ||
+        two_view_geometry->config ==
+            TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL) {
       if (use_essential_matrix) {
         // Use essential matrix with normalized coordinates.
         E_or_F = two_view_geometry->E.value().cast<float>();

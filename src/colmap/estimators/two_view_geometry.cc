@@ -1066,6 +1066,15 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
         TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL;
     geometry.E = SF_report.model.E;
     geometry.shared_focal_length = SF_report.model.focal;
+    // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point) so
+    // epipolar consumers unaware of the shared focal, e.g. guided matching, can
+    // use this config directly.
+    Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
+    K(0, 0) = K(1, 1) = SF_report.model.focal;
+    K(0, 2) = principal_point.x();
+    K(1, 2) = principal_point.y();
+    const Eigen::Matrix3d K_inv = K.inverse();
+    geometry.F = K_inv.transpose() * SF_report.model.E * K_inv;
   } else if (H_report.success &&
              H_report.support.num_inliers >= min_num_inliers) {
     num_inliers = H_report.support.num_inliers;
