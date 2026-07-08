@@ -352,18 +352,17 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
       << "Invalid `output_type` " << output_type
       << " - supported values are 'bin', 'ply' and 'txt'.";
 
-  std::filesystem::path resolved_output_path = output_path;
   if (output_type == "ply") {
-    if (ExistsDir(resolved_output_path)) {
-      resolved_output_path /= "fused.ply";
-    }
-    const std::filesystem::path parent_path =
-        resolved_output_path.parent_path();
+    THROW_CHECK(!ExistsDir(output_path))
+        << "Path " << output_path
+        << " is a directory, but a PLY file path is expected.";
+    THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+    const std::filesystem::path parent_path = output_path.parent_path();
     THROW_CHECK(parent_path.empty() || ExistsDir(parent_path))
         << "Parent directory of `output_path` " << parent_path
-        << " is not a directory.";
+        << " does not exist or is not a directory.";
   } else {
-    THROW_CHECK_DIR_EXISTS(resolved_output_path);
+    THROW_CHECK_DIR_EXISTS(output_path);
   }
 
   mvs::StereoFusion fuser(
@@ -381,16 +380,16 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
   // overwrite sparse point cloud with dense point cloud from fuser
   reconstruction.ImportPLY(fuser.GetFusedPoints());
 
-  LOG(INFO) << "Writing output: " << resolved_output_path;
+  LOG(INFO) << "Writing output: " << output_path;
 
   // write output
   if (output_type == "bin") {
-    reconstruction.WriteBinary(resolved_output_path);
+    reconstruction.WriteBinary(output_path);
   } else if (output_type == "txt") {
-    reconstruction.WriteText(resolved_output_path);
+    reconstruction.WriteText(output_path);
   } else if (output_type == "ply") {
-    WriteBinaryPlyPoints(resolved_output_path, fuser.GetFusedPoints());
-    mvs::WritePointsVisibility(AddFileExtension(resolved_output_path, ".vis"),
+    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
+    mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
                                fuser.GetFusedPointsVisibility());
   } else {
     LOG(FATAL_THROW) << "Invalid output_type: " << output_type;
