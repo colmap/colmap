@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
+#include "colmap/estimators/fundamental_matrix_degensac.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/estimators/solvers/fundamental_matrix.h"
@@ -51,6 +52,25 @@
 
 namespace colmap {
 namespace {
+
+// Robustly estimate the fundamental matrix, either with plain LO-RANSAC or with
+// DEGENSAC (robust to a dominant scene plane), depending on the options. Both
+// paths return the same report type, so callers are agnostic to the choice.
+FundamentalMatrixDegensac::Report EstimateFundamentalMatrix(
+    const TwoViewGeometryOptions& options,
+    const RANSACOptions& ransac_options,
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2) {
+  if (options.use_degensac) {
+    FundamentalMatrixDegensac::Options degensac_options;
+    degensac_options.ransac = ransac_options;
+    return FundamentalMatrixDegensac(degensac_options)
+        .Estimate(points1, points2);
+  }
+  return LORANSAC<FundamentalMatrixSevenPointEstimator,
+                  FundamentalMatrixEightPointEstimator>(ransac_options)
+      .Estimate(points1, points2);
+}
 
 FeatureMatches ExtractInlierMatches(const FeatureMatches& matches,
                                     const size_t num_inliers,
@@ -172,11 +192,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Estimate epipolar model.
 
-  LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
-      F_ransac(options.ransac_options);
-  const auto F_report =
-      F_ransac.Estimate(matched_img_points1, matched_img_points2);
+  const auto F_report = EstimateFundamentalMatrix(options,
+                                                  options.ransac_options,
+                                                  matched_img_points1,
+                                                  matched_img_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
@@ -804,11 +823,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;
 
-  LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
-      F_ransac(ransac_options);
-  const auto F_report =
-      F_ransac.Estimate(matched_img_points1, matched_img_points2);
+  const auto F_report = EstimateFundamentalMatrix(
+      options, ransac_options, matched_img_points1, matched_img_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
