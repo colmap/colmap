@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/fundamental_matrix_degensac.h"
 
+#include "colmap/estimators/solvers/fundamental_matrix.h"
 #include "colmap/estimators/solvers/homography_matrix.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
@@ -38,6 +39,7 @@
 #include "colmap/util/logging.h"
 
 #include <array>
+#include <cmath>
 #include <optional>
 
 #include <Eigen/Geometry>
@@ -59,6 +61,10 @@ constexpr std::array<std::array<int, 3>, kNumSampleTriplets> kSampleTriplets = {
         {1, 5, 6}, {2, 3, 4}, {2, 3, 5}, {2, 3, 6}, {2, 4, 5}, {2, 4, 6},
         {2, 5, 6}, {3, 4, 5}, {3, 4, 6}, {3, 5, 6}, {4, 5, 6},
     }};
+
+// Number of triplets randomly sampled from a non-minimal sample when searching
+// for the dominant plane (a minimal sample enumerates all 35 exhaustively).
+constexpr int kNumSampledTriplets = 50;
 
 }  // namespace
 
@@ -108,40 +114,61 @@ std::optional<Eigen::Matrix3d> DetectSampleHDegeneracy(
     const std::vector<Eigen::Vector2d>& sample_points1,
     const std::vector<Eigen::Vector2d>& sample_points2,
     const double h_max_residual,
-    const int min_sample_h_inliers) {
-  THROW_CHECK_EQ(sample_points1.size(), 7);
-  THROW_CHECK_EQ(sample_points2.size(), 7);
+    const double min_sample_h_inlier_ratio) {
+  const size_t num_samples = sample_points1.size();
+  THROW_CHECK_EQ(sample_points1.size(), sample_points2.size());
+  THROW_CHECK_GE(num_samples, 3);
 
   const Eigen::Vector3d epipole2 = EpipoleFromFundamentalMatrix(F);
+  const int min_consistent = std::max<int>(
+      3,
+      static_cast<int>(std::llround(min_sample_h_inlier_ratio * num_samples)));
 
-  int best_num_consistent = min_sample_h_inliers - 1;
+  int best_num_consistent = min_consistent - 1;
   std::optional<Eigen::Matrix3d> best_H;
-  for (const auto& triplet : kSampleTriplets) {
-    const std::array<Eigen::Vector2d, 3> tri_points1 = {
-        sample_points1[triplet[0]],
-        sample_points1[triplet[1]],
-        sample_points1[triplet[2]]};
-    const std::array<Eigen::Vector2d, 3> tri_points2 = {
-        sample_points2[triplet[0]],
-        sample_points2[triplet[1]],
-        sample_points2[triplet[2]]};
 
+  const auto evaluate_triplet = [&](int i, int j, int k) {
+    const std::array<Eigen::Vector2d, 3> tri_points1 = {
+        sample_points1[i], sample_points1[j], sample_points1[k]};
+    const std::array<Eigen::Vector2d, 3> tri_points2 = {
+        sample_points2[i], sample_points2[j], sample_points2[k]};
     const std::optional<Eigen::Matrix3d> H = HomographyFromFundamentalAndPoints(
         F, epipole2, tri_points1, tri_points2);
     if (!H.has_value()) {
-      continue;
+      return;
     }
-
     int num_consistent = 0;
-    for (size_t i = 0; i < sample_points1.size(); ++i) {
+    for (size_t p = 0; p < num_samples; ++p) {
       if (ComputeSquaredHomographyError(
-              sample_points1[i], sample_points2[i], *H) <= h_max_residual) {
+              sample_points1[p], sample_points2[p], *H) <= h_max_residual) {
         ++num_consistent;
       }
     }
     if (num_consistent > best_num_consistent) {
       best_num_consistent = num_consistent;
       best_H = H;
+    }
+  };
+
+  if (num_samples ==
+      static_cast<size_t>(FundamentalMatrixDegensacEstimator::kMinNumSamples)) {
+    // Minimal sample: exhaustively enumerate all triplets.
+    for (const auto& triplet : kSampleTriplets) {
+      evaluate_triplet(triplet[0], triplet[1], triplet[2]);
+    }
+  } else {
+    // Non-minimal sample (e.g. a local-optimization inlier set): sample
+    // triplets. On a plane-dominated sample most triplets lie on the plane, so
+    // a modest number reliably discovers it.
+    const int last = static_cast<int>(num_samples) - 1;
+    for (int t = 0; t < kNumSampledTriplets; ++t) {
+      const int i = RandomUniformInteger<int>(0, last);
+      const int j = RandomUniformInteger<int>(0, last);
+      const int k = RandomUniformInteger<int>(0, last);
+      if (i == j || j == k || i == k) {
+        continue;
+      }
+      evaluate_triplet(i, j, k);
     }
   }
 
@@ -152,12 +179,12 @@ bool IsSampleHDegenerate(const Eigen::Matrix3d& F,
                          const std::vector<Eigen::Vector2d>& sample_points1,
                          const std::vector<Eigen::Vector2d>& sample_points2,
                          const double h_max_residual,
-                         const int min_sample_h_inliers) {
+                         const double min_sample_h_inlier_ratio) {
   return DetectSampleHDegeneracy(F,
                                  sample_points1,
                                  sample_points2,
                                  h_max_residual,
-                                 min_sample_h_inliers)
+                                 min_sample_h_inlier_ratio)
       .has_value();
 }
 
@@ -264,13 +291,13 @@ FundamentalMatrixDegensacEstimator::FundamentalMatrixDegensacEstimator(
     const std::vector<Eigen::Vector2d>* points2,
     const double sampson_max_residual,
     const double h_max_residual,
-    const int min_sample_h_inliers,
+    const double min_sample_h_inlier_ratio,
     const int max_plane_parallax_trials)
     : points1_(THROW_CHECK_NOTNULL(points1)),
       points2_(THROW_CHECK_NOTNULL(points2)),
       sampson_max_residual_(sampson_max_residual),
       h_max_residual_(h_max_residual),
-      min_sample_h_inliers_(min_sample_h_inliers),
+      min_sample_h_inlier_ratio_(min_sample_h_inlier_ratio),
       max_plane_parallax_trials_(max_plane_parallax_trials) {}
 
 void FundamentalMatrixDegensacEstimator::Estimate(
@@ -278,10 +305,19 @@ void FundamentalMatrixDegensacEstimator::Estimate(
     const std::vector<Y_t>& sample_points2,
     std::vector<M_t>* models) const {
   THROW_CHECK(models != nullptr);
+  THROW_CHECK_GE(sample_points1.size(), kMinNumSamples);
 
+  // Fit the fundamental matrix from the sample: the 7-point solver for a
+  // minimal sample (yielding up to three roots), the 8-point solver otherwise
+  // (e.g. the local-optimization inlier set).
   std::vector<M_t> sample_models;
-  FundamentalMatrixSevenPointEstimator::Estimate(
-      sample_points1, sample_points2, &sample_models);
+  if (sample_points1.size() == static_cast<size_t>(kMinNumSamples)) {
+    FundamentalMatrixSevenPointEstimator::Estimate(
+        sample_points1, sample_points2, &sample_models);
+  } else {
+    FundamentalMatrixEightPointEstimator::Estimate(
+        sample_points1, sample_points2, &sample_models);
+  }
 
   models->clear();
   models->reserve(sample_models.size());
@@ -291,9 +327,9 @@ void FundamentalMatrixDegensacEstimator::Estimate(
                                 sample_points1,
                                 sample_points2,
                                 h_max_residual_,
-                                min_sample_h_inliers_);
+                                min_sample_h_inlier_ratio_);
     if (!plane_H.has_value()) {
-      // Non-degenerate sample: keep the minimal-solver hypothesis as-is.
+      // Non-degenerate sample: keep the fitted hypothesis as-is.
       models->push_back(sample_model);
       continue;
     }
@@ -320,43 +356,32 @@ void FundamentalMatrixDegensacEstimator::Residuals(
   ComputeSquaredSampsonError(points1, points2, F, residuals);
 }
 
-FundamentalMatrixDegensac::FundamentalMatrixDegensac(Options options)
-    : options_(options) {
-  options_.ransac.Check();
-}
-
-FundamentalMatrixDegensac::Report FundamentalMatrixDegensac::Estimate(
+RANSAC<FundamentalMatrixDegensacEstimator>::Report
+EstimateFundamentalMatrixDegensac(
     const std::vector<Eigen::Vector2d>& points1,
-    const std::vector<Eigen::Vector2d>& points2) {
+    const std::vector<Eigen::Vector2d>& points2,
+    const FundamentalMatrixDegensacOptions& options) {
   const double sampson_max_residual =
-      options_.ransac.max_error * options_.ransac.max_error;
-  const double h_max_error = options_.h_consistency_max_error > 0
-                                 ? options_.h_consistency_max_error
-                                 : options_.ransac.max_error;
+      options.ransac.max_error * options.ransac.max_error;
+  const double h_max_error = options.h_consistency_max_error > 0
+                                 ? options.h_consistency_max_error
+                                 : options.ransac.max_error;
   const double h_max_residual = h_max_error * h_max_error;
 
-  // Inject the DEGENSAC minimal solver into LO-RANSAC, using the 8-point solver
-  // as the local optimizer, mirroring the plain fundamental matrix estimation.
+  // The DEGENSAC estimator is used as BOTH the hypothesis and the
+  // local-optimization solver, so the local optimization also applies the
+  // degeneracy handling instead of re-fitting a plane-corrupted model.
   FundamentalMatrixDegensacEstimator estimator(
       &points1,
       &points2,
       sampson_max_residual,
       h_max_residual,
-      options_.min_sample_h_inliers,
-      options_.max_plane_parallax_trials);
+      options.min_sample_h_inlier_ratio,
+      options.max_plane_parallax_trials);
   LORANSAC<FundamentalMatrixDegensacEstimator,
-           FundamentalMatrixEightPointEstimator>
-      ransac(options_.ransac, estimator);
-  const auto ransac_report = ransac.Estimate(points1, points2);
-
-  // Copy into the stable, estimator-agnostic report type.
-  Report report;
-  report.success = ransac_report.success;
-  report.num_trials = ransac_report.num_trials;
-  report.support = ransac_report.support;
-  report.inlier_mask = ransac_report.inlier_mask;
-  report.model = ransac_report.model;
-  return report;
+           FundamentalMatrixDegensacEstimator>
+      ransac(options.ransac, estimator, estimator);
+  return ransac.Estimate(points1, points2);
 }
 
 }  // namespace colmap

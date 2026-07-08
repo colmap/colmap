@@ -231,7 +231,8 @@ void RecallPrecision(const Scene& scene,
     num_true_reported += is_true && is_reported;
   }
   *recall = num_true == 0 ? 0.0 : 100.0 * num_true_reported / num_true;
-  *precision = num_reported == 0 ? 0.0 : 100.0 * num_true_reported / num_reported;
+  *precision =
+      num_reported == 0 ? 0.0 : 100.0 * num_true_reported / num_reported;
 }
 
 enum class Method { kLoRansac, kDegensac };
@@ -263,13 +264,19 @@ Stats RunConfig(Method method,
     ransac_options.max_num_trials = 10000;
     ransac_options.random_seed = 5000 + p;
 
-    FundamentalMatrixDegensac::Report report;
+    LORANSAC<FundamentalMatrixSevenPointEstimator,
+             FundamentalMatrixEightPointEstimator>::Report report;
     const auto start = std::chrono::high_resolution_clock::now();
     if (method == Method::kDegensac) {
-      FundamentalMatrixDegensac::Options options;
+      FundamentalMatrixDegensacOptions options;
       options.ransac = ransac_options;
-      report = FundamentalMatrixDegensac(options).Estimate(scene.points1,
-                                                           scene.points2);
+      const auto r = EstimateFundamentalMatrixDegensac(
+          scene.points1, scene.points2, options);
+      report.success = r.success;
+      report.num_trials = r.num_trials;
+      report.support = r.support;
+      report.inlier_mask = r.inlier_mask;
+      report.model = r.model;
     } else {
       LORANSAC<FundamentalMatrixSevenPointEstimator,
                FundamentalMatrixEightPointEstimator>

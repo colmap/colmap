@@ -29,11 +29,7 @@
 
 #pragma once
 
-#include "colmap/estimators/solvers/fundamental_matrix.h"
-#include "colmap/optim/random_sampler.h"
 #include "colmap/optim/ransac.h"
-#include "colmap/optim/support_measurement.h"
-#include "colmap/util/eigen_alignment.h"
 
 #include <array>
 #include <optional>
@@ -50,27 +46,29 @@ namespace colmap {
 //    Unaffected by a Dominant Plane", CVPR 2005.
 //    https://cmp.felk.cvut.cz/~werner/papers/chum-degen-cvpr05.pdf
 //
-// When the scene contains a dominant plane, a random 7-point minimal sample
-// frequently contains five or more coplanar correspondences. The fundamental
-// matrix computed from such an H-degenerate sample is compatible with the plane
+// When the scene contains a dominant plane, a random minimal sample frequently
+// contains a majority of coplanar correspondences. The fundamental matrix
+// computed from such an H-degenerate sample is compatible with the plane
 // homography but its epipole is essentially unconstrained, yet it can still
 // accrue high inlier support (all plane points fit it). The recovered epipolar
 // geometry is then wrong even though RANSAC reports a confident result.
 //
-// This detects H-degenerate minimal samples during RANSAC and, instead of
-// accepting the plane-corrupted model, completes it using plane-and-parallax:
-// the dominant plane homography is refit on the H-consistent data and the
-// epipole (hence the fundamental matrix) is recovered from the off-plane
-// parallax. The completed model explains both the plane and the off-plane
-// points, so it wins on support. If no usable off-plane parallax exists (i.e.
-// the configuration is genuinely degenerate), the sample is rejected.
+// This is implemented as a solver that detects H-degeneracy of a sample and,
+// instead of returning the plane-corrupted model, completes it via
+// plane-and-parallax: the dominant plane homography is refit on the
+// H-consistent data and the epipole (hence the fundamental matrix) is recovered
+// from the off-plane parallax. If no usable off-plane parallax exists, the
+// sample is rejected.
 //
-// The DEGENSAC logic is implemented as a minimal solver that is injected into
-// the existing (LO-)RANSAC machinery. Because the minimal solver receives the
-// 7-point sample but the plane-and-parallax completion also needs the full
-// correspondence set, the estimator holds pointers to the full data passed to
-// RANSAC. It is a drop-in replacement for FundamentalMatrixSevenPointEstimator
-// as the hypothesis solver in LORANSAC.
+// The solver handles both minimal (7-point) and non-minimal (>= 8-point)
+// samples, so it can be used as BOTH the hypothesis and the local-optimization
+// estimator in LO-RANSAC. This is important: a plain non-minimal solver would
+// re-fit a plane-corrupted model on the (plane-dominated) inlier set during
+// local optimization, undoing the completion.
+//
+// The estimator needs the full correspondence set (not just the minimal sample)
+// for the plane-and-parallax completion, so it holds pointers to the data
+// passed to RANSAC.
 class FundamentalMatrixDegensacEstimator {
  public:
   using X_t = Eigen::Vector2d;
@@ -89,20 +87,22 @@ class FundamentalMatrixDegensacEstimator {
   //                                 max_error squared).
   // @param h_max_residual           Squared max transfer error for
   //                                 H-consistency.
-  // @param min_sample_h_inliers     Coplanar-count threshold for degeneracy.
+  // @param min_sample_h_inlier_ratio Fraction of a sample that must be
+  //                                 consistent with a single plane homography
+  //                                 for the sample to be H-degenerate.
   // @param max_plane_parallax_trials Off-plane pairs sampled during completion.
   FundamentalMatrixDegensacEstimator(
       const std::vector<Eigen::Vector2d>* points1,
       const std::vector<Eigen::Vector2d>* points2,
       double sampson_max_residual,
       double h_max_residual,
-      int min_sample_h_inliers,
+      double min_sample_h_inlier_ratio,
       int max_plane_parallax_trials);
 
-  // Estimate fundamental matrix hypotheses from a 7-point minimal sample. For
-  // each hypothesis whose sample is H-degenerate, the plane-corrupted model is
-  // replaced by a plane-and-parallax completion, or dropped if no usable
-  // off-plane parallax exists.
+  // Estimate fundamental matrix hypotheses from a sample (minimal 7-point or
+  // non-minimal >= 8-point). For each hypothesis whose sample is H-degenerate,
+  // the plane-corrupted model is replaced by a plane-and-parallax completion,
+  // or dropped if no usable off-plane parallax exists.
   void Estimate(const std::vector<X_t>& sample_points1,
                 const std::vector<Y_t>& sample_points2,
                 std::vector<M_t>* models) const;
@@ -118,62 +118,41 @@ class FundamentalMatrixDegensacEstimator {
   const std::vector<Eigen::Vector2d>* points2_;
   double sampson_max_residual_;
   double h_max_residual_;
-  int min_sample_h_inliers_;
+  double min_sample_h_inlier_ratio_;
   int max_plane_parallax_trials_;
 };
 
-// Convenience driver that runs the DEGENSAC estimator inside LO-RANSAC (with
-// the 8-point solver as the local optimizer), mirroring how the plain
-// fundamental matrix is estimated. Provided so callers get a stable Report type
-// and options.
-class FundamentalMatrixDegensac {
- public:
-  // Report type identical to the one produced by the plain LO-RANSAC estimator
-  // for the fundamental matrix, so it is a drop-in replacement.
-  using Report = RANSAC<FundamentalMatrixSevenPointEstimator,
-                        InlierSupportMeasurer,
-                        RandomSampler>::Report;
+struct FundamentalMatrixDegensacOptions {
+  // RANSAC options that control sampling, scoring, and termination. As in
+  // RANSAC/LO-RANSAC, `max_error` is a pixel error that is squared internally,
+  // since Sampson residuals are squared errors.
+  RANSACOptions ransac;
 
-  struct Options {
-    // RANSAC options that control sampling, scoring, and termination. As in
-    // RANSAC/LO-RANSAC, `max_error` is a pixel error that is squared
-    // internally, since Sampson residuals are squared errors.
-    RANSACOptions ransac;
+  // Maximum pixel error for a sample correspondence to be considered consistent
+  // with a candidate plane homography during the sample degeneracy test.
+  // Squared internally. If <= 0, falls back to `ransac.max_error`.
+  double h_consistency_max_error = -1;
 
-    // Maximum pixel error for a sample correspondence to be considered
-    // consistent with a candidate plane homography during the sample
-    // degeneracy test. Squared internally. If <= 0, falls back to
-    // `ransac.max_error`.
-    double h_consistency_max_error = -1;
+  // Fraction of a sample that must be consistent with a single plane homography
+  // for the sample to be considered H-degenerate. The default corresponds to
+  // the paper's "at least 5 of 7" criterion for a minimal sample.
+  double min_sample_h_inlier_ratio = 5.0 / 7.0;
 
-    // Minimum number of the 7 minimal-sample correspondences that must be
-    // consistent with a single plane homography for the sample to be considered
-    // H-degenerate (and thus completed via plane-and-parallax).
-    int min_sample_h_inliers = 5;
-
-    // Maximum number of off-plane correspondence pairs sampled during the
-    // plane-and-parallax model completion to recover the epipole. Only a couple
-    // of off-plane inliers are needed, so a small budget suffices; the
-    // completed model is scored and locally optimized by the surrounding RANSAC
-    // anyway.
-    int max_plane_parallax_trials = 25;
-  };
-
-  explicit FundamentalMatrixDegensac(Options options);
-
-  // Robustly estimate the fundamental matrix mapping points in image 1 to
-  // epipolar lines in image 2 from corresponding pixel observations.
-  //
-  // @param points1  First set of corresponding image points.
-  // @param points2  Second set of corresponding image points.
-  //
-  // @return         The report with the results of the estimation.
-  Report Estimate(const std::vector<Eigen::Vector2d>& points1,
-                  const std::vector<Eigen::Vector2d>& points2);
-
- private:
-  const Options options_;
+  // Maximum number of off-plane correspondence pairs sampled during the
+  // plane-and-parallax model completion to recover the epipole. Only a couple
+  // of off-plane inliers are needed, so a small budget suffices; the completed
+  // model is scored and locally optimized by the surrounding RANSAC anyway.
+  int max_plane_parallax_trials = 25;
 };
+
+// Robustly estimate the fundamental matrix from corresponding image points
+// using DEGENSAC inside LO-RANSAC (the DEGENSAC estimator is used as both the
+// hypothesis and the local-optimization solver).
+RANSAC<FundamentalMatrixDegensacEstimator>::Report
+EstimateFundamentalMatrixDegensac(
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2,
+    const FundamentalMatrixDegensacOptions& options);
 
 // Compute the epipole in the second image, i.e. the left null vector e2 of the
 // fundamental matrix with F^T e2 = 0. Returned in homogeneous coordinates and
@@ -190,66 +169,49 @@ Eigen::Vector3d EpipoleFromFundamentalMatrix(const Eigen::Matrix3d& F);
 //
 //    b_i = (x2_i x ([e2]_x F x1_i)) . (x2_i x e2) / ||x2_i x e2||^2.
 //
-// @param F         3x3 fundamental matrix (image 1 to image 2).
-// @param epipole2  Left epipole e2 (see EpipoleFromFundamentalMatrix).
-// @param points1   Three first-image points.
-// @param points2   Three corresponding second-image points.
-//
-// @return          The homography, or nullopt if the configuration is
-//                  degenerate (collinear first-image points, or a point at the
-//                  epipole).
+// Returns nullopt on degenerate input (collinear first-image points, or a point
+// at the epipole).
 std::optional<Eigen::Matrix3d> HomographyFromFundamentalAndPoints(
     const Eigen::Matrix3d& F,
     const Eigen::Vector3d& epipole2,
     const std::array<Eigen::Vector2d, 3>& points1,
     const std::array<Eigen::Vector2d, 3>& points2);
 
-// Test a 7-point minimal sample for H-degeneracy, i.e. whether five or more of
-// the seven correspondences lie on a common scene plane. For each triplet of
-// the sample, the plane homography compatible with F is constructed and the
-// number of sample correspondences consistent with it (squared forward transfer
-// error <= h_max_residual) is counted. Returns the homography of the triplet
-// with the most consistent correspondences if that count reaches
-// `min_sample_h_inliers`, otherwise nullopt.
-//
-// @param F                    3x3 fundamental matrix estimated from the sample.
-// @param sample_points1       Seven first-image sample points.
-// @param sample_points2       Seven second-image sample points.
-// @param h_max_residual       Squared max transfer error for H-consistency.
-// @param min_sample_h_inliers Threshold on the coplanar count (typically 5).
+// Test a sample for H-degeneracy, i.e. whether a fraction of at least
+// `min_sample_h_inlier_ratio` of the correspondences lie on a common scene
+// plane. Plane homographies compatible with F are constructed from triplets of
+// the sample (all C(7,3) triplets for a minimal sample, otherwise a fixed
+// number of randomly sampled triplets) and the number of sample correspondences
+// consistent with each (squared forward transfer error <= h_max_residual) is
+// counted. Returns the homography of the triplet with the most consistent
+// correspondences if that count reaches the threshold, otherwise nullopt.
 std::optional<Eigen::Matrix3d> DetectSampleHDegeneracy(
     const Eigen::Matrix3d& F,
     const std::vector<Eigen::Vector2d>& sample_points1,
     const std::vector<Eigen::Vector2d>& sample_points2,
     double h_max_residual,
-    int min_sample_h_inliers);
+    double min_sample_h_inlier_ratio);
 
 // Convenience predicate wrapping DetectSampleHDegeneracy.
 bool IsSampleHDegenerate(const Eigen::Matrix3d& F,
                          const std::vector<Eigen::Vector2d>& sample_points1,
                          const std::vector<Eigen::Vector2d>& sample_points2,
                          double h_max_residual,
-                         int min_sample_h_inliers);
+                         double min_sample_h_inlier_ratio);
 
 // Recover the fundamental matrix from a dominant plane homography and the
-// off-plane parallax (plane-and-parallax model completion). Correspondences
-// whose squared forward transfer error under H exceeds `h_max_residual` are
-// treated as off-plane candidates; the epipole is recovered from a pair of them
-// as e2 = (x2_a x H x1_a) x (x2_b x H x1_b), giving F = [e2]_x H. Pairs are
+// off-plane parallax (plane-and-parallax model completion). The seed homography
+// is refit on its inlier correspondences; then correspondences whose squared
+// forward transfer error under the refit H exceeds `h_max_residual` are treated
+// as off-plane candidates, and the epipole is recovered from a pair of them as
+// e2 = (x2_a x H x1_a) x (x2_b x H x1_b), giving F = [e2]_x H. Pairs are
 // sampled robustly and the F with the largest squared-Sampson support
 // (threshold `sampson_max_residual`) over all correspondences is returned.
 //
-// @param H                    Dominant plane homography (image 1 to image 2).
-// @param points1              First-image correspondences (all data).
-// @param points2              Second-image correspondences (all data).
-// @param sampson_max_residual Squared max Sampson error for scoring support.
-// @param h_max_residual       Squared max transfer error to classify off-plane.
-// @param max_trials           Maximum number of off-plane pairs to sample.
-//
-// @return                     The recovered fundamental matrix, or nullopt if
-//                             there are too few off-plane correspondences.
+// @return  The recovered fundamental matrix, or nullopt if there are too few
+//          off-plane correspondences.
 std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
-    const Eigen::Matrix3d& H,
+    const Eigen::Matrix3d& seed_H,
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2,
     double sampson_max_residual,

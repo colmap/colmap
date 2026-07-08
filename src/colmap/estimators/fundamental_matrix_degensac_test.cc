@@ -226,7 +226,7 @@ TEST(IsSampleHDegenerate, DetectsAndRejects) {
                                     points1,
                                     points2,
                                     /*h_max_residual=*/4.0,
-                                    /*min_sample_h_inliers=*/5));
+                                    /*min_sample_h_inlier_ratio=*/5.0 / 7.0));
   }
 
   // A general (non-planar) sample is not H-degenerate.
@@ -248,7 +248,7 @@ TEST(IsSampleHDegenerate, DetectsAndRejects) {
                                      points1,
                                      points2,
                                      /*h_max_residual=*/4.0,
-                                     /*min_sample_h_inliers=*/5));
+                                     /*min_sample_h_inlier_ratio=*/5.0 / 7.0));
   }
 }
 
@@ -278,10 +278,10 @@ TEST(FundamentalMatrixDegensac, NonPlanarParity) {
                              &points2,
                              &on_plane_mask);
 
-  FundamentalMatrixDegensac::Options options;
+  FundamentalMatrixDegensacOptions options;
   options.ransac = TestRANSACOptions();
   const auto report =
-      FundamentalMatrixDegensac(options).Estimate(points1, points2);
+      EstimateFundamentalMatrixDegensac(points1, points2, options);
   ASSERT_TRUE(report.success);
 
   Eigen::Matrix3d F = report.model / report.model(2, 2);
@@ -323,10 +323,10 @@ TEST(FundamentalMatrixDegensac, RecoversFOnDominantPlane) {
     off_plane_mask[i] = !on_plane_mask[i];
   }
 
-  FundamentalMatrixDegensac::Options degensac_options;
+  FundamentalMatrixDegensacOptions degensac_options;
   degensac_options.ransac = TestRANSACOptions();
   const auto report =
-      FundamentalMatrixDegensac(degensac_options).Estimate(points1, points2);
+      EstimateFundamentalMatrixDegensac(points1, points2, degensac_options);
   ASSERT_TRUE(report.success);
 
   Eigen::Matrix3d F = report.model / report.model(2, 2);
@@ -376,10 +376,10 @@ TEST(FundamentalMatrixDegensac, OutperformsLoRansacOnDominantPlane) {
 
     const RANSACOptions ransac_options = TestRANSACOptions();
 
-    FundamentalMatrixDegensac::Options degensac_options;
+    FundamentalMatrixDegensacOptions degensac_options;
     degensac_options.ransac = ransac_options;
     const auto degensac_report =
-        FundamentalMatrixDegensac(degensac_options).Estimate(points1, points2);
+        EstimateFundamentalMatrixDegensac(points1, points2, degensac_options);
     if (degensac_report.success &&
         MeanSampsonErrorOnSubset(
             points1, points2, degensac_report.model, off_plane_mask) <
