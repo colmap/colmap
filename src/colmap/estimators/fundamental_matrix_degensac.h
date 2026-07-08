@@ -85,8 +85,14 @@ class FundamentalMatrixDegensacEstimator {
   // @param sampson_max_residual     Squared max Sampson error used when scoring
   //                                 completion candidates (typically the RANSAC
   //                                 max_error squared).
-  // @param h_max_residual           Squared max transfer error for
-  //                                 H-consistency.
+  // @param plane_max_residual       Squared max transfer error for a
+  //                                 correspondence to count as lying on the
+  //                                 dominant plane (degeneracy detection and
+  //                                 homography refit).
+  // @param off_plane_min_residual   Squared min transfer error for a
+  //                                 correspondence to be used as an off-plane
+  //                                 parallax source when recovering the
+  //                                 epipole.
   // @param min_sample_h_inlier_ratio Fraction of a sample that must be
   //                                 consistent with a single plane homography
   //                                 for the sample to be H-degenerate.
@@ -95,7 +101,8 @@ class FundamentalMatrixDegensacEstimator {
       const std::vector<Eigen::Vector2d>* points1,
       const std::vector<Eigen::Vector2d>* points2,
       double sampson_max_residual,
-      double h_max_residual,
+      double plane_max_residual,
+      double off_plane_min_residual,
       double min_sample_h_inlier_ratio,
       int max_plane_parallax_trials);
 
@@ -117,7 +124,8 @@ class FundamentalMatrixDegensacEstimator {
   const std::vector<Eigen::Vector2d>* points1_;
   const std::vector<Eigen::Vector2d>* points2_;
   double sampson_max_residual_;
-  double h_max_residual_;
+  double plane_max_residual_;
+  double off_plane_min_residual_;
   double min_sample_h_inlier_ratio_;
   int max_plane_parallax_trials_;
 };
@@ -128,10 +136,19 @@ struct FundamentalMatrixDegensacOptions {
   // since Sampson residuals are squared errors.
   RANSACOptions ransac;
 
-  // Maximum pixel error for a sample correspondence to be considered consistent
-  // with a candidate plane homography during the sample degeneracy test.
-  // Squared internally. If <= 0, falls back to `ransac.max_error`.
-  double h_consistency_max_error = -1;
+  // Maximum pixel error for a correspondence to count as lying on the dominant
+  // plane, used for the degeneracy test and the homography refit. Squared
+  // internally. Deliberately looser than the inlier threshold so noisy plane
+  // points are still recognized as coplanar. If <= 0, derived as
+  // sqrt(3) * ransac.max_error (i.e. 3x in squared-pixel units).
+  double plane_max_error = -1;
+
+  // Minimum pixel error for a correspondence to be used as an off-plane
+  // parallax source when recovering the epipole. Squared internally.
+  // Deliberately much larger than the inlier threshold so only clean,
+  // high-parallax points constrain the epipole (near-plane, low-parallax points
+  // are ignored). If <= 0, derived as 10 * ransac.max_error (100x squared).
+  double off_plane_min_error = -1;
 
   // Fraction of a sample that must be consistent with a single plane homography
   // for the sample to be considered H-degenerate. The default corresponds to
@@ -201,12 +218,16 @@ bool IsSampleHDegenerate(const Eigen::Matrix3d& F,
 
 // Recover the fundamental matrix from a dominant plane homography and the
 // off-plane parallax (plane-and-parallax model completion). The seed homography
-// is refit on its inlier correspondences; then correspondences whose squared
-// forward transfer error under the refit H exceeds `h_max_residual` are treated
-// as off-plane candidates, and the epipole is recovered from a pair of them as
+// is refit on its plane inliers (squared transfer error <=
+// `plane_max_residual`); then correspondences whose squared transfer error
+// exceeds `off_plane_min_residual` are treated as clean off-plane parallax
+// sources, and the epipole is recovered from a pair of them as
 // e2 = (x2_a x H x1_a) x (x2_b x H x1_b), giving F = [e2]_x H. Pairs are
-// sampled robustly and the F with the largest squared-Sampson support
-// (threshold `sampson_max_residual`) over all correspondences is returned.
+// sampled robustly and the best F is then refined by fitting the 8-point
+// algorithm to mixed samples of plane and off-plane inliers (so the epipole is
+// constrained by more than two off-plane points). The F with the largest
+// squared-Sampson support (threshold `sampson_max_residual`) over all
+// correspondences is returned.
 //
 // @return  The recovered fundamental matrix, or nullopt if there are too few
 //          off-plane correspondences.
@@ -215,7 +236,8 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2,
     double sampson_max_residual,
-    double h_max_residual,
+    double plane_max_residual,
+    double off_plane_min_residual,
     int max_trials);
 
 }  // namespace colmap

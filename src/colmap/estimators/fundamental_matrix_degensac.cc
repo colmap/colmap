@@ -188,20 +188,44 @@ bool IsSampleHDegenerate(const Eigen::Matrix3d& F,
       .has_value();
 }
 
+namespace {
+
+// Squared forward transfer error of a correspondence under a homography.
+double TransferError(const Eigen::Vector2d& point1,
+                     const Eigen::Vector2d& point2,
+                     const Eigen::Matrix3d& H) {
+  return ComputeSquaredHomographyError(point1, point2, H);
+}
+
+// Draws `num` distinct entries of `src` into the front of `scratch` (a working
+// copy of `src`) via a partial Fisher-Yates shuffle.
+void SampleDistinct(size_t num, std::vector<size_t>* scratch) {
+  const size_t n = scratch->size();
+  for (size_t i = 0; i < num; ++i) {
+    const size_t j = i + RandomUniformInteger<size_t>(0, n - 1 - i);
+    const size_t tmp = (*scratch)[i];
+    (*scratch)[i] = (*scratch)[j];
+    (*scratch)[j] = tmp;
+  }
+}
+
+}  // namespace
+
 std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     const Eigen::Matrix3d& seed_H,
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2,
     const double sampson_max_residual,
-    const double h_max_residual,
+    const double plane_max_residual,
+    const double off_plane_min_residual,
     const int max_trials) {
   THROW_CHECK_EQ(points1.size(), points2.size());
 
   // The seed homography is built from only three sample correspondences (via
   // the plane-corrupted sample fundamental matrix), so it is only approximate.
-  // Refit it on all of its consistent correspondences to obtain an accurate
-  // dominant-plane homography; otherwise the off-plane classification below is
-  // polluted with plane points and the epipole recovery becomes unreliable.
+  // Refit it on all of its plane inliers to obtain an accurate dominant-plane
+  // homography; otherwise the off-plane classification below is polluted with
+  // plane points and the epipole recovery becomes unreliable.
   Eigen::Matrix3d H = seed_H;
   HomographyMatrixEstimator homography_estimator;
   std::vector<Eigen::Vector2d> plane_points1;
@@ -212,8 +236,7 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     plane_points1.clear();
     plane_points2.clear();
     for (size_t i = 0; i < points1.size(); ++i) {
-      if (ComputeSquaredHomographyError(points1[i], points2[i], H) <=
-          h_max_residual) {
+      if (TransferError(points1[i], points2[i], H) <= plane_max_residual) {
         plane_points1.push_back(points1[i]);
         plane_points2.push_back(points2[i]);
       }
@@ -230,12 +253,12 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     H = homographies[0];
   }
 
-  // Off-plane correspondences carry the parallax that constrains the epipole.
+  // Only correspondences well off the plane carry reliable parallax: near-plane
+  // points have tiny, noise-dominated parallax that destabilizes the epipole.
   std::vector<size_t> off_plane_idxs;
   off_plane_idxs.reserve(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
-    if (ComputeSquaredHomographyError(points1[i], points2[i], H) >
-        h_max_residual) {
+    if (TransferError(points1[i], points2[i], H) > off_plane_min_residual) {
       off_plane_idxs.push_back(i);
     }
   }
@@ -283,6 +306,70 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     }
   }
 
+  if (!best_F.has_value()) {
+    return std::nullopt;
+  }
+
+  // Refine the recovered fundamental matrix by fitting the 8-point algorithm to
+  // mixed samples of plane and off-plane inliers, so the epipole is constrained
+  // by several off-plane points rather than just the two used above. Fitting on
+  // a balanced sample avoids the plane bias that a full-inlier fit would incur.
+  std::vector<size_t> plane_inliers;
+  std::vector<size_t> off_plane_inliers;
+  for (size_t i = 0; i < points1.size(); ++i) {
+    if (TransferError(points1[i], points2[i], H) <= plane_max_residual) {
+      plane_inliers.push_back(i);
+    }
+  }
+  ComputeSquaredSampsonError(points1, points2, *best_F, &residuals);
+  for (size_t i = 0; i < points1.size(); ++i) {
+    if (residuals[i] <= sampson_max_residual &&
+        TransferError(points1[i], points2[i], H) > off_plane_min_residual) {
+      off_plane_inliers.push_back(i);
+    }
+  }
+
+  constexpr size_t kNumPlaneSample = 6;
+  constexpr size_t kMaxNumOffPlaneSample = 4;
+  if (plane_inliers.size() >= kNumPlaneSample &&
+      off_plane_inliers.size() >= 2) {
+    const size_t num_off_sample =
+        std::min(kMaxNumOffPlaneSample, off_plane_inliers.size());
+    FundamentalMatrixEightPointEstimator eight_point;
+    std::vector<Eigen::Vector2d> sample_points1;
+    std::vector<Eigen::Vector2d> sample_points2;
+    std::vector<Eigen::Matrix3d> refined_models;
+    constexpr int kNumRefineTrials = 15;
+    for (int trial = 0; trial < kNumRefineTrials; ++trial) {
+      SampleDistinct(kNumPlaneSample, &plane_inliers);
+      SampleDistinct(num_off_sample, &off_plane_inliers);
+      sample_points1.clear();
+      sample_points2.clear();
+      for (size_t i = 0; i < kNumPlaneSample; ++i) {
+        sample_points1.push_back(points1[plane_inliers[i]]);
+        sample_points2.push_back(points2[plane_inliers[i]]);
+      }
+      for (size_t i = 0; i < num_off_sample; ++i) {
+        sample_points1.push_back(points1[off_plane_inliers[i]]);
+        sample_points2.push_back(points2[off_plane_inliers[i]]);
+      }
+
+      refined_models.clear();
+      eight_point.Estimate(sample_points1, sample_points2, &refined_models);
+      if (refined_models.empty()) {
+        continue;
+      }
+      ComputeSquaredSampsonError(
+          points1, points2, refined_models[0], &residuals);
+      const auto support =
+          support_measurer.Evaluate(residuals, sampson_max_residual);
+      if (support_measurer.IsLeftBetter(support, best_support)) {
+        best_support = support;
+        best_F = refined_models[0];
+      }
+    }
+  }
+
   return best_F;
 }
 
@@ -290,13 +377,15 @@ FundamentalMatrixDegensacEstimator::FundamentalMatrixDegensacEstimator(
     const std::vector<Eigen::Vector2d>* points1,
     const std::vector<Eigen::Vector2d>* points2,
     const double sampson_max_residual,
-    const double h_max_residual,
+    const double plane_max_residual,
+    const double off_plane_min_residual,
     const double min_sample_h_inlier_ratio,
     const int max_plane_parallax_trials)
     : points1_(THROW_CHECK_NOTNULL(points1)),
       points2_(THROW_CHECK_NOTNULL(points2)),
       sampson_max_residual_(sampson_max_residual),
-      h_max_residual_(h_max_residual),
+      plane_max_residual_(plane_max_residual),
+      off_plane_min_residual_(off_plane_min_residual),
       min_sample_h_inlier_ratio_(min_sample_h_inlier_ratio),
       max_plane_parallax_trials_(max_plane_parallax_trials) {}
 
@@ -326,7 +415,7 @@ void FundamentalMatrixDegensacEstimator::Estimate(
         DetectSampleHDegeneracy(sample_model,
                                 sample_points1,
                                 sample_points2,
-                                h_max_residual_,
+                                plane_max_residual_,
                                 min_sample_h_inlier_ratio_);
     if (!plane_H.has_value()) {
       // Non-degenerate sample: keep the fitted hypothesis as-is.
@@ -340,7 +429,8 @@ void FundamentalMatrixDegensacEstimator::Estimate(
                                         *points1_,
                                         *points2_,
                                         sampson_max_residual_,
-                                        h_max_residual_,
+                                        plane_max_residual_,
+                                        off_plane_min_residual_,
                                         max_plane_parallax_trials_);
     if (completed_model.has_value()) {
       models->push_back(*completed_model);
@@ -363,10 +453,18 @@ EstimateFundamentalMatrixDegensac(
     const FundamentalMatrixDegensacOptions& options) {
   const double sampson_max_residual =
       options.ransac.max_error * options.ransac.max_error;
-  const double h_max_error = options.h_consistency_max_error > 0
-                                 ? options.h_consistency_max_error
-                                 : options.ransac.max_error;
-  const double h_max_residual = h_max_error * h_max_error;
+  // A correspondence counts as on the dominant plane within a looser margin
+  // than the inlier threshold; only points well off the plane serve as
+  // parallax.
+  const double plane_max_error =
+      options.plane_max_error > 0 ? options.plane_max_error
+                                  : std::sqrt(3.0) * options.ransac.max_error;
+  const double off_plane_min_error = options.off_plane_min_error > 0
+                                         ? options.off_plane_min_error
+                                         : 10.0 * options.ransac.max_error;
+  const double plane_max_residual = plane_max_error * plane_max_error;
+  const double off_plane_min_residual =
+      off_plane_min_error * off_plane_min_error;
 
   // The DEGENSAC estimator is used as BOTH the hypothesis and the
   // local-optimization solver, so the local optimization also applies the
@@ -375,7 +473,8 @@ EstimateFundamentalMatrixDegensac(
       &points1,
       &points2,
       sampson_max_residual,
-      h_max_residual,
+      plane_max_residual,
+      off_plane_min_residual,
       options.min_sample_h_inlier_ratio,
       options.max_plane_parallax_trials);
   LORANSAC<FundamentalMatrixDegensacEstimator,
