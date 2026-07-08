@@ -357,7 +357,8 @@ int main(int /*argc*/, char** /*argv*/) {
   constexpr int kNumProblems = 300;
   constexpr double kNoise = 0.5;  // Pixel std-dev of observation noise.
   const std::vector<size_t> point_counts = {200, 1000};
-  const std::vector<double> plane_fractions = {0.0, 0.5, 0.8, 0.9, 0.95, 0.98};
+  const std::vector<double> plane_fractions = {
+      0.0, 0.3, 0.5, 0.8, 0.9, 0.95, 0.98};
   const std::vector<double> outlier_fractions = {0.0, 0.2, 0.4};
 
   std::printf(
