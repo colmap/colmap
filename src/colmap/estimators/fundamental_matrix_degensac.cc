@@ -44,7 +44,6 @@
 
 #include <Eigen/Geometry>
 #include <Eigen/LU>
-#include <Eigen/SVD>
 
 namespace colmap {
 namespace {
@@ -69,21 +68,33 @@ constexpr int kNumSampledTriplets = 50;
 }  // namespace
 
 Eigen::Vector3d EpipoleFromFundamentalMatrix(const Eigen::Matrix3d& F) {
-  // The left epipole e2 satisfies F^T e2 = 0, i.e. it is the left null vector
-  // of F and thus the last left singular vector (last column of U).
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(F, Eigen::ComputeFullU);
-  return svd.matrixU().col(2).normalized();
+  // The epipole e2 is the left null vector (F^T e2 = 0), i.e. it is orthogonal
+  // to the column space of the rank-2 matrix F and thus parallel to the cross
+  // product of two of its columns. Using the column pair with the largest cross
+  // product is numerically stable and avoids a full SVD.
+  const Eigen::Vector3d e01 = F.col(0).cross(F.col(1));
+  const Eigen::Vector3d e02 = F.col(0).cross(F.col(2));
+  const Eigen::Vector3d e12 = F.col(1).cross(F.col(2));
+  const double n01 = e01.squaredNorm();
+  const double n02 = e02.squaredNorm();
+  const double n12 = e12.squaredNorm();
+  if (n01 >= n02 && n01 >= n12) {
+    return e01.normalized();
+  }
+  return n02 >= n12 ? e02.normalized() : e12.normalized();
 }
 
-std::optional<Eigen::Matrix3d> HomographyFromFundamentalAndPoints(
-    const Eigen::Matrix3d& F,
+namespace {
+
+// Plane-induced homography compatible with the epipolar geometry from three
+// correspondences (H&Z Result 13.6), given the precomputed A = [e2]_x F and the
+// epipole e2. Splitting this out lets the degeneracy test reuse A across all
+// triplets of a sample instead of recomputing it each time.
+std::optional<Eigen::Matrix3d> HomographyFromCompatible(
+    const Eigen::Matrix3d& A,
     const Eigen::Vector3d& epipole2,
     const std::array<Eigen::Vector2d, 3>& points1,
     const std::array<Eigen::Vector2d, 3>& points2) {
-  // A = [e2]_x F is a particular homography compatible with F (H&Z
-  // Result 13.6).
-  const Eigen::Matrix3d A = CrossProductMatrix(epipole2) * F;
-
   Eigen::Matrix3d M;
   Eigen::Vector3d b;
   for (int i = 0; i < 3; ++i) {
@@ -99,14 +110,28 @@ std::optional<Eigen::Matrix3d> HomographyFromFundamentalAndPoints(
     M.row(i) = x1.transpose();
   }
 
-  // Reject collinear first-image points, for which M is singular.
-  Eigen::FullPivLU<Eigen::Matrix3d> lu(M);
-  if (!lu.isInvertible()) {
+  // Reject collinear first-image points (scale-invariant singularity check),
+  // then solve with the closed-form 3x3 inverse.
+  const double det = M.determinant();
+  const double scale = M.row(0).norm() * M.row(1).norm() * M.row(2).norm();
+  if (scale < 1e-12 || std::abs(det) < 1e-9 * scale) {
     return std::nullopt;
   }
-
-  const Eigen::Vector3d Minv_b = lu.solve(b);
+  const Eigen::Vector3d Minv_b = M.inverse() * b;
   return A - epipole2 * Minv_b.transpose();
+}
+
+}  // namespace
+
+std::optional<Eigen::Matrix3d> HomographyFromFundamentalAndPoints(
+    const Eigen::Matrix3d& F,
+    const Eigen::Vector3d& epipole2,
+    const std::array<Eigen::Vector2d, 3>& points1,
+    const std::array<Eigen::Vector2d, 3>& points2) {
+  // A = [e2]_x F is a particular homography compatible with F (H&Z
+  // Result 13.6).
+  return HomographyFromCompatible(
+      CrossProductMatrix(epipole2) * F, epipole2, points1, points2);
 }
 
 std::optional<Eigen::Matrix3d> DetectSampleHDegeneracy(
@@ -120,6 +145,8 @@ std::optional<Eigen::Matrix3d> DetectSampleHDegeneracy(
   THROW_CHECK_GE(num_samples, 3);
 
   const Eigen::Vector3d epipole2 = EpipoleFromFundamentalMatrix(F);
+  // A = [e2]_x F is shared by all triplets; compute it once.
+  const Eigen::Matrix3d A = CrossProductMatrix(epipole2) * F;
   const int min_consistent = std::max<int>(
       3,
       static_cast<int>(std::llround(min_sample_h_inlier_ratio * num_samples)));
@@ -127,15 +154,16 @@ std::optional<Eigen::Matrix3d> DetectSampleHDegeneracy(
   int best_num_consistent = min_consistent - 1;
   std::optional<Eigen::Matrix3d> best_H;
 
+  // Returns true if all sample points are consistent (nothing left to improve).
   const auto evaluate_triplet = [&](int i, int j, int k) {
     const std::array<Eigen::Vector2d, 3> tri_points1 = {
         sample_points1[i], sample_points1[j], sample_points1[k]};
     const std::array<Eigen::Vector2d, 3> tri_points2 = {
         sample_points2[i], sample_points2[j], sample_points2[k]};
-    const std::optional<Eigen::Matrix3d> H = HomographyFromFundamentalAndPoints(
-        F, epipole2, tri_points1, tri_points2);
+    const std::optional<Eigen::Matrix3d> H =
+        HomographyFromCompatible(A, epipole2, tri_points1, tri_points2);
     if (!H.has_value()) {
-      return;
+      return false;
     }
     int num_consistent = 0;
     for (size_t p = 0; p < num_samples; ++p) {
@@ -148,13 +176,16 @@ std::optional<Eigen::Matrix3d> DetectSampleHDegeneracy(
       best_num_consistent = num_consistent;
       best_H = H;
     }
+    return best_num_consistent >= static_cast<int>(num_samples);
   };
 
   if (num_samples ==
       static_cast<size_t>(FundamentalMatrixDegensacEstimator::kMinNumSamples)) {
     // Minimal sample: exhaustively enumerate all triplets.
     for (const auto& triplet : kSampleTriplets) {
-      evaluate_triplet(triplet[0], triplet[1], triplet[2]);
+      if (evaluate_triplet(triplet[0], triplet[1], triplet[2])) {
+        break;
+      }
     }
   } else {
     // Non-minimal sample (e.g. a local-optimization inlier set): sample
@@ -168,7 +199,9 @@ std::optional<Eigen::Matrix3d> DetectSampleHDegeneracy(
       if (i == j || j == k || i == k) {
         continue;
       }
-      evaluate_triplet(i, j, k);
+      if (evaluate_triplet(i, j, k)) {
+        break;
+      }
     }
   }
 
@@ -228,22 +261,35 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
   // plane points and the epipole recovery becomes unreliable.
   Eigen::Matrix3d H = seed_H;
   HomographyMatrixEstimator homography_estimator;
+  std::vector<size_t> plane_idxs;
   std::vector<Eigen::Vector2d> plane_points1;
   std::vector<Eigen::Vector2d> plane_points2;
   std::vector<Eigen::Matrix3d> homographies;
   constexpr int kNumRefitIters = 2;
+  // A homography is well determined by a modest, spatially spread subset, so
+  // cap the number of correspondences used for the DLT to avoid an O(N) SVD
+  // when the dominant plane has many inliers.
+  constexpr size_t kMaxHomographyFitPoints = 64;
   for (int iter = 0; iter < kNumRefitIters; ++iter) {
-    plane_points1.clear();
-    plane_points2.clear();
+    plane_idxs.clear();
     for (size_t i = 0; i < points1.size(); ++i) {
       if (TransferError(points1[i], points2[i], H) <= plane_max_residual) {
-        plane_points1.push_back(points1[i]);
-        plane_points2.push_back(points2[i]);
+        plane_idxs.push_back(i);
       }
     }
-    if (plane_points1.size() <
+    if (plane_idxs.size() <
         static_cast<size_t>(HomographyMatrixEstimator::kMinNumSamples)) {
       break;
+    }
+    const size_t num_fit = std::min(kMaxHomographyFitPoints, plane_idxs.size());
+    if (plane_idxs.size() > num_fit) {
+      SampleDistinct(num_fit, &plane_idxs);
+    }
+    plane_points1.clear();
+    plane_points2.clear();
+    for (size_t i = 0; i < num_fit; ++i) {
+      plane_points1.push_back(points1[plane_idxs[i]]);
+      plane_points2.push_back(points2[plane_idxs[i]]);
     }
     homographies.clear();
     homography_estimator.Estimate(plane_points1, plane_points2, &homographies);
@@ -266,20 +312,29 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     return std::nullopt;
   }
 
-  // Precompute the transferred plane points H * x1 for the off-plane
-  // candidates.
-  std::vector<Eigen::Vector3d> lines(off_plane_idxs.size());
-  for (size_t i = 0; i < off_plane_idxs.size(); ++i) {
+  // Precompute the transferred plane points H * x1 and the off-plane points, so
+  // the epipole search below scores over only the off-plane subset.
+  const size_t num_off_plane = off_plane_idxs.size();
+  std::vector<Eigen::Vector3d> lines(num_off_plane);
+  std::vector<Eigen::Vector2d> off_points1(num_off_plane);
+  std::vector<Eigen::Vector2d> off_points2(num_off_plane);
+  for (size_t i = 0; i < num_off_plane; ++i) {
     const size_t idx = off_plane_idxs[i];
     lines[i] = points2[idx].homogeneous().cross(H * points1[idx].homogeneous());
+    off_points1[i] = points1[idx];
+    off_points2[i] = points2[idx];
   }
 
   InlierSupportMeasurer support_measurer;
-  InlierSupportMeasurer::Support best_support;
-  std::optional<Eigen::Matrix3d> best_F;
   std::vector<double> residuals;
 
-  const size_t num_off_plane = off_plane_idxs.size();
+  // Plane correspondences are consistent with F = [e2]_x H for ANY epipole e2
+  // (x2^T [e2]_x H x1 ~ x2^T [e2]_x x2 = 0 when H x1 ~ x2), so among the
+  // F = [e2]_x H candidates only the off-plane correspondences discriminate.
+  // Scoring epipole candidates over just the off-plane subset ranks them
+  // correctly at a fraction of the cost of scoring all correspondences.
+  InlierSupportMeasurer::Support best_off_support;
+  std::optional<Eigen::Matrix3d> best_F;
   const size_t num_pairs = num_off_plane * (num_off_plane - 1) / 2;
   const size_t num_trials =
       std::min<size_t>(static_cast<size_t>(std::max(max_trials, 1)), num_pairs);
@@ -297,11 +352,11 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     }
     const Eigen::Matrix3d F = CrossProductMatrix(epipole2.normalized()) * H;
 
-    ComputeSquaredSampsonError(points1, points2, F, &residuals);
+    ComputeSquaredSampsonError(off_points1, off_points2, F, &residuals);
     const auto support =
         support_measurer.Evaluate(residuals, sampson_max_residual);
-    if (support_measurer.IsLeftBetter(support, best_support)) {
-      best_support = support;
+    if (support_measurer.IsLeftBetter(support, best_off_support)) {
+      best_off_support = support;
       best_F = F;
     }
   }
@@ -309,6 +364,12 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
   if (!best_F.has_value()) {
     return std::nullopt;
   }
+
+  // Seed the full-data support of the best epipole candidate, against which the
+  // mixed-sample refinement below is compared.
+  ComputeSquaredSampsonError(points1, points2, *best_F, &residuals);
+  InlierSupportMeasurer::Support best_support =
+      support_measurer.Evaluate(residuals, sampson_max_residual);
 
   // Refine the recovered fundamental matrix by fitting the 8-point algorithm to
   // mixed samples of plane and off-plane inliers, so the epipole is constrained
