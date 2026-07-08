@@ -123,7 +123,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t& image_id1,
                                              image_t& image_id2,
                                              Rigid3d& cam2_from_cam1) {
-  return IncrementalMapperImpl::FindInitialImagePair(
+  std::optional<double> shared_focal_length;
+  const bool success = IncrementalMapperImpl::FindInitialImagePair(
       options,
       *database_cache_,
       *reconstruction_,
@@ -132,7 +133,14 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       reg_stats_.init_image_pairs,
       image_id1,
       image_id2,
-      cam2_from_cam1);
+      cam2_from_cam1,
+      shared_focal_length);
+  if (success && shared_focal_length.has_value()) {
+    // Seed the shared camera's focal length, leaving it optimizable for BA.
+    reconstruction_->Image(image_id1).CameraPtr()->SetFocalLength(
+        *shared_focal_length);
+  }
+  return success;
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
@@ -1431,8 +1439,20 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     Rigid3d& cam2_from_cam1) {
-  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, *database_cache_, image_id1, image_id2, cam2_from_cam1);
+  std::optional<double> shared_focal_length;
+  const bool success = IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+      options,
+      *database_cache_,
+      image_id1,
+      image_id2,
+      cam2_from_cam1,
+      shared_focal_length);
+  if (success && shared_focal_length.has_value()) {
+    // Seed the shared camera's focal length, leaving it optimizable for BA.
+    reconstruction_->Image(image_id1).CameraPtr()->SetFocalLength(
+        *shared_focal_length);
+  }
+  return success;
 }
 
 }  // namespace colmap

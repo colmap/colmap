@@ -33,6 +33,7 @@
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/estimators/solvers/fundamental_matrix.h"
 #include "colmap/estimators/solvers/homography_matrix.h"
+#include "colmap/estimators/solvers/relpose_shared_focal.h"
 #include "colmap/estimators/solvers/translation_transform.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
@@ -426,12 +427,23 @@ TwoViewGeometry EstimateTwoViewGeometry(
         camera1, points1, camera2, points2, matches, options);
   } else {
     // A spherical (omnidirectional) camera has no pinhole image plane, so only
-    // the bearing-based essential matrix is meaningful. Otherwise, use the
-    // calibrated path if both cameras have a known focal length, and the
-    // uncalibrated path otherwise.
+    // the bearing-based essential matrix is meaningful. Otherwise, if both
+    // images share the same pinhole-projection camera (perspective and
+    // non-fisheye) without a focal-length prior, recover a single shared focal
+    // length jointly with the relative pose; multi-focal models (e.g. PINHOLE)
+    // are seeded isotropically (fx = fy = f) and refined later by bundle
+    // adjustment. Distortion is not a barrier here (as in the
+    // fundamental-matrix path, it is absorbed by the epipolar fit and later
+    // refined). Otherwise, use the calibrated path if both cameras have a known
+    // focal length, and the uncalibrated path otherwise.
     if (camera1.IsSpherical() || camera2.IsSpherical()) {
       return EstimateSphericalTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
+    } else if (camera1.camera_id == camera2.camera_id &&
+               !camera1.has_prior_focal_length && camera1.IsPerspective() &&
+               !CameraModelIsFisheye(camera1.model_id)) {
+      return EstimateSharedFocalTwoViewGeometry(
+          camera1, points1, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
                camera2.has_prior_focal_length) {
       return EstimateCalibratedTwoViewGeometry(
@@ -614,6 +626,38 @@ void ExtractInlierCamRays(const Camera& camera1,
   }
 }
 
+// Extract camera rays for the shared-focal configuration, calibrating with the
+// estimated shared focal length instead of the camera's (stale, default) focal.
+// Both images share `camera` (and thus its principal point).
+void ExtractInlierCamRaysSharedFocal(
+    const Camera& camera,
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2,
+    const FeatureMatches& inlier_matches,
+    const double focal,
+    std::vector<Eigen::Vector3d>* inlier_cam_rays1,
+    std::vector<Eigen::Vector3d>* inlier_cam_rays2) {
+  const Eigen::Vector2d principal_point = camera.PrincipalPoint();
+  const double inv_f = 1.0 / focal;
+  inlier_cam_rays1->resize(inlier_matches.size());
+  inlier_cam_rays2->resize(inlier_matches.size());
+  for (size_t i = 0; i < inlier_matches.size(); ++i) {
+    const FeatureMatch& match = inlier_matches[i];
+    const Eigen::Vector2d& point1 = points1[match.point2D_idx1];
+    const Eigen::Vector2d& point2 = points2[match.point2D_idx2];
+    (*inlier_cam_rays1)[i] =
+        Eigen::Vector3d((point1.x() - principal_point.x()) * inv_f,
+                        (point1.y() - principal_point.y()) * inv_f,
+                        1.0)
+            .normalized();
+    (*inlier_cam_rays2)[i] =
+        Eigen::Vector3d((point2.x() - principal_point.x()) * inv_f,
+                        (point2.y() - principal_point.y()) * inv_f,
+                        1.0)
+            .normalized();
+  }
+}
+
 bool EstimateTwoViewGeometryPoseFromCamRays(
     const Camera& camera1,
     const Camera& camera2,
@@ -629,7 +673,12 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
   // CALIBRATED branch below and never reach the CalibrationMatrix() calls.
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
-  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
+  // The shared-focal configuration is treated like the calibrated one here: it
+  // carries a metric essential matrix, and the caller has already calibrated
+  // the inlier rays with the estimated shared focal length.
+  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
+      geometry->config ==
+          TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
     THROW_CHECK(geometry->E.has_value());
     PoseFromEssentialMatrix(*geometry->E,
                             inlier_cam_rays1,
@@ -725,6 +774,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   // We need a valid epipolar geometry to estimate the relative pose.
   if (geometry->config != TwoViewGeometry::ConfigurationType::CALIBRATED &&
       geometry->config != TwoViewGeometry::ConfigurationType::UNCALIBRATED &&
+      geometry->config !=
+          TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL &&
       geometry->config != TwoViewGeometry::ConfigurationType::PLANAR &&
       geometry->config != TwoViewGeometry::ConfigurationType::PANORAMIC &&
       geometry->config !=
@@ -737,13 +788,27 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   std::vector<Eigen::Vector3d> inlier_cam_rays1;
   std::vector<Eigen::Vector3d> inlier_cam_rays2;
-  ExtractInlierCamRays(camera1,
-                       points1,
-                       camera2,
-                       points2,
-                       geometry->inlier_matches,
-                       &inlier_cam_rays1,
-                       &inlier_cam_rays2);
+  if (geometry->config ==
+      TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
+    // The camera's own focal length is a placeholder here; calibrate the rays
+    // with the focal length estimated jointly with the relative pose instead.
+    THROW_CHECK(geometry->shared_focal_length.has_value());
+    ExtractInlierCamRaysSharedFocal(camera1,
+                                    points1,
+                                    points2,
+                                    geometry->inlier_matches,
+                                    *geometry->shared_focal_length,
+                                    &inlier_cam_rays1,
+                                    &inlier_cam_rays2);
+  } else {
+    ExtractInlierCamRays(camera1,
+                         points1,
+                         camera2,
+                         points2,
+                         geometry->inlier_matches,
+                         &inlier_cam_rays1,
+                         &inlier_cam_rays2);
+  }
   return EstimateTwoViewGeometryPoseFromCamRays(
       camera1, camera2, inlier_cam_rays1, inlier_cam_rays2, geometry);
 }
@@ -917,6 +982,126 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     if (options.compute_relative_pose) {
       EstimateTwoViewGeometryPose(
           camera1, points1, camera2, points2, &geometry);
+    }
+  }
+
+  return geometry;
+}
+
+TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
+    const Camera& camera,
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2,
+    const FeatureMatches& matches,
+    const TwoViewGeometryOptions& options) {
+  THROW_CHECK(options.Check());
+
+  TwoViewGeometry geometry;
+
+  const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
+  if (matches.size() < min_num_inliers) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  // Extract corresponding points. The shared-focal solver operates on
+  // principal-point-centered homogeneous image points (u - cx, v - cy, 1),
+  // while the homography and watermark checks operate on raw image points.
+  const Eigen::Vector2d principal_point = camera.PrincipalPoint();
+  std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
+  std::vector<Eigen::Vector2d> matched_centered_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_centered_points2(matches.size());
+  for (size_t i = 0; i < matches.size(); ++i) {
+    const point2D_t idx1 = matches[i].point2D_idx1;
+    const point2D_t idx2 = matches[i].point2D_idx2;
+    matched_img_points1[i] = points1[idx1];
+    matched_img_points2[i] = points2[idx2];
+    matched_centered_points1[i] = points1[idx1] - principal_point;
+    matched_centered_points2[i] = points2[idx2] - principal_point;
+  }
+
+  auto ransac_options = options.ransac_options;
+  if (options.min_inlier_ratio > 0) {
+    ransac_options.min_inlier_ratio = options.min_inlier_ratio;
+  }
+
+  // Shared-focal relative pose. Residuals are pixel-space squared Sampson
+  // error, so the pixel threshold in `ransac_options` is used unscaled (unlike
+  // the calibrated essential-matrix path, which rescales it into ray space).
+  LORANSAC<RelativePoseSharedFocalEstimator, RelativePoseSharedFocalEstimator>
+      SF_ransac(ransac_options);
+  const auto SF_report =
+      SF_ransac.Estimate(matched_centered_points1, matched_centered_points2);
+
+  // Estimate a homography to detect planar/panoramic degeneracies, where
+  // two-view focal recovery is ill-posed and the 6-point solver returns a
+  // meaningless focal length.
+  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
+      ransac_options);
+  const auto H_report =
+      H_ransac.Estimate(matched_img_points1, matched_img_points2);
+  geometry.H = H_report.model;
+
+  if ((!SF_report.success && !H_report.success) ||
+      (SF_report.support.num_inliers < min_num_inliers &&
+       H_report.support.num_inliers < min_num_inliers)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  const double H_SF_inlier_ratio =
+      static_cast<double>(H_report.support.num_inliers) /
+      SF_report.support.num_inliers;
+
+  const std::vector<char>* best_inlier_mask = nullptr;
+  size_t num_inliers = 0;
+
+  if (SF_report.success && SF_report.support.num_inliers >= min_num_inliers &&
+      H_SF_inlier_ratio <= options.max_H_inlier_ratio) {
+    // Shared-focal (metric) configuration.
+    num_inliers = SF_report.support.num_inliers;
+    best_inlier_mask = &SF_report.inlier_mask;
+    geometry.config =
+        TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL;
+    geometry.E = SF_report.model.E;
+    geometry.shared_focal_length = SF_report.model.focal;
+  } else if (H_report.success &&
+             H_report.support.num_inliers >= min_num_inliers) {
+    num_inliers = H_report.support.num_inliers;
+    best_inlier_mask = &H_report.inlier_mask;
+    geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
+  } else {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  if (best_inlier_mask != nullptr) {
+    geometry.inlier_matches =
+        ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
+
+    // Check inlier ratio threshold.
+    if (options.min_inlier_ratio > 0) {
+      const double inlier_ratio =
+          static_cast<double>(num_inliers) / matches.size();
+      if (inlier_ratio < options.min_inlier_ratio) {
+        geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+        return geometry;
+      }
+    }
+
+    if (options.detect_watermark && DetectWatermarkMatches(camera,
+                                                           matched_img_points1,
+                                                           camera,
+                                                           matched_img_points2,
+                                                           num_inliers,
+                                                           *best_inlier_mask,
+                                                           options)) {
+      geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
+    }
+
+    if (options.compute_relative_pose) {
+      EstimateTwoViewGeometryPose(camera, points1, camera, points2, &geometry);
     }
   }
 

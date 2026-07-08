@@ -49,6 +49,10 @@ struct TwoViewGeometry {
     CALIBRATED_RIG = 9,
     // Fundamental matrix.
     UNCALIBRATED = 3,
+    // Essential matrix with a shared, estimated focal length (both images from
+    // the same uncalibrated camera). Carries E, a fundamental matrix, a metric
+    // relative pose, and `shared_focal_length`.
+    UNCALIBRATED_SHARED_FOCAL = 10,
     // Homography, planar scene with baseline.
     PLANAR = 4,
     // Homography, pure rotation without baseline.
@@ -74,6 +78,12 @@ struct TwoViewGeometry {
 
   // Relative pose.
   std::optional<Rigid3d> cam2_from_cam1;
+
+  // Shared focal length, set only for the UNCALIBRATED_SHARED_FOCAL
+  // configuration, where it is estimated jointly with the relative pose. Its
+  // presence discriminates a shared-focal geometry from a plain uncalibrated
+  // one.
+  std::optional<double> shared_focal_length;
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;

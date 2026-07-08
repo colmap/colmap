@@ -35,6 +35,8 @@
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/hash_containers.h"
 
+#include <optional>
+
 namespace colmap {
 
 // Algorithm class for incremental mapper to make it easier to extend
@@ -62,6 +64,10 @@ class IncrementalMapperImpl {
       const FlatHashMap<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
+  // On success, `estimated_shared_focal` is set to the focal length estimated
+  // for the chosen pair when it was initialized via the shared-focal solver
+  // (both images from a single uncalibrated camera), and to std::nullopt
+  // otherwise.
   static bool FindInitialImagePair(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
@@ -71,7 +77,8 @@ class IncrementalMapperImpl {
       FlatHashSet<image_pair_t>& init_image_pairs,
       image_t& image_id1,
       image_t& image_id2,
-      Rigid3d& cam2_from_cam1);
+      Rigid3d& cam2_from_cam1,
+      std::optional<double>& estimated_shared_focal);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
@@ -88,12 +95,17 @@ class IncrementalMapperImpl {
       const Reconstruction& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
+  //
+  // On success, `estimated_shared_focal` is set to the focal length estimated
+  // via the shared-focal solver (both images from a single uncalibrated
+  // camera), and to std::nullopt otherwise.
   static bool EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       image_t image_id1,
       image_t image_id2,
-      Rigid3d& cam2_from_cam1);
+      Rigid3d& cam2_from_cam1,
+      std::optional<double>& estimated_shared_focal);
 };
 
 }  // namespace colmap

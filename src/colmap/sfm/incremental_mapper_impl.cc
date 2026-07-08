@@ -195,8 +195,10 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     FlatHashSet<image_pair_t>& init_image_pairs,
     image_t& image_id1,
     image_t& image_id2,
-    Rigid3d& cam2_from_cam1) {
+    Rigid3d& cam2_from_cam1,
+    std::optional<double>& estimated_shared_focal) {
   THROW_CHECK(options.Check());
+  estimated_shared_focal = std::nullopt;
 
   const CorrespondenceGraph& correspondence_graph =
       *database_cache.CorrespondenceGraph();
@@ -229,6 +231,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_t image_id1 = kInvalidImageId;
     image_t image_id2 = kInvalidImageId;
     Rigid3d cam2_from_cam1;
+    std::optional<double> shared_focal;
   };
 
   ThreadPool thread_pool(options.num_threads);
@@ -275,7 +278,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
                 database_cache,
                 init_info.image_id1,
                 init_info.image_id2,
-                init_info.cam2_from_cam1)) {
+                init_info.cam2_from_cam1,
+                init_info.shared_focal)) {
           stop.store(true);
           init_info.success = true;
           return init_info;
@@ -295,6 +299,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
       image_id1 = init_info.image_id1;
       image_id2 = init_info.image_id2;
       cam2_from_cam1 = init_info.cam2_from_cam1;
+      estimated_shared_focal = init_info.shared_focal;
       thread_pool.Stop();
       return true;
     }
@@ -672,7 +677,10 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const DatabaseCache& database_cache,
     const image_t image_id1,
     const image_t image_id2,
-    Rigid3d& cam2_from_cam1) {
+    Rigid3d& cam2_from_cam1,
+    std::optional<double>& estimated_shared_focal) {
+  estimated_shared_focal = std::nullopt;
+
   const Image& image1 = database_cache.Image(image_id1);
   const Image& image2 = database_cache.Image(image_id2);
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
@@ -698,8 +706,22 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
   two_view_geometry_options.ransac_options.random_seed = options.random_seed;
-  TwoViewGeometry two_view_geometry = EstimateCalibratedTwoViewGeometry(
-      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+  // If both images stem from a single pinhole-projection camera (perspective
+  // and non-fisheye) without a focal-length prior, recover a shared focal
+  // length jointly with the relative pose instead of relying on the camera's
+  // placeholder focal length. Multi-focal models are seeded isotropically
+  // (fx = fy = f). All other cases (including spherical and fisheye cameras)
+  // keep the existing calibrated initialization path unchanged.
+  TwoViewGeometry two_view_geometry;
+  if (camera1.camera_id == camera2.camera_id &&
+      !camera1.has_prior_focal_length && camera1.IsPerspective() &&
+      !CameraModelIsFisheye(camera1.model_id)) {
+    two_view_geometry = EstimateSharedFocalTwoViewGeometry(
+        camera1, points1, points2, matches, two_view_geometry_options);
+  } else {
+    two_view_geometry = EstimateCalibratedTwoViewGeometry(
+        camera1, points1, camera2, points2, matches, two_view_geometry_options);
+  }
 
   if (!EstimateTwoViewGeometryPose(
           camera1, points1, camera2, points2, &two_view_geometry)) {
@@ -742,6 +764,10 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   }
 
   cam2_from_cam1 = *two_view_geometry.cam2_from_cam1;
+
+  // Surface the shared focal length (if it was estimated) so the caller can
+  // seed the camera before registering the initial pair.
+  estimated_shared_focal = two_view_geometry.shared_focal_length;
 
   return true;
 }

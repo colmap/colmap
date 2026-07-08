@@ -24,6 +24,8 @@ void BindTwoViewGeometryScene(py::module& m) {
       .value("CALIBRATED", TwoViewGeometry::CALIBRATED)
       .value("CALIBRATED_RIG", TwoViewGeometry::CALIBRATED_RIG)
       .value("UNCALIBRATED", TwoViewGeometry::UNCALIBRATED)
+      .value("UNCALIBRATED_SHARED_FOCAL",
+             TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL)
       .value("PLANAR", TwoViewGeometry::PLANAR)
       .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
       .value("PLANAR_OR_PANORAMIC", TwoViewGeometry::PLANAR_OR_PANORAMIC)
@@ -38,6 +40,8 @@ void BindTwoViewGeometryScene(py::module& m) {
       .def_readwrite("F", &TwoViewGeometry::F)
       .def_readwrite("H", &TwoViewGeometry::H)
       .def_readwrite("cam2_from_cam1", &TwoViewGeometry::cam2_from_cam1)
+      .def_readwrite("shared_focal_length",
+                     &TwoViewGeometry::shared_focal_length)
       .def_property(
           "inlier_matches",
           [](const TwoViewGeometry& self) {
