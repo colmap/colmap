@@ -34,6 +34,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_retrieval
     SRCS
         geometry.h geometry.cc
+        global_descriptor_index.h global_descriptor_index.cc
         inverted_file.h
         inverted_file_entry.h
         inverted_index.h

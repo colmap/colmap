@@ -51,10 +51,16 @@ inline const std::filesystem::path kDefaultAlikedN32VocabTreeUri =
     "vocab_tree_faiss_flickr100K_words64K_aliked_n32.bin;"
     "vocab_tree_faiss_flickr100K_words64K_aliked_n32.bin;"
     "65619481045b8f933268f10c31ad180eb1ee7881182873efe0f5753972ef6a20";
+inline const std::filesystem::path kDefaultMixVPRModelUri =
+    "https://huggingface.co/Realcat/image_retrieval_checkpoints/resolve/main/"
+    "mixvpr/onnx/mixvpr_fp16.onnx;"
+    "mixvpr_fp16.onnx;"
+    "2afcfb51cd13ed96b242c80f809dae7a47ccbbaf0a6cd3a31f93e39b45dee311";
 #else
 inline const std::filesystem::path kDefaultSiftVocabTreeUri = "";
 inline const std::filesystem::path kDefaultAlikedN16RotVocabTreeUri = "";
 inline const std::filesystem::path kDefaultAlikedN32VocabTreeUri = "";
+inline const std::filesystem::path kDefaultMixVPRModelUri = "";
 #endif
 
 const std::filesystem::path& GetVocabTreeUriForFeatureType(

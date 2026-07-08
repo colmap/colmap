@@ -30,8 +30,10 @@
 #pragma once
 
 #include "colmap/controllers/matcher_cache.h"
+#include "colmap/retrieval/global_descriptor_index.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
@@ -39,6 +41,8 @@
 #include <filesystem>
 
 namespace colmap {
+
+struct GlobalDescriptorPairingOptions;
 
 struct ExhaustivePairingOptions {
   // Block size, i.e. number of images to simultaneously load into memory.
@@ -150,12 +154,23 @@ struct SequentialPairingOptions {
   // Number of threads for loop detection indexing and retrieval.
   int num_threads = -1;
 
-  // Path to the vocabulary tree.
+  // Path to the vocabulary tree (used when loop_detection_model_path is empty).
   std::filesystem::path vocab_tree_path;
+
+  // Path to a global descriptor ONNX model (e.g. MixVPR) for loop detection.
+  // When set, replaces the vocabulary tree with deep-learning-based retrieval.
+  std::filesystem::path loop_detection_model_path;
+
+  // Path to the image directory, required when loop_detection_model_path is set.
+  std::filesystem::path loop_detection_image_path;
 
   bool Check() const;
 
   VocabTreePairingOptions VocabTreeOptions() const;
+  // Returns options suitable for GlobalDescriptorPairGenerator.
+  // Defined in pairing.cc to avoid circular dependency with the full
+  // GlobalDescriptorPairingOptions definition.
+  GlobalDescriptorPairingOptions GlobalDescriptorOptions() const;
 
   inline size_t CacheSize() const {
     return std::max(5 * loop_detection_num_images, 5 * overlap);
@@ -228,6 +243,37 @@ struct ExistingMatchedPairingOptions {
   inline size_t CacheSize() const {
     return std::max<size_t>(10, static_cast<size_t>(2 * std::sqrt(batch_size)));
   }
+};
+
+struct GlobalDescriptorPairingOptions {
+  // Number of most similar images to retrieve for each query image.
+  int num_images = 100;
+
+  // Path to the global descriptor ONNX model file (e.g. MixVPR).
+  std::filesystem::path model_path;
+
+  // Path to the directory containing the images.
+  std::filesystem::path image_path;
+
+  // Optional path to file with specific image names to use as queries.
+  // If empty, all images are used as queries.
+  std::filesystem::path match_list_path = "";
+
+  // Number of threads for ONNX inference.
+  int num_threads = -1;
+
+  // Whether to use GPU for ONNX inference.
+  bool use_gpu = false;
+
+  // GPU index for ONNX inference.
+  std::string gpu_index = "-1";
+
+  // Batch size for ONNX inference.
+  int batch_size = 16;
+
+  bool Check() const;
+
+  inline size_t CacheSize() const { return 5 * num_images; }
 };
 
 class PairGenerator {
@@ -334,7 +380,7 @@ class SequentialPairGenerator : public PairGenerator {
   // Optional mapping from frames to images and vice versa.
   NodeHashMap<frame_t, std::vector<image_t>> frame_to_image_ids_;
   NodeHashMap<image_t, frame_t> image_to_frame_ids_;
-  std::unique_ptr<VocabTreePairGenerator> vocab_tree_pair_generator_;
+  std::unique_ptr<PairGenerator> loop_detection_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t image_idx_ = 0;
 };
@@ -440,6 +486,43 @@ class ExistingMatchedPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t start_idx_ = 0;
   size_t num_batches_ = 0;
+};
+
+class GlobalDescriptorPairGenerator : public PairGenerator {
+ public:
+  using PairingOptions = GlobalDescriptorPairingOptions;
+
+  GlobalDescriptorPairGenerator(
+      const GlobalDescriptorPairingOptions& options,
+      const std::shared_ptr<FeatureMatcherCache>& cache,
+      const std::vector<image_t>& query_image_ids = {});
+
+  GlobalDescriptorPairGenerator(
+      const GlobalDescriptorPairingOptions& options,
+      const std::shared_ptr<Database>& database,
+      const std::vector<image_t>& query_image_ids = {});
+
+  void Reset() override;
+
+  bool HasFinished() const override;
+
+  std::vector<std::pair<image_t, image_t>> Next() override;
+
+ private:
+  // Preprocess a bitmap to a (1, 3, 320, 320) float32 tensor suitable for
+  // MixVPR ONNX input. Returns serialized NCHW float data.
+  static std::vector<float> PreprocessImage(const Bitmap& bitmap);
+
+  // Compute global descriptors for all images using batched ONNX inference
+  // and add them to the global descriptor index.
+  void ComputeAndIndexDescriptors();
+
+  const GlobalDescriptorPairingOptions options_;
+  const std::shared_ptr<FeatureMatcherCache> cache_;
+  std::vector<image_t> query_image_ids_;
+  retrieval::GlobalDescriptorIndex global_descriptor_index_;
+  std::vector<std::pair<image_t, image_t>> image_pairs_;
+  size_t pair_idx_ = 0;
 };
 
 }  // namespace colmap

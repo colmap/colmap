@@ -168,6 +168,15 @@ struct GeometricVerifierOptions {
   bool use_existing_relative_pose = false;
 };
 
+// Match images using global descriptors (e.g. MixVPR) for image retrieval.
+// Each image is represented by a single compact descriptor; nearest-neighbor
+// search is performed via cosine similarity to find similar image pairs.
+std::unique_ptr<Thread> CreateGlobalDescriptorFeatureMatcher(
+    const GlobalDescriptorPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
+    const std::filesystem::path& database_path);
+
 // Perform geometric verification of existing matched image pairs.
 std::unique_ptr<Thread> CreateGeometricVerifier(
     const GeometricVerifierOptions& verifier_options,
