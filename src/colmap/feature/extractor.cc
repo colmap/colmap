@@ -30,6 +30,7 @@
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/misc.h"
 
@@ -46,7 +47,8 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
     : sift(std::make_shared<SiftExtractionOptions>()),
-      aliked(std::make_shared<AlikedExtractionOptions>()) {}
+      aliked(std::make_shared<AlikedExtractionOptions>()),
+      loma(std::make_shared<LomaExtractionOptions>()) {}
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
     const FeatureExtractionTypeOptions& other) {
@@ -55,6 +57,9 @@ FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
   }
   if (other.aliked) {
     aliked = std::make_shared<AlikedExtractionOptions>(*other.aliked);
+  }
+  if (other.loma) {
+    loma = std::make_shared<LomaExtractionOptions>(*other.loma);
   }
 }
 
@@ -73,6 +78,11 @@ FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
   } else {
     aliked.reset();
   }
+  if (other.loma) {
+    loma = std::make_shared<LomaExtractionOptions>(*other.loma);
+  } else {
+    loma.reset();
+  }
   return *this;
 }
 
@@ -85,6 +95,7 @@ bool FeatureExtractionOptions::RequiresRGB() const {
       return false;
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
+    case FeatureExtractorType::LOMA_B:
       return true;
     default:
       ThrowUnknownFeatureExtractorType(type);
@@ -108,6 +119,7 @@ bool FeatureExtractionOptions::RequiresOpenGL() const {
     }
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
+    case FeatureExtractorType::LOMA_B:
       return false;
     default:
       ThrowUnknownFeatureExtractorType(type);
@@ -124,6 +136,8 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
         return 3200;
       case FeatureExtractorType::ALIKED_N16ROT:
       case FeatureExtractorType::ALIKED_N32:
+        return 1600;
+      case FeatureExtractorType::LOMA_B:
         return 1600;
       default:
         ThrowUnknownFeatureExtractorType(type);
@@ -148,6 +162,8 @@ bool FeatureExtractionOptions::Check() const {
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return THROW_CHECK_NOTNULL(aliked)->Check();
+    case FeatureExtractorType::LOMA_B:
+      return THROW_CHECK_NOTNULL(loma)->Check();
     default:
       LOG(ERROR) << "Unknown feature extractor type: " << type;
       return false;
@@ -162,6 +178,8 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return CreateAlikedFeatureExtractor(options);
+    case FeatureExtractorType::LOMA_B:
+      return CreateLomaFeatureExtractor(options);
     default:
       ThrowUnknownFeatureExtractorType(options.type);
   }

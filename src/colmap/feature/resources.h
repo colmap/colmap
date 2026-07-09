@@ -59,12 +59,31 @@ inline const std::string kDefaultSiftLightGlueFeatureMatcherUri =
     "sift-lightglue.onnx;"
     "sift-lightglue.onnx;"
     "e0500228472b43f92b3d36881a09b3310d3b058b56187b246cc7b9ab6429096e";
+// TODO: Release these as official colmap releases instead of hostin in davnords/storage
+inline const std::string kDefaultLomaBDetectorUri =
+    "https://github.com/davnords/storage/releases/download/loma/"
+    "loma_detector.onnx;"
+    "loma_detector.onnx;"
+    "844e5796989692010c1e84376cbd129686b384bef7113f1c7712552309cb885f";
+inline const std::string kDefaultLomaBDescriptorUri =
+    "https://github.com/davnords/storage/releases/download/loma/"
+    "loma_descriptor_dedode_g.onnx;"
+    "loma_descriptor_dedode_g.onnx;"
+    "ae9b6e2a3dc7f49870a676dfa80a896ea0834d22e702d587268f93fc81845555";
+inline const std::string kDefaultLomaBMatcherUri =
+    "https://github.com/davnords/storage/releases/download/loma/"
+    "loma_matcher_B.onnx;"
+    "loma_matcher_B.onnx;"
+    "4117f769da5db6058f40019957b54008e3f2e5e238adbe134223653a67b1fdf5";
 #else
 inline const std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
 inline const std::string kDefaultAlikedN32FeatureExtractorUri = "";
 inline const std::string kDefaultAlikedLightGlueFeatureMatcherUri = "";
 inline const std::string kDefaultBruteForceONNXMatcherUri = "";
 inline const std::string kDefaultSiftLightGlueFeatureMatcherUri = "";
+inline const std::string kDefaultLomaBDetectorUri = "";
+inline const std::string kDefaultLomaBDescriptorUri = "";
+inline const std::string kDefaultLomaBMatcherUri = "";
 #endif
 
 }  // namespace colmap
