@@ -40,6 +40,7 @@
 #include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
@@ -114,8 +115,10 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(options.ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -173,7 +176,8 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   // Estimate epipolar model.
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
+           FundamentalMatrixEightPointEstimator,
+           MEstimatorSupportMeasurer>
       F_ransac(options.ransac_options);
   const auto F_report =
       F_ransac.Estimate(matched_img_points1, matched_img_points2);
@@ -181,8 +185,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(options.ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -338,7 +344,9 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
        camera2.CamFromImgThreshold(options.ransac_options.max_error)) /
       2;
 
-  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+  LORANSAC<EssentialMatrixFivePointEstimator,
+           EssentialMatrixFivePointEstimator,
+           MEstimatorSupportMeasurer>
       E_ransac(ransac_options);
   const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;
@@ -799,13 +807,16 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
        camera2.CamFromImgThreshold(options.ransac_options.max_error)) /
       2;
 
-  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+  LORANSAC<EssentialMatrixFivePointEstimator,
+           EssentialMatrixFivePointEstimator,
+           MEstimatorSupportMeasurer>
       E_ransac(E_ransac_options);
   const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
+           FundamentalMatrixEightPointEstimator,
+           MEstimatorSupportMeasurer>
       F_ransac(ransac_options);
   const auto F_report =
       F_ransac.Estimate(matched_img_points1, matched_img_points2);
@@ -813,8 +824,10 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -980,7 +993,9 @@ bool DetectWatermarkMatches(const Camera& camera1,
   ransac_options.max_error = options.watermark_detection_max_error;
   ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
-  LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>>
+  LORANSAC<TranslationTransformEstimator<2>,
+           TranslationTransformEstimator<2>,
+           MEstimatorSupportMeasurer>
       ransac(ransac_options);
   const auto report = ransac.Estimate(inlier_points1, inlier_points2);
 
