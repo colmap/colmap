@@ -365,6 +365,23 @@ void SequentialMatchingTab::Run() {
 
   if (options_->sequential_pairing->loop_detection) {
     if (idx == 2) {
+      // Auto-derive image_path from the project.
+      options_->sequential_pairing->loop_detection_image_path =
+          *options_->image_path;
+      if (options_->sequential_pairing->loop_detection_image_path.empty() ||
+          !ExistsDir(
+              options_->sequential_pairing->loop_detection_image_path)) {
+        QMessageBox::critical(
+            this, "",
+            tr("Image path is not set or does not exist.\n\n"
+               "For MixVPR loop detection, the image folder must be "
+               "configured in the project settings (File > New Project).\n\n"
+               "Current path: %1")
+                .arg(QString::fromStdString(
+                    options_->sequential_pairing->loop_detection_image_path
+                        .string())));
+        return;
+      }
       const auto& model_path =
           options_->sequential_pairing->loop_detection_model_path;
       if (!model_path.empty() && !ExistsFile(model_path) &&

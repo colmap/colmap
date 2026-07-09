@@ -1099,6 +1099,32 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
 #ifdef COLMAP_ONNX_ENABLED
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
 
+  // Try to load cached descriptors from disk to avoid redundant ONNX
+  // inference.  The cache lives alongside the images.
+  const std::filesystem::path cache_path =
+      options_.image_path / "global_descriptors.bin";
+  if (ExistsFile(cache_path)) {
+    try {
+      global_descriptor_index_.Read(cache_path);
+      // Verify the cached index matches the current image set.
+      if (global_descriptor_index_.NumImages() == all_image_ids.size()) {
+        LOG(INFO) << "Loaded cached global descriptors for "
+                  << all_image_ids.size() << " images from " << cache_path;
+        return;  // Already prepared — Read() builds the FAISS index.
+      }
+      LOG(INFO) << "Cached descriptors have "
+                << global_descriptor_index_.NumImages() << " images, but "
+                << all_image_ids.size()
+                << " are needed. Re-extracting...";
+      // Reset and re-extract.
+      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(4096);
+    } catch (const std::exception& e) {
+      LOG(WARNING) << "Failed to read cached descriptors (" << e.what()
+                   << "), re-extracting...";
+      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(4096);
+    }
+  }
+
   // Resolve model path: if empty, use the default HuggingFace URI
   // (auto-downloaded via MaybeDownloadAndCacheFile in ONNXModel constructor).
   std::string model_path = options_.model_path.string();
@@ -1108,21 +1134,32 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
   } else {
     LOG(INFO) << "Loading ONNX model from " << model_path;
   }
-  ONNXModel model(model_path,
-                  options_.num_threads,
-                  options_.use_gpu,
-                  options_.gpu_index);
+  std::unique_ptr<ONNXModel> model;
+  try {
+    model = std::make_unique<ONNXModel>(model_path,
+                                        options_.num_threads,
+                                        options_.use_gpu,
+                                        options_.gpu_index);
+  } catch (const std::exception& e) {
+    LOG(FATAL_THROW)
+        << "Failed to load global descriptor model. "
+        << "If you left the model path empty, COLMAP attempted to download "
+        << "the MixVPR model from HuggingFace but the download may have "
+        << "timed out (network issue). You can manually download the model "
+        << "from https://huggingface.co/Realcat/image_retrieval_checkpoints "
+        << "and specify its path. Original error: " << e.what();
+  }
 
   // Validate model I/O.
-  THROW_CHECK_EQ(model.input_shapes().size(), 1);
-  ThrowCheckONNXNode(model.input_names()[0],
+  THROW_CHECK_EQ(model->input_shapes().size(), 1);
+  ThrowCheckONNXNode(model->input_names()[0],
                      "images",
-                     model.input_shapes()[0],
+                     model->input_shapes()[0],
                      {-1, 3, 320, 320});
-  THROW_CHECK_EQ(model.output_shapes().size(), 1);
-  ThrowCheckONNXNode(model.output_names()[0],
+  THROW_CHECK_EQ(model->output_shapes().size(), 1);
+  ThrowCheckONNXNode(model->output_names()[0],
                      "descriptor",
-                     model.output_shapes()[0],
+                     model->output_shapes()[0],
                      {-1, 4096});
 
   const int kBatchSize = options_.batch_size;
@@ -1178,7 +1215,7 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       // Run inference.
       std::vector<Ort::Value> input_tensors;
       input_tensors.emplace_back(std::move(input_tensor));
-      std::vector<Ort::Value> output_tensors = model.Run(input_tensors);
+      std::vector<Ort::Value> output_tensors = model->Run(input_tensors);
       THROW_CHECK_EQ(output_tensors.size(), 1);
 
       // Extract descriptors.
@@ -1206,6 +1243,12 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       batch_image_ids.clear();
       batch_data.clear();
     }
+  }
+
+  // Persist descriptors to disk for fast reload on subsequent runs.
+  if (global_descriptor_index_.NumImages() > 0) {
+    global_descriptor_index_.Write(cache_path);
+    LOG(INFO) << "Cached global descriptors to " << cache_path;
   }
 
   // Build FAISS index for fast retrieval.

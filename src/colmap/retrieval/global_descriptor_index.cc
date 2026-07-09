@@ -95,7 +95,9 @@ void GlobalDescriptorIndex::Add(const image_t image_id,
 
 void GlobalDescriptorIndex::Prepare() {
   THROW_CHECK(!prepared_) << "Prepare() already called.";
-  THROW_CHECK_GT(image_ids_.size(), 0) << "No images added to the index.";
+  THROW_CHECK_GT(image_ids_.size(), 0)
+      << "No images were added to the index. "
+      << "Check that the image_path is correct and images can be read.";
 
   // Build FAISS IndexFlatIP for cosine similarity search.
   // Since descriptors are L2-normalized, inner product = cosine similarity.
