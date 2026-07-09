@@ -53,29 +53,35 @@
 namespace colmap {
 namespace {
 
+using FundamentalMatrixReport =
+    LORANSAC<FundamentalMatrixSevenPointEstimator,
+             FundamentalMatrixEightPointEstimator>::Report;
+
+// DEGENSAC uses a different estimator type, so its report is a distinct (but
+// structurally identical) type; adapt it to the plain report type.
+FundamentalMatrixReport ToFundamentalMatrixReport(
+    const RANSAC<FundamentalMatrixDegensacEstimator>::Report& degensac_report) {
+  FundamentalMatrixReport report;
+  report.success = degensac_report.success;
+  report.num_trials = degensac_report.num_trials;
+  report.support = degensac_report.support;
+  report.inlier_mask = degensac_report.inlier_mask;
+  report.model = degensac_report.model;
+  return report;
+}
+
 // Robustly estimate the fundamental matrix, either with plain LO-RANSAC or with
 // DEGENSAC (robust to a dominant scene plane), depending on the options.
-LORANSAC<FundamentalMatrixSevenPointEstimator,
-         FundamentalMatrixEightPointEstimator>::Report
-EstimateFundamentalMatrix(const TwoViewGeometryOptions& options,
-                          const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector2d>& points1,
-                          const std::vector<Eigen::Vector2d>& points2) {
+FundamentalMatrixReport EstimateFundamentalMatrix(
+    const TwoViewGeometryOptions& options,
+    const RANSACOptions& ransac_options,
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2) {
   if (options.use_degensac) {
     FundamentalMatrixDegensacOptions degensac_options;
     degensac_options.ransac = ransac_options;
-    const auto degensac_report =
-        EstimateFundamentalMatrixDegensac(points1, points2, degensac_options);
-    // DEGENSAC uses a different estimator type, so its report is a distinct
-    // (but structurally identical) type; adapt it to the plain report type.
-    LORANSAC<FundamentalMatrixSevenPointEstimator,
-             FundamentalMatrixEightPointEstimator>::Report report;
-    report.success = degensac_report.success;
-    report.num_trials = degensac_report.num_trials;
-    report.support = degensac_report.support;
-    report.inlier_mask = degensac_report.inlier_mask;
-    report.model = degensac_report.model;
-    return report;
+    return ToFundamentalMatrixReport(
+        EstimateFundamentalMatrixDegensac(points1, points2, degensac_options));
   }
   return LORANSAC<FundamentalMatrixSevenPointEstimator,
                   FundamentalMatrixEightPointEstimator>(ransac_options)

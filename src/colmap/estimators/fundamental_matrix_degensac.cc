@@ -41,6 +41,7 @@
 #include <array>
 #include <cmath>
 #include <optional>
+#include <utility>
 
 #include <Eigen/Geometry>
 #include <Eigen/LU>
@@ -236,9 +237,7 @@ void SampleDistinct(size_t num, std::vector<size_t>* scratch) {
   const size_t n = scratch->size();
   for (size_t i = 0; i < num; ++i) {
     const size_t j = i + RandomUniformInteger<size_t>(0, n - 1 - i);
-    const size_t tmp = (*scratch)[i];
-    (*scratch)[i] = (*scratch)[j];
-    (*scratch)[j] = tmp;
+    std::swap((*scratch)[i], (*scratch)[j]);
   }
 }
 
@@ -299,12 +298,20 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     H = homographies[0];
   }
 
+  // The dominant-plane homography is now fixed, so the transfer error of every
+  // correspondence against it is reused below (off-plane classification here and
+  // the plane/off-plane split for the mixed-sample refit) instead of recomputed.
+  std::vector<double> plane_transfer_errors(points1.size());
+  for (size_t i = 0; i < points1.size(); ++i) {
+    plane_transfer_errors[i] = TransferError(points1[i], points2[i], H);
+  }
+
   // Only correspondences well off the plane carry reliable parallax: near-plane
   // points have tiny, noise-dominated parallax that destabilizes the epipole.
   std::vector<size_t> off_plane_idxs;
   off_plane_idxs.reserve(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
-    if (TransferError(points1[i], points2[i], H) > off_plane_min_residual) {
+    if (plane_transfer_errors[i] > off_plane_min_residual) {
       off_plane_idxs.push_back(i);
     }
   }
@@ -378,14 +385,14 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
   std::vector<size_t> plane_inliers;
   std::vector<size_t> off_plane_inliers;
   for (size_t i = 0; i < points1.size(); ++i) {
-    if (TransferError(points1[i], points2[i], H) <= plane_max_residual) {
+    if (plane_transfer_errors[i] <= plane_max_residual) {
       plane_inliers.push_back(i);
     }
   }
   ComputeSquaredSampsonError(points1, points2, *best_F, &residuals);
   for (size_t i = 0; i < points1.size(); ++i) {
     if (residuals[i] <= sampson_max_residual &&
-        TransferError(points1[i], points2[i], H) > off_plane_min_residual) {
+        plane_transfer_errors[i] > off_plane_min_residual) {
       off_plane_inliers.push_back(i);
     }
   }
