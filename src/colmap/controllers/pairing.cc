@@ -448,10 +448,11 @@ SequentialPairGenerator::SequentialPairGenerator(
          i += options_.loop_detection_period) {
       query_image_ids.push_back(image_ids_[i]);
     }
-    if (!options_.loop_detection_model_path.empty()) {
-      LOG(INFO) << "Using global descriptor ("
-                << options_.loop_detection_model_path.filename().string()
-                << ") for loop detection";
+    // Vocab tree path is cleared by the GUI/CLI when MixVPR is selected,
+    // and vice-versa.  If vocab_tree_path is empty the user chose global
+    // descriptor mode (model_path may be empty = auto-download).
+    if (options_.vocab_tree_path.empty()) {
+      LOG(INFO) << "Using global descriptor for loop detection";
       loop_detection_pair_generator_ =
           std::make_unique<GlobalDescriptorPairGenerator>(
               options_.GlobalDescriptorOptions(), cache_, query_image_ids);
