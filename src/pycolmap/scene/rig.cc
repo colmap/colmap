@@ -29,7 +29,11 @@ void BindSceneRig(py::module& m) {
   m.def("read_rig_config",
         &ReadRigConfig,
         "path"_a,
-        "Read the rig configuration from a .json file.");
+        "Read the rig configuration from a .json file. Each camera may specify "
+        "an optional \"cam_from_rig_rotation\" quaternion in [w, x, y, z] "
+        "order (Eigen constructor order), which differs from "
+        "Rotation3d.quat / Rigid3d.rotation.quat, which are in [x, y, z, w] "
+        "order (Eigen coefficient order).");
   m.def("apply_rig_config",
         &ApplyRigConfig,
         "configs"_a,
