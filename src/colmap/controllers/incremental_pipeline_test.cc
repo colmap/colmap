@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -710,6 +711,23 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
       run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
   EXPECT_THAT(*reconstruction_manager0->Get(0),
               ReconstructionEq(*reconstruction_manager1->Get(0)));
+}
+
+TEST(IncrementalPipelineOptions, PropagatesMaxNumIterationsToCaspar) {
+  IncrementalPipelineOptions options;
+  options.ba_local_max_num_iterations = 7;
+  options.ba_global_max_num_iterations = 13;
+
+  const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.caspar);
+  EXPECT_EQ(local_options.caspar->solver_iter_max,
+            options.ba_local_max_num_iterations);
+
+  const BundleAdjustmentOptions global_options =
+      options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.caspar);
+  EXPECT_EQ(global_options.caspar->solver_iter_max,
+            options.ba_global_max_num_iterations);
 }
 
 }  // namespace

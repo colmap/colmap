@@ -188,6 +188,11 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     options.ceres->gpu_index = ba_gpu_index;
   }
   if (options.caspar) {
+    // Caspar has different dampening and convergence criteria than Ceres, so
+    // most solver parameters are not meaningful to propagate. The maximum
+    // number of iterations is the exception: bounding it keeps the Caspar
+    // backend from running unboundedly long compared to the Ceres path.
+    options.caspar->solver_iter_max = ba_local_max_num_iterations;
     options.caspar->gpu_index = ba_gpu_index;
   }
   return options;
@@ -228,6 +233,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     options.ceres->gpu_index = ba_gpu_index;
   }
   if (options.caspar) {
+    // See LocalBundleAdjustment(): only the iteration bound is propagated to
+    // the Caspar backend, whose other solver parameters do not map to Ceres.
+    options.caspar->solver_iter_max = ba_global_max_num_iterations;
     options.caspar->gpu_index = ba_gpu_index;
   }
   return options;
