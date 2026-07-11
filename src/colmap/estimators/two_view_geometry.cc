@@ -176,8 +176,7 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   // Estimate epipolar model.
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator,
-           MEstimatorSupportMeasurer>
+           FundamentalMatrixEightPointEstimator>
       F_ransac(options.ransac_options);
   const auto F_report =
       F_ransac.Estimate(matched_img_points1, matched_img_points2);
@@ -815,8 +814,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   geometry.E = E_report.model;
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator,
-           MEstimatorSupportMeasurer>
+           FundamentalMatrixEightPointEstimator>
       F_ransac(ransac_options);
   const auto F_report =
       F_ransac.Estimate(matched_img_points1, matched_img_points2);
