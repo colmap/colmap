@@ -38,7 +38,7 @@ set(COLMAP_UI_QT_LIBS
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    list(APPEND COLMAP_UI_QT_LIBS 
+    list(APPEND COLMAP_UI_QT_LIBS
         Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
 endif()
 

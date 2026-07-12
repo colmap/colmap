@@ -144,7 +144,7 @@ the ``pose_prior_mapper``::
 
 The ``pose_prior_mapper`` is essentially the incremental mapper with prior
 position constraints enabled. You can override the priors covariance (uncertainty)
-using ``--overwrite_priors_covariance``.  The new covariance will be built based 
+using ``--overwrite_priors_covariance``.  The new covariance will be built based
 on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
 ``--prior_position_std_z`` (default: 1.0 meter each).
 
