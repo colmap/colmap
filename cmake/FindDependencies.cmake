@@ -492,6 +492,14 @@ endif()
 if(TARGET onnxruntime::onnxruntime)
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
     message(STATUS "Enabling ONNX support")
+    # The prebuilt macOS onnxruntime binaries ship with the CoreML execution
+    # provider, which accelerates ONNX inference on the GPU / Apple Neural
+    # Engine. Enable it as the GPU backend on Apple platforms (CUDA is
+    # unavailable there).
+    if(IS_MACOS)
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_COREML_ENABLED)
+        message(STATUS "Enabling ONNX CoreML execution provider")
+    endif()
 endif()
 
 if(GUI_ENABLED)
