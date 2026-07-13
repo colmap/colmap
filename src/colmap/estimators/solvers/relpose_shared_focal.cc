@@ -66,7 +66,7 @@ Eigen::Matrix3d FundamentalFromEssentialSharedFocal(const Eigen::Matrix3d& E,
 
 // Focal-calibrated, normalized camera rays (x / f, y / f, 1) from centered
 // image points.
-std::vector<Eigen::Vector3d> CamRaysFromImg(
+std::vector<Eigen::Vector3d> CalibratedRays(
     const std::vector<Eigen::Vector2d>& points, const double focal) {
   const double inv_f = 1.0 / focal;
   std::vector<Eigen::Vector3d> rays(points.size());
@@ -144,9 +144,9 @@ bool RelativePoseSharedFocalEstimator::Refine(const std::vector<X_t>& points1,
   // Decompose the current essential matrix into a relative pose, resolving the
   // four-fold ambiguity by cheirality over the focal-calibrated sample rays.
   const std::vector<Eigen::Vector3d> cam_rays1 =
-      CamRaysFromImg(points1, model->focal);
+      CalibratedRays(points1, model->focal);
   const std::vector<Eigen::Vector3d> cam_rays2 =
-      CamRaysFromImg(points2, model->focal);
+      CalibratedRays(points2, model->focal);
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
