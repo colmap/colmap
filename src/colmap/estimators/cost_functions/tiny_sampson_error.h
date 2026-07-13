@@ -52,10 +52,8 @@ namespace colmap {
 class TinySampsonErrorCostFunctor {
  public:
   using Scalar = double;
-  enum {
-    NUM_RESIDUALS = Eigen::Dynamic,
-    NUM_PARAMETERS = 7,
-  };
+  static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
+  static constexpr int NUM_PARAMETERS = 7;
 
   // ceres::TinySolver-compatible autodiff wrapper for this functor. Note that
   // it stores the functor by reference, so the wrapped functor must outlive it.
@@ -107,10 +105,8 @@ class TinySampsonErrorCostFunctor {
 class TinyFocalSampsonErrorCostFunctor {
  public:
   using Scalar = double;
-  enum {
-    NUM_RESIDUALS = Eigen::Dynamic,
-    NUM_PARAMETERS = 8,
-  };
+  static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
+  static constexpr int NUM_PARAMETERS = 8;
 
   // ceres::TinySolver-compatible autodiff wrapper for this functor. Note that
   // it stores the functor by reference, so the wrapped functor must outlive it.
@@ -127,19 +123,16 @@ class TinyFocalSampsonErrorCostFunctor {
 
   template <typename T>
   bool operator()(const T* const params, T* residuals) const {
-    using std::exp;
     // Build E once from the pose, then scale it into the pixel-space
     // fundamental matrix F = diag(inv_f, inv_f, 1) * E * diag(inv_f, inv_f, 1).
     Eigen::Matrix<T, 3, 3> F = EssentialMatrixFromPoseParams(params);
-    const T inv_f = exp(-params[7]);
+    const T inv_f = ceres::exp(-params[7]);
     F.template topLeftCorner<2, 2>() *= inv_f * inv_f;
     F.template block<2, 1>(0, 2) *= inv_f;
     F.template block<1, 2>(2, 0) *= inv_f;
     for (size_t i = 0; i < points1_.size(); ++i) {
-      const Eigen::Matrix<T, 3, 1> point1(
-          T(points1_[i].x()), T(points1_[i].y()), T(1));
-      const Eigen::Matrix<T, 3, 1> point2(
-          T(points2_[i].x()), T(points2_[i].y()), T(1));
+      const Eigen::Matrix<T, 3, 1> point1 = points1_[i].cast<T>().homogeneous();
+      const Eigen::Matrix<T, 3, 1> point2 = points2_[i].cast<T>().homogeneous();
       residuals[i] = SampsonError<T>(F, point1, point2);
     }
     return true;

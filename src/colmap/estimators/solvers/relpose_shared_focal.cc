@@ -38,8 +38,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <cfloat>
 #include <cmath>
+#include <limits>
 
 #include <Eigen/Geometry>
 #include <PoseLib/solvers/relpose_6pt_focal.h>
@@ -66,7 +66,7 @@ Eigen::Matrix3d FundamentalFromEssentialSharedFocal(const Eigen::Matrix3d& E,
 
 // Focal-calibrated, normalized camera rays (x / f, y / f, 1) from centered
 // image points.
-std::vector<Eigen::Vector3d> CalibratedRays(
+std::vector<Eigen::Vector3d> CamRaysFromImg(
     const std::vector<Eigen::Vector2d>& points, const double focal) {
   const double inv_f = 1.0 / focal;
   std::vector<Eigen::Vector3d> rays(points.size());
@@ -144,9 +144,9 @@ bool RelativePoseSharedFocalEstimator::Refine(const std::vector<X_t>& points1,
   // Decompose the current essential matrix into a relative pose, resolving the
   // four-fold ambiguity by cheirality over the focal-calibrated sample rays.
   const std::vector<Eigen::Vector3d> cam_rays1 =
-      CalibratedRays(points1, model->focal);
+      CamRaysFromImg(points1, model->focal);
   const std::vector<Eigen::Vector3d> cam_rays2 =
-      CalibratedRays(points2, model->focal);
+      CamRaysFromImg(points2, model->focal);
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
@@ -193,7 +193,7 @@ void RelativePoseSharedFocalEstimator::Residuals(
   THROW_CHECK_EQ(points1.size(), points2.size());
   THROW_CHECK_NOTNULL(residuals);
   if (!(model.focal > 0.0)) {
-    residuals->assign(points1.size(), DBL_MAX);
+    residuals->assign(points1.size(), std::numeric_limits<double>::max());
     return;
   }
   const Eigen::Matrix3d F =

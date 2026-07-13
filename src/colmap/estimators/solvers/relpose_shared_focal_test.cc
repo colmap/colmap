@@ -35,7 +35,7 @@
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 
-#include <cfloat>
+#include <limits>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -203,7 +203,7 @@ TEST(RelativePoseSharedFocalEstimator, Residuals) {
   RelativePoseSharedFocalEstimator::Residuals(
       points1, points2, invalid_model, &invalid_residuals);
   for (const double residual : invalid_residuals) {
-    EXPECT_EQ(residual, DBL_MAX);
+    EXPECT_EQ(residual, std::numeric_limits<double>::max());
   }
 }
 
