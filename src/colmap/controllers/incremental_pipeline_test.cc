@@ -713,7 +713,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
               ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
-TEST(IncrementalPipelineOptions, PropagatesMaxNumIterationsToCaspar) {
+TEST(IncrementalPipelineOptions, PropagatesOverriddenMaxNumIterationsToCaspar) {
   IncrementalPipelineOptions options;
   options.ba_local_max_num_iterations = 7;
   options.ba_global_max_num_iterations = 13;
@@ -728,6 +728,23 @@ TEST(IncrementalPipelineOptions, PropagatesMaxNumIterationsToCaspar) {
   ASSERT_TRUE(global_options.caspar);
   EXPECT_EQ(global_options.caspar->solver_iter_max,
             options.ba_global_max_num_iterations);
+}
+
+TEST(IncrementalPipelineOptions, PreservesCasparSolverIterMaxDefault) {
+  // When the mapper iteration bounds are left at their (Ceres-oriented)
+  // defaults, Caspar's own tuned solver_iter_max default must be preserved
+  // rather than overwritten (see review discussion on #4382/PR #4527).
+  const IncrementalPipelineOptions options;
+  const int caspar_default = CasparBundleAdjustmentOptions().solver_iter_max;
+
+  const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.caspar);
+  EXPECT_EQ(local_options.caspar->solver_iter_max, caspar_default);
+
+  const BundleAdjustmentOptions global_options =
+      options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.caspar);
+  EXPECT_EQ(global_options.caspar->solver_iter_max, caspar_default);
 }
 
 }  // namespace

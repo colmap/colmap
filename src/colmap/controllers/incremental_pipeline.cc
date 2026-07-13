@@ -188,11 +188,16 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     options.ceres->gpu_index = ba_gpu_index;
   }
   if (options.caspar) {
-    // Caspar has different dampening and convergence criteria than Ceres, so
-    // most solver parameters are not meaningful to propagate. The maximum
-    // number of iterations is the exception: bounding it keeps the Caspar
-    // backend from running unboundedly long compared to the Ceres path.
-    options.caspar->solver_iter_max = ba_local_max_num_iterations;
+    // Caspar has different dampening and convergence criteria than Ceres and
+    // ships its own tuned default iteration bound, so we must not clobber it
+    // with the Ceres-oriented mapper default. Only forward the iteration bound
+    // when the user explicitly overrode it (i.e. it differs from the default),
+    // leaving CasparBundleAdjustmentOptions::solver_iter_max untouched
+    // otherwise.
+    static const IncrementalPipelineOptions kDefaults;
+    if (ba_local_max_num_iterations != kDefaults.ba_local_max_num_iterations) {
+      options.caspar->solver_iter_max = ba_local_max_num_iterations;
+    }
     options.caspar->gpu_index = ba_gpu_index;
   }
   return options;
@@ -233,9 +238,13 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     options.ceres->gpu_index = ba_gpu_index;
   }
   if (options.caspar) {
-    // See LocalBundleAdjustment(): only the iteration bound is propagated to
-    // the Caspar backend, whose other solver parameters do not map to Ceres.
-    options.caspar->solver_iter_max = ba_global_max_num_iterations;
+    // See LocalBundleAdjustment(): only forward the iteration bound to the
+    // Caspar backend when the user overrode the mapper default, so Caspar's
+    // own tuned solver_iter_max default is preserved otherwise.
+    static const IncrementalPipelineOptions kDefaults;
+    if (ba_global_max_num_iterations != kDefaults.ba_global_max_num_iterations) {
+      options.caspar->solver_iter_max = ba_global_max_num_iterations;
+    }
     options.caspar->gpu_index = ba_gpu_index;
   }
   return options;
