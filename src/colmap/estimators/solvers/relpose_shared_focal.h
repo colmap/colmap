@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <vector>
@@ -42,6 +43,17 @@ namespace colmap {
 //
 // Both images are assumed to share a single unknown focal length, e.g. two
 // images captured by the same camera without a reliable focal-length prior.
+//
+// The shared focal is ill-conditioned when the two optical axes are coplanar,
+// i.e. intersecting or parallel (turntable or object-scan capture): the known
+// singularity of two-view focal recovery (Bougnoux 1998; Kocur et al., CVPR
+// 2024). The essential matrix stays well constrained there, but the focal does
+// not.
+//
+// FocalIdentifiability() scores how far a recovered pose is from this singular
+// configuration, so callers can detect and reject an unreliable focal. The
+// references characterize the condition but give no such measure; the score and
+// its threshold are heuristic.
 //
 // Inputs (X_t/Y_t) are principal-point-centered image points (u - cx, v - cy),
 // not calibrated rays. The estimated model bundles the calibrated essential
@@ -92,6 +104,11 @@ class RelativePoseSharedFocalEstimator {
                         const std::vector<Y_t>& points2,
                         const M_t& model,
                         std::vector<double>* residuals);
+
+  // Score in [0, 1]: |b . (a1 x a2)| for unit optical axes a1 = e_z,
+  // a2 = R^T e_z and unit baseline b = (-R^T t).normalized(). Zero iff the axes
+  // are coplanar, approaching 1 for skew axes; a zero baseline returns 0.
+  static double FocalIdentifiability(const Rigid3d& cam2_from_cam1);
 };
 
 }  // namespace colmap

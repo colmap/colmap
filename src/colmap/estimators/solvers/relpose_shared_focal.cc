@@ -201,4 +201,20 @@ void RelativePoseSharedFocalEstimator::Residuals(
   ComputeSquaredSampsonError(points1, points2, F, residuals);
 }
 
+double RelativePoseSharedFocalEstimator::FocalIdentifiability(
+    const Rigid3d& cam2_from_cam1) {
+  // Only axis and baseline directions enter, so the score is invariant to the
+  // scale-free SfM translation magnitude.
+  const Eigen::Vector3d axis1 = Eigen::Vector3d::UnitZ();
+  const Eigen::Vector3d axis2 =
+      cam2_from_cam1.rotation().inverse() * Eigen::Vector3d::UnitZ();
+  const Eigen::Vector3d baseline_dir =
+      cam2_from_cam1.TgtOriginInSrc().normalized();
+  if (!baseline_dir.allFinite()) {
+    return 0.0;  // Pure rotation: no baseline direction; fully degenerate.
+  }
+  // Parallelepiped volume of the three unit vectors; zero iff axes coplanar.
+  return std::abs(baseline_dir.dot(axis1.cross(axis2)));
+}
+
 }  // namespace colmap

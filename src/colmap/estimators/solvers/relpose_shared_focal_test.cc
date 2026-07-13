@@ -249,5 +249,43 @@ TEST(RelativePoseSharedFocalEstimator, RefineFromInitialModel) {
   }
 }
 
+// FocalIdentifiability is ~0 for coplanar (intersecting) axes and large for
+// skew axes, and is invariant to the translation scale.
+TEST(RelativePoseSharedFocalEstimator, FocalIdentifiability) {
+  SetPRNGSeed(0);
+
+  // A relative pose whose two optical axes intersect at a common fixation point
+  // on cam1's +z axis, so the axes are coplanar and the focal is
+  // unidentifiable.
+  const auto intersecting_cam2_from_cam1 = [] {
+    const Eigen::Vector3d fixation(0, 0, RandomUniformReal<double>(1.5, 3.0));
+    Eigen::Vector3d center2 = Eigen::Vector3d::Random();
+    center2.z() = std::abs(center2.z());
+    center2.normalize();
+    const Eigen::Quaterniond rotation = Eigen::Quaterniond::FromTwoVectors(
+        (fixation - center2).normalized(), Eigen::Vector3d::UnitZ());
+    return Rigid3d(rotation, rotation * -center2);
+  };
+
+  for (size_t k = 0; k < 10; ++k) {
+    EXPECT_LT(RelativePoseSharedFocalEstimator::FocalIdentifiability(
+                  intersecting_cam2_from_cam1()),
+              1e-9);
+  }
+
+  // 90 deg about x with a lateral baseline: maximally skew axes, score 1.
+  const Rigid3d skew(Eigen::Quaterniond(Eigen::AngleAxisd(
+                         DegToRad(90.0), Eigen::Vector3d::UnitX())),
+                     Eigen::Vector3d(1, 0, 0));
+  EXPECT_NEAR(
+      RelativePoseSharedFocalEstimator::FocalIdentifiability(skew), 1.0, 1e-9);
+  // Scaling the translation does not change the score.
+  const Rigid3d skew_scaled(skew.rotation(), 1000.0 * skew.translation());
+  EXPECT_NEAR(
+      RelativePoseSharedFocalEstimator::FocalIdentifiability(skew_scaled),
+      1.0,
+      1e-9);
+}
+
 }  // namespace
 }  // namespace colmap

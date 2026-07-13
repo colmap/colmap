@@ -1089,6 +1089,42 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
+    // The shared focal is unidentifiable when the two optical axes are coplanar
+    // (intersecting or parallel); there the 6-point solver returns a
+    // meaningless focal. Recover the pose and, if degenerate, relabel the pair
+    // UNCALIBRATED so consumers fall back to the camera's placeholder focal.
+    // The shared-focal F is kept and reused (not re-estimated as a 7-point F):
+    // even in this degeneracy F is pinned by the correspondences, since only
+    // the E/focal factorization is ambiguous, so it stays a valid fundamental
+    // matrix.
+    if (geometry.config ==
+        TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
+      std::vector<Eigen::Vector3d> inlier_cam_rays1;
+      std::vector<Eigen::Vector3d> inlier_cam_rays2;
+      ExtractInlierCamRaysSharedFocal(camera,
+                                      points1,
+                                      points2,
+                                      geometry.inlier_matches,
+                                      *geometry.shared_focal_length,
+                                      &inlier_cam_rays1,
+                                      &inlier_cam_rays2);
+      Rigid3d cam2_from_cam1;
+      std::vector<int> valid_indices;
+      PoseFromEssentialMatrix(*geometry.E,
+                              inlier_cam_rays1,
+                              inlier_cam_rays2,
+                              &cam2_from_cam1,
+                              &valid_indices);
+      constexpr double kMinFocalIdentifiability = 0.05;
+      if (valid_indices.empty() ||
+          RelativePoseSharedFocalEstimator::FocalIdentifiability(
+              cam2_from_cam1) < kMinFocalIdentifiability) {
+        geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
+        geometry.E.reset();
+        geometry.shared_focal_length.reset();
+      }
+    }
+
     // Check inlier ratio threshold.
     if (options.min_inlier_ratio > 0) {
       const double inlier_ratio =
