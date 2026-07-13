@@ -35,8 +35,10 @@ jobs:
       FETCHCONTENT_CACHE_VERSION: 1
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/fetchcontent-cache
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
-      # For faster builds in PRs, skip all but the oldest Python versions.
-      PULL_REQUEST_CIBW_BUILD: cp311-{macosx,manylinux,win}*
+      # For faster builds in PRs, build only a single Python version. We use
+      # cp312 (the oldest Python supported by the pinned Sphinx used in the docs
+      # job, which reuses this wheel); main builds all versions.
+      PULL_REQUEST_CIBW_BUILD: cp312-{macosx,manylinux,win}*
     steps:
       - name: Free disk space
         if: runner.os == 'Linux' && matrix.config.cudaEnabled
@@ -276,7 +278,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'   # PR runs build only cp311 wheels; main builds all
+          python-version: '3.12'   # Sphinx 9.1 needs >=3.12; matches the cp312 wheel
 
       # Wheel from the `build` job (same run) so autodoc introspects a pycolmap
       # that matches the commit.
@@ -288,7 +290,7 @@ jobs:
       - name: Install pycolmap + Sphinx deps
         run: |
           python -m pip install --upgrade pip
-          pip install wheelhouse/pycolmap-*cp311*manylinux*_x86_64.whl
+          pip install wheelhouse/pycolmap-*cp312*manylinux*_x86_64.whl
           pip install -r doc/requirements.txt
 
       - name: Build docs
