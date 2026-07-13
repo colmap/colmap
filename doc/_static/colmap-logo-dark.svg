@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="COLMAP">
+  <title>COLMAP</title>
+  <!-- Multi-view triangulation: two camera nodes and a triangulated scene point. -->
+  <path d="M16 20 L48 20 L32 48 Z" fill="none" stroke="#cbd5e1"
+        stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="10" r="2.2" fill="#3b82f6"/>
+  <circle cx="54" cy="34" r="2.2" fill="#3b82f6"/>
+  <circle cx="12" cy="40" r="2.2" fill="#3b82f6"/>
+  <circle cx="16" cy="20" r="6" fill="#60a5fa"/>
+  <circle cx="48" cy="20" r="6" fill="#60a5fa"/>
+  <circle cx="32" cy="48" r="6" fill="#fbbf24"/>
+</svg>
