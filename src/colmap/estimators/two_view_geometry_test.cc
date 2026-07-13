@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
+#include "colmap/estimators/solvers/relpose_shared_focal.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/rigid3_matchers.h"
@@ -475,12 +476,20 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
     ASSERT_TRUE(camera.IsPerspective());
 
     // Ground-truth relative pose with a unit baseline and a bounded rotation so
-    // the point cloud is visible in both views.
-    const Eigen::Vector3d axis = Eigen::Vector3d::Random().normalized();
-    const Rigid3d cam2_from_cam1(
-        Eigen::Quaterniond(Eigen::AngleAxisd(
-            DegToRad(RandomUniformReal<double>(0.0, 60.0)), axis)),
-        Eigen::Vector3d::Random().normalized());
+    // the point cloud is visible in both views. The focal is unidentifiable for
+    // coplanar optical axes, where the estimator downgrades the pair to
+    // UNCALIBRATED, so resample until the pose is clear of that degeneracy,
+    // using the same threshold as the estimator.
+    constexpr double kMinFocalIdentifiability = 0.05;
+    Rigid3d cam2_from_cam1;
+    do {
+      const Eigen::Vector3d axis = Eigen::Vector3d::Random().normalized();
+      cam2_from_cam1 =
+          Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                      DegToRad(RandomUniformReal<double>(20.0, 60.0)), axis)),
+                  Eigen::Vector3d::Random().normalized());
+    } while (RelativePoseSharedFocalEstimator::FocalIdentifiability(
+                 cam2_from_cam1) < kMinFocalIdentifiability);
 
     std::vector<Eigen::Vector2d> points1;
     std::vector<Eigen::Vector2d> points2;
