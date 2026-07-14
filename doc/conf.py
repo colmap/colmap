@@ -168,9 +168,10 @@ html_context = {"default_mode": "auto"}
 
 # -- SEO -----------------------------------------------------------------
 
-# Canonical site URL. Enables <link rel="canonical"> on every page (important
-# because the hosted legacy/<version>/ copies are near-duplicate content) and is
-# the base URL used for the sitemap and Open Graph tags.
+# Canonical site URL. Base URL for the sitemap and Open Graph tags, and makes
+# every page emit a self-referential <link rel="canonical">. (This alone does
+# not dedupe the hosted legacy/<version>/ copies; those would each need their
+# own HTML updated to point here.)
 html_baseurl = "https://colmap.github.io/"
 
 # sphinx-sitemap: the docs are not multi-version/multi-language, so emit plain
