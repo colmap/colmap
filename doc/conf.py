@@ -177,7 +177,7 @@ html_baseurl = "https://colmap.github.io/"
 # page URLs (no {version}/{lang} path segments).
 sitemap_url_scheme = "{link}"
 
-# sphinxext-opengraph: Open Graph / Twitter card metadata + <meta name="description">.
+# sphinxext-opengraph: Open Graph / Twitter card metadata + meta description.
 ogp_site_url = html_baseurl
 ogp_site_name = "COLMAP"
 ogp_description_length = 200
