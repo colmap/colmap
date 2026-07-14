@@ -13,8 +13,7 @@ COLMAP
        COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View
        Stereo (MVS) pipeline with a graphical and command-line interface. It
        offers a wide range of features for reconstruction of ordered and
-       unordered image collections, and is free and open source under the new
-       BSD license.
+       unordered image collections, and is free and open source.
      </p>
      <div class="hero__cta">
        <a class="hero__cta--primary" href="install.html">Get Started</a>

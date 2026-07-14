@@ -151,6 +151,8 @@ html_theme_options = {
         },
     ],
     "navbar_align": "left",
+    # Show nav links up to "Key Concepts"; collapse the rest into a "More" menu.
+    "header_links_before_dropdown": 3,
     "navigation_with_keys": True,
     "show_prev_next": True,
     "pygments_light_style": "default",
