@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="COLMAP">
+  <title>COLMAP</title>
+  <rect x="0" y="0" width="64" height="64" rx="13" fill="#374151"/>
+  <path d="M50.386 16.573 A24 24 0 1 0 50.386 47.427" fill="none" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round"/>
+  <g stroke="none">
+    <polygon points="32.00,17.00 44.99,24.50 38.06,35.50 38.06,28.50" fill="#9ca3af"/>
+    <polygon points="44.99,24.50 44.99,39.50 32.00,39.00 38.06,35.50" fill="#d1d5db"/>
+    <polygon points="44.99,39.50 32.00,47.00 25.94,35.50 32.00,39.00" fill="#9ca3af"/>
+    <polygon points="32.00,47.00 19.01,39.50 25.94,28.50 25.94,35.50" fill="#d1d5db"/>
+    <polygon points="19.01,39.50 19.01,24.50 32.00,25.00 25.94,28.50" fill="#9ca3af"/>
+    <polygon points="19.01,24.50 32.00,17.00 38.06,28.50 32.00,25.00" fill="#d1d5db"/>
+  </g>
+  <polygon points="32.00,27.50 35.90,29.75 35.90,34.25 32.00,36.50 28.10,34.25 28.10,29.75" fill="#ef4444"/>
+</svg>
