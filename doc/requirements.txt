@@ -2,3 +2,5 @@ sphinx==9.1.0
 sphinx-toolbox==4.1.2
 pydata-sphinx-theme==0.20.0
 sphinx-design==0.7.0
+sphinx-sitemap==2.9.0
+sphinxext-opengraph==0.13.0
