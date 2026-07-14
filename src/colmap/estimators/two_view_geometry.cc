@@ -1433,6 +1433,13 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
       continue;
     }
 
+    // Decompose through F: E is normalized by the estimated shared focal, which
+    // the database does not persist, so it mismatches the rays below.
+    if (two_view_geometry.config ==
+        TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL) {
+      two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+    }
+
     const bool is_invalid =
         two_view_geometry.config == TwoViewGeometry::UNDEFINED ||
         two_view_geometry.config == TwoViewGeometry::DEGENERATE ||
