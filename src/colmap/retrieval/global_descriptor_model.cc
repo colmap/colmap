@@ -62,13 +62,14 @@ const GlobalDescriptorModel kModels[] = {
     },
     {
         .name = "MegaLoc",
-        .input_width = 0,   // dynamic — model handles any square input
-        .input_height = 0,  // dynamic
-        .mean = {0.485f, 0.456f, 0.406f},
-        .std = {0.229f, 0.224f, 0.225f},
+        .input_width = 518,   // DINOv2 ViT-B/14 training resolution
+        .input_height = 518,  // square — ONNX reshape assumes H == W
+        // DINOv2 uses [0,1] range without ImageNet normalization.
+        .mean = {0.0f, 0.0f, 0.0f},
+        .std = {1.0f, 1.0f, 1.0f},
         .input_name = "images",
         .output_name = "descriptor",
-        .expected_input_shape = {-1, 3, -1, -1},
+        .expected_input_shape = {-1, 3, 518, 518},
         .expected_output_shape = {1, 8448},
         .descriptor_dim = 8448,
         .supports_batching = false,  // batch must be 1
