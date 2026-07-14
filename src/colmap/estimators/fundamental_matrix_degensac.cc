@@ -299,8 +299,9 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
   }
 
   // The dominant-plane homography is now fixed, so the transfer error of every
-  // correspondence against it is reused below (off-plane classification here and
-  // the plane/off-plane split for the mixed-sample refit) instead of recomputed.
+  // correspondence against it is reused below (off-plane classification here
+  // and the plane/off-plane split for the mixed-sample refit) instead of
+  // recomputed.
   std::vector<double> plane_transfer_errors(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
     plane_transfer_errors[i] = TransferError(points1[i], points2[i], H);
