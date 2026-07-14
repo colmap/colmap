@@ -39,8 +39,10 @@
 #include "colmap/util/ply.h"
 #include "colmap/util/version.h"
 
+#include <QApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QIcon>
 #include <QSettings>
 #include <QStandardPaths>
 #include <clocale>
@@ -170,6 +172,11 @@ MainWindow::MainWindow(OptionManager options)
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
   InitUiResources();
+
+  // Use the COLMAP logo as the window and application icon.
+  const QIcon app_icon(":/media/colmap-logo.svg");
+  setWindowIcon(app_icon);
+  QApplication::setWindowIcon(app_icon);
 
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   std::setlocale(LC_NUMERIC, "C");
