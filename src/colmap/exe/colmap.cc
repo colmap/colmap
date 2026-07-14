@@ -139,6 +139,7 @@ int main(int argc, char** argv) {
 #endif
   commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
   commands.emplace_back("point_triangulator", &colmap::RunPointTriangulator);
+  commands.emplace_back("pose_prior_importer", &colmap::RunPosePriorImporter);
   commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
 #if defined(COLMAP_MVS_ENABLED)
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
