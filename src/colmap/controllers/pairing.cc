@@ -31,6 +31,7 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/retrieval/global_descriptor_model.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
@@ -143,6 +144,7 @@ GlobalDescriptorPairingOptions
 SequentialPairingOptions::GlobalDescriptorOptions() const {
   GlobalDescriptorPairingOptions options;
   options.num_images = loop_detection_num_images;
+  options.model_type = loop_detection_model_path.empty() ? "MixVPR" : "";
   options.model_path = loop_detection_model_path;
   options.image_path = loop_detection_image_path;
   options.num_threads = num_threads;
@@ -1062,32 +1064,31 @@ GlobalDescriptorPairGenerator::Next() {
 
 // static
 std::vector<float> GlobalDescriptorPairGenerator::PreprocessImage(
-    const Bitmap& bitmap) {
-  // Input: RGB bitmap. Output: (1, 3, 320, 320) float32 NCHW tensor
-  // normalized with ImageNet mean/std.
-
-  // Resize to 320×320.
-  Bitmap resized = bitmap.CloneAsRGB();
-  resized.Rescale(320, 320, Bitmap::RescaleFilter::kBilinear);
-
-  // ImageNet normalization constants.
-  constexpr float kMean[3] = {0.485f, 0.456f, 0.406f};
-  constexpr float kStd[3] = {0.229f, 0.224f, 0.225f};
-
-  const int kInputSize = 320;
+    const Bitmap& bitmap,
+    const retrieval::GlobalDescriptorModel& model) {
+  // Input: RGB bitmap. Output: float32 NCHW tensor normalized per model config.
+  const int input_w =
+      model.input_width > 0 ? model.input_width : bitmap.Width();
+  const int input_h =
+      model.input_height > 0 ? model.input_height : bitmap.Height();
   const int kChannels = 3;
-  const int kNumPixels = kInputSize * kInputSize;
+
+  Bitmap resized = bitmap.CloneAsRGB();
+  if (resized.Width() != input_w || resized.Height() != input_h) {
+    resized.Rescale(input_w, input_h, Bitmap::RescaleFilter::kBilinear);
+  }
+
+  const int kNumPixels = input_w * input_h;
   std::vector<float> tensor(kChannels * kNumPixels);
   const auto& data = resized.RowMajorData();
 
-  // Convert from HWC uint8 to CHW float32 with normalization.
-  for (int y = 0; y < kInputSize; ++y) {
-    for (int x = 0; x < kInputSize; ++x) {
+  for (int y = 0; y < input_h; ++y) {
+    for (int x = 0; x < input_w; ++x) {
       for (int c = 0; c < kChannels; ++c) {
         const float val = static_cast<float>(
-            data[(y * kInputSize + x) * kChannels + c]) / 255.0f;
-        tensor[c * kNumPixels + y * kInputSize + x] =
-            (val - kMean[c]) / kStd[c];
+            data[(y * input_w + x) * kChannels + c]) / 255.0f;
+        tensor[c * kNumPixels + y * input_w + x] =
+            (val - model.mean[c]) / model.std[c];
       }
     }
   }
@@ -1099,38 +1100,61 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
 #ifdef COLMAP_ONNX_ENABLED
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
 
-  // Try to load cached descriptors from disk to avoid redundant ONNX
-  // inference.  The cache lives alongside the images.
+  // Look up the model config.
+  const retrieval::GlobalDescriptorModel* model_info =
+      retrieval::GlobalDescriptorModel::GetModel(options_.model_type);
+  if (!model_info) {
+    LOG(FATAL_THROW) << "Unknown global descriptor model: '"
+                     << options_.model_type
+                     << "'. Available models: MixVPR, MegaLoc.";
+  }
+  LOG(INFO) << "Using global descriptor model: " << model_info->name;
+
+  const int kInputW = model_info->input_width > 0 ? model_info->input_width
+                                                    : 0;  // dynamic
+  const int kInputH = model_info->input_height > 0 ? model_info->input_height
+                                                    : 0;
+  const int kChannels = 3;
+  const int kDescriptorDim = model_info->descriptor_dim;
+  const int kBatchSize =
+      model_info->supports_batching ? options_.batch_size : 1;
+
+  // Resize the index if descriptor dim changed (e.g. model switch).
+  global_descriptor_index_ =
+      retrieval::GlobalDescriptorIndex(kDescriptorDim);
+
+  // Try to load cached descriptors from disk.
   const std::filesystem::path cache_path =
-      options_.image_path / "global_descriptors.bin";
+      options_.image_path /
+      ("global_descriptors_" + model_info->name + ".bin");
   if (ExistsFile(cache_path)) {
     try {
       global_descriptor_index_.Read(cache_path);
-      // Verify the cached index matches the current image set.
       if (global_descriptor_index_.NumImages() == all_image_ids.size()) {
-        LOG(INFO) << "Loaded cached global descriptors for "
-                  << all_image_ids.size() << " images from " << cache_path;
-        return;  // Already prepared — Read() builds the FAISS index.
+        LOG(INFO) << "Loaded cached " << model_info->name
+                  << " descriptors for " << all_image_ids.size()
+                  << " images from " << cache_path;
+        return;
       }
       LOG(INFO) << "Cached descriptors have "
                 << global_descriptor_index_.NumImages() << " images, but "
-                << all_image_ids.size()
-                << " are needed. Re-extracting...";
-      // Reset and re-extract.
-      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(4096);
+                << all_image_ids.size() << " are needed. Re-extracting...";
+      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(
+          kDescriptorDim);
     } catch (const std::exception& e) {
       LOG(WARNING) << "Failed to read cached descriptors (" << e.what()
                    << "), re-extracting...";
-      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(4096);
+      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(
+          kDescriptorDim);
     }
   }
 
-  // Resolve model path: if empty, use the default HuggingFace URI
-  // (auto-downloaded via MaybeDownloadAndCacheFile in ONNXModel constructor).
+  // Resolve model path.
   std::string model_path = options_.model_path.string();
   if (model_path.empty()) {
-    model_path = kDefaultMixVPRModelUri.string();
-    LOG(INFO) << "Using default MixVPR model (auto-download from HuggingFace)";
+    model_path = model_info->default_model_uri;
+    LOG(INFO) << "Auto-downloading " << model_info->name
+              << " model from default URI";
   } else {
     LOG(INFO) << "Loading ONNX model from " << model_path;
   }
@@ -1142,37 +1166,35 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
                                         options_.gpu_index);
   } catch (const std::exception& e) {
     LOG(FATAL_THROW)
-        << "Failed to load global descriptor model. "
+        << "Failed to load " << model_info->name << " model. "
         << "If you left the model path empty, COLMAP attempted to download "
-        << "the MixVPR model from HuggingFace but the download may have "
-        << "timed out (network issue). You can manually download the model "
-        << "from https://huggingface.co/Realcat/image_retrieval_checkpoints "
-        << "and specify its path. Original error: " << e.what();
+        << "from the default URI but it may have failed (network issue). "
+        << "You can manually download the model and specify its path. "
+        << "Original error: " << e.what();
   }
 
   // Validate model I/O.
   THROW_CHECK_EQ(model->input_shapes().size(), 1);
   ThrowCheckONNXNode(model->input_names()[0],
-                     "images",
+                     model_info->input_name,
                      model->input_shapes()[0],
-                     {-1, 3, 320, 320});
+                     model_info->expected_input_shape);
   THROW_CHECK_EQ(model->output_shapes().size(), 1);
   ThrowCheckONNXNode(model->output_names()[0],
-                     "descriptor",
+                     model_info->output_name,
                      model->output_shapes()[0],
-                     {-1, 4096});
+                     model_info->expected_output_shape);
 
-  const int kBatchSize = options_.batch_size;
-  const int kInputSize = 320;
-  const int kChannels = 3;
-  const int kPixelsPerImage = kChannels * kInputSize * kInputSize;
-  const int kDescriptorDim = 4096;
+  const int kPixelsPerImage =
+      kInputW > 0 ? kChannels * kInputW * kInputH : 0;
 
   // Process images in batches.
   std::vector<image_t> batch_image_ids;
   std::vector<float> batch_data;
   batch_image_ids.reserve(kBatchSize);
-  batch_data.reserve(kBatchSize * kPixelsPerImage);
+  if (kPixelsPerImage > 0) {
+    batch_data.reserve(kBatchSize * kPixelsPerImage);
+  }
 
   size_t total_processed = 0;
   const size_t total_images = all_image_ids.size();
@@ -1181,7 +1203,6 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
     const image_t image_id = all_image_ids[i];
     const Image& image = cache_->GetImage(image_id);
 
-    // Load image from disk.
     const std::filesystem::path full_path =
         options_.image_path / image.Name();
     Bitmap bitmap;
@@ -1191,19 +1212,31 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       continue;
     }
 
-    // Preprocess.
-    std::vector<float> tensor = PreprocessImage(bitmap);
+    std::vector<float> tensor = PreprocessImage(bitmap, *model_info);
     batch_data.insert(batch_data.end(), tensor.begin(), tensor.end());
     batch_image_ids.push_back(image_id);
 
-    // Run inference when batch is full or at the last image.
     if (static_cast<int>(batch_image_ids.size()) >= kBatchSize ||
         i == total_images - 1) {
-      const int current_batch_size = static_cast<int>(batch_image_ids.size());
+      const int current_batch_size =
+          static_cast<int>(batch_image_ids.size());
+      const int per_image_size =
+          static_cast<int>(tensor.size());  // last image's size
 
-      // Create input tensor.
       std::vector<int64_t> input_shape = {
-          current_batch_size, kChannels, kInputSize, kInputSize};
+          current_batch_size, kChannels, kInputH, kInputW};
+      // Handle dynamic input sizes.
+      if (kInputW == 0) {
+        input_shape = {current_batch_size,
+                        kChannels,
+                        bitmap.Height(),
+                        bitmap.Width()};
+        // For models without batching, we still create the batch dim = 1.
+        if (!model_info->supports_batching) {
+          input_shape[0] = 1;
+        }
+      }
+
       Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
           Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                      OrtMemType::OrtMemTypeCPU),
@@ -1212,46 +1245,43 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
           input_shape.data(),
           input_shape.size());
 
-      // Run inference.
       std::vector<Ort::Value> input_tensors;
       input_tensors.emplace_back(std::move(input_tensor));
       std::vector<Ort::Value> output_tensors = model->Run(input_tensors);
       THROW_CHECK_EQ(output_tensors.size(), 1);
 
-      // Extract descriptors.
       const float* output_data =
           output_tensors[0].GetTensorData<float>();
       const auto output_shape =
           output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
-      THROW_CHECK_EQ(output_shape.size(), 2);
-      THROW_CHECK_EQ(output_shape[0], current_batch_size);
-      THROW_CHECK_EQ(output_shape[1], kDescriptorDim);
 
-      // Add descriptors to index.
-      for (int j = 0; j < current_batch_size; ++j) {
+      int output_batch = current_batch_size;
+      if (output_shape.size() >= 1 && output_shape[0] != -1) {
+        output_batch = static_cast<int>(output_shape[0]);
+      }
+
+      for (int j = 0; j < output_batch; ++j) {
         const float* desc = output_data + j * kDescriptorDim;
         std::vector<float> descriptor(desc, desc + kDescriptorDim);
         global_descriptor_index_.Add(batch_image_ids[j], descriptor);
       }
 
-      total_processed += current_batch_size;
+      total_processed += output_batch;
       LOG(INFO) << StringPrintf("Extracted descriptors [%d/%d]",
                                 total_processed,
                                 total_images);
 
-      // Clear batch buffers.
       batch_image_ids.clear();
       batch_data.clear();
     }
   }
 
-  // Persist descriptors to disk for fast reload on subsequent runs.
   if (global_descriptor_index_.NumImages() > 0) {
     global_descriptor_index_.Write(cache_path);
-    LOG(INFO) << "Cached global descriptors to " << cache_path;
+    LOG(INFO) << "Cached " << model_info->name << " descriptors to "
+              << cache_path;
   }
 
-  // Build FAISS index for fast retrieval.
   global_descriptor_index_.Prepare();
 #else
   LOG(FATAL_THROW)

@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/feature/sift.h"
+#include "colmap/retrieval/global_descriptor_model.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
 #endif
@@ -453,10 +454,11 @@ void VocabTreeMatchingTab::Run() {
 GlobalDescriptorMatchingTab::GlobalDescriptorMatchingTab(
     QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  // Model type selector — extensible for future global descriptor models.
+  // Model type selector — populated from GlobalDescriptorModel registry.
   model_type_cb_ = new QComboBox(this);
-  model_type_cb_->addItem("MixVPR");
-  // Future: model_type_cb_->addItem("MegaLoc");
+  for (auto name : retrieval::GlobalDescriptorModel::ModelNames()) {
+    model_type_cb_->addItem(QString::fromStdString(std::string(name)));
+  }
   options_widget_->AddWidgetRow("Type", model_type_cb_);
 
   options_widget_->AddOptionInt(
@@ -481,22 +483,13 @@ GlobalDescriptorMatchingTab::GlobalDescriptorMatchingTab(
 }
 
 void GlobalDescriptorMatchingTab::OnModelTypeChanged(int index) {
-  // Set default model path for the selected type (empty = auto-download).
-  // Users can override by typing a custom path.
-  switch (index) {
-    case 0:  // MixVPR
-      options_->global_descriptor_pairing->model_path.clear();
-      break;
-    // Future:
-    // case 1:  // MegaLoc
-    //   options_->global_descriptor_pairing->model_path =
-    //       kDefaultMegaLocUri;
-    //   break;
-  }
-  // Directly reflect the change in the lineEdit.
+  // Set model_type and clear model_path (auto-download from registry).
+  const QString name = model_type_cb_->itemText(index);
+  options_->global_descriptor_pairing->model_type = name.toStdString();
+  options_->global_descriptor_pairing->model_path.clear();
+
   if (model_path_edit_) {
-    model_path_edit_->setText(QString::fromStdString(
-        options_->global_descriptor_pairing->model_path.string()));
+    model_path_edit_->setText(QString());
   }
 }
 

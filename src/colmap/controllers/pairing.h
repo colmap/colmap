@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/matcher_cache.h"
 #include "colmap/retrieval/global_descriptor_index.h"
+#include "colmap/retrieval/global_descriptor_model.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
@@ -249,7 +250,12 @@ struct GlobalDescriptorPairingOptions {
   // Number of most similar images to retrieve for each query image.
   int num_images = 100;
 
-  // Path to the global descriptor ONNX model file (e.g. MixVPR).
+  // Global descriptor model type (e.g. "MixVPR", "MegaLoc").
+  // If empty, defaults to "MixVPR".
+  std::string model_type = "MixVPR";
+
+  // Path to the global descriptor ONNX model file.
+  // If empty, auto-downloads from the model's default URI.
   std::filesystem::path model_path;
 
   // Path to the directory containing the images.
@@ -509,9 +515,10 @@ class GlobalDescriptorPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  // Preprocess a bitmap to a (1, 3, 320, 320) float32 tensor suitable for
-  // MixVPR ONNX input. Returns serialized NCHW float data.
-  static std::vector<float> PreprocessImage(const Bitmap& bitmap);
+  // Preprocess a bitmap for the given model. Returns serialized NCHW float data.
+  static std::vector<float> PreprocessImage(
+      const Bitmap& bitmap,
+      const retrieval::GlobalDescriptorModel& model);
 
   // Compute global descriptors for all images using batched ONNX inference
   // and add them to the global descriptor index.
