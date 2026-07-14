@@ -674,8 +674,8 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   // The shared-focal configuration is treated like the calibrated one here: it
-  // carries a metric essential matrix, and the caller has already calibrated
-  // the inlier rays with the estimated shared focal length.
+  // carries an essential matrix, and the caller has already calibrated the
+  // inlier rays with the estimated shared focal length.
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
       geometry->config ==
           TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
@@ -1059,7 +1059,7 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
 
   if (SF_report.success && SF_report.support.num_inliers >= min_num_inliers &&
       H_SF_inlier_ratio <= options.max_H_inlier_ratio) {
-    // Shared-focal (metric) configuration.
+    // Shared-focal configuration.
     num_inliers = SF_report.support.num_inliers;
     best_inlier_mask = &SF_report.inlier_mask;
     geometry.config =

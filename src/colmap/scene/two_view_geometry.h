@@ -50,8 +50,9 @@ struct TwoViewGeometry {
     // Fundamental matrix.
     UNCALIBRATED = 3,
     // Essential matrix with a shared, estimated focal length (both images from
-    // the same uncalibrated camera). Carries E, a fundamental matrix, a metric
-    // relative pose, and `shared_focal_length`.
+    // the same uncalibrated camera). Carries E, a fundamental matrix, a
+    // relative pose (up to scale, as for CALIBRATED), and
+    // `shared_focal_length`.
     UNCALIBRATED_SHARED_FOCAL = 10,
     // Homography, planar scene with baseline.
     PLANAR = 4,
