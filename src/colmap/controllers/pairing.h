@@ -158,11 +158,14 @@ struct SequentialPairingOptions {
   // Path to the vocabulary tree (used when loop_detection_model_path is empty).
   std::filesystem::path vocab_tree_path;
 
-  // Path to a global descriptor ONNX model (e.g. MixVPR) for loop detection.
-  // When set, replaces the vocabulary tree with deep-learning-based retrieval.
+  // Global descriptor model type for loop detection (e.g. "MixVPR", "MegaLoc").
+  std::string loop_detection_model_type;
+
+  // Path to a global descriptor ONNX model for loop detection.
+  // When empty, auto-downloads from the model type's default URI.
   std::filesystem::path loop_detection_model_path;
 
-  // Path to the image directory, required when loop_detection_model_path is set.
+  // Path to the image directory, required for global-descriptor loop detection.
   std::filesystem::path loop_detection_image_path;
 
   bool Check() const;

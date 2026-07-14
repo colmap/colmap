@@ -144,7 +144,9 @@ GlobalDescriptorPairingOptions
 SequentialPairingOptions::GlobalDescriptorOptions() const {
   GlobalDescriptorPairingOptions options;
   options.num_images = loop_detection_num_images;
-  options.model_type = loop_detection_model_path.empty() ? "MixVPR" : "";
+  options.model_type = loop_detection_model_type.empty()
+                           ? "MixVPR"
+                           : loop_detection_model_type;
   options.model_path = loop_detection_model_path;
   options.image_path = loop_detection_image_path;
   options.num_threads = num_threads;

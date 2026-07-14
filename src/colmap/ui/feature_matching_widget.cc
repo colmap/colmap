@@ -268,9 +268,10 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
 
   // Loop detection type selector.
   loop_detection_type_cb_ = new QComboBox(this);
-  loop_detection_type_cb_->addItem("None");
-  loop_detection_type_cb_->addItem("Vocabulary Tree");
-  loop_detection_type_cb_->addItem("MixVPR (global descriptor)");
+  loop_detection_type_cb_->addItem("None");             // 0
+  loop_detection_type_cb_->addItem("Vocabulary Tree");  // 1
+  loop_detection_type_cb_->addItem("MixVPR");           // 2
+  loop_detection_type_cb_->addItem("MegaLoc");           // 3
   options_widget_->AddWidgetRow("Loop detection", loop_detection_type_cb_);
 
   // Use standard AddOptionFilePath for both path types — identical height,
@@ -345,11 +346,9 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
     }
   };
 
-  // 0 = None: hide both rows.
-  // 1 = Vocab Tree: show vocab row, hide MixVPR row.
-  // 2 = MixVPR: show MixVPR row, hide vocab row.
+  // 0 = None, 1 = Vocab Tree, 2+ = global descriptor (MixVPR / MegaLoc / ...)
   SetRowVisible(vocab_tree_grid_row_, idx == 1);
-  SetRowVisible(global_descriptor_grid_row_, idx == 2);
+  SetRowVisible(global_descriptor_grid_row_, idx >= 2);
 }
 
 void SequentialMatchingTab::Run() {
@@ -359,13 +358,17 @@ void SequentialMatchingTab::Run() {
   const int idx = loop_detection_type_cb_->currentIndex();
   options_->sequential_pairing->loop_detection = (idx != 0);
   if (idx == 1) {
+    // Vocab Tree: clear global descriptor paths.
     options_->sequential_pairing->loop_detection_model_path.clear();
-  } else if (idx == 2) {
+  } else if (idx >= 2) {
+    // Global descriptor: clear vocab tree path, set model type from combo.
     options_->sequential_pairing->vocab_tree_path.clear();
+    options_->sequential_pairing->loop_detection_model_type =
+        loop_detection_type_cb_->currentText().toStdString();
   }
 
   if (options_->sequential_pairing->loop_detection) {
-    if (idx == 2) {
+    if (idx >= 2) {
       // Auto-derive image_path from the project.
       options_->sequential_pairing->loop_detection_image_path =
           *options_->image_path;
