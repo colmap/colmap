@@ -52,10 +52,12 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.autodoc",
     "sphinx_design",
+    "sphinx_sitemap",
+    "sphinxext.opengraph",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = []
+templates_path = ["_templates"]
 
 # The suffix of source filenames.
 source_suffix = ".rst"
@@ -163,6 +165,33 @@ html_theme_options = {
 
 # Follow the visitor's OS/browser preference for light/dark mode by default.
 html_context = {"default_mode": "auto"}
+
+# -- SEO -----------------------------------------------------------------
+
+# Canonical site URL. Base URL for the sitemap and Open Graph tags, and makes
+# every page emit a self-referential <link rel="canonical">. (This alone does
+# not dedupe the hosted legacy/<version>/ copies; those would each need their
+# own HTML updated to point here.)
+html_baseurl = "https://colmap.github.io/"
+
+# sphinx-sitemap: the docs are not multi-version/multi-language, so emit plain
+# page URLs (no {version}/{lang} path segments).
+sitemap_url_scheme = "{link}"
+
+# sphinxext-opengraph: Open Graph / Twitter card metadata + meta description.
+ogp_site_url = html_baseurl
+ogp_site_name = "COLMAP"
+ogp_description_length = 200
+ogp_enable_meta_description = True
+ogp_image = "https://colmap.github.io/_static/og-image.png"
+ogp_image_alt = "COLMAP — Structure-from-Motion & Multi-View Stereo"
+ogp_use_first_image = False
+ogp_custom_meta_tags = [
+    '<meta name="twitter:card" content="summary_large_image" />',
+]
+
+# Copy robots.txt (which points crawlers to the sitemap) to the site root.
+html_extra_path = ["robots.txt"]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".

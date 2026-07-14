@@ -1,0 +1,11 @@
+{% extends "!layout.html" %}
+
+{# Give the landing page a descriptive <title> for SEO, without changing the
+   visible hero heading. Other pages keep the theme's default title. #}
+{%- block htmltitle -%}
+{%- if pagename == "index" -%}
+<title>Structure-from-Motion and Multi-View Stereo{{ titlesuffix }}</title>
+{%- else -%}
+{{ super() }}
+{%- endif -%}
+{%- endblock -%}

@@ -1,4 +1,8 @@
 :html_theme.sidebar_secondary.remove: true
+:og:description: COLMAP is a free, open-source Structure-from-Motion (SfM) and Multi-View Stereo (MVS) pipeline with a graphical and command-line interface for 3D reconstruction from ordered and unordered image collections.
+
+.. meta::
+   :description: COLMAP is a free, open-source Structure-from-Motion (SfM) and Multi-View Stereo (MVS) pipeline with a graphical and command-line interface for 3D reconstruction from ordered and unordered image collections.
 
 .. rst-class:: hero__title
 
@@ -22,7 +26,7 @@ COLMAP
      </div>
    </div>
 
-.. figure:: images/sparse.png
+.. figure:: images/sparse.webp
    :class: hero__image
    :figclass: hero-figure
    :alt: Sparse reconstruction of central Rome.
