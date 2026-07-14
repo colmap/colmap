@@ -72,7 +72,7 @@ const GlobalDescriptorModel kModels[] = {
         .expected_input_shape = {-1, 3, -1, -1},  // dynamic H,W; our code resizes to 518×518
         .expected_output_shape = {1, 8448},
         .descriptor_dim = 8448,
-        .supports_batching = false,  // batch must be 1
+        .supports_batching = false,  // gemm_input_reshape hardcodes batch=1
         .default_model_uri =
             "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
             "resolve/main/megaloc/megaloc_fp16.onnx;"
