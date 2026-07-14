@@ -216,7 +216,7 @@ html_sidebars = {"index": []}
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 html_css_files = ["custom.css", "landing.css"]
-html_js_files = ["install_selector.js"]
+html_js_files = ["install_selector.js", "external_links.js"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
