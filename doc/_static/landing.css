@@ -1,0 +1,291 @@
+/* Styles for the COLMAP landing page: hero, feature cards, and the interactive
+   install selector. Colors are derived from pydata-sphinx-theme CSS variables so
+   everything adapts automatically to light and dark mode. */
+
+/* ------------------------------------------------------------------ Hero --- */
+
+/* Center and enlarge the page title so it reads as a hero wordmark. The
+   `.. rst-class:: hero__title` directive normalizes to the class `hero-title`
+   and applies it to the wrapping <section>, so we scope to its direct-child
+   <h1> only (never the whole section, which contains the rest of the page). */
+section.hero-title > h1 {
+  text-align: center;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 2rem 0 0.25rem;
+}
+
+/* Hide the anchor "#" link on the hero title. */
+section.hero-title > h1 > a.headerlink {
+  display: none;
+}
+
+.hero {
+  text-align: center;
+  padding: 0.5rem 1rem 1rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Hero figure (reuses the existing sparse-reconstruction screenshot). */
+.hero-figure {
+  max-width: 900px;
+  margin: 0.5rem auto 1rem;
+  text-align: center;
+}
+
+.hero-figure img.hero__image {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--pst-color-border);
+}
+
+.hero-figure figcaption,
+.hero-figure .caption {
+  font-size: 0.85rem;
+  color: var(--pst-color-text-muted);
+  margin-top: 0.5rem;
+}
+
+.hero__logo {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 1rem;
+}
+
+.hero__title {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.25rem;
+  line-height: 1.1;
+}
+
+.hero__tagline {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--pst-color-primary);
+  margin: 0 0 1rem;
+}
+
+.hero__desc {
+  font-size: 1.05rem;
+  color: var(--pst-color-text-muted);
+  max-width: 680px;
+  margin: 0 auto 1.75rem;
+}
+
+.hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.hero__cta a {
+  display: inline-block;
+  padding: 0.6rem 1.4rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--pst-color-primary);
+  transition: transform 0.06s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.hero__cta a:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.hero__cta a.hero__cta--primary {
+  background: var(--pst-color-primary);
+  color: #fff;
+}
+
+.hero__cta a.hero__cta--primary:hover {
+  background: var(--pst-color-primary-highlight, var(--pst-color-primary));
+}
+
+.hero__cta a.hero__cta--secondary {
+  background: transparent;
+  color: var(--pst-color-primary);
+}
+
+.hero__cta a.hero__cta--secondary:hover {
+  background: var(--pst-color-surface);
+}
+
+.hero__image {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--pst-color-border);
+  margin-top: 0.5rem;
+}
+
+.hero__image-caption {
+  font-size: 0.85rem;
+  color: var(--pst-color-text-muted);
+  margin-top: 0.5rem;
+}
+
+/* Section headings on the landing page. */
+.landing-section-title {
+  text-align: center;
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin: 3rem 0 0.5rem;
+}
+
+.landing-section-subtitle {
+  text-align: center;
+  color: var(--pst-color-text-muted);
+  margin: 0 auto 1.5rem;
+  max-width: 640px;
+}
+
+/* ------------------------------------------------------ Install selector --- */
+
+.cis {
+  max-width: 780px;
+  margin: 0 auto 1rem;
+  border: 1px solid var(--pst-color-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  background: var(--pst-color-surface);
+}
+
+.cis__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.cis__row + .cis__row {
+  border-top: 1px solid var(--pst-color-border);
+}
+
+.cis__label {
+  flex: 0 0 92px;
+  padding-top: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pst-color-text-muted);
+}
+
+.cis__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cis__btn {
+  cursor: pointer;
+  padding: 0.4rem 0.95rem;
+  border-radius: 2rem;
+  border: 1px solid var(--pst-color-border);
+  background: var(--pst-color-background);
+  color: var(--pst-color-text-base);
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cis__btn:hover:not(.cis__btn--disabled):not(.cis__btn--active) {
+  border-color: var(--pst-color-primary);
+  color: var(--pst-color-primary);
+}
+
+.cis__btn--active {
+  background: var(--pst-color-primary);
+  border-color: var(--pst-color-primary);
+  color: #fff;
+}
+
+.cis__btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cis__output {
+  margin-top: 1rem;
+}
+
+.cis__cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--pst-color-on-background, var(--pst-color-background));
+  border: 1px solid var(--pst-color-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.cis__cmd code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.95rem;
+  color: var(--pst-color-text-base);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.cis__prompt {
+  color: var(--pst-color-text-muted);
+  user-select: none;
+  margin-right: 0.4rem;
+}
+
+.cis__copy {
+  flex: 0 0 auto;
+  cursor: pointer;
+  padding: 0.35rem 0.85rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--pst-color-primary);
+  background: transparent;
+  color: var(--pst-color-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cis__copy:hover {
+  background: var(--pst-color-primary);
+  color: #fff;
+}
+
+.cis__link {
+  display: inline-block;
+  padding: 0.55rem 1.2rem;
+  border-radius: 0.5rem;
+  background: var(--pst-color-primary);
+  color: #fff !important;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cis__link:hover {
+  text-decoration: none;
+  filter: brightness(1.08);
+}
+
+.cis__note {
+  margin: 0.75rem 0 0;
+  font-size: 0.88rem;
+  color: var(--pst-color-text-muted);
+}
+
+@media (max-width: 500px) {
+  .cis__row {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .hero__title {
+    font-size: 2.25rem;
+  }
+}

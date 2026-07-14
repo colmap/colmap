@@ -1,45 +1,104 @@
+:html_theme.sidebar_secondary.remove: true
+
+.. rst-class:: hero__title
+
 COLMAP
 ======
 
+.. raw:: html
+
+   <div class="hero">
+     <p class="hero__tagline">General-purpose Structure-from-Motion &amp; Multi-View Stereo</p>
+     <p class="hero__desc">
+       COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View
+       Stereo (MVS) pipeline with a graphical and command-line interface. It
+       offers a wide range of features for reconstruction of ordered and
+       unordered image collections, and is free and open source.
+     </p>
+     <div class="hero__cta">
+       <a class="hero__cta--primary" href="install.html">Get Started</a>
+       <a class="hero__cta--secondary" href="#install-colmap">Install</a>
+       <a class="hero__cta--secondary" href="https://github.com/colmap/colmap">GitHub</a>
+     </div>
+   </div>
+
 .. figure:: images/sparse.png
-    :alt: Sparse reconstruction of central Rome.
-    :figclass: align-center
+   :class: hero__image
+   :figclass: hero-figure
+   :alt: Sparse reconstruction of central Rome.
 
-    Sparse model of central Rome using 21K photos produced by COLMAP's SfM
-    pipeline.
-
-.. figure:: images/dense.png
-    :alt: Dense reconstruction of landmarks.
-    :figclass: align-center
-
-    Dense models of several landmarks produced by COLMAP's MVS pipeline.
+   Sparse model of central Rome using 21K photos produced by COLMAP's SfM
+   pipeline.
 
 
-About
------
+Install COLMAP
+--------------
 
-COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo
-(MVS) pipeline with a graphical and command-line interface. It offers a wide
-range of features for reconstruction of ordered and unordered image collections.
-The software is licensed under the new BSD license.
+Select your platform below to get the recommended install command or download.
 
-The latest source code is available at `GitHub
-<https://github.com/colmap/colmap>`_. COLMAP builds on top of existing works and
-when using specific algorithms within COLMAP, please also cite the original
-authors, as specified in the source code.
+.. raw:: html
+
+   <div id="colmap-install-selector"></div>
+
+For all installation options and build-from-source instructions, see the
+:ref:`installation guide <installation>`.
 
 
-Download
+Features
 --------
 
-Executables and other resources can be downloaded from https://demuc.de/colmap/.
+.. grid:: 1 2 2 3
+   :gutter: 3
+
+   .. grid-item-card:: Structure-from-Motion
+      :link: tutorial
+      :link-type: doc
+
+      Robust incremental SfM to recover camera poses and sparse 3D structure
+      from ordered or unordered image collections.
+
+   .. grid-item-card:: Multi-View Stereo
+      :link: tutorial
+      :link-type: doc
+
+      Dense reconstruction with PatchMatch stereo and stereo fusion to produce
+      detailed dense point clouds and meshes.
+
+   .. grid-item-card:: Graphical & Command-Line
+      :link: gui
+      :link-type: doc
+
+      A full-featured GUI for interactive reconstruction plus a scriptable
+      command-line interface for automated pipelines.
+
+   .. grid-item-card:: PyCOLMAP
+      :link: pycolmap/index
+      :link-type: doc
+
+      Python bindings exposing most of COLMAP's functionality, from the
+      reconstruction pipeline to robust geometric estimators.
+
+   .. grid-item-card:: Camera Models & Rigs
+      :link: cameras
+      :link-type: doc
+
+      A wide range of camera models and multi-camera rig support for diverse
+      capture setups.
+
+   .. grid-item-card:: Datasets & Formats
+      :link: datasets
+      :link-type: doc
+
+      Ready-to-use sample datasets and well-documented input/output formats for
+      easy integration.
 
 
 Getting Started
 ---------------
 
-1. Download the `pre-built binaries <https://demuc.de/colmap/>`_ or build the
-   library manually from `source <https://github.com/colmap/colmap>`_
+1. Install COLMAP using the selector above, download the
+   `pre-built binaries <https://github.com/colmap/colmap/releases>`_, or build
+   from `source <https://colmap.github.io/install.html>`_
    (see :ref:`Installation <installation>`).
 2. Download one of the provided datasets (see :ref:`Datasets <datasets>`)
    or use your own images.
