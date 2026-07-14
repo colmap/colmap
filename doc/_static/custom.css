@@ -1,3 +1,24 @@
+/* Brand palette: charcoal + dark red, matching the COLMAP logo. Overrides the
+   pydata-sphinx-theme accent colors for both light and dark mode. */
+html[data-theme="light"] {
+    --pst-color-primary: #b91c1c;
+    --pst-color-primary-highlight: #7f1d1d;
+    --pst-color-secondary: #374151;
+    --pst-color-secondary-highlight: #1f2937;
+    --pst-color-link: #b91c1c;
+    --pst-color-link-hover: #7f1d1d;
+    --pst-color-inline-code: #b91c1c;
+}
+
+html[data-theme="dark"] {
+    --pst-color-primary: #f87171;
+    --pst-color-primary-highlight: #ef4444;
+    --pst-color-secondary: #9ca3af;
+    --pst-color-secondary-highlight: #d1d5db;
+    --pst-color-link: #f87171;
+    --pst-color-link-hover: #fca5a5;
+}
+
 /* Fixes https://github.com/readthedocs/sphinx_rtd_theme/issues/1301#issuecomment-1876120817 */
 .py.property {
     display: block !important;

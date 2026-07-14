@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="COLMAP">
   <title>COLMAP</title>
-  <!-- Multi-view triangulation: two camera nodes and a triangulated scene point. -->
-  <path d="M16 20 L48 20 L32 48 Z" fill="none" stroke="#334155"
-        stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="24" cy="10" r="2.2" fill="#93c5fd"/>
-  <circle cx="54" cy="34" r="2.2" fill="#93c5fd"/>
-  <circle cx="12" cy="40" r="2.2" fill="#93c5fd"/>
-  <circle cx="16" cy="20" r="6" fill="#2563eb"/>
-  <circle cx="48" cy="20" r="6" fill="#2563eb"/>
-  <circle cx="32" cy="48" r="6" fill="#f59e0b"/>
+  <path d="M50.386 16.573 A24 24 0 1 0 50.386 47.427" fill="none" stroke="#374151" stroke-width="5" stroke-linecap="round"/>
+  <g stroke="none">
+    <polygon points="32.00,17.00 44.99,24.50 38.06,35.50 38.06,28.50" fill="#374151"/>
+    <polygon points="44.99,24.50 44.99,39.50 32.00,39.00 38.06,35.50" fill="#6b7280"/>
+    <polygon points="44.99,39.50 32.00,47.00 25.94,35.50 32.00,39.00" fill="#374151"/>
+    <polygon points="32.00,47.00 19.01,39.50 25.94,28.50 25.94,35.50" fill="#6b7280"/>
+    <polygon points="19.01,39.50 19.01,24.50 32.00,25.00 25.94,28.50" fill="#374151"/>
+    <polygon points="19.01,24.50 32.00,17.00 38.06,28.50 32.00,25.00" fill="#6b7280"/>
+  </g>
+  <polygon points="32.00,27.50 35.90,29.75 35.90,34.25 32.00,36.50 28.10,34.25 28.10,29.75" fill="#b91c1c"/>
 </svg>

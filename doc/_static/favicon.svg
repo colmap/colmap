@@ -1,9 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="COLMAP">
   <title>COLMAP</title>
-  <rect width="64" height="64" rx="14" fill="#2563eb"/>
-  <path d="M18 22 L46 22 L32 46 Z" fill="none" stroke="#ffffff"
-        stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="18" cy="22" r="5.5" fill="#ffffff"/>
-  <circle cx="46" cy="22" r="5.5" fill="#ffffff"/>
-  <circle cx="32" cy="46" r="5.5" fill="#fbbf24"/>
+  <path d="M50.386 16.573 A24 24 0 1 0 50.386 47.427" fill="none" stroke="#4b5563" stroke-width="6" stroke-linecap="round"/>
+  <polygon points="32.00,20.00 42.39,26.00 42.39,38.00 32.00,44.00 21.61,38.00 21.61,26.00" fill="#6b7280"/>
+  <polygon points="32.00,26.00 37.20,29.00 37.20,35.00 32.00,38.00 26.80,35.00 26.80,29.00" fill="#dc2626"/>
 </svg>
