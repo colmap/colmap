@@ -168,6 +168,9 @@ struct SequentialPairingOptions {
   // Path to the image directory, required for global-descriptor loop detection.
   std::filesystem::path loop_detection_image_path;
 
+  // Database path.  Descriptor caches are stored alongside the db file.
+  std::filesystem::path loop_detection_database_path;
+
   bool Check() const;
 
   VocabTreePairingOptions VocabTreeOptions() const;
@@ -263,6 +266,9 @@ struct GlobalDescriptorPairingOptions {
 
   // Path to the directory containing the images.
   std::filesystem::path image_path;
+
+  // Path to the database file.  Descriptor caches are stored alongside it.
+  std::filesystem::path database_path;
 
   // Optional path to file with specific image names to use as queries.
   // If empty, all images are used as queries.

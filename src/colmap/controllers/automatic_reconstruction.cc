@@ -129,15 +129,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
         options_.global_descriptor_path;
     option_manager_.sequential_pairing->loop_detection_image_path =
         options_.image_path;
-    option_manager_.sequential_pairing->loop_detection = true;
+    option_manager_.sequential_pairing->loop_detection_database_path =
+        *option_manager_.database_path;
   } else {
     // Use vocabulary tree for loop detection (default).
     option_manager_.vocab_tree_pairing->vocab_tree_path =
         GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
     option_manager_.sequential_pairing->vocab_tree_path =
         GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
-    option_manager_.sequential_pairing->loop_detection = true;
   }
+  option_manager_.sequential_pairing->loop_detection = true;
 
   // Apply mapper-appropriate two-view geometry defaults.
   // Global uses stricter thresholds; Incremental/Hierarchical use standard.
@@ -228,6 +229,8 @@ void AutomaticReconstructionController::Setup() {
             options_.global_descriptor_path;
         option_manager_.global_descriptor_pairing->image_path =
             options_.image_path;
+        option_manager_.global_descriptor_pairing->database_path =
+            *option_manager_.database_path;
         option_manager_.global_descriptor_pairing->num_images =
             option_manager_.vocab_tree_pairing->num_images;
         option_manager_.global_descriptor_pairing->num_threads =

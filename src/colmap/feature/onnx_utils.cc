@@ -40,13 +40,13 @@
 #include <Windows.h>
 #endif
 
-#ifdef COLMAP_COREML_ENABLED
-#include <coreml_provider_factory.h>
-#endif
-
 namespace colmap {
 
 #ifdef COLMAP_ONNX_ENABLED
+
+#ifdef COLMAP_COREML_ENABLED
+#include <coreml_provider_factory.h>
+#endif
 
 namespace {
 [[noreturn]] void RethrowONNXException() {

@@ -284,12 +284,13 @@ int RunSequentialMatcher(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  // Forward the global image path to sequential loop detection
-  // (required for global-descriptor-based loop detection).
+  // Forward project paths to sequential loop detection.
   if (!options.image_path->empty()) {
     options.sequential_pairing->loop_detection_image_path =
         *options.image_path;
   }
+  options.sequential_pairing->loop_detection_database_path =
+      *options.database_path;
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->RequiresOpenGL()) {
@@ -406,8 +407,9 @@ int RunGlobalDescriptorMatcher(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  // image_path is the SfM input images — auto-forward to pairing options.
+  // Forward project paths to pairing options.
   options.global_descriptor_pairing->image_path = *options.image_path;
+  options.global_descriptor_pairing->database_path = *options.database_path;
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->RequiresOpenGL()) {

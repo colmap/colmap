@@ -365,6 +365,8 @@ void SequentialMatchingTab::Run() {
     options_->sequential_pairing->vocab_tree_path.clear();
     options_->sequential_pairing->loop_detection_model_type =
         loop_detection_type_cb_->currentText().toStdString();
+    options_->sequential_pairing->loop_detection_database_path =
+        *options_->database_path;
   }
 
   if (options_->sequential_pairing->loop_detection) {
@@ -378,12 +380,13 @@ void SequentialMatchingTab::Run() {
         QMessageBox::critical(
             this, "",
             tr("Image path is not set or does not exist.\n\n"
-               "For MixVPR loop detection, the image folder must be "
+               "For %1 loop detection, the image folder must be "
                "configured in the project settings (File > New Project).\n\n"
-               "Current path: %1")
-                .arg(QString::fromStdString(
-                    options_->sequential_pairing->loop_detection_image_path
-                        .string())));
+               "Current path: %2")
+                .arg(loop_detection_type_cb_->currentText(),
+                     QString::fromStdString(
+                         options_->sequential_pairing
+                             ->loop_detection_image_path.string())));
         return;
       }
       const auto& model_path =
@@ -391,8 +394,10 @@ void SequentialMatchingTab::Run() {
       if (!model_path.empty() && !ExistsFile(model_path) &&
           !IsURI(model_path.string())) {
         QMessageBox::critical(
-            this, "", tr("Invalid MixVPR model path. Leave empty for "
-                         "auto-download, or provide a valid local file."));
+            this, "",
+            tr("Invalid %1 model path. Leave empty for "
+               "auto-download, or provide a valid local file.")
+                .arg(loop_detection_type_cb_->currentText()));
         return;
       }
     } else {
@@ -499,8 +504,10 @@ void GlobalDescriptorMatchingTab::OnModelTypeChanged(int index) {
 void GlobalDescriptorMatchingTab::Run() {
   WriteOptions();
 
-  // Auto-derive image_path from the project (BaseOptionManager).
+  // Auto-derive paths from the project.
   options_->global_descriptor_pairing->image_path = *options_->image_path;
+  options_->global_descriptor_pairing->database_path =
+      *options_->database_path;
 
   const auto& model_path =
       options_->global_descriptor_pairing->model_path;

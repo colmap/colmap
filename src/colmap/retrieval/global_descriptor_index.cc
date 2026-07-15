@@ -50,6 +50,14 @@ constexpr uint32_t kFileVersion = 1;
 
 }  // namespace
 
+void GlobalDescriptorIndex::BuildFaissIndex() {
+  auto* index = new faiss::IndexFlatIP(descriptor_dim_);
+  index->add(static_cast<faiss::idx_t>(image_ids_.size()),
+             descriptors_.data());
+  faiss_index_.reset(index);
+  prepared_ = true;
+}
+
 // FAISS index deleter — defined here to keep faiss headers out of the .h file.
 void GlobalDescriptorIndex::FaissIndexDeleter::operator()(void* ptr) const {
   delete static_cast<faiss::IndexFlatIP*>(ptr);
@@ -82,12 +90,9 @@ void GlobalDescriptorIndex::Add(const image_t image_id,
   const size_t row = static_cast<size_t>(descriptors_.rows());
 
   // Grow the descriptor matrix by one row.
-  descriptors_.conservativeResize(row + 1, descriptor_dim_);
-  Eigen::Map<Eigen::RowVectorXf> row_map(
-      const_cast<float*>(descriptors_.row(row).data()), descriptor_dim_);
-  for (int i = 0; i < descriptor_dim_; ++i) {
-    row_map(i) = descriptor[i];
-  }
+  descriptors_.conservativeResize(row + 1, Eigen::NoChange);
+  descriptors_.row(row) = Eigen::Map<const Eigen::RowVectorXf>(
+      descriptor.data(), descriptor_dim_);
 
   image_ids_.push_back(image_id);
   image_id_to_idx_[image_id] = row;
@@ -99,15 +104,7 @@ void GlobalDescriptorIndex::Prepare() {
       << "No images were added to the index. "
       << "Check that the image_path is correct and images can be read.";
 
-  // Build FAISS IndexFlatIP for cosine similarity search.
-  // Since descriptors are L2-normalized, inner product = cosine similarity.
-  auto* index = new faiss::IndexFlatIP(descriptor_dim_);
-  index->add(static_cast<faiss::idx_t>(image_ids_.size()),
-             descriptors_.data());
-
-  faiss_index_.reset(index);
-  prepared_ = true;
-
+  BuildFaissIndex();
   LOG(INFO) << "Built global descriptor index with " << image_ids_.size()
             << " images, descriptor dimension = " << descriptor_dim_;
 }
@@ -186,12 +183,9 @@ void GlobalDescriptorIndex::Write(const std::filesystem::path& path) const {
     WriteBinaryLittleEndian<int64_t>(&file, static_cast<int64_t>(id));
   }
 
-  // Descriptors (row-major float32).
-  for (int i = 0; i < descriptors_.rows(); ++i) {
-    for (int j = 0; j < descriptors_.cols(); ++j) {
-      WriteBinaryLittleEndian<float>(&file, descriptors_(i, j));
-    }
-  }
+  // Descriptors (row-major float32, contiguous — single bulk write).
+  const size_t desc_bytes = descriptors_.size() * sizeof(float);
+  file.write(reinterpret_cast<const char*>(descriptors_.data()), desc_bytes);
 
   LOG(INFO) << "Saved global descriptor index (" << image_ids_.size()
             << " images, dim=" << descriptor_dim_ << ") to " << path;
@@ -221,13 +215,10 @@ void GlobalDescriptorIndex::Read(const std::filesystem::path& path) {
     image_ids_.push_back(static_cast<image_t>(id));
   }
 
-  // Descriptors.
+  // Descriptors (row-major float32, contiguous — single bulk read).
   descriptors_.resize(static_cast<int>(num_images), descriptor_dim_);
-  for (int i = 0; i < descriptors_.rows(); ++i) {
-    for (int j = 0; j < descriptors_.cols(); ++j) {
-      descriptors_(i, j) = ReadBinaryLittleEndian<float>(&file);
-    }
-  }
+  const size_t desc_bytes = descriptors_.size() * sizeof(float);
+  file.read(reinterpret_cast<char*>(descriptors_.data()), desc_bytes);
 
   // Rebuild mapping.
   image_id_to_idx_.clear();
@@ -235,12 +226,7 @@ void GlobalDescriptorIndex::Read(const std::filesystem::path& path) {
     image_id_to_idx_[image_ids_[i]] = i;
   }
 
-  // Build FAISS index.
-  auto* index = new faiss::IndexFlatIP(descriptor_dim_);
-  index->add(static_cast<faiss::idx_t>(image_ids_.size()),
-             descriptors_.data());
-  faiss_index_.reset(index);
-  prepared_ = true;
+  BuildFaissIndex();
 
   LOG(INFO) << "Loaded global descriptor index (" << image_ids_.size()
             << " images, dim=" << descriptor_dim_ << ") from " << path;

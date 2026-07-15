@@ -99,6 +99,8 @@ class GlobalDescriptorIndex {
   void Read(const std::filesystem::path& path);
 
  private:
+  void BuildFaissIndex();
+
   int descriptor_dim_;
   std::vector<image_t> image_ids_;
   // Descriptors stored as row-major matrix (num_images × descriptor_dim).

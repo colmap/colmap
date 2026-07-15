@@ -113,10 +113,5 @@ std::vector<std::string_view> GlobalDescriptorModel::ModelNames() {
   return names;
 }
 
-std::string GlobalDescriptorModel::Label() const {
-  return name + " (" + std::to_string(descriptor_dim) + "d" +
-         (supports_batching ? ", batch" : ", single") + ")";
-}
-
 }  // namespace retrieval
 }  // namespace colmap

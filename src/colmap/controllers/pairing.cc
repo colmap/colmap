@@ -149,6 +149,7 @@ SequentialPairingOptions::GlobalDescriptorOptions() const {
                            : loop_detection_model_type;
   options.model_path = loop_detection_model_path;
   options.image_path = loop_detection_image_path;
+  options.database_path = loop_detection_database_path;
   options.num_threads = num_threads;
   return options;
 }
@@ -966,7 +967,7 @@ GlobalDescriptorPairGenerator::GlobalDescriptorPairGenerator(
     , cache_(THROW_CHECK_NOTNULL(cache))
     , global_descriptor_index_(4096) {
   THROW_CHECK(options.Check());
-  LOG(INFO) << "Generating image pairs with global descriptors (MixVPR)...";
+  LOG(INFO) << "Generating image pairs with global descriptors...";
 
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
   if (query_image_ids.size() > 0) {
@@ -1075,9 +1076,13 @@ std::vector<float> GlobalDescriptorPairGenerator::PreprocessImage(
       model.input_height > 0 ? model.input_height : bitmap.Height();
   const int kChannels = 3;
 
-  Bitmap resized = bitmap.CloneAsRGB();
-  if (resized.Width() != input_w || resized.Height() != input_h) {
+  // Caller reads as RGB; clone only if we need to resize.
+  Bitmap resized;
+  if (bitmap.Width() != input_w || bitmap.Height() != input_h) {
+    resized = bitmap.CloneAsRGB();
     resized.Rescale(input_w, input_h, Bitmap::RescaleFilter::kBilinear);
+  } else {
+    resized = bitmap.Clone();
   }
 
   const int kNumPixels = input_w * input_h;
@@ -1107,8 +1112,7 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       retrieval::GlobalDescriptorModel::GetModel(options_.model_type);
   if (!model_info) {
     LOG(FATAL_THROW) << "Unknown global descriptor model: '"
-                     << options_.model_type
-                     << "'. Available models: MixVPR, MegaLoc.";
+                     << options_.model_type << "'.";
   }
   LOG(INFO) << "Using global descriptor model: " << model_info->name;
 
@@ -1125,9 +1129,9 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
   global_descriptor_index_ =
       retrieval::GlobalDescriptorIndex(kDescriptorDim);
 
-  // Try to load cached descriptors from disk.
+  // Cache alongside the database, not in the image folder.
   const std::filesystem::path cache_path =
-      options_.image_path /
+      options_.database_path.parent_path() /
       ("global_descriptors_" + model_info->name + ".bin");
   if (ExistsFile(cache_path)) {
     try {
@@ -1201,6 +1205,10 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
   size_t total_processed = 0;
   const size_t total_images = all_image_ids.size();
 
+  // Reusable ONNX memory descriptor (hoisted out of loop).
+  const auto ort_memory = Ort::MemoryInfo::CreateCpu(
+      OrtAllocatorType::OrtDeviceAllocator, OrtMemType::OrtMemTypeCPU);
+
   for (size_t i = 0; i < total_images; ++i) {
     const image_t image_id = all_image_ids[i];
     const Image& image = cache_->GetImage(image_id);
@@ -1222,8 +1230,6 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
         i == total_images - 1) {
       const int current_batch_size =
           static_cast<int>(batch_image_ids.size());
-      const int per_image_size =
-          static_cast<int>(tensor.size());  // last image's size
 
       std::vector<int64_t> input_shape = {
           current_batch_size, kChannels, kInputH, kInputW};
@@ -1240,8 +1246,7 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       }
 
       Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-          Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                     OrtMemType::OrtMemTypeCPU),
+          ort_memory,
           batch_data.data(),
           batch_data.size(),
           input_shape.data(),
