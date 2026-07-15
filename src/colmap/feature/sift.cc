@@ -45,6 +45,10 @@
 #include <GL/glew.h>
 #endif  // COLMAP_GUI_ENABLED
 #endif  // COLMAP_GPU_ENABLED
+#if defined(COLMAP_FAISS_GPU_MATCHING_ENABLED)
+#include <faiss/gpu/GpuIndexFlat.h>
+#include <faiss/gpu/StandardGpuResources.h>
+#endif
 #include "colmap/util/eigen_alignment.h"
 
 #include "thirdparty/VLFeat/covdet.h"
@@ -52,11 +56,14 @@
 
 #include <array>
 #include <fstream>
+#include <limits>
+#include <list>
 #include <locale>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <unordered_map>
 
 #include <Eigen/Geometry>
 
@@ -84,6 +91,9 @@ bool SiftExtractionOptions::Check() const {
 bool SiftMatchingOptions::Check() const {
   CHECK_OPTION_GT(max_ratio, 0.0);
   CHECK_OPTION_GT(max_distance, 0.0);
+  CHECK_OPTION_GE(faiss_gpu_cache_size, 2);
+  CHECK_OPTION_GE(faiss_gpu_temp_memory_mb, 0);
+  CHECK_OPTION_GE(faiss_gpu_guided_num_neighbors, 2);
   if (!lightglue.Check()) return false;
   return true;
 }
@@ -1246,6 +1256,249 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   std::shared_ptr<FeatureDescriptorIndex> index2_;
 };
 
+#if defined(COLMAP_FAISS_GPU_MATCHING_ENABLED)
+class SiftFaissGPUFeatureMatcher : public FeatureMatcher {
+ public:
+  explicit SiftFaissGPUFeatureMatcher(const FeatureMatchingOptions& options)
+      : options_(options) {
+    THROW_CHECK(options_.Check());
+    THROW_CHECK(options_.use_gpu);
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+    THROW_CHECK_EQ(gpu_indices.size(), 1)
+        << "FAISS GPU matching supports one GPU per matcher worker";
+    gpu_index_ =
+        gpu_indices.front() >= 0 ? gpu_indices.front() : FindBestCudaDevice();
+    resources_.setTempMemory(
+        static_cast<size_t>(options_.sift->faiss_gpu_temp_memory_mb) * 1024 *
+        1024);
+  }
+
+  static std::unique_ptr<FeatureMatcher> Create(
+      const FeatureMatchingOptions& options) {
+    return std::make_unique<SiftFaissGPUFeatureMatcher>(options);
+  }
+
+  void Match(const Image& image1,
+             const Image& image2,
+             FeatureMatches* matches) override {
+    THROW_CHECK_NOTNULL(matches);
+    ThrowCheckFeatureTypesMatch(image1, image2);
+    matches->clear();
+
+    if (image1.descriptors->data.rows() == 0 ||
+        image2.descriptors->data.rows() == 0) {
+      return;
+    }
+
+    auto* index1 = GetOrBuildIndex(image1);
+    auto* index2 = GetOrBuildIndex(image2);
+    const FeatureDescriptorsFloat descriptors1 = image1.descriptors->ToFloat();
+    const FeatureDescriptorsFloat descriptors2 = image2.descriptors->ToFloat();
+
+    Eigen::RowMajorMatrixXi indices_1to2;
+    Eigen::RowMajorMatrixXf l2_dists_1to2;
+    Eigen::RowMajorMatrixXi indices_2to1;
+    Eigen::RowMajorMatrixXf l2_dists_2to1;
+    Search(*index2, descriptors1, 2, &indices_1to2, &l2_dists_1to2);
+    if (options_.sift->cross_check) {
+      Search(*index1, descriptors2, 2, &indices_2to1, &l2_dists_2to1);
+    }
+
+    FindBestMatchesIndex(indices_1to2,
+                         l2_dists_1to2,
+                         indices_2to1,
+                         l2_dists_2to1,
+                         options_.sift->max_ratio,
+                         options_.sift->max_distance,
+                         options_.sift->cross_check,
+                         matches);
+  }
+
+  void MatchGuided(const double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
+    THROW_CHECK_NOTNULL(two_view_geometry);
+    ThrowCheckFeatureTypesMatch(image1, image2, /*check_keypoints=*/true);
+    two_view_geometry->inlier_matches.clear();
+
+    if (image1.descriptors->data.rows() == 0 ||
+        image2.descriptors->data.rows() == 0) {
+      return;
+    }
+
+    const bool use_essential_matrix =
+        (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+         two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG) &&
+        two_view_geometry->E.has_value();
+    const bool use_fundamental_matrix =
+        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED &&
+        two_view_geometry->F.has_value();
+    const bool use_homography =
+        (two_view_geometry->config == TwoViewGeometry::PLANAR ||
+         two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
+         two_view_geometry->config == TwoViewGeometry::PLANAR_OR_PANORAMIC) &&
+        two_view_geometry->H.has_value();
+    if (!use_essential_matrix && !use_fundamental_matrix && !use_homography) {
+      return;
+    }
+
+    const FeatureKeypoints normalized_keypoints1 =
+        use_essential_matrix
+            ? NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints)
+            : FeatureKeypoints();
+    const FeatureKeypoints normalized_keypoints2 =
+        use_essential_matrix
+            ? NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints)
+            : FeatureKeypoints();
+    const FeatureKeypoints& keypoints1 =
+        use_essential_matrix ? normalized_keypoints1 : *image1.keypoints;
+    const FeatureKeypoints& keypoints2 =
+        use_essential_matrix ? normalized_keypoints2 : *image2.keypoints;
+
+    const Eigen::Matrix3f E_or_F =
+        use_essential_matrix
+            ? Eigen::Matrix3f(two_view_geometry->E->cast<float>())
+        : use_fundamental_matrix
+            ? Eigen::Matrix3f(two_view_geometry->F->cast<float>())
+            : Eigen::Matrix3f::Zero();
+    const Eigen::Matrix3f H =
+        use_homography ? Eigen::Matrix3f(two_view_geometry->H->cast<float>())
+                       : Eigen::Matrix3f::Zero();
+    const float max_residual =
+        use_essential_matrix
+            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
+                  *image1.camera, *image2.camera, max_error))
+            : static_cast<float>(max_error * max_error);
+
+    const auto violates_geometry = [&](const FeatureKeypoint& keypoint1,
+                                       const FeatureKeypoint& keypoint2) {
+      if (use_essential_matrix || use_fundamental_matrix) {
+        const Eigen::Vector3f p1(keypoint1.x, keypoint1.y, 1.0f);
+        const Eigen::Vector3f p2(keypoint2.x, keypoint2.y, 1.0f);
+        const Eigen::Vector3f epipolar_line1 = E_or_F * p1;
+        const Eigen::Vector3f epipolar_line2 = E_or_F.transpose() * p2;
+        const float nom = p2.transpose() * epipolar_line1;
+        const float denom_sq = epipolar_line1.head<2>().squaredNorm() +
+                               epipolar_line2.head<2>().squaredNorm();
+        return nom * nom > max_residual * denom_sq;
+      }
+      const Eigen::Vector3f p1(keypoint1.x, keypoint1.y, 1.0f);
+      const Eigen::Vector2f p2(keypoint2.x, keypoint2.y);
+      return ((H * p1).hnormalized() - p2).squaredNorm() > max_residual;
+    };
+
+    auto* index1 = GetOrBuildIndex(image1);
+    auto* index2 = GetOrBuildIndex(image2);
+    const FeatureDescriptorsFloat descriptors1 = image1.descriptors->ToFloat();
+    const FeatureDescriptorsFloat descriptors2 = image2.descriptors->ToFloat();
+    const int num_neighbors = options_.sift->faiss_gpu_guided_num_neighbors;
+
+    Eigen::RowMajorMatrixXi indices_1to2;
+    Eigen::RowMajorMatrixXf l2_dists_1to2;
+    Eigen::RowMajorMatrixXi indices_2to1;
+    Eigen::RowMajorMatrixXf l2_dists_2to1;
+    Search(*index2, descriptors1, num_neighbors, &indices_1to2, &l2_dists_1to2);
+    if (options_.sift->cross_check) {
+      Search(
+          *index1, descriptors2, num_neighbors, &indices_2to1, &l2_dists_2to1);
+    }
+
+    const float rejected_distance = std::numeric_limits<float>::max();
+    for (Eigen::Index i = 0; i < indices_1to2.rows(); ++i) {
+      for (Eigen::Index j = 0; j < indices_1to2.cols(); ++j) {
+        const int candidate = indices_1to2(i, j);
+        if (candidate < 0 ||
+            violates_geometry(keypoints1[i], keypoints2[candidate])) {
+          l2_dists_1to2(i, j) = rejected_distance;
+        }
+      }
+    }
+    if (options_.sift->cross_check) {
+      for (Eigen::Index i = 0; i < indices_2to1.rows(); ++i) {
+        for (Eigen::Index j = 0; j < indices_2to1.cols(); ++j) {
+          const int candidate = indices_2to1(i, j);
+          if (candidate < 0 ||
+              violates_geometry(keypoints1[candidate], keypoints2[i])) {
+            l2_dists_2to1(i, j) = rejected_distance;
+          }
+        }
+      }
+    }
+
+    FindBestMatchesIndex(indices_1to2,
+                         l2_dists_1to2,
+                         indices_2to1,
+                         l2_dists_2to1,
+                         options_.sift->max_ratio,
+                         options_.sift->max_distance,
+                         options_.sift->cross_check,
+                         &two_view_geometry->inlier_matches);
+  }
+
+ private:
+  struct CachedIndex {
+    std::unique_ptr<faiss::Index> index;
+    std::list<image_t>::iterator lru_position;
+  };
+
+  faiss::Index* GetOrBuildIndex(const Image& image) {
+    const auto cached = indices_.find(image.image_id);
+    if (cached != indices_.end()) {
+      lru_.splice(lru_.begin(), lru_, cached->second.lru_position);
+      return cached->second.index.get();
+    }
+
+    while (indices_.size() >=
+           static_cast<size_t>(options_.sift->faiss_gpu_cache_size)) {
+      const image_t image_id = lru_.back();
+      indices_.erase(image_id);
+      lru_.pop_back();
+    }
+
+    const FeatureDescriptorsFloat descriptors = image.descriptors->ToFloat();
+    faiss::gpu::GpuIndexFlatConfig config;
+    config.device = gpu_index_;
+    config.useFloat16 = false;
+    auto index = std::make_unique<faiss::gpu::GpuIndexFlatL2>(
+        &resources_, descriptors.data.cols(), config);
+    index->add(descriptors.data.rows(), descriptors.data.data());
+
+    lru_.push_front(image.image_id);
+    auto [it, inserted] = indices_.emplace(
+        image.image_id, CachedIndex{std::move(index), lru_.begin()});
+    THROW_CHECK(inserted);
+    return it->second.index.get();
+  }
+
+  static void Search(const faiss::Index& index,
+                     const FeatureDescriptorsFloat& descriptors,
+                     const int requested_num_neighbors,
+                     Eigen::RowMajorMatrixXi* indices,
+                     Eigen::RowMajorMatrixXf* l2_dists) {
+    const int num_neighbors =
+        std::min<int>(requested_num_neighbors, static_cast<int>(index.ntotal));
+    THROW_CHECK_GT(num_neighbors, 0);
+    const int num_descriptors = descriptors.data.rows();
+    l2_dists->resize(num_descriptors, num_neighbors);
+    Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+        indices_long(num_descriptors, num_neighbors);
+    index.search(num_descriptors,
+                 descriptors.data.data(),
+                 num_neighbors,
+                 l2_dists->data(),
+                 indices_long.data());
+    *indices = indices_long.cast<int>();
+  }
+
+  FeatureMatchingOptions options_;
+  int gpu_index_ = 0;
+  faiss::gpu::StandardGpuResources resources_;
+  std::list<image_t> lru_;
+  std::unordered_map<image_t, CachedIndex> indices_;
+};
+#endif  // COLMAP_FAISS_GPU_MATCHING_ENABLED
+
 #if defined(COLMAP_GPU_ENABLED)
 // Mutexes for OpenGL version to protect static variables in SiftGPU.
 // CUDA version doesn't need this as it has its own thread safety.
@@ -1551,6 +1804,15 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
   THROW_CHECK_NOTNULL(options.sift);
+  if (options.sift->faiss_gpu_matcher) {
+#if defined(COLMAP_FAISS_GPU_MATCHING_ENABLED)
+    LOG(INFO) << "Creating SIFT FAISS GPU feature matcher";
+    return SiftFaissGPUFeatureMatcher::Create(options);
+#else
+    LOG(ERROR) << "FAISS GPU feature matching is not enabled in this build";
+    return nullptr;
+#endif
+  }
   if (options.type == FeatureMatcherType::SIFT_LIGHTGLUE) {
     return CreateLightGlueONNXFeatureMatcher(options, options.sift->lightglue);
   } else if (options.type == FeatureMatcherType::SIFT_BRUTEFORCE) {

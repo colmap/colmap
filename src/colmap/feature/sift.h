@@ -122,6 +122,21 @@ struct SiftMatchingOptions {
   // Whether to use brute-force instead of faiss based CPU matching.
   bool cpu_brute_force_matcher = false;
 
+  // Whether to use an exact FAISS GPU index for SIFT matching. This is only
+  // available in builds configured with FAISS_GPU_MATCHING_ENABLED.
+  bool faiss_gpu_matcher = false;
+
+  // Maximum number of descriptor indices cached on the GPU.
+  int faiss_gpu_cache_size = 16;
+
+  // Temporary FAISS GPU workspace in MiB. Set to zero to disable it.
+  int faiss_gpu_temp_memory_mb = 256;
+
+  // Number of nearest descriptor candidates tested against the geometry in
+  // guided matching. Memory grows linearly with this value and the number of
+  // features, instead of quadratically with both images' feature counts.
+  int faiss_gpu_guided_num_neighbors = 32;
+
   // Cache for reusing descriptor index for feature matching.
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*
       cpu_descriptor_index_cache = nullptr;

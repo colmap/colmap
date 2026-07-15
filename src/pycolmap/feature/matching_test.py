@@ -9,6 +9,10 @@ def test_feature_matcher_type_enum():
 def test_sift_matching_options_default_init():
     options = pycolmap.SiftMatchingOptions()
     assert options is not None
+    assert options.faiss_gpu_matcher is False
+    assert options.faiss_gpu_cache_size == 16
+    assert options.faiss_gpu_temp_memory_mb == 256
+    assert options.faiss_gpu_guided_num_neighbors == 32
 
 
 def test_sift_matching_options_check():

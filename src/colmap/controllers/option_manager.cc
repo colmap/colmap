@@ -321,6 +321,14 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->sift->cross_check);
   AddDefaultOption("SiftMatching.cpu_brute_force_matcher",
                    &feature_matching->sift->cpu_brute_force_matcher);
+  AddDefaultOption("SiftMatching.faiss_gpu_matcher",
+                   &feature_matching->sift->faiss_gpu_matcher);
+  AddDefaultOption("SiftMatching.faiss_gpu_cache_size",
+                   &feature_matching->sift->faiss_gpu_cache_size);
+  AddDefaultOption("SiftMatching.faiss_gpu_temp_memory_mb",
+                   &feature_matching->sift->faiss_gpu_temp_memory_mb);
+  AddDefaultOption("SiftMatching.faiss_gpu_guided_num_neighbors",
+                   &feature_matching->sift->faiss_gpu_guided_num_neighbors);
   AddDefaultOption("SiftMatching.lightglue_min_score",
                    &feature_matching->sift->lightglue.min_score);
   AddDefaultOption("SiftMatching.lightglue_model_path",

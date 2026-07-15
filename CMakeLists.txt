@@ -64,6 +64,8 @@ option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for V
 # Experimental
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
+option(FAISS_GPU_MATCHING_ENABLED
+       "Whether to enable the experimental FAISS GPU SIFT matcher" OFF)
 
 # Hash map backend used by the performance-critical scene/SfM containers (see
 # src/colmap/util/hash_containers.h). One of: STD, BOOST, or empty for auto.
@@ -72,6 +74,13 @@ option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
 set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
     "Hash map backend for scene/SfM containers: STD, BOOST, or empty for auto")
 set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST)
+
+if(FAISS_GPU_MATCHING_ENABLED)
+    if(NOT CUDA_ENABLED)
+        message(FATAL_ERROR "FAISS GPU matching requires CUDA")
+    endif()
+    add_compile_definitions(COLMAP_FAISS_GPU_MATCHING_ENABLED)
+endif()
 
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)

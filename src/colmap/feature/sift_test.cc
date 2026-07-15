@@ -233,6 +233,24 @@ void CheckEqualMatches(const FeatureMatches& matches1,
   }
 }
 
+TEST(SiftMatchingOptions, FaissGPU) {
+  SiftMatchingOptions options;
+  EXPECT_TRUE(options.Check());
+
+  options.faiss_gpu_cache_size = 1;
+  EXPECT_FALSE(options.Check());
+  options.faiss_gpu_cache_size = 2;
+
+  options.faiss_gpu_temp_memory_mb = -1;
+  EXPECT_FALSE(options.Check());
+  options.faiss_gpu_temp_memory_mb = 0;
+
+  options.faiss_gpu_guided_num_neighbors = 1;
+  EXPECT_FALSE(options.Check());
+  options.faiss_gpu_guided_num_neighbors = 2;
+  EXPECT_TRUE(options.Check());
+}
+
 TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
   RunGpuTest([] {
     FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
@@ -979,6 +997,58 @@ TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
         });
   });
 }
+
+#if defined(COLMAP_FAISS_GPU_MATCHING_ENABLED)
+TEST(SiftFaissGPUFeatureMatcher, Nominal) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image0 = {
+      /*image_id=*/0,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = true;
+  options.gpu_index = "0";
+  options.sift->faiss_gpu_matcher = true;
+  auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+
+  FeatureMatches matches;
+  matcher->Match(image1, image2, &matches);
+  ExpectReversedMatches(matches);
+  matcher->Match(image1, image2, &matches);
+  ExpectReversedMatches(matches);
+  matcher->Match(image0, image2, &matches);
+  EXPECT_TRUE(matches.empty());
+  matcher->Match(image1, image0, &matches);
+  EXPECT_TRUE(matches.empty());
+}
+
+TEST(MatchGuidedSiftFeaturesFaissGPU, EssentialMatrix) {
+  TestGuidedMatchingWithCameraDistortion(
+      [](const std::vector<FeatureMatcher::Image>& images) {
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+        options.use_gpu = true;
+        options.gpu_index = "0";
+        options.max_num_matches = 1000;
+        options.sift->faiss_gpu_matcher = true;
+        options.sift->faiss_gpu_guided_num_neighbors = 32;
+        return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+      });
+}
+#endif  // COLMAP_FAISS_GPU_MATCHING_ENABLED
 
 }  // namespace
 }  // namespace colmap
