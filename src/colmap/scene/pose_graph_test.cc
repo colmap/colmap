@@ -259,7 +259,7 @@ TEST(PoseGraph, Load) {
   two_view.config = TwoViewGeometry::CALIBRATED;
   two_view.inlier_matches = {{0, 0}, {1, 1}};
   two_view.cam2_from_cam1 =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>().normalized());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>().normalized());
 
   // Create pairs (1,2) and (2,3)
   database->WriteMatches(1, 2, FeatureMatches(10));

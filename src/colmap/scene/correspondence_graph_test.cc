@@ -86,7 +86,7 @@ TEST_P(CorrespondenceGraphFinalizeTest, TwoView) {
   EXPECT_EQ(correspondence_graph.NumImages(), 2);
   TwoViewGeometry two_view_geometry01;
   two_view_geometry01.cam2_from_cam1 =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   two_view_geometry01.inlier_matches = {
       {0, 0},
       {1, 2},
@@ -359,7 +359,7 @@ TEST(CorrespondenceGraph, UpdateTwoViewGeometry) {
   // Update with a decomposed relative pose.
   TwoViewGeometry updated = extracted;
   updated.cam2_from_cam1 =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   correspondence_graph.UpdateTwoViewGeometry(0, 1, updated);
 
   // Verify the updated geometry is returned.
@@ -388,7 +388,7 @@ TEST(CorrespondenceGraph, UpdateTwoViewGeometrySwapped) {
   correspondence_graph.Finalize();
 
   // Update using the swapped order (1, 0).
-  const Rigid3d cam1_from_cam0(EigenRandomQuaterniond(),
+  const Rigid3d cam1_from_cam0(RandomEigenQuaterniond(),
                                RandomEigenVectord<3>());
   TwoViewGeometry updated;
   updated.config = TwoViewGeometry::CALIBRATED;

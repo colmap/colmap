@@ -43,7 +43,7 @@ namespace {
 
 Sim3d TestSim3d() {
   return Sim3d(RandomUniformReal<double>(0.1, 10),
-               EigenRandomQuaterniond(),
+               RandomEigenQuaterniond(),
                RandomEigenVectord<3>());
 }
 

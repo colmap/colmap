@@ -136,10 +136,10 @@ TEST_P(ParameterizedDatabaseTests, Rig) {
   EXPECT_EQ(database->NumRigs(), 0);
 
   rig.AddSensor(sensor_t(SensorType::CAMERA, 2),
-                Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>()));
+                Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   rig.AddSensor(sensor_t(SensorType::IMU, 3));
   rig.AddSensor(sensor_t(SensorType::IMU, 4),
-                Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>()));
+                Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   rig.SetRigId(database->WriteRig(rig));
   EXPECT_EQ(database->NumRigs(), 1);
   EXPECT_TRUE(database->ExistsRig(rig.RigId()));
@@ -149,7 +149,7 @@ TEST_P(ParameterizedDatabaseTests, Rig) {
   EXPECT_EQ(database->ReadRigWithSensor(sensor_t(SensorType::IMU, 42)),
             std::nullopt);
   rig.SensorFromRig(sensor_t(SensorType::CAMERA, 2)) =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->UpdateRig(rig);
   EXPECT_EQ(database->ReadRig(rig.RigId()), rig);
   Rig rig2;
@@ -503,7 +503,7 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   two_view_geometry.E = RandomEigenMatrixd<3, 3>();
   two_view_geometry.H = RandomEigenMatrixd<3, 3>();
   two_view_geometry.cam2_from_cam1 =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   const TwoViewGeometry two_view_geometry_read =
       database->ReadTwoViewGeometry(image_id1, image_id2);

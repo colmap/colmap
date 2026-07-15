@@ -69,7 +69,7 @@ Eigen::VectorXf RandomEigenVectorXf(Eigen::Index size);
 
 // Uniformly distributed random unit quaternion, matching
 // `Eigen::Quaterniond::UnitRandom()` (Shoemake's method).
-Eigen::Quaterniond EigenRandomQuaterniond();
+Eigen::Quaterniond RandomEigenQuaterniond();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -134,7 +134,7 @@ inline Eigen::VectorXf RandomEigenVectorXf(const Eigen::Index size) {
   return internal::SetRandomEigen(vector);
 }
 
-inline Eigen::Quaterniond EigenRandomQuaterniond() {
+inline Eigen::Quaterniond RandomEigenQuaterniond() {
   const double u1 = RandomUniformReal<double>(0.0, 1.0);
   const double u2 = RandomUniformReal<double>(0.0, 2.0 * EIGEN_PI);
   const double u3 = RandomUniformReal<double>(0.0, 2.0 * EIGEN_PI);

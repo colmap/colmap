@@ -47,7 +47,7 @@ struct MockTestClass : public TestClass {
 };
 
 TEST(Rigid3d, Eq) {
-  const Rigid3d x(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+  const Rigid3d x(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   Rigid3d y = x;
   EXPECT_THAT(x, Rigid3dEq(y));
   y.rotation().w() += 1e-7;
@@ -64,7 +64,7 @@ TEST(Rigid3d, Eq) {
 }
 
 TEST(Rigid3d, Near) {
-  const Rigid3d x(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+  const Rigid3d x(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   Rigid3d y = x;
   EXPECT_THAT(x, Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8));
   y.rotation().w() += 1e-7;

@@ -54,7 +54,7 @@ TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
   EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
 
   sensor_from_world =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   const Eigen::Vector3d position_in_world =
       Inverse(sensor_from_world).translation();
   residuals =
@@ -87,8 +87,8 @@ TEST(AbsoluteRigPosePositionPriorCostFunctor, Nominal) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
   EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
 
-  sensor_from_rig = Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
-  rig_from_world = Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+  sensor_from_rig = Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  rig_from_world = Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   const Rigid3d sensor_from_world = sensor_from_rig * rig_from_world;
   const Eigen::Vector3d position_in_world =
       Inverse(sensor_from_world).translation();
@@ -198,7 +198,7 @@ TEST(RelativePosePriorCostFunctor, Nominal) {
 }
 
 TEST(CovarianceWeightedCostFunctor, AbsolutePosePositionPriorCostFunctor) {
-  const Rigid3d cam_from_world(EigenRandomQuaterniond(),
+  const Rigid3d cam_from_world(RandomEigenQuaterniond(),
                                RandomEigenVectord<3>());
   const Rigid3d world_from_cam = Inverse(cam_from_world);
 

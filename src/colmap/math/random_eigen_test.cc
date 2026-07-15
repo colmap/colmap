@@ -88,19 +88,19 @@ TEST(RandomEigenMatrixXf, Dynamic) {
   EXPECT_TRUE((matrix.array() <= 1).all());
 }
 
-TEST(EigenRandomQuaterniond, Unit) {
+TEST(RandomEigenQuaterniond, Unit) {
   SetPRNGSeed(0);
   for (int i = 0; i < 1000; ++i) {
-    const Eigen::Quaterniond quat = EigenRandomQuaterniond();
+    const Eigen::Quaterniond quat = RandomEigenQuaterniond();
     EXPECT_NEAR(quat.norm(), 1.0, 1e-9);
   }
 }
 
-TEST(EigenRandomQuaterniond, Deterministic) {
+TEST(RandomEigenQuaterniond, Deterministic) {
   SetPRNGSeed(42);
-  const Eigen::Quaterniond quat1 = EigenRandomQuaterniond();
+  const Eigen::Quaterniond quat1 = RandomEigenQuaterniond();
   SetPRNGSeed(42);
-  const Eigen::Quaterniond quat2 = EigenRandomQuaterniond();
+  const Eigen::Quaterniond quat2 = RandomEigenQuaterniond();
   EXPECT_EQ(quat1.coeffs(), quat2.coeffs());
 }
 

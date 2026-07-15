@@ -68,7 +68,7 @@ GenerateData(size_t num_inliers,
 }
 
 void TestEstimateRigid3dWithNumCoords(const size_t num_coords) {
-  const Rigid3d gt_tgt_from_src(EigenRandomQuaterniond(),
+  const Rigid3d gt_tgt_from_src(RandomEigenQuaterniond(),
                                 RandomEigenVectord<3>());
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_coords,
@@ -107,7 +107,7 @@ TEST(Rigid3d, EstimateRobust) {
   const size_t num_inliers = 1000;
   const size_t num_outliers = 400;
 
-  const Rigid3d gt_tgt_from_src(EigenRandomQuaterniond(),
+  const Rigid3d gt_tgt_from_src(RandomEigenQuaterniond(),
                                 Eigen::Vector3d(100, 10, 10));
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_inliers,
@@ -139,7 +139,7 @@ TEST(Rigid3d, EstimateRobust) {
 
 void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
   const Sim3d gt_tgt_from_src(RandomUniformReal<double>(0.1, 10),
-                              EigenRandomQuaterniond(),
+                              RandomEigenQuaterniond(),
                               RandomEigenVectord<3>());
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_coords,
@@ -180,7 +180,7 @@ TEST(Sim3d, EstimateRobust) {
   const size_t num_outliers = 400;
 
   const Sim3d gt_tgt_from_src(
-      2, EigenRandomQuaterniond(), Eigen::Vector3d(100, 10, 10));
+      2, RandomEigenQuaterniond(), Eigen::Vector3d(100, 10, 10));
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_inliers,
       /*num_outliers=*/num_outliers,

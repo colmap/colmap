@@ -45,8 +45,8 @@ TEST(QuaternionLeftMultMatrix, Nominal) {
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
-    Eigen::Quaterniond q = EigenRandomQuaterniond();
-    Eigen::Quaterniond p = EigenRandomQuaterniond();
+    Eigen::Quaterniond q = RandomEigenQuaterniond();
+    Eigen::Quaterniond p = RandomEigenQuaterniond();
     Eigen::Vector4d p_vec(p.x(), p.y(), p.z(), p.w());
 
     // L(q) * p = q * p.
@@ -77,8 +77,8 @@ TEST(QuaternionRightMultMatrix, Nominal) {
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
-    Eigen::Quaterniond q = EigenRandomQuaterniond();
-    Eigen::Quaterniond p = EigenRandomQuaterniond();
+    Eigen::Quaterniond q = RandomEigenQuaterniond();
+    Eigen::Quaterniond p = RandomEigenQuaterniond();
     Eigen::Vector4d q_vec(q.x(), q.y(), q.z(), q.w());
 
     // R(p) * q = q * p.
@@ -109,7 +109,7 @@ TEST(QuaternionRotatePointWithJac, Nominal) {
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
-    Eigen::Quaterniond q = EigenRandomQuaterniond();
+    Eigen::Quaterniond q = RandomEigenQuaterniond();
     Eigen::Vector3d pt = RandomEigenVectord<3>();
     double q_arr[4] = {q.x(), q.y(), q.z(), q.w()};
 
@@ -138,7 +138,7 @@ TEST(QuaternionRotatePointWithJac, Nominal) {
 TEST(EigenQuaternionAngleAxis, Roundtrip) {
   SetPRNGSeed(42);
   for (int i = 0; i < 100; ++i) {
-    const Eigen::Quaterniond q = EigenRandomQuaterniond();
+    const Eigen::Quaterniond q = RandomEigenQuaterniond();
     const double q_arr[4] = {q.x(), q.y(), q.z(), q.w()};
 
     // quaternion -> angle-axis -> quaternion recovers the original rotation.

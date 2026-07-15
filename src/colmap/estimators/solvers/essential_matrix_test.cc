@@ -53,7 +53,7 @@ constexpr double kMinParallax = 1e-2;  // ~5.7 degrees.
 // essential matrix vanishes and the cheirality of every correspondence becomes
 // ill-defined.
 Rigid3d TestCam2FromCam1() {
-  return Rigid3d(EigenRandomQuaterniond(),
+  return Rigid3d(RandomEigenQuaterniond(),
                  RandomEigenVectord<3>().normalized());
 }
 
@@ -183,7 +183,7 @@ TEST_P(EssentialMatrixLMEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 10; ++k) {
-    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                  RandomEigenVectord<3>());
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
@@ -207,7 +207,7 @@ INSTANTIATE_TEST_SUITE_P(EssentialMatrixLMEstimator,
 TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
   SetPRNGSeed(0);
   for (size_t k = 0; k < 100; ++k) {
-    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                  RandomEigenVectord<3>());
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;

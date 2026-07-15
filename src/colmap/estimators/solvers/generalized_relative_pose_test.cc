@@ -58,14 +58,14 @@ GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
   GeneralizedRelativePoseProblem problem;
 
   const std::array<Rigid3d, 2> rigs_from_world = {
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>().normalized()),
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>().normalized())};
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>().normalized()),
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>().normalized())};
 
   problem.rig2_from_rig1 = rigs_from_world[1] * Inverse(rigs_from_world[0]);
 
   std::vector<Rigid3d> cams_from_rig1(num_cameras1);
   for (int i = 0; i < num_cameras1; ++i) {
-    const Eigen::Quaterniond cam1_from_rig_rotation = EigenRandomQuaterniond();
+    const Eigen::Quaterniond cam1_from_rig_rotation = RandomEigenQuaterniond();
     cams_from_rig1[i] = Rigid3d(
         cam1_from_rig_rotation,
         panoramic1 ? cam1_from_rig_rotation * Eigen::Vector3d(1, 2, 3)
@@ -74,7 +74,7 @@ GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
 
   std::vector<Rigid3d> cams_from_rig2(num_cameras2);
   for (int i = 0; i < num_cameras2; ++i) {
-    const Eigen::Quaterniond cam2_from_rig_rotation = EigenRandomQuaterniond();
+    const Eigen::Quaterniond cam2_from_rig_rotation = RandomEigenQuaterniond();
     cams_from_rig2[i] = Rigid3d(
         cam2_from_rig_rotation,
         panoramic2 ? cam2_from_rig_rotation * Eigen::Vector3d(-3, -2, -1)

@@ -56,7 +56,7 @@ TEST_P(ParameterizedGP3PEstimatorTests, Nominal) {
   const auto [kNumCams, kPanoramic] = GetParam();
 
   for (int i = 0; i < kNumTrials; ++i) {
-    const Rigid3d rig_from_world(EigenRandomQuaterniond(),
+    const Rigid3d rig_from_world(RandomEigenQuaterniond(),
                                  RandomEigenVectord<3>());
     const Rigid3d world_from_rig = Inverse(rig_from_world);
 
@@ -65,14 +65,14 @@ TEST_P(ParameterizedGP3PEstimatorTests, Nominal) {
     for (int i = 0; i < kNumCams; ++i) {
       if (kPanoramic) {
         const Eigen::Quaterniond cam_from_rig_rotation =
-            EigenRandomQuaterniond();
+            RandomEigenQuaterniond();
         cams_from_rig[i] =
             Rigid3d(cam_from_rig_rotation,
                     cam_from_rig_rotation * Eigen::Vector3d(1, 2, 3));
         cams_from_world[i] = cams_from_rig[i] * rig_from_world;
       } else {
         cams_from_world[i] =
-            Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+            Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
         cams_from_rig[i] = cams_from_world[i] * world_from_rig;
       }
     }

@@ -193,7 +193,7 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
     if (!two_view_geometry.cam2_from_cam1.has_value()) {
       continue;
     }
-    two_view_geometry.cam2_from_cam1->rotation() = EigenRandomQuaterniond();
+    two_view_geometry.cam2_from_cam1->rotation() = RandomEigenQuaterniond();
     two_view_geometry.cam2_from_cam1->translation() =
         RandomEigenVectord<3>().normalized();
 

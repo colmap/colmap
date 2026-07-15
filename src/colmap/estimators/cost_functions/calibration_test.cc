@@ -45,7 +45,7 @@ TEST(FetzerFocalLengthCostFunctor, ConvexCostLandscape) {
     const double focal_length2 = 256;
     const Eigen::Vector2d pp1(320, 240);
     const Eigen::Vector2d pp2(480, 320);
-    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                  RandomEigenVectord<3>());
 
     Eigen::Matrix3d K1;
@@ -98,7 +98,7 @@ TEST(FetzerFocalLengthSameCameraCostFunctor, ConvexCostLandscape) {
   for (int i = 0; i < kNumTrials; ++i) {
     const double focal_length = 128;
     const Eigen::Vector2d pp(320, 240);
-    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                  RandomEigenVectord<3>());
 
     Eigen::Matrix3d K;

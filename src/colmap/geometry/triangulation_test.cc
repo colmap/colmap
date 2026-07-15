@@ -130,9 +130,9 @@ TEST(TriangulatePoint, BearingsParallelRays) {
 TEST(TriangulateMidPoint, Nominal) {
   constexpr int kNumTrials = 10;
   for (int i = 0; i < kNumTrials; ++i) {
-    const Rigid3d cam1_from_world(EigenRandomQuaterniond(),
+    const Rigid3d cam1_from_world(RandomEigenQuaterniond(),
                                   RandomEigenVectord<3>());
-    const Rigid3d cam2_from_world(EigenRandomQuaterniond(),
+    const Rigid3d cam2_from_world(RandomEigenQuaterniond(),
                                   RandomEigenVectord<3>());
     const Eigen::Vector3d point3D = RandomEigenVectord<3>();
     const Eigen::Vector3d cam_ray1 = (cam1_from_world * point3D).normalized();

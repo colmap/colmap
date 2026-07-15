@@ -39,7 +39,7 @@ namespace colmap {
 namespace {
 
 Rigid3d TestRigid3d() {
-  return Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+  return Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
 }
 
 TEST(Frame, Default) {

@@ -69,7 +69,7 @@ GeneralizedAbsolutePoseProblem BuildGeneralizedAbsolutePoseProblem() {
 
   GeneralizedAbsolutePoseProblem problem;
   problem.gt_rig_from_world =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     for (const auto& point2D : image.Points2D()) {

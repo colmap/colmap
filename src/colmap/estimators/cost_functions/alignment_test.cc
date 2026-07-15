@@ -41,7 +41,7 @@ namespace {
 
 TEST(Point3DAlignmentCostFunctor, UseLogScale) {
   Sim3d b_from_a = Sim3d(RandomUniformReal<double>(0.1, 10),
-                         EigenRandomQuaterniond(),
+                         RandomEigenQuaterniond(),
                          RandomEigenVectord<3>());
   const Eigen::Vector3d point_in_b_prior(1., 2., 3.);
   const Eigen::Vector3d point_in_a(3., 2., 1.);
@@ -62,7 +62,7 @@ TEST(Point3DAlignmentCostFunctor, UseLogScale) {
 
 TEST(Point3DAlignmentCostFunctor, DoNotUseLogScale) {
   const Sim3d b_from_a = Sim3d(RandomUniformReal<double>(0.1, 10),
-                               EigenRandomQuaterniond(),
+                               RandomEigenQuaterniond(),
                                RandomEigenVectord<3>());
   const Eigen::Vector3d point_in_b_prior(1., 2., 3.);
   const Eigen::Vector3d point_in_a(3., 2., 1.);

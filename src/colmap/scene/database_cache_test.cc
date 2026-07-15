@@ -104,7 +104,7 @@ std::shared_ptr<Database> CreateTestDatabase() {
   two_view_geometry.E = RandomEigenMatrixd<3, 3>();
   two_view_geometry.H = RandomEigenMatrixd<3, 3>();
   two_view_geometry.cam2_from_cam1 =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->WriteTwoViewGeometry(
       image1.ImageId(), image2.ImageId(), two_view_geometry);
   database->WriteTwoViewGeometry(
@@ -239,7 +239,7 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
   two_view_geometry.E = RandomEigenMatrixd<3, 3>();
   two_view_geometry.H = RandomEigenMatrixd<3, 3>();
   two_view_geometry.cam2_from_cam1 =
-      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   database->WriteTwoViewGeometry(image_id1, image_id3, two_view_geometry);
 
@@ -357,7 +357,7 @@ TEST(DatabaseCache, NonConstCorrespondenceGraph) {
 
   TwoViewGeometry geom = mutable_graph->ExtractTwoViewGeometry(
       image_id1, image_id2, /*extract_inlier_matches=*/false);
-  const Rigid3d new_pose(EigenRandomQuaterniond(), RandomEigenVectord<3>());
+  const Rigid3d new_pose(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   geom.cam2_from_cam1 = new_pose;
   mutable_graph->UpdateTwoViewGeometry(image_id1, image_id2, geom);
 

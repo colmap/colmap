@@ -58,7 +58,7 @@ SimilarityTransformTestData GenerateTestData(const size_t num_samples = 1000,
 
   SetPRNGSeed(0);
   data.expected_tgt_from_src =
-      Sim3d(2, EigenRandomQuaterniond(), Eigen::Vector3d(100, 10, 10));
+      Sim3d(2, RandomEigenQuaterniond(), Eigen::Vector3d(100, 10, 10));
 
   for (size_t i = 0; i < num_samples; ++i) {
     data.src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
