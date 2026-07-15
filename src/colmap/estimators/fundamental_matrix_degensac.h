@@ -160,9 +160,9 @@ struct FundamentalMatrixDegensacOptions {
   // of off-plane inliers are needed, so a small budget suffices; the completed
   // model is scored and locally optimized by the surrounding RANSAC anyway.
   // The value 25 sits at the knee of a runtime/accuracy sweep: fewer trials
-  // erode success on the hardest >=98%-plane scenes (t=5: -3pts) with no runtime
-  // win (the inner pair loop is not the bottleneck), while more trials (or
-  // dynamic termination) yield no accuracy gain at added cost.
+  // erode success on the hardest >=98%-plane scenes (t=5: -3pts) with no
+  // runtime win (the inner pair loop is not the bottleneck), while more trials
+  // (or dynamic termination) yield no accuracy gain at added cost.
   int max_plane_parallax_trials = 25;
 };
 
