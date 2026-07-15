@@ -77,6 +77,10 @@ struct GlobalDescriptorModel {
   // Uses COLMAP URI format: "url;filename;sha256".
   std::string default_model_uri;
 
+  // Default CoreML model download URI (macOS only, .mlpackage directory).
+  // Uses COLMAP URI format.  Only used when COLMAP_COREML_ENABLED.
+  std::string default_coreml_uri;
+
   // Returns the model config for a given model name.
   // Returns nullptr if the name is not recognized.
   static const GlobalDescriptorModel* GetModel(std::string_view name);

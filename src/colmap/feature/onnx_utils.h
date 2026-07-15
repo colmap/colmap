@@ -73,6 +73,7 @@ class ONNXModel {
   const std::vector<char*>& output_names() const { return output_names_; }
 
  private:
+  void ConfigureSessionOptions(int num_threads);
   void InitializeSession(const std::string& model_path,
                          int num_threads,
                          bool use_gpu,

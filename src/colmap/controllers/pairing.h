@@ -271,8 +271,9 @@ struct GlobalDescriptorPairingOptions {
   // Number of threads for ONNX inference.
   int num_threads = -1;
 
-  // Whether to use GPU for ONNX inference.
-  bool use_gpu = false;
+  // Whether to use GPU / CoreML for ONNX inference (default true on macOS
+  // for CoreML acceleration; falls back to CPU if unavailable).
+  bool use_gpu = true;
 
   // GPU index for ONNX inference.
   std::string gpu_index = "-1";

@@ -490,6 +490,11 @@ endif()
 if(TARGET onnxruntime::onnxruntime)
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
     message(STATUS "Enabling ONNX support")
+    # Prebuilt macOS onnxruntime binaries include the CoreML execution provider.
+    if(IS_MACOS)
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_COREML_ENABLED)
+        message(STATUS "Enabling ONNX CoreML execution provider")
+    endif()
 endif()
 
 if(GUI_ENABLED)

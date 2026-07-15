@@ -40,6 +40,10 @@
 #include <Windows.h>
 #endif
 
+#ifdef COLMAP_COREML_ENABLED
+#include <coreml_provider_factory.h>
+#endif
+
 namespace colmap {
 
 #ifdef COLMAP_ONNX_ENABLED
@@ -115,21 +119,26 @@ ONNXModel::ONNXModel(std::string model_path,
   }
 }
 
-void ONNXModel::InitializeSession(const std::string& model_path,
-                                  int num_threads,
-                                  bool use_gpu,
-                                  const std::string& gpu_index) {
+void ONNXModel::ConfigureSessionOptions(int num_threads) {
   // Use sequential execution mode with a single inter-op thread, since our
-  // models (ALIKED, LightGlue) are sequential CNNs/Transformers without
-  // independent graph branches. Inter-op parallelism would only cause thread
-  // contention. Intra-op threads parallelize within individual operators
+  // models (ALIKED, LightGlue, MixVPR, MegaLoc) are sequential CNNs/ViTs
+  // without independent graph branches. Inter-op parallelism would only cause
+  // thread contention. Intra-op threads parallelize within individual operators
   // (convolutions, matrix multiplications) and are managed at the caller level.
+  session_options_ = Ort::SessionOptions();  // reset to defaults
   session_options_.SetInterOpNumThreads(1);
   session_options_.SetIntraOpNumThreads(num_threads);
   session_options_.SetExecutionMode(ORT_SEQUENTIAL);
   session_options_.SetGraphOptimizationLevel(
       GraphOptimizationLevel::ORT_ENABLE_ALL);
   session_options_.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);
+}
+
+void ONNXModel::InitializeSession(const std::string& model_path,
+                                  int num_threads,
+                                  bool use_gpu,
+                                  const std::string& gpu_index) {
+  ConfigureSessionOptions(num_threads);
 
 #ifdef COLMAP_CUDA_ENABLED
   if (use_gpu) {
@@ -141,6 +150,16 @@ void ONNXModel::InitializeSession(const std::string& model_path,
       cuda_options.device_id = gpu_indices[0];
     }
     session_options_.AppendExecutionProvider_CUDA(cuda_options);
+  }
+#endif
+
+#ifdef COLMAP_COREML_ENABLED
+  // On macOS, map use_gpu to the CoreML execution provider for ANE/GPU
+  // acceleration.  Unsupported nodes fall back to CPU automatically.
+  if (use_gpu) {
+    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(
+        static_cast<OrtSessionOptions*>(session_options_),
+        COREML_FLAG_CREATE_MLPROGRAM));
   }
 #endif
 
@@ -156,8 +175,28 @@ void ONNXModel::InitializeSession(const std::string& model_path,
 #else
   const char* model_path_cstr = model_path.c_str();
 #endif
-  session_ =
-      std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
+
+  const bool use_coreml =
+#ifdef COLMAP_COREML_ENABLED
+      use_gpu;
+#else
+      false;
+#endif
+  try {
+    session_ =
+        std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
+  } catch (const Ort::Exception& e) {
+    if (!use_coreml) {
+      throw;
+    }
+    // CoreML compilation failed (e.g. unsupported dynamic shapes) —
+    // rebuild the session without CoreML and fall back to pure CPU.
+    LOG(WARNING) << "Failed to initialize ONNX session with CoreML ("
+                 << e.what() << "); falling back to CPU execution provider";
+    ConfigureSessionOptions(num_threads);
+    session_ =
+        std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
+  }
 
   VLOG(2) << "Parsing the inputs";
   const int num_inputs = session_->GetInputCount();
