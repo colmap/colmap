@@ -29,6 +29,7 @@
 
 #include "colmap/scene/rig.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -334,7 +335,7 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
   camera2.camera =
       Camera::CreateFromModelId(2, CameraModelId::kOpenCV, 2.0, 1024, 768);
   camera2.cam_from_rig =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
 
   ApplyRigConfig(configs, *database);
   EXPECT_EQ(database->NumRigs(), 1);

@@ -29,6 +29,8 @@
 
 #include "colmap/geometry/sim3_matchers.h"
 
+#include "colmap/math/random_eigen.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -45,7 +47,7 @@ struct MockTestClass : public TestClass {
 };
 
 TEST(Sim3d, Eq) {
-  const Sim3d x(2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  const Sim3d x(2, EigenRandomQuaterniond(), RandomEigenVectord<3>());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dEq(y));
   y.scale() += 1e-7;
@@ -65,7 +67,7 @@ TEST(Sim3d, Eq) {
 }
 
 TEST(Sim3d, Near) {
-  const Sim3d x(2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  const Sim3d x(2, EigenRandomQuaterniond(), RandomEigenVectord<3>());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dNear(y, /*stol=*/1e-8, /*rtol=*/1e-8, /*ttol=*/1e-8));
   y.rotation().w() += 1e-7;

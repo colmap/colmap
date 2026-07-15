@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -40,8 +41,8 @@ namespace {
 
 TEST(Point3DAlignmentCostFunctor, UseLogScale) {
   Sim3d b_from_a = Sim3d(RandomUniformReal<double>(0.1, 10),
-                         Eigen::Quaterniond::UnitRandom(),
-                         Eigen::Vector3d::Random());
+                         EigenRandomQuaterniond(),
+                         RandomEigenVectord<3>());
   const Eigen::Vector3d point_in_b_prior(1., 2., 3.);
   const Eigen::Vector3d point_in_a(3., 2., 1.);
   const Eigen::Vector3d point_in_b = b_from_a * point_in_a;
@@ -61,8 +62,8 @@ TEST(Point3DAlignmentCostFunctor, UseLogScale) {
 
 TEST(Point3DAlignmentCostFunctor, DoNotUseLogScale) {
   const Sim3d b_from_a = Sim3d(RandomUniformReal<double>(0.1, 10),
-                               Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random());
+                               EigenRandomQuaterniond(),
+                               RandomEigenVectord<3>());
   const Eigen::Vector3d point_in_b_prior(1., 2., 3.);
   const Eigen::Vector3d point_in_a(3., 2., 1.);
   const Eigen::Vector3d point_in_b = b_from_a * point_in_a;

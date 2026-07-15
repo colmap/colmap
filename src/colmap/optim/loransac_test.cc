@@ -32,6 +32,7 @@
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -57,7 +58,7 @@ SimilarityTransformTestData GenerateTestData(const size_t num_samples = 1000,
 
   SetPRNGSeed(0);
   data.expected_tgt_from_src =
-      Sim3d(2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
+      Sim3d(2, EigenRandomQuaterniond(), Eigen::Vector3d(100, 10, 10));
 
   for (size_t i = 0; i < num_samples; ++i) {
     data.src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));

@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -52,8 +53,8 @@ constexpr double kMinParallax = 1e-2;  // ~5.7 degrees.
 // essential matrix vanishes and the cheirality of every correspondence becomes
 // ill-defined.
 Rigid3d TestCam2FromCam1() {
-  return Rigid3d(Eigen::Quaterniond::UnitRandom(),
-                 Eigen::Vector3d::Random().normalized());
+  return Rigid3d(EigenRandomQuaterniond(),
+                 RandomEigenVectord<3>().normalized());
 }
 
 // When reject_degenerate is set, resamples correspondences that make a minimal
@@ -69,7 +70,7 @@ void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
     Eigen::Vector3d point_in_cam2;
     bool degenerate;
     do {
-      ray1 = Eigen::Vector3d::Random().normalized();
+      ray1 = RandomEigenVectord<3>().normalized();
       const double random_depth = RandomUniformReal<double>(kMinDepth, 2.0);
       point_in_cam2 = cam2_from_cam1 * (random_depth * ray1);
       const Eigen::Vector3d ray1_in_cam2 = cam2_from_cam1.rotation() * ray1;
@@ -182,8 +183,8 @@ TEST_P(EssentialMatrixLMEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 10; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
@@ -206,8 +207,8 @@ INSTANTIATE_TEST_SUITE_P(EssentialMatrixLMEstimator,
 TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
   SetPRNGSeed(0);
   for (size_t k = 0; k < 100; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
@@ -218,9 +219,9 @@ TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
     const Eigen::Quaterniond seed_rotation =
         cam2_from_cam1.rotation() *
         Eigen::Quaterniond(
-            Eigen::AngleAxisd(0.02, Eigen::Vector3d::Random().normalized()));
+            Eigen::AngleAxisd(0.02, RandomEigenVectord<3>().normalized()));
     const Eigen::Vector3d seed_translation =
-        cam2_from_cam1.translation() + 0.02 * Eigen::Vector3d::Random();
+        cam2_from_cam1.translation() + 0.02 * RandomEigenVectord<3>();
     const Eigen::Matrix3d seed_E =
         EssentialMatrixFromPose(Rigid3d(seed_rotation, seed_translation));
 

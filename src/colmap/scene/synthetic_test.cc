@@ -32,6 +32,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/projection.h"
@@ -215,7 +216,7 @@ TEST(SynthesizeDataset, WithPriors) {
   SyntheticDatasetOptions options;
   options.prior_position = true;
   options.prior_gravity = true;
-  options.prior_gravity_in_world = Eigen::Vector3d::Random().normalized();
+  options.prior_gravity_in_world = RandomEigenVectord<3>().normalized();
   SynthesizeDataset(options, &reconstruction, database.get());
 
   const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();

@@ -29,6 +29,8 @@
 
 #include "colmap/geometry/rigid3_matchers.h"
 
+#include "colmap/math/random_eigen.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -45,7 +47,7 @@ struct MockTestClass : public TestClass {
 };
 
 TEST(Rigid3d, Eq) {
-  const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  const Rigid3d x(EigenRandomQuaterniond(), RandomEigenVectord<3>());
   Rigid3d y = x;
   EXPECT_THAT(x, Rigid3dEq(y));
   y.rotation().w() += 1e-7;
@@ -62,7 +64,7 @@ TEST(Rigid3d, Eq) {
 }
 
 TEST(Rigid3d, Near) {
-  const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  const Rigid3d x(EigenRandomQuaterniond(), RandomEigenVectord<3>());
   Rigid3d y = x;
   EXPECT_THAT(x, Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8));
   y.rotation().w() += 1e-7;

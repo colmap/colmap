@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/math/random_eigen.h"
 
 #include <gtest/gtest.h>
 
@@ -44,8 +45,8 @@ TEST(FetzerFocalLengthCostFunctor, ConvexCostLandscape) {
     const double focal_length2 = 256;
     const Eigen::Vector2d pp1(320, 240);
     const Eigen::Vector2d pp2(480, 320);
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
 
     Eigen::Matrix3d K1;
     K1 << focal_length1, 0, pp1(0), 0, focal_length1, pp1(1), 0, 0, 1;
@@ -97,8 +98,8 @@ TEST(FetzerFocalLengthSameCameraCostFunctor, ConvexCostLandscape) {
   for (int i = 0; i < kNumTrials; ++i) {
     const double focal_length = 128;
     const Eigen::Vector2d pp(320, 240);
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
 
     Eigen::Matrix3d K;
     K << focal_length, 0, pp(0), 0, focal_length, pp(1), 0, 0, 1;

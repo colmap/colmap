@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 
 #include <gtest/gtest.h>
 
@@ -56,7 +57,7 @@ void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
                                    std::vector<Eigen::Vector2d>& points1,
                                    std::vector<Eigen::Vector2d>& points2) {
   for (size_t i = 0; i < num_points; ++i) {
-    points1.push_back(K.topRows<2>() * Eigen::Vector2d::Random().homogeneous());
+    points1.push_back(K.topRows<2>() * RandomEigenVectord<2>().homogeneous());
     const double random_depth = RandomUniformReal<double>(0.2, 2.0);
     points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
                                               points1.back().homogeneous())))
@@ -154,8 +155,8 @@ TEST(FundamentalSevenPointEstimator, Nominal) {
   const size_t kNumPoints = 7;
   for (size_t k = 0; k < 100; ++k) {
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
     std::vector<Eigen::Vector2d> points1;
@@ -242,8 +243,8 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, Nominal) {
   const size_t kNumPoints = GetParam();
   for (size_t k = 0; k < 100; ++k) {
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
     std::vector<Eigen::Vector2d> points1;
@@ -268,8 +269,8 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, NumericalStability) {
     K(1, 1) *= kCoordinateScale;
     K(0, 2) *= kCoordinateScale;
     K(1, 2) *= kCoordinateScale;
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
     std::vector<Eigen::Vector2d> points1;
@@ -291,8 +292,8 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, NoiseStability) {
   constexpr double kNoise = 1e-4;
   for (size_t k = 0; k < 100; ++k) {
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
     std::vector<Eigen::Vector2d> points1;
@@ -300,7 +301,7 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, NoiseStability) {
     RandomEpipolarCorrespondences(
         cam2_from_cam1, K, kNumPoints, points1, points2);
     for (size_t i = 0; i < kNumPoints; ++i) {
-      points2[i] += Eigen::Vector2d::Random() * kNoise;
+      points2[i] += RandomEigenVectord<2>() * kNoise;
     }
 
     FundamentalMatrixEightPointEstimator estimator;

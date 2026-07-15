@@ -29,6 +29,8 @@
 
 #include "colmap/sensor/rig.h"
 
+#include "colmap/math/random_eigen.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -36,7 +38,7 @@ namespace colmap {
 namespace {
 
 Rigid3d TestRigid3d() {
-  return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  return Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
 }
 
 TEST(Rig, Default) {

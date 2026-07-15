@@ -851,7 +851,7 @@ RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
 }
 
 TEST(EstimateRigTwoViewGeometries, Nominal) {
-  SetPRNGSeed(1);
+  SetPRNGSeed(2);
 
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;

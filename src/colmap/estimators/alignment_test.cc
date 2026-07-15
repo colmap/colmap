@@ -32,6 +32,7 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
@@ -43,8 +44,8 @@ namespace {
 
 Sim3d TestSim3d() {
   return Sim3d(RandomUniformReal<double>(0.5, 2),
-               Eigen::Quaterniond::UnitRandom(),
-               Eigen::Vector3d::Random());
+               EigenRandomQuaterniond(),
+               RandomEigenVectord<3>());
 }
 
 void ExpectEqualSim3d(const Sim3d& gt_tgt_from_src, const Sim3d& tgt_from_src) {

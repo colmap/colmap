@@ -32,6 +32,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -55,8 +56,8 @@ TEST_P(ParameterizedGP3PEstimatorTests, Nominal) {
   const auto [kNumCams, kPanoramic] = GetParam();
 
   for (int i = 0; i < kNumTrials; ++i) {
-    const Rigid3d rig_from_world(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d rig_from_world(EigenRandomQuaterniond(),
+                                 RandomEigenVectord<3>());
     const Rigid3d world_from_rig = Inverse(rig_from_world);
 
     std::vector<Rigid3d> cams_from_world(kNumCams);
@@ -64,14 +65,14 @@ TEST_P(ParameterizedGP3PEstimatorTests, Nominal) {
     for (int i = 0; i < kNumCams; ++i) {
       if (kPanoramic) {
         const Eigen::Quaterniond cam_from_rig_rotation =
-            Eigen::Quaterniond::UnitRandom();
+            EigenRandomQuaterniond();
         cams_from_rig[i] =
             Rigid3d(cam_from_rig_rotation,
                     cam_from_rig_rotation * Eigen::Vector3d(1, 2, 3));
         cams_from_world[i] = cams_from_rig[i] * rig_from_world;
       } else {
-        cams_from_world[i] = Rigid3d(Eigen::Quaterniond::UnitRandom(),
-                                     Eigen::Vector3d::Random());
+        cams_from_world[i] =
+            Rigid3d(EigenRandomQuaterniond(), RandomEigenVectord<3>());
         cams_from_rig[i] = cams_from_world[i] * world_from_rig;
       }
     }
