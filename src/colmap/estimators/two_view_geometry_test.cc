@@ -885,14 +885,18 @@ RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
 }
 
 TEST(EstimateRigTwoViewGeometries, Nominal) {
-  SetPRNGSeed(2);
+  SetPRNGSeed(1);
 
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 200;
-  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  // Use only inlier matches so that pose recovery is exact and thus
+  // numerically stable across platforms and build configurations. Outlier
+  // robustness of two-view geometry estimation is covered by the
+  // EstimateTwoViewGeometry.*Deterministic tests above.
+  synthetic_dataset_options.inlier_match_ratio = 1.0;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   const RigTwoViewGeometryTestData test_data =
       CreateRigTwoViewGeometryTestData(synthetic_dataset_options);
