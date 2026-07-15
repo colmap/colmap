@@ -418,9 +418,16 @@ Documentation
         make latexpdf
         open _build/pdf/COLMAP.pdf
 
-3. Clone the website repository `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__.
-4. Copy the contents of the generated files at ``_build/html`` to the cloned repository root.
-5. Create a pull request to the `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
-   repository with the updated files.
-6. (Optional, if main release) Copy the previous release as legacy to the "legacy" folder,
-   under a folder with the release number `see here <https://github.com/colmap/colmap.github.io/tree/master/legacy>`__.
+Publishing to the website (`colmap.github.io <https://colmap.github.io/>`__) is
+automated: whenever documentation-relevant files change on ``main``, the CI
+pipeline builds these docs and pushes the result to the ``master`` branch of the
+`colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
+repository. Pull requests that touch the docs build them too and upload the
+generated HTML as a downloadable ``docs-preview`` artifact for review, without
+publishing. The manual steps above are therefore only needed to preview the docs
+locally.
+
+For a main release, still copy the previous release as legacy to the "legacy"
+folder in the website repository, under a folder with the release number
+(`see here <https://github.com/colmap/colmap.github.io/tree/master/legacy>`__).
+The automated deploy preserves the existing ``legacy`` folder.

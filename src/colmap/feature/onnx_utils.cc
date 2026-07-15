@@ -39,14 +39,13 @@
 #ifdef _WIN32
 #include <Windows.h>
 #endif
+#ifdef COLMAP_COREML_ENABLED
+#include <coreml_provider_factory.h>
+#endif
 
 namespace colmap {
 
 #ifdef COLMAP_ONNX_ENABLED
-
-#ifdef COLMAP_COREML_ENABLED
-#include <coreml_provider_factory.h>
-#endif
 
 namespace {
 [[noreturn]] void RethrowONNXException() {
@@ -120,12 +119,15 @@ ONNXModel::ONNXModel(std::string model_path,
 }
 
 void ONNXModel::ConfigureSessionOptions(int num_threads) {
+  // Reset any previously appended execution providers (e.g. when rebuilding for
+  // a CPU-only fallback after an accelerator fails to initialize).
+  session_options_ = Ort::SessionOptions();
+
   // Use sequential execution mode with a single inter-op thread, since our
-  // models (ALIKED, LightGlue, MixVPR, MegaLoc) are sequential CNNs/ViTs
-  // without independent graph branches. Inter-op parallelism would only cause
-  // thread contention. Intra-op threads parallelize within individual operators
+  // models (ALIKED, LightGlue) are sequential CNNs/Transformers without
+  // independent graph branches. Inter-op parallelism would only cause thread
+  // contention. Intra-op threads parallelize within individual operators
   // (convolutions, matrix multiplications) and are managed at the caller level.
-  session_options_ = Ort::SessionOptions();  // reset to defaults
   session_options_.SetInterOpNumThreads(1);
   session_options_.SetIntraOpNumThreads(num_threads);
   session_options_.SetExecutionMode(ORT_SEQUENTIAL);
@@ -153,13 +155,21 @@ void ONNXModel::InitializeSession(const std::string& model_path,
   }
 #endif
 
+  // On Apple platforms there is no CUDA, so map use_gpu onto CoreML, which
+  // offloads supported subgraphs to the GPU/Apple Neural Engine (unsupported
+  // nodes automatically fall back to the CPU). Selected automatically whenever
+  // GPU use is requested; set use_gpu=false to force pure CPU execution.
+  bool use_coreml = false;
 #ifdef COLMAP_COREML_ENABLED
-  // On macOS, map use_gpu to the CoreML execution provider for ANE/GPU
-  // acceleration.  Unsupported nodes fall back to CPU automatically.
   if (use_gpu) {
+    VLOG(2) << "Enabling CoreML execution provider";
+    // COREML_FLAG_CREATE_MLPROGRAM selects the newer ML Program model format,
+    // which supports a wider set of operators and float inputs than the legacy
+    // NeuralNetwork format.
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(
         static_cast<OrtSessionOptions*>(session_options_),
         COREML_FLAG_CREATE_MLPROGRAM));
+    use_coreml = true;
   }
 #endif
 
@@ -175,13 +185,6 @@ void ONNXModel::InitializeSession(const std::string& model_path,
 #else
   const char* model_path_cstr = model_path.c_str();
 #endif
-
-  const bool use_coreml =
-#ifdef COLMAP_COREML_ENABLED
-      use_gpu;
-#else
-      false;
-#endif
   try {
     session_ =
         std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
@@ -189,8 +192,8 @@ void ONNXModel::InitializeSession(const std::string& model_path,
     if (!use_coreml) {
       throw;
     }
-    // CoreML compilation failed (e.g. unsupported dynamic shapes) —
-    // rebuild the session without CoreML and fall back to pure CPU.
+    // Some models cannot be compiled by CoreML (e.g. unsupported dynamic
+    // shapes). Rather than failing, fall back to pure CPU execution.
     LOG(WARNING) << "Failed to initialize ONNX session with CoreML ("
                  << e.what() << "); falling back to CPU execution provider";
     ConfigureSessionOptions(num_threads);

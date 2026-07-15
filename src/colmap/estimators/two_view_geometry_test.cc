@@ -731,6 +731,40 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
   EXPECT_NE(geometry1.F, geometry3.F);
 }
 
+TEST(EstimateTwoViewGeometry, UncalibratedDegensac) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 5;
+  const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
+      synthetic_dataset_options, synthetic_noise_options);
+
+  // The DEGENSAC-based fundamental matrix estimation is a drop-in replacement
+  // that recovers a valid uncalibrated geometry on a general (non-planar)
+  // scene.
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.use_degensac = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::UNCALIBRATED);
+  EXPECT_GE(geometry.inlier_matches.size(),
+            static_cast<size_t>(synthetic_dataset_options.inlier_match_ratio *
+                                synthetic_dataset_options.num_points3D * 0.9));
+}
+
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
   SetPRNGSeed(1);
 
