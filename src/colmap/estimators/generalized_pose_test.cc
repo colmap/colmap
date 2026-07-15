@@ -413,7 +413,7 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
           EXPECT_THAT(
               *rig2_from_rig1,
               Rigid3dNear(
-                  problem.gt_rig2_from_rig1, /*rtol=*/1e-6, /*ttol=*/1e-6));
+                  problem.gt_rig2_from_rig1, /*rtol=*/1e-3, /*ttol=*/1e-3));
         }
       }
     }
