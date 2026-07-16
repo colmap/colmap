@@ -1464,10 +1464,16 @@ class SqliteDatabase : public Database {
 
     // Write NULL for camera1/camera2 if not set. The blob strings must outlive
     // sqlite3_step because they are bound with SQLITE_STATIC.
-    [[maybe_unused]] const std::string camera1_blob = BindOptionalCamera(
-        sql_stmt_write_two_view_geometry_, two_view_geometry_ptr->camera1, 11);
-    [[maybe_unused]] const std::string camera2_blob = BindOptionalCamera(
-        sql_stmt_write_two_view_geometry_, two_view_geometry_ptr->camera2, 12);
+    const std::string
+        camera1_blob =  // NOLINT(bugprone-unused-local-non-trivial-variable)
+        BindOptionalCamera(sql_stmt_write_two_view_geometry_,
+                           two_view_geometry_ptr->camera1,
+                           11);
+    const std::string
+        camera2_blob =  // NOLINT(bugprone-unused-local-non-trivial-variable)
+        BindOptionalCamera(sql_stmt_write_two_view_geometry_,
+                           two_view_geometry_ptr->camera2,
+                           12);
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }
