@@ -38,6 +38,7 @@
 #include "colmap/util/types.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <Eigen/Core>
@@ -113,6 +114,13 @@ class DatabaseCache {
   inline const NodeHashMap<image_t, class Image>& Images() const;
   inline const std::vector<struct PosePrior>& PosePriors() const;
 
+  // The (lat_deg, lon_deg, ellipsoidal_alt_m) reference chosen by
+  // ConvertPosePriorsToENU() to define the shared ENU tangent plane, if that
+  // conversion has run. The altitude is the internal tangent-origin altitude
+  // only (may be a placeholder 0 when no row has a finite altitude) and must
+  // not be reported as a measured value.
+  inline const std::optional<Eigen::Vector3d>& PosePriorEnuOrigin() const;
+
   // Check whether specific object exists.
   inline bool ExistsRig(rig_t rig_id) const;
   inline bool ExistsCamera(camera_t camera_id) const;
@@ -135,6 +143,7 @@ class DatabaseCache {
   NodeHashMap<frame_t, class Frame> frames_;
   NodeHashMap<image_t, class Image> images_;
   std::vector<struct PosePrior> pose_priors_;
+  std::optional<Eigen::Vector3d> pose_prior_enu_origin_;
   std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
 };
 
@@ -200,6 +209,11 @@ const NodeHashMap<image_t, class Image>& DatabaseCache::Images() const {
 
 const std::vector<struct PosePrior>& DatabaseCache::PosePriors() const {
   return pose_priors_;
+}
+
+const std::optional<Eigen::Vector3d>& DatabaseCache::PosePriorEnuOrigin()
+    const {
+  return pose_prior_enu_origin_;
 }
 
 bool DatabaseCache::ExistsRig(const rig_t rig_id) const {

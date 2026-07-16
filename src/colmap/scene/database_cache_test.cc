@@ -31,6 +31,9 @@
 
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/util/eigen_matchers.h"
+
+#include <cmath>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -179,6 +182,77 @@ TEST(DatabaseCache, ConstructFromDatabase) {
       correspondence_graph->NumCorrespondencesForImage(images[3].ImageId()), 1);
   EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[3].ImageId()),
             1);
+
+  // Extends this existing test case (rather than adding a new one, per the
+  // M1 test cap) to also cover DatabaseCache::ConvertPosePriorsToENU's
+  // shared-ENU reference selection and covariance-basis rotation (goal doc
+  // section 5, step M1.2). At lat=0, lon=90, GPSTransform::ENUFromECEF
+  // reduces to the hand-derived signed permutation matrix
+  // R90=[[-1,0,0],[0,0,1],[0,1,0]] (its own transpose and inverse), and at
+  // lat=0, lon=0 to R0=[[0,1,0],[0,0,1],[1,0,0]]; the row-local-to-shared-ENU
+  // rotation for a row at (0,0) with reference (0,90) is therefore
+  // S = R90 * R0^T = [[0,0,-1],[0,1,0],[1,0,0]] (checked by hand, not by
+  // calling GPSTransform), which conjugates the diagonal covariance
+  // diag(1,4,9) into diag(9,4,1) (axes 0 and 2 swap).
+  auto wgs84_database = Database::Open(kInMemorySqliteDatabasePath);
+
+  PosePrior ref_prior;
+  ref_prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 101);
+  ref_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+  ref_prior.position = Eigen::Vector3d(0.0, 90.0, 500.0);
+  wgs84_database->WritePosePrior(ref_prior);
+
+  PosePrior other_prior;
+  other_prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 102);
+  other_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+  other_prior.position = Eigen::Vector3d(0.0, 0.0, PosePrior::kNaN);
+  other_prior.position_covariance =
+      Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
+  wgs84_database->WritePosePrior(other_prior);
+
+  DatabaseCache::Options enu_options;
+  enu_options.convert_pose_priors_to_enu = true;
+  auto enu_cache = DatabaseCache::Create(*wgs84_database, enu_options);
+  ASSERT_EQ(enu_cache->NumPosePriors(), 2);
+
+  const PosePrior* converted_ref = nullptr;
+  const PosePrior* converted_other = nullptr;
+  for (const auto& prior : enu_cache->PosePriors()) {
+    if (prior.corr_data_id.id == 101) {
+      converted_ref = &prior;
+    } else if (prior.corr_data_id.id == 102) {
+      converted_other = &prior;
+    }
+  }
+  ASSERT_NE(converted_ref, nullptr);
+  ASSERT_NE(converted_other, nullptr);
+
+  // The reference row is, by construction, the sole full-position row, so
+  // the geometric median is exactly its own ECEF point and it converts to
+  // the shared-ENU origin.
+  EXPECT_EQ(converted_ref->coordinate_system,
+           PosePrior::CoordinateSystem::CARTESIAN);
+  const Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
+  EXPECT_THAT(converted_ref->position, EigenMatrixNear(zero3, 1e-6));
+
+  // The horizontal-only row at 90 degrees of longitude away: East/North are
+  // finite (computed using the shared reference altitude only), Up stays
+  // NaN (no altitude was fabricated), and its covariance is rotated by the
+  // non-identity S derived above.
+  EXPECT_EQ(converted_other->coordinate_system,
+           PosePrior::CoordinateSystem::CARTESIAN);
+  EXPECT_TRUE(std::isfinite(converted_other->position.x()));
+  EXPECT_TRUE(std::isfinite(converted_other->position.y()));
+  EXPECT_FALSE(std::isfinite(converted_other->position.z()));
+  const Eigen::Matrix3d expected_cov =
+      Eigen::Vector3d(9.0, 4.0, 1.0).asDiagonal();
+  EXPECT_THAT(converted_other->position_covariance,
+             EigenMatrixNear(expected_cov, 1e-6));
+
+  ASSERT_TRUE(enu_cache->PosePriorEnuOrigin().has_value());
+  EXPECT_NEAR(enu_cache->PosePriorEnuOrigin()->x(), 0.0, 1e-9);
+  EXPECT_NEAR(enu_cache->PosePriorEnuOrigin()->y(), 90.0, 1e-9);
+  EXPECT_NEAR(enu_cache->PosePriorEnuOrigin()->z(), 500.0, 1e-9);
 }
 
 TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {

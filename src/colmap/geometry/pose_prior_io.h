@@ -85,6 +85,29 @@ struct PosePriorArchive {
     // Origin (lat, lon, alt) of the ENU local tangent plane.
     std::optional<Eigen::Vector3d> enu_origin = std::nullopt;
 
+    // The following fields each have exactly one supported value today; they
+    // are represented as explicit strings (rather than single-value enums)
+    // and validated against that literal so an unsupported future value
+    // fails closed instead of silently misinterpreting the archive.
+
+    // Required (and must equal "ELLIPSOIDAL") when the archive has a WGS84
+    // position schema.
+    std::optional<std::string> height_datum = std::nullopt;
+    // Required (and must equal "LOCAL_ENU" for WGS84 / "CARTESIAN" for
+    // Cartesian archives) when a position covariance group is present.
+    std::optional<std::string> position_covariance_frame = std::nullopt;
+    // Required (and must equal "SENSOR_FROM_WORLD") when a quaternion group
+    // is present.
+    std::optional<std::string> rotation_convention = std::nullopt;
+    // Required when a quaternion group is present. For WGS84 archives must
+    // equal "ENU" (and requires enu_origin). For Cartesian archives must
+    // equal cartesian_frame ("LOCAL" meaning sensor_from_local_world with no
+    // Earth meaning, or "ENU", which also requires enu_origin).
+    std::optional<std::string> rotation_world_frame = std::nullopt;
+    // Required (and must equal "RIGHT_MULTIPLICATIVE_WORLD") when a rotation
+    // covariance group is present.
+    std::optional<std::string> rotation_covariance_convention = std::nullopt;
+
     bool IsValid() const;
   };
 
@@ -99,7 +122,15 @@ struct PosePriorArchive {
       // Translation standard deviation
       STD_TX, STD_TY, STD_TZ,
       // Translation covariance
-      COV_TXX, COV_TXY, COV_TXZ, COV_TYY, COV_TYZ, COV_TZZ)
+      COV_TXX, COV_TXY, COV_TXZ, COV_TYY, COV_TYZ, COV_TZZ,
+      // Gravity (down) in sensor coordinates
+      GX, GY, GZ,
+      // Absolute orientation quaternion, sensor_from_archive_enu (Hamilton,
+      // W first)
+      QW, QX, QY, QZ,
+      // Rotation covariance, rad^2, right-multiplicative world basis
+      ROT_COV_XX, ROT_COV_XY, ROT_COV_XZ,
+      ROT_COV_YY, ROT_COV_YZ, ROT_COV_ZZ)
   // clang-format on
 
   // To add a new ColumnId:
@@ -151,6 +182,12 @@ struct PosePriorArchive {
   // Convert the archive data to a vector of PosePrior objects. Rows whose
   // name cannot be resolved are skipped with a warning.
   std::vector<PosePrior> ToPosePriors(
+      const data_id_resolver_t& data_id_from_name) const;
+
+  // Returns true if two or more rows resolve to the same data_t, i.e. the
+  // archive names the same image more than once. Callers must reject this
+  // before importing, since it is otherwise ambiguous which row should win.
+  bool HasDuplicateResolvedNames(
       const data_id_resolver_t& data_id_from_name) const;
 };
 

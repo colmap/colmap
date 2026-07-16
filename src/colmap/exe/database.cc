@@ -171,25 +171,27 @@ int RunRigConfigurator(int argc, char** argv) {
 
 int RunPosePriorImporter(int argc, char** argv) {
   std::filesystem::path pose_prior_path;
-  bool overwrite = true;
-  bool update = false;
+  std::string existing_policy;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddRequiredOption("pose_prior_path", &pose_prior_path);
-  options.AddDefaultOption(
-      "overwrite", &overwrite, "Replace existing pose priors.");
-  options.AddDefaultOption(
-      "update",
-      &update,
-      "Merge input data into existing pose priors and add unmatched entries.");
+  options.AddRequiredOption(
+      "existing",
+      &existing_policy,
+      "One of error|replace|merge: `error` aborts if any incoming resolved "
+      "image already has a prior; `replace` replaces the complete prior for "
+      "that image (groups absent from the row become absent); `merge` "
+      "updates only the groups present in the row and preserves the rest.");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
-  if (overwrite && update) {
-    LOG(WARNING) << "Both --overwrite and --update specified. "
-                 << "--update takes precedence, --overwrite is ignored.";
+  if (existing_policy != "error" && existing_policy != "replace" &&
+      existing_policy != "merge") {
+    LOG(ERROR) << "`existing` must be one of error|replace|merge, got: `"
+              << existing_policy << "`";
+    return EXIT_FAILURE;
   }
 
   if (!ExistsFile(pose_prior_path)) {
@@ -211,7 +213,10 @@ int RunPosePriorImporter(int argc, char** argv) {
                   image->ImageId());
   };
 
-  if (update) {
+  THROW_CHECK(!archive.HasDuplicateResolvedNames(data_id_from_name))
+      << "Archive names the same resolved image more than once";
+
+  if (existing_policy == "merge") {
     auto priors = database->ReadAllPosePriors();
     const size_t num_existing = priors.size();
     archive.UpdatePosePriors(
@@ -237,6 +242,10 @@ int RunPosePriorImporter(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
+  // existing_policy == "error" or "replace": each row's full prior replaces
+  // any existing prior for that image (fresh PosePrior with only the row's
+  // groups set); the two policies differ only in whether an existing prior
+  // is permitted at all.
   auto priors = archive.ToPosePriors(data_id_from_name);
   if (priors.empty()) {
     LOG(WARNING) << "No pose priors were imported.";
@@ -249,21 +258,28 @@ int RunPosePriorImporter(int argc, char** argv) {
     existing_prior_ids.emplace(prior.corr_data_id, prior.pose_prior_id);
   }
 
+  if (existing_policy == "error") {
+    for (const auto& prior : priors) {
+      THROW_CHECK(existing_prior_ids.find(prior.corr_data_id) ==
+                 existing_prior_ids.end())
+          << "A pose prior already exists for a resolved image and "
+            "`existing=error` was specified; the database was not "
+            "modified";
+    }
+  }
+
   size_t num_imported = 0;
   {
     DatabaseTransaction transaction(database.get());
     for (auto& prior : priors) {
       const auto it = existing_prior_ids.find(prior.corr_data_id);
       if (it != existing_prior_ids.end()) {
-        if (overwrite) {
-          prior.pose_prior_id = it->second;
-          database->UpdatePosePrior(prior);
-          ++num_imported;
-        }
+        prior.pose_prior_id = it->second;
+        database->UpdatePosePrior(prior);
       } else {
         database->WritePosePrior(prior);
-        ++num_imported;
       }
+      ++num_imported;
     }
   }
 

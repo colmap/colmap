@@ -34,8 +34,51 @@
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace colmap {
 namespace {
+
+// Weiszfeld's algorithm for the L1 geometric median of a point set. Used to
+// pick a deterministic, outlier-robust ENU reference instead of an arbitrary
+// (e.g. first) row.
+Eigen::Vector3d GeometricMedian(const std::vector<Eigen::Vector3d>& points) {
+  Eigen::Vector3d median = Eigen::Vector3d::Zero();
+  for (const Eigen::Vector3d& p : points) {
+    median += p;
+  }
+  median /= static_cast<double>(points.size());
+
+  constexpr int kMaxIters = 100;
+  constexpr double kConvergenceTol = 1e-9;
+  constexpr double kDegenerateDistTol = 1e-9;
+  for (int iter = 0; iter < kMaxIters; ++iter) {
+    Eigen::Vector3d numerator = Eigen::Vector3d::Zero();
+    double weight_sum = 0.0;
+    for (const Eigen::Vector3d& p : points) {
+      const double dist = (p - median).norm();
+      if (dist < kDegenerateDistTol) {
+        // The current estimate coincides with a sample; skip it to avoid a
+        // division by (near-)zero rather than perturbing the estimate.
+        continue;
+      }
+      const double weight = 1.0 / dist;
+      numerator += weight * p;
+      weight_sum += weight;
+    }
+    if (weight_sum < kDegenerateDistTol) {
+      break;
+    }
+    const Eigen::Vector3d next = numerator / weight_sum;
+    const bool converged = (next - median).norm() < kConvergenceTol;
+    median = next;
+    if (converged) {
+      break;
+    }
+  }
+  return median;
+}
 
 bool UseInlierMatchesCheck(const DatabaseCache::Options& options,
                            int two_view_geometry_config,
@@ -465,40 +508,164 @@ const class Image* DatabaseCache::FindImageWithName(
 }
 
 void DatabaseCache::ConvertPosePriorsToENU() {
-  bool prior_is_gps = true;
-
-  std::vector<Eigen::Vector3d> gps_prior_positions;
-  std::set<PosePrior::CoordinateSystem> coordinate_systems;
+  bool has_wgs84 = false;
+  bool has_cartesian = false;
   for (const auto& pose_prior : pose_priors_) {
-    coordinate_systems.insert(pose_prior.coordinate_system);
-    if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
-      prior_is_gps = false;
-    } else {
-      gps_prior_positions.push_back(pose_prior.position);
+    if (pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
+      has_wgs84 = true;
+    } else if (pose_prior.coordinate_system ==
+              PosePrior::CoordinateSystem::CARTESIAN) {
+      has_cartesian = true;
     }
   }
 
-  THROW_CHECK_LE(coordinate_systems.size(), 1)
-      << "Inconsistent coordinate systems defined in pose priors";
+  if (!has_wgs84) {
+    // Nothing to convert: either already Cartesian, or no priors at all.
+    return;
+  }
+  THROW_CHECK(!has_cartesian)
+      << "Cannot convert a mixture of WGS84 and Cartesian pose priors to a "
+        "shared ENU frame";
 
-  // If GPS priors are available, convert them to Cartesian ENU coordinates.
-  if (prior_is_gps && !gps_prior_positions.empty()) {
-    // GPS reference to be used for EllipsoidToENU conversion.
-    const double ref_lat = gps_prior_positions[0][0];
-    const double ref_lon = gps_prior_positions[0][1];
-    const double ref_alt = gps_prior_positions[0][2];
+  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
 
-    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-    const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllipsoidToENU(
-            gps_prior_positions, ref_lat, ref_lon, ref_alt);
-
-    auto xyz_prior_it = v_xyz_prior.begin();
-    for (auto& pose_prior : pose_priors_) {
-      pose_prior.position = *xyz_prior_it;
-      pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-      ++xyz_prior_it;
+  // Deterministic reference selection: the geometric median (in ECEF) of all
+  // rows with a finite full position, so the reference is conditioned by
+  // every usable row rather than being the first row (which may be an
+  // outlier). If no row has a finite altitude, fall back to the median of
+  // whatever finite lat/lon rows exist and use altitude 0 purely as an
+  // internal tangent-plane origin, never as a fabricated measurement.
+  std::vector<Eigen::Vector3d> full_position_lla;
+  std::vector<double> full_altitudes;
+  std::vector<Eigen::Vector3d> horizontal_only_lla;
+  for (const auto& pose_prior : pose_priors_) {
+    const Eigen::Vector3d& p = pose_prior.position;
+    const bool has_lat_lon = std::isfinite(p.x()) && std::isfinite(p.y());
+    if (!has_lat_lon) {
+      continue;
     }
+    if (std::isfinite(p.z())) {
+      full_position_lla.push_back(p);
+      full_altitudes.push_back(p.z());
+    } else {
+      horizontal_only_lla.emplace_back(p.x(), p.y(), 0.0);
+    }
+  }
+
+  if (full_position_lla.empty() && horizontal_only_lla.empty()) {
+    // No row carries any usable position; leave the archive's Cartesian tag
+    // change to still happen below (gravity/rotation groups may still be
+    // present and require no reference), but there is no ENU origin to
+    // report.
+    for (auto& pose_prior : pose_priors_) {
+      if (pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
+        pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+      }
+    }
+    return;
+  }
+
+  double ref_lat;
+  double ref_lon;
+  double ref_alt;
+  const bool ref_alt_is_real = !full_position_lla.empty();
+  if (ref_alt_is_real) {
+    const std::vector<Eigen::Vector3d> full_position_ecef =
+        gps_transform.EllipsoidToECEF(full_position_lla);
+    const Eigen::Vector3d median_ecef = GeometricMedian(full_position_ecef);
+    const Eigen::Vector3d median_lla =
+        gps_transform.ECEFToEllipsoid({median_ecef})[0];
+    ref_lat = median_lla.x();
+    ref_lon = median_lla.y();
+    std::vector<double> sorted_altitudes = full_altitudes;
+    std::sort(sorted_altitudes.begin(), sorted_altitudes.end());
+    ref_alt = sorted_altitudes[sorted_altitudes.size() / 2];
+  } else {
+    const std::vector<Eigen::Vector3d> horizontal_ecef =
+        gps_transform.EllipsoidToECEF(horizontal_only_lla);
+    const Eigen::Vector3d median_ecef = GeometricMedian(horizontal_ecef);
+    const Eigen::Vector3d median_lla =
+        gps_transform.ECEFToEllipsoid({median_ecef})[0];
+    ref_lat = median_lla.x();
+    ref_lon = median_lla.y();
+    ref_alt = 0.0;
+  }
+
+  const Eigen::Vector3d ref_ecef =
+      gps_transform.EllipsoidToECEF({Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
+  const Eigen::Matrix3d shared_from_ecef =
+      GPSTransform::ENUFromECEF(ref_lat, ref_lon);
+
+  pose_prior_enu_origin_ = Eigen::Vector3d(ref_lat, ref_lon, ref_alt);
+
+  for (auto& pose_prior : pose_priors_) {
+    if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
+      continue;
+    }
+
+    const Eigen::Vector3d& lla = pose_prior.position;
+    const bool has_lat_lon = std::isfinite(lla.x()) && std::isfinite(lla.y());
+    const bool has_full_position = has_lat_lon && std::isfinite(lla.z());
+
+    Eigen::Matrix3d local_from_ecef;
+    if (has_lat_lon) {
+      local_from_ecef = GPSTransform::ENUFromECEF(lla.x(), lla.y());
+    }
+
+    if (has_full_position) {
+      const Eigen::Vector3d ecef = gps_transform.EllipsoidToECEF({lla})[0];
+      pose_prior.position = shared_from_ecef * (ecef - ref_ecef);
+    } else if (has_lat_lon) {
+      // Horizontal-only row: use the shared reference altitude only to
+      // compute East/North, then set Up back to NaN so no altitude is
+      // fabricated for this row.
+      const Eigen::Vector3d ecef =
+          gps_transform.EllipsoidToECEF({Eigen::Vector3d(
+              lla.x(), lla.y(), ref_alt)})[0];
+      Eigen::Vector3d enu = shared_from_ecef * (ecef - ref_ecef);
+      enu.z() = PosePrior::kNaN;
+      pose_prior.position = enu;
+    }
+    // Else: no position for this row (e.g. gravity-only); position stays NaN.
+
+    if (has_lat_lon) {
+      // shared_from_local = shared_from_ecef * ecef_from_local, and
+      // ecef_from_local = local_from_ecef^T.
+      const Eigen::Matrix3d shared_from_local =
+          shared_from_ecef * local_from_ecef.transpose();
+
+      if (pose_prior.HasPositionCov()) {
+        pose_prior.position_covariance =
+            shared_from_local * pose_prior.position_covariance *
+            shared_from_local.transpose();
+      }
+
+      if (pose_prior.HasRotation()) {
+        // local_from_shared = local_from_ecef * ecef_from_shared, and
+        // ecef_from_shared = shared_from_ecef^T.
+        const Eigen::Matrix3d local_from_shared =
+            local_from_ecef * shared_from_ecef.transpose();
+        pose_prior.rotation =
+            (pose_prior.rotation * Eigen::Quaterniond(local_from_shared))
+                .normalized();
+
+        if (pose_prior.HasRotationCov()) {
+          pose_prior.rotation_covariance =
+              shared_from_local * pose_prior.rotation_covariance *
+              shared_from_local.transpose();
+        }
+      }
+    }
+
+    // Gravity is down in sensor coordinates and is unaffected by a world-
+    // frame change.
+
+    // A gravity-only row has no coordinate-bearing measurement to transform,
+    // but retagging its cache-only coordinate system to CARTESIAN loses no
+    // information (its sensor-frame gravity remains unchanged and usable)
+    // and avoids leaving a mixed-coordinate-system cache. The database row
+    // itself remains WGS84.
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   }
 }
 
