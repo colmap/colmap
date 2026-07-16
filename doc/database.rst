@@ -14,6 +14,7 @@ The database contains the following tables:
 - cameras
 - frames
 - images
+- pose_priors
 - keypoints
 - descriptors
 - matches
@@ -90,6 +91,19 @@ descriptors entry. Note that only vocabulary tree matching with fast spatial
 verification requires meaningful values for the local feature geometry, i.e.,
 only X and Y must be provided and the other keypoint columns can be set to zero.
 The rest of the reconstruction pipeline only uses the keypoint locations.
+
+
+Pose priors
+-----------
+
+The ``pose_priors`` table stores an optional, externally supplied position
+and/or orientation measurement (e.g. GPS/GNSS/INS or a flight controller
+estimate) per sensor, keyed by the same ``data_id`` used elsewhere to
+identify a sensor within a frame. Position, gravity, and full orientation
+are each independently optional and explicitly absent (not defaulted) when
+unavailable. See :ref:`Pose Priors <pose-priors>` for the archive import
+format, the exact quaternion/gravity/covariance conventions, and how mapper
+stages and ``model_aligner`` consume this table.
 
 
 Matches and two-view geometries

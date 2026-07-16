@@ -187,6 +187,7 @@ support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
    database
    cameras
    rigs
+   pose_priors
    format
    datasets
    gui

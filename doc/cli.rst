@@ -197,6 +197,7 @@ The available commands can be listed using the command::
           patch_match_stereo
           point_filtering
           point_triangulator
+          pose_prior_importer
           pose_prior_mapper
           poisson_mesher
           project_generator
@@ -311,9 +312,16 @@ available as ``colmap [command]``:
   The global mapper depends on reasonably good focal length priors to perform
   well. Run ``view_graph_calibrator`` before ``global_mapper`` to calibrate
   camera intrinsics and estimate relative poses from the view graph, or provide
-  camera calibrations manually.
+  camera calibrations manually. Pose priors can seed or weight camera
+  positions and fix the rotation-averaging gauge; see
+  :ref:`Pose Priors <pose-priors>`.
 
-- ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose priors.
+- ``pose_prior_importer``: Import a pose-prior archive (GPS/GNSS/INS
+  position, gravity, or full orientation, per image) into the database. See
+  :ref:`Pose Priors <pose-priors>`.
+
+- ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose
+  priors. See :ref:`Pose Priors <pose-priors>`.
 
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.
@@ -396,7 +404,9 @@ available as ``colmap [command]``:
   reconstructions.
 
 - ``model_aligner``: Align/geo-register model to coordinate system of given
-  camera centers.
+  camera centers, or to pose priors stored in the database
+  (``--alignment_type enu``), optionally writing a scene georeference
+  report. See :ref:`Pose Priors <pose-priors>`.
 
 - ``model_orientation_aligner``: Align the coordinate axis of a model using a
   Manhattan world assumption.
