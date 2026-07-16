@@ -715,7 +715,7 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   TwoViewGeometry two_view_geometry;
   if (camera1.camera_id == camera2.camera_id &&
       !camera1.has_prior_focal_length && camera1.IsPerspective() &&
-      !CameraModelIsFisheye(camera1.model_id)) {
+      !camera1.IsFisheye()) {
     two_view_geometry = EstimateSharedFocalTwoViewGeometry(
         camera1, points1, points2, matches, two_view_geometry_options);
   } else {

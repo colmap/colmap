@@ -476,7 +476,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (camera1.camera_id == camera2.camera_id &&
                !camera1.has_prior_focal_length && camera1.IsPerspective() &&
-               !CameraModelIsFisheye(camera1.model_id)) {
+               !camera1.IsFisheye()) {
       return EstimateSharedFocalTwoViewGeometry(
           camera1, points1, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
@@ -681,15 +681,9 @@ void ExtractInlierCamRaysSharedFocal(
     const Eigen::Vector2d& point1 = points1[match.point2D_idx1];
     const Eigen::Vector2d& point2 = points2[match.point2D_idx2];
     (*inlier_cam_rays1)[i] =
-        Eigen::Vector3d((point1.x() - principal_point.x()) * inv_f,
-                        (point1.y() - principal_point.y()) * inv_f,
-                        1.0)
-            .normalized();
+        (inv_f * (point1 - principal_point)).homogeneous().normalized();
     (*inlier_cam_rays2)[i] =
-        Eigen::Vector3d((point2.x() - principal_point.x()) * inv_f,
-                        (point2.y() - principal_point.y()) * inv_f,
-                        1.0)
-            .normalized();
+        (inv_f * (point2 - principal_point)).homogeneous().normalized();
   }
 }
 
@@ -1147,10 +1141,10 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
                               inlier_cam_rays2,
                               &cam2_from_cam1,
                               &valid_indices);
-      constexpr double kMinFocalIdentifiability = 0.05;
       if (valid_indices.empty() ||
           RelativePoseSharedFocalEstimator::FocalIdentifiability(
-              cam2_from_cam1) < kMinFocalIdentifiability) {
+              cam2_from_cam1) <
+              RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
         geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
         geometry.E.reset();
         geometry.shared_focal_length.reset();

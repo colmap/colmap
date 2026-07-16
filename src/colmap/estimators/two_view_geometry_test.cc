@@ -36,6 +36,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
@@ -480,16 +481,16 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
     // coplanar optical axes, where the estimator downgrades the pair to
     // UNCALIBRATED, so resample until the pose is clear of that degeneracy,
     // using the same threshold as the estimator.
-    constexpr double kMinFocalIdentifiability = 0.05;
     Rigid3d cam2_from_cam1;
     do {
-      const Eigen::Vector3d axis = Eigen::Vector3d::Random().normalized();
+      const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
       cam2_from_cam1 =
           Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
                       DegToRad(RandomUniformReal<double>(20.0, 60.0)), axis)),
-                  Eigen::Vector3d::Random().normalized());
-    } while (RelativePoseSharedFocalEstimator::FocalIdentifiability(
-                 cam2_from_cam1) < kMinFocalIdentifiability);
+                  RandomEigenVectord<3>().normalized());
+    } while (
+        RelativePoseSharedFocalEstimator::FocalIdentifiability(cam2_from_cam1) <
+        RelativePoseSharedFocalEstimator::kMinFocalIdentifiability);
 
     std::vector<Eigen::Vector2d> points1;
     std::vector<Eigen::Vector2d> points2;
@@ -497,7 +498,7 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
     while (points1.size() < 200) {
       // Point in front of cam1 with a moderate field of view (|x/z|, |y/z| <=
       // ~0.5).
-      Eigen::Vector3d dir = Eigen::Vector3d::Random();
+      Eigen::Vector3d dir = RandomEigenVectord<3>();
       dir.z() = std::abs(dir.z()) + 2.0;
       const Eigen::Vector3d point_in_cam1 =
           RandomUniformReal<double>(2.0, 5.0) * dir.normalized();

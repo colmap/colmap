@@ -109,6 +109,13 @@ class RelativePoseSharedFocalEstimator {
   // a2 = R^T e_z and unit baseline b = (-R^T t).normalized(). Zero iff the axes
   // are coplanar, approaching 1 for skew axes; a zero baseline returns 0.
   static double FocalIdentifiability(const Rigid3d& cam2_from_cam1);
+
+  // Minimum FocalIdentifiability() score for the recovered focal to be treated
+  // as reliable. It rejects near-coplanar optical axes (turntable/object-scan
+  // capture), where two-view focal recovery is ill-conditioned, while admitting
+  // clearly skew configurations that constrain the focal. The value 0.05 was
+  // chosen empirically and works reasonably in practice.
+  static constexpr double kMinFocalIdentifiability = 0.05;
 };
 
 }  // namespace colmap

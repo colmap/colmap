@@ -77,6 +77,21 @@ std::vector<Eigen::Vector3d> CalibratedRays(
   return rays;
 }
 
+// Isotropic normalization scale: the mean magnitude of the centered image
+// points across both views. Returns 0 if there are no points.
+double ComputeScaleForNormalization(
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2) {
+  if (points1.empty()) {
+    return 0.0;
+  }
+  double sum = 0.0;
+  for (size_t i = 0; i < points1.size(); ++i) {
+    sum += points1[i].norm() + points2[i].norm();
+  }
+  return sum / (2.0 * points1.size());
+}
+
 }  // namespace
 
 void RelativePoseSharedFocalEstimator::Estimate(const std::vector<X_t>& points1,
@@ -93,11 +108,7 @@ void RelativePoseSharedFocalEstimator::Estimate(const std::vector<X_t>& points1,
   // principal-point-centered) points to unit magnitude first; the recovered
   // focal is expressed in the rescaled units and undone below. This mirrors the
   // normalization PoseLib applies before running the solver.
-  double scale = 0.0;
-  for (size_t i = 0; i < points1.size(); ++i) {
-    scale += points1[i].norm() + points2[i].norm();
-  }
-  scale /= 2.0 * points1.size();
+  const double scale = ComputeScaleForNormalization(points1, points2);
   if (!(scale > 0.0)) {
     return;
   }
@@ -174,11 +185,13 @@ bool RelativePoseSharedFocalEstimator::Refine(const std::vector<X_t>& points1,
   x[7] = std::log(model->focal);
   solver.Solve(f, &x, options);
 
-  // Keep the refined estimate only if the solve stayed finite; otherwise fall
-  // back to the decomposed pose and seed focal.
-  if (x.allFinite()) {
+  // Keep the refined estimate only if the solve stayed finite and left a
+  // non-degenerate baseline; otherwise fall back to the decomposed pose and
+  // seed focal.
+  const Eigen::Vector3d translation = x.segment<3>(4);
+  if (x.allFinite() && translation.squaredNorm() > 0) {
     cam2_from_cam1 =
-        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), x.segment<3>(4));
+        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), translation);
     model->E = EssentialMatrixFromPose(cam2_from_cam1);
     model->focal = std::exp(x[7]);
   }

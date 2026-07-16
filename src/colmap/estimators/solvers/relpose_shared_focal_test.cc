@@ -33,6 +33,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <limits>
@@ -58,11 +59,11 @@ constexpr double kMinParallax = 1e-2;  // ~5.7 degrees.
 // near-opposite orientations.
 Rigid3d TestCam2FromCam1() {
   const double max_angle_deg = 60.0;
-  const Eigen::Vector3d axis = Eigen::Vector3d::Random().normalized();
+  const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
   return Rigid3d(
       Eigen::Quaterniond(Eigen::AngleAxisd(
           DegToRad(RandomUniformReal<double>(0.0, max_angle_deg)), axis)),
-      Eigen::Vector3d::Random().normalized());
+      RandomEigenVectord<3>().normalized());
 }
 
 // Generates principal-point-centered image point pairs (f * X / Z) for a shared
@@ -83,7 +84,7 @@ void RandomSharedFocalCorrespondences(const Rigid3d& cam2_from_cam1,
       // Point in front of cam1 with a moderate field of view (|x/z|, |y/z| <=
       // ~0.5): wide-angle points span a large magnitude range that degrades the
       // conditioning of the minimal solve.
-      Eigen::Vector3d ray1 = Eigen::Vector3d::Random();
+      Eigen::Vector3d ray1 = RandomEigenVectord<3>();
       ray1.z() = std::abs(ray1.z()) + 2.0;
       const double depth = RandomUniformReal<double>(1.0, 3.0);
       point_in_cam1 = depth * ray1.normalized();
@@ -226,9 +227,9 @@ TEST(RelativePoseSharedFocalEstimator, RefineFromInitialModel) {
     const Eigen::Quaterniond seed_rotation =
         cam2_from_cam1.rotation() *
         Eigen::Quaterniond(
-            Eigen::AngleAxisd(0.02, Eigen::Vector3d::Random().normalized()));
+            Eigen::AngleAxisd(0.02, RandomEigenVectord<3>().normalized()));
     const Eigen::Vector3d seed_translation =
-        (cam2_from_cam1.translation() + 0.02 * Eigen::Vector3d::Random())
+        (cam2_from_cam1.translation() + 0.02 * RandomEigenVectord<3>())
             .normalized();
     M_t model;
     model.E = EssentialMatrixFromPose(Rigid3d(seed_rotation, seed_translation));
@@ -259,7 +260,7 @@ TEST(RelativePoseSharedFocalEstimator, FocalIdentifiability) {
   // unidentifiable.
   const auto intersecting_cam2_from_cam1 = [] {
     const Eigen::Vector3d fixation(0, 0, RandomUniformReal<double>(1.5, 3.0));
-    Eigen::Vector3d center2 = Eigen::Vector3d::Random();
+    Eigen::Vector3d center2 = RandomEigenVectord<3>();
     center2.z() = std::abs(center2.z());
     center2.normalize();
     const Eigen::Quaterniond rotation = Eigen::Quaterniond::FromTwoVectors(
