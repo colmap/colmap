@@ -59,11 +59,23 @@ constexpr double kMinParallax = 1e-2;  // ~5.7 degrees.
 // near-opposite orientations.
 Rigid3d TestCam2FromCam1() {
   const double max_angle_deg = 60.0;
-  const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
-  return Rigid3d(
-      Eigen::Quaterniond(Eigen::AngleAxisd(
-          DegToRad(RandomUniformReal<double>(0.0, max_angle_deg)), axis)),
-      RandomEigenVectord<3>().normalized());
+  // Resample until the two optical axes are clearly non-coplanar, i.e. the
+  // shared focal is identifiable (the same precondition the estimator enforces
+  // via FocalIdentifiability). For a coplanar pose the focal is unrecoverable
+  // and the minimal solver returns a meaningless focal, which no downstream
+  // assertion can meaningfully check.
+  while (true) {
+    const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
+    const Rigid3d cam2_from_cam1(
+        Eigen::Quaterniond(Eigen::AngleAxisd(
+            DegToRad(RandomUniformReal<double>(0.0, max_angle_deg)), axis)),
+        RandomEigenVectord<3>().normalized());
+    if (RelativePoseSharedFocalEstimator::FocalIdentifiability(
+            cam2_from_cam1) >=
+        RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
+      return cam2_from_cam1;
+    }
+  }
 }
 
 // Generates principal-point-centered image point pairs (f * X / Z) for a shared

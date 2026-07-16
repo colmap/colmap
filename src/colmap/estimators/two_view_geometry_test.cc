@@ -534,8 +534,10 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
     EXPECT_EQ(*geometry.camera1, *geometry.camera2);
     EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
 
-    // The estimated shared focal length should match the ground truth.
-    EXPECT_NEAR(geometry.camera1->FocalLength(), kFocal, 0.05 * kFocal);
+    // The estimated shared focal length should match the ground truth. Use
+    // FocalLengthX() so both the single-focal (SIMPLE_PINHOLE) and two-focal
+    // (PINHOLE, fx == fy) models are handled; FocalLength() rejects the latter.
+    EXPECT_NEAR(geometry.camera1->FocalLengthX(), kFocal, 0.05 * kFocal);
 
     // The recovered relative pose should match the ground truth: rotation
     // exactly, translation up to scale (the essential matrix fixes only the

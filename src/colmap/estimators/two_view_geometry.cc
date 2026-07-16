@@ -821,12 +821,15 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
       TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
     // The camera's own focal length is a placeholder here; calibrate the rays
     // with the focal length estimated jointly with the relative pose instead.
+    // The shared focal is written to every focal parameter (fx == fy for a
+    // two-focal model such as PINHOLE), so read it via FocalLengthX(), which
+    // (unlike FocalLength()) also accepts two-focal models.
     THROW_CHECK(geometry->camera1.has_value());
     ExtractInlierCamRaysSharedFocal(camera1,
                                     points1,
                                     points2,
                                     geometry->inlier_matches,
-                                    geometry->camera1->FocalLength(),
+                                    geometry->camera1->FocalLengthX(),
                                     &inlier_cam_rays1,
                                     &inlier_cam_rays2);
   } else {
