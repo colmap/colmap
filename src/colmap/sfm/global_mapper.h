@@ -7,12 +7,20 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
+#include "colmap/util/enum_utils.h"
 
 #include <filesystem>
 #include <functional>
 #include <limits>
 
 namespace colmap {
+
+// off: existing visual rotation averaging only.
+// initialize: run a robust consensus gauge rotation from full-orientation
+//   pose priors before global positioning (see GlobalMapper::Solve).
+// Lowercase enumerators so MAKE_ENUM_CLASS's generated ToString/FromString
+// round-trip the exact CLI/project-file spelling required by the contract.
+MAKE_ENUM_CLASS(PosePriorRotationMode, 0, off, initialize);
 
 struct GlobalMapperOptions {
   // Number of threads.
@@ -30,6 +38,10 @@ struct GlobalMapperOptions {
 
   // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated.
   bool refine_sensor_from_rig = true;
+
+  // Whether/how to initialize the global rotation gauge from full-orientation
+  // pose priors. See PosePriorRotationMode.
+  PosePriorRotationMode pose_prior_rotation_mode = PosePriorRotationMode::off;
 
   // Options for each component.
   RotationEstimatorOptions rotation_averaging;

@@ -9,6 +9,7 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <algorithm>
@@ -281,8 +282,23 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
                                      double max_angular_reproj_error_deg,
                                      double max_normalized_reproj_error,
                                      double min_tri_angle_deg) {
-  if (!RunGlobalPositioning(options, *pose_graph_, *reconstruction_)) {
+  PosePriorPositionSummary summary;
+  if (!RunGlobalPositioning(options,
+                            *pose_graph_,
+                            *reconstruction_,
+                            database_cache_->PosePriors(),
+                            &summary)) {
     return false;
+  }
+  if (summary.requested != PosePriorPositionMode::off) {
+    LOG(INFO) << StringPrintf(
+        "Pose prior position mode requested=%s, engaged=%s, usable "
+        "priors=%d, covered frames=%d, fallback frames=%d",
+        PosePriorPositionModeToString(summary.requested).data(),
+        summary.engaged ? "true" : "false",
+        summary.num_usable_priors,
+        summary.num_covered_frames,
+        summary.num_fallback_frames);
   }
 
   // Filter tracks based on the estimation
@@ -496,6 +512,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                          const std::function<bool()>& on_progress) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
+
+  THROW_CHECK(!(options.skip_global_positioning &&
+               options.global_positioning.pose_prior_position_mode !=
+                   PosePriorPositionMode::off))
+      << "skip_global_positioning=true has no effect when "
+        "pose_prior_position_mode is not off";
+  THROW_CHECK(!(options.skip_rotation_averaging &&
+               options.pose_prior_rotation_mode !=
+                   PosePriorRotationMode::off))
+      << "skip_rotation_averaging=true has no effect when "
+        "pose_prior_rotation_mode is initialize";
 
   if (pose_graph_->Empty()) {
     LOG(ERROR) << "Cannot continue with empty pose graph";

@@ -5,7 +5,10 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/string.h"
 #include "colmap/util/threading.h"
+
+#include <algorithm>
 
 namespace colmap {
 namespace {
@@ -14,6 +17,118 @@ Eigen::Vector3d RandVector3d(double low, double high) {
   return Eigen::Vector3d(RandomUniformReal(low, high),
                          RandomUniformReal(low, high),
                          RandomUniformReal(low, high));
+}
+
+// One sensor-center prior transformed to a rig-center candidate for a single
+// frame, per the goal doc's M2.1 rig-center formula:
+//   sensor_center_in_rig = Inverse(sensor_from_rig).translation
+//   rig_center_in_world = sensor_center_in_world
+//                        - world_from_rig.rotation * sensor_center_in_rig
+// A reference sensor with identity extrinsics reduces to the sensor center
+// (Rigid3d::TgtOriginInSrc() on an identity sensor_from_rig is zero).
+struct RigCenterCandidate {
+  data_t corr_data_id;
+  Eigen::Vector3d center;
+  double weight;
+};
+
+bool ResolveRigCenterCandidate(const Reconstruction& reconstruction,
+                               const PosePrior& prior,
+                               RigCenterCandidate* candidate) {
+  if (prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+      !prior.HasPosition()) {
+    return false;
+  }
+  const image_t image_id = static_cast<image_t>(prior.corr_data_id.id);
+  if (!reconstruction.ExistsImage(image_id)) {
+    return false;
+  }
+  const Image& image = reconstruction.Image(image_id);
+  if (!image.HasPose()) {
+    return false;
+  }
+  const Frame& frame = *image.FramePtr();
+  const Rig& rig = reconstruction.Rig(frame.RigId());
+  const sensor_t sensor_id = image.CameraPtr()->SensorId();
+  if (!rig.HasSensor(sensor_id)) {
+    return false;
+  }
+  // The reference sensor has no explicit SensorFromRig (fixed to identity by
+  // convention); every other sensor must have a known (non-NaN) extrinsic to
+  // contribute a rig-center candidate.
+  Rigid3d sensor_from_rig;
+  if (!rig.IsRefSensor(sensor_id)) {
+    if (!rig.HasSensorFromRig(sensor_id)) {
+      return false;
+    }
+    sensor_from_rig = rig.SensorFromRig(sensor_id);
+  }
+  const Eigen::Vector3d sensor_center_in_rig = sensor_from_rig.TgtOriginInSrc();
+  const Eigen::Vector3d world_from_rig_rotation_applied =
+      frame.RigFromWorld().rotation().inverse() * sensor_center_in_rig;
+  candidate->corr_data_id = prior.corr_data_id;
+  candidate->center = prior.position - world_from_rig_rotation_applied;
+  // Inverse trace of the position covariance as a simple, deterministic
+  // weight proxy; falls back to equal weighting when unusable.
+  if (prior.HasPositionCov()) {
+    const double trace = prior.position_covariance.trace();
+    candidate->weight = trace > 0.0 ? 1.0 / trace : 1.0;
+  } else {
+    candidate->weight = 1.0;
+  }
+  return true;
+}
+
+bool CompareByDataId(const RigCenterCandidate& lhs,
+                     const RigCenterCandidate& rhs) {
+  if (lhs.corr_data_id.sensor_id.type != rhs.corr_data_id.sensor_id.type) {
+    return lhs.corr_data_id.sensor_id.type < rhs.corr_data_id.sensor_id.type;
+  }
+  if (lhs.corr_data_id.sensor_id.id != rhs.corr_data_id.sensor_id.id) {
+    return lhs.corr_data_id.sensor_id.id < rhs.corr_data_id.sensor_id.id;
+  }
+  return lhs.corr_data_id.id < rhs.corr_data_id.id;
+}
+
+// Builds one deterministic rig-center seed per frame covered by at least one
+// usable position prior. Multiple sensor priors on the same frame are
+// sorted by data_t, transformed to rig centers, and combined with a
+// covariance-weighted mean (falling back to an arithmetic mean when no prior
+// on that frame has a usable covariance).
+FlatHashMap<frame_t, Eigen::Vector3d> BuildPosePriorRigCenterSeeds(
+    const Reconstruction& reconstruction,
+    const std::vector<PosePrior>& pose_priors,
+    int* num_usable_priors) {
+  FlatHashMap<frame_t, std::vector<RigCenterCandidate>> candidates_per_frame;
+  for (const PosePrior& prior : pose_priors) {
+    RigCenterCandidate candidate;
+    if (!ResolveRigCenterCandidate(reconstruction, prior, &candidate)) {
+      continue;
+    }
+    const image_t image_id = static_cast<image_t>(prior.corr_data_id.id);
+    const frame_t frame_id = reconstruction.Image(image_id).FrameId();
+    candidates_per_frame[frame_id].push_back(candidate);
+    ++(*num_usable_priors);
+  }
+
+  FlatHashMap<frame_t, Eigen::Vector3d> seeds;
+  seeds.reserve(candidates_per_frame.size());
+  for (auto& [frame_id, candidates] : candidates_per_frame) {
+    std::sort(candidates.begin(), candidates.end(), CompareByDataId);
+    const bool any_usable_covariance = std::any_of(
+        candidates.begin(), candidates.end(), [](const RigCenterCandidate& c) {
+          return c.weight != 1.0;
+        });
+    Eigen::Vector3d weighted_sum = Eigen::Vector3d::Zero();
+    double weight_sum = 0.0;
+    for (const RigCenterCandidate& candidate : candidates) {
+      const double weight = any_usable_covariance ? candidate.weight : 1.0;
+      weighted_sum += weight * candidate.center;
+      weight_sum += weight;
+    }
+    seeds[frame_id] = weighted_sum / weight_sum;
+  }
+  return seeds;
 }
 
 }  // namespace
@@ -26,7 +141,9 @@ GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
 }
 
 bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
-                             Reconstruction& reconstruction) {
+                             Reconstruction& reconstruction,
+                             const std::vector<PosePrior>& pose_priors,
+                             PosePriorPositionSummary* summary) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
@@ -41,9 +158,17 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   // Setup the problem.
   SetupProblem(pose_graph, reconstruction);
 
-  // Initialize camera translations to be random.
-  // Also, convert the camera pose translation to be the camera center.
-  InitializeRandomPositions(pose_graph, reconstruction);
+  PosePriorPositionSummary local_summary;
+  local_summary.requested = options_.pose_prior_position_mode;
+  PosePriorPositionSummary* const summary_ptr =
+      summary != nullptr ? summary : &local_summary;
+  *summary_ptr = PosePriorPositionSummary();
+  summary_ptr->requested = options_.pose_prior_position_mode;
+
+  // Initialize camera translations to be random (optionally seeded from pose
+  // priors). Also, convert the camera pose translation to be the camera
+  // center.
+  InitializeRandomPositions(pose_graph, reconstruction, pose_priors, summary_ptr);
 
   // Add the point to camera constraints to the problem.
   AddPointToCameraConstraints(reconstruction);
@@ -58,20 +183,20 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
 
   LOG(INFO) << "Solving the global positioner problem";
 
-  ceres::Solver::Summary summary;
+  ceres::Solver::Summary ceres_summary;
   options_.solver_options.num_threads =
       GetEffectiveNumThreads(options_.solver_options.num_threads);
   options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
-  ceres::Solve(options_.solver_options, problem_.get(), &summary);
+  ceres::Solve(options_.solver_options, problem_.get(), &ceres_summary);
 
   if (VLOG_IS_ON(2)) {
-    LOG(INFO) << summary.FullReport();
+    LOG(INFO) << ceres_summary.FullReport();
   } else {
-    LOG(INFO) << summary.BriefReport();
+    LOG(INFO) << ceres_summary.BriefReport();
   }
 
   ConvertBackResults(reconstruction);
-  return summary.IsSolutionUsable();
+  return ceres_summary.IsSolutionUsable();
 }
 
 void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
@@ -97,7 +222,10 @@ void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
 }
 
 void GlobalPositioner::InitializeRandomPositions(
-    const PoseGraph& pose_graph, Reconstruction& reconstruction) {
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction,
+    const std::vector<PosePrior>& pose_priors,
+    PosePriorPositionSummary* summary) {
   FlatHashSet<frame_t> constrained_positions;
   constrained_positions.reserve(reconstruction.NumFrames());
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
@@ -119,17 +247,57 @@ void GlobalPositioner::InitializeRandomPositions(
     }
   }
 
+  // Build rig-center seeds from pose priors when `initialize` is requested.
+  // These seeds only affect the starting point of otherwise-free parameter
+  // blocks: no prior residual is added, and normal post-positioning
+  // normalization still runs, so this is a warm start, not a metric claim.
+  FlatHashMap<frame_t, Eigen::Vector3d> prior_seeds;
+  if (options_.pose_prior_position_mode == PosePriorPositionMode::initialize) {
+    prior_seeds = BuildPosePriorRigCenterSeeds(
+        reconstruction, pose_priors, &summary->num_usable_priors);
+    if (!prior_seeds.empty()) {
+      Eigen::Vector3d seed_mean = Eigen::Vector3d::Zero();
+      for (const auto& [frame_id, center] : prior_seeds) {
+        seed_mean += center;
+      }
+      seed_mean /= static_cast<double>(prior_seeds.size());
+      for (auto& [frame_id, center] : prior_seeds) {
+        center -= seed_mean;
+      }
+    }
+    summary->engaged = !prior_seeds.empty();
+  }
+
   // Initialize frame centers in temporary storage.
   // The reconstruction poses remain in cam_from_world convention.
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (constrained_positions.find(frame_id) == constrained_positions.end()) {
       continue;
     }
-    if (options_.generate_random_positions && options_.optimize_positions) {
+    const auto seed_it = prior_seeds.find(frame_id);
+    if (seed_it != prior_seeds.end()) {
+      frame_centers_[frame_id] = seed_it->second;
+      ++summary->num_covered_frames;
+    } else if (options_.generate_random_positions &&
+              options_.optimize_positions) {
       frame_centers_[frame_id] = 100.0 * RandVector3d(-1, 1);
+      if (options_.pose_prior_position_mode ==
+          PosePriorPositionMode::initialize) {
+        ++summary->num_fallback_frames;
+      }
     } else {
       frame_centers_[frame_id] = frame.RigFromWorld().TgtOriginInSrc();
     }
+  }
+
+  if (options_.pose_prior_position_mode == PosePriorPositionMode::initialize) {
+    LOG(INFO) << StringPrintf(
+        "Pose prior initialize: requested=true, engaged=%s, usable "
+        "priors=%d, covered frames=%d, fallback frames=%d",
+        summary->engaged ? "true" : "false",
+        summary->num_usable_priors,
+        summary->num_covered_frames,
+        summary->num_fallback_frames);
   }
 
   VLOG(2) << "Constrained positions: " << constrained_positions.size();
@@ -442,9 +610,11 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          Reconstruction& reconstruction) {
+                          Reconstruction& reconstruction,
+                          const std::vector<PosePrior>& pose_priors,
+                          PosePriorPositionSummary* summary) {
   GlobalPositioner positioner(options);
-  return positioner.Solve(pose_graph, reconstruction);
+  return positioner.Solve(pose_graph, reconstruction, pose_priors, summary);
 }
 
 }  // namespace colmap

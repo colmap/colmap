@@ -788,6 +788,25 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.gp_max_num_iterations",
                    &global_mapper->mapper.global_positioning.solver_options
                         .max_num_iterations);
+  AddDefaultEnumOption("GlobalMapper.pose_prior_position_mode",
+                       &global_mapper->mapper.global_positioning
+                            .pose_prior_position_mode,
+                       &PosePriorPositionModeToString,
+                       &PosePriorPositionModeFromString,
+                       "off|initialize|optimize");
+  AddDefaultOption(
+      "GlobalMapper.pose_prior_position_loss_scale",
+      &global_mapper->mapper.global_positioning
+           .pose_prior_position_loss_scale);
+  AddDefaultOption(
+      "GlobalMapper.pose_prior_position_fallback_stddev",
+      &global_mapper->mapper.global_positioning
+           .pose_prior_position_fallback_stddev);
+  AddDefaultEnumOption("GlobalMapper.pose_prior_rotation_mode",
+                       &global_mapper->mapper.pose_prior_rotation_mode,
+                       &PosePriorRotationModeToString,
+                       &PosePriorRotationModeFromString,
+                       "off|initialize");
 
   // Bundle adjustment options (solver-agnostic).
   AddDefaultOption(

@@ -174,6 +174,12 @@ void BindSfM(py::module& m) {
 
   // GlobalMapperOptions
   {
+    py::enum_<PosePriorRotationMode> PyPosePriorRotationMode(
+        m, "PosePriorRotationMode");
+    PyPosePriorRotationMode.value("off", PosePriorRotationMode::off)
+        .value("initialize", PosePriorRotationMode::initialize);
+    AddStringToEnumConstructor(PyPosePriorRotationMode);
+
     using Opts = GlobalMapperOptions;
     auto PyOpts =
         py::classh<Opts>(m, "GlobalMapperOptions")
@@ -186,6 +192,10 @@ void BindSfM(py::module& m) {
                            "cam_from_rig as a pre-calibrated constant across "
                            "rotation averaging, global positioning and "
                            "bundle adjustment.")
+            .def_readwrite("pose_prior_rotation_mode",
+                           &Opts::pose_prior_rotation_mode,
+                           "Whether/how to initialize the global rotation "
+                           "gauge from full-orientation pose priors.")
             .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
             .def_readwrite("global_positioning", &Opts::global_positioning)
             .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)

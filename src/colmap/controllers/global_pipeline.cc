@@ -80,6 +80,14 @@ GlobalPipeline::GlobalPipeline(
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
+  // Pose priors are only converted to a shared Cartesian ENU frame when a
+  // mode that actually consumes them is requested; merely having priors in
+  // the database does not activate anything.
+  database_cache_options.convert_pose_priors_to_enu =
+      options_.mapper.global_positioning.pose_prior_position_mode !=
+          PosePriorPositionMode::off ||
+      options_.mapper.pose_prior_rotation_mode ==
+          PosePriorRotationMode::initialize;
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
   if (options_.decompose_relative_pose) {
     MaybeDecomposeRelativePoses(database_cache_.get());
