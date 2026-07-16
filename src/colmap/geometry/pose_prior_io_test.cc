@@ -512,10 +512,10 @@ TEST(PosePriorArchive, UpdatePosePriors_AllowNewPriors) {
   EXPECT_DOUBLE_EQ(priors[0].position.z(), 30.0);
 }
 
-// M1.2 comprehensive archive case (goal doc section 5, step M1.2). Covers:
-// mixed full-position/horizontal-only/gravity-only/full-orientation rows;
-// one non-identity archive-ENU-to-row-local conversion (section 4.4) with a
-// hand-computed rotation and a diagonal covariance whose axes swap; merge
+// Comprehensive archive import case. Covers: mixed full-position/
+// horizontal-only/gravity-only/full-orientation rows; one non-identity
+// archive-ENU-to-row-local conversion with a hand-computed rotation and a
+// diagonal covariance whose axes swap; merge
 // (UpdatePosePriors) vs replace (ToPosePriors) semantics; and datum,
 // incomplete-group, duplicate-row, gross-norm, and non-PSD rejection.
 TEST(PosePriorArchive, ComprehensiveWGS84ImportAndRejections) {
@@ -543,17 +543,18 @@ TEST(PosePriorArchive, ComprehensiveWGS84ImportAndRejections) {
   archive.metadata.position_covariance_frame = "LOCAL_ENU";
   archive.metadata.rotation_convention = "SENSOR_FROM_WORLD";
   archive.metadata.rotation_world_frame = "ENU";
-  archive.metadata.rotation_covariance_convention = "RIGHT_MULTIPLICATIVE_WORLD";
+  archive.metadata.rotation_covariance_convention =
+      "RIGHT_MULTIPLICATIVE_WORLD";
   archive.metadata.enu_origin = Eigen::Vector3d(0.0, 90.0, 500.0);
 
   archive.schema.columns = {
-      ColumnId::NAME,       ColumnId::LAT,         ColumnId::LON,
-      ColumnId::ALT,        ColumnId::COV_TXX,     ColumnId::COV_TXY,
-      ColumnId::COV_TXZ,    ColumnId::COV_TYY,     ColumnId::COV_TYZ,
-      ColumnId::COV_TZZ,    ColumnId::GX,          ColumnId::GY,
-      ColumnId::GZ,         ColumnId::QW,          ColumnId::QX,
-      ColumnId::QY,         ColumnId::QZ,          ColumnId::ROT_COV_XX,
-      ColumnId::ROT_COV_XY, ColumnId::ROT_COV_XZ,  ColumnId::ROT_COV_YY,
+      ColumnId::NAME,       ColumnId::LAT,        ColumnId::LON,
+      ColumnId::ALT,        ColumnId::COV_TXX,    ColumnId::COV_TXY,
+      ColumnId::COV_TXZ,    ColumnId::COV_TYY,    ColumnId::COV_TYZ,
+      ColumnId::COV_TZZ,    ColumnId::GX,         ColumnId::GY,
+      ColumnId::GZ,         ColumnId::QW,         ColumnId::QX,
+      ColumnId::QY,         ColumnId::QZ,         ColumnId::ROT_COV_XX,
+      ColumnId::ROT_COV_XY, ColumnId::ROT_COV_XZ, ColumnId::ROT_COV_YY,
       ColumnId::ROT_COV_YZ, ColumnId::ROT_COV_ZZ};
 
   // Each row is built with exactly one cell per schema column (23 columns:
@@ -711,22 +712,22 @@ TEST(PosePriorArchive, ComprehensiveWGS84ImportAndRejections) {
   const PosePrior& identity_prior = find_prior(1);
   EXPECT_TRUE(identity_prior.HasRotation());
   EXPECT_THAT(identity_prior.rotation.toRotationMatrix(),
-             EigenMatrixNear(identity3, 1e-9));
+              EigenMatrixNear(identity3, 1e-9));
   EXPECT_TRUE(identity_prior.HasRotationCov());
   EXPECT_THAT(identity_prior.rotation_covariance,
-             EigenMatrixNear(identity3, 1e-9));
+              EigenMatrixNear(identity3, 1e-9));
 
   const PosePrior& other_prior = find_prior(2);
   Eigen::Matrix3d expected_rotation;
   expected_rotation << 0, 0, -1, 0, 1, 0, 1, 0, 0;
   EXPECT_TRUE(other_prior.HasRotation());
   EXPECT_THAT(other_prior.rotation.toRotationMatrix(),
-             EigenMatrixNear(expected_rotation, 1e-9));
+              EigenMatrixNear(expected_rotation, 1e-9));
   const Eigen::Matrix3d expected_rotation_cov =
       Eigen::Vector3d(9.0, 4.0, 1.0).asDiagonal();
   EXPECT_TRUE(other_prior.HasRotationCov());
   EXPECT_THAT(other_prior.rotation_covariance,
-             EigenMatrixNear(expected_rotation_cov, 1e-9));
+              EigenMatrixNear(expected_rotation_cov, 1e-9));
 
   const PosePrior& horizontal_prior = find_prior(3);
   EXPECT_TRUE(std::isfinite(horizontal_prior.position.x()));
@@ -738,7 +739,7 @@ TEST(PosePriorArchive, ComprehensiveWGS84ImportAndRejections) {
   EXPECT_FALSE(std::isfinite(gravity_prior.position.x()));
   EXPECT_TRUE(gravity_prior.HasGravity());
   EXPECT_THAT(gravity_prior.gravity,
-             EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, 1.0), 1e-9));
+              EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, 1.0), 1e-9));
 
   // --- merge semantics: only groups present in the row are updated; groups
   // absent from the row (here, position) are preserved from the existing
@@ -754,9 +755,9 @@ TEST(PosePriorArchive, ComprehensiveWGS84ImportAndRejections) {
     archive.UpdatePosePriors(resolve, /*allow_new_priors=*/false, merged);
     ASSERT_EQ(merged.size(), 1);
     EXPECT_THAT(merged[0].position,
-               EigenMatrixNear(Eigen::Vector3d(1.0, 2.0, 3.0), 1e-12));
+                EigenMatrixNear(Eigen::Vector3d(1.0, 2.0, 3.0), 1e-12));
     EXPECT_THAT(merged[0].gravity,
-               EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, 1.0), 1e-9));
+                EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, 1.0), 1e-9));
   }
 
   // --- error semantics primitive: duplicate resolved names. ---
@@ -803,11 +804,11 @@ TEST(PosePriorArchive, ComprehensiveWGS84ImportAndRejections) {
   }
 }
 
-// M1.2 hand-computed NED/FRD convention case (goal doc section 5, step
-// M1.2). Pure documentation-anchoring check for the axis conventions used by
-// downstream (goproAlign) telemetry adapters: does not call any COLMAP
-// adapter or archive/import code, and every matrix is written out from the
-// axis definitions rather than derived from a COLMAP call.
+// Pure documentation-anchoring check for the axis conventions expected of
+// external telemetry adapters (e.g. GoPro/Betaflight, see doc/pose_priors.rst):
+// does not call any COLMAP adapter or archive/import code, and every matrix
+// is written out from the axis definitions rather than derived from a
+// COLMAP call.
 //   NED (sensor telemetry): X=North, Y=East, Z=Down.
 //   ENU (COLMAP world):     X=East,  Y=North, Z=Up.
 //   FRD (sensor body):      X=Forward, Y=Right, Z=Down.
@@ -822,25 +823,25 @@ TEST(PosePriorArchive, HandComputedNEDFRDConventions) {
   // mirror the trajectory).
   const Eigen::Matrix3d identity3 = Eigen::Matrix3d::Identity();
   EXPECT_THAT(Eigen::Matrix3d(enu_from_ned * enu_from_ned.transpose()),
-             EigenMatrixNear(identity3, 1e-12));
+              EigenMatrixNear(identity3, 1e-12));
   EXPECT_NEAR(enu_from_ned.determinant(), 1.0, 1e-12);
   EXPECT_THAT(Eigen::Matrix3d(cam_from_frd * cam_from_frd.transpose()),
-             EigenMatrixNear(identity3, 1e-12));
+              EigenMatrixNear(identity3, 1e-12));
   EXPECT_NEAR(cam_from_frd.determinant(), 1.0, 1e-12);
 
   // North becomes ENU's Y (North) axis.
   EXPECT_THAT(enu_from_ned * Eigen::Vector3d(1.0, 0.0, 0.0),
-             EigenMatrixNear(Eigen::Vector3d(0.0, 1.0, 0.0), 1e-12));
+              EigenMatrixNear(Eigen::Vector3d(0.0, 1.0, 0.0), 1e-12));
   // Down becomes ENU's -Z (Up flips sign).
   EXPECT_THAT(enu_from_ned * Eigen::Vector3d(0.0, 0.0, 1.0),
-             EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, -1.0), 1e-12));
+              EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, -1.0), 1e-12));
 
   // Forward becomes the camera's principal (+Z) axis.
   EXPECT_THAT(cam_from_frd * Eigen::Vector3d(1.0, 0.0, 0.0),
-             EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, 1.0), 1e-12));
+              EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, 1.0), 1e-12));
   // Right becomes the camera's +X axis.
   EXPECT_THAT(cam_from_frd * Eigen::Vector3d(0.0, 1.0, 0.0),
-             EigenMatrixNear(Eigen::Vector3d(1.0, 0.0, 0.0), 1e-12));
+              EigenMatrixNear(Eigen::Vector3d(1.0, 0.0, 0.0), 1e-12));
 }
 
 }  // namespace

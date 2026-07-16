@@ -110,9 +110,9 @@ class GlobalPositioner {
   // when options.pose_prior_position_mode != OFF; if provided, `summary` is
   // filled with requested/engaged status.
   bool Solve(const PoseGraph& pose_graph,
-            Reconstruction& reconstruction,
-            const std::vector<PosePrior>& pose_priors = {},
-            PosePriorPositionSummary* summary = nullptr);
+             Reconstruction& reconstruction,
+             const std::vector<PosePrior>& pose_priors = {},
+             PosePriorPositionSummary* summary = nullptr);
 
   GlobalPositionerOptions& GetOptions() { return options_; }
 
@@ -155,10 +155,11 @@ class GlobalPositioner {
   // frame; the caller must apply it to the reconstruction (via
   // Reconstruction::Transform) after ConvertBackResults, since frame_centers_
   // itself is never rescaled in place.
-  void EngagePositionPriorOptimization(Reconstruction& reconstruction,
-                                       const std::vector<PosePrior>& pose_priors,
-                                       PosePriorPositionSummary* summary,
-                                       Sim3d* gauge_from_solver);
+  void EngagePositionPriorOptimization(
+      Reconstruction& reconstruction,
+      const std::vector<PosePrior>& pose_priors,
+      PosePriorPositionSummary* summary,
+      Sim3d* gauge_from_solver);
 
   GlobalPositionerOptions options_;
 

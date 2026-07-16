@@ -138,8 +138,8 @@ FlatHashMap<ColumnGroup, GroupPresence> AnalyzeColumnGroups(
                                        PosePriorArchive::ColumnId::COV_TYZ,
                                        PosePriorArchive::ColumnId::COV_TZZ};
     m[ColumnGroup::GRAVITY] = {PosePriorArchive::ColumnId::GX,
-                              PosePriorArchive::ColumnId::GY,
-                              PosePriorArchive::ColumnId::GZ};
+                               PosePriorArchive::ColumnId::GY,
+                               PosePriorArchive::ColumnId::GZ};
     m[ColumnGroup::ROTATION] = {PosePriorArchive::ColumnId::QW,
                                 PosePriorArchive::ColumnId::QX,
                                 PosePriorArchive::ColumnId::QY,
@@ -346,11 +346,12 @@ PosePriorArchive ReadPosePriorArchiveFromJSON(
   const auto& cell_parsers = GetCellParsers();
   for (const auto& row_node : data_node) {
     THROW_CHECK_EQ(row_node.second.size(), archive.schema.columns.size())
-        << StringPrintf("Row %zu has %zu cells but the schema defines %zu "
-                        "columns",
-                        archive.data.size(),
-                        row_node.second.size(),
-                        archive.schema.columns.size());
+        << StringPrintf(
+               "Row %zu has %zu cells but the schema defines %zu "
+               "columns",
+               archive.data.size(),
+               row_node.second.size(),
+               archive.schema.columns.size());
 
     PosePriorArchive::row_t row;
     row.reserve(archive.schema.columns.size());
@@ -731,7 +732,7 @@ void PosePriorArchive::UpdatePosePriors(
         THROW_CHECK_EQ(std::isfinite(lat), std::isfinite(lon))
             << "Row for " << name
             << " has only one of LAT/LON finite; both or neither are "
-              "required";
+               "required";
         if (std::isfinite(lat)) {
           THROW_CHECK(lat >= -90.0 && lat <= 90.0)
               << "Latitude out of range for " << name << ": " << lat;
@@ -867,7 +868,7 @@ void PosePriorArchive::UpdatePosePriors(
       if (all_finite) {
         if (is_geographic) {
           THROW_CHECK(std::isfinite(prior.position.x()) &&
-                     std::isfinite(prior.position.y()))
+                      std::isfinite(prior.position.y()))
               << "Full WGS84 orientation for " << name
               << " requires finite latitude and longitude on the same row";
         }
@@ -911,7 +912,8 @@ void PosePriorArchive::UpdatePosePriors(
             << "Rotation covariance for " << name
             << " is not positive semi-definite";
         if (has_archive_to_local_basis) {
-          // Cov_local = archive_from_local^T * Cov_archive * archive_from_local.
+          // Cov_local = archive_from_local^T * Cov_archive *
+          // archive_from_local.
           rotation_covariance = archive_from_local.transpose() *
                                 rotation_covariance * archive_from_local;
         }

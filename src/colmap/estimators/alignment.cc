@@ -300,9 +300,10 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
   // Collect correspondences in lexicographic image-name order.
   std::vector<std::pair<std::string, image_t>> sorted_image_ids;
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
-    if (tgt_image_to_pose_prior.find(image_id) != tgt_image_to_pose_prior.end()) {
-      sorted_image_ids.emplace_back(
-          src_reconstruction.Image(image_id).Name(), image_id);
+    if (tgt_image_to_pose_prior.find(image_id) !=
+        tgt_image_to_pose_prior.end()) {
+      sorted_image_ids.emplace_back(src_reconstruction.Image(image_id).Name(),
+                                    image_id);
     }
   }
   std::sort(sorted_image_ids.begin(), sorted_image_ids.end());

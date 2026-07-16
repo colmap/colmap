@@ -227,26 +227,26 @@ TEST(GPS, ENUFromECEFBasis) {
   constexpr double kLat = 37.7749;
   constexpr double kLon = -122.4194;
 
-  const Eigen::Matrix3d enu_from_ecef =
-      GPSTransform::ENUFromECEF(kLat, kLon);
-  const Eigen::Matrix3d ecef_from_enu =
-      GPSTransform::ECEFFromENU(kLat, kLon);
+  const Eigen::Matrix3d enu_from_ecef = GPSTransform::ENUFromECEF(kLat, kLon);
+  const Eigen::Matrix3d ecef_from_enu = GPSTransform::ECEFFromENU(kLat, kLon);
 
   const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
 
   // Both bases are orthonormal rotation matrices.
   EXPECT_THAT(Eigen::Matrix3d(enu_from_ecef * enu_from_ecef.transpose()),
-             EigenMatrixNear(identity, 1e-12));
+              EigenMatrixNear(identity, 1e-12));
   EXPECT_NEAR(enu_from_ecef.determinant(), 1.0, 1e-12);
   EXPECT_THAT(Eigen::Matrix3d(ecef_from_enu * ecef_from_enu.transpose()),
-             EigenMatrixNear(identity, 1e-12));
+              EigenMatrixNear(identity, 1e-12));
   EXPECT_NEAR(ecef_from_enu.determinant(), 1.0, 1e-12);
 
   // The two bases are mutual transposes.
-  EXPECT_THAT(ecef_from_enu,
-             EigenMatrixNear(Eigen::Matrix3d(enu_from_ecef.transpose()), 1e-12));
-  EXPECT_THAT(enu_from_ecef,
-             EigenMatrixNear(Eigen::Matrix3d(ecef_from_enu.transpose()), 1e-12));
+  EXPECT_THAT(
+      ecef_from_enu,
+      EigenMatrixNear(Eigen::Matrix3d(enu_from_ecef.transpose()), 1e-12));
+  EXPECT_THAT(
+      enu_from_ecef,
+      EigenMatrixNear(Eigen::Matrix3d(ecef_from_enu.transpose()), 1e-12));
 
   // Round-trip an arbitrary vector through both bases.
   const Eigen::Vector3d v_ecef(1234.5, -567.8, 90.1);

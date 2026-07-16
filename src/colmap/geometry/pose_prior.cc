@@ -79,8 +79,8 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
          << "], position_covariance=["
          << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
          << PosePrior::CoordinateSystemToString(prior.coordinate_system)
-         << ", gravity=[" << prior.gravity.format(kVecFmt)
-         << "], rotation=[" << prior.rotation.coeffs().format(kVecFmt)
+         << ", gravity=[" << prior.gravity.format(kVecFmt) << "], rotation=["
+         << prior.rotation.coeffs().format(kVecFmt)
          << "], rotation_covariance=["
          << prior.rotation_covariance.format(kVecFmt) << "])";
   return stream;

@@ -22,7 +22,7 @@ Eigen::Vector3d RandVector3d(double low, double high) {
 }
 
 // One sensor-center prior transformed to a rig-center candidate for a single
-// frame, per the goal doc's M2.1 rig-center formula:
+// frame:
 //   sensor_center_in_rig = Inverse(sensor_from_rig).translation
 //   rig_center_in_world = sensor_center_in_world
 //                        - world_from_rig.rotation * sensor_center_in_rig
@@ -194,7 +194,8 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   // Initialize camera translations to be random (optionally seeded from pose
   // priors). Also, convert the camera pose translation to be the camera
   // center.
-  InitializeRandomPositions(pose_graph, reconstruction, pose_priors, summary_ptr);
+  InitializeRandomPositions(
+      pose_graph, reconstruction, pose_priors, summary_ptr);
 
   // Add the point to camera constraints to the problem.
   AddPointToCameraConstraints(reconstruction);
@@ -319,7 +320,7 @@ void GlobalPositioner::InitializeRandomPositions(
       frame_centers_[frame_id] = seed_it->second;
       ++summary->num_covered_frames;
     } else if (options_.generate_random_positions &&
-              options_.optimize_positions) {
+               options_.optimize_positions) {
       frame_centers_[frame_id] = 100.0 * RandVector3d(-1, 1);
       if (options_.pose_prior_position_mode ==
           PosePriorPositionMode::initialize) {
@@ -673,8 +674,9 @@ void GlobalPositioner::EngagePositionPriorOptimization(
     Sim3d* gauge_from_solver_out) {
   FlatHashMap<frame_t, Eigen::Matrix3d> covariances;
   int num_usable_priors = 0;
-  const FlatHashMap<frame_t, Eigen::Vector3d> seeds = BuildPosePriorRigCenterSeeds(
-      reconstruction, pose_priors, &num_usable_priors, &covariances);
+  const FlatHashMap<frame_t, Eigen::Vector3d> seeds =
+      BuildPosePriorRigCenterSeeds(
+          reconstruction, pose_priors, &num_usable_priors, &covariances);
   summary->num_usable_priors = num_usable_priors;
 
   // Sort frame correspondences before RANSAC for deterministic fixed-seed
@@ -743,8 +745,8 @@ void GlobalPositioner::EngagePositionPriorOptimization(
   problem_->AddParameterBlock(&gauge_scale, 1);
   problem_->SetParameterLowerBound(&gauge_scale, 0, 1e-5);
 
-  ceres::LossFunction* prior_loss_function = new ceres::CauchyLoss(
-      options_.pose_prior_position_loss_scale);
+  ceres::LossFunction* prior_loss_function =
+      new ceres::CauchyLoss(options_.pose_prior_position_loss_scale);
   const Eigen::Matrix3d fallback_covariance =
       Eigen::Matrix3d::Identity() *
       (options_.pose_prior_position_fallback_stddev *
@@ -781,11 +783,12 @@ void GlobalPositioner::EngagePositionPriorOptimization(
   // frame_centers_ entries are live Ceres parameter blocks: re-read them
   // (and the gauge) after the second solve rather than reusing the
   // pre-solve `src` snapshot.
-  const Sim3d final_gauge_from_solver(
-      gauge_scale,
-      Eigen::Quaterniond(
-          gauge_rotation(3), gauge_rotation(0), gauge_rotation(1), gauge_rotation(2)),
-      gauge_translation);
+  const Sim3d final_gauge_from_solver(gauge_scale,
+                                      Eigen::Quaterniond(gauge_rotation(3),
+                                                         gauge_rotation(0),
+                                                         gauge_rotation(1),
+                                                         gauge_rotation(2)),
+                                      gauge_translation);
   std::vector<Eigen::Vector3d> refined_src;
   refined_src.reserve(frame_ids.size());
   for (const frame_t frame_id : frame_ids) {

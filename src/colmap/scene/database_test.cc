@@ -318,20 +318,21 @@ TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
   {
     sqlite3* db = nullptr;
     ASSERT_EQ(sqlite3_open(db_path.string().c_str(), &db), SQLITE_OK);
-    ASSERT_EQ(sqlite3_exec(db,
-                           "CREATE TABLE pose_priors"
-                           "   (pose_prior_id       INTEGER PRIMARY KEY NOT NULL,"
-                           "    corr_data_id        INTEGER NOT NULL,"
-                           "    corr_sensor_id      INTEGER NOT NULL,"
-                           "    corr_sensor_type    INTEGER NOT NULL,"
-                           "    position             BLOB,"
-                           "    position_covariance  BLOB,"
-                           "    gravity              BLOB,"
-                           "    coordinate_system    INTEGER NOT NULL);",
-                           nullptr,
-                           nullptr,
-                           nullptr),
-             SQLITE_OK);
+    ASSERT_EQ(
+        sqlite3_exec(db,
+                     "CREATE TABLE pose_priors"
+                     "   (pose_prior_id       INTEGER PRIMARY KEY NOT NULL,"
+                     "    corr_data_id        INTEGER NOT NULL,"
+                     "    corr_sensor_id      INTEGER NOT NULL,"
+                     "    corr_sensor_type    INTEGER NOT NULL,"
+                     "    position             BLOB,"
+                     "    position_covariance  BLOB,"
+                     "    gravity              BLOB,"
+                     "    coordinate_system    INTEGER NOT NULL);",
+                     nullptr,
+                     nullptr,
+                     nullptr),
+        SQLITE_OK);
     sqlite3_stmt* stmt = nullptr;
     ASSERT_EQ(sqlite3_prepare_v2(
                   db,
@@ -342,22 +343,22 @@ TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
                   -1,
                   &stmt,
                   nullptr),
-             SQLITE_OK);
+              SQLITE_OK);
     const Eigen::Vector3d position(1.0, 2.0, 3.0);
     const Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Identity();
     const Eigen::Vector3d gravity(0.0, 0.0, -1.0);
     ASSERT_EQ(sqlite3_bind_blob(
                   stmt, 1, position.data(), sizeof(double) * 3, SQLITE_STATIC),
-             SQLITE_OK);
+              SQLITE_OK);
     ASSERT_EQ(sqlite3_bind_blob(stmt,
                                 2,
                                 position_covariance.data(),
                                 sizeof(double) * 9,
                                 SQLITE_STATIC),
-             SQLITE_OK);
+              SQLITE_OK);
     ASSERT_EQ(sqlite3_bind_blob(
                   stmt, 3, gravity.data(), sizeof(double) * 3, SQLITE_STATIC),
-             SQLITE_OK);
+              SQLITE_OK);
     ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
     sqlite3_finalize(stmt);
     sqlite3_close(db);
@@ -370,12 +371,12 @@ TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
   const PosePrior migrated =
       database->ReadPosePrior(1, /*is_deprecated_image_prior=*/false);
   EXPECT_THAT(migrated.position,
-             EigenMatrixNear(Eigen::Vector3d(1.0, 2.0, 3.0), 1e-12));
-  EXPECT_THAT(migrated.position_covariance,
-             EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()),
-                             1e-12));
+              EigenMatrixNear(Eigen::Vector3d(1.0, 2.0, 3.0), 1e-12));
+  EXPECT_THAT(
+      migrated.position_covariance,
+      EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()), 1e-12));
   EXPECT_THAT(migrated.gravity,
-             EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, -1.0), 1e-12));
+              EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, -1.0), 1e-12));
   EXPECT_EQ(migrated.coordinate_system, PosePrior::CoordinateSystem::CARTESIAN);
   EXPECT_FALSE(migrated.HasRotation());
   EXPECT_FALSE(migrated.HasRotationCov());

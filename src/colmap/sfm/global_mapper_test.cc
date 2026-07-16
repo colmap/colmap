@@ -155,7 +155,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
-// M2 rotation-gauge case (goal doc section 6.2): non-identity sensor_from_rig
+// Rotation-gauge case with non-identity sensor_from_rig
 // (num_cameras_per_rig=2); covariance weighting and one gross orientation
 // outlier; the recovered gauge matches the known perturbation; every
 // pairwise relative frame rotation is unchanged before vs. after; and, in a
@@ -199,7 +199,7 @@ TEST(GlobalMapper, InitializeRotationGaugeFromPosePriors) {
       // _USE_MATH_DEFINES.
       constexpr double kNinetyDegRad = 1.5707963267948966;
       prior.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(
-                            kNinetyDegRad, Eigen::Vector3d::UnitX())) *
+                           kNinetyDegRad, Eigen::Vector3d::UnitX())) *
                        prior.rotation;
       injected_outlier = true;
     }
@@ -252,9 +252,9 @@ TEST(GlobalMapper, InitializeRotationGaugeFromPosePriors) {
   // frame's rotation should now match ground truth, despite the outlier.
   for (const auto& [frame_id, gt_frame] : gt_reconstruction.Frames()) {
     EXPECT_THAT(reconstruction->Frame(frame_id).RigFromWorld(),
-               Rigid3dNear(gt_frame.RigFromWorld(),
-                           /*rtol=*/DegToRad(1.0),
-                           /*ttol=*/1e-6));
+                Rigid3dNear(gt_frame.RigFromWorld(),
+                            /*rtol=*/DegToRad(1.0),
+                            /*ttol=*/1e-6));
   }
 
   // Every pairwise relative frame rotation is unchanged.
@@ -269,8 +269,7 @@ TEST(GlobalMapper, InitializeRotationGaugeFromPosePriors) {
   // Absent orientations: a fresh reconstruction/database with no pose priors
   // produces a requested-but-not-engaged no-op, not an error.
   {
-    auto empty_database =
-        Database::Open(CreateTestDir() / "empty_database.db");
+    auto empty_database = Database::Open(CreateTestDir() / "empty_database.db");
     Reconstruction unused_gt;
     SynthesizeDataset(
         synthetic_dataset_options, &unused_gt, empty_database.get());
@@ -285,7 +284,7 @@ TEST(GlobalMapper, InitializeRotationGaugeFromPosePriors) {
         RotationEstimatorOptions()));
     for (const auto& [frame_id, gt_frame] : unused_gt.Frames()) {
       EXPECT_THAT(no_prior_reconstruction->Frame(frame_id).RigFromWorld(),
-                 Rigid3dEq(gt_frame.RigFromWorld()));
+                  Rigid3dEq(gt_frame.RigFromWorld()));
     }
   }
 }

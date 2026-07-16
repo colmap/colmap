@@ -126,8 +126,8 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
-// M3 durable case (goal doc section 7, step M3.1): known Sim3 and one
-// position outlier; the robust fit must recover the known transform,
+// Known Sim3 and one position outlier; the robust fit must recover the
+// known transform,
 // identify exactly the injected outlier as the sole non-inlier, expose
 // correspondence identities/inlier mask (not re-derived from rounded
 // output), and leave relative camera geometry unchanged once the transform
@@ -197,7 +197,8 @@ TEST(Alignment, AlignReconstructionToPosePriorsRobust) {
 
   const Sim3d src_from_tgt = Inverse(result.tgt_from_src);
   const Eigen::Vector3d probe(1.0, 2.0, 3.0);
-  EXPECT_LT((src_from_tgt * (result.tgt_from_src * probe) - probe).norm(), 1e-9);
+  EXPECT_LT((src_from_tgt * (result.tgt_from_src * probe) - probe).norm(),
+            1e-9);
 }
 
 TEST(Alignment, AlignReconstructionsViaReprojections) {

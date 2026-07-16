@@ -140,8 +140,8 @@ TEST(GlobalPositioning, MultiCameraRig) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
-// M2 position-mode case (goal doc section 6.2): `off` matches ordinary
-// upstream behavior; `initialize` seeds covered rig-frame centers from pose
+// `off` matches ordinary upstream behavior; `initialize` seeds covered
+// rig-frame centers from pose
 // priors (including a nontrivial multi-camera rig frame), records the exact
 // prior coverage in the summary, allows the solved frame to move away from
 // an injected outlier seed (no prior residual is added), and still
@@ -202,11 +202,11 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
   ASSERT_TRUE(
       RunGlobalPositioning(base_options, pose_graph, reconstruction_off));
   EXPECT_THAT(gt_reconstruction,
-             ReconstructionNear(reconstruction_off,
-                                /*max_rotation_error_deg=*/0.1,
-                                /*max_proj_center_error=*/0.5,
-                                /*max_scale_error=*/std::nullopt,
-                                /*num_obs_tolerance=*/0.0));
+              ReconstructionNear(reconstruction_off,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
 
   // `initialize`: seeds from priors (including the outlier), adds no
   // residual, and still converges to the true geometry.
@@ -215,21 +215,18 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
   GlobalPositionerOptions init_options = base_options;
   init_options.pose_prior_position_mode = PosePriorPositionMode::initialize;
   PosePriorPositionSummary summary;
-  ASSERT_TRUE(RunGlobalPositioning(init_options,
-                                   pose_graph,
-                                   reconstruction_init,
-                                   pose_priors,
-                                   &summary));
+  ASSERT_TRUE(RunGlobalPositioning(
+      init_options, pose_graph, reconstruction_init, pose_priors, &summary));
   EXPECT_EQ(summary.requested, PosePriorPositionMode::initialize);
   EXPECT_TRUE(summary.engaged);
   EXPECT_EQ(summary.num_usable_priors, static_cast<int>(pose_priors.size()));
   EXPECT_GT(summary.num_covered_frames, 0);
   EXPECT_THAT(gt_reconstruction,
-             ReconstructionNear(reconstruction_init,
-                                /*max_rotation_error_deg=*/0.1,
-                                /*max_proj_center_error=*/0.5,
-                                /*max_scale_error=*/std::nullopt,
-                                /*num_obs_tolerance=*/0.0));
+              ReconstructionNear(reconstruction_init,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
 
   // `optimize`: proves actual engagement, robust rejection of the injected
   // outlier via RANSAC, and preservation of the metric gauge (unlike `off`/
@@ -240,11 +237,8 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
   GlobalPositionerOptions opt_options = base_options;
   opt_options.pose_prior_position_mode = PosePriorPositionMode::optimize;
   PosePriorPositionSummary opt_summary;
-  ASSERT_TRUE(RunGlobalPositioning(opt_options,
-                                   pose_graph,
-                                   reconstruction_opt,
-                                   pose_priors,
-                                   &opt_summary));
+  ASSERT_TRUE(RunGlobalPositioning(
+      opt_options, pose_graph, reconstruction_opt, pose_priors, &opt_summary));
   EXPECT_EQ(opt_summary.requested, PosePriorPositionMode::optimize);
   EXPECT_TRUE(opt_summary.engaged);
   // One outlier was injected on one sensor of one rig frame; the multi-
@@ -253,11 +247,11 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
   // not prior-level: num_usable_priors counts both cameras per frame).
   EXPECT_EQ(opt_summary.num_inliers, opt_summary.num_covered_frames - 1);
   EXPECT_THAT(gt_reconstruction,
-             ReconstructionNear(reconstruction_opt,
-                                /*max_rotation_error_deg=*/0.1,
-                                /*max_proj_center_error=*/0.5,
-                                /*max_scale_error=*/0.05,
-                                /*num_obs_tolerance=*/0.0));
+              ReconstructionNear(reconstruction_opt,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/0.05,
+                                 /*num_obs_tolerance=*/0.0));
 }
 
 TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {

@@ -251,8 +251,7 @@ void WriteDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
 using RotationBlob = Eigen::Vector4d;
 
 RotationBlob RotationToBlobVector(const Eigen::Quaterniond& rotation) {
-  return RotationBlob(
-      rotation.w(), rotation.x(), rotation.y(), rotation.z());
+  return RotationBlob(rotation.w(), rotation.x(), rotation.y(), rotation.z());
 }
 
 Eigen::Quaterniond BlobVectorToRotation(const RotationBlob& wxyz) {
@@ -478,8 +477,7 @@ PosePrior ReadPosePriorRow(sqlite3_stmt* sql_stmt) {
       sqlite3_column_int64(sql_stmt, 6));
   pose_prior.gravity =
       ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt, SQLITE_ROW, 7);
-  pose_prior.rotation =
-      ReadPosePriorRotationBlob(sql_stmt, SQLITE_ROW, 8);
+  pose_prior.rotation = ReadPosePriorRotationBlob(sql_stmt, SQLITE_ROW, 8);
   pose_prior.rotation_covariance =
       ReadPosePriorRotationCovarianceBlob(sql_stmt, SQLITE_ROW, 9);
   return pose_prior;

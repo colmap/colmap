@@ -183,10 +183,9 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[3].ImageId()),
             1);
 
-  // Extends this existing test case (rather than adding a new one, per the
-  // M1 test cap) to also cover DatabaseCache::ConvertPosePriorsToENU's
-  // shared-ENU reference selection and covariance-basis rotation (goal doc
-  // section 5, step M1.2). At lat=0, lon=90, GPSTransform::ENUFromECEF
+  // Extends this existing test case to also cover
+  // DatabaseCache::ConvertPosePriorsToENU's shared-ENU reference selection
+  // and covariance-basis rotation. At lat=0, lon=90, GPSTransform::ENUFromECEF
   // reduces to the hand-derived signed permutation matrix
   // R90=[[-1,0,0],[0,0,1],[0,1,0]] (its own transpose and inverse), and at
   // lat=0, lon=0 to R0=[[0,1,0],[0,0,1],[1,0,0]]; the row-local-to-shared-ENU
@@ -206,8 +205,7 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   other_prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 102);
   other_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
   other_prior.position = Eigen::Vector3d(0.0, 0.0, PosePrior::kNaN);
-  other_prior.position_covariance =
-      Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
+  other_prior.position_covariance = Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
   wgs84_database->WritePosePrior(other_prior);
 
   DatabaseCache::Options enu_options;
@@ -231,7 +229,7 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   // the geometric median is exactly its own ECEF point and it converts to
   // the shared-ENU origin.
   EXPECT_EQ(converted_ref->coordinate_system,
-           PosePrior::CoordinateSystem::CARTESIAN);
+            PosePrior::CoordinateSystem::CARTESIAN);
   const Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
   EXPECT_THAT(converted_ref->position, EigenMatrixNear(zero3, 1e-6));
 
@@ -240,14 +238,14 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   // NaN (no altitude was fabricated), and its covariance is rotated by the
   // non-identity S derived above.
   EXPECT_EQ(converted_other->coordinate_system,
-           PosePrior::CoordinateSystem::CARTESIAN);
+            PosePrior::CoordinateSystem::CARTESIAN);
   EXPECT_TRUE(std::isfinite(converted_other->position.x()));
   EXPECT_TRUE(std::isfinite(converted_other->position.y()));
   EXPECT_FALSE(std::isfinite(converted_other->position.z()));
   const Eigen::Matrix3d expected_cov =
       Eigen::Vector3d(9.0, 4.0, 1.0).asDiagonal();
   EXPECT_THAT(converted_other->position_covariance,
-             EigenMatrixNear(expected_cov, 1e-6));
+              EigenMatrixNear(expected_cov, 1e-6));
 
   ASSERT_TRUE(enu_cache->PosePriorEnuOrigin().has_value());
   EXPECT_NEAR(enu_cache->PosePriorEnuOrigin()->x(), 0.0, 1e-9);

@@ -131,11 +131,16 @@ struct RigBATAPairwiseDirectionCostFunctor {
 };
 
 // Position-prior residual against one jointly-optimized global Sim3 gauge:
-// predicted = gauge_scale * (gauge_rotation * frame_center) + gauge_translation.
-// Wrap with CovarianceWeightedCostFunctor to whiten by the prior's position
-// covariance (or an isotropic fallback).
+// predicted = gauge_scale * (gauge_rotation * frame_center) +
+// gauge_translation. Wrap with CovarianceWeightedCostFunctor to whiten by the
+// prior's position covariance (or an isotropic fallback).
 struct PositionPriorViaSim3CostFunctor
-    : public AutoDiffCostFunctor<PositionPriorViaSim3CostFunctor, 3, 3, 4, 3, 1> {
+    : public AutoDiffCostFunctor<PositionPriorViaSim3CostFunctor,
+                                 3,
+                                 3,
+                                 4,
+                                 3,
+                                 1> {
  public:
   explicit PositionPriorViaSim3CostFunctor(
       const Eigen::Vector3d& measured_position)

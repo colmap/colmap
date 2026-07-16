@@ -475,7 +475,7 @@ void DatabaseCache::ConvertPosePriorsToENU() {
     if (pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
       has_wgs84 = true;
     } else if (pose_prior.coordinate_system ==
-              PosePrior::CoordinateSystem::CARTESIAN) {
+               PosePrior::CoordinateSystem::CARTESIAN) {
       has_cartesian = true;
     }
   }
@@ -486,7 +486,7 @@ void DatabaseCache::ConvertPosePriorsToENU() {
   }
   THROW_CHECK(!has_cartesian)
       << "Cannot convert a mixture of WGS84 and Cartesian pose priors to a "
-        "shared ENU frame";
+         "shared ENU frame";
 
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
 
@@ -552,8 +552,8 @@ void DatabaseCache::ConvertPosePriorsToENU() {
     ref_alt = 0.0;
   }
 
-  const Eigen::Vector3d ref_ecef =
-      gps_transform.EllipsoidToECEF({Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
+  const Eigen::Vector3d ref_ecef = gps_transform.EllipsoidToECEF(
+      {Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
   const Eigen::Matrix3d shared_from_ecef =
       GPSTransform::ENUFromECEF(ref_lat, ref_lon);
 
@@ -580,9 +580,8 @@ void DatabaseCache::ConvertPosePriorsToENU() {
       // Horizontal-only row: use the shared reference altitude only to
       // compute East/North, then set Up back to NaN so no altitude is
       // fabricated for this row.
-      const Eigen::Vector3d ecef =
-          gps_transform.EllipsoidToECEF({Eigen::Vector3d(
-              lla.x(), lla.y(), ref_alt)})[0];
+      const Eigen::Vector3d ecef = gps_transform.EllipsoidToECEF(
+          {Eigen::Vector3d(lla.x(), lla.y(), ref_alt)})[0];
       Eigen::Vector3d enu = shared_from_ecef * (ecef - ref_ecef);
       enu.z() = PosePrior::kNaN;
       pose_prior.position = enu;
@@ -596,9 +595,9 @@ void DatabaseCache::ConvertPosePriorsToENU() {
           shared_from_ecef * local_from_ecef.transpose();
 
       if (pose_prior.HasPositionCov()) {
-        pose_prior.position_covariance =
-            shared_from_local * pose_prior.position_covariance *
-            shared_from_local.transpose();
+        pose_prior.position_covariance = shared_from_local *
+                                         pose_prior.position_covariance *
+                                         shared_from_local.transpose();
       }
 
       if (pose_prior.HasRotation()) {
@@ -611,9 +610,9 @@ void DatabaseCache::ConvertPosePriorsToENU() {
                 .normalized();
 
         if (pose_prior.HasRotationCov()) {
-          pose_prior.rotation_covariance =
-              shared_from_local * pose_prior.rotation_covariance *
-              shared_from_local.transpose();
+          pose_prior.rotation_covariance = shared_from_local *
+                                           pose_prior.rotation_covariance *
+                                           shared_from_local.transpose();
         }
       }
     }

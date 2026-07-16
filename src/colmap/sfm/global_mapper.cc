@@ -44,7 +44,7 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
 }
 
 // One frame's candidate estimate of the single global rotation gauge
-// solver_from_prior_world, derived per the goal doc's M2.3 chain:
+// solver_from_prior_world, derived from the chain:
 //   rig_from_prior_world = Inverse(sensor_from_rig) * sensor_from_prior_world
 //   solver_from_prior_world = Inverse(rig_from_solver) * rig_from_prior_world
 // Left-multiplication by fixed rig/visual rotations leaves the documented
@@ -244,14 +244,15 @@ bool GlobalMapper::InitializeRotationGaugeFromPosePriors(
   for (const auto& [frame_id, candidate] : per_frame) {
     candidates.push_back(candidate);
   }
-  std::sort(candidates.begin(),
-           candidates.end(),
-           [](const RotationGaugeCandidate& lhs,
-              const RotationGaugeCandidate& rhs) {
-             return lhs.frame_id < rhs.frame_id;
-           });
+  std::sort(
+      candidates.begin(),
+      candidates.end(),
+      [](const RotationGaugeCandidate& lhs, const RotationGaugeCandidate& rhs) {
+        return lhs.frame_id < rhs.frame_id;
+      });
 
-  const double threshold_deg = rotation_averaging_options.max_rotation_error_deg;
+  const double threshold_deg =
+      rotation_averaging_options.max_rotation_error_deg;
   const int num_candidates = static_cast<int>(candidates.size());
   // One inlier suffices for a single candidate; two or more require a
   // strict majority.
@@ -269,8 +270,9 @@ bool GlobalMapper::InitializeRotationGaugeFromPosePriors(
         total_error += error;
       }
     }
-    const double mean_error =
-        inliers > 0 ? total_error / inliers : std::numeric_limits<double>::infinity();
+    const double mean_error = inliers > 0
+                                  ? total_error / inliers
+                                  : std::numeric_limits<double>::infinity();
     return std::make_pair(inliers, mean_error);
   };
 
@@ -301,9 +303,9 @@ bool GlobalMapper::InitializeRotationGaugeFromPosePriors(
   }
 
   const bool any_valid_weight = std::any_of(
-      candidates.begin(), candidates.end(), [](const RotationGaugeCandidate& c) {
-        return c.weight != 1.0;
-      });
+      candidates.begin(),
+      candidates.end(),
+      [](const RotationGaugeCandidate& c) { return c.weight != 1.0; });
 
   const auto gather_inliers = [&](const Eigen::Quaterniond& hypothesis,
                                   std::vector<Eigen::Quaterniond>* quats,
@@ -311,8 +313,8 @@ bool GlobalMapper::InitializeRotationGaugeFromPosePriors(
     quats->clear();
     weights->clear();
     for (const RotationGaugeCandidate& candidate : candidates) {
-      if (QuaternionGeodesicAngleDeg(hypothesis, candidate.solver_from_prior_world) <=
-          threshold_deg) {
+      if (QuaternionGeodesicAngleDeg(
+              hypothesis, candidate.solver_from_prior_world) <= threshold_deg) {
         quats->push_back(
             AlignedToReference(candidate.solver_from_prior_world, hypothesis));
         weights->push_back(any_valid_weight ? candidate.weight : 1.0);
@@ -737,15 +739,14 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   THROW_CHECK_NOTNULL(pose_graph_);
 
   THROW_CHECK(!(options.skip_global_positioning &&
-               options.global_positioning.pose_prior_position_mode !=
-                   PosePriorPositionMode::off))
+                options.global_positioning.pose_prior_position_mode !=
+                    PosePriorPositionMode::off))
       << "skip_global_positioning=true has no effect when "
-        "pose_prior_position_mode is not off";
+         "pose_prior_position_mode is not off";
   THROW_CHECK(!(options.skip_rotation_averaging &&
-               options.pose_prior_rotation_mode !=
-                   PosePriorRotationMode::off))
+                options.pose_prior_rotation_mode != PosePriorRotationMode::off))
       << "skip_rotation_averaging=true has no effect when "
-        "pose_prior_rotation_mode is initialize";
+         "pose_prior_rotation_mode is initialize";
 
   if (pose_graph_->Empty()) {
     LOG(ERROR) << "Cannot continue with empty pose graph";

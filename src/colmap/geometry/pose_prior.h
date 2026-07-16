@@ -72,8 +72,7 @@ struct PosePrior {
   // The absolute orientation of the sensor as sensor_from_world. For
   // CoordinateSystem::CARTESIAN this is sensor_from_cartesian_world; for
   // CoordinateSystem::WGS84 this is sensor_from_local_enu_at_position.
-  Eigen::Quaterniond rotation =
-      Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN);
+  Eigen::Quaterniond rotation = Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN);
   // The rotation covariance in rad^2, right-multiplicative in the same world
   // basis as `rotation`.
   Eigen::Matrix3d rotation_covariance = Eigen::Matrix3d::Constant(kNaN);
@@ -84,9 +83,7 @@ struct PosePrior {
   inline bool HasRotation() const {
     return rotation.coeffs().allFinite() && rotation.norm() > 0;
   }
-  inline bool HasRotationCov() const {
-    return rotation_covariance.allFinite();
-  }
+  inline bool HasRotationCov() const { return rotation_covariance.allFinite(); }
 
   bool operator==(const PosePrior& other) const;
   bool operator!=(const PosePrior& other) const;

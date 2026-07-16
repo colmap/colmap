@@ -222,8 +222,7 @@ void PrintComparisonSummary(std::ostream& out,
 
 ////////////////////////////////////////////////////////////////////////////
 // Scene georeference report (model_aligner --georeference_json/
-// --camera_residuals_csv). Section references are to the telemetry-native
-// implementation goal document, section 7.
+// --camera_residuals_csv).
 ////////////////////////////////////////////////////////////////////////////
 
 std::string JSONEscape(const std::string& s) {
@@ -342,17 +341,17 @@ bool DeriveWGS84Origin(const std::vector<Eigen::Vector3d>& lla_points,
   return true;
 }
 
-// Per-camera georeference diagnostics (goal doc section 7.3).
+// Per-camera georeference diagnostics.
 struct CameraResidual {
   image_t image_id = kInvalidImageId;
   std::string image_name;
   bool registered = false;
   bool has_position_prior = false;
   bool position_fit_inlier = false;
-  Eigen::Vector3d prior_enu = Eigen::Vector3d::Constant(
-      std::numeric_limits<double>::quiet_NaN());
-  Eigen::Vector3d solved_enu = Eigen::Vector3d::Constant(
-      std::numeric_limits<double>::quiet_NaN());
+  Eigen::Vector3d prior_enu =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  Eigen::Vector3d solved_enu =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
 };
 
 double Percentile(std::vector<double> values, double fraction) {
@@ -370,23 +369,22 @@ double Percentile(std::vector<double> values, double fraction) {
   return values[lo] * (1.0 - t) + values[hi] * t;
 }
 
-void WriteGeoreferenceReportJSON(
-    const std::filesystem::path& path,
-    const std::string& scene_id,
-    const std::string& source_commit,
-    const std::filesystem::path& input_path,
-    const std::filesystem::path& output_path,
-    const Reconstruction& reconstruction,
-    double origin_lat,
-    double origin_lon,
-    double origin_alt,
-    bool origin_is_explicit,
-    const Sim3d& enu_from_sfm,
-    const std::vector<CameraResidual>& residuals,
-    double position_ransac_threshold,
-    double orientation_max_error_deg,
-    bool orientation_requested,
-    bool orientation_engaged) {
+void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
+                                 const std::string& scene_id,
+                                 const std::string& source_commit,
+                                 const std::filesystem::path& input_path,
+                                 const std::filesystem::path& output_path,
+                                 const Reconstruction& reconstruction,
+                                 double origin_lat,
+                                 double origin_lon,
+                                 double origin_alt,
+                                 bool origin_is_explicit,
+                                 const Sim3d& enu_from_sfm,
+                                 const std::vector<CameraResidual>& residuals,
+                                 double position_ransac_threshold,
+                                 double orientation_max_error_deg,
+                                 bool orientation_requested,
+                                 bool orientation_engaged) {
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   const Eigen::Matrix3d ecef_from_enu_rotation =
@@ -421,8 +419,7 @@ void WriteGeoreferenceReportJSON(
     if (r.position_fit_inlier) {
       ++num_position_inliers;
       const Eigen::Vector3d diff = r.solved_enu - r.prior_enu;
-      horizontal_residuals.push_back(
-          std::hypot(diff.x(), diff.y()));
+      horizontal_residuals.push_back(std::hypot(diff.x(), diff.y()));
       vertical_residuals.push_back(std::abs(diff.z()));
       full_residuals.push_back(diff.norm());
       max_horizontal_radius =
@@ -505,8 +502,8 @@ void WriteGeoreferenceReportJSON(
        << "\"mean\":" << JSONNumber(Mean(vertical_residuals))
        << ",\"median\":" << JSONNumber(Percentile(vertical_residuals, 0.5))
        << "},";
-  json << "\"max_horizontal_baseline_m\":" << JSONNumber(max_horizontal_baseline)
-       << ",";
+  json << "\"max_horizontal_baseline_m\":"
+       << JSONNumber(max_horizontal_baseline) << ",";
   json << "\"max_horizontal_radius_m\":" << JSONNumber(max_horizontal_radius)
        << ",";
   json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius);
@@ -517,7 +514,8 @@ void WriteGeoreferenceReportJSON(
        << JSONNumber(orientation_max_error_deg) << ",";
   json << "\"orientation_requested\":"
        << (orientation_requested ? "true" : "false") << ",";
-  json << "\"orientation_engaged\":" << (orientation_engaged ? "true" : "false");
+  json << "\"orientation_engaged\":"
+       << (orientation_engaged ? "true" : "false");
   json << "}";
 
   std::ofstream file(path, std::ios::trunc);
@@ -569,10 +567,10 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
 
   std::vector<CameraResidual> sorted_residuals = residuals;
   std::sort(sorted_residuals.begin(),
-           sorted_residuals.end(),
-           [](const CameraResidual& a, const CameraResidual& b) {
-             return a.image_name < b.image_name;
-           });
+            sorted_residuals.end(),
+            [](const CameraResidual& a, const CameraResidual& b) {
+              return a.image_name < b.image_name;
+            });
 
   file << "image_name,registered,has_position_prior,position_fit_inlier,"
           "prior_e,prior_n,prior_u,solved_e,solved_n,solved_u,"
@@ -581,8 +579,8 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
           "has_orientation_prior,orientation_fit_inlier,"
           "orientation_residual_deg\n";
   for (const CameraResidual& r : sorted_residuals) {
-    Eigen::Vector3d residual = Eigen::Vector3d::Constant(
-        std::numeric_limits<double>::quiet_NaN());
+    Eigen::Vector3d residual =
+        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
     double residual_horizontal = std::numeric_limits<double>::quiet_NaN();
     double residual_3d = std::numeric_limits<double>::quiet_NaN();
     if (r.position_fit_inlier) {
@@ -590,21 +588,20 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
       residual_horizontal = std::hypot(residual.x(), residual.y());
       residual_3d = residual.norm();
     }
-    // Orientation columns are always absent in this pass: orientation-
-    // assisted refinement (goal doc step M3.2) is not implemented, so
-    // reporting a prior's mere presence here without ever fitting it would
-    // be misleading.
+    // Orientation columns are always absent: orientation-assisted refinement
+    // is not implemented, so reporting a prior's mere presence here without
+    // ever fitting it would be misleading.
     file << CSVField(r.image_name) << ',' << (r.registered ? 1 : 0) << ','
-        << (r.has_position_prior ? 1 : 0) << ','
-        << (r.position_fit_inlier ? 1 : 0) << ',' << CSVNumber(r.prior_enu.x())
-        << ',' << CSVNumber(r.prior_enu.y()) << ','
-        << CSVNumber(r.prior_enu.z()) << ',' << CSVNumber(r.solved_enu.x())
-        << ',' << CSVNumber(r.solved_enu.y()) << ','
-        << CSVNumber(r.solved_enu.z()) << ',' << CSVNumber(residual.x()) << ','
-        << CSVNumber(residual.y()) << ',' << CSVNumber(residual.z()) << ','
-        << CSVNumber(residual_horizontal) << ','
-        << CSVNumber(std::abs(residual.z())) << ',' << CSVNumber(residual_3d)
-        << ",0,0,\n";
+         << (r.has_position_prior ? 1 : 0) << ','
+         << (r.position_fit_inlier ? 1 : 0) << ',' << CSVNumber(r.prior_enu.x())
+         << ',' << CSVNumber(r.prior_enu.y()) << ','
+         << CSVNumber(r.prior_enu.z()) << ',' << CSVNumber(r.solved_enu.x())
+         << ',' << CSVNumber(r.solved_enu.y()) << ','
+         << CSVNumber(r.solved_enu.z()) << ',' << CSVNumber(residual.x()) << ','
+         << CSVNumber(residual.y()) << ',' << CSVNumber(residual.z()) << ','
+         << CSVNumber(residual_horizontal) << ','
+         << CSVNumber(std::abs(residual.z())) << ',' << CSVNumber(residual_3d)
+         << ",0,0,\n";
   }
 }
 
@@ -613,7 +610,7 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
 // prior fields. A horizontal-only prior (finite lat/lon, absent altitude)
 // uses the origin altitude only to compute East/North, then resets Up back
 // to NaN so no altitude is fabricated (mirrors DatabaseCache's WGS84
-// conversion, goal doc section 5 step M1.2 point 4).
+// conversion).
 std::vector<PosePrior> ConvertPosePriorsToReportENU(
     const std::vector<PosePrior>& pose_priors,
     double origin_lat,
@@ -625,17 +622,15 @@ std::vector<PosePrior> ConvertPosePriorsToReportENU(
   for (const PosePrior& prior : pose_priors) {
     PosePrior out = prior;
     if (prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
-        std::isfinite(prior.position.x()) && std::isfinite(prior.position.y())) {
+        std::isfinite(prior.position.x()) &&
+        std::isfinite(prior.position.y())) {
       const bool has_full_altitude = std::isfinite(prior.position.z());
       const double alt = has_full_altitude ? prior.position.z() : origin_alt;
-      Eigen::Vector3d enu =
-          gps_transform.EllipsoidToENU({Eigen::Vector3d(
-                                            prior.position.x(),
-                                            prior.position.y(),
-                                            alt)},
-                                       origin_lat,
-                                       origin_lon,
-                                       origin_alt)[0];
+      Eigen::Vector3d enu = gps_transform.EllipsoidToENU(
+          {Eigen::Vector3d(prior.position.x(), prior.position.y(), alt)},
+          origin_lat,
+          origin_lon,
+          origin_alt)[0];
       if (!has_full_altitude) {
         enu.z() = std::numeric_limits<double>::quiet_NaN();
       }
@@ -646,10 +641,9 @@ std::vector<PosePrior> ConvertPosePriorsToReportENU(
   return converted;
 }
 
-// Extends model_aligner with the scene georeference report path (goal doc
-// section 7). Position-only: see the goal doc deviation note in the
-// implementation report for why orientation-assisted refinement (M3.2) is
-// deferred.
+// Extends model_aligner with the scene georeference report path. Position-
+// only: orientation-assisted joint Sim3 refinement is not yet implemented
+// (see --use_pose_prior_orientation below).
 int RunModelAlignerReport(const std::filesystem::path& input_path,
                           const std::filesystem::path& output_path,
                           const std::filesystem::path& database_path,
@@ -672,7 +666,7 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
     if (prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
       any_wgs84 = true;
     } else if (prior.coordinate_system ==
-              PosePrior::CoordinateSystem::CARTESIAN) {
+               PosePrior::CoordinateSystem::CARTESIAN) {
       any_cartesian = true;
     }
   }
@@ -725,27 +719,24 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
   std::vector<PosePrior> enu_priors =
       any_wgs84 ? ConvertPosePriorsToReportENU(
                       pose_priors, origin_lat, origin_lon, origin_alt)
-               : pose_priors;
+                : pose_priors;
 
-  PosePriorAlignmentResult result =
-      AlignReconstructionToPosePriorsRobust(
-          reconstruction, enu_priors, ransac_options);
+  PosePriorAlignmentResult result = AlignReconstructionToPosePriorsRobust(
+      reconstruction, enu_priors, ransac_options);
   if (!result.success) {
     LOG(ERROR) << "=> Alignment failed";
     return EXIT_FAILURE;
   }
 
   // Recompute the origin once from the position-fit inlier WGS84 points,
-  // reconvert, and refit once (goal doc section 7, step M3.1 point 4). Never
-  // uses the first row by policy.
+  // reconvert, and refit once. Never uses the first row by policy.
   if (any_wgs84 && !has_explicit_origin) {
     std::vector<Eigen::Vector3d> inlier_full_position_lla;
     for (size_t i = 0; i < result.correspondence_image_ids.size(); ++i) {
       if (!result.inlier_mask[i]) {
         continue;
       }
-      const auto it =
-          priors_by_image.find(result.correspondence_image_ids[i]);
+      const auto it = priors_by_image.find(result.correspondence_image_ids[i]);
       if (it != priors_by_image.end() && it->second.HasPosition()) {
         inlier_full_position_lla.push_back(it->second.position);
       }
@@ -767,8 +758,8 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
   const int num_inliers = static_cast<int>(
       std::count(result.inlier_mask.begin(), result.inlier_mask.end(), 1));
   if (num_inliers < min_common_images) {
-    LOG(ERROR) << "=> Too few position-prior inliers: " << num_inliers
-              << " < " << min_common_images;
+    LOG(ERROR) << "=> Too few position-prior inliers: " << num_inliers << " < "
+               << min_common_images;
     return EXIT_FAILURE;
   }
 
@@ -907,8 +898,8 @@ int RunModelAligner(int argc, char** argv) {
   int min_common_images = 3;
   RANSACOptions ransac_options;
 
-  // Scene georeference report options (goal doc section 7.2). The three
-  // origin values are all-or-none; altitude is WGS84 ellipsoidal.
+  // Scene georeference report options. The three origin values are
+  // all-or-none; altitude is WGS84 ellipsoidal.
   double enu_origin_lat = std::numeric_limits<double>::quiet_NaN();
   double enu_origin_lon = std::numeric_limits<double>::quiet_NaN();
   double enu_origin_alt = std::numeric_limits<double>::quiet_NaN();

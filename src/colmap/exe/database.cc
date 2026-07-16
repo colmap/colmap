@@ -190,7 +190,7 @@ int RunPosePriorImporter(int argc, char** argv) {
   if (existing_policy != "error" && existing_policy != "replace" &&
       existing_policy != "merge") {
     LOG(ERROR) << "`existing` must be one of error|replace|merge, got: `"
-              << existing_policy << "`";
+               << existing_policy << "`";
     return EXIT_FAILURE;
   }
 
@@ -261,10 +261,10 @@ int RunPosePriorImporter(int argc, char** argv) {
   if (existing_policy == "error") {
     for (const auto& prior : priors) {
       THROW_CHECK(existing_prior_ids.find(prior.corr_data_id) ==
-                 existing_prior_ids.end())
+                  existing_prior_ids.end())
           << "A pose prior already exists for a resolved image and "
-            "`existing=error` was specified; the database was not "
-            "modified";
+             "`existing=error` was specified; the database was not "
+             "modified";
     }
   }
 
