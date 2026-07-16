@@ -29,7 +29,9 @@
 
 #include "colmap/retrieval/global_descriptor_model.h"
 
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace colmap {
 namespace retrieval {
@@ -40,8 +42,8 @@ namespace {
 // Model definitions — add new models here.
 // ---------------------------------------------------------------------------
 
-#ifdef COLMAP_DOWNLOAD_ENABLED
-const GlobalDescriptorModel kModels[] = {
+#if defined(COLMAP_DOWNLOAD_ENABLED) && defined(COLMAP_ONNX_ENABLED)
+const std::vector<GlobalDescriptorModel> kModels = {
     {
         .name = "MixVPR",
         .input_width = 320,
@@ -81,7 +83,7 @@ const GlobalDescriptorModel kModels[] = {
     },
 };
 #else
-const GlobalDescriptorModel kModels[] = {};
+const std::vector<GlobalDescriptorModel> kModels = {};
 #endif
 
 // Build a name→model lookup map.

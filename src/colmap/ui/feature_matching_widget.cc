@@ -92,6 +92,7 @@ class VocabTreeMatchingTab : public FeatureMatchingTab {
   void Run() override;
 };
 
+#ifdef COLMAP_ONNX_ENABLED
 class GlobalDescriptorMatchingTab : public FeatureMatchingTab {
  public:
   GlobalDescriptorMatchingTab(QWidget* parent, OptionManager* options);
@@ -102,6 +103,7 @@ class GlobalDescriptorMatchingTab : public FeatureMatchingTab {
   QComboBox* model_type_cb_;
   QLineEdit* model_path_edit_ = nullptr;
 };
+#endif  // COLMAP_ONNX_ENABLED
 
 class SpatialMatchingTab : public FeatureMatchingTab {
  public:
@@ -270,8 +272,10 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
   loop_detection_type_cb_ = new QComboBox(this);
   loop_detection_type_cb_->addItem("None");             // 0
   loop_detection_type_cb_->addItem("Vocabulary Tree");  // 1
+#ifdef COLMAP_ONNX_ENABLED
   loop_detection_type_cb_->addItem("MixVPR");           // 2
   loop_detection_type_cb_->addItem("MegaLoc");           // 3
+#endif
   options_widget_->AddWidgetRow("Loop detection", loop_detection_type_cb_);
 
   // Use standard AddOptionFilePath for both path types — identical height,
@@ -284,11 +288,13 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
     options_widget_->AddOptionFilePath(
         &options_->sequential_pairing->vocab_tree_path, "Vocab tree path");
 
-    // MixVPR model path.
+    // MixVPR/MegaLoc model path (ONNX only).
+#ifdef COLMAP_ONNX_ENABLED
     global_descriptor_grid_row_ = grid->rowCount();
     options_widget_->AddOptionFilePath(
         &options_->sequential_pairing->loop_detection_model_path,
         "Model path (ONNX, optional)");
+#endif
   }
 
   // General loop detection parameters (visible when any type is selected).
@@ -348,7 +354,9 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
 
   // 0 = None, 1 = Vocab Tree, 2+ = global descriptor (MixVPR / MegaLoc / ...)
   SetRowVisible(vocab_tree_grid_row_, idx == 1);
+#ifdef COLMAP_ONNX_ENABLED
   SetRowVisible(global_descriptor_grid_row_, idx >= 2);
+#endif
 }
 
 void SequentialMatchingTab::Run() {
@@ -360,7 +368,9 @@ void SequentialMatchingTab::Run() {
   if (idx == 1) {
     // Vocab Tree: clear global descriptor paths.
     options_->sequential_pairing->loop_detection_model_path.clear();
-  } else if (idx >= 2) {
+  }
+#ifdef COLMAP_ONNX_ENABLED
+  else if (idx >= 2) {
     // Global descriptor: clear vocab tree path, set model type from combo.
     options_->sequential_pairing->vocab_tree_path.clear();
     options_->sequential_pairing->loop_detection_model_type =
@@ -368,8 +378,10 @@ void SequentialMatchingTab::Run() {
     options_->sequential_pairing->loop_detection_database_path =
         *options_->database_path;
   }
+#endif
 
   if (options_->sequential_pairing->loop_detection) {
+#ifdef COLMAP_ONNX_ENABLED
     if (idx >= 2) {
       // Auto-derive image_path from the project.
       options_->sequential_pairing->loop_detection_image_path =
@@ -400,7 +412,9 @@ void SequentialMatchingTab::Run() {
                 .arg(loop_detection_type_cb_->currentText()));
         return;
       }
-    } else {
+    } else
+#endif
+    {
       const auto& tree_path =
           options_->sequential_pairing->vocab_tree_path;
       if (!tree_path.empty() && !ExistsFile(tree_path) &&
@@ -459,6 +473,7 @@ void VocabTreeMatchingTab::Run() {
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
+#ifdef COLMAP_ONNX_ENABLED
 GlobalDescriptorMatchingTab::GlobalDescriptorMatchingTab(
     QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
@@ -535,6 +550,7 @@ void GlobalDescriptorMatchingTab::Run() {
       *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
+#endif  // COLMAP_ONNX_ENABLED
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
@@ -648,8 +664,10 @@ FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
   tab_widget_->addTab(new SequentialMatchingTab(this, options),
                       tr("Sequential"));
   tab_widget_->addTab(new VocabTreeMatchingTab(this, options), tr("VocabTree"));
+#ifdef COLMAP_ONNX_ENABLED
   tab_widget_->addTab(new GlobalDescriptorMatchingTab(this, options),
                       tr("GlobalDescriptor"));
+#endif
   tab_widget_->addTab(new SpatialMatchingTab(this, options), tr("Spatial"));
   tab_widget_->addTab(new TransitiveMatchingTab(this, options),
                       tr("Transitive"));

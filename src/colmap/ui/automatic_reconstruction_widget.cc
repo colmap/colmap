@@ -60,7 +60,9 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   retrieval_type_cb_ = new QComboBox(this);
   retrieval_type_cb_->addItem("None (exhaustive matching)");
   retrieval_type_cb_->addItem("Vocabulary Tree");
+#ifdef COLMAP_ONNX_ENABLED
   retrieval_type_cb_->addItem("MixVPR (global descriptor)");
+#endif
   grid_layout_->addWidget(retrieval_type_cb_,
                           grid_layout_->rowCount() - 1, 1);
 
@@ -84,6 +86,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   }
 
   // Global descriptor model row (visible when MixVPR selected).
+#ifdef COLMAP_ONNX_ENABLED
   {
     global_descriptor_row_ = new QWidget(this);
     QHBoxLayout* hbox = new QHBoxLayout(global_descriptor_row_);
@@ -104,6 +107,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
     });
     edit->setObjectName("auto_global_descriptor_edit");
   }
+#endif
 
   connect(retrieval_type_cb_,
           QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -196,7 +200,13 @@ void AutomaticReconstructionWidget::UpdateRetrievalFields() {
   if (vocab_tree_row_)
     vocab_tree_row_->setVisible(idx == 1);
   if (global_descriptor_row_)
-    global_descriptor_row_->setVisible(idx == 2);
+    global_descriptor_row_->setVisible(
+#ifdef COLMAP_ONNX_ENABLED
+        idx == 2
+#else
+        false
+#endif
+    );
 }
 
 void AutomaticReconstructionWidget::Run() {
@@ -212,7 +222,9 @@ void AutomaticReconstructionWidget::Run() {
             : nullptr;
     if (edit) options_.vocab_tree_path = edit->text().toStdString();
     options_.global_descriptor_path.clear();
-  } else if (retrieval_idx == 2) {
+  }
+#ifdef COLMAP_ONNX_ENABLED
+  else if (retrieval_idx == 2) {
     // MixVPR global descriptor.
     QLineEdit* edit =
         global_descriptor_row_
@@ -221,7 +233,9 @@ void AutomaticReconstructionWidget::Run() {
             : nullptr;
     if (edit) options_.global_descriptor_path = edit->text().toStdString();
     options_.vocab_tree_path.clear();
-  } else {
+  }
+#endif
+  else {
     // None: clear both.
     options_.vocab_tree_path.clear();
     options_.global_descriptor_path.clear();
