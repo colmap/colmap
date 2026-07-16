@@ -30,6 +30,7 @@
 #include "colmap/scene/database_cache.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
 
 #include <gmock/gmock.h>
@@ -72,11 +73,11 @@ std::shared_ptr<Database> CreateTestDatabase() {
 
   PosePrior pose_prior1;
   pose_prior1.corr_data_id = image1.DataId();
-  pose_prior1.position = Eigen::Vector3d::Random();
+  pose_prior1.position = RandomEigenVectord<3>();
   pose_prior1.pose_prior_id = database->WritePosePrior(pose_prior1);
   PosePrior pose_prior2;
   pose_prior1.corr_data_id = image2.DataId();
-  pose_prior2.position = Eigen::Vector3d::Random();
+  pose_prior2.position = RandomEigenVectord<3>();
   pose_prior2.pose_prior_id = database->WritePosePrior(pose_prior2);
 
   Frame frame1;
@@ -99,11 +100,11 @@ std::shared_ptr<Database> CreateTestDatabase() {
   two_view_geometry.inlier_matches = {{0, 1}};
   two_view_geometry.config =
       TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
-  two_view_geometry.F = Eigen::Matrix3d::Random();
-  two_view_geometry.E = Eigen::Matrix3d::Random();
-  two_view_geometry.H = Eigen::Matrix3d::Random();
+  two_view_geometry.F = RandomEigenMatrixd<3, 3>();
+  two_view_geometry.E = RandomEigenMatrixd<3, 3>();
+  two_view_geometry.H = RandomEigenMatrixd<3, 3>();
   two_view_geometry.cam2_from_cam1 =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->WriteTwoViewGeometry(
       image1.ImageId(), image2.ImageId(), two_view_geometry);
   database->WriteTwoViewGeometry(
@@ -234,11 +235,11 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
   two_view_geometry.inlier_matches = {{0, 1}};
   two_view_geometry.config =
       TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
-  two_view_geometry.F = Eigen::Matrix3d::Random();
-  two_view_geometry.E = Eigen::Matrix3d::Random();
-  two_view_geometry.H = Eigen::Matrix3d::Random();
+  two_view_geometry.F = RandomEigenMatrixd<3, 3>();
+  two_view_geometry.E = RandomEigenMatrixd<3, 3>();
+  two_view_geometry.H = RandomEigenMatrixd<3, 3>();
   two_view_geometry.cam2_from_cam1 =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   database->WriteTwoViewGeometry(image_id1, image_id3, two_view_geometry);
 
@@ -326,7 +327,7 @@ TEST(DatabaseCache, ConstructFromCustom) {
 
   constexpr pose_prior_t kPosePriorId = 45;
   PosePrior pose_prior;
-  pose_prior.position = Eigen::Vector3d::Random();
+  pose_prior.position = RandomEigenVectord<3>();
   pose_prior.pose_prior_id = kPosePriorId;
   cache.AddPosePrior(pose_prior);
 
@@ -356,8 +357,7 @@ TEST(DatabaseCache, NonConstCorrespondenceGraph) {
 
   TwoViewGeometry geom = mutable_graph->ExtractTwoViewGeometry(
       image_id1, image_id2, /*extract_inlier_matches=*/false);
-  const Rigid3d new_pose(Eigen::Quaterniond::UnitRandom(),
-                         Eigen::Vector3d::Random());
+  const Rigid3d new_pose(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   geom.cam2_from_cam1 = new_pose;
   mutable_graph->UpdateTwoViewGeometry(image_id1, image_id2, geom);
 

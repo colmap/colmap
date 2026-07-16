@@ -29,6 +29,8 @@
 
 #include "colmap/feature/utils.h"
 
+#include "colmap/math/random_eigen.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -45,7 +47,7 @@ TEST(FeatureKeypointsToPointsVector, Nominal) {
 }
 
 TEST(L2NormalizeFeatureDescriptors, Nominal) {
-  FeatureDescriptorsFloatData descriptors = Eigen::MatrixXf::Random(100, 128);
+  FeatureDescriptorsFloatData descriptors = RandomEigenMatrixXf(100, 128);
   descriptors.array() += 1.0f;
   L2NormalizeFeatureDescriptors(&descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
@@ -54,7 +56,7 @@ TEST(L2NormalizeFeatureDescriptors, Nominal) {
 }
 
 TEST(L1RootNormalizeFeatureDescriptors, Nominal) {
-  FeatureDescriptorsFloatData descriptors = Eigen::MatrixXf::Random(100, 128);
+  FeatureDescriptorsFloatData descriptors = RandomEigenMatrixXf(100, 128);
   descriptors.array() += 1.0f;
   L1RootNormalizeFeatureDescriptors(&descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
@@ -63,7 +65,7 @@ TEST(L1RootNormalizeFeatureDescriptors, Nominal) {
 }
 
 TEST(FeatureDescriptorsToUnsignedByte, Nominal) {
-  Eigen::MatrixXf descriptors = Eigen::MatrixXf::Random(100, 128);
+  Eigen::MatrixXf descriptors = RandomEigenMatrixXf(100, 128);
   descriptors.array() += 1.0f;
   const FeatureDescriptorsData descriptors_uint8 =
       FeatureDescriptorsToUnsignedByte(descriptors);

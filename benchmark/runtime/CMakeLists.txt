@@ -6,6 +6,9 @@ target_link_libraries(benchmark_cost_functions PRIVATE colmap_estimators benchma
 add_executable(benchmark_imu_preintegration_cost_function imu_preintegration_cost_function.cc)
 target_link_libraries(benchmark_imu_preintegration_cost_function PRIVATE colmap_estimators benchmark::benchmark)
 
+add_executable(benchmark_fundamental_matrix_degensac fundamental_matrix_degensac.cc)
+target_link_libraries(benchmark_fundamental_matrix_degensac PRIVATE colmap_estimators benchmark::benchmark)
+
 add_executable(benchmark_bundle_adjustment bundle_adjustment.cc)
 target_link_libraries(benchmark_bundle_adjustment PRIVATE colmap_estimators colmap_scene benchmark::benchmark)
 

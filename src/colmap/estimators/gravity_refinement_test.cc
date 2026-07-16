@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
@@ -57,7 +58,7 @@ void SynthesizeGravityOutliers(std::vector<PosePrior>& pose_priors,
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.HasGravity() &&
         RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      pose_prior.gravity = Eigen::Vector3d::Random().normalized();
+      pose_prior.gravity = RandomEigenVectord<3>().normalized();
     }
   }
 }
