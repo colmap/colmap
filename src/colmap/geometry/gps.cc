@@ -115,6 +115,25 @@ GPSTransform::GPSTransform(const Ellipsoid ellipsoid) {
   e2_ = f_ * (2.0 - f_);
 }
 
+Eigen::Matrix3d GPSTransform::ENUFromECEF(const double ref_lat,
+                                          const double ref_lon) {
+  // Reference: https://en.wikipedia.org/wiki/Geographic_coordinate_conversion
+  const double cos_lat = std::cos(DegToRad(ref_lat));
+  const double sin_lat = std::sin(DegToRad(ref_lat));
+  const double cos_lon = std::cos(DegToRad(ref_lon));
+  const double sin_lon = std::sin(DegToRad(ref_lon));
+
+  Eigen::Matrix3d R;
+  R << -sin_lon, cos_lon, 0., -sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat,
+      cos_lat * cos_lon, cos_lat * sin_lon, sin_lat;
+  return R;
+}
+
+Eigen::Matrix3d GPSTransform::ECEFFromENU(const double ref_lat,
+                                          const double ref_lon) {
+  return ENUFromECEF(ref_lat, ref_lon).transpose();
+}
+
 std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToECEF(
     const std::vector<Eigen::Vector3d>& lat_lon_alt) const {
   std::vector<Eigen::Vector3d> xyz_in_ecef(lat_lon_alt.size());
@@ -199,15 +218,7 @@ std::vector<Eigen::Vector3d> GPSTransform::ECEFToENU(
   const double ref_lat = ref_ell(0);
   const double ref_lon = ref_ell(1);
 
-  // Build ECEF to ENU rotation matrix.
-  const double cos_lat = std::cos(DegToRad(ref_lat));
-  const double sin_lat = std::sin(DegToRad(ref_lat));
-  const double cos_lon = std::cos(DegToRad(ref_lon));
-  const double sin_lon = std::sin(DegToRad(ref_lon));
-
-  Eigen::Matrix3d R;
-  R << -sin_lon, cos_lon, 0., -sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat,
-      cos_lat * cos_lon, cos_lat * sin_lon, sin_lat;
+  const Eigen::Matrix3d R = ENUFromECEF(ref_lat, ref_lon);
 
   for (size_t i = 0; i < xyz_in_ecef.size(); ++i) {
     xyz_in_enu[i] = R * (xyz_in_ecef[i] - ref_ecef);
@@ -235,16 +246,7 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToECEF(
   const Eigen::Vector3d ref_xyz_in_ecef =
       EllipsoidToECEF({Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
 
-  // Build ENU to ECEF rotation matrix (transpose of ECEF to ENU).
-  const double cos_lat = std::cos(DegToRad(ref_lat));
-  const double sin_lat = std::sin(DegToRad(ref_lat));
-  const double cos_lon = std::cos(DegToRad(ref_lon));
-  const double sin_lon = std::sin(DegToRad(ref_lon));
-
-  Eigen::Matrix3d R;
-  R << -sin_lon, cos_lon, 0., -sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat,
-      cos_lat * cos_lon, cos_lat * sin_lon, sin_lat;
-  R.transposeInPlace();
+  const Eigen::Matrix3d R = ECEFFromENU(ref_lat, ref_lon);
 
   for (size_t i = 0; i < xyz_in_enu.size(); ++i) {
     xyz_in_ecef[i] = (R * xyz_in_enu[i]) + ref_xyz_in_ecef;

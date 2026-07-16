@@ -31,6 +31,7 @@
 
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -40,6 +41,7 @@
 #include <Eigen/Geometry>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <sqlite3.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -305,6 +307,101 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(pose_prior));
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
+}
+
+TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
+  const std::filesystem::path db_path = CreateTestDir() / "pre_rotation.db";
+
+  // Build a pre-extension pose_priors table (no rotation / rotation_covariance
+  // columns) and insert one row with only position/gravity, mirroring a
+  // database created before this product's migration.
+  {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(sqlite3_open(db_path.string().c_str(), &db), SQLITE_OK);
+    ASSERT_EQ(sqlite3_exec(db,
+                           "CREATE TABLE pose_priors"
+                           "   (pose_prior_id       INTEGER PRIMARY KEY NOT NULL,"
+                           "    corr_data_id        INTEGER NOT NULL,"
+                           "    corr_sensor_id      INTEGER NOT NULL,"
+                           "    corr_sensor_type    INTEGER NOT NULL,"
+                           "    position             BLOB,"
+                           "    position_covariance  BLOB,"
+                           "    gravity              BLOB,"
+                           "    coordinate_system    INTEGER NOT NULL);",
+                           nullptr,
+                           nullptr,
+                           nullptr),
+             SQLITE_OK);
+    sqlite3_stmt* stmt = nullptr;
+    ASSERT_EQ(sqlite3_prepare_v2(
+                  db,
+                  "INSERT INTO pose_priors(pose_prior_id, corr_data_id, "
+                  "corr_sensor_id, corr_sensor_type, position, "
+                  "position_covariance, gravity, coordinate_system) "
+                  "VALUES(1, 100, 1, 0, ?, ?, ?, 1);",
+                  -1,
+                  &stmt,
+                  nullptr),
+             SQLITE_OK);
+    const Eigen::Vector3d position(1.0, 2.0, 3.0);
+    const Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Identity();
+    const Eigen::Vector3d gravity(0.0, 0.0, -1.0);
+    ASSERT_EQ(sqlite3_bind_blob(
+                  stmt, 1, position.data(), sizeof(double) * 3, SQLITE_STATIC),
+             SQLITE_OK);
+    ASSERT_EQ(sqlite3_bind_blob(stmt,
+                                2,
+                                position_covariance.data(),
+                                sizeof(double) * 9,
+                                SQLITE_STATIC),
+             SQLITE_OK);
+    ASSERT_EQ(sqlite3_bind_blob(
+                  stmt, 3, gravity.data(), sizeof(double) * 3, SQLITE_STATIC),
+             SQLITE_OK);
+    ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+  }
+
+  // Reopen through the product's normal migration path (PostMigrateTables'
+  // ExistsColumn+ALTER TABLE pattern), which must preserve the old row.
+  std::shared_ptr<Database> database = Database::Open(db_path);
+  ASSERT_EQ(database->NumPosePriors(), 1);
+  const PosePrior migrated =
+      database->ReadPosePrior(1, /*is_deprecated_image_prior=*/false);
+  EXPECT_THAT(migrated.position,
+             EigenMatrixNear(Eigen::Vector3d(1.0, 2.0, 3.0), 1e-12));
+  EXPECT_THAT(migrated.position_covariance,
+             EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()),
+                             1e-12));
+  EXPECT_THAT(migrated.gravity,
+             EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, -1.0), 1e-12));
+  EXPECT_EQ(migrated.coordinate_system, PosePrior::CoordinateSystem::CARTESIAN);
+  EXPECT_FALSE(migrated.HasRotation());
+  EXPECT_FALSE(migrated.HasRotationCov());
+
+  // A newly written row with a full rotation and covariance must round-trip
+  // exactly through the migrated schema, in the documented W,X,Y,Z /
+  // XX,XY,XZ,YY,YZ,ZZ component order.
+  PosePrior new_prior;
+  new_prior.corr_data_id.id = 200;
+  new_prior.corr_data_id.sensor_id.id = 1;
+  new_prior.corr_data_id.sensor_id.type = SensorType::CAMERA;
+  new_prior.position = Eigen::Vector3d(4.0, 5.0, 6.0);
+  new_prior.position_covariance = Eigen::Matrix3d::Identity() * 2.0;
+  new_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  new_prior.gravity = Eigen::Vector3d(0.0, 0.0, -1.0);
+  new_prior.rotation = Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5);
+  Eigen::Matrix3d rotation_covariance;
+  rotation_covariance << 1.0, 0.1, 0.2, 0.1, 2.0, 0.3, 0.2, 0.3, 3.0;
+  new_prior.rotation_covariance = rotation_covariance;
+  new_prior.pose_prior_id = database->WritePosePrior(new_prior);
+
+  const PosePrior roundtrip = database->ReadPosePrior(
+      new_prior.pose_prior_id, /*is_deprecated_image_prior=*/false);
+  EXPECT_EQ(roundtrip, new_prior);
+  EXPECT_TRUE(roundtrip.HasRotation());
+  EXPECT_TRUE(roundtrip.HasRotationCov());
 }
 
 TEST_P(ParameterizedDatabaseTests, Keypoints) {

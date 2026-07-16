@@ -46,6 +46,15 @@ class GPSTransform {
 
   explicit GPSTransform(Ellipsoid ellipsoid = Ellipsoid::GRS80);
 
+  // Rotation matrix mapping ECEF-frame vectors to the local ENU frame at
+  // (ref_lat, ref_lon), i.e. xyz_in_enu = ENUFromECEF(...) * xyz_in_ecef.
+  // Latitude/longitude are in degrees.
+  static Eigen::Matrix3d ENUFromECEF(double ref_lat, double ref_lon);
+
+  // Rotation matrix mapping local-ENU-frame vectors at (ref_lat, ref_lon) to
+  // the ECEF frame. Equal to ENUFromECEF(ref_lat, ref_lon).transpose().
+  static Eigen::Matrix3d ECEFFromENU(double ref_lat, double ref_lon);
+
   // Convert ellipsoidal (lat/lon/alt) to ECEF coordinates.
   std::vector<Eigen::Vector3d> EllipsoidToECEF(
       const std::vector<Eigen::Vector3d>& lat_lon_alt) const;
