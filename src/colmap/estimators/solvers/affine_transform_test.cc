@@ -30,6 +30,7 @@
 #include "colmap/estimators/solvers/affine_transform.h"
 
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -63,7 +64,7 @@ GenerateData(size_t num_inliers,
 }
 
 void TestEstimateAffine2dWithNumCoords(const size_t num_coords) {
-  const Eigen::Matrix2x3d gt_tgt_from_src = Eigen::Matrix2x3d::Random();
+  const Eigen::Matrix2x3d gt_tgt_from_src = RandomEigenMatrixd<2, 3>();
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_coords,
       /*num_outliers=*/0,
@@ -100,7 +101,7 @@ TEST(Affine2d, EstimateRobust) {
   const size_t num_inliers = 1000;
   const size_t num_outliers = 400;
 
-  const Eigen::Matrix2x3d gt_tgt_from_src = Eigen::Matrix2x3d::Random();
+  const Eigen::Matrix2x3d gt_tgt_from_src = RandomEigenMatrixd<2, 3>();
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_inliers,
       /*num_outliers=*/num_outliers,

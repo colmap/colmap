@@ -98,6 +98,11 @@ struct TwoViewGeometryOptions {
   // between both cameras.
   bool force_H_use = false;
 
+  // Use DEGENSAC (Chum et al., CVPR 2005) for the fundamental matrix instead of
+  // plain LO-RANSAC, making estimation robust to a dominant scene plane. On by
+  // default.
+  bool use_degensac = true;
+
   // Whether to compute the relative pose between the two views.
   bool compute_relative_pose = false;
 

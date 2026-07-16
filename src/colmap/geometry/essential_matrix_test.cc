@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -43,7 +44,7 @@ namespace colmap {
 namespace {
 
 TEST(DecomposeEssentialMatrix, Nominal) {
-  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                Eigen::Vector3d(0.5, 1, 1).normalized());
   const Eigen::Matrix3d cam2_from_cam1_rot_mat =
       cam2_from_cam1.rotation().toRotationMatrix();
@@ -151,7 +152,7 @@ TEST(InvertEssentialMatrix, Nominal) {
 
 TEST(FundamentalFromEssentialMatrix, Nominal) {
   const Eigen::Matrix3d E = EssentialMatrixFromPose(
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   const Eigen::Matrix3d K1 =
       (Eigen::Matrix3d() << 2, 0, 1, 0, 3, 2, 0, 0, 1).finished();
   const Eigen::Matrix3d K2 =
@@ -166,7 +167,7 @@ TEST(FundamentalFromEssentialMatrix, Nominal) {
 
 TEST(EssentialFromFundamentalMatrix, Nominal) {
   const Eigen::Matrix3d E = EssentialMatrixFromPose(
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   const Eigen::Matrix3d K1 =
       (Eigen::Matrix3d() << 2, 0, 1, 0, 3, 2, 0, 0, 1).finished();
   const Eigen::Matrix3d K2 =

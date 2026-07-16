@@ -32,6 +32,7 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/synthetic.h"
 
 #include <gtest/gtest.h>
@@ -157,7 +158,7 @@ TEST(EstimateRelativePose, Nominal) {
 
   std::vector<Eigen::Vector3d> points3D(100);
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points3D[i] = Eigen::Vector3d::Random();
+    points3D[i] = RandomEigenVectord<3>();
   }
 
   std::vector<Eigen::Vector3d> rays1(points3D.size());
@@ -191,8 +192,8 @@ TEST(RefineAbsolutePose, Nominal) {
   Rigid3d cam_from_world = problem.image.CamFromWorld();
   cam_from_world =
       cam_from_world * Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
-                                   0.1, Eigen::Vector3d::Random())),
-                               0.1 * Eigen::Vector3d::Random());
+                                   0.1, RandomEigenVectord<3>())),
+                               0.1 * RandomEigenVectord<3>());
   Camera camera = problem.camera;
   Eigen::Matrix6d cam_from_world_cov = Eigen::Matrix6d::Zero();
   EXPECT_TRUE(RefineAbsolutePose(options,

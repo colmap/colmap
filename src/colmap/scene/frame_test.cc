@@ -29,6 +29,7 @@
 
 #include "colmap/scene/frame.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gmock/gmock.h>
@@ -38,7 +39,7 @@ namespace colmap {
 namespace {
 
 Rigid3d TestRigid3d() {
-  return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  return Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
 }
 
 TEST(Frame, Default) {
