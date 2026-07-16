@@ -3,9 +3,10 @@
 Pose Priors
 ===========
 
-COLMAP can ingest external position/orientation measurements (GPS, RTK,
-GNSS/INS, or a flight controller's onboard estimate) as **pose priors** on a
-per-image basis, use them to speed up and stabilize global SfM, and produce a
+COLMAP can ingest external position/orientation measurements (for example,
+GNSS, RTK, an inertial navigation solution, survey control, or motion
+capture) as **pose priors** on a per-image basis, use them to speed up and
+stabilize global SfM, and produce a
 scene-to-Earth georeference report after reconstruction. This page documents
 the full pipeline: importing an archive, the exact conventions each field
 must satisfy, the ``pose_prior_mapper``/``global_mapper`` modes that consume
@@ -51,7 +52,7 @@ An archive has three parts:
   row in the archive.
 - **Schema**: an ordered list of column names describing each data row.
   Column order is arbitrary and unknown columns are parsed but discarded, so
-  archives can carry extra vendor-specific columns without breaking import.
+  archives can carry extra source-specific columns without breaking import.
 - **Data**: one row per image. ``NAME`` resolves to a database image by
   filename; rows that don't resolve are skipped with a warning, not an
   error, so a partial archive against a partial dataset still imports.
@@ -143,12 +144,13 @@ reason (no orientation priors present, consensus failed, etc.) when it
 cannot engage, and ``engaged=true`` with the chosen frame otherwise — never
 silently falling back.
 
-**GPS trajectory normally supplies north**; a compass/magnetometer-derived
-heading is an optional refinement layered on top, not a requirement. A
-GPS-only archive (position, no orientation) is a fully supported and common
-input — it drives ``pose_prior_position_mode`` but leaves
-``pose_prior_rotation_mode`` unengaged, which is expected, not a
-misconfiguration.
+A sufficiently varied position track can determine a horizontal world gauge
+from geometry alone. Absolute orientation is an independent, optional source
+of information; it is most useful when the position layout is weak, when a
+specific local-world orientation must be preserved, or when orientation
+residuals are themselves diagnostically important. A position-only archive
+is fully supported and leaves ``pose_prior_rotation_mode`` unengaged by
+design.
 
 Note that :ref:`spatial/sequential/retrieval pairing <cli>` (used before
 feature matching) uses pose priors only to *propose* candidate image pairs;
@@ -169,13 +171,17 @@ sfm-to-Earth transform plus per-camera residuals::
         --output_path MODEL_ALIGNED \
         --database_path DATABASE \
         --alignment_type enu \
+        --alignment_max_error 5.0 \
         --georeference_json report.json \
         --camera_residuals_csv residuals.csv
 
 The alignment is a robust (RANSAC) similarity (``Sim3d``) fit between the
 reconstruction's camera centers and their position pose priors converted to
 a local ENU frame, so it tolerates a minority of grossly wrong priors
-without needing them removed by hand first.
+without needing them removed by hand first. ``--alignment_max_error`` is the
+position inlier threshold in metres and must be positive; choose it from the
+expected measurement, association, and calibration error rather than treating
+the example value as universal.
 
 **Choosing the ENU origin.** By default the origin is derived automatically
 as the geometric median (Weiszfeld's algorithm — robust to outliers, unlike
@@ -188,12 +194,20 @@ supply an explicit origin with ``--enu_origin_lat/--enu_origin_lon/
 --enu_origin_alt`` (all three or none); this is recorded in the report as
 ``explicit`` rather than ``derived``.
 
-``--use_pose_prior_orientation`` is accepted for forward compatibility with
-an orientation-assisted joint refinement, but **is not yet implemented** —
-passing it logs a warning and the alignment remains position-only. The
-report always reflects this honestly: ``orientation_requested`` reflects the
-flag, ``orientation_engaged`` is always ``false``, and every orientation
-column in both outputs is empty rather than a placeholder zero.
+For Cartesian priors, Earth output additionally requires an explicit geodetic
+origin and ``--pose_prior_cartesian_frame=ENU``. This explicit assertion is
+necessary because the database's Cartesian coordinate-system tag does not by
+itself distinguish a local arbitrary frame from an Earth-oriented ENU frame.
+
+With ``--use_pose_prior_orientation=1``, the robust position-only Sim3 remains
+the starting point and its position inlier set remains authoritative. COLMAP
+then refines the same single global Sim3 with covariance-weighted position and
+absolute-orientation residuals under robust losses. Orientation outliers are
+classified with ``--orientation_max_error_deg`` and removed before one final
+refinement. If no usable orientation remains or the refinement is unusable,
+COLMAP retains the valid position-only transform and reports
+``orientation_requested=true`` and ``orientation_engaged=false``. Relative
+camera geometry is never adjusted independently by this operation.
 
 **The JSON report** (``--georeference_json``) contains: a scene identifier
 (supplied via ``--scene_id`` or a generated UUID), COLMAP's build/source
@@ -202,8 +216,11 @@ WGS84 ellipsoid and the ellipsoidal-height convention, the chosen ENU
 origin and whether it was explicit or derived, all six transform directions
 between scene, ENU, and ECEF (each verified to numerically round-trip its
 declared inverse before the report is written), metres-per-input-unit, and
-position support/inlier/residual diagnostics (mean/median/p90/max, in 3D,
-horizontal, and vertical). It intentionally does **not** depend on COLMAP's
+position and orientation support/inlier/residual diagnostics; horizontal and
+3D extent conditioning; baseline-to-measured-uncertainty ratio; maximum scene
+radius; and ellipsoid-to-tangent-plane departure. These values describe the
+fit and its geometry, not independent positioning accuracy. The report
+intentionally does **not** depend on COLMAP's
 optional download/curl/crypto feature and does not compute file hashes —
 geometry/report SHA256 values belong one layer downstream, in an exported
 asset's own sidecar (see below), where the actual asset bytes exist.
@@ -216,27 +233,29 @@ image, sorted by name::
     residual_e,residual_n,residual_u,residual_horizontal,residual_vertical,residual_3d,
     has_orientation_prior,orientation_fit_inlier,orientation_residual_deg
 
-Absent numeric values (e.g. an image with no position prior, or the
-always-deferred orientation columns) are empty cells, never ``0`` or the
-literal text ``NaN`` — a downstream CSV reader must be able to distinguish
-"no data" from "measured zero."
+Absent numeric values are empty cells, never ``0`` or the literal text
+``NaN``. Registered prior-bearing images receive solved coordinates and
+residuals whether they were fit inliers or outliers, so the CSV preserves the
+very disagreements that are most useful for diagnosing bad metadata,
+timestamp association, or reconstruction failure.
 
 **Report diagnostics have limitations worth knowing before trusting them at
 face value**: residuals are computed after the same robust fit that used
 those very points as (candidate) inliers, so they describe fit quality, not
 an independent validation; the RANSAC inlier/outlier split is a hard
-threshold on one robust fit, not a calibrated per-point confidence; and
-because orientation is not yet engaged, the report cannot detect an image
-whose *position* prior is accurate but whose *orientation* would reveal a
-larger underlying error.
+threshold on one robust fit, not a calibrated per-point confidence; measured
+covariance describes the upstream measurement model and can itself be wrong;
+and a low residual cannot establish absolute accuracy without independent
+control observations.
 
 
-Downstream asset composition (PLY/SOG)
-----------------------------------------
+Downstream asset composition
+----------------------------
 
-COLMAP does not parse or write PLY/SOG asset sidecars itself; this section
-documents the contract so an external exporter can compose one consistently
-from a georeference report, without tying COLMAP to either format.
+COLMAP reports coordinate transforms for its reconstruction. An external
+exporter can carry the same georeference into a point cloud, mesh, radiance
+field, tiled map, or another derived representation without making COLMAP
+depend on that representation's file format.
 
 Every downstream asset sidecar copies the report's ``scene_id`` and
 contains: an ``asset_id``, an optional ``parent_asset_id``, the geometry
@@ -259,52 +278,41 @@ Composition rules:
   edit must either mark the direct georeference invalid on the child asset,
   or emit a richer mapping than a single similarity transform. Never force
   a non-rigid edit into a ``Sim3`` field.
-- To place a real-world WGS84 point (e.g. from a phone's GPS) into asset
-  space: convert WGS84 → ECEF, then apply ``asset_from_ecef``. To place an
+- To place a real-world WGS84 point from any positioning client into asset
+  space: convert WGS84 to ECEF, then apply ``asset_from_ecef``. To place an
   asset-space point on Earth: apply ``ecef_from_asset``.
 
-PLY assets use an adjacent sidecar file for these fields. SOG assets may
-either embed the identical fields or also use an adjacent sidecar — the
-report supplies everything an exporter needs regardless of which the target
-format prefers.
+Formats with no metadata channel, including ordinary PLY, can use an adjacent
+sidecar. Formats with extensible metadata may embed the same fields. The
+composition contract is format-independent.
 
 
 Source-adapter responsibilities
 ----------------------------------
 
-COLMAP's pose-prior archive format is intentionally generic; producing a
-*correct* archive from a specific capture device is the adapter's
-responsibility, not COLMAP's. The following conventions must be proven true
-for the specific device/firmware before an adapter emits full orientation:
+COLMAP's pose-prior archive is intentionally source-agnostic. Producing a
+*correct* archive from embedded image metadata, a GNSS/INS receiver, a mobile
+device, a robotics stack, motion capture, or surveyed control is the source
+adapter's responsibility. Before emitting a measurement, an adapter must
+establish:
 
-- **GoPro (JPEG APP6/GPMF), extracted-frame GPMF**: the altitude reported by
-  consumer GPS is not ellipsoidal by default (it is typically a device- or
-  firmware-specific mix of barometric and MSL/geoid-relative estimates); an
-  adapter must apply an explicit geoid or barometric correction before
-  writing ``ALT`` under ``height_datum: ELLIPSOIDAL``, or omit ``ALT``
-  entirely (horizontal-only) rather than guess.
-- **Betaflight (ESKF/compass) flight-controller logs**: a fused
-  orientation estimate is only as trustworthy as its inputs; a magnetometer
-  reading present in the log does **not** by itself make the fused
-  quaternion trustworthy — magnetic declination at the capture location,
-  camera/IMU extrinsic calibration, timestamp alignment between the log and
-  the image/frame it's attached to, and the quaternion's axis
-  convention/handedness must each be verified for that specific rig before
-  the orientation is emitted as a pose prior.
-- In general, for any adapter: ``GravityVector`` is only a unit down vector
-  in sensor coordinates once the sensor-to-camera axis calibration (which
-  axis is "down" in the raw IMU frame, and any mounting rotation) is known
-  and applied — an uncalibrated raw accelerometer reading is not a gravity
-  prior. Full orientation should only be emitted once quaternion direction
-  (``sensor_from_world`` vs. its inverse), axis order, handedness,
-  camera/IMU extrinsics, magnetic declination (if used), and log/frame
-  timestamp alignment are all verified for that device. If any one of these
-  is unverified, prefer emitting a gravity-only or position-only prior.
-- **Missing yaw stays missing.** If a device cannot supply a trustworthy
-  heading (e.g. no magnetometer, or GPS speed too low to derive course over
-  ground), the adapter must leave the orientation prior entirely absent
-  (``HasRotation() == false``) rather than emit a guessed quaternion with an
-  inflated covariance to "represent the uncertainty" — a large-covariance
-  guess still biases a weighted solve toward a specific (wrong) heading,
-  while an absent prior contributes nothing and is handled correctly by
-  every consumer described above.
+- the timestamp association between the measurement and image exposure;
+- the height datum and any geoid or barometric conversion needed before
+  declaring ``height_datum: ELLIPSOIDAL``;
+- sensor-to-camera extrinsics and axis/handedness conventions;
+- quaternion direction (``sensor_from_world`` rather than its inverse);
+- the world frame used by positions, orientations, and their covariances;
+- covariance units, basis, and whether the values are actually calibrated;
+- any heading-reference correction required by the upstream navigation
+  system.
+
+A gravity vector is a unit down direction in camera-sensor coordinates only
+after the relevant axis and mounting transforms have been applied. A raw
+accelerometer sample is not automatically a gravity prior. Likewise, the
+presence of a heading sensor does not prove that a fused orientation is
+accurate or expressed in the required frame.
+
+Missing information stays missing. If altitude, yaw, covariance, or full
+orientation cannot be established, omit that measurement group instead of
+inserting zero, a guessed value, or a large-covariance placeholder. Absence is
+handled explicitly throughout import, mapping, and reporting.

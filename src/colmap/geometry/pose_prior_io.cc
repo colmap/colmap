@@ -714,7 +714,53 @@ void PosePriorArchive::UpdatePosePriors(
     }
 
     PosePrior& prior = *prior_ptr;
-    prior.coordinate_system = metadata.coordinate_system;
+    const auto row_has_all = [&](std::initializer_list<ColumnId> columns) {
+      for (const ColumnId column : columns) {
+        if (!std::isfinite(get_double(row[column_indices.at(column)]))) {
+          return false;
+        }
+      }
+      return true;
+    };
+    const bool row_has_position =
+        has_translation &&
+        (is_geographic
+             ? row_has_all({ColumnId::LAT, ColumnId::LON})
+             : row_has_all({ColumnId::TX, ColumnId::TY, ColumnId::TZ}));
+    const bool row_has_position_covariance =
+        (translation_std_presence.all &&
+         row_has_all({ColumnId::STD_TX, ColumnId::STD_TY, ColumnId::STD_TZ})) ||
+        (translation_cov_presence.all && row_has_all({ColumnId::COV_TXX,
+                                                      ColumnId::COV_TXY,
+                                                      ColumnId::COV_TXZ,
+                                                      ColumnId::COV_TYY,
+                                                      ColumnId::COV_TYZ,
+                                                      ColumnId::COV_TZZ}));
+    const bool row_has_rotation =
+        rotation_presence.all &&
+        row_has_all({ColumnId::QW, ColumnId::QX, ColumnId::QY, ColumnId::QZ});
+    const bool row_has_rotation_covariance =
+        rotation_cov_presence.all && row_has_all({ColumnId::ROT_COV_XX,
+                                                  ColumnId::ROT_COV_XY,
+                                                  ColumnId::ROT_COV_XZ,
+                                                  ColumnId::ROT_COV_YY,
+                                                  ColumnId::ROT_COV_YZ,
+                                                  ColumnId::ROT_COV_ZZ});
+    const bool row_has_coordinate_measurement =
+        row_has_position || row_has_position_covariance || row_has_rotation ||
+        row_has_rotation_covariance;
+    const bool existing_has_coordinate_measurement =
+        prior.HasPosition() || prior.HasPositionCov() || prior.HasRotation() ||
+        prior.HasRotationCov();
+    THROW_CHECK(!is_prior_exist || !row_has_coordinate_measurement ||
+                !existing_has_coordinate_measurement ||
+                prior.coordinate_system == metadata.coordinate_system)
+        << "Cannot merge coordinate-bearing pose-prior groups expressed in "
+           "different coordinate systems for "
+        << name;
+    if (!is_prior_exist || row_has_coordinate_measurement) {
+      prior.coordinate_system = metadata.coordinate_system;
+    }
 
     // A group is present for a row only when at least one of its cells is
     // finite (schema-level presence, checked above via has_translation, only

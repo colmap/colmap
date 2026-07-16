@@ -140,10 +140,23 @@ void BindAlignmentEstimator(py::module& m) {
       .def_readwrite("tgt_from_src", &PosePriorAlignmentResult::tgt_from_src)
       .def_readwrite("correspondence_image_ids",
                      &PosePriorAlignmentResult::correspondence_image_ids)
+      .def_readwrite("orientation_requested",
+                     &PosePriorAlignmentResult::orientation_requested)
+      .def_readwrite("orientation_engaged",
+                     &PosePriorAlignmentResult::orientation_engaged)
+      .def_readwrite("orientation_image_ids",
+                     &PosePriorAlignmentResult::orientation_image_ids)
+      .def_readwrite("orientation_residuals_deg",
+                     &PosePriorAlignmentResult::orientation_residuals_deg)
       .def_property_readonly(
           "inlier_mask",
           [](const PosePriorAlignmentResult& self) -> PyInlierMask {
             return ToPythonMask(self.inlier_mask);
+          })
+      .def_property_readonly(
+          "orientation_inlier_mask",
+          [](const PosePriorAlignmentResult& self) -> PyInlierMask {
+            return ToPythonMask(self.orientation_inlier_mask);
           });
 
   m.def("align_reconstruction_to_pose_priors_robust",
@@ -154,6 +167,32 @@ void BindAlignmentEstimator(py::module& m) {
         "Robustly align a reconstruction to pose priors, returning the "
         "RANSAC inlier mask and correspondence image ids alongside the "
         "similarity transform.");
+
+  m.def(
+      "refine_pose_prior_alignment_with_orientations",
+      [](const Reconstruction& src_reconstruction,
+         const std::vector<PosePrior>& tgt_pose_priors,
+         const double position_fallback_stddev,
+         const double orientation_fallback_stddev_rad,
+         const double orientation_max_error_deg,
+         PosePriorAlignmentResult result) {
+        RefinePosePriorAlignmentWithOrientations(
+            src_reconstruction,
+            tgt_pose_priors,
+            position_fallback_stddev,
+            orientation_fallback_stddev_rad,
+            orientation_max_error_deg,
+            &result);
+        return result;
+      },
+      "src_reconstruction"_a,
+      "tgt_pose_priors"_a,
+      "position_fallback_stddev"_a,
+      "orientation_fallback_stddev_rad"_a,
+      "orientation_max_error_deg"_a,
+      "result"_a,
+      "Refine a successful position alignment with absolute orientation "
+      "priors while preserving its position inlier set.");
 
   m.def(
       "compare_reconstructions",

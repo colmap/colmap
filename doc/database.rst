@@ -97,8 +97,8 @@ Pose priors
 -----------
 
 The ``pose_priors`` table stores an optional, externally supplied position
-and/or orientation measurement (e.g. GPS/GNSS/INS or a flight controller
-estimate) per sensor, keyed by the same ``data_id`` used elsewhere to
+and/or orientation measurement (for example, GNSS/INS, survey control, or
+motion capture) per sensor, keyed by the same ``data_id`` used elsewhere to
 identify a sensor within a frame. Position, gravity, and full orientation
 are each independently optional and explicitly absent (not defaulted) when
 unavailable. See :ref:`Pose Priors <pose-priors>` for the archive import

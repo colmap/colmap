@@ -54,6 +54,9 @@
 #include <random>
 #include <sstream>
 
+#include <Eigen/Eigenvalues>
+#include <Eigen/SVD>
+
 namespace colmap {
 namespace {
 
@@ -348,10 +351,15 @@ struct CameraResidual {
   bool registered = false;
   bool has_position_prior = false;
   bool position_fit_inlier = false;
+  bool has_orientation_prior = false;
+  bool orientation_fit_inlier = false;
   Eigen::Vector3d prior_enu =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   Eigen::Vector3d solved_enu =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  Eigen::Matrix3d position_covariance_enu =
+      Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  double orientation_residual_deg = std::numeric_limits<double>::quiet_NaN();
 };
 
 double Percentile(std::vector<double> values, double fraction) {
@@ -369,6 +377,48 @@ double Percentile(std::vector<double> values, double fraction) {
   return values[lo] * (1.0 - t) + values[hi] * t;
 }
 
+struct ScalarStatistics {
+  double mean = std::numeric_limits<double>::quiet_NaN();
+  double median = std::numeric_limits<double>::quiet_NaN();
+  double p90 = std::numeric_limits<double>::quiet_NaN();
+  double max = std::numeric_limits<double>::quiet_NaN();
+};
+
+ScalarStatistics ComputeStatistics(const std::vector<double>& values) {
+  ScalarStatistics stats;
+  if (values.empty()) {
+    return stats;
+  }
+  stats.mean = Mean(values);
+  stats.median = Percentile(values, 0.5);
+  stats.p90 = Percentile(values, 0.9);
+  stats.max = *std::max_element(values.begin(), values.end());
+  return stats;
+}
+
+template <int kDim>
+Eigen::Matrix<double, kDim, 1> CenteredRmsSingularValues(
+    const std::vector<Eigen::Vector3d>& points) {
+  Eigen::Matrix<double, kDim, 1> values =
+      Eigen::Matrix<double, kDim, 1>::Constant(
+          std::numeric_limits<double>::quiet_NaN());
+  if (points.size() < static_cast<size_t>(kDim)) {
+    return values;
+  }
+  Eigen::Matrix<double, Eigen::Dynamic, kDim> centered(points.size(), kDim);
+  Eigen::Matrix<double, kDim, 1> mean = Eigen::Matrix<double, kDim, 1>::Zero();
+  for (const Eigen::Vector3d& point : points) {
+    mean += point.head<kDim>();
+  }
+  mean /= static_cast<double>(points.size());
+  for (size_t i = 0; i < points.size(); ++i) {
+    centered.row(i) = (points[i].head<kDim>() - mean).transpose();
+  }
+  values = centered.jacobiSvd().singularValues() /
+           std::sqrt(static_cast<double>(points.size()));
+  return values;
+}
+
 void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
                                  const std::string& scene_id,
                                  const std::string& source_commit,
@@ -381,6 +431,8 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
                                  bool origin_is_explicit,
                                  const Sim3d& enu_from_sfm,
                                  const std::vector<CameraResidual>& residuals,
+                                 int num_database_pose_priors,
+                                 double max_ellipsoid_tangent_departure_m,
                                  double position_ransac_threshold,
                                  double orientation_max_error_deg,
                                  bool orientation_requested,
@@ -410,37 +462,85 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   std::vector<double> horizontal_residuals;
   std::vector<double> vertical_residuals;
   std::vector<double> full_residuals;
+  std::vector<double> orientation_residuals;
+  std::vector<double> horizontal_sigmas;
   int num_position_inliers = 0;
+  int num_registered_correspondences = 0;
+  int num_orientation_candidates = 0;
+  int num_orientation_inliers = 0;
   double max_horizontal_radius = 0.0;
   double max_3d_radius = 0.0;
   double max_horizontal_baseline = 0.0;
-  std::vector<Eigen::Vector3d> inlier_solved_enu;
+  std::vector<Eigen::Vector3d> inlier_prior_enu;
   for (const CameraResidual& r : residuals) {
-    if (r.position_fit_inlier) {
+    if (r.registered && r.prior_enu.allFinite()) {
+      ++num_registered_correspondences;
+    }
+    if (r.position_fit_inlier && r.prior_enu.allFinite() &&
+        r.solved_enu.allFinite()) {
       ++num_position_inliers;
       const Eigen::Vector3d diff = r.solved_enu - r.prior_enu;
       horizontal_residuals.push_back(std::hypot(diff.x(), diff.y()));
       vertical_residuals.push_back(std::abs(diff.z()));
       full_residuals.push_back(diff.norm());
-      max_horizontal_radius =
-          std::max(max_horizontal_radius,
-                   std::hypot(r.solved_enu.x(), r.solved_enu.y()));
-      max_3d_radius = std::max(max_3d_radius, r.solved_enu.norm());
-      inlier_solved_enu.push_back(r.solved_enu);
+      max_horizontal_radius = std::max(
+          max_horizontal_radius, std::hypot(r.prior_enu.x(), r.prior_enu.y()));
+      max_3d_radius = std::max(max_3d_radius, r.prior_enu.norm());
+      inlier_prior_enu.push_back(r.prior_enu);
+      if (r.position_covariance_enu.allFinite()) {
+        const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> eig(
+            r.position_covariance_enu.topLeftCorner<2, 2>());
+        if (eig.info() == Eigen::Success && eig.eigenvalues().allFinite() &&
+            eig.eigenvalues().maxCoeff() >= 0.0) {
+          horizontal_sigmas.push_back(std::sqrt(eig.eigenvalues().maxCoeff()));
+        }
+      }
+    }
+    if (r.registered && r.has_orientation_prior) {
+      ++num_orientation_candidates;
+    }
+    if (r.orientation_fit_inlier && std::isfinite(r.orientation_residual_deg)) {
+      ++num_orientation_inliers;
+      orientation_residuals.push_back(r.orientation_residual_deg);
     }
   }
-  for (size_t i = 0; i < inlier_solved_enu.size(); ++i) {
-    for (size_t j = i + 1; j < inlier_solved_enu.size(); ++j) {
+  for (size_t i = 0; i < inlier_prior_enu.size(); ++i) {
+    for (size_t j = i + 1; j < inlier_prior_enu.size(); ++j) {
       const double d =
-          (inlier_solved_enu[i].head<2>() - inlier_solved_enu[j].head<2>())
+          (inlier_prior_enu[i].head<2>() - inlier_prior_enu[j].head<2>())
               .norm();
       max_horizontal_baseline = std::max(max_horizontal_baseline, d);
     }
   }
 
+  const ScalarStatistics horizontal_stats =
+      ComputeStatistics(horizontal_residuals);
+  const ScalarStatistics vertical_stats = ComputeStatistics(vertical_residuals);
+  const ScalarStatistics full_stats = ComputeStatistics(full_residuals);
+  const ScalarStatistics orientation_stats =
+      ComputeStatistics(orientation_residuals);
+  const double sigma_h = Percentile(horizontal_sigmas, 0.5);
+  const double baseline_to_sigma =
+      std::isfinite(sigma_h) && sigma_h > 0.0
+          ? max_horizontal_baseline / sigma_h
+          : std::numeric_limits<double>::quiet_NaN();
+  const Eigen::Vector2d horizontal_rms_singular_values =
+      CenteredRmsSingularValues<2>(inlier_prior_enu);
+  const Eigen::Vector3d full_rms_singular_values =
+      CenteredRmsSingularValues<3>(inlier_prior_enu);
+  const double horizontal_condition_ratio =
+      horizontal_rms_singular_values.allFinite() &&
+              horizontal_rms_singular_values.x() > 0.0
+          ? horizontal_rms_singular_values.y() /
+                horizontal_rms_singular_values.x()
+          : std::numeric_limits<double>::quiet_NaN();
+  const double full_condition_ratio =
+      full_rms_singular_values.allFinite() && full_rms_singular_values.x() > 0.0
+          ? full_rms_singular_values.z() / full_rms_singular_values.x()
+          : std::numeric_limits<double>::quiet_NaN();
+
   int num_registered = 0;
   int num_with_prior = 0;
-  int num_orientation_candidates = 0;
   for (const CameraResidual& r : residuals) {
     if (r.registered) {
       ++num_registered;
@@ -476,37 +576,57 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   json << "},";
   json << "\"metres_per_sfm_unit\":" << JSONNumber(enu_from_sfm.scale()) << ",";
   json << "\"support\":{";
+  json << "\"num_database_pose_priors\":" << num_database_pose_priors << ",";
   json << "\"num_registered\":" << num_registered << ",";
   json << "\"num_with_position_prior\":" << num_with_prior << ",";
+  json << "\"num_registered_position_correspondences\":"
+       << num_registered_correspondences << ",";
   json << "\"num_position_inliers\":" << num_position_inliers << ",";
   json << "\"num_orientation_candidates\":" << num_orientation_candidates
        << ",";
-  json << "\"num_orientation_inliers\":0";
+  json << "\"num_orientation_inliers\":" << num_orientation_inliers;
   json << "},";
   json << "\"diagnostics\":{";
   json << "\"position_3d_residual_m\":{"
-       << "\"mean\":" << JSONNumber(Mean(full_residuals))
-       << ",\"median\":" << JSONNumber(Percentile(full_residuals, 0.5))
-       << ",\"p90\":" << JSONNumber(Percentile(full_residuals, 0.9))
-       << ",\"max\":"
-       << JSONNumber(full_residuals.empty()
-                         ? std::numeric_limits<double>::quiet_NaN()
-                         : *std::max_element(full_residuals.begin(),
-                                             full_residuals.end()))
-       << "},";
+       << "\"mean\":" << JSONNumber(full_stats.mean)
+       << ",\"median\":" << JSONNumber(full_stats.median)
+       << ",\"p90\":" << JSONNumber(full_stats.p90)
+       << ",\"max\":" << JSONNumber(full_stats.max) << "},";
   json << "\"position_horizontal_residual_m\":{"
-       << "\"mean\":" << JSONNumber(Mean(horizontal_residuals))
-       << ",\"median\":" << JSONNumber(Percentile(horizontal_residuals, 0.5))
-       << "},";
+       << "\"mean\":" << JSONNumber(horizontal_stats.mean)
+       << ",\"median\":" << JSONNumber(horizontal_stats.median)
+       << ",\"p90\":" << JSONNumber(horizontal_stats.p90)
+       << ",\"max\":" << JSONNumber(horizontal_stats.max) << "},";
   json << "\"position_vertical_residual_m\":{"
-       << "\"mean\":" << JSONNumber(Mean(vertical_residuals))
-       << ",\"median\":" << JSONNumber(Percentile(vertical_residuals, 0.5))
-       << "},";
+       << "\"mean\":" << JSONNumber(vertical_stats.mean)
+       << ",\"median\":" << JSONNumber(vertical_stats.median)
+       << ",\"p90\":" << JSONNumber(vertical_stats.p90)
+       << ",\"max\":" << JSONNumber(vertical_stats.max) << "},";
+  json << "\"orientation_residual_deg\":{"
+       << "\"mean\":" << JSONNumber(orientation_stats.mean)
+       << ",\"median\":" << JSONNumber(orientation_stats.median)
+       << ",\"p90\":" << JSONNumber(orientation_stats.p90)
+       << ",\"max\":" << JSONNumber(orientation_stats.max) << "},";
   json << "\"max_horizontal_baseline_m\":"
        << JSONNumber(max_horizontal_baseline) << ",";
+  json << "\"horizontal_prior_sigma_median_m\":" << JSONNumber(sigma_h) << ",";
+  json << "\"horizontal_baseline_to_sigma_ratio\":"
+       << JSONNumber(baseline_to_sigma) << ",";
+  json << "\"horizontal_centered_rms_singular_values_m\":["
+       << JSONNumber(horizontal_rms_singular_values.x()) << ","
+       << JSONNumber(horizontal_rms_singular_values.y()) << "],";
+  json << "\"horizontal_condition_ratio\":"
+       << JSONNumber(horizontal_condition_ratio) << ",";
+  json << "\"centered_rms_singular_values_3d_m\":["
+       << JSONNumber(full_rms_singular_values.x()) << ","
+       << JSONNumber(full_rms_singular_values.y()) << ","
+       << JSONNumber(full_rms_singular_values.z()) << "],";
+  json << "\"condition_ratio_3d\":" << JSONNumber(full_condition_ratio) << ",";
   json << "\"max_horizontal_radius_m\":" << JSONNumber(max_horizontal_radius)
        << ",";
-  json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius);
+  json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius) << ",";
+  json << "\"max_ellipsoid_tangent_departure_m\":"
+       << JSONNumber(max_ellipsoid_tangent_departure_m);
   json << "},";
   json << "\"position_ransac_threshold_m\":"
        << JSONNumber(position_ransac_threshold) << ",";
@@ -583,14 +703,18 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
         Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
     double residual_horizontal = std::numeric_limits<double>::quiet_NaN();
     double residual_3d = std::numeric_limits<double>::quiet_NaN();
-    if (r.position_fit_inlier) {
-      residual = r.solved_enu - r.prior_enu;
+    if (std::isfinite(r.prior_enu.x()) && std::isfinite(r.prior_enu.y()) &&
+        std::isfinite(r.solved_enu.x()) && std::isfinite(r.solved_enu.y())) {
+      residual.x() = r.solved_enu.x() - r.prior_enu.x();
+      residual.y() = r.solved_enu.y() - r.prior_enu.y();
       residual_horizontal = std::hypot(residual.x(), residual.y());
+    }
+    if (std::isfinite(r.prior_enu.z()) && std::isfinite(r.solved_enu.z())) {
+      residual.z() = r.solved_enu.z() - r.prior_enu.z();
+    }
+    if (residual.allFinite()) {
       residual_3d = residual.norm();
     }
-    // Orientation columns are always absent: orientation-assisted refinement
-    // is not implemented, so reporting a prior's mere presence here without
-    // ever fitting it would be misleading.
     file << CSVField(r.image_name) << ',' << (r.registered ? 1 : 0) << ','
          << (r.has_position_prior ? 1 : 0) << ','
          << (r.position_fit_inlier ? 1 : 0) << ',' << CSVNumber(r.prior_enu.x())
@@ -601,7 +725,9 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
          << CSVNumber(residual.y()) << ',' << CSVNumber(residual.z()) << ','
          << CSVNumber(residual_horizontal) << ','
          << CSVNumber(std::abs(residual.z())) << ',' << CSVNumber(residual_3d)
-         << ",0,0,\n";
+         << ',' << (r.has_orientation_prior ? 1 : 0) << ','
+         << (r.orientation_fit_inlier ? 1 : 0) << ','
+         << CSVNumber(r.orientation_residual_deg) << '\n';
   }
 }
 
@@ -635,15 +761,32 @@ std::vector<PosePrior> ConvertPosePriorsToReportENU(
         enu.z() = std::numeric_limits<double>::quiet_NaN();
       }
       out.position = enu;
+
+      const Eigen::Matrix3d shared_from_local =
+          GPSTransform::ENUFromECEF(origin_lat, origin_lon) *
+          GPSTransform::ECEFFromENU(prior.position.x(), prior.position.y());
+      if (prior.HasPositionCov()) {
+        out.position_covariance = shared_from_local *
+                                  prior.position_covariance *
+                                  shared_from_local.transpose();
+      }
+      if (prior.HasRotation()) {
+        out.rotation =
+            (prior.rotation * Eigen::Quaterniond(shared_from_local.transpose()))
+                .normalized();
+      }
+      if (prior.HasRotationCov()) {
+        out.rotation_covariance = shared_from_local *
+                                  prior.rotation_covariance *
+                                  shared_from_local.transpose();
+      }
     }
     converted.push_back(out);
   }
   return converted;
 }
 
-// Extends model_aligner with the scene georeference report path. Position-
-// only: orientation-assisted joint Sim3 refinement is not yet implemented
-// (see --use_pose_prior_orientation below).
+// Extends model_aligner with the scene georeference report path.
 int RunModelAlignerReport(const std::filesystem::path& input_path,
                           const std::filesystem::path& output_path,
                           const std::filesystem::path& database_path,
@@ -651,8 +794,10 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
                           double enu_origin_lat,
                           double enu_origin_lon,
                           double enu_origin_alt,
+                          const std::string& pose_prior_cartesian_frame,
                           int min_common_images,
                           const RANSACOptions& ransac_options,
+                          bool use_pose_prior_orientation,
                           double orientation_max_error_deg,
                           const std::string& scene_id_option,
                           const std::filesystem::path& georeference_json,
@@ -762,6 +907,22 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
                << min_common_images;
     return EXIT_FAILURE;
   }
+  if (any_cartesian && pose_prior_cartesian_frame != "ENU") {
+    LOG(ERROR) << "Cartesian pose priors require the explicit assertion "
+                  "--pose_prior_cartesian_frame=ENU before an Earth report "
+                  "can be emitted";
+    return EXIT_FAILURE;
+  }
+
+  if (use_pose_prior_orientation) {
+    RefinePosePriorAlignmentWithOrientations(
+        reconstruction,
+        enu_priors,
+        ransac_options.max_error / 2.7955,
+        DegToRad(orientation_max_error_deg) / 2.7955,
+        orientation_max_error_deg,
+        &result);
+  }
 
   reconstruction.Transform(result.tgt_from_src);
 
@@ -771,35 +932,77 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
       inlier_image_ids.insert(result.correspondence_image_ids[i]);
     }
   }
-  NodeHashMap<image_t, Eigen::Vector3d> enu_prior_position_by_image;
+  FlatHashSet<image_t> orientation_inlier_image_ids;
+  for (size_t i = 0; i < result.orientation_image_ids.size(); ++i) {
+    if (result.orientation_inlier_mask[i]) {
+      orientation_inlier_image_ids.insert(result.orientation_image_ids[i]);
+    }
+  }
+  NodeHashMap<image_t, const PosePrior*> enu_prior_by_image;
   for (const PosePrior& prior : enu_priors) {
     if (prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
-      enu_prior_position_by_image.emplace(
-          static_cast<image_t>(prior.corr_data_id.id), prior.position);
+      const image_t image_id = static_cast<image_t>(prior.corr_data_id.id);
+      enu_prior_by_image.emplace(image_id, &prior);
     }
   }
 
   std::vector<CameraResidual> residuals;
-  residuals.reserve(reconstruction.NumImages());
-  for (const auto& [image_id, image] : reconstruction.Images()) {
+  const std::vector<Image> database_images = database->ReadAllImages();
+  residuals.reserve(database_images.size());
+  for (const Image& database_image : database_images) {
     CameraResidual r;
-    r.image_id = image_id;
-    r.image_name = image.Name();
-    r.registered = image.HasPose();
-    const auto prior_it = priors_by_image.find(image_id);
+    r.image_id = database_image.ImageId();
+    r.image_name = database_image.Name();
+    r.registered = reconstruction.ExistsImage(r.image_id) &&
+                   reconstruction.Image(r.image_id).HasPose();
+    const auto prior_it = priors_by_image.find(r.image_id);
     if (prior_it != priors_by_image.end()) {
       r.has_position_prior = std::isfinite(prior_it->second.position.x()) &&
                              std::isfinite(prior_it->second.position.y());
+      r.has_orientation_prior = prior_it->second.HasRotation();
     }
-    if (r.registered && inlier_image_ids.count(image_id)) {
-      r.position_fit_inlier = true;
+    const auto enu_it = enu_prior_by_image.find(r.image_id);
+    if (enu_it != enu_prior_by_image.end()) {
+      r.prior_enu = enu_it->second->position;
+      r.position_covariance_enu = enu_it->second->position_covariance;
+    }
+    r.position_fit_inlier = inlier_image_ids.count(r.image_id) > 0;
+    r.orientation_fit_inlier =
+        orientation_inlier_image_ids.count(r.image_id) > 0;
+    if (r.registered) {
+      const Image& image = reconstruction.Image(r.image_id);
       r.solved_enu = image.ProjectionCenter();
-      const auto enu_it = enu_prior_position_by_image.find(image_id);
-      if (enu_it != enu_prior_position_by_image.end()) {
-        r.prior_enu = enu_it->second;
+      if (enu_it != enu_prior_by_image.end() && enu_it->second->HasRotation()) {
+        r.orientation_residual_deg =
+            RadToDeg(enu_it->second->rotation.angularDistance(
+                image.CamFromWorld().rotation()));
       }
     }
     residuals.push_back(r);
+  }
+
+  double max_ellipsoid_tangent_departure_m =
+      std::numeric_limits<double>::quiet_NaN();
+  if (any_wgs84) {
+    max_ellipsoid_tangent_departure_m = 0.0;
+    for (const image_t image_id : inlier_image_ids) {
+      const auto prior_it = priors_by_image.find(image_id);
+      if (prior_it == priors_by_image.end() ||
+          !std::isfinite(prior_it->second.position.x()) ||
+          !std::isfinite(prior_it->second.position.y())) {
+        continue;
+      }
+      const Eigen::Vector3d equal_altitude_enu =
+          GPSTransform(GPSTransform::Ellipsoid::WGS84)
+              .EllipsoidToENU({Eigen::Vector3d(prior_it->second.position.x(),
+                                               prior_it->second.position.y(),
+                                               origin_alt)},
+                              origin_lat,
+                              origin_lon,
+                              origin_alt)[0];
+      max_ellipsoid_tangent_departure_m = std::max(
+          max_ellipsoid_tangent_departure_m, std::abs(equal_altitude_enu.z()));
+    }
   }
 
   std::string scene_id = scene_id_option;
@@ -824,10 +1027,12 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
                                 origin_is_explicit,
                                 result.tgt_from_src,
                                 residuals,
+                                static_cast<int>(pose_priors.size()),
+                                max_ellipsoid_tangent_departure_m,
                                 ransac_options.max_error,
                                 orientation_max_error_deg,
-                                /*orientation_requested=*/false,
-                                /*orientation_engaged=*/false);
+                                result.orientation_requested,
+                                result.orientation_engaged);
   }
   if (!camera_residuals_csv.empty()) {
     WriteCameraResidualsCSV(camera_residuals_csv, residuals);
@@ -906,6 +1111,7 @@ int RunModelAligner(int argc, char** argv) {
   bool use_pose_prior_orientation = false;
   double orientation_max_error_deg = 10.0;
   std::string scene_id;
+  std::string pose_prior_cartesian_frame;
   std::filesystem::path georeference_json;
   std::filesystem::path camera_residuals_csv;
 
@@ -932,6 +1138,8 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("orientation_max_error_deg",
                            &orientation_max_error_deg);
   options.AddDefaultOption("scene_id", &scene_id);
+  options.AddDefaultOption("pose_prior_cartesian_frame",
+                           &pose_prior_cartesian_frame);
   options.AddDefaultOption("georeference_json", &georeference_json);
   options.AddDefaultOption("camera_residuals_csv", &camera_residuals_csv);
   if (!options.Parse(argc, argv)) {
@@ -945,6 +1153,7 @@ int RunModelAligner(int argc, char** argv) {
       LOG(ERROR) << "=> A report run requires --alignment_type=enu (the "
                     "default `custom` is also accepted before the type "
                     "check below overrides it)";
+      return EXIT_FAILURE;
     }
     alignment_type = "enu";
     if (database_path.empty()) {
@@ -983,12 +1192,10 @@ int RunModelAligner(int argc, char** argv) {
       LOG(ERROR) << "You must provide a maximum alignment error > 0";
       return EXIT_FAILURE;
     }
-    if (use_pose_prior_orientation) {
-      LOG(WARNING) << "=> --use_pose_prior_orientation is accepted but not "
-                      "yet implemented in this build; the report always "
-                      "reports orientation_requested=false, "
-                      "orientation_engaged=false and every CSV orientation "
-                      "column stays empty";
+    StringToUpper(&pose_prior_cartesian_frame);
+    if (use_pose_prior_orientation && orientation_max_error_deg <= 0.0) {
+      LOG(ERROR) << "=> --orientation_max_error_deg must be greater than zero";
+      return EXIT_FAILURE;
     }
     return RunModelAlignerReport(input_path,
                                  output_path,
@@ -997,8 +1204,10 @@ int RunModelAligner(int argc, char** argv) {
                                  enu_origin_lat,
                                  enu_origin_lon,
                                  enu_origin_alt,
+                                 pose_prior_cartesian_frame,
                                  min_common_images,
                                  ransac_options,
+                                 use_pose_prior_orientation,
                                  orientation_max_error_deg,
                                  scene_id,
                                  georeference_json,

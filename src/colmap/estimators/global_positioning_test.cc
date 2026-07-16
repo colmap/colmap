@@ -236,6 +236,10 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
   reset_translations(reconstruction_opt);
   GlobalPositionerOptions opt_options = base_options;
   opt_options.pose_prior_position_mode = PosePriorPositionMode::optimize;
+  // The synthetic BATA solution is several units from its exact Sim3 fit;
+  // use a matching measurement scale so the chi-square-derived RANSAC gate
+  // tests outlier rejection rather than an unrealistically precise fallback.
+  opt_options.pose_prior_position_fallback_stddev = 3.0;
   PosePriorPositionSummary opt_summary;
   ASSERT_TRUE(RunGlobalPositioning(
       opt_options, pose_graph, reconstruction_opt, pose_priors, &opt_summary));

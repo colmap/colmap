@@ -608,12 +608,11 @@ void DatabaseCache::ConvertPosePriorsToENU() {
         pose_prior.rotation =
             (pose_prior.rotation * Eigen::Quaterniond(local_from_shared))
                 .normalized();
-
-        if (pose_prior.HasRotationCov()) {
-          pose_prior.rotation_covariance = shared_from_local *
-                                           pose_prior.rotation_covariance *
-                                           shared_from_local.transpose();
-        }
+      }
+      if (pose_prior.HasRotationCov()) {
+        pose_prior.rotation_covariance = shared_from_local *
+                                         pose_prior.rotation_covariance *
+                                         shared_from_local.transpose();
       }
     }
 

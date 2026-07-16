@@ -29,6 +29,8 @@
 
 #include "colmap/estimators/alignment.h"
 
+#include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
@@ -38,6 +40,10 @@
 #include "colmap/util/logging.h"
 
 #include <algorithm>
+#include <memory>
+
+#include <Eigen/Eigenvalues>
+#include <ceres/ceres.h>
 
 namespace colmap {
 namespace {
@@ -181,6 +187,162 @@ struct ReconstructionAlignmentEstimator {
   const Reconstruction* src_reconstruction_;
   const Reconstruction* tgt_reconstruction_;
 };
+
+constexpr double kChiSquare95ThreeDofSqrt = 2.7955;
+
+Eigen::Matrix3d SqrtInformationOrFallback(const Eigen::Matrix3d& covariance,
+                                          const double fallback_stddev) {
+  THROW_CHECK_GT(fallback_stddev, 0.0);
+  if (covariance.allFinite()) {
+    const Eigen::Matrix3d symmetric =
+        0.5 * (covariance + covariance.transpose());
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(symmetric);
+    if (eig.info() == Eigen::Success && eig.eigenvalues().allFinite() &&
+        eig.eigenvalues().minCoeff() > 1e-12) {
+      return eig.eigenvalues().cwiseInverse().cwiseSqrt().asDiagonal() *
+             eig.eigenvectors().transpose();
+    }
+  }
+  return Eigen::Matrix3d::Identity() / fallback_stddev;
+}
+
+struct AlignmentPositionCostFunctor {
+  AlignmentPositionCostFunctor(const Eigen::Vector3d& center_in_src,
+                               const Eigen::Vector3d& center_in_tgt,
+                               const Eigen::Matrix3d& sqrt_information)
+      : center_in_src_(center_in_src),
+        center_in_tgt_(center_in_tgt),
+        sqrt_information_(sqrt_information) {}
+
+  template <typename T>
+  bool operator()(const T* const tgt_from_src_rotation,
+                  const T* const tgt_from_src_translation,
+                  const T* const tgt_from_src_scale,
+                  T* residuals_ptr) const {
+    const Eigen::Map<const Eigen::Quaternion<T>> rotation(
+        tgt_from_src_rotation);
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation(
+        tgt_from_src_translation);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = sqrt_information_.cast<T>() *
+                (tgt_from_src_scale[0] * (rotation * center_in_src_.cast<T>()) +
+                 translation - center_in_tgt_.cast<T>());
+    return true;
+  }
+
+  const Eigen::Vector3d center_in_src_;
+  const Eigen::Vector3d center_in_tgt_;
+  const Eigen::Matrix3d sqrt_information_;
+};
+
+struct AlignmentOrientationCostFunctor {
+  AlignmentOrientationCostFunctor(
+      const Eigen::Quaterniond& sensor_from_src,
+      const Eigen::Quaterniond& sensor_from_tgt_measured,
+      const Eigen::Matrix3d& sqrt_information)
+      : sensor_from_src_(sensor_from_src),
+        tgt_from_sensor_measured_(sensor_from_tgt_measured.inverse()),
+        sqrt_information_(sqrt_information) {}
+
+  template <typename T>
+  bool operator()(const T* const tgt_from_src_rotation,
+                  T* residuals_ptr) const {
+    const Eigen::Map<const Eigen::Quaternion<T>> tgt_from_src(
+        tgt_from_src_rotation);
+    const Eigen::Quaternion<T> sensor_from_tgt_predicted =
+        sensor_from_src_.cast<T>() * tgt_from_src.inverse();
+    const Eigen::Quaternion<T> measured_from_predicted =
+        tgt_from_sensor_measured_.cast<T>() * sensor_from_tgt_predicted;
+    Eigen::Matrix<T, 3, 1> angle_axis;
+    AngleAxisFromEigenQuaternion(measured_from_predicted.coeffs().data(),
+                                 angle_axis.data());
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = sqrt_information_.cast<T>() * angle_axis;
+    return true;
+  }
+
+  const Eigen::Quaterniond sensor_from_src_;
+  const Eigen::Quaterniond tgt_from_sensor_measured_;
+  const Eigen::Matrix3d sqrt_information_;
+};
+
+double OrientationResidualDeg(const Image& image,
+                              const PosePrior& prior,
+                              const Sim3d& tgt_from_src) {
+  const Eigen::Quaterniond sensor_from_tgt_predicted =
+      image.CamFromWorld().rotation() * tgt_from_src.rotation().inverse();
+  return RadToDeg(prior.rotation.angularDistance(sensor_from_tgt_predicted));
+}
+
+bool SolveJointPosePriorAlignment(
+    const Reconstruction& src_reconstruction,
+    const NodeHashMap<image_t, const PosePrior*>& priors_by_image,
+    const std::vector<image_t>& position_image_ids,
+    const std::vector<image_t>& orientation_image_ids,
+    const double position_fallback_stddev,
+    const double orientation_fallback_stddev_rad,
+    Sim3d* tgt_from_src) {
+  Eigen::Quaterniond rotation = tgt_from_src->rotation();
+  Eigen::Vector3d translation = tgt_from_src->translation();
+  double scale = tgt_from_src->scale();
+
+  ceres::Problem problem;
+  problem.AddParameterBlock(rotation.coeffs().data(), 4);
+  SetManifold(
+      &problem, rotation.coeffs().data(), CreateEigenQuaternionManifold());
+  problem.AddParameterBlock(translation.data(), 3);
+  problem.AddParameterBlock(&scale, 1);
+  problem.SetParameterLowerBound(&scale, 0, 1e-12);
+
+  auto* position_loss = new ceres::CauchyLoss(kChiSquare95ThreeDofSqrt);
+  for (const image_t image_id : position_image_ids) {
+    const PosePrior& prior = *priors_by_image.at(image_id);
+    const Eigen::Matrix3d sqrt_information = SqrtInformationOrFallback(
+        prior.position_covariance, position_fallback_stddev);
+    problem.AddResidualBlock(
+        new ceres::
+            AutoDiffCostFunction<AlignmentPositionCostFunctor, 3, 4, 3, 1>(
+                new AlignmentPositionCostFunctor(
+                    src_reconstruction.Image(image_id).ProjectionCenter(),
+                    prior.position,
+                    sqrt_information)),
+        position_loss,
+        rotation.coeffs().data(),
+        translation.data(),
+        &scale);
+  }
+
+  auto* orientation_loss = new ceres::CauchyLoss(kChiSquare95ThreeDofSqrt);
+  for (const image_t image_id : orientation_image_ids) {
+    const PosePrior& prior = *priors_by_image.at(image_id);
+    const Eigen::Matrix3d sqrt_information = SqrtInformationOrFallback(
+        prior.rotation_covariance, orientation_fallback_stddev_rad);
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<AlignmentOrientationCostFunctor, 3, 4>(
+            new AlignmentOrientationCostFunctor(
+                src_reconstruction.Image(image_id).CamFromWorld().rotation(),
+                prior.rotation,
+                sqrt_information)),
+        orientation_loss,
+        rotation.coeffs().data());
+  }
+
+  ceres::Solver::Options options;
+  options.linear_solver_type = ceres::DENSE_QR;
+  options.max_num_iterations = 100;
+  options.function_tolerance = 1e-10;
+  options.gradient_tolerance = 1e-12;
+  options.parameter_tolerance = 1e-10;
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  if (!summary.IsSolutionUsable() || !rotation.coeffs().allFinite() ||
+      !translation.allFinite() || !std::isfinite(scale) || scale <= 0.0) {
+    return false;
+  }
+
+  *tgt_from_src = Sim3d(scale, rotation.normalized(), translation);
+  return true;
+}
 
 }  // namespace
 
@@ -332,6 +494,122 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
     result.inlier_mask.assign(src.size(), result.success ? 1 : 0);
   }
   return result;
+}
+
+void RefinePosePriorAlignmentWithOrientations(
+    const Reconstruction& src_reconstruction,
+    const std::vector<PosePrior>& tgt_pose_priors,
+    const double position_fallback_stddev,
+    const double orientation_fallback_stddev_rad,
+    const double orientation_max_error_deg,
+    PosePriorAlignmentResult* result) {
+  THROW_CHECK_NOTNULL(result);
+  THROW_CHECK(result->success);
+  THROW_CHECK_GT(position_fallback_stddev, 0.0);
+  THROW_CHECK_GT(orientation_fallback_stddev_rad, 0.0);
+  THROW_CHECK_GT(orientation_max_error_deg, 0.0);
+
+  result->orientation_requested = true;
+  result->orientation_engaged = false;
+  result->orientation_image_ids.clear();
+  result->orientation_inlier_mask.clear();
+  result->orientation_residuals_deg.clear();
+
+  NodeHashMap<image_t, const PosePrior*> priors_by_image;
+  for (const PosePrior& prior : tgt_pose_priors) {
+    if (prior.corr_data_id.sensor_id.type != SensorType::CAMERA) {
+      continue;
+    }
+    const image_t image_id = static_cast<image_t>(prior.corr_data_id.id);
+    THROW_CHECK(priors_by_image.emplace(image_id, &prior).second)
+        << "Duplicate pose prior for image " << image_id;
+  }
+
+  std::vector<image_t> position_image_ids;
+  for (size_t i = 0; i < result->correspondence_image_ids.size(); ++i) {
+    if (result->inlier_mask[i]) {
+      position_image_ids.push_back(result->correspondence_image_ids[i]);
+    }
+  }
+  if (position_image_ids.size() < 3) {
+    return;
+  }
+
+  std::vector<std::pair<std::string, image_t>> sorted_orientation_images;
+  for (const image_t image_id : src_reconstruction.RegImageIds()) {
+    const auto prior_it = priors_by_image.find(image_id);
+    if (prior_it != priors_by_image.end() && prior_it->second->HasRotation()) {
+      sorted_orientation_images.emplace_back(
+          src_reconstruction.Image(image_id).Name(), image_id);
+    }
+  }
+  std::sort(sorted_orientation_images.begin(), sorted_orientation_images.end());
+  for (const auto& [name, image_id] : sorted_orientation_images) {
+    result->orientation_image_ids.push_back(image_id);
+  }
+  if (result->orientation_image_ids.empty()) {
+    return;
+  }
+
+  const Sim3d position_only_tgt_from_src = result->tgt_from_src;
+  result->orientation_inlier_mask.assign(result->orientation_image_ids.size(),
+                                         0);
+  for (const image_t image_id : result->orientation_image_ids) {
+    result->orientation_residuals_deg.push_back(
+        OrientationResidualDeg(src_reconstruction.Image(image_id),
+                               *priors_by_image.at(image_id),
+                               position_only_tgt_from_src));
+  }
+  Sim3d first_refinement = position_only_tgt_from_src;
+  if (!SolveJointPosePriorAlignment(src_reconstruction,
+                                    priors_by_image,
+                                    position_image_ids,
+                                    result->orientation_image_ids,
+                                    position_fallback_stddev,
+                                    orientation_fallback_stddev_rad,
+                                    &first_refinement)) {
+    return;
+  }
+
+  std::vector<image_t> orientation_inliers;
+  for (size_t i = 0; i < result->orientation_image_ids.size(); ++i) {
+    const image_t image_id = result->orientation_image_ids[i];
+    const double error_deg =
+        OrientationResidualDeg(src_reconstruction.Image(image_id),
+                               *priors_by_image.at(image_id),
+                               first_refinement);
+    if (error_deg <= orientation_max_error_deg) {
+      result->orientation_inlier_mask[i] = 1;
+      orientation_inliers.push_back(image_id);
+    }
+  }
+  if (orientation_inliers.empty()) {
+    return;
+  }
+
+  Sim3d final_refinement = first_refinement;
+  if (!SolveJointPosePriorAlignment(src_reconstruction,
+                                    priors_by_image,
+                                    position_image_ids,
+                                    orientation_inliers,
+                                    position_fallback_stddev,
+                                    orientation_fallback_stddev_rad,
+                                    &final_refinement)) {
+    std::fill(result->orientation_inlier_mask.begin(),
+              result->orientation_inlier_mask.end(),
+              0);
+    return;
+  }
+
+  result->tgt_from_src = final_refinement;
+  result->orientation_engaged = true;
+  result->orientation_residuals_deg.clear();
+  for (const image_t image_id : result->orientation_image_ids) {
+    result->orientation_residuals_deg.push_back(
+        OrientationResidualDeg(src_reconstruction.Image(image_id),
+                               *priors_by_image.at(image_id),
+                               final_refinement));
+  }
 }
 
 bool AlignReconstructionsViaReprojections(

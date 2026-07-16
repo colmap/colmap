@@ -63,6 +63,11 @@ struct PosePriorAlignmentResult {
   Sim3d tgt_from_src;
   std::vector<image_t> correspondence_image_ids;
   std::vector<char> inlier_mask;
+  bool orientation_requested = false;
+  bool orientation_engaged = false;
+  std::vector<image_t> orientation_image_ids;
+  std::vector<char> orientation_inlier_mask;
+  std::vector<double> orientation_residuals_deg;
 };
 
 // Same correspondence collection as AlignReconstructionToPosePriors, but
@@ -71,6 +76,18 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
     const RANSACOptions& ransac_options);
+
+// Refines a successful position alignment with absolute orientation priors.
+// The position RANSAC inlier set remains fixed. If orientation support is
+// absent or unusable, the position-only transform is retained and the result
+// records that orientation was requested but did not engage.
+void RefinePosePriorAlignmentWithOrientations(
+    const Reconstruction& src_reconstruction,
+    const std::vector<PosePrior>& tgt_pose_priors,
+    double position_fallback_stddev,
+    double orientation_fallback_stddev_rad,
+    double orientation_max_error_deg,
+    PosePriorAlignmentResult* result);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated

@@ -11,6 +11,9 @@
 #include "colmap/util/threading.h"
 
 #include <algorithm>
+#include <memory>
+
+#include <Eigen/Eigenvalues>
 
 namespace colmap {
 namespace {
@@ -76,13 +79,10 @@ bool ResolveRigCenterCandidate(const Reconstruction& reconstruction,
   // weight proxy; falls back to equal weighting when unusable.
   candidate->has_covariance = prior.HasPositionCov();
   if (candidate->has_covariance) {
-    // The sensor-to-rig-center transform is a fixed rotation/translation
-    // (both rig calibration and current visual rig rotation are held
-    // constant while resolving this candidate), so the covariance rotates
-    // with it: Cov_rig = R * Cov_sensor * R^T, R = world_from_rig.rotation.
-    const Eigen::Matrix3d R =
-        frame.RigFromWorld().rotation().inverse().toRotationMatrix();
-    candidate->covariance = R * prior.position_covariance * R.transpose();
+    // Both the measured sensor center and derived rig center are expressed in
+    // the same world basis. The fixed rig offset changes the mean but has an
+    // identity Jacobian with respect to the measured center.
+    candidate->covariance = prior.position_covariance;
     const double trace = candidate->covariance.trace();
     candidate->weight = trace > 0.0 ? 1.0 / trace : 1.0;
   } else {
@@ -223,7 +223,8 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   }
 
   Sim3d gauge_from_solver;
-  if (options_.pose_prior_position_mode == PosePriorPositionMode::optimize) {
+  if (options_.pose_prior_position_mode == PosePriorPositionMode::optimize &&
+      ceres_summary.IsSolutionUsable()) {
     EngagePositionPriorOptimization(
         reconstruction, pose_priors, summary_ptr, &gauge_from_solver);
   }
@@ -306,7 +307,6 @@ void GlobalPositioner::InitializeRandomPositions(
         center -= seed_mean;
       }
     }
-    summary->engaged = !prior_seeds.empty();
   }
 
   // Initialize frame centers in temporary storage.
@@ -332,6 +332,7 @@ void GlobalPositioner::InitializeRandomPositions(
   }
 
   if (options_.pose_prior_position_mode == PosePriorPositionMode::initialize) {
+    summary->engaged = summary->num_covered_frames > 0;
     LOG(INFO) << StringPrintf(
         "Pose prior initialize: requested=true, engaged=%s, usable "
         "priors=%d, covered frames=%d, fallback frames=%d",
@@ -665,6 +666,16 @@ double PriorResidualRMSE(const Sim3d& gauge_from_solver,
   }
   return count > 0 ? std::sqrt(sum_sq / count) : 0.0;
 }
+
+bool IsUsableCovariance(const Eigen::Matrix3d& covariance) {
+  if (!covariance.allFinite()) {
+    return false;
+  }
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(
+      0.5 * (covariance + covariance.transpose()));
+  return eig.info() == Eigen::Success && eig.eigenvalues().allFinite() &&
+         eig.eigenvalues().minCoeff() > 1e-12;
+}
 }  // namespace
 
 void GlobalPositioner::EngagePositionPriorOptimization(
@@ -715,7 +726,7 @@ void GlobalPositioner::EngagePositionPriorOptimization(
   RANSACOptions ransac_options;
   const double error_scale = options_.pose_prior_position_loss_scale *
                              options_.pose_prior_position_fallback_stddev;
-  ransac_options.max_error = error_scale * error_scale;
+  ransac_options.max_error = error_scale;
 
   Sim3d gauge_from_solver;
   const auto report =
@@ -745,8 +756,8 @@ void GlobalPositioner::EngagePositionPriorOptimization(
   problem_->AddParameterBlock(&gauge_scale, 1);
   problem_->SetParameterLowerBound(&gauge_scale, 0, 1e-5);
 
-  ceres::LossFunction* prior_loss_function =
-      new ceres::CauchyLoss(options_.pose_prior_position_loss_scale);
+  auto prior_loss_function = std::make_unique<ceres::CauchyLoss>(
+      options_.pose_prior_position_loss_scale);
   const Eigen::Matrix3d fallback_covariance =
       Eigen::Matrix3d::Identity() *
       (options_.pose_prior_position_fallback_stddev *
@@ -759,25 +770,53 @@ void GlobalPositioner::EngagePositionPriorOptimization(
     const frame_t frame_id = frame_ids[i];
     const auto cov_it = covariances.find(frame_id);
     const Eigen::Matrix3d& cov =
-        cov_it != covariances.end() ? cov_it->second : fallback_covariance;
+        cov_it != covariances.end() && IsUsableCovariance(cov_it->second)
+            ? cov_it->second
+            : fallback_covariance;
     ceres::CostFunction* cost_function =
         CovarianceWeightedCostFunctor<PositionPriorViaSim3CostFunctor>::Create(
             cov, tgt[i]);
     problem_->AddResidualBlock(cost_function,
-                               prior_loss_function,
+                               prior_loss_function.get(),
                                frame_centers_.at(frame_id).data(),
                                gauge_rotation.data(),
                                gauge_translation.data(),
                                &gauge_scale);
   }
 
+  const auto frame_centers_before_second_solve = frame_centers_;
+  const auto cams_in_rig_before_second_solve = cams_in_rig_;
+  const std::vector<double> scales_before_second_solve = scales_;
+  NodeHashMap<point3D_t, Eigen::Vector3d> points_before_second_solve;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (problem_->HasParameterBlock(point3D.xyz.data())) {
+      points_before_second_solve.emplace(point3D_id, point3D.xyz);
+    }
+  }
+
   LOG(INFO) << "Solving the pose-prior-constrained global positioner problem";
   ceres::Solver::Summary second_ceres_summary;
-  ceres::Solve(options_.solver_options, problem_.get(), &second_ceres_summary);
+  ceres::Solver::Options second_solver_options = options_.solver_options;
+  // The first solve's custom ordering predates the three newly added gauge
+  // blocks. Let Ceres derive a complete ordering for the augmented problem.
+  second_solver_options.linear_solver_ordering.reset();
+  ceres::Solve(second_solver_options, problem_.get(), &second_ceres_summary);
   if (VLOG_IS_ON(2)) {
     LOG(INFO) << second_ceres_summary.FullReport();
   } else {
     LOG(INFO) << second_ceres_summary.BriefReport();
+  }
+  if (!second_ceres_summary.IsSolutionUsable()) {
+    frame_centers_ = frame_centers_before_second_solve;
+    cams_in_rig_ = cams_in_rig_before_second_solve;
+    scales_ = scales_before_second_solve;
+    for (const auto& [point3D_id, xyz] : points_before_second_solve) {
+      reconstruction.Point3D(point3D_id).xyz = xyz;
+    }
+    LOG(WARNING) << "Pose prior optimize: requested=true, engaged=false "
+                    "(the constrained solve was unusable; restored the "
+                    "visual solution)";
+    return;
   }
 
   // frame_centers_ entries are live Ceres parameter blocks: re-read them

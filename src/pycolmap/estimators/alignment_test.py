@@ -34,6 +34,7 @@ def test_image_alignment_error_proj_center_error_readwrite():
         "align_reconstructions_via_points",
         "align_reconstruction_to_pose_priors",
         "align_reconstruction_to_pose_priors_robust",
+        "refine_pose_prior_alignment_with_orientations",
         "compare_reconstructions",
     ],
 )
@@ -55,6 +56,9 @@ def test_pose_prior_alignment_result_default_init():
     assert result.success is False
     assert len(result.correspondence_image_ids) == 0
     assert result.inlier_mask.shape == (0,)
+    assert result.orientation_requested is False
+    assert result.orientation_engaged is False
+    assert result.orientation_inlier_mask.shape == (0,)
 
 
 def test_align_reconstruction_to_pose_priors_robust_no_priors(
