@@ -44,6 +44,7 @@ void TwoViewGeometry::Invert() {
   if (cam2_from_cam1) {
     cam2_from_cam1 = Inverse(*cam2_from_cam1);
   }
+  camera1.swap(camera2);
   for (auto& match : inlier_matches) {
     std::swap(match.point2D_idx1, match.point2D_idx2);
   }

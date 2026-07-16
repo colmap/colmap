@@ -821,12 +821,12 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
       TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
     // The camera's own focal length is a placeholder here; calibrate the rays
     // with the focal length estimated jointly with the relative pose instead.
-    THROW_CHECK(geometry->shared_focal_length.has_value());
+    THROW_CHECK(geometry->camera1.has_value());
     ExtractInlierCamRaysSharedFocal(camera1,
                                     points1,
                                     points2,
                                     geometry->inlier_matches,
-                                    *geometry->shared_focal_length,
+                                    geometry->camera1->FocalLength(),
                                     &inlier_cam_rays1,
                                     &inlier_cam_rays2);
   } else {
@@ -1091,7 +1091,12 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     geometry.config =
         TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL;
     geometry.E = SF_report.model.E;
-    geometry.shared_focal_length = SF_report.model.focal;
+    // Store the shared camera with the estimated focal length; both views share
+    // it, so camera1 and camera2 are identical.
+    Camera estimated_camera = camera;
+    estimated_camera.SetFocalLength(SF_report.model.focal);
+    geometry.camera1 = estimated_camera;
+    geometry.camera2 = estimated_camera;
     // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point) so
     // epipolar consumers unaware of the shared focal, e.g. guided matching, can
     // use this config directly.
@@ -1131,7 +1136,7 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
                                       points1,
                                       points2,
                                       geometry.inlier_matches,
-                                      *geometry.shared_focal_length,
+                                      SF_report.model.focal,
                                       &inlier_cam_rays1,
                                       &inlier_cam_rays2);
       Rigid3d cam2_from_cam1;
@@ -1147,7 +1152,8 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
               RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
         geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
         geometry.E.reset();
-        geometry.shared_focal_length.reset();
+        geometry.camera1.reset();
+        geometry.camera2.reset();
       }
     }
 

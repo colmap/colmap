@@ -767,7 +767,9 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
 
   // Surface the shared focal length (if it was estimated) so the caller can
   // seed the camera before registering the initial pair.
-  estimated_shared_focal = two_view_geometry.shared_focal_length;
+  if (two_view_geometry.camera1.has_value()) {
+    estimated_shared_focal = two_view_geometry.camera1->FocalLength();
+  }
 
   return true;
 }

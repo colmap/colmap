@@ -528,11 +528,14 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
     EXPECT_EQ(geometry.config,
               TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL);
     EXPECT_TRUE(geometry.E.has_value());
-    ASSERT_TRUE(geometry.shared_focal_length.has_value());
+    ASSERT_TRUE(geometry.camera1.has_value());
+    ASSERT_TRUE(geometry.camera2.has_value());
+    // Both views share a single camera in this configuration.
+    EXPECT_EQ(*geometry.camera1, *geometry.camera2);
     EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
 
     // The estimated shared focal length should match the ground truth.
-    EXPECT_NEAR(*geometry.shared_focal_length, kFocal, 0.05 * kFocal);
+    EXPECT_NEAR(geometry.camera1->FocalLength(), kFocal, 0.05 * kFocal);
 
     // The recovered relative pose should match the ground truth: rotation
     // exactly, translation up to scale (the essential matrix fixes only the

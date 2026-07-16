@@ -777,7 +777,8 @@ void TestGuidedMatchingSharedFocal(
   two_view_geometry.config = TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL;
   two_view_geometry.E = EssentialMatrixFromPose(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
-  two_view_geometry.shared_focal_length = kFocal;
+  two_view_geometry.camera1 = camera;
+  two_view_geometry.camera2 = camera;
   // F = K^-T E K^-1, as the estimator populates it for this config.
   two_view_geometry.F =
       FundamentalFromEssentialMatrix(camera.CalibrationMatrix(),

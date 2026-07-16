@@ -31,6 +31,7 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/scene/camera.h"
 
 #include <optional>
 
@@ -51,8 +52,8 @@ struct TwoViewGeometry {
     UNCALIBRATED = 3,
     // Essential matrix with a shared, estimated focal length (both images from
     // the same uncalibrated camera). Carries E, a fundamental matrix, a
-    // relative pose (up to scale, as for CALIBRATED), and
-    // `shared_focal_length`.
+    // relative pose (up to scale, as for CALIBRATED), and the estimated
+    // shared camera in `camera1`/`camera2`.
     UNCALIBRATED_SHARED_FOCAL = 10,
     // Homography, planar scene with baseline.
     PLANAR = 4,
@@ -80,11 +81,12 @@ struct TwoViewGeometry {
   // Relative pose.
   std::optional<Rigid3d> cam2_from_cam1;
 
-  // Shared focal length, set only for the UNCALIBRATED_SHARED_FOCAL
-  // configuration, where it is estimated jointly with the relative pose. Its
-  // presence discriminates a shared-focal geometry from a plain uncalibrated
-  // one.
-  std::optional<double> shared_focal_length;
+  // Cameras with intrinsics estimated by the two-view solver, populated only by
+  // solvers that recover intrinsics rather than consuming fixed ones, and left
+  // empty otherwise. Solvers that assume a single shared camera (e.g.
+  // UNCALIBRATED_SHARED_FOCAL) set camera1 and camera2 to the same camera.
+  std::optional<Camera> camera1;
+  std::optional<Camera> camera2;
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;
