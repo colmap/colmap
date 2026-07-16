@@ -31,6 +31,14 @@
 
 namespace colmap {
 
+// Out-of-line on purpose; see the header.
+TwoViewGeometry::TwoViewGeometry(const TwoViewGeometry&) = default;
+TwoViewGeometry::TwoViewGeometry(TwoViewGeometry&&) noexcept = default;
+TwoViewGeometry& TwoViewGeometry::operator=(const TwoViewGeometry&) = default;
+TwoViewGeometry& TwoViewGeometry::operator=(TwoViewGeometry&&) noexcept =
+    default;
+TwoViewGeometry::~TwoViewGeometry() = default;
+
 void TwoViewGeometry::Invert() {
   if (F) {
     F->transposeInPlace();

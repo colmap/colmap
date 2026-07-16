@@ -68,6 +68,15 @@ struct TwoViewGeometry {
     MULTIPLE = 8,
   };
 
+  // Defaulted but defined out-of-line to avoid a spurious GCC -Wuninitialized
+  // from inlined moves of the std::optional<Camera> members.
+  TwoViewGeometry() = default;
+  TwoViewGeometry(const TwoViewGeometry&);
+  TwoViewGeometry(TwoViewGeometry&&) noexcept;
+  TwoViewGeometry& operator=(const TwoViewGeometry&);
+  TwoViewGeometry& operator=(TwoViewGeometry&&) noexcept;
+  ~TwoViewGeometry();
+
   // One of `ConfigurationType`.
   int config = ConfigurationType::UNDEFINED;
 
