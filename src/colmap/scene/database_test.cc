@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/file.h"
@@ -134,13 +135,11 @@ TEST_P(ParameterizedDatabaseTests, Rig) {
   database->ClearRigs();
   EXPECT_EQ(database->NumRigs(), 0);
 
-  rig.AddSensor(
-      sensor_t(SensorType::CAMERA, 2),
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  rig.AddSensor(sensor_t(SensorType::CAMERA, 2),
+                Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   rig.AddSensor(sensor_t(SensorType::IMU, 3));
-  rig.AddSensor(
-      sensor_t(SensorType::IMU, 4),
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  rig.AddSensor(sensor_t(SensorType::IMU, 4),
+                Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   rig.SetRigId(database->WriteRig(rig));
   EXPECT_EQ(database->NumRigs(), 1);
   EXPECT_TRUE(database->ExistsRig(rig.RigId()));
@@ -150,7 +149,7 @@ TEST_P(ParameterizedDatabaseTests, Rig) {
   EXPECT_EQ(database->ReadRigWithSensor(sensor_t(SensorType::IMU, 42)),
             std::nullopt);
   rig.SensorFromRig(sensor_t(SensorType::CAMERA, 2)) =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->UpdateRig(rig);
   EXPECT_EQ(database->ReadRig(rig.RigId()), rig);
   Rig rig2;
@@ -288,9 +287,9 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   PosePrior pose_prior;
   pose_prior.corr_data_id = image.DataId();
   pose_prior.position = Eigen::Vector3d(0.1, 0.2, 0.3);
-  pose_prior.position_covariance = Eigen::Matrix3d::Random();
+  pose_prior.position_covariance = RandomEigenMatrixd<3, 3>();
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  pose_prior.gravity = Eigen::Vector3d::Random();
+  pose_prior.gravity = RandomEigenVectord<3>();
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
   EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
@@ -500,11 +499,11 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   two_view_geometry.inlier_matches = FeatureMatches(1000);
   two_view_geometry.config =
       TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
-  two_view_geometry.F = Eigen::Matrix3d::Random();
-  two_view_geometry.E = Eigen::Matrix3d::Random();
-  two_view_geometry.H = Eigen::Matrix3d::Random();
+  two_view_geometry.F = RandomEigenMatrixd<3, 3>();
+  two_view_geometry.E = RandomEigenMatrixd<3, 3>();
+  two_view_geometry.H = RandomEigenMatrixd<3, 3>();
   two_view_geometry.cam2_from_cam1 =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   const TwoViewGeometry two_view_geometry_read =
       database->ReadTwoViewGeometry(image_id1, image_id2);
@@ -599,8 +598,8 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   two_view_geometry_no_h.inlier_matches = FeatureMatches(10);
   two_view_geometry_no_h.config =
       TwoViewGeometry::ConfigurationType::CALIBRATED;
-  two_view_geometry_no_h.E = Eigen::Matrix3d::Random();
-  two_view_geometry_no_h.F = Eigen::Matrix3d::Random();
+  two_view_geometry_no_h.E = RandomEigenMatrixd<3, 3>();
+  two_view_geometry_no_h.F = RandomEigenMatrixd<3, 3>();
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry_no_h);
   const TwoViewGeometry two_view_geometry_no_h_read =
       database->ReadTwoViewGeometry(image_id1, image_id2);
@@ -687,12 +686,12 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
 
   PosePrior pose_prior1;
   pose_prior1.corr_data_id = data_t(camera1.SensorId(), image_id1);
-  pose_prior1.position = Eigen::Vector3d::Random();
+  pose_prior1.position = RandomEigenVectord<3>();
   pose_prior1.pose_prior_id = database1->WritePosePrior(pose_prior1);
 
   PosePrior pose_prior2;
   pose_prior2.corr_data_id = data_t(camera3.SensorId(), image_id3);
-  pose_prior2.position = Eigen::Vector3d::Random();
+  pose_prior2.position = RandomEigenVectord<3>();
   pose_prior2.pose_prior_id = database2->WritePosePrior(pose_prior2);
 
   auto keypoints1 = FeatureKeypoints(10);

@@ -397,9 +397,13 @@ if(IS_MSVC)
             DESTINATION "/")
 endif()
 
-# Install application meny entry under Linux/Unix.
+# Install application meny entry and icon under Linux/Unix.
 if(UNIX AND NOT APPLE)
     install(FILES "doc/COLMAP.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
+    # Install the app icon so the desktop entry's "Icon=colmap" resolves.
+    install(FILES "src/colmap/ui/media/colmap-logo.svg"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
+            RENAME "colmap.svg")
 endif()
 
 # Configure the uninstallation script.

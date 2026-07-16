@@ -30,6 +30,7 @@
 #include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -90,7 +91,7 @@ TEST(DecomposeHomographyMatrix, Random) {
   const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
 
   for (int i = 0; i < kNumIters; ++i) {
-    const Eigen::Matrix3d H = Eigen::Matrix3d::Random();
+    const Eigen::Matrix3d H = RandomEigenMatrixd<3, 3>();
 
     if (std::abs(H.determinant()) < epsilon) {
       continue;
