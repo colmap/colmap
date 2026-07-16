@@ -661,32 +661,6 @@ void ExtractInlierCamRays(const Camera& camera1,
   }
 }
 
-// Extract camera rays for the shared-focal configuration, calibrating with the
-// estimated shared focal length instead of the camera's (stale, default) focal.
-// Both images share `camera` (and thus its principal point).
-void ExtractInlierCamRaysSharedFocal(
-    const Camera& camera,
-    const std::vector<Eigen::Vector2d>& points1,
-    const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& inlier_matches,
-    const double focal,
-    std::vector<Eigen::Vector3d>* inlier_cam_rays1,
-    std::vector<Eigen::Vector3d>* inlier_cam_rays2) {
-  const Eigen::Vector2d principal_point = camera.PrincipalPoint();
-  const double inv_f = 1.0 / focal;
-  inlier_cam_rays1->resize(inlier_matches.size());
-  inlier_cam_rays2->resize(inlier_matches.size());
-  for (size_t i = 0; i < inlier_matches.size(); ++i) {
-    const FeatureMatch& match = inlier_matches[i];
-    const Eigen::Vector2d& point1 = points1[match.point2D_idx1];
-    const Eigen::Vector2d& point2 = points2[match.point2D_idx2];
-    (*inlier_cam_rays1)[i] =
-        (inv_f * (point1 - principal_point)).homogeneous().normalized();
-    (*inlier_cam_rays2)[i] =
-        (inv_f * (point2 - principal_point)).homogeneous().normalized();
-  }
-}
-
 bool EstimateTwoViewGeometryPoseFromCamRays(
     const Camera& camera1,
     const Camera& camera2,
@@ -698,16 +672,18 @@ bool EstimateTwoViewGeometryPoseFromCamRays(
   // Omnidirectional cameras (no focal length, e.g. EQUIRECTANGULAR) have no
   // calibration matrix, so only the bearing-based essential-matrix path is
   // valid for them. EstimateTwoViewGeometry already commits such pairs to the
-  // CALIBRATED configuration (or DEGENERATE), so they are handled by the
-  // CALIBRATED branch below and never reach the CalibrationMatrix() calls.
+  // CALIBRATED configuration (or DEGENERATE), so they carry an E and are
+  // handled by the essential-matrix branch below, never reaching the
+  // CalibrationMatrix() calls.
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
-  // The shared-focal configuration is treated like the calibrated one here: it
-  // carries an essential matrix, and the caller has already calibrated the
-  // inlier rays with the estimated shared focal length.
+  // Decompose the model the solver selected. A calibrated pair, or one whose
+  // intrinsics a solver estimated (camera1/camera2 set), selected E, with its
+  // rays already calibrated accordingly. A plain uncalibrated pair selected F
+  // and recovers E from it with the current calibration below. Note E is stored
+  // for every pair, so its presence does not imply it is the selected model.
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
-      geometry->config ==
-          TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
+      geometry->camera1.has_value() || geometry->camera2.has_value()) {
     THROW_CHECK(geometry->E.has_value());
     PoseFromEssentialMatrix(*geometry->E,
                             inlier_cam_rays1,
@@ -803,8 +779,6 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   // We need a valid epipolar geometry to estimate the relative pose.
   if (geometry->config != TwoViewGeometry::ConfigurationType::CALIBRATED &&
       geometry->config != TwoViewGeometry::ConfigurationType::UNCALIBRATED &&
-      geometry->config !=
-          TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL &&
       geometry->config != TwoViewGeometry::ConfigurationType::PLANAR &&
       geometry->config != TwoViewGeometry::ConfigurationType::PANORAMIC &&
       geometry->config !=
@@ -815,32 +789,21 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     return false;
   }
 
+  // Calibrate rays with the intrinsics the solver estimated where available
+  // (its focal, not the camera's stale default), else the given cameras.
+  const Camera& effective_camera1 =
+      geometry->camera1.has_value() ? *geometry->camera1 : camera1;
+  const Camera& effective_camera2 =
+      geometry->camera2.has_value() ? *geometry->camera2 : camera2;
   std::vector<Eigen::Vector3d> inlier_cam_rays1;
   std::vector<Eigen::Vector3d> inlier_cam_rays2;
-  if (geometry->config ==
-      TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
-    // The camera's own focal length is a placeholder here; calibrate the rays
-    // with the focal length estimated jointly with the relative pose instead.
-    // The shared focal is written to every focal parameter (fx == fy for a
-    // two-focal model such as PINHOLE), so read it via FocalLengthX(), which
-    // (unlike FocalLength()) also accepts two-focal models.
-    THROW_CHECK(geometry->camera1.has_value());
-    ExtractInlierCamRaysSharedFocal(camera1,
-                                    points1,
-                                    points2,
-                                    geometry->inlier_matches,
-                                    geometry->camera1->FocalLengthX(),
-                                    &inlier_cam_rays1,
-                                    &inlier_cam_rays2);
-  } else {
-    ExtractInlierCamRays(camera1,
-                         points1,
-                         camera2,
-                         points2,
-                         geometry->inlier_matches,
-                         &inlier_cam_rays1,
-                         &inlier_cam_rays2);
-  }
+  ExtractInlierCamRays(effective_camera1,
+                       points1,
+                       effective_camera2,
+                       points2,
+                       geometry->inlier_matches,
+                       &inlier_cam_rays1,
+                       &inlier_cam_rays2);
   return EstimateTwoViewGeometryPoseFromCamRays(
       camera1, camera2, inlier_cam_rays1, inlier_cam_rays2, geometry);
 }
@@ -1088,11 +1051,13 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
 
   if (SF_report.success && SF_report.support.num_inliers >= min_num_inliers &&
       H_SF_inlier_ratio <= options.max_H_inlier_ratio) {
-    // Shared-focal configuration.
+    // Shared-focal configuration. Labeled UNCALIBRATED (the focal is estimated,
+    // not a trusted prior); the estimated intrinsics are surfaced via
+    // camera1/camera2 so consumers can distinguish it from a plain uncalibrated
+    // pair and seed the recovered focal.
     num_inliers = SF_report.support.num_inliers;
     best_inlier_mask = &SF_report.inlier_mask;
-    geometry.config =
-        TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL;
+    geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
     geometry.E = SF_report.model.E;
     // Store the shared camera with the estimated focal length; both views share
     // it, so camera1 and camera2 are identical.
@@ -1123,25 +1088,19 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-    // The shared focal is unidentifiable when the two optical axes are coplanar
-    // (intersecting or parallel); there the 6-point solver returns a
-    // meaningless focal. Recover the pose and, if degenerate, relabel the pair
-    // UNCALIBRATED so consumers fall back to the camera's placeholder focal.
-    // The shared-focal F is kept and reused (not re-estimated as a 7-point F):
-    // even in this degeneracy F is pinned by the correspondences, since only
-    // the E/focal factorization is ambiguous, so it stays a valid fundamental
-    // matrix.
-    if (geometry.config ==
-        TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL) {
+    // If the focal is unidentifiable (coplanar optical axes), drop the
+    // estimated intrinsics so the pair degrades to a plain uncalibrated pair (F
+    // is valid).
+    if (geometry.camera1.has_value()) {
       std::vector<Eigen::Vector3d> inlier_cam_rays1;
       std::vector<Eigen::Vector3d> inlier_cam_rays2;
-      ExtractInlierCamRaysSharedFocal(camera,
-                                      points1,
-                                      points2,
-                                      geometry.inlier_matches,
-                                      SF_report.model.focal,
-                                      &inlier_cam_rays1,
-                                      &inlier_cam_rays2);
+      ExtractInlierCamRays(*geometry.camera1,
+                           points1,
+                           *geometry.camera2,
+                           points2,
+                           geometry.inlier_matches,
+                           &inlier_cam_rays1,
+                           &inlier_cam_rays2);
       Rigid3d cam2_from_cam1;
       std::vector<int> valid_indices;
       PoseFromEssentialMatrix(*geometry.E,
@@ -1153,7 +1112,6 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
           RelativePoseSharedFocalEstimator::FocalIdentifiability(
               cam2_from_cam1) <
               RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
-        geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
         geometry.E.reset();
         geometry.camera1.reset();
         geometry.camera2.reset();
@@ -1466,13 +1424,6 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
 
     if (two_view_geometry.cam2_from_cam1.has_value()) {
       continue;
-    }
-
-    // Decompose through F: E is normalized by the estimated shared focal, which
-    // the database does not persist, so it mismatches the rays below.
-    if (two_view_geometry.config ==
-        TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL) {
-      two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
     }
 
     const bool is_invalid =

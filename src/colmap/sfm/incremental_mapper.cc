@@ -123,7 +123,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t& image_id1,
                                              image_t& image_id2,
                                              Rigid3d& cam2_from_cam1) {
-  std::optional<double> shared_focal_length;
+  std::optional<Camera> camera1;
+  std::optional<Camera> camera2;
   const bool success = IncrementalMapperImpl::FindInitialImagePair(
       options,
       *database_cache_,
@@ -134,11 +135,16 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       image_id1,
       image_id2,
       cam2_from_cam1,
-      shared_focal_length);
-  if (success && shared_focal_length.has_value()) {
-    // Seed the shared camera's focal length, leaving it optimizable for BA.
-    reconstruction_->Image(image_id1).CameraPtr()->SetFocalLength(
-        *shared_focal_length);
+      camera1,
+      camera2);
+  if (success) {
+    // Seed the estimated intrinsics, leaving them optimizable for BA.
+    if (camera1.has_value()) {
+      *reconstruction_->Image(image_id1).CameraPtr() = *camera1;
+    }
+    if (camera2.has_value()) {
+      *reconstruction_->Image(image_id2).CameraPtr() = *camera2;
+    }
   }
   return success;
 }
@@ -1439,18 +1445,24 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     Rigid3d& cam2_from_cam1) {
-  std::optional<double> shared_focal_length;
-  const bool success = IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options,
-      *database_cache_,
-      image_id1,
-      image_id2,
-      cam2_from_cam1,
-      shared_focal_length);
-  if (success && shared_focal_length.has_value()) {
-    // Seed the shared camera's focal length, leaving it optimizable for BA.
-    reconstruction_->Image(image_id1).CameraPtr()->SetFocalLength(
-        *shared_focal_length);
+  std::optional<Camera> camera1;
+  std::optional<Camera> camera2;
+  const bool success =
+      IncrementalMapperImpl::EstimateInitialTwoViewGeometry(options,
+                                                            *database_cache_,
+                                                            image_id1,
+                                                            image_id2,
+                                                            cam2_from_cam1,
+                                                            camera1,
+                                                            camera2);
+  if (success) {
+    // Seed the estimated intrinsics, leaving them optimizable for BA.
+    if (camera1.has_value()) {
+      *reconstruction_->Image(image_id1).CameraPtr() = *camera1;
+    }
+    if (camera2.has_value()) {
+      *reconstruction_->Image(image_id2).CameraPtr() = *camera2;
+    }
   }
   return success;
 }

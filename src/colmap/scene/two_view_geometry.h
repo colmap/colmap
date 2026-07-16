@@ -48,13 +48,12 @@ struct TwoViewGeometry {
     CALIBRATED = 2,
     // Relative pose (metric) from calibrated (non-panoramic) rig.
     CALIBRATED_RIG = 9,
-    // Fundamental matrix.
+    // Fundamental matrix. A pair whose focal length(s) were recovered by the
+    // two-view solver (e.g. the shared-focal essential-matrix solver) is also
+    // UNCALIBRATED: it carries F built from the estimated focal, and exposes
+    // the estimated intrinsics via `camera1`/`camera2` (see below) so consumers
+    // can seed them without trusting the camera's placeholder focal.
     UNCALIBRATED = 3,
-    // Essential matrix with a shared, estimated focal length (both images from
-    // the same uncalibrated camera). Carries E, a fundamental matrix, a
-    // relative pose (up to scale, as for CALIBRATED), and the estimated
-    // shared camera in `camera1`/`camera2`.
-    UNCALIBRATED_SHARED_FOCAL = 10,
     // Homography, planar scene with baseline.
     PLANAR = 4,
     // Homography, pure rotation without baseline.
@@ -90,10 +89,8 @@ struct TwoViewGeometry {
   // Relative pose.
   std::optional<Rigid3d> cam2_from_cam1;
 
-  // Cameras with intrinsics estimated by the two-view solver, populated only by
-  // solvers that recover intrinsics rather than consuming fixed ones, and left
-  // empty otherwise. Solvers that assume a single shared camera (e.g.
-  // UNCALIBRATED_SHARED_FOCAL) set camera1 and camera2 to the same camera.
+  // Per-side intrinsics recovered by the two-view solver: `cameraN` holds side
+  // N's estimated intrinsics, or nullopt if that side was not estimated.
   std::optional<Camera> camera1;
   std::optional<Camera> camera2;
 

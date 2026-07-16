@@ -196,9 +196,11 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_t& image_id1,
     image_t& image_id2,
     Rigid3d& cam2_from_cam1,
-    std::optional<double>& estimated_shared_focal) {
+    std::optional<Camera>& estimated_camera1,
+    std::optional<Camera>& estimated_camera2) {
   THROW_CHECK(options.Check());
-  estimated_shared_focal = std::nullopt;
+  estimated_camera1 = std::nullopt;
+  estimated_camera2 = std::nullopt;
 
   const CorrespondenceGraph& correspondence_graph =
       *database_cache.CorrespondenceGraph();
@@ -231,7 +233,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_t image_id1 = kInvalidImageId;
     image_t image_id2 = kInvalidImageId;
     Rigid3d cam2_from_cam1;
-    std::optional<double> shared_focal;
+    std::optional<Camera> camera1;
+    std::optional<Camera> camera2;
   };
 
   ThreadPool thread_pool(options.num_threads);
@@ -279,7 +282,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
                 init_info.image_id1,
                 init_info.image_id2,
                 init_info.cam2_from_cam1,
-                init_info.shared_focal)) {
+                init_info.camera1,
+                init_info.camera2)) {
           stop.store(true);
           init_info.success = true;
           return init_info;
@@ -299,7 +303,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
       image_id1 = init_info.image_id1;
       image_id2 = init_info.image_id2;
       cam2_from_cam1 = init_info.cam2_from_cam1;
-      estimated_shared_focal = init_info.shared_focal;
+      estimated_camera1 = init_info.camera1;
+      estimated_camera2 = init_info.camera2;
       thread_pool.Stop();
       return true;
     }
@@ -678,8 +683,10 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     Rigid3d& cam2_from_cam1,
-    std::optional<double>& estimated_shared_focal) {
-  estimated_shared_focal = std::nullopt;
+    std::optional<Camera>& estimated_camera1,
+    std::optional<Camera>& estimated_camera2) {
+  estimated_camera1 = std::nullopt;
+  estimated_camera2 = std::nullopt;
 
   const Image& image1 = database_cache.Image(image_id1);
   const Image& image2 = database_cache.Image(image_id2);
@@ -765,11 +772,10 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
 
   cam2_from_cam1 = *two_view_geometry.cam2_from_cam1;
 
-  // Surface the shared focal length (if it was estimated) so the caller can
-  // seed the camera before registering the initial pair.
-  if (two_view_geometry.camera1.has_value()) {
-    estimated_shared_focal = two_view_geometry.camera1->FocalLength();
-  }
+  // Surface the intrinsics estimated by the two-view solver (if any) so the
+  // caller can seed the cameras before registering the initial pair.
+  estimated_camera1 = two_view_geometry.camera1;
+  estimated_camera2 = two_view_geometry.camera2;
 
   return true;
 }

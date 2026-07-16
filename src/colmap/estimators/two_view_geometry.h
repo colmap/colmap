@@ -203,9 +203,9 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 //
 // Runs PoseLib's 6-point shared-focal relative-pose solver (with nonlinear
 // local optimization) against a homography model to reject planar/panoramic
-// degeneracies. On success the returned geometry has the
-// UNCALIBRATED_SHARED_FOCAL configuration with `E`, `F`, and the estimated
-// shared camera in `camera1`/`camera2` set.
+// degeneracies. On success the returned geometry has the UNCALIBRATED
+// configuration with `E`, `F`, and the estimated shared camera in
+// `camera1`/`camera2` set.
 //
 // Both images are assumed to reference the same pinhole-projection camera
 // (perspective, non-fisheye); `camera` is that shared camera and provides the

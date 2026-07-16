@@ -24,8 +24,6 @@ void BindTwoViewGeometryScene(py::module& m) {
       .value("CALIBRATED", TwoViewGeometry::CALIBRATED)
       .value("CALIBRATED_RIG", TwoViewGeometry::CALIBRATED_RIG)
       .value("UNCALIBRATED", TwoViewGeometry::UNCALIBRATED)
-      .value("UNCALIBRATED_SHARED_FOCAL",
-             TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL)
       .value("PLANAR", TwoViewGeometry::PLANAR)
       .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
       .value("PLANAR_OR_PANORAMIC", TwoViewGeometry::PLANAR_OR_PANORAMIC)

@@ -360,16 +360,14 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     image_id_to_camera[image.ImageId()] = &cameras.at(image.CameraId());
   }
 
-  // Read UNCALIBRATED and CALIBRATED two-view geometries. The shared-focal
-  // configuration is consumed as an uncalibrated pair: it carries a fundamental
-  // matrix (F = K^-T E K^-1) and the estimated focal length itself is not
-  // persisted in the database, so the focal is re-estimated here from F, as for
-  // any other uncalibrated pair.
+  // Read UNCALIBRATED and CALIBRATED two-view geometries. A pair whose
+  // intrinsics a two-view solver estimated is UNCALIBRATED too: its focal is
+  // re-estimated from F rather than trusted, so any estimated intrinsics in
+  // camera1/camera2 are ignored here.
+  // TODO: study whether seeding from the estimated camera1/camera2 intrinsics,
+  // instead of ignoring them, improves the calibration initialization.
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs;
   for (auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
-    if (tvg.config == TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL) {
-      tvg.config = TwoViewGeometry::UNCALIBRATED;
-    }
     if (tvg.config == TwoViewGeometry::UNCALIBRATED ||
         tvg.config == TwoViewGeometry::CALIBRATED) {
       pairs.emplace_back(pair_id, std::move(tvg));

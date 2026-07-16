@@ -64,10 +64,10 @@ class IncrementalMapperImpl {
       const FlatHashMap<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
-  // On success, `estimated_shared_focal` is set to the focal length estimated
-  // for the chosen pair when it was initialized via the shared-focal solver
-  // (both images from a single uncalibrated camera), and to std::nullopt
-  // otherwise.
+  // On success, `estimated_camera1`/`estimated_camera2` carry the intrinsics
+  // estimated for the chosen pair by two-view solvers that recover them (e.g.
+  // the shared-focal solver, which sets both to the same camera), and are
+  // std::nullopt otherwise.
   static bool FindInitialImagePair(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
@@ -78,7 +78,8 @@ class IncrementalMapperImpl {
       image_t& image_id1,
       image_t& image_id2,
       Rigid3d& cam2_from_cam1,
-      std::optional<double>& estimated_shared_focal);
+      std::optional<Camera>& estimated_camera1,
+      std::optional<Camera>& estimated_camera2);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
@@ -96,16 +97,18 @@ class IncrementalMapperImpl {
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
   //
-  // On success, `estimated_shared_focal` is set to the focal length estimated
-  // via the shared-focal solver (both images from a single uncalibrated
-  // camera), and to std::nullopt otherwise.
+  // On success, `estimated_camera1`/`estimated_camera2` carry the intrinsics
+  // estimated by two-view solvers that recover them (e.g. the shared-focal
+  // solver, which sets both to the same camera), and are std::nullopt
+  // otherwise.
   static bool EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       image_t image_id1,
       image_t image_id2,
       Rigid3d& cam2_from_cam1,
-      std::optional<double>& estimated_shared_focal);
+      std::optional<Camera>& estimated_camera1,
+      std::optional<Camera>& estimated_camera2);
 };
 
 }  // namespace colmap

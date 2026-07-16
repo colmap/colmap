@@ -525,8 +525,10 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
     const TwoViewGeometry geometry = EstimateTwoViewGeometry(
         camera, points1, camera, points2, matches, two_view_geometry_options);
 
+    // The shared-focal solver reports an UNCALIBRATED pair carrying an
+    // essential matrix and the estimated intrinsics in camera1/camera2.
     EXPECT_EQ(geometry.config,
-              TwoViewGeometry::ConfigurationType::UNCALIBRATED_SHARED_FOCAL);
+              TwoViewGeometry::ConfigurationType::UNCALIBRATED);
     EXPECT_TRUE(geometry.E.has_value());
     ASSERT_TRUE(geometry.camera1.has_value());
     ASSERT_TRUE(geometry.camera2.has_value());

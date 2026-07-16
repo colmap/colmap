@@ -733,9 +733,11 @@ TEST(MatchGuidedSiftFeaturesCPU, EssentialMatrix) {
 void TestGuidedMatchingSharedFocal(
     const std::function<std::unique_ptr<FeatureMatcher>(
         const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
-  // Regression guard: UNCALIBRATED_SHARED_FOCAL must be guided-matched via its
-  // fundamental matrix, like UNCALIBRATED, rather than being dropped. A pinhole
-  // camera keeps the pixel-coordinate F exact so matches are actually found.
+  // Regression guard: an UNCALIBRATED pair that carries solver-estimated
+  // intrinsics (camera1/camera2) and an essential matrix must still be
+  // guided-matched via its fundamental matrix, like any UNCALIBRATED pair,
+  // rather than diverted to the E path or dropped. A pinhole camera keeps the
+  // pixel-coordinate F exact so matches are actually found.
   constexpr double kFocal = 100.0;
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, kFocal, 100, 200);
@@ -774,7 +776,7 @@ void TestGuidedMatchingSharedFocal(
   auto matcher = matcher_factory({image0, image1, image2});
 
   TwoViewGeometry two_view_geometry;
-  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL;
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
   two_view_geometry.E = EssentialMatrixFromPose(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
   two_view_geometry.camera1 = camera;
@@ -792,7 +794,7 @@ void TestGuidedMatchingSharedFocal(
   ExpectReversedInlierMatches(two_view_geometry);
 
   // Non-corresponding images still find nothing.
-  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED_SHARED_FOCAL;
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
   matcher->MatchGuided(kMaxError, image0, image2, &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
 }
