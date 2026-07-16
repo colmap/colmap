@@ -1,6 +1,7 @@
 #include "colmap/estimators/alignment.h"
 
 #include "colmap/exe/model.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
@@ -8,6 +9,7 @@
 
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
+#include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -113,6 +115,45 @@ void BindAlignmentEstimator(py::module& m) {
       "tgt_locations"_a,
       "min_common_images"_a,
       "ransac_options"_a);
+
+  m.def(
+      "align_reconstruction_to_pose_priors",
+      [](const Reconstruction& src_reconstruction,
+         const std::vector<PosePrior>& tgt_pose_priors,
+         const RANSACOptions& ransac_options) -> py::typing::Optional<Sim3d> {
+        Sim3d tgt_from_src;
+        if (!AlignReconstructionToPosePriors(src_reconstruction,
+                                             tgt_pose_priors,
+                                             ransac_options,
+                                             &tgt_from_src)) {
+          return py::none();
+        }
+        return py::cast(tgt_from_src);
+      },
+      "src_reconstruction"_a,
+      "tgt_pose_priors"_a,
+      "ransac_options"_a);
+
+  py::classh<PosePriorAlignmentResult>(m, "PosePriorAlignmentResult")
+      .def(py::init<>())
+      .def_readwrite("success", &PosePriorAlignmentResult::success)
+      .def_readwrite("tgt_from_src", &PosePriorAlignmentResult::tgt_from_src)
+      .def_readwrite("correspondence_image_ids",
+                     &PosePriorAlignmentResult::correspondence_image_ids)
+      .def_property_readonly(
+          "inlier_mask",
+          [](const PosePriorAlignmentResult& self) -> PyInlierMask {
+            return ToPythonMask(self.inlier_mask);
+          });
+
+  m.def("align_reconstruction_to_pose_priors_robust",
+        &AlignReconstructionToPosePriorsRobust,
+        "src_reconstruction"_a,
+        "tgt_pose_priors"_a,
+        "ransac_options"_a,
+        "Robustly align a reconstruction to pose priors, returning the "
+        "RANSAC inlier mask and correspondence image ids alongside the "
+        "similarity transform.");
 
   m.def(
       "compare_reconstructions",
