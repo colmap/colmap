@@ -33,6 +33,7 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/optim/loransac.h"
 
 #include <array>
@@ -77,7 +78,7 @@ void GenerateDominantPlaneScene(const Rigid3d& cam2_from_cam1,
   on_plane_mask->clear();
   for (size_t i = 0; i < num_points; ++i) {
     const Eigen::Vector2d point1 =
-        K.topRows<2>() * Eigen::Vector2d::Random().homogeneous();
+        K.topRows<2>() * RandomEigenVectord<2>().homogeneous();
     const Eigen::Vector3d ray = K_inv * point1.homogeneous();
     const bool on_plane = i < num_on_plane;
     double depth;
@@ -89,8 +90,8 @@ void GenerateDominantPlaneScene(const Rigid3d& cam2_from_cam1,
     const Eigen::Vector3d point3D_in_cam1 = depth * ray;
     const Eigen::Vector2d point2 =
         (K * (cam2_from_cam1 * point3D_in_cam1)).hnormalized();
-    points1->push_back(point1 + noise * Eigen::Vector2d::Random());
-    points2->push_back(point2 + noise * Eigen::Vector2d::Random());
+    points1->push_back(point1 + noise * RandomEigenVectord<2>());
+    points2->push_back(point2 + noise * RandomEigenVectord<2>());
     on_plane_mask->push_back(on_plane);
   }
 }
@@ -126,8 +127,8 @@ TEST(EpipoleFromFundamentalMatrix, Nominal) {
   SetPRNGSeed(0);
   for (int k = 0; k < 20; ++k) {
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                                 RandomEigenVectord<3>());
     const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
     const Eigen::Vector3d epipole2 = EpipoleFromFundamentalMatrix(F);
@@ -139,8 +140,8 @@ TEST(EpipoleFromFundamentalMatrix, Nominal) {
 TEST(HomographyFromFundamentalAndPoints, Nominal) {
   SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
-  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random());
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
   const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
       K, EssentialMatrixFromPose(cam2_from_cam1), K);
   const Eigen::Vector3d epipole2 = EpipoleFromFundamentalMatrix(F);
@@ -178,8 +179,8 @@ TEST(HomographyFromFundamentalAndPoints, Nominal) {
 TEST(HomographyFromFundamentalAndPoints, CollinearReturnsNullopt) {
   SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
-  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random());
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
   const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
       K, EssentialMatrixFromPose(cam2_from_cam1), K);
   const Eigen::Vector3d epipole2 = EpipoleFromFundamentalMatrix(F);
@@ -201,8 +202,8 @@ TEST(HomographyFromFundamentalAndPoints, CollinearReturnsNullopt) {
 TEST(IsSampleHDegenerate, DetectsAndRejects) {
   SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
-  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random());
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
   const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
       K, EssentialMatrixFromPose(cam2_from_cam1), K);
   const Eigen::Vector3d normal = Eigen::Vector3d(0.2, -0.1, 1.0).normalized();
@@ -257,8 +258,8 @@ TEST(IsSampleHDegenerate, DetectsAndRejects) {
 TEST(FundamentalMatrixDegensac, NonPlanarParity) {
   SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
-  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random());
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
   Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
       K, EssentialMatrixFromPose(cam2_from_cam1), K);
   expected_F /= expected_F(2, 2);
@@ -295,8 +296,8 @@ TEST(FundamentalMatrixDegensac, NonPlanarParity) {
 TEST(FundamentalMatrixDegensac, RecoversFOnDominantPlane) {
   SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
-  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random().normalized());
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>().normalized());
   Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
       K, EssentialMatrixFromPose(cam2_from_cam1), K);
   expected_F /= expected_F(2, 2);
@@ -353,8 +354,8 @@ TEST(FundamentalMatrixDegensac, OutperformsLoRansacOnDominantPlane) {
   for (int s = 0; s < kNumScenes; ++s) {
     SetPRNGSeed(s);
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random().normalized());
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                                 RandomEigenVectord<3>().normalized());
     const Eigen::Vector3d normal = Eigen::Vector3d(0.2, -0.1, 1.0).normalized();
     std::vector<Eigen::Vector2d> points1;
     std::vector<Eigen::Vector2d> points2;
