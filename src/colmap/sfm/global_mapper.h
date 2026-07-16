@@ -174,6 +174,13 @@ class GlobalMapper {
   std::shared_ptr<const DatabaseCache> database_cache_;
   std::shared_ptr<class PoseGraph> pose_graph_;
   std::shared_ptr<class Reconstruction> reconstruction_;
+
+  // Set by GlobalPositioning() when pose_prior_position_mode == optimize and
+  // the robust prior-constrained solve actually engaged. Ordinary post-
+  // positioning/BA/retriangulation normalization is gauge-destroying, so it
+  // is skipped while this is true (it would silently discard the metric
+  // gauge the prior optimization just established).
+  bool pose_prior_position_engaged_ = false;
 };
 
 }  // namespace colmap

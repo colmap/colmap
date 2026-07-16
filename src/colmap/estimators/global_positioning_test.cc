@@ -230,6 +230,34 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
                                 /*max_proj_center_error=*/0.5,
                                 /*max_scale_error=*/std::nullopt,
                                 /*num_obs_tolerance=*/0.0));
+
+  // `optimize`: proves actual engagement, robust rejection of the injected
+  // outlier via RANSAC, and preservation of the metric gauge (unlike `off`/
+  // `initialize`, whose scale is arbitrary, `optimize`'s scale must match
+  // ground truth once the prior residual has engaged).
+  Reconstruction reconstruction_opt = gt_reconstruction;
+  reset_translations(reconstruction_opt);
+  GlobalPositionerOptions opt_options = base_options;
+  opt_options.pose_prior_position_mode = PosePriorPositionMode::optimize;
+  PosePriorPositionSummary opt_summary;
+  ASSERT_TRUE(RunGlobalPositioning(opt_options,
+                                   pose_graph,
+                                   reconstruction_opt,
+                                   pose_priors,
+                                   &opt_summary));
+  EXPECT_EQ(opt_summary.requested, PosePriorPositionMode::optimize);
+  EXPECT_TRUE(opt_summary.engaged);
+  // One outlier was injected on one sensor of one rig frame; the multi-
+  // sensor rig-center seed for that single frame is thereby corrupted, so
+  // RANSAC must reject exactly that one frame (num_inliers is frame-level,
+  // not prior-level: num_usable_priors counts both cameras per frame).
+  EXPECT_EQ(opt_summary.num_inliers, opt_summary.num_covered_frames - 1);
+  EXPECT_THAT(gt_reconstruction,
+             ReconstructionNear(reconstruction_opt,
+                                /*max_rotation_error_deg=*/0.1,
+                                /*max_proj_center_error=*/0.5,
+                                /*max_scale_error=*/0.05,
+                                /*num_obs_tolerance=*/0.0));
 }
 
 TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {

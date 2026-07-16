@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/enum_utils.h"
@@ -91,6 +92,12 @@ struct PosePriorPositionSummary {
   int num_usable_priors = 0;
   int num_covered_frames = 0;
   int num_fallback_frames = 0;
+  // `optimize` mode only: RANSAC inlier count among frame-prior
+  // correspondences, and the prior residual RMSE (metres) before/after the
+  // second (prior-constrained) solve. Zero when not engaged.
+  int num_inliers = 0;
+  double initial_prior_rmse = 0.0;
+  double final_prior_rmse = 0.0;
 };
 
 class GlobalPositioner {
@@ -137,6 +144,21 @@ class GlobalPositioner {
   // During the optimization, the camera translation is set to be the camera
   // center Convert the results back to camera poses
   void ConvertBackResults(Reconstruction& reconstruction);
+
+  // `optimize` mode only: robustly fits a Sim3 gauge between the just-solved
+  // (visual) frame centers and pose-prior rig centers via RANSAC, then, if at
+  // least 3 inlier frames are found, adds a covariance-whitened, Cauchy-
+  // robust position-prior residual per inlier frame and re-solves. Leaves
+  // `problem_`/`frame_centers_` unchanged if too few priors or RANSAC fails.
+  // On success, `*gauge_from_solver` is set to the final (post-second-solve)
+  // Sim3 mapping the arbitrary visual/solver frame into the pose-prior
+  // frame; the caller must apply it to the reconstruction (via
+  // Reconstruction::Transform) after ConvertBackResults, since frame_centers_
+  // itself is never rescaled in place.
+  void EngagePositionPriorOptimization(Reconstruction& reconstruction,
+                                       const std::vector<PosePrior>& pose_priors,
+                                       PosePriorPositionSummary* summary,
+                                       Sim3d* gauge_from_solver);
 
   GlobalPositionerOptions options_;
 

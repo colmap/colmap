@@ -1,6 +1,8 @@
 #include "colmap/estimators/global_positioning.h"
 
+#include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
@@ -30,6 +32,8 @@ struct RigCenterCandidate {
   data_t corr_data_id;
   Eigen::Vector3d center;
   double weight;
+  bool has_covariance;
+  Eigen::Matrix3d covariance;
 };
 
 bool ResolveRigCenterCandidate(const Reconstruction& reconstruction,
@@ -70,10 +74,19 @@ bool ResolveRigCenterCandidate(const Reconstruction& reconstruction,
   candidate->center = prior.position - world_from_rig_rotation_applied;
   // Inverse trace of the position covariance as a simple, deterministic
   // weight proxy; falls back to equal weighting when unusable.
-  if (prior.HasPositionCov()) {
-    const double trace = prior.position_covariance.trace();
+  candidate->has_covariance = prior.HasPositionCov();
+  if (candidate->has_covariance) {
+    // The sensor-to-rig-center transform is a fixed rotation/translation
+    // (both rig calibration and current visual rig rotation are held
+    // constant while resolving this candidate), so the covariance rotates
+    // with it: Cov_rig = R * Cov_sensor * R^T, R = world_from_rig.rotation.
+    const Eigen::Matrix3d R =
+        frame.RigFromWorld().rotation().inverse().toRotationMatrix();
+    candidate->covariance = R * prior.position_covariance * R.transpose();
+    const double trace = candidate->covariance.trace();
     candidate->weight = trace > 0.0 ? 1.0 / trace : 1.0;
   } else {
+    candidate->covariance.setZero();
     candidate->weight = 1.0;
   }
   return true;
@@ -94,11 +107,15 @@ bool CompareByDataId(const RigCenterCandidate& lhs,
 // usable position prior. Multiple sensor priors on the same frame are
 // sorted by data_t, transformed to rig centers, and combined with a
 // covariance-weighted mean (falling back to an arithmetic mean when no prior
-// on that frame has a usable covariance).
+// on that frame has a usable covariance). When `out_covariances` is not
+// null, it is populated with one representative rig-frame covariance per
+// seed (the first sorted candidate's covariance that has one, for `optimize`
+// mode's whitening; not itself combined across multiple sensors).
 FlatHashMap<frame_t, Eigen::Vector3d> BuildPosePriorRigCenterSeeds(
     const Reconstruction& reconstruction,
     const std::vector<PosePrior>& pose_priors,
-    int* num_usable_priors) {
+    int* num_usable_priors,
+    FlatHashMap<frame_t, Eigen::Matrix3d>* out_covariances = nullptr) {
   FlatHashMap<frame_t, std::vector<RigCenterCandidate>> candidates_per_frame;
   for (const PosePrior& prior : pose_priors) {
     RigCenterCandidate candidate;
@@ -127,6 +144,15 @@ FlatHashMap<frame_t, Eigen::Vector3d> BuildPosePriorRigCenterSeeds(
       weight_sum += weight;
     }
     seeds[frame_id] = weighted_sum / weight_sum;
+
+    if (out_covariances != nullptr) {
+      for (const RigCenterCandidate& candidate : candidates) {
+        if (candidate.has_covariance) {
+          (*out_covariances)[frame_id] = candidate.covariance;
+          break;
+        }
+      }
+    }
   }
   return seeds;
 }
@@ -195,7 +221,21 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
     LOG(INFO) << ceres_summary.BriefReport();
   }
 
+  Sim3d gauge_from_solver;
+  if (options_.pose_prior_position_mode == PosePriorPositionMode::optimize) {
+    EngagePositionPriorOptimization(
+        reconstruction, pose_priors, summary_ptr, &gauge_from_solver);
+  }
+
+  // frame_centers_/cams_in_rig_ remain in the arbitrary visual/solver scale;
+  // ConvertBackResults writes them into the reconstruction's poses first...
   ConvertBackResults(reconstruction);
+  // ...then, only if `optimize` actually engaged, the whole reconstruction
+  // (poses and points) is transformed once into the metric pose-prior frame.
+  if (summary_ptr->engaged &&
+      options_.pose_prior_position_mode == PosePriorPositionMode::optimize) {
+    reconstruction.Transform(gauge_from_solver);
+  }
   return ceres_summary.IsSolutionUsable();
 }
 
@@ -606,6 +646,163 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
       break;
     }
   }
+}
+
+namespace {
+double PriorResidualRMSE(const Sim3d& gauge_from_solver,
+                         const std::vector<Eigen::Vector3d>& src,
+                         const std::vector<Eigen::Vector3d>& tgt,
+                         const std::vector<char>& inlier_mask) {
+  double sum_sq = 0.0;
+  int count = 0;
+  for (size_t i = 0; i < src.size(); ++i) {
+    if (!inlier_mask[i]) {
+      continue;
+    }
+    sum_sq += (gauge_from_solver * src[i] - tgt[i]).squaredNorm();
+    ++count;
+  }
+  return count > 0 ? std::sqrt(sum_sq / count) : 0.0;
+}
+}  // namespace
+
+void GlobalPositioner::EngagePositionPriorOptimization(
+    Reconstruction& reconstruction,
+    const std::vector<PosePrior>& pose_priors,
+    PosePriorPositionSummary* summary,
+    Sim3d* gauge_from_solver_out) {
+  FlatHashMap<frame_t, Eigen::Matrix3d> covariances;
+  int num_usable_priors = 0;
+  const FlatHashMap<frame_t, Eigen::Vector3d> seeds = BuildPosePriorRigCenterSeeds(
+      reconstruction, pose_priors, &num_usable_priors, &covariances);
+  summary->num_usable_priors = num_usable_priors;
+
+  // Sort frame correspondences before RANSAC for deterministic fixed-seed
+  // runs, and require every candidate frame to actually be a free parameter
+  // block from the visual solve above.
+  std::vector<frame_t> frame_ids;
+  frame_ids.reserve(seeds.size());
+  for (const auto& [frame_id, center] : seeds) {
+    if (frame_centers_.find(frame_id) != frame_centers_.end()) {
+      frame_ids.push_back(frame_id);
+    }
+  }
+  std::sort(frame_ids.begin(), frame_ids.end());
+  summary->num_covered_frames = static_cast<int>(frame_ids.size());
+
+  constexpr int kMinCorrespondences = 3;
+  if (static_cast<int>(frame_ids.size()) < kMinCorrespondences) {
+    LOG(INFO) << "Pose prior optimize: requested=true, engaged=false ("
+              << frame_ids.size() << " prior-covered frames, need at least "
+              << kMinCorrespondences << ")";
+    return;
+  }
+
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  src.reserve(frame_ids.size());
+  tgt.reserve(frame_ids.size());
+  for (const frame_t frame_id : frame_ids) {
+    src.push_back(frame_centers_.at(frame_id));
+    tgt.push_back(seeds.at(frame_id));
+  }
+
+  // The RANSAC inlier threshold reuses the same 95%-chi-square-derived scale
+  // as the robust loss (via the fallback stddev), rather than introducing a
+  // third, unrelated tuning constant.
+  RANSACOptions ransac_options;
+  const double error_scale = options_.pose_prior_position_loss_scale *
+                             options_.pose_prior_position_fallback_stddev;
+  ransac_options.max_error = error_scale * error_scale;
+
+  Sim3d gauge_from_solver;
+  const auto report =
+      EstimateSim3dRobust(src, tgt, ransac_options, gauge_from_solver);
+
+  const int num_inliers =
+      report.success ? static_cast<int>(report.support.num_inliers) : 0;
+  summary->num_inliers = num_inliers;
+  if (!report.success || num_inliers < kMinCorrespondences) {
+    LOG(INFO) << "Pose prior optimize: requested=true, engaged=false (RANSAC "
+                 "gauge fit failed or found only "
+              << num_inliers << " inliers)";
+    return;
+  }
+
+  summary->initial_prior_rmse =
+      PriorResidualRMSE(gauge_from_solver, src, tgt, report.inlier_mask);
+
+  // New free parameter blocks for the jointly-optimized gauge.
+  Eigen::Vector4d gauge_rotation = gauge_from_solver.rotation().coeffs();
+  Eigen::Vector3d gauge_translation = gauge_from_solver.translation();
+  double gauge_scale = gauge_from_solver.scale();
+  problem_->AddParameterBlock(gauge_rotation.data(), 4);
+  SetManifold(
+      problem_.get(), gauge_rotation.data(), CreateEigenQuaternionManifold());
+  problem_->AddParameterBlock(gauge_translation.data(), 3);
+  problem_->AddParameterBlock(&gauge_scale, 1);
+  problem_->SetParameterLowerBound(&gauge_scale, 0, 1e-5);
+
+  ceres::LossFunction* prior_loss_function = new ceres::CauchyLoss(
+      options_.pose_prior_position_loss_scale);
+  const Eigen::Matrix3d fallback_covariance =
+      Eigen::Matrix3d::Identity() *
+      (options_.pose_prior_position_fallback_stddev *
+       options_.pose_prior_position_fallback_stddev);
+
+  for (size_t i = 0; i < frame_ids.size(); ++i) {
+    if (!report.inlier_mask[i]) {
+      continue;
+    }
+    const frame_t frame_id = frame_ids[i];
+    const auto cov_it = covariances.find(frame_id);
+    const Eigen::Matrix3d& cov =
+        cov_it != covariances.end() ? cov_it->second : fallback_covariance;
+    ceres::CostFunction* cost_function =
+        CovarianceWeightedCostFunctor<PositionPriorViaSim3CostFunctor>::Create(
+            cov, tgt[i]);
+    problem_->AddResidualBlock(cost_function,
+                               prior_loss_function,
+                               frame_centers_.at(frame_id).data(),
+                               gauge_rotation.data(),
+                               gauge_translation.data(),
+                               &gauge_scale);
+  }
+
+  LOG(INFO) << "Solving the pose-prior-constrained global positioner problem";
+  ceres::Solver::Summary second_ceres_summary;
+  ceres::Solve(options_.solver_options, problem_.get(), &second_ceres_summary);
+  if (VLOG_IS_ON(2)) {
+    LOG(INFO) << second_ceres_summary.FullReport();
+  } else {
+    LOG(INFO) << second_ceres_summary.BriefReport();
+  }
+
+  // frame_centers_ entries are live Ceres parameter blocks: re-read them
+  // (and the gauge) after the second solve rather than reusing the
+  // pre-solve `src` snapshot.
+  const Sim3d final_gauge_from_solver(
+      gauge_scale,
+      Eigen::Quaterniond(
+          gauge_rotation(3), gauge_rotation(0), gauge_rotation(1), gauge_rotation(2)),
+      gauge_translation);
+  std::vector<Eigen::Vector3d> refined_src;
+  refined_src.reserve(frame_ids.size());
+  for (const frame_t frame_id : frame_ids) {
+    refined_src.push_back(frame_centers_.at(frame_id));
+  }
+  summary->final_prior_rmse = PriorResidualRMSE(
+      final_gauge_from_solver, refined_src, tgt, report.inlier_mask);
+  summary->engaged = true;
+  *gauge_from_solver_out = final_gauge_from_solver;
+
+  LOG(INFO) << StringPrintf(
+      "Pose prior optimize: requested=true, engaged=true, usable "
+      "priors=%d, inliers=%d, initial RMSE=%.4f, final RMSE=%.4f",
+      summary->num_usable_priors,
+      summary->num_inliers,
+      summary->initial_prior_rmse,
+      summary->final_prior_rmse);
 }
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,

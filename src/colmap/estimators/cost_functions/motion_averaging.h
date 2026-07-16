@@ -1,6 +1,9 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/quaternion_utils.h"
+#include "colmap/estimators/cost_functions/utils.h"
+
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
@@ -125,6 +128,36 @@ struct RigBATAPairwiseDirectionCostFunctor {
 
   const Eigen::Vector3d cam_from_point3D_dir_;
   const Eigen::Quaterniond world_from_rig_rot_;
+};
+
+// Position-prior residual against one jointly-optimized global Sim3 gauge:
+// predicted = gauge_scale * (gauge_rotation * frame_center) + gauge_translation.
+// Wrap with CovarianceWeightedCostFunctor to whiten by the prior's position
+// covariance (or an isotropic fallback).
+struct PositionPriorViaSim3CostFunctor
+    : public AutoDiffCostFunctor<PositionPriorViaSim3CostFunctor, 3, 3, 4, 3, 1> {
+ public:
+  explicit PositionPriorViaSim3CostFunctor(
+      const Eigen::Vector3d& measured_position)
+      : measured_position_(measured_position) {}
+
+  template <typename T>
+  bool operator()(const T* const frame_center,
+                  const T* const gauge_rotation,
+                  const T* const gauge_translation,
+                  const T* const gauge_scale,
+                  T* residuals_ptr) const {
+    const Eigen::Matrix<T, 3, 1> predicted =
+        gauge_scale[0] * (EigenQuaternionMap<T>(gauge_rotation) *
+                          EigenVector3Map<T>(frame_center)) +
+        EigenVector3Map<T>(gauge_translation);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = predicted - measured_position_.cast<T>();
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d measured_position_;
 };
 
 }  // namespace colmap

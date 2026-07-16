@@ -293,13 +293,18 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
   if (summary.requested != PosePriorPositionMode::off) {
     LOG(INFO) << StringPrintf(
         "Pose prior position mode requested=%s, engaged=%s, usable "
-        "priors=%d, covered frames=%d, fallback frames=%d",
+        "priors=%d, covered frames=%d, fallback frames=%d, inliers=%d",
         PosePriorPositionModeToString(summary.requested).data(),
         summary.engaged ? "true" : "false",
         summary.num_usable_priors,
         summary.num_covered_frames,
-        summary.num_fallback_frames);
+        summary.num_fallback_frames,
+        summary.num_inliers);
   }
+  // `initialize` seeds are free parameters and carry no metric claim, so only
+  // an engaged `optimize` solve is gauge-destroying to normalize away.
+  pose_prior_position_engaged_ =
+      summary.requested == PosePriorPositionMode::optimize && summary.engaged;
 
   // Filter tracks based on the estimation
   ObservationManager obs_manager(*reconstruction_);
@@ -347,10 +352,11 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
       reconstruction_->Point3DIds(),
       ReprojectionErrorType::NORMALIZED);
 
-  // Normalize the structure for numerical stability.
-  // TODO: Skip normalization when position priors are used (similar to
-  // incremental mapper's !use_prior_position condition).
-  reconstruction_->Normalize();
+  // Normalize the structure for numerical stability, unless an engaged
+  // `optimize` pose-prior solve already established the metric gauge.
+  if (!pose_prior_position_engaged_) {
+    reconstruction_->Normalize();
+  }
 
   return true;
 }
@@ -384,10 +390,11 @@ bool GlobalMapper::IterativeBundleAdjustment(
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
               << num_iterations << " finished";
 
-    // Normalize the structure for numerical stability.
-    // TODO: Skip normalization when position priors are used (similar to
-    // incremental mapper's !use_prior_position condition).
-    reconstruction_->Normalize();
+    // Normalize the structure for numerical stability, unless an engaged
+    // `optimize` pose-prior solve already established the metric gauge.
+    if (!pose_prior_position_engaged_) {
+      reconstruction_->Normalize();
+    }
 
     // Report progress for this refinement iteration and stop early if
     // requested. The filter passes above leave point3D.error in normalized
@@ -493,10 +500,11 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     return false;
   }
 
-  // Normalize the structure for numerical stability.
-  // TODO: Skip normalization when position priors are used (similar to
-  // incremental mapper's !use_prior_position condition).
-  reconstruction_->Normalize();
+  // Normalize the structure for numerical stability, unless an engaged
+  // `optimize` pose-prior solve already established the metric gauge.
+  if (!pose_prior_position_engaged_) {
+    reconstruction_->Normalize();
+  }
 
   obs_manager.FilterPoints3DWithLargeReprojectionError(
       max_normalized_reproj_error,
