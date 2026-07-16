@@ -126,6 +126,80 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
+// M3 durable case (goal doc section 7, step M3.1): known Sim3 and one
+// position outlier; the robust fit must recover the known transform,
+// identify exactly the injected outlier as the sole non-inlier, expose
+// correspondence identities/inlier mask (not re-derived from rounded
+// output), and leave relative camera geometry unchanged once the transform
+// is applied (the transform and its inverse round-trip exactly, per Sim3d's
+// own Inverse()).
+TEST(Alignment, AlignReconstructionToPosePriorsRobust) {
+  Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  const Sim3d gt_tgt_from_src = TestSim3d();
+  tgt_reconstruction.Transform(gt_tgt_from_src);
+
+  // Snapshot one pairwise relative camera distance in the source
+  // reconstruction, to verify below that alignment does not perturb
+  // relative geometry (only src_reconstruction.Transform(result.tgt_from_src)
+  // would; this test never calls that).
+  const std::vector<image_t> src_image_ids = src_reconstruction.RegImageIds();
+  ASSERT_GE(src_image_ids.size(), 2u);
+  const double relative_distance_before =
+      (src_reconstruction.Image(src_image_ids[0]).ProjectionCenter() -
+       src_reconstruction.Image(src_image_ids[1]).ProjectionCenter())
+          .norm();
+
+  std::vector<PosePrior> tgt_pose_priors;
+  image_t outlier_image_id = kInvalidImageId;
+  for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
+    PosePrior& pose_prior = tgt_pose_priors.emplace_back();
+    pose_prior.pose_prior_id = tgt_pose_priors.size();
+    pose_prior.corr_data_id = image.DataId();
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    pose_prior.position = image.ProjectionCenter();
+    if (outlier_image_id == kInvalidImageId) {
+      // A gross outlier, far larger than the reconstruction's own extent.
+      pose_prior.position += Eigen::Vector3d(1000.0, 0.0, 0.0);
+      outlier_image_id = image_id;
+    }
+  }
+  ASSERT_NE(outlier_image_id, kInvalidImageId);
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 1e-2;
+
+  const PosePriorAlignmentResult result = AlignReconstructionToPosePriorsRobust(
+      src_reconstruction, tgt_pose_priors, ransac_options);
+  ASSERT_TRUE(result.success);
+  ExpectEqualSim3d(gt_tgt_from_src, result.tgt_from_src);
+
+  ASSERT_EQ(result.correspondence_image_ids.size(), result.inlier_mask.size());
+  ASSERT_EQ(result.correspondence_image_ids.size(), src_image_ids.size());
+  int num_inliers = 0;
+  for (size_t i = 0; i < result.correspondence_image_ids.size(); ++i) {
+    const bool is_outlier_image =
+        result.correspondence_image_ids[i] == outlier_image_id;
+    EXPECT_EQ(result.inlier_mask[i] != 0, !is_outlier_image)
+        << "image_id=" << result.correspondence_image_ids[i];
+    num_inliers += result.inlier_mask[i] != 0;
+  }
+  EXPECT_EQ(num_inliers, static_cast<int>(src_image_ids.size()) - 1);
+
+  // Relative camera geometry (independent of this alignment result) is
+  // unchanged, and the transform/its inverse round-trip exactly.
+  const double relative_distance_after =
+      (src_reconstruction.Image(src_image_ids[0]).ProjectionCenter() -
+       src_reconstruction.Image(src_image_ids[1]).ProjectionCenter())
+          .norm();
+  EXPECT_NEAR(relative_distance_before, relative_distance_after, 1e-9);
+
+  const Sim3d src_from_tgt = Inverse(result.tgt_from_src);
+  const Eigen::Vector3d probe(1.0, 2.0, 3.0);
+  EXPECT_LT((src_from_tgt * (result.tgt_from_src * probe) - probe).norm(), 1e-9);
+}
+
 TEST(Alignment, AlignReconstructionsViaReprojections) {
   Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
   Reconstruction tgt_reconstruction = src_reconstruction;

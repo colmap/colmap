@@ -54,6 +54,24 @@ bool AlignReconstructionToPosePriors(
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src);
 
+// Result of a robust pose-prior alignment that exposes the RANSAC inlier
+// mask and correspondence identities, rather than re-estimating inlier state
+// from rounded output. `correspondence_image_ids` and `inlier_mask` are
+// parallel arrays in lexicographic image-name order.
+struct PosePriorAlignmentResult {
+  bool success = false;
+  Sim3d tgt_from_src;
+  std::vector<image_t> correspondence_image_ids;
+  std::vector<char> inlier_mask;
+};
+
+// Same correspondence collection as AlignReconstructionToPosePriors, but
+// returns the full PosePriorAlignmentResult instead of only the Sim3d.
+PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
+    const Reconstruction& src_reconstruction,
+    const std::vector<PosePrior>& tgt_pose_priors,
+    const RANSACOptions& ransac_options);
+
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated
 // robustly inside RANSAC from corresponding projection centers. An alignment

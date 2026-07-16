@@ -37,6 +37,8 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+
 namespace colmap {
 namespace {
 
@@ -276,6 +278,59 @@ bool AlignReconstructionToPosePriors(
     return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
   }
   return EstimateSim3d(src, tgt, *tgt_from_src);
+}
+
+PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
+    const Reconstruction& src_reconstruction,
+    const std::vector<PosePrior>& tgt_pose_priors,
+    const RANSACOptions& ransac_options) {
+  PosePriorAlignmentResult result;
+
+  NodeHashMap<image_t, PosePrior> tgt_image_to_pose_prior;
+  for (const auto& pose_prior : tgt_pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
+        pose_prior.HasPosition()) {
+      THROW_CHECK(tgt_image_to_pose_prior
+                      .emplace(pose_prior.corr_data_id.id, pose_prior)
+                      .second)
+          << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
+    }
+  }
+
+  // Collect correspondences in lexicographic image-name order.
+  std::vector<std::pair<std::string, image_t>> sorted_image_ids;
+  for (const image_t image_id : src_reconstruction.RegImageIds()) {
+    if (tgt_image_to_pose_prior.find(image_id) != tgt_image_to_pose_prior.end()) {
+      sorted_image_ids.emplace_back(
+          src_reconstruction.Image(image_id).Name(), image_id);
+    }
+  }
+  std::sort(sorted_image_ids.begin(), sorted_image_ids.end());
+
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  src.reserve(sorted_image_ids.size());
+  tgt.reserve(sorted_image_ids.size());
+  for (const auto& [name, image_id] : sorted_image_ids) {
+    result.correspondence_image_ids.push_back(image_id);
+    src.push_back(src_reconstruction.Image(image_id).ProjectionCenter());
+    tgt.push_back(tgt_image_to_pose_prior.at(image_id).position);
+  }
+
+  if (src.size() < 3) {
+    LOG(WARNING) << "Not enough valid pose priors for alignment";
+    result.inlier_mask.assign(src.size(), 0);
+    return result;
+  }
+
+  const auto report =
+      EstimateSim3dRobust(src, tgt, ransac_options, result.tgt_from_src);
+  result.success = report.success;
+  result.inlier_mask = report.inlier_mask;
+  if (result.inlier_mask.empty()) {
+    result.inlier_mask.assign(src.size(), result.success ? 1 : 0);
+  }
+  return result;
 }
 
 bool AlignReconstructionsViaReprojections(

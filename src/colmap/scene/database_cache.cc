@@ -30,6 +30,7 @@
 #include "colmap/scene/database_cache.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/math/geometric_median.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
@@ -39,46 +40,6 @@
 
 namespace colmap {
 namespace {
-
-// Weiszfeld's algorithm for the L1 geometric median of a point set. Used to
-// pick a deterministic, outlier-robust ENU reference instead of an arbitrary
-// (e.g. first) row.
-Eigen::Vector3d GeometricMedian(const std::vector<Eigen::Vector3d>& points) {
-  Eigen::Vector3d median = Eigen::Vector3d::Zero();
-  for (const Eigen::Vector3d& p : points) {
-    median += p;
-  }
-  median /= static_cast<double>(points.size());
-
-  constexpr int kMaxIters = 100;
-  constexpr double kConvergenceTol = 1e-9;
-  constexpr double kDegenerateDistTol = 1e-9;
-  for (int iter = 0; iter < kMaxIters; ++iter) {
-    Eigen::Vector3d numerator = Eigen::Vector3d::Zero();
-    double weight_sum = 0.0;
-    for (const Eigen::Vector3d& p : points) {
-      const double dist = (p - median).norm();
-      if (dist < kDegenerateDistTol) {
-        // The current estimate coincides with a sample; skip it to avoid a
-        // division by (near-)zero rather than perturbing the estimate.
-        continue;
-      }
-      const double weight = 1.0 / dist;
-      numerator += weight * p;
-      weight_sum += weight;
-    }
-    if (weight_sum < kDegenerateDistTol) {
-      break;
-    }
-    const Eigen::Vector3d next = numerator / weight_sum;
-    const bool converged = (next - median).norm() < kConvergenceTol;
-    median = next;
-    if (converged) {
-      break;
-    }
-  }
-  return median;
-}
 
 bool UseInlierMatchesCheck(const DatabaseCache::Options& options,
                            int two_view_geometry_config,

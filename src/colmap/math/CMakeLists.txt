@@ -34,6 +34,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_math
     SRCS
         connected_components.h
+        geometric_median.h
         graph_cut.h graph_cut.cc
         math.h math.cc
         matrix.h
@@ -53,6 +54,11 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME connected_components_test
     SRCS connected_components_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME geometric_median_test
+    SRCS geometric_median_test.cc
     LINK_LIBS colmap_math
 )
 COLMAP_ADD_TEST(
