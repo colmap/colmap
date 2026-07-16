@@ -144,12 +144,58 @@ the ``pose_prior_mapper``::
 
 The ``pose_prior_mapper`` is essentially the incremental mapper with prior
 position constraints enabled. You can override the priors covariance (uncertainty)
-using ``--overwrite_priors_covariance``.  The new covariance will be built based 
+using ``--overwrite_priors_covariance``.  The new covariance will be built based
 on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
-``--prior_position_std_z`` (default: 1.0 meter each).
+``--prior_position_std_z`` (default: 1.0 meter each). Using pose priors mainly
+improves the robustness of the reconstruction process and may also slightly
+improve its accuracy.
 
 For geo-registration of an already reconstructed model (without using priors
 during mapping), see the `Geo-registration`_ section.
+
+**Populating the database with custom pose priors**
+
+If your prior positions do not come from EXIF metadata but from another source
+(e.g., RTK/GNSS logs, SLAM, or motion capture), you can write them directly to
+the ``pose_priors`` table in the database using pycolmap. Each prior is
+associated with the sensor data of an image via ``corr_data_id`` and stores the
+position of the sensor in the world coordinate system (i.e., the camera center
+in world coordinates, not the world origin in camera coordinates). The position
+must be either in the ``WGS84`` (latitude, longitude, altitude) or ``CARTESIAN``
+(arbitrary metric frame) coordinate system, while the position covariance is
+always specified in metric Cartesian units. For example, after running the
+``feature_extractor``::
+
+    import numpy as np
+    import pycolmap
+
+    # Custom prior positions of the camera centers in the world frame,
+    # e.g., from RTK/GNSS logs or a SLAM system: image name -> 3D position.
+    positions = {"image0001.jpg": np.array([1.0, 2.0, 3.0]), ...}
+    std = 2.0  # Measurement uncertainty in meters.
+
+    db = pycolmap.Database.open("path/to/database.db")
+    for image in db.read_all_images():
+        prior = pycolmap.PosePrior()
+        prior.corr_data_id = image.data_id
+        prior.position = positions[image.name]
+        prior.position_covariance = std**2 * np.eye(3)
+        prior.coordinate_system = pycolmap.PosePriorCoordinateSystem.CARTESIAN
+        db.write_pose_prior(prior)
+    db.close()
+
+The reconstruction with pose priors can also be run directly from pycolmap
+using the incremental mapping pipeline::
+
+    import pycolmap
+
+    options = pycolmap.IncrementalPipelineOptions(use_prior_position=True)
+    reconstructions = pycolmap.incremental_mapping(
+        database_path="path/to/database.db",
+        image_path="path/to/images",
+        output_path="path/to/sparse",
+        options=options,
+    )
 
 
 .. _faq-share-intrinsics:
