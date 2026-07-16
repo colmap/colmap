@@ -30,10 +30,12 @@
 #include "colmap/exe/database.h"
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/geometry/pose_prior_io.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -164,6 +166,108 @@ int RunRigConfigurator(int argc, char** argv) {
     reconstruction->Write(output_path);
   }
 
+  return EXIT_SUCCESS;
+}
+
+int RunPosePriorImporter(int argc, char** argv) {
+  std::filesystem::path pose_prior_path;
+  bool overwrite = true;
+  bool update = false;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddRequiredOption("pose_prior_path", &pose_prior_path);
+  options.AddDefaultOption(
+      "overwrite", &overwrite, "Replace existing pose priors.");
+  options.AddDefaultOption(
+      "update",
+      &update,
+      "Merge input data into existing pose priors and add unmatched entries.");
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (overwrite && update) {
+    LOG(WARNING) << "Both --overwrite and --update specified. "
+                 << "--update takes precedence, --overwrite is ignored.";
+  }
+
+  if (!ExistsFile(pose_prior_path)) {
+    LOG(ERROR) << "`pose_prior_path` is not a file.";
+    return EXIT_FAILURE;
+  }
+
+  const auto archive = ReadPosePriorArchive(pose_prior_path);
+
+  auto database = Database::Open(*options.database_path);
+
+  const auto data_id_from_name =
+      [&database](const std::string& name) -> std::optional<data_t> {
+    const auto image = database->ReadImageWithName(name);
+    if (!image) {
+      return std::nullopt;
+    }
+    return data_t(sensor_t(SensorType::CAMERA, image->CameraId()),
+                  image->ImageId());
+  };
+
+  if (update) {
+    auto priors = database->ReadAllPosePriors();
+    const size_t num_existing = priors.size();
+    archive.UpdatePosePriors(
+        data_id_from_name, /*allow_new_priors=*/true, priors);
+
+    size_t num_updated = 0;
+    size_t num_added = 0;
+    {
+      DatabaseTransaction transaction(database.get());
+      for (size_t i = 0; i < priors.size(); ++i) {
+        if (i < num_existing) {
+          database->UpdatePosePrior(priors[i]);
+          ++num_updated;
+        } else {
+          database->WritePosePrior(priors[i]);
+          ++num_added;
+        }
+      }
+    }
+
+    LOG(INFO) << "Added " << num_added << " new and updated " << num_updated
+              << " existing pose priors.";
+    return EXIT_SUCCESS;
+  }
+
+  auto priors = archive.ToPosePriors(data_id_from_name);
+  if (priors.empty()) {
+    LOG(WARNING) << "No pose priors were imported.";
+    return EXIT_FAILURE;
+  }
+
+  // We cannot use ExistsPosePrior(pose_prior_t pose_prior_id) here
+  NodeHashMap<data_t, pose_prior_t> existing_prior_ids;
+  for (const auto& prior : database->ReadAllPosePriors()) {
+    existing_prior_ids.emplace(prior.corr_data_id, prior.pose_prior_id);
+  }
+
+  size_t num_imported = 0;
+  {
+    DatabaseTransaction transaction(database.get());
+    for (auto& prior : priors) {
+      const auto it = existing_prior_ids.find(prior.corr_data_id);
+      if (it != existing_prior_ids.end()) {
+        if (overwrite) {
+          prior.pose_prior_id = it->second;
+          database->UpdatePosePrior(prior);
+          ++num_imported;
+        }
+      } else {
+        database->WritePosePrior(prior);
+        ++num_imported;
+      }
+    }
+  }
+
+  LOG(INFO) << "Imported " << num_imported << " pose priors.";
   return EXIT_SUCCESS;
 }
 
