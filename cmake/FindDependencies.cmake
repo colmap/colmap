@@ -27,13 +27,6 @@ find_package(OpenImageIO ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
 
-find_package(Glog ${COLMAP_FIND_TYPE})
-if(DEFINED glog_VERSION_MAJOR)
-  # Older versions of glog don't export version variables.
-  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
-  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
-endif()
-
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
 # Older CMake versions define SQLite::SQLite3 instead of SQLite3::SQLite3.
 if(NOT TARGET SQLite3::SQLite3 AND TARGET SQLite::SQLite3)
@@ -49,6 +42,12 @@ find_package(Git)
 
 find_package(CHOLMOD REQUIRED)
 
+# Ceres is found before Glog on purpose. Some distributions (e.g. Fedora) ship a
+# Ceres whose bundled FindGlog.cmake unconditionally calls add_library(glog::glog)
+# in module mode. If we created the glog::glog target first, that call collides
+# with a "target already exists" error (see issue #3347). By finding Ceres first,
+# Ceres creates glog::glog itself, and our subsequent find_package(Glog) reuses
+# the existing target instead.
 find_package(Ceres ${COLMAP_FIND_TYPE})
 if(NOT TARGET Ceres::ceres)
     # Older Ceres versions don't come with an imported interface target.
@@ -57,6 +56,13 @@ if(NOT TARGET Ceres::ceres)
         Ceres::ceres INTERFACE ${CERES_INCLUDE_DIRS})
     target_link_libraries(
         Ceres::ceres INTERFACE ${CERES_LIBRARIES})
+endif()
+
+find_package(Glog ${COLMAP_FIND_TYPE})
+if(DEFINED glog_VERSION_MAJOR)
+  # Older versions of glog don't export version variables.
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
 endif()
 
 if(TESTS_ENABLED)
