@@ -636,14 +636,11 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   SyntheticNoiseOptions synthetic_noise_options;
-  // Keep the noise well below the RANSAC inlier threshold so the essential and
-  // fundamental matrix both select the same clean inlier set. Their E/F inlier
-  // ratio then sits near 1.0, far above the `min_E_F_inlier_ratio` (0.95)
-  // classification threshold, and the scene is unambiguously CALIBRATED. Higher
-  // noise lets the 7-DOF fundamental matrix accrue more spurious inliers than
-  // the 5-DOF essential matrix, pushing the ratio to the threshold where
-  // floating-point differences flip the result across platforms.
-  synthetic_noise_options.point2D_stddev = 1;
+  // Keep the noise moderate: low enough that the essential and fundamental
+  // matrix support similar numbers of inliers so the scene is unambiguously
+  // classified as CALIBRATED across platforms, yet high enough that different
+  // RANSAC seeds select different inlier sets and thus yield different E.
+  synthetic_noise_options.point2D_stddev = 3;
   const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
       synthetic_dataset_options, synthetic_noise_options);
 
