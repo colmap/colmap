@@ -40,6 +40,13 @@
 namespace colmap {
 namespace {
 
+// Default maximum number of bundle adjustment iterations for the Ceres
+// backend, used when ba_{local,global}_max_num_iterations is -1. The Caspar
+// backend has different convergence behavior and instead falls back to its
+// own tuned default in CasparBundleAdjustmentOptions::solver_iter_max.
+constexpr int kDefaultCeresLocalMaxNumIterations = 25;
+constexpr int kDefaultCeresGlobalMaxNumIterations = 50;
+
 void CustomizeIncrementalPipelineOptions(const DatabaseCache& database_cache,
                                          IncrementalPipelineOptions& options) {
   // If the total number of images is small then do not enforce the
@@ -172,7 +179,8 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     options.ceres->solver_options.gradient_tolerance = 10.0;
     options.ceres->solver_options.parameter_tolerance = 0.0;
     options.ceres->solver_options.max_num_iterations =
-        ba_local_max_num_iterations;
+        (ba_local_max_num_iterations >= 0) ? ba_local_max_num_iterations
+                                           : kDefaultCeresLocalMaxNumIterations;
     options.ceres->solver_options.max_linear_solver_iterations = 100;
     options.ceres->solver_options.logging_type = ceres::LoggingType::SILENT;
     options.ceres->solver_options.num_threads = num_threads;
@@ -188,14 +196,11 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     options.ceres->gpu_index = ba_gpu_index;
   }
   if (options.caspar) {
-    // Caspar has different dampening and convergence criteria than Ceres and
-    // ships its own tuned default iteration bound, so we must not clobber it
-    // with the Ceres-oriented mapper default. Only forward the iteration bound
-    // when the user explicitly overrode it (i.e. it differs from the default),
-    // leaving CasparBundleAdjustmentOptions::solver_iter_max untouched
-    // otherwise.
-    static const IncrementalPipelineOptions kDefaults;
-    if (ba_local_max_num_iterations != kDefaults.ba_local_max_num_iterations) {
+    // Only forward the iteration bound when the user explicitly set it
+    // (i.e. it is not the -1 sentinel), leaving Caspar's own tuned
+    // solver_iter_max default untouched otherwise, as Caspar has different
+    // dampening and convergence criteria than Ceres.
+    if (ba_local_max_num_iterations >= 0) {
       options.caspar->solver_iter_max = ba_local_max_num_iterations;
     }
     options.caspar->gpu_index = ba_gpu_index;
@@ -218,7 +223,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     options.ceres->solver_options.gradient_tolerance = 1.0;
     options.ceres->solver_options.parameter_tolerance = 0.0;
     options.ceres->solver_options.max_num_iterations =
-        ba_global_max_num_iterations;
+        (ba_global_max_num_iterations >= 0)
+            ? ba_global_max_num_iterations
+            : kDefaultCeresGlobalMaxNumIterations;
     options.ceres->solver_options.max_linear_solver_iterations = 100;
     options.ceres->solver_options.logging_type = ceres::LoggingType::SILENT;
     if (VLOG_IS_ON(2)) {
@@ -239,15 +246,34 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   }
   if (options.caspar) {
     // See LocalBundleAdjustment(): only forward the iteration bound to the
-    // Caspar backend when the user overrode the mapper default, so Caspar's
-    // own tuned solver_iter_max default is preserved otherwise.
-    static const IncrementalPipelineOptions kDefaults;
-    if (ba_global_max_num_iterations != kDefaults.ba_global_max_num_iterations) {
+    // Caspar backend when the user explicitly set it, so Caspar's own tuned
+    // solver_iter_max default is preserved otherwise.
+    if (ba_global_max_num_iterations >= 0) {
       options.caspar->solver_iter_max = ba_global_max_num_iterations;
     }
     options.caspar->gpu_index = ba_gpu_index;
   }
   return options;
+}
+
+int IncrementalPipelineOptions::EffBaLocalMaxNumIterations() const {
+  if (ba_local_max_num_iterations >= 0) {
+    return ba_local_max_num_iterations;
+  }
+  if (ba_local_backend == BundleAdjustmentBackend::CASPAR) {
+    return CasparBundleAdjustmentOptions().solver_iter_max;
+  }
+  return kDefaultCeresLocalMaxNumIterations;
+}
+
+int IncrementalPipelineOptions::EffBaGlobalMaxNumIterations() const {
+  if (ba_global_max_num_iterations >= 0) {
+    return ba_global_max_num_iterations;
+  }
+  if (ba_global_backend == BundleAdjustmentBackend::CASPAR) {
+    return CasparBundleAdjustmentOptions().solver_iter_max;
+  }
+  return kDefaultCeresGlobalMaxNumIterations;
 }
 
 bool IncrementalPipelineOptions::Check() const {
@@ -259,12 +285,13 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(min_focal_length_ratio, 0);
   CHECK_OPTION_GT(max_focal_length_ratio, 0);
   CHECK_OPTION_GE(max_extra_param, 0);
-  CHECK_OPTION_GE(ba_local_max_num_iterations, 0);
+  CHECK_OPTION_GE(ba_local_max_num_iterations, -1);
   CHECK_OPTION_GT(ba_global_frames_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_points_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_frames_freq, 0);
   CHECK_OPTION_GT(ba_global_points_freq, 0);
-  CHECK_OPTION_GT(ba_global_max_num_iterations, 0);
+  CHECK_OPTION_GE(ba_global_max_num_iterations, -1);
+  CHECK_OPTION_NE(ba_global_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_local_max_refinements, 0);
   CHECK_OPTION_GE(ba_local_max_refinement_change, 0);
   CHECK_OPTION_GE(ba_global_max_refinements, 0);

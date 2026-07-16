@@ -30,6 +30,7 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -713,38 +714,67 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
               ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
-TEST(IncrementalPipelineOptions, PropagatesOverriddenMaxNumIterationsToCaspar) {
+TEST(IncrementalPipelineOptions, PropagatesExplicitMaxNumIterations) {
+  // Explicitly set iteration bounds must be forwarded to both backends,
+  // including values that coincide with the previous compiled-in defaults.
   IncrementalPipelineOptions options;
-  options.ba_local_max_num_iterations = 7;
-  options.ba_global_max_num_iterations = 13;
+  options.ba_local_max_num_iterations = 25;
+  options.ba_global_max_num_iterations = 50;
 
   const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.ceres);
+  EXPECT_EQ(local_options.ceres->solver_options.max_num_iterations, 25);
   ASSERT_TRUE(local_options.caspar);
-  EXPECT_EQ(local_options.caspar->solver_iter_max,
-            options.ba_local_max_num_iterations);
+  EXPECT_EQ(local_options.caspar->solver_iter_max, 25);
 
   const BundleAdjustmentOptions global_options =
       options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.ceres);
+  EXPECT_EQ(global_options.ceres->solver_options.max_num_iterations, 50);
   ASSERT_TRUE(global_options.caspar);
-  EXPECT_EQ(global_options.caspar->solver_iter_max,
-            options.ba_global_max_num_iterations);
+  EXPECT_EQ(global_options.caspar->solver_iter_max, 50);
 }
 
-TEST(IncrementalPipelineOptions, PreservesCasparSolverIterMaxDefault) {
-  // When the mapper iteration bounds are left at their (Ceres-oriented)
-  // defaults, Caspar's own tuned solver_iter_max default must be preserved
-  // rather than overwritten (see review discussion on #4382/PR #4527).
+TEST(IncrementalPipelineOptions, DefaultMaxNumIterationsUsesBackendDefaults) {
+  // With the -1 sentinel default, each backend must keep its own default:
+  // Ceres the previous 25/50 mapper defaults, Caspar its own tuned
+  // solver_iter_max (see review discussion on #4382/PR #4527).
   const IncrementalPipelineOptions options;
+  ASSERT_EQ(options.ba_local_max_num_iterations, -1);
+  ASSERT_EQ(options.ba_global_max_num_iterations, -1);
   const int caspar_default = CasparBundleAdjustmentOptions().solver_iter_max;
 
   const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.ceres);
+  EXPECT_EQ(local_options.ceres->solver_options.max_num_iterations, 25);
   ASSERT_TRUE(local_options.caspar);
   EXPECT_EQ(local_options.caspar->solver_iter_max, caspar_default);
 
   const BundleAdjustmentOptions global_options =
       options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.ceres);
+  EXPECT_EQ(global_options.ceres->solver_options.max_num_iterations, 50);
   ASSERT_TRUE(global_options.caspar);
   EXPECT_EQ(global_options.caspar->solver_iter_max, caspar_default);
+}
+
+TEST(IncrementalPipelineOptions, EffBaMaxNumIterations) {
+  IncrementalPipelineOptions options;
+  const int caspar_default = CasparBundleAdjustmentOptions().solver_iter_max;
+
+  // Sentinel resolves to the configured backend's default.
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), 25);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), 50);
+  options.ba_local_backend = BundleAdjustmentBackend::CASPAR;
+  options.ba_global_backend = BundleAdjustmentBackend::CASPAR;
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), caspar_default);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), caspar_default);
+
+  // Explicit values win regardless of backend.
+  options.ba_local_max_num_iterations = 7;
+  options.ba_global_max_num_iterations = 13;
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), 7);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), 13);
 }
 
 }  // namespace
