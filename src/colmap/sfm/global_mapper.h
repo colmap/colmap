@@ -140,6 +140,14 @@ class GlobalMapper {
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options);
 
+  // Selects one global rotation gauge from full-orientation pose priors via
+  // a small deterministic consensus (not a new rotation-averaging
+  // framework) and applies it once to the whole reconstruction. Run after
+  // RotationAveraging() and before GlobalPositioning(). Always returns true;
+  // "no consensus" is requested-but-not-engaged, not a hard failure.
+  bool InitializeRotationGaugeFromPosePriors(
+      const RotationEstimatorOptions& rotation_averaging_options);
+
   // Establish tracks from feature matches.
   void EstablishTracks(const GlobalMapperOptions& options);
 

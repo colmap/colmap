@@ -1,16 +1,19 @@
 #include "colmap/sfm/global_mapper.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
-
-// TODO(jsch): Add tests for pose priors.
 
 std::shared_ptr<DatabaseCache> CreateDatabaseCache(const Database& database) {
   DatabaseCache::Options options;
@@ -150,6 +153,141 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
                                  /*max_proj_center_error=*/1e-1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+}
+
+// M2 rotation-gauge case (goal doc section 6.2): non-identity sensor_from_rig
+// (num_cameras_per_rig=2); covariance weighting and one gross orientation
+// outlier; the recovered gauge matches the known perturbation; every
+// pairwise relative frame rotation is unchanged before vs. after; and, in a
+// second sub-case, absent orientations produce a requested-but-not-engaged
+// no-op.
+TEST(GlobalMapper, InitializeRotationGaugeFromPosePriors) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 8;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.1;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 5.;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Full-orientation pose priors in the ground-truth ("prior world") frame,
+  // one per frame (first image of each frame), with a small finite
+  // rotation_covariance (exercising covariance weighting) and one gross
+  // outlier.
+  bool injected_outlier = false;
+  for (const auto& [frame_id, frame] : gt_reconstruction.Frames()) {
+    const data_t image_data_id = *frame.ImageIds().begin();
+    const image_t image_id = static_cast<image_t>(image_data_id.id);
+    const Image& image = gt_reconstruction.Image(image_id);
+
+    PosePrior prior;
+    prior.corr_data_id = image.DataId();
+    prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    prior.rotation = image.CamFromWorld().rotation();
+    prior.rotation_covariance = Eigen::Matrix3d::Identity() * 1e-4;
+    if (!injected_outlier) {
+      // A gross 90 degree outlier on one frame's prior. The literal radian
+      // value avoids M_PI, which is undefined on MSVC without
+      // _USE_MATH_DEFINES.
+      constexpr double kNinetyDegRad = 1.5707963267948966;
+      prior.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(
+                            kNinetyDegRad, Eigen::Vector3d::UnitX())) *
+                       prior.rotation;
+      injected_outlier = true;
+    }
+    database->WritePosePrior(prior);
+  }
+  ASSERT_TRUE(injected_outlier);
+
+  // A known global rotation gauge, simulating rotation averaging having
+  // solved everything correctly up to one unknown global rotation:
+  // rig_from_solver = rig_from_prior_world * Inverse(solver_from_prior_world),
+  // which preserves every pairwise relative rotation exactly (each frame is
+  // right-multiplied by the same fixed rotation).
+  const Eigen::Quaterniond solver_from_prior_world_true = Eigen::Quaterniond(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(1.0, 2.0, 3.0).normalized()));
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
+
+  for (const auto& [frame_id, gt_frame] : gt_reconstruction.Frames()) {
+    Frame& frame = reconstruction->Frame(frame_id);
+    const Eigen::Quaterniond perturbed_rotation =
+        gt_frame.RigFromWorld().rotation() *
+        solver_from_prior_world_true.inverse();
+    frame.SetRigFromWorld(
+        Rigid3d(perturbed_rotation, gt_frame.RigFromWorld().translation()));
+  }
+
+  // Snapshot one pairwise relative rotation before the gauge is applied.
+  const auto frame_ids_vec = [&] {
+    std::vector<frame_t> ids;
+    for (const auto& [frame_id, _] : reconstruction->Frames()) {
+      ids.push_back(frame_id);
+    }
+    std::sort(ids.begin(), ids.end());
+    return ids;
+  }();
+  ASSERT_GE(frame_ids_vec.size(), 2u);
+  const Eigen::Quaterniond relative_before =
+      reconstruction->Frame(frame_ids_vec[0]).RigFromWorld().rotation() *
+      reconstruction->Frame(frame_ids_vec[1])
+          .RigFromWorld()
+          .rotation()
+          .inverse();
+
+  ASSERT_TRUE(global_mapper.InitializeRotationGaugeFromPosePriors(
+      RotationEstimatorOptions()));
+
+  // The gauge must recover (the inverse of) the known perturbation: every
+  // frame's rotation should now match ground truth, despite the outlier.
+  for (const auto& [frame_id, gt_frame] : gt_reconstruction.Frames()) {
+    EXPECT_THAT(reconstruction->Frame(frame_id).RigFromWorld(),
+               Rigid3dNear(gt_frame.RigFromWorld(),
+                           /*rtol=*/DegToRad(1.0),
+                           /*ttol=*/1e-6));
+  }
+
+  // Every pairwise relative frame rotation is unchanged.
+  const Eigen::Quaterniond relative_after =
+      reconstruction->Frame(frame_ids_vec[0]).RigFromWorld().rotation() *
+      reconstruction->Frame(frame_ids_vec[1])
+          .RigFromWorld()
+          .rotation()
+          .inverse();
+  EXPECT_NEAR(relative_before.angularDistance(relative_after), 0.0, 1e-9);
+
+  // Absent orientations: a fresh reconstruction/database with no pose priors
+  // produces a requested-but-not-engaged no-op, not an error.
+  {
+    auto empty_database =
+        Database::Open(CreateTestDir() / "empty_database.db");
+    Reconstruction unused_gt;
+    SynthesizeDataset(
+        synthetic_dataset_options, &unused_gt, empty_database.get());
+    auto no_prior_reconstruction = std::make_shared<Reconstruction>();
+    GlobalMapper no_prior_mapper(CreateDatabaseCache(*empty_database));
+    no_prior_mapper.BeginReconstruction(no_prior_reconstruction);
+    for (const auto& [frame_id, gt_frame] : unused_gt.Frames()) {
+      no_prior_reconstruction->Frame(frame_id).SetRigFromWorld(
+          gt_frame.RigFromWorld());
+    }
+    EXPECT_TRUE(no_prior_mapper.InitializeRotationGaugeFromPosePriors(
+        RotationEstimatorOptions()));
+    for (const auto& [frame_id, gt_frame] : unused_gt.Frames()) {
+      EXPECT_THAT(no_prior_reconstruction->Frame(frame_id).RigFromWorld(),
+                 Rigid3dEq(gt_frame.RigFromWorld()));
+    }
+  }
 }
 
 TEST(GlobalMapperOptions, RefineSensorFromRigPropagatesToSubOptions) {

@@ -2,6 +2,8 @@
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"
@@ -39,6 +41,85 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
   auto ba = CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
 
   return ba->Solve()->IsSolutionUsable();
+}
+
+// One frame's candidate estimate of the single global rotation gauge
+// solver_from_prior_world, derived per the goal doc's M2.3 chain:
+//   rig_from_prior_world = Inverse(sensor_from_rig) * sensor_from_prior_world
+//   solver_from_prior_world = Inverse(rig_from_solver) * rig_from_prior_world
+// Left-multiplication by fixed rig/visual rotations leaves the documented
+// right-multiplicative world covariance basis unchanged, so `weight` is
+// derived directly from the prior's own rotation_covariance.
+struct RotationGaugeCandidate {
+  frame_t frame_id;
+  Eigen::Quaterniond solver_from_prior_world;
+  double weight;
+};
+
+bool ResolveRotationGaugeCandidate(const Reconstruction& reconstruction,
+                                   const PosePrior& prior,
+                                   RotationGaugeCandidate* candidate) {
+  if (prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+      !prior.HasRotation()) {
+    return false;
+  }
+  const image_t image_id = static_cast<image_t>(prior.corr_data_id.id);
+  if (!reconstruction.ExistsImage(image_id)) {
+    return false;
+  }
+  const Image& image = reconstruction.Image(image_id);
+  if (!image.HasPose()) {
+    return false;
+  }
+  const Frame& frame = *image.FramePtr();
+  const Rig& rig = reconstruction.Rig(frame.RigId());
+  const sensor_t sensor_id = image.CameraPtr()->SensorId();
+  if (!rig.HasSensor(sensor_id)) {
+    return false;
+  }
+  // The reference sensor's sensor_from_rig is fixed to identity by
+  // convention (see GlobalPositioner's identical special case).
+  Eigen::Quaterniond sensor_from_rig_rotation = Eigen::Quaterniond::Identity();
+  if (!rig.IsRefSensor(sensor_id)) {
+    if (!rig.HasSensorFromRig(sensor_id)) {
+      return false;
+    }
+    sensor_from_rig_rotation = rig.SensorFromRig(sensor_id).rotation();
+  }
+  const Eigen::Quaterniond rig_from_prior_world =
+      sensor_from_rig_rotation.inverse() * prior.rotation;
+  const Eigen::Quaterniond solver_from_rig_rotation =
+      frame.RigFromWorld().rotation().inverse();
+  candidate->frame_id = frame.FrameId();
+  candidate->solver_from_prior_world =
+      (solver_from_rig_rotation * rig_from_prior_world).normalized();
+  if (prior.HasRotationCov()) {
+    const double mean_variance = prior.rotation_covariance.trace() / 3.0;
+    constexpr double kEpsilon = 1e-12;
+    candidate->weight = 1.0 / std::max(mean_variance, kEpsilon);
+  } else {
+    candidate->weight = 1.0;
+  }
+  return true;
+}
+
+// Sign-invariant geodesic angle between two rotations, in degrees.
+double QuaternionGeodesicAngleDeg(const Eigen::Quaterniond& a,
+                                  const Eigen::Quaterniond& b) {
+  const double abs_dot = std::min(1.0, std::abs(a.coeffs().dot(b.coeffs())));
+  return RadToDeg(2.0 * std::acos(abs_dot));
+}
+
+// Aligns `q`'s sign to `reference` (unit quaternions q and -q represent the
+// same rotation; AverageQuaternions requires consistent signs).
+Eigen::Quaterniond AlignedToReference(const Eigen::Quaterniond& q,
+                                      const Eigen::Quaterniond& reference) {
+  if (q.coeffs().dot(reference.coeffs()) < 0.0) {
+    Eigen::Quaterniond negated = q;
+    negated.coeffs() = -q.coeffs();
+    return negated;
+  }
+  return q;
 }
 
 }  // namespace
@@ -134,6 +215,140 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
           << reconstruction_->NumImages()
           << " images are within the connected component.";
 
+  return true;
+}
+
+bool GlobalMapper::InitializeRotationGaugeFromPosePriors(
+    const RotationEstimatorOptions& rotation_averaging_options) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+
+  // Resolve one candidate per frame (first resolved prior wins; PosePriors()
+  // iteration order is the database's own deterministic row order).
+  FlatHashMap<frame_t, RotationGaugeCandidate> per_frame;
+  for (const PosePrior& prior : database_cache_->PosePriors()) {
+    RotationGaugeCandidate candidate;
+    if (!ResolveRotationGaugeCandidate(*reconstruction_, prior, &candidate)) {
+      continue;
+    }
+    per_frame.emplace(candidate.frame_id, candidate);
+  }
+
+  if (per_frame.empty()) {
+    LOG(INFO) << "Pose prior rotation gauge: requested=true, engaged=false "
+                 "(no usable full-orientation priors)";
+    return true;
+  }
+
+  std::vector<RotationGaugeCandidate> candidates;
+  candidates.reserve(per_frame.size());
+  for (const auto& [frame_id, candidate] : per_frame) {
+    candidates.push_back(candidate);
+  }
+  std::sort(candidates.begin(),
+           candidates.end(),
+           [](const RotationGaugeCandidate& lhs,
+              const RotationGaugeCandidate& rhs) {
+             return lhs.frame_id < rhs.frame_id;
+           });
+
+  const double threshold_deg = rotation_averaging_options.max_rotation_error_deg;
+  const int num_candidates = static_cast<int>(candidates.size());
+  // One inlier suffices for a single candidate; two or more require a
+  // strict majority.
+  const int required_support =
+      num_candidates == 1 ? 1 : (num_candidates / 2 + 1);
+
+  const auto count_support = [&](const Eigen::Quaterniond& hypothesis) {
+    int inliers = 0;
+    double total_error = 0.0;
+    for (const RotationGaugeCandidate& candidate : candidates) {
+      const double error = QuaternionGeodesicAngleDeg(
+          hypothesis, candidate.solver_from_prior_world);
+      if (error <= threshold_deg) {
+        ++inliers;
+        total_error += error;
+      }
+    }
+    const double mean_error =
+        inliers > 0 ? total_error / inliers : std::numeric_limits<double>::infinity();
+    return std::make_pair(inliers, mean_error);
+  };
+
+  // Score every candidate as a one-sample hypothesis; select by inlier
+  // count, then mean angular error, then sorted (frame_id) order.
+  int best_index = -1;
+  int best_inliers = -1;
+  double best_error = std::numeric_limits<double>::infinity();
+  for (int i = 0; i < num_candidates; ++i) {
+    const auto [inliers, mean_error] =
+        count_support(candidates[i].solver_from_prior_world);
+    if (inliers > best_inliers ||
+        (inliers == best_inliers && mean_error < best_error)) {
+      best_index = i;
+      best_inliers = inliers;
+      best_error = mean_error;
+    }
+  }
+
+  if (best_inliers < required_support) {
+    LOG(INFO) << StringPrintf(
+        "Pose prior rotation gauge: requested=true, engaged=false (no "
+        "consensus: best support %d/%d, need %d)",
+        best_inliers,
+        num_candidates,
+        required_support);
+    return true;
+  }
+
+  const bool any_valid_weight = std::any_of(
+      candidates.begin(), candidates.end(), [](const RotationGaugeCandidate& c) {
+        return c.weight != 1.0;
+      });
+
+  const auto gather_inliers = [&](const Eigen::Quaterniond& hypothesis,
+                                  std::vector<Eigen::Quaterniond>* quats,
+                                  std::vector<double>* weights) {
+    quats->clear();
+    weights->clear();
+    for (const RotationGaugeCandidate& candidate : candidates) {
+      if (QuaternionGeodesicAngleDeg(hypothesis, candidate.solver_from_prior_world) <=
+          threshold_deg) {
+        quats->push_back(
+            AlignedToReference(candidate.solver_from_prior_world, hypothesis));
+        weights->push_back(any_valid_weight ? candidate.weight : 1.0);
+      }
+    }
+  };
+
+  std::vector<Eigen::Quaterniond> inlier_quats;
+  std::vector<double> inlier_weights;
+  gather_inliers(candidates[best_index].solver_from_prior_world,
+                 &inlier_quats,
+                 &inlier_weights);
+  const Eigen::Quaterniond weighted_mean =
+      AverageQuaternions(inlier_quats, inlier_weights);
+
+  // Reselect inliers once around the weighted mean; require the same
+  // support rule to still hold.
+  gather_inliers(weighted_mean, &inlier_quats, &inlier_weights);
+  if (static_cast<int>(inlier_quats.size()) < required_support) {
+    LOG(INFO) << "Pose prior rotation gauge: requested=true, engaged=false "
+                 "(reselection around the weighted mean lost consensus)";
+    return true;
+  }
+  const Eigen::Quaterniond solver_from_prior_world =
+      AverageQuaternions(inlier_quats, inlier_weights);
+
+  const Eigen::Quaterniond prior_world_from_solver =
+      solver_from_prior_world.inverse();
+  reconstruction_->Transform(
+      Sim3d(1.0, prior_world_from_solver, Eigen::Vector3d::Zero()));
+
+  LOG(INFO) << StringPrintf(
+      "Pose prior rotation gauge: requested=true, engaged=true, "
+      "candidates=%d, inliers=%d",
+      num_candidates,
+      static_cast<int>(inlier_quats.size()));
   return true;
 }
 
@@ -560,6 +775,10 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
               << " seconds";
+
+    if (options.pose_prior_rotation_mode == PosePriorRotationMode::initialize) {
+      InitializeRotationGaugeFromPosePriors(options.RotationAveraging());
+    }
   }
 
   // Track establishment and selection
