@@ -78,6 +78,19 @@ In the GUI, open ``Processing > Feature matching``, select any matching tab
 (Exhaustive, Sequential, etc.), and choose the matcher type from the "Type"
 dropdown in the shared options section.
 
+When re-running matching on an existing database, image pairs that already have
+a two-view geometry are skipped, so changing ``--FeatureMatching.type`` on such
+a database leaves previously matched pairs untouched. To force re-matching, first
+clear the existing results with ``database_cleaner``::
+
+    $ colmap database_cleaner \
+        --database_path $DATASET_PATH/database.db \
+        --type two_view_geometries
+
+Use ``--type matches`` to also clear the raw feature matches, or ``--type
+features`` to additionally clear the extracted keypoints and descriptors (needed
+when re-extracting with a different ``--FeatureExtraction.type``).
+
 
 Compatible Extractor and Matcher Types
 --------------------------------------
