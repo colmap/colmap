@@ -63,11 +63,23 @@ class IncrementalMapperImpl {
       const Reconstruction& reconstruction,
       const FlatHashMap<image_t, size_t>& num_registrations);
 
+  // Result of selecting and/or estimating the initial image pair. On success,
+  // `camera1`/`camera2` carry the intrinsics estimated for the chosen pair by
+  // two-view solvers that recover them (e.g. the shared-focal solver, which
+  // sets both to the same camera), and are std::nullopt otherwise.
+  struct InitInfo {
+    image_t image_id1 = kInvalidImageId;
+    image_t image_id2 = kInvalidImageId;
+    Rigid3d cam2_from_cam1;
+    std::optional<Camera> camera1;
+    std::optional<Camera> camera2;
+  };
+
   // Implement IncrementalMapper::FindInitialImagePair
-  // On success, `estimated_camera1`/`estimated_camera2` carry the intrinsics
-  // estimated for the chosen pair by two-view solvers that recover them (e.g.
-  // the shared-focal solver, which sets both to the same camera), and are
-  // std::nullopt otherwise.
+  // On success, returns true and populates `init_info` with the selected pair;
+  // returns false if no suitable pair was found. `image_id1`/`image_id2`
+  // optionally constrain the search to a specific first and/or second image
+  // (kInvalidImageId leaves the respective image unconstrained).
   static bool FindInitialImagePair(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
@@ -75,11 +87,9 @@ class IncrementalMapperImpl {
       const FlatHashMap<image_t, size_t>& init_num_reg_trials,
       const FlatHashMap<image_t, size_t>& num_registrations,
       FlatHashSet<image_pair_t>& init_image_pairs,
-      image_t& image_id1,
-      image_t& image_id2,
-      Rigid3d& cam2_from_cam1,
-      std::optional<Camera>& estimated_camera1,
-      std::optional<Camera>& estimated_camera2);
+      image_t image_id1,
+      image_t image_id2,
+      std::optional<InitInfo>& init_info);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
@@ -96,19 +106,15 @@ class IncrementalMapperImpl {
       const Reconstruction& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
-  //
-  // On success, `estimated_camera1`/`estimated_camera2` carry the intrinsics
-  // estimated by two-view solvers that recover them (e.g. the shared-focal
-  // solver, which sets both to the same camera), and are std::nullopt
-  // otherwise.
+  // On success, returns true and populates `init_info` with the estimated
+  // two-view geometry; returns false if the pair is unsuitable for
+  // initialization.
   static bool EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       image_t image_id1,
       image_t image_id2,
-      Rigid3d& cam2_from_cam1,
-      std::optional<Camera>& estimated_camera1,
-      std::optional<Camera>& estimated_camera2);
+      std::optional<InitInfo>& init_info);
 };
 
 }  // namespace colmap

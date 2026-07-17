@@ -265,9 +265,9 @@ Camera CameraFromBlob(const void* data, const size_t num_bytes) {
 
 // Bind an optional camera to a statement column, writing NULL when unset. The
 // returned blob must outlive the sqlite3_step call (bound with SQLITE_STATIC).
-std::string BindOptionalCamera(sqlite3_stmt* sql_stmt,
-                               const std::optional<Camera>& camera,
-                               const int col) {
+std::string WriteOptionalCamera(sqlite3_stmt* sql_stmt,
+                                const std::optional<Camera>& camera,
+                                const int col) {
   if (!camera.has_value()) {
     SQLITE3_CALL(sqlite3_bind_null(sql_stmt, col));
     return {};
@@ -1466,14 +1466,14 @@ class SqliteDatabase : public Database {
     // sqlite3_step because they are bound with SQLITE_STATIC.
     const std::string
         camera1_blob =  // NOLINT(bugprone-unused-local-non-trivial-variable)
-        BindOptionalCamera(sql_stmt_write_two_view_geometry_,
-                           two_view_geometry_ptr->camera1,
-                           11);
+        WriteOptionalCamera(sql_stmt_write_two_view_geometry_,
+                            two_view_geometry_ptr->camera1,
+                            11);
     const std::string
         camera2_blob =  // NOLINT(bugprone-unused-local-non-trivial-variable)
-        BindOptionalCamera(sql_stmt_write_two_view_geometry_,
-                           two_view_geometry_ptr->camera2,
-                           12);
+        WriteOptionalCamera(sql_stmt_write_two_view_geometry_,
+                            two_view_geometry_ptr->camera2,
+                            12);
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }
