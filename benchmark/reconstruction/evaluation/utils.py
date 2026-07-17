@@ -376,12 +376,34 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--threads_per_scene",
+        type=int,
+        default=-1,
+        help=(
+            "Override the number of threads used within each scene. "
+            "Defaults to num_threads // num_parallel_scenes (-1). Set to 1 "
+            "for reproducible runs: RANSAC seeds per thread as "
+            "random_seed + omp_get_thread_num(), so with a fixed --random_seed "
+            "only single-threaded scenes are deterministic (required for "
+            "paired common-random-number A/B comparison)."
+        ),
+    )
+    parser.add_argument(
         "--gpu_index",
         type=str,
         default="-1",
         help="GPU indices to use for reconstruction. "
         "Use '-1' to auto-detect and use all available GPUs. "
         "Use comma-separated indices like '0,1,2' to specify exact GPUs.",
+    )
+    parser.add_argument(
+        "--random_seed",
+        type=int,
+        default=-1,
+        help="Random seed forwarded to colmap's automatic_reconstructor "
+        "(two-view RANSAC + mapper). -1 (default) uses a nondeterministic "
+        "random device, matching prior harness behavior. Fix it to a "
+        "non-negative value for reproducible / paired A-B runs.",
     )
     parser.add_argument(
         "--feature",
@@ -590,6 +612,8 @@ def colmap_reconstruction(
         gpu_index,
         "--num_threads",
         str(num_threads),
+        "--random_seed",
+        str(args.random_seed),
         "--feature",
         args.feature,
         "--mapper",
@@ -865,7 +889,17 @@ def process_scenes(
     ]
 
     num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
-    num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
+    if args.threads_per_scene > 0:
+        num_threads_per_scene = args.threads_per_scene
+    else:
+        num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
+    if args.random_seed >= 0 and num_threads_per_scene != 1:
+        pycolmap.logging.warning(
+            f"--random_seed={args.random_seed} is set but "
+            f"num_threads_per_scene={num_threads_per_scene} > 1: RANSAC "
+            "seeds per thread, so results are NOT deterministic. Pass "
+            "--threads_per_scene 1 for reproducible / paired A-B runs."
+        )
 
     manager = None
     progress_status = None
