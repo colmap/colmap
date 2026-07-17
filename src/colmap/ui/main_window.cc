@@ -31,6 +31,7 @@
 
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/ui/qt_utils.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/ply.h"
@@ -181,7 +182,9 @@ MainWindow::MainWindow(OptionManager options)
   CreateMenus();
   CreateToolbar();
   CreateStatusbar();
-  CreateControllers();
+  // The mapper controller (and its database cache) is created lazily when a
+  // reconstruction is actually started, so opening the GUI does not read the
+  // database. The initial control states are set up in CreateActions().
 
   ShowLog();
 
@@ -373,37 +376,39 @@ void MainWindow::CreateActions() {
   // File actions
   //////////////////////////////////////////////////////////////////////////////
 
-  action_project_new_ =
-      new QAction(QIcon(":/media/project-new.svg"), tr("New project"), this);
+  action_project_new_ = new QAction(
+      ThemedIcon(":/media/project-new.svg"), tr("New project"), this);
   action_project_new_->setShortcuts(QKeySequence::New);
   connect(
       action_project_new_, &QAction::triggered, this, &MainWindow::ProjectNew);
 
-  action_project_open_ =
-      new QAction(QIcon(":/media/project-open.svg"), tr("Open project"), this);
+  action_project_open_ = new QAction(
+      ThemedIcon(":/media/project-open.svg"), tr("Open project"), this);
   action_project_open_->setShortcuts(QKeySequence::Open);
   connect(action_project_open_,
           &QAction::triggered,
           this,
           &MainWindow::ProjectOpen);
 
-  action_project_edit_ =
-      new QAction(QIcon(":/media/project-edit.svg"), tr("Edit project"), this);
+  action_project_edit_ = new QAction(
+      ThemedIcon(":/media/project-edit.svg"), tr("Edit project"), this);
   connect(action_project_edit_,
           &QAction::triggered,
           this,
           &MainWindow::ProjectEdit);
 
-  action_project_save_ =
-      new QAction(QIcon(":/media/project-save.svg"), tr("Save project"), this);
+  action_project_save_ = new QAction(
+      ThemedIcon(":/media/project-save.svg"), tr("Save project"), this);
   action_project_save_->setShortcuts(QKeySequence::Save);
   connect(action_project_save_,
           &QAction::triggered,
           this,
           &MainWindow::ProjectSave);
 
-  action_project_save_as_ = new QAction(
-      QIcon(":/media/project-save-as.svg"), tr("Save project as..."), this);
+  action_project_save_as_ =
+      new QAction(ThemedIcon(":/media/project-save-as.svg"),
+                  tr("Save project as..."),
+                  this);
   action_project_save_as_->setShortcuts(QKeySequence::SaveAs);
   connect(action_project_save_as_,
           &QAction::triggered,
@@ -411,13 +416,13 @@ void MainWindow::CreateActions() {
           &MainWindow::ProjectSaveAs);
 
   action_import_ =
-      new QAction(QIcon(":/media/import.svg"), tr("Import model"), this);
+      new QAction(ThemedIcon(":/media/import.svg"), tr("Import model"), this);
   action_import_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
   connect(action_import_, &QAction::triggered, this, &MainWindow::Import);
   blocking_actions_.push_back(action_import_);
 
   action_import_from_ = new QAction(
-      QIcon(":/media/import-from.svg"), tr("Import from ..."), this);
+      ThemedIcon(":/media/import-from.svg"), tr("Import from ..."), this);
   connect(action_import_from_,
           &QAction::triggered,
           this,
@@ -425,24 +430,25 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_import_from_);
 
   action_export_ =
-      new QAction(QIcon(":/media/export.svg"), tr("Export model"), this);
+      new QAction(ThemedIcon(":/media/export.svg"), tr("Export model"), this);
   action_export_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_E));
   connect(action_export_, &QAction::triggered, this, &MainWindow::Export);
   blocking_actions_.push_back(action_export_);
 
   action_export_all_ = new QAction(
-      QIcon(":/media/export-all.svg"), tr("Export all models"), this);
+      ThemedIcon(":/media/export-all.svg"), tr("Export all models"), this);
   connect(
       action_export_all_, &QAction::triggered, this, &MainWindow::ExportAll);
   blocking_actions_.push_back(action_export_all_);
 
   action_export_as_ = new QAction(
-      QIcon(":/media/export-as.svg"), tr("Export model as..."), this);
+      ThemedIcon(":/media/export-as.svg"), tr("Export model as..."), this);
   connect(action_export_as_, &QAction::triggered, this, &MainWindow::ExportAs);
   blocking_actions_.push_back(action_export_as_);
 
-  action_export_as_text_ = new QAction(
-      QIcon(":/media/export-as-text.svg"), tr("Export model as text"), this);
+  action_export_as_text_ = new QAction(ThemedIcon(":/media/export-as-text.svg"),
+                                       tr("Export model as text"),
+                                       this);
   connect(action_export_as_text_,
           &QAction::triggered,
           this,
@@ -456,8 +462,10 @@ void MainWindow::CreateActions() {
   // Processing action
   //////////////////////////////////////////////////////////////////////////////
 
-  action_feature_extraction_ = new QAction(
-      QIcon(":/media/feature-extraction.svg"), tr("Feature extraction"), this);
+  action_feature_extraction_ =
+      new QAction(ThemedIcon(":/media/feature-extraction.svg"),
+                  tr("Feature extraction"),
+                  this);
   connect(action_feature_extraction_,
           &QAction::triggered,
           this,
@@ -465,7 +473,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_feature_extraction_);
 
   action_feature_matching_ = new QAction(
-      QIcon(":/media/feature-matching.svg"), tr("Feature matching"), this);
+      ThemedIcon(":/media/feature-matching.svg"), tr("Feature matching"), this);
   connect(action_feature_matching_,
           &QAction::triggered,
           this,
@@ -473,7 +481,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_feature_matching_);
 
   action_database_management_ =
-      new QAction(QIcon(":/media/database-management.svg"),
+      new QAction(ThemedIcon(":/media/database-management.svg"),
                   tr("Database management"),
                   this);
   connect(action_database_management_,
@@ -487,7 +495,7 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_automatic_reconstruction_ =
-      new QAction(QIcon(":/media/automatic-reconstruction.svg"),
+      new QAction(ThemedIcon(":/media/automatic-reconstruction.svg"),
                   tr("Automatic reconstruction"),
                   this);
   connect(action_automatic_reconstruction_,
@@ -496,7 +504,7 @@ void MainWindow::CreateActions() {
           &MainWindow::AutomaticReconstruction);
 
   action_reconstruction_start_ =
-      new QAction(QIcon(":/media/reconstruction-start.svg"),
+      new QAction(ThemedIcon(":/media/reconstruction-start.svg"),
                   tr("Start reconstruction"),
                   this);
   connect(action_reconstruction_start_,
@@ -506,7 +514,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_start_);
 
   action_reconstruction_step_ =
-      new QAction(QIcon(":/media/reconstruction-step.svg"),
+      new QAction(ThemedIcon(":/media/reconstruction-step.svg"),
                   tr("Reconstruct next image"),
                   this);
   connect(action_reconstruction_step_,
@@ -516,7 +524,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_step_);
 
   action_reconstruction_pause_ =
-      new QAction(QIcon(":/media/reconstruction-pause.svg"),
+      new QAction(ThemedIcon(":/media/reconstruction-pause.svg"),
                   tr("Pause reconstruction"),
                   this);
   connect(action_reconstruction_pause_,
@@ -527,7 +535,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_pause_);
 
   action_reconstruction_reset_ =
-      new QAction(QIcon(":/media/reconstruction-reset.svg"),
+      new QAction(ThemedIcon(":/media/reconstruction-reset.svg"),
                   tr("Reset reconstruction"),
                   this);
   connect(action_reconstruction_reset_,
@@ -536,7 +544,7 @@ void MainWindow::CreateActions() {
           &MainWindow::ReconstructionOverwrite);
 
   action_reconstruction_normalize_ =
-      new QAction(QIcon(":/media/reconstruction-normalize.svg"),
+      new QAction(ThemedIcon(":/media/reconstruction-normalize.svg"),
                   tr("Normalize reconstruction"),
                   this);
   connect(action_reconstruction_normalize_,
@@ -546,7 +554,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_reconstruction_normalize_);
 
   action_reconstruction_options_ =
-      new QAction(QIcon(":/media/reconstruction-options.svg"),
+      new QAction(ThemedIcon(":/media/reconstruction-options.svg"),
                   tr("Reconstruction options"),
                   this);
   connect(action_reconstruction_options_,
@@ -555,8 +563,10 @@ void MainWindow::CreateActions() {
           &MainWindow::ReconstructionOptions);
   blocking_actions_.push_back(action_reconstruction_options_);
 
-  action_bundle_adjustment_ = new QAction(
-      QIcon(":/media/bundle-adjustment.svg"), tr("Bundle adjustment"), this);
+  action_bundle_adjustment_ =
+      new QAction(ThemedIcon(":/media/bundle-adjustment.svg"),
+                  tr("Bundle adjustment"),
+                  this);
   connect(action_bundle_adjustment_,
           &QAction::triggered,
           this,
@@ -565,7 +575,7 @@ void MainWindow::CreateActions() {
   blocking_actions_.push_back(action_bundle_adjustment_);
 
   action_dense_reconstruction_ =
-      new QAction(QIcon(":/media/dense-reconstruction.svg"),
+      new QAction(ThemedIcon(":/media/dense-reconstruction.svg"),
                   tr("Dense reconstruction"),
                   this);
   connect(action_dense_reconstruction_,
@@ -578,21 +588,21 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_render_toggle_ = new QAction(
-      QIcon(":/media/render-enabled.svg"), tr("Disable rendering"), this);
+      ThemedIcon(":/media/render-enabled.svg"), tr("Disable rendering"), this);
   connect(action_render_toggle_,
           &QAction::triggered,
           this,
           &MainWindow::RenderToggle);
 
   action_render_reset_view_ = new QAction(
-      QIcon(":/media/render-reset-view.svg"), tr("Reset view"), this);
+      ThemedIcon(":/media/render-reset-view.svg"), tr("Reset view"), this);
   connect(action_render_reset_view_,
           &QAction::triggered,
           model_viewer_widget_,
           &ModelViewerWidget::ResetView);
 
   action_render_options_ = new QAction(
-      QIcon(":/media/render-options.svg"), tr("Render options"), this);
+      ThemedIcon(":/media/render-options.svg"), tr("Render options"), this);
   connect(action_render_options_,
           &QAction::triggered,
           this,
@@ -609,7 +619,7 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_reconstruction_stats_ =
-      new QAction(QIcon(":/media/reconstruction-stats.svg"),
+      new QAction(ThemedIcon(":/media/reconstruction-stats.svg"),
                   tr("Show model statistics"),
                   this);
   connect(action_reconstruction_stats_,
@@ -618,30 +628,30 @@ void MainWindow::CreateActions() {
           &MainWindow::ReconstructionStats);
 
   action_match_matrix_ = new QAction(
-      QIcon(":/media/match-matrix.svg"), tr("Show match matrix"), this);
+      ThemedIcon(":/media/match-matrix.svg"), tr("Show match matrix"), this);
   connect(action_match_matrix_,
           &QAction::triggered,
           this,
           &MainWindow::MatchMatrix);
 
   action_log_show_ =
-      new QAction(QIcon(":/media/log.svg"), tr("Show log"), this);
+      new QAction(ThemedIcon(":/media/log.svg"), tr("Show log"), this);
   connect(action_log_show_, &QAction::triggered, this, &MainWindow::ShowLog);
 
   action_grab_image_ =
-      new QAction(QIcon(":/media/grab-image.svg"), tr("Grab image"), this);
+      new QAction(ThemedIcon(":/media/grab-image.svg"), tr("Grab image"), this);
   connect(
       action_grab_image_, &QAction::triggered, this, &MainWindow::GrabImage);
 
   action_grab_movie_ =
-      new QAction(QIcon(":/media/grab-movie.svg"), tr("Grab movie"), this);
+      new QAction(ThemedIcon(":/media/grab-movie.svg"), tr("Grab movie"), this);
   connect(action_grab_movie_,
           &QAction::triggered,
           model_viewer_widget_,
           &ModelViewerWidget::GrabMovie);
 
-  action_undistort_ =
-      new QAction(QIcon(":/media/undistort.svg"), tr("Undistortion"), this);
+  action_undistort_ = new QAction(
+      ThemedIcon(":/media/undistort.svg"), tr("Undistortion"), this);
   connect(action_undistort_,
           &QAction::triggered,
           this,
@@ -842,11 +852,8 @@ void MainWindow::CreateStatusbar() {
   statusBar()->addWidget(model_viewer_widget_->statusbar_status_label, 1);
 }
 
-void MainWindow::CreateControllers() {
-  if (mapper_controller_) {
-    mapper_controller_->Stop();
-    mapper_controller_->Wait();
-  }
+void MainWindow::CreateMapperController() {
+  StopMapperController();
 
   options_.mapper->image_path = *options_.image_path;
 
@@ -883,6 +890,22 @@ void MainWindow::CreateControllers() {
           action_reconstruction_reset_->trigger();
         }
       });
+}
+
+void MainWindow::StopMapperController() {
+  if (mapper_controller_) {
+    mapper_controller_->Stop();
+    mapper_controller_->Wait();
+    mapper_controller_.reset();
+  }
+}
+
+void MainWindow::ResetMapperController() {
+  // Tear down any existing controller without building a new one (which would
+  // eagerly read the database). A fresh controller is created lazily in
+  // ReconstructionStart(). The caller (ReconstructionReset) resets the control
+  // states inline.
+  StopMapperController();
 }
 
 void MainWindow::HandleDragEvent(QDropEvent* event) {
@@ -1283,24 +1306,27 @@ void MainWindow::AutomaticReconstruction() {
 }
 
 void MainWindow::ReconstructionStart() {
-  if (!mapper_controller_->IsStarted() && !options_.Check()) {
+  const bool started = mapper_controller_ && mapper_controller_->IsStarted();
+  const bool finished = mapper_controller_ && mapper_controller_->IsFinished();
+
+  if (!started && !options_.Check()) {
     ShowInvalidProjectError();
     return;
   }
 
-  if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
+  if (finished && HasSelectedReconstruction()) {
     QMessageBox::critical(
         this, "", tr("Reset reconstruction before starting."));
     return;
   }
 
-  if (mapper_controller_->IsStarted()) {
+  if (started) {
     // Resume existing reconstruction.
     timer_.Resume();
     mapper_controller_->Resume();
   } else {
     // Start new reconstruction.
-    CreateControllers();
+    CreateMapperController();
     timer_.Restart();
     mapper_controller_->Start();
     action_reconstruction_start_->setText(tr("Resume reconstruction"));
@@ -1311,7 +1337,8 @@ void MainWindow::ReconstructionStart() {
 }
 
 void MainWindow::ReconstructionStep() {
-  if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
+  if (mapper_controller_ && mapper_controller_->IsFinished() &&
+      HasSelectedReconstruction()) {
     QMessageBox::critical(
         this, "", tr("Reset reconstruction before starting."));
     return;
@@ -1324,6 +1351,9 @@ void MainWindow::ReconstructionStep() {
 }
 
 void MainWindow::ReconstructionPause() {
+  if (!mapper_controller_) {
+    return;
+  }
   timer_.Pause();
   mapper_controller_->Pause();
   EnableBlockingActions();
@@ -1345,7 +1375,7 @@ void MainWindow::ReconstructionFinish() {
 }
 
 void MainWindow::ReconstructionReset() {
-  CreateControllers();
+  ResetMapperController();
 
   reconstruction_manager_->Clear();
   reconstruction_manager_widget_->Update();
@@ -1698,13 +1728,13 @@ void MainWindow::RenderToggle() {
   if (render_options_widget_->automatic_update) {
     render_options_widget_->automatic_update = false;
     render_options_widget_->counter = 0;
-    action_render_toggle_->setIcon(QIcon(":/media/render-disabled.svg"));
+    action_render_toggle_->setIcon(ThemedIcon(":/media/render-disabled.svg"));
     action_render_toggle_->setText(tr("Enable rendering"));
   } else {
     render_options_widget_->automatic_update = true;
     render_options_widget_->counter = 0;
     RenderNow();
-    action_render_toggle_->setIcon(QIcon(":/media/render-enabled.svg"));
+    action_render_toggle_->setIcon(ThemedIcon(":/media/render-enabled.svg"));
     action_render_toggle_->setText(tr("Disable rendering"));
   }
 }

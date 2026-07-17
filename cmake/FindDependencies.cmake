@@ -27,13 +27,6 @@ find_package(OpenImageIO ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
 
-find_package(Glog ${COLMAP_FIND_TYPE})
-if(DEFINED glog_VERSION_MAJOR)
-  # Older versions of glog don't export version variables.
-  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
-  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
-endif()
-
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
 # Older CMake versions define SQLite::SQLite3 instead of SQLite3::SQLite3.
 if(NOT TARGET SQLite3::SQLite3 AND TARGET SQLite::SQLite3)
@@ -49,6 +42,12 @@ find_package(Git)
 
 find_package(CHOLMOD REQUIRED)
 
+# Ceres is found before Glog on purpose. Some distributions (e.g. Fedora) ship a
+# Ceres whose bundled FindGlog.cmake unconditionally calls add_library(glog::glog)
+# in module mode. If we created the glog::glog target first, that call collides
+# with a "target already exists" error (see issue #3347). By finding Ceres first,
+# Ceres creates glog::glog itself, and our subsequent find_package(Glog) reuses
+# the existing target instead.
 find_package(Ceres ${COLMAP_FIND_TYPE})
 if(NOT TARGET Ceres::ceres)
     # Older Ceres versions don't come with an imported interface target.
@@ -57,6 +56,13 @@ if(NOT TARGET Ceres::ceres)
         Ceres::ceres INTERFACE ${CERES_INCLUDE_DIRS})
     target_link_libraries(
         Ceres::ceres INTERFACE ${CERES_LIBRARIES})
+endif()
+
+find_package(Glog ${COLMAP_FIND_TYPE})
+if(DEFINED glog_VERSION_MAJOR)
+  # Older versions of glog don't export version variables.
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
 endif()
 
 if(TESTS_ENABLED)
@@ -187,6 +193,34 @@ endif()
 if(CUDA_ENABLED AND CUDA_FOUND)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
         set(CMAKE_CUDA_ARCHITECTURES "native")
+    endif()
+
+    # Caspar's Symforce-generated kernels use cooperative_groups::labeled_partition
+    # and atomicAdd_block, which require compute capability >= 7.0. Fail early with
+    # a clear message instead of a cryptic nvcc error deep in the kernel build. The
+    # numeric check handles list entries and -real/-virtual suffixes; the special
+    # values native/all/all-major cannot be resolved statically here, so they only
+    # get a warning (nvcc may fall back to an older default arch in build
+    # environments without a visible GPU >= 7.0, e.g. containerized builds).
+    if(CASPAR_ENABLED)
+        foreach(_caspar_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
+            string(REGEX MATCH "^([0-9]+)" _caspar_arch_num "${_caspar_arch}")
+            if(_caspar_arch_num AND _caspar_arch_num LESS 70)
+                message(FATAL_ERROR
+                    "CASPAR_ENABLED requires CUDA architecture >= 70 (compute "
+                    "capability 7.0), but CMAKE_CUDA_ARCHITECTURES contains "
+                    "'${_caspar_arch}'. Set -DCMAKE_CUDA_ARCHITECTURES to 70+.")
+            endif()
+        endforeach()
+        if(CMAKE_CUDA_ARCHITECTURES MATCHES "native|all|all-major")
+            message(WARNING
+                "CASPAR_ENABLED with CMAKE_CUDA_ARCHITECTURES='${CMAKE_CUDA_ARCHITECTURES}': "
+                "Caspar requires compute capability >= 7.0, which cannot be "
+                "verified statically for this value. In an environment without a "
+                "visible GPU >= 7.0 (e.g. containerized builds) nvcc may fall back "
+                "to an older default arch and fail with cryptic kernel errors. "
+                "Set -DCMAKE_CUDA_ARCHITECTURES explicitly (e.g. 75, 86).")
+        endif()
     endif()
 
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUDA_ENABLED)

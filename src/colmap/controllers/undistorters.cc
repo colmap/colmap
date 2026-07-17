@@ -234,10 +234,12 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const auto output_image_path = output_path_ / "images" / image.Name();
 
   // Non-perspective cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane
-  // to undistort to and are left unchanged by UndistortReconstruction, so copy
-  // their images through unchanged (they cannot be rescaled to a pinhole image
-  // for MVS).
-  if (!camera.IsPerspective() && ExistsFile(input_image_path)) {
+  // to undistort to. Without a size limit they are copied through unchanged
+  // (they cannot be rescaled to a pinhole image for MVS); with a max_image_size
+  // they still go through UndistortImage below, which resizes them to a smaller
+  // image of the same model.
+  if (!camera.IsPerspective() && camera_options_.max_image_size < 0 &&
+      ExistsFile(input_image_path)) {
     LOG(WARNING) << "Cannot undistort image " << image.Name()
                  << " with non-perspective camera model " << camera.ModelName()
                  << "; copying the original image.";
