@@ -37,6 +37,7 @@
 
 #include <atomic>
 #include <cfloat>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -246,6 +247,15 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   std::atomic<size_t> dyn_max_num_trials(max_num_trials);
   std::atomic<bool> abort_flag(false);
 
+  // Guards updates to the shared best model/support in the parallel case. We
+  // deliberately avoid `#pragma omp critical`, which maps to a single
+  // process-global lock and would serialize concurrent single-threaded RANSAC
+  // calls (e.g. during multi-threaded geometric verification, where many
+  // matches are estimated in parallel with num_threads == 1). A per-call mutex
+  // is only contended among this call's own threads and is not even locked in
+  // the serial case.
+  std::mutex best_mutex;
+
 // This creates a parallel region that runs with num_threads threads (or
 // serially when num_threads == 1 via the if-clause). Without OpenMP, the
 // pragma is absent and the block runs once serially.
@@ -300,10 +310,11 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
             thread_support_measurer.Evaluate(residuals, max_residual);
 
         // Save as best subset if better than all previous subsets.
-#ifdef _OPENMP
-#pragma omp critical
-#endif
         {
+          std::unique_lock<std::mutex> lock(best_mutex, std::defer_lock);
+          if (num_threads > 1) {
+            lock.lock();
+          }
           if (thread_support_measurer.IsLeftBetter(support, best_support)) {
             best_support = support;
             best_model = sample_model;
