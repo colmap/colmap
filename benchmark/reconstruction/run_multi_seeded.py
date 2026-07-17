@@ -27,24 +27,27 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Run the reconstruction benchmark across several random seeds, for one or two
-variants (colmap binaries), then optionally compare with compare_multi_seeded.py.
+"""Run the reconstruction benchmark across several random seeds, for one or
+two variants (colmap binaries), then optionally compare with
+compare_multi_seeded.py.
 
-Each (seed, variant) is one evaluate.py run writing <label>_s<seed>.pkl into the
-run directory. Runs are single-threaded per scene by default (--threads_per_scene
-1) so a fixed seed is deterministic -- RANSAC seeds per thread as
-random_seed + omp_get_thread_num(), so only single-threaded scenes reproduce.
-Use --num_parallel_scenes (forwarded to evaluate.py) for throughput instead:
-cross-scene parallelism does not touch any one scene's RNG stream.
+Each (seed, variant) is one evaluate.py run writing <label>_s<seed>.pkl into
+the run directory. Runs are single-threaded per scene by default
+(--threads_per_scene 1) so a fixed seed is deterministic -- RANSAC seeds per
+thread as random_seed + omp_get_thread_num(), so only single-threaded scenes
+reproduce. Use --num_parallel_scenes (forwarded to evaluate.py) for throughput
+instead: cross-scene parallelism does not touch any one scene's RNG stream.
 
 All evaluate.py flags are accepted and forwarded verbatim (e.g. --data_path,
---datasets, --categories, --scenes, --mapper, --num_parallel_scenes, --gpu_index,
---overwrite_matches). This script only injects --colmap_path, --random_seed,
---report_name and --threads_per_scene, so those must NOT be passed here.
+--datasets, --categories, --scenes, --mapper, --num_parallel_scenes,
+--gpu_index, --overwrite_matches). This script only injects --colmap_path,
+--random_seed, --report_name and --threads_per_scene, so those must NOT be
+passed here.
 
 Examples:
   # One variant across 5 seeds (pure run-to-run variance):
-  python run_multi_seeded.py --colmap_path_a /path/colmap --label_a base --num_seeds 5 \
+  python run_multi_seeded.py \
+    --colmap_path_a /path/colmap --label_a base --num_seeds 5 \
     --data_path data --datasets eth3d --categories dslr --scenes "meadow" \
     --run_path runs --run_name variance-meadow --overwrite_matches
 
@@ -53,8 +56,9 @@ Examples:
     --colmap_path_a /path/base/colmap  --label_a base \
     --colmap_path_b /path/msac/colmap  --label_b msac \
     --num_seeds 5 --compare \
-    --data_path data --datasets eth3d --categories dslr --scenes "door pipes" \
-    --num_parallel_scenes 2 --run_path runs --run_name base-vs-msac --overwrite_matches
+    --data_path data --datasets eth3d --categories dslr \
+    --scenes "door pipes" --num_parallel_scenes 2 \
+    --run_path runs --run_name base-vs-msac --overwrite_matches
 """
 
 import argparse
@@ -83,13 +87,17 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument(
         "--colmap_path_a", required=True, help="Variant A colmap binary."
     )
-    parser.add_argument("--label_a", default="a", help="Variant A label / stem.")
+    parser.add_argument(
+        "--label_a", default="a", help="Variant A label / stem."
+    )
     parser.add_argument(
         "--colmap_path_b",
         default=None,
-        help="Variant B colmap binary (optional; omit for a single-variant run).",
+        help="Variant B colmap binary (optional; omit for a single variant).",
     )
-    parser.add_argument("--label_b", default="b", help="Variant B label / stem.")
+    parser.add_argument(
+        "--label_b", default="b", help="Variant B label / stem."
+    )
     seed_group = parser.add_mutually_exclusive_group(required=True)
     seed_group.add_argument(
         "--seeds", nargs="+", help="Explicit seed list, e.g. --seeds 0 1 2 7 9."
@@ -116,7 +124,7 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument(
         "--compare",
         action="store_true",
-        help="Run compare_multi_seeded.py at the end (requires --colmap_path_b).",
+        help="Run compare_multi_seeded.py at the end (needs --colmap_path_b).",
     )
     parser.add_argument(
         "--python",
@@ -157,9 +165,10 @@ def main() -> None:
 
     run_dir = args.run_path / args.run_name
     labels = " vs ".join(label for label, _ in variants)
+    n_runs = len(seeds) * len(variants)
     pycolmap.logging.info(
         f"run_multi_seeded: {labels}; {len(seeds)} seeds {seeds} x "
-        f"{len(variants)} variants = {len(seeds) * len(variants)} runs -> {run_dir}"
+        f"{len(variants)} variants = {n_runs} runs -> {run_dir}"
     )
 
     forwarded_run = [

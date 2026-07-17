@@ -53,9 +53,14 @@ import pickle
 from pathlib import Path
 
 import numpy as np
-from evaluation.utils import get_scores
+from evaluation.utils import MetricsByDatasetByCatByScene, get_scores
 
 import pycolmap
+
+# A loaded report is the metrics dict produced by evaluate.py (dataset ->
+# category -> scene -> Metrics).
+Report = MetricsByDatasetByCatByScene
+SceneKey = tuple[str, str, str]
 
 
 def parse_args() -> argparse.Namespace:
@@ -153,7 +158,7 @@ def resolve_report_paths(
     return a_paths, b_paths, kept
 
 
-def load_reports(paths: list[Path]) -> list[dict]:
+def load_reports(paths: list[Path]) -> list[Report]:
     reports = []
     for path in paths:
         with open(path, "rb") as report_file:
@@ -161,7 +166,7 @@ def load_reports(paths: list[Path]) -> list[dict]:
     return reports
 
 
-def common_scene_keys(reports: list[dict]) -> list[tuple[str, str, str]]:
+def common_scene_keys(reports: list[Report]) -> list[SceneKey]:
     """(dataset, category, scene) keys present in every report, in the order
     they appear in the first report."""
     key_sets = []
@@ -188,7 +193,7 @@ def is_summary(scene: str) -> bool:
 
 
 def stack_scores(
-    reports: list[dict], key: tuple[str, str, str], error_type: str
+    reports: list[Report], key: SceneKey, error_type: str
 ) -> np.ndarray:
     """Return array of shape (n_reports, n_thresholds) of scores for one key."""
     dataset, category, scene = key
@@ -202,8 +207,8 @@ def stack_scores(
 
 def render_meanstd(
     title: str,
-    per_key_stack: dict[tuple[str, str, str], np.ndarray],
-    keys: list[tuple[str, str, str]],
+    per_key_stack: dict[SceneKey, np.ndarray],
+    keys: list[SceneKey],
     error_type: str,
     thresholds: np.ndarray,
     n: int,
@@ -231,7 +236,9 @@ def render_meanstd(
         mean = arr.mean(axis=0)
         std = arr.std(axis=0, ddof=1) if n > 1 else np.zeros_like(mean)
         label = {"__avg__": "average", "__all__": "overall"}.get(scene, scene)
-        cells = " ".join(fmt.format(m, s) for m, s in zip(mean, std))
+        cells = " ".join(
+            fmt.format(m, s) for m, s in zip(mean, std, strict=True)
+        )
         lines.append(f"{label:<{size_scene}} {cells}")
     return "\n".join(lines)
 
