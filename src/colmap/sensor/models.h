@@ -895,6 +895,44 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     const std::vector<double>& params,
     const Eigen::Vector3d& uvw);
 
+// Transform camera to image coordinates, additionally computing the Jacobian
+// of the projection with respect to the camera ray.
+//
+// Runtime dispatch over the analytic per-model `ImgFromCamWithJac`.
+//
+// @param model_id     Unique identifier of camera model.
+// @param params       Array of camera parameters.
+// @param uvw          Coordinates in camera system as (u, v, w).
+// @param J_uvw        Output Jacobian d(x, y) / d(u, v, w). May be nullptr, in
+//                     which case the Jacobian is not computed.
+//
+// @return             Image coordinates in pixels, or std::nullopt on failure.
+inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
+    CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector3d& uvw,
+    Eigen::Matrix<double, 2, 3>* J_uvw);
+
+// Compute the unprojection Jacobian d(u, v, w) / d(x, y) from the projection
+// Jacobian d(x, y) / d(u, v, w).
+//
+// Central projection depends only on the direction of the ray, so the ray lies
+// in the null space of `J_uvw` and `J_uvw` has rank 2. Its Moore-Penrose
+// pseudo-inverse therefore maps image perturbations into the row space of
+// `J_uvw`, which is exactly the tangent plane of the unit sphere at the ray:
+//
+//     J = J_uvw^+ = J_uvw^T (J_uvw J_uvw^T)^-1
+//
+// This is why no explicit tangent basis is required; the pseudo-inverse both
+// inverts the projection and restricts to the tangent plane.
+//
+// @param J_uvw        Jacobian d(x, y) / d(u, v, w).
+//
+// @return             Jacobian d(u, v, w) / d(x, y), or std::nullopt if
+//                     `J_uvw` is rank deficient.
+inline std::optional<Eigen::Matrix<double, 3, 2>> CamRayJacobianFromImgJacobian(
+    const Eigen::Matrix<double, 2, 3>& J_uvw);
+
 // Transform image to camera coordinates.
 //
 // This is the inverse of `CameraModelImgFromCam`.
@@ -2737,6 +2775,64 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCam(
 #undef CAMERA_MODEL_CASE
   }
   return std::nullopt;
+}
+
+std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
+    const CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector3d& uvw,
+    Eigen::Matrix<double, 2, 3>* J_uvw) {
+  Eigen::Vector2d xy;
+  // The per-model kernels write the Jacobian as 2x3 row-major.
+  double J_uvw_data[6];
+  double* J_uvw_ptr = (J_uvw == nullptr) ? nullptr : J_uvw_data;
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+  case CameraModel::model_id:                                             \
+    static_assert(CameraModel::has_img_from_cam_with_jac,                 \
+                  #CameraModel " does not provide an analytic "           \
+                               "ImgFromCamWithJac, which this dispatch "  \
+                               "requires. Implement it in "               \
+                               "models_jacobian.h.");                     \
+    if (CameraModel::ImgFromCamWithJac(params.data(),                     \
+                                       uvw.x(),                           \
+                                       uvw.y(),                           \
+                                       uvw.z(),                           \
+                                       &xy.x(),                           \
+                                       &xy.y(),                           \
+                                       /*J_params=*/nullptr,              \
+                                       J_uvw_ptr)) {                      \
+      if (J_uvw != nullptr) {                                             \
+        *J_uvw =                                                          \
+            Eigen::Map<const Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>( \
+                J_uvw_data);                                              \
+      }                                                                   \
+      return xy;                                                          \
+    }                                                                     \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+  return std::nullopt;
+}
+
+std::optional<Eigen::Matrix<double, 3, 2>> CamRayJacobianFromImgJacobian(
+    const Eigen::Matrix<double, 2, 3>& J_uvw) {
+  const Eigen::Matrix2d JJt = J_uvw * J_uvw.transpose();
+  // JJt is symmetric positive semi-definite with eigenvalues s1^2 >= s2^2, the
+  // squared singular values of J_uvw. Then det = s1^2 * s2^2 and
+  // trace = s1^2 + s2^2, so requiring det > kMinRelDet * trace^2 rejects
+  // singular value ratios below roughly sqrt(kMinRelDet), i.e. condition
+  // numbers worse than ~1e6. Relative so the test is invariant to focal length.
+  constexpr double kMinRelDet = 1e-12;
+  const double trace = JJt.trace();
+  const double det = JJt.determinant();
+  if (!(det > kMinRelDet * trace * trace)) {
+    return std::nullopt;
+  }
+  return J_uvw.transpose() * JJt.inverse();
 }
 
 std::optional<Eigen::Vector2d> CameraModelCamFromImg(

@@ -319,6 +319,46 @@ TEST(Camera, ImgFromCam) {
             Eigen::Vector2d(0.0, 0.0));
 }
 
+TEST(Camera, CamRayFromImgWithJac) {
+  // Covers a perspective model, a distorted one, and a spherical one. For the
+  // spherical camera the sampled pixels include the back hemisphere, where
+  // CamFromImg fails outright but CamRayFromImg (and hence this) must not.
+  const std::vector<Camera> cameras = {
+      Camera::CreateFromModelId(
+          1, CameraModelId::kSimplePinhole, 650.0, 1024, 768),
+      Camera::CreateFromModelId(
+          2, CameraModelId::kSimpleRadial, 650.0, 1024, 768),
+      Camera::CreateFromModelId(
+          3, CameraModelId::kEquirectangular, 0.0, 1000, 500),
+  };
+
+  for (const Camera& camera : cameras) {
+    for (const double x : {1.0, 250.0, 512.0, 800.0, 999.0}) {
+      for (const double y : {1.0, 120.0, 250.0, 400.0, 499.0}) {
+        const Eigen::Vector2d image_point(x, y);
+        const auto ray_and_jac = camera.CamRayFromImgWithJac(image_point);
+        ASSERT_TRUE(ray_and_jac.has_value())
+            << "model " << camera.ModelName() << " at " << image_point.
+            transpose();
+        const auto& [cam_ray, J_ray] = *ray_and_jac;
+
+        // The bearing is a unit vector that reprojects to the source pixel.
+        EXPECT_NEAR(cam_ray.norm(), 1.0, 1e-12);
+        const std::optional<Eigen::Vector2d> reprojected =
+            camera.ImgFromCam(cam_ray);
+        ASSERT_TRUE(reprojected.has_value());
+        EXPECT_LE((*reprojected - image_point).norm(), 1e-8);
+
+        // The Jacobian inverts the projection on the tangent plane.
+        Eigen::Matrix<double, 2, 3> J_uvw;
+        ASSERT_TRUE(camera.ImgFromCamWithJac(cam_ray, &J_uvw).has_value());
+        EXPECT_LE((J_uvw * J_ray - Eigen::Matrix2d::Identity()).norm(), 1e-10);
+        EXPECT_LE((J_ray.transpose() * cam_ray).norm(), 1e-10 * J_ray.norm());
+      }
+    }
+  }
+}
+
 TEST(Camera, Rescale) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);

@@ -90,6 +90,64 @@ void TestImgFromCamWithJac(const std::vector<double>& params,
   }
 }
 
+// Validate the runtime dispatch and the unprojection Jacobian derived from it.
+template <typename CameraModel>
+void TestCamRayJacobian(const std::vector<double>& params,
+                        const double u,
+                        const double v,
+                        const double w) {
+  const Eigen::Vector3d uvw(u, v, w);
+
+  // Reference: the templated per-model kernel, written 2x3 row-major.
+  double x_ref = 0, y_ref = 0;
+  double J_ref_data[6];
+  ASSERT_TRUE(CameraModel::ImgFromCamWithJac(params.data(),
+                                             u,
+                                             v,
+                                             w,
+                                             &x_ref,
+                                             &y_ref,
+                                             /*J_params=*/nullptr,
+                                             J_ref_data));
+  const Eigen::Matrix<double, 2, 3> J_ref =
+      Eigen::Map<const Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>(
+          J_ref_data);
+
+  // 1. The runtime dispatch must agree with the templated kernel exactly: it
+  // forwards to the same code, so anything but equality means a switch-macro
+  // or storage-order mistake.
+  Eigen::Matrix<double, 2, 3> J_uvw;
+  const std::optional<Eigen::Vector2d> xy = CameraModelImgFromCamWithJac(
+      CameraModel::model_id, params, uvw, &J_uvw);
+  ASSERT_TRUE(xy.has_value());
+  EXPECT_EQ(xy->x(), x_ref);
+  EXPECT_EQ(xy->y(), y_ref);
+  EXPECT_EQ(J_uvw, J_ref);
+
+  // Passing nullptr must skip the Jacobian but still project.
+  const std::optional<Eigen::Vector2d> xy_no_jac = CameraModelImgFromCamWithJac(
+      CameraModel::model_id, params, uvw, /*J_uvw=*/nullptr);
+  ASSERT_TRUE(xy_no_jac.has_value());
+  EXPECT_EQ(*xy_no_jac, *xy);
+
+  // 2. Central projection depends only on the ray direction, so the projection
+  // is homogeneous of degree zero and Euler's identity gives J_uvw * uvw == 0.
+  // This is the assumption that makes the pseudo-inverse below equal the
+  // tangent-plane unprojection Jacobian; if it fails, that derivation is wrong.
+  EXPECT_LE((J_uvw * uvw).norm(), 1e-10 * J_uvw.norm() * uvw.norm());
+
+  const std::optional<Eigen::Matrix<double, 3, 2>> J_ray =
+      CamRayJacobianFromImgJacobian(J_uvw);
+  ASSERT_TRUE(J_ray.has_value());
+
+  // 3. Pseudo-inverse round trip: J_uvw is surjective onto image space.
+  EXPECT_LE((J_uvw * *J_ray - Eigen::Matrix2d::Identity()).norm(), 1e-10);
+
+  // 4. The recovered Jacobian maps into the tangent plane at the ray.
+  EXPECT_LE((J_ray->transpose() * uvw).norm(),
+            1e-10 * J_ray->norm() * uvw.norm());
+}
+
 // Validate the analytic ImgFromCamWithJac over a grid of camera-space points.
 template <typename CameraModel>
 void TestModelImgFromCamWithJac(const std::vector<double>& params) {
@@ -101,6 +159,7 @@ void TestModelImgFromCamWithJac(const std::vector<double>& params) {
     for (double v = -0.5; v <= 0.5; v += 0.1) {
       for (const double w : {0.5, 1.0, 2.0}) {
         TestImgFromCamWithJac<CameraModel>(params, u, v, w);
+        TestCamRayJacobian<CameraModel>(params, u, v, w);
       }
     }
   }
@@ -257,6 +316,26 @@ TEST(EUCM, ImgFromCamWithJac) {
 
 TEST(Equirectangular, ImgFromCamWithJac) {
   TestModelImgFromCamWithJac<EquirectangularCameraModel>({1000, 500});
+}
+
+TEST(CamRayJacobianFromImgJacobian, RankDeficientReturnsNullopt) {
+  // Rank 1: both image directions respond identically, so the projection is
+  // not locally invertible and there is no unprojection Jacobian.
+  Eigen::Matrix<double, 2, 3> rank1;
+  rank1 << 1.0, 2.0, 3.0, 2.0, 4.0, 6.0;
+  EXPECT_FALSE(CamRayJacobianFromImgJacobian(rank1).has_value());
+
+  EXPECT_FALSE(
+      CamRayJacobianFromImgJacobian(Eigen::Matrix<double, 2, 3>::Zero())
+          .has_value());
+
+  // A well-conditioned Jacobian is accepted and inverts cleanly.
+  Eigen::Matrix<double, 2, 3> full_rank;
+  full_rank << 100.0, 0.0, 0.0, 0.0, 100.0, 0.0;
+  const std::optional<Eigen::Matrix<double, 3, 2>> J_ray =
+      CamRayJacobianFromImgJacobian(full_rank);
+  ASSERT_TRUE(J_ray.has_value());
+  EXPECT_LE((full_rank * *J_ray - Eigen::Matrix2d::Identity()).norm(), 1e-12);
 }
 
 }  // namespace
