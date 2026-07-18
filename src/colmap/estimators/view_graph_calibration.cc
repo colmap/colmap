@@ -112,7 +112,9 @@ void CrossValidatePriorFocalLengths(
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
 
-    if (camera_validity[camera1.camera_id] &&
+    // Computing E from F assumes a pinhole projection for both cameras.
+    if (camera1.HasPinholeProjection() && camera2.HasPinholeProjection() &&
+        camera_validity[camera1.camera_id] &&
         camera_validity[camera2.camera_id]) {
       THROW_CHECK(tvg.F.has_value())
           << "UNCALIBRATED two-view geometry must have F matrix";
@@ -227,8 +229,8 @@ FocalLengthCalibResult CalibrateFocalLengths(
   auto loss_function = options.CreateLossFunction();
 
   for (const auto& input : inputs) {
-    if (!cameras.at(input.camera_id1).IsPerspective() ||
-        !cameras.at(input.camera_id2).IsPerspective()) {
+    if (!cameras.at(input.camera_id1).HasPinholeProjection() ||
+        !cameras.at(input.camera_id2).HasPinholeProjection()) {
       continue;
     }
     if (input.camera_id1 == input.camera_id2) {
@@ -252,7 +254,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Parameterize cameras (fix those with prior, set lower bound).
   size_t num_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
-    if (!camera.IsPerspective()) continue;
+    if (!camera.HasPinholeProjection()) continue;
     double* focal_ptr = &focal_lengths[camera_id].optimized;
     if (!problem.HasParameterBlock(focal_ptr)) continue;
 
@@ -411,7 +413,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
-    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+    if (!camera1.HasPinholeProjection() || !camera2.HasPinholeProjection()) {
       continue;
     }
     THROW_CHECK(tvg.F.has_value())

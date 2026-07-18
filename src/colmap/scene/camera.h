@@ -135,6 +135,13 @@ struct Camera {
   // Whether the camera model is a fisheye model.
   inline bool IsFisheye() const;
 
+  // Whether the camera model is built on a pinhole projection
+  // (r = f * tan(theta)), possibly with distortion layered on top. Fisheye
+  // models (r ~ f * theta) and spherical models are not. Required by
+  // estimators whose model is linear in pixel coordinates (F, E, H) or that
+  // recover a focal length from one.
+  inline bool HasPinholeProjection() const;
+
   // Check whether camera has bogus parameters.
   inline bool HasBogusParams(double min_focal_length_ratio,
                              double max_focal_length_ratio,
@@ -273,6 +280,10 @@ bool Camera::IsPerspective() const {
 bool Camera::IsSpherical() const { return CameraModelIsSpherical(model_id); }
 
 bool Camera::IsFisheye() const { return CameraModelIsFisheye(model_id); }
+
+bool Camera::HasPinholeProjection() const {
+  return IsPerspective() && !IsFisheye();
+}
 
 bool Camera::VerifyParams() const {
   return CameraModelVerifyParams(model_id, params);

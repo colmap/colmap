@@ -136,6 +136,16 @@ void BindCamera(py::module& m) {
            &Camera::IsSpherical,
            "Whether the camera model is spherical (equirectangular "
            "omnidirectional panorama).")
+      .def("is_fisheye",
+           &Camera::IsFisheye,
+           "Whether the camera model is a fisheye model.")
+      .def("has_pinhole_projection",
+           &Camera::HasPinholeProjection,
+           "Whether the camera model is built on a pinhole projection "
+           "(r = f * tan(theta)), possibly with distortion layered on top. "
+           "Fisheye models (r ~ f * theta) and spherical models are not. "
+           "Required by estimators whose model is linear in pixel coordinates "
+           "(F, E, H) or that recover a focal length from one.")
       .def("cam_from_img",
            &Camera::CamFromImg,
            "image_point"_a,

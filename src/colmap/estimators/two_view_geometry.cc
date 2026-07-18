@@ -463,20 +463,20 @@ TwoViewGeometry EstimateTwoViewGeometry(
   } else {
     // A spherical (omnidirectional) camera has no pinhole image plane, so only
     // the bearing-based essential matrix is meaningful. Otherwise, if both
-    // images share the same pinhole-projection camera (perspective and
-    // non-fisheye) without a focal-length prior, recover a single shared focal
-    // length jointly with the relative pose; multi-focal models (e.g. PINHOLE)
-    // are seeded isotropically (fx = fy = f) and refined later by bundle
-    // adjustment. Distortion is not a barrier here (as in the
-    // fundamental-matrix path, it is absorbed by the epipolar fit and later
-    // refined). Otherwise, use the calibrated path if both cameras have a known
-    // focal length, and the uncalibrated path otherwise.
+    // images share the same pinhole-projection camera without a focal-length
+    // prior, recover a single shared focal length jointly with the relative
+    // pose; multi-focal models (e.g. PINHOLE) are seeded isotropically
+    // (fx = fy = f) and refined later by bundle adjustment. Distortion is not
+    // a barrier here (as in the fundamental-matrix path, it is absorbed by the
+    // epipolar fit and later refined). Otherwise, use the calibrated path if
+    // both cameras have a known focal length, and the uncalibrated path
+    // otherwise.
     if (camera1.IsSpherical() || camera2.IsSpherical()) {
       return EstimateSphericalTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (camera1.camera_id == camera2.camera_id &&
-               !camera1.has_prior_focal_length && camera1.IsPerspective() &&
-               !camera1.IsFisheye()) {
+               !camera1.has_prior_focal_length &&
+               camera1.HasPinholeProjection()) {
       return EstimateSharedFocalTwoViewGeometry(
           camera1, points1, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
