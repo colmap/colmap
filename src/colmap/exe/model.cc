@@ -439,6 +439,7 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
                                  int num_database_pose_priors,
                                  double max_ellipsoid_tangent_departure_m,
                                  double position_ransac_threshold,
+                                 int alignment_random_seed,
                                  double orientation_max_error_deg,
                                  bool orientation_requested,
                                  bool orientation_engaged) {
@@ -727,6 +728,7 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   json << "},";
   json << "\"position_ransac_threshold_m\":"
        << JSONNumber(position_ransac_threshold) << ",";
+  json << "\"alignment_random_seed\":" << alignment_random_seed << ",";
   json << "\"orientation_max_error_deg\":"
        << JSONNumber(orientation_max_error_deg) << ",";
   json << "\"orientation_requested\":"
@@ -1129,6 +1131,7 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
                                 static_cast<int>(pose_priors.size()),
                                 max_ellipsoid_tangent_departure_m,
                                 ransac_options.max_error,
+                                ransac_options.random_seed,
                                 orientation_max_error_deg,
                                 result.orientation_requested,
                                 result.orientation_engaged);
@@ -1229,6 +1232,8 @@ int RunModelAligner(int argc, char** argv) {
       "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
   options.AddDefaultOption("alignment_max_error", &ransac_options.max_error);
+  options.AddDefaultOption("alignment_random_seed",
+                           &ransac_options.random_seed);
   options.AddDefaultOption("enu_origin_lat", &enu_origin_lat);
   options.AddDefaultOption("enu_origin_lon", &enu_origin_lon);
   options.AddDefaultOption("enu_origin_alt", &enu_origin_alt);
@@ -1242,6 +1247,12 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("georeference_json", &georeference_json);
   options.AddDefaultOption("camera_residuals_csv", &camera_residuals_csv);
   if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (ransac_options.random_seed < -1) {
+    LOG(ERROR) << "=> --alignment_random_seed must be -1 (unseeded) or "
+                  "non-negative";
     return EXIT_FAILURE;
   }
 

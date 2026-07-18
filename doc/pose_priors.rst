@@ -134,6 +134,16 @@ Position mode (``off`` | ``initialize`` | ``optimize``):
   priors rather than only seeding it. Use this once ``initialize`` has been
   validated on the same dataset and the priors are known to be trustworthy.
 
+Whenever position mode is not ``off``, the mapper logs the resolved trust
+knobs once at solve start: ``--GlobalMapper.pose_prior_position_loss_scale``,
+``--GlobalMapper.pose_prior_position_fallback_stddev``, and their product,
+the Sim3 RANSAC gate used by ``optimize`` to admit correspondences into its
+gauge fit (``max_error = loss_scale × fallback_stddev`` — the coupling is
+intentional, not an oversight: it avoids introducing a third, unrelated
+tuning constant). Configuring ``optimize``'s weighting therefore always
+means choosing this gate too; read the logged line before trusting an
+``optimize`` run.
+
 Rotation mode (``off`` | ``initialize``): selects a single global rotation
 gauge from full-orientation pose priors via robust consensus among frames
 that supply one, then fixes the remaining rotation-averaging gauge freedom
@@ -181,7 +191,12 @@ a local ENU frame, so it tolerates a minority of grossly wrong priors
 without needing them removed by hand first. ``--alignment_max_error`` is the
 position inlier threshold in metres and must be positive; choose it from the
 expected measurement, association, and calibration error rather than treating
-the example value as universal.
+the example value as universal. ``--alignment_random_seed`` exposes the
+underlying RANSAC's seed (default: unseeded, matching prior behavior
+byte-for-byte); pass an explicit non-negative integer to make a run
+reproducible, or sweep several seeds to check that the fit is not an
+artifact of one particular random sample. The resolved seed is recorded in
+the JSON report as ``alignment_random_seed``.
 
 **Choosing the ENU origin.** By default the origin is derived automatically
 as the geometric median (Weiszfeld's algorithm — robust to outliers, unlike

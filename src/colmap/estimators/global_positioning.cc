@@ -179,6 +179,23 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
     return false;
   }
 
+  if (options_.pose_prior_position_mode != PosePriorPositionMode::off) {
+    // The Sim3 RANSAC gate (EngagePositionPriorOptimization, below) reuses
+    // the loss scale and fallback stddev rather than a third tuning
+    // constant; log the product so the coupling is visible, not just
+    // implied.
+    LOG(INFO) << StringPrintf(
+        "Pose prior position trust: mode=%s, loss_scale=%.6f, "
+        "fallback_stddev=%.6f, ransac_gate=%.6f",
+        std::string(
+            PosePriorPositionModeToString(options_.pose_prior_position_mode))
+            .c_str(),
+        options_.pose_prior_position_loss_scale,
+        options_.pose_prior_position_fallback_stddev,
+        options_.pose_prior_position_loss_scale *
+            options_.pose_prior_position_fallback_stddev);
+  }
+
   LOG(INFO) << "Setting up the global positioner problem";
 
   // Setup the problem.

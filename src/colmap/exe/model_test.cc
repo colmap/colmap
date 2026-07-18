@@ -179,6 +179,8 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       "1",
       "--orientation_max_error_deg",
       "10",
+      "--alignment_random_seed",
+      "12345",
       "--scene_id",
       "fixed-test-scene",
       "--georeference_json",
@@ -216,6 +218,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_GT(std::abs(report.get<double>("enu_origin.lat_deg") -
                      position_outlier_lla.x()),
             1e-4);
+  EXPECT_EQ(report.get<int>("alignment_random_seed"), 12345);
 
   // D1: frame_contract.
   const auto& frame_contract = report.get_child("frame_contract");
@@ -335,6 +338,68 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_LT(
       (Inverse(ecef_from_child) * (ecef_from_child * probe) - probe).norm(),
       1e-12);
+
+  // D4: the same explicit --alignment_random_seed twice yields an identical
+  // transform; a different seed still succeeds (equality not required).
+  const auto run_and_read_enu_from_sfm =
+      [&](const std::string& seed,
+          const std::filesystem::path& out_dir,
+          const std::filesystem::path& json_path) {
+        std::filesystem::create_directories(out_dir);
+        std::vector<std::string> seed_args{
+            "model_aligner",
+            "--input_path",
+            input_path.string(),
+            "--output_path",
+            out_dir.string(),
+            "--database_path",
+            database_path.string(),
+            "--alignment_type",
+            "enu",
+            "--alignment_max_error",
+            "10",
+            "--min_common_images",
+            "3",
+            "--alignment_random_seed",
+            seed,
+            "--georeference_json",
+            json_path.string(),
+        };
+        std::vector<char*> seed_argv;
+        seed_argv.reserve(seed_args.size());
+        for (std::string& arg : seed_args) {
+          seed_argv.push_back(arg.data());
+        }
+        EXPECT_EQ(RunModelAligner(static_cast<int>(seed_argv.size()),
+                                  seed_argv.data()),
+                  EXIT_SUCCESS);
+        boost::property_tree::ptree seed_report;
+        boost::property_tree::read_json(json_path.string(), seed_report);
+        std::vector<double> values;
+        values.push_back(
+            seed_report.get<double>("transforms.enu_from_sfm.scale"));
+        for (const auto& v :
+             seed_report.get_child("transforms.enu_from_sfm.rotation_wxyz")) {
+          values.push_back(v.second.get_value<double>());
+        }
+        for (const auto& v :
+             seed_report.get_child("transforms.enu_from_sfm.translation_xyz")) {
+          values.push_back(v.second.get_value<double>());
+        }
+        return values;
+      };
+
+  const std::vector<double> seed_a1 = run_and_read_enu_from_sfm(
+      "777", test_dir / "seed_a1_out", test_dir / "seed_a1.json");
+  const std::vector<double> seed_a2 = run_and_read_enu_from_sfm(
+      "777", test_dir / "seed_a2_out", test_dir / "seed_a2.json");
+  const std::vector<double> seed_b = run_and_read_enu_from_sfm(
+      "778", test_dir / "seed_b_out", test_dir / "seed_b.json");
+  ASSERT_EQ(seed_a1.size(), seed_a2.size());
+  for (size_t i = 0; i < seed_a1.size(); ++i) {
+    EXPECT_EQ(seed_a1[i], seed_a2[i]);
+  }
+  EXPECT_EQ(seed_b.size(), seed_a1.size());
 }
 
 }  // namespace
