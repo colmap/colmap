@@ -142,8 +142,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t& image_id1,
                                              image_t& image_id2,
                                              Rigid3d& cam2_from_cam1) {
-  std::optional<IncrementalMapperImpl::InitInfo> init_info;
-  if (!IncrementalMapperImpl::FindInitialImagePair(
+  const std::optional<IncrementalMapperImpl::InitInfo> init_info =
+      IncrementalMapperImpl::FindInitialImagePair(
           options,
           *database_cache_,
           *reconstruction_,
@@ -151,8 +151,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
           reg_stats_.num_registrations,
           reg_stats_.init_image_pairs,
           image_id1,
-          image_id2,
-          init_info)) {
+          image_id2);
+  if (!init_info.has_value()) {
     return false;
   }
   image_id1 = init_info->image_id1;
@@ -1462,9 +1462,10 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     Rigid3d& cam2_from_cam1) {
-  std::optional<IncrementalMapperImpl::InitInfo> init_info;
-  if (!IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-          options, *database_cache_, image_id1, image_id2, init_info)) {
+  const std::optional<IncrementalMapperImpl::InitInfo> init_info =
+      IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+          options, *database_cache_, image_id1, image_id2);
+  if (!init_info.has_value()) {
     return false;
   }
   cam2_from_cam1 = init_info->cam2_from_cam1;

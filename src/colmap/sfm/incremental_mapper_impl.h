@@ -76,11 +76,11 @@ class IncrementalMapperImpl {
   };
 
   // Implement IncrementalMapper::FindInitialImagePair
-  // On success, returns true and populates `init_info` with the selected pair;
-  // returns false if no suitable pair was found. `image_id1`/`image_id2`
-  // optionally constrain the search to a specific first and/or second image
-  // (kInvalidImageId leaves the respective image unconstrained).
-  static bool FindInitialImagePair(
+  // Returns the selected pair, or std::nullopt if no suitable pair was found.
+  // `image_id1`/`image_id2` optionally constrain the search to a specific first
+  // and/or second image (kInvalidImageId leaves the respective image
+  // unconstrained).
+  static std::optional<InitInfo> FindInitialImagePair(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       const Reconstruction& reconstruction,
@@ -88,8 +88,7 @@ class IncrementalMapperImpl {
       const FlatHashMap<image_t, size_t>& num_registrations,
       FlatHashSet<image_pair_t>& init_image_pairs,
       image_t image_id1,
-      image_t image_id2,
-      std::optional<InitInfo>& init_info);
+      image_t image_id2);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
@@ -106,15 +105,13 @@ class IncrementalMapperImpl {
       const Reconstruction& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
-  // On success, returns true and populates `init_info` with the estimated
-  // two-view geometry; returns false if the pair is unsuitable for
-  // initialization.
-  static bool EstimateInitialTwoViewGeometry(
+  // Returns the estimated two-view geometry, or std::nullopt if the pair is
+  // unsuitable for initialization.
+  static std::optional<InitInfo> EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       image_t image_id1,
-      image_t image_id2,
-      std::optional<InitInfo>& init_info);
+      image_t image_id2);
 };
 
 }  // namespace colmap

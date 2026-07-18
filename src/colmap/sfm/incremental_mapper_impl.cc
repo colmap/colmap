@@ -186,7 +186,8 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
   return ExtractSortedImageIds(image_infos);
 }
 
-bool IncrementalMapperImpl::FindInitialImagePair(
+std::optional<IncrementalMapperImpl::InitInfo>
+IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
     const DatabaseCache& database_cache,
     const Reconstruction& reconstruction,
@@ -194,10 +195,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     const FlatHashMap<image_t, size_t>& num_registrations,
     FlatHashSet<image_pair_t>& init_image_pairs,
     image_t image_id1,
-    image_t image_id2,
-    std::optional<InitInfo>& init_info) {
+    image_t image_id2) {
   THROW_CHECK(options.Check());
-  init_info = std::nullopt;
 
   const CorrespondenceGraph& correspondence_graph =
       *database_cache.CorrespondenceGraph();
@@ -206,13 +205,13 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   if (image_id1 != kInvalidImageId && image_id2 == kInvalidImageId) {
     // Only image_id1 provided.
     if (!database_cache.ExistsImage(image_id1)) {
-      return false;
+      return std::nullopt;
     }
     image_ids1.push_back(image_id1);
   } else if (image_id1 == kInvalidImageId && image_id2 != kInvalidImageId) {
     // Only image_id2 provided.
     if (!database_cache.ExistsImage(image_id2)) {
-      return false;
+      return std::nullopt;
     }
     image_ids1.push_back(image_id2);
   } else {
@@ -264,13 +263,10 @@ bool IncrementalMapperImpl::FindInitialImagePair(
               }
             }
 
-            std::optional<InitInfo> pair_init_info;
-            if (IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-                    options,
-                    database_cache,
-                    image_id1,
-                    image_id2,
-                    pair_init_info)) {
+            std::optional<InitInfo> pair_init_info =
+                IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+                    options, database_cache, image_id1, image_id2);
+            if (pair_init_info.has_value()) {
               stop.store(true);
               return pair_init_info;
             }
@@ -286,14 +282,13 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   for (auto& init_info_future : init_infos) {
     std::optional<InitInfo> result = init_info_future.get();
     if (result.has_value()) {
-      init_info = std::move(result);
       thread_pool.Stop();
-      return true;
+      return result;
     }
   }
 
   // No suitable pair found in entire dataset.
-  return false;
+  return std::nullopt;
 }
 
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
@@ -656,14 +651,12 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
 
 }  // namespace
 
-bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+std::optional<IncrementalMapperImpl::InitInfo>
+IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
     const DatabaseCache& database_cache,
     const image_t image_id1,
-    const image_t image_id2,
-    std::optional<InitInfo>& init_info) {
-  init_info = std::nullopt;
-
+    const image_t image_id2) {
   const Image& image1 = database_cache.Image(image_id1);
   const Image& image2 = database_cache.Image(image_id2);
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
@@ -697,7 +690,7 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
 
   if (!EstimateTwoViewGeometryPose(
           camera1, points1, camera2, points2, &two_view_geometry)) {
-    return false;
+    return std::nullopt;
   }
 
   VLOG(3) << "Initial image pair with config " << two_view_geometry.config
@@ -712,7 +705,7 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
       std::abs(two_view_geometry.cam2_from_cam1->translation().z()) >=
           options.init_max_forward_motion ||
       two_view_geometry.tri_angle <= DegToRad(options.init_min_tri_angle)) {
-    return false;
+    return std::nullopt;
   }
 
   const Frame& frame1 = database_cache.Frame(image1.FrameId());
@@ -737,11 +730,10 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
                                                    rig1,
                                                    rig2,
                                                    info.cam2_from_cam1)) {
-      return false;
+      return std::nullopt;
     }
     // The generalized solver does not recover intrinsics.
-    init_info = std::move(info);
-    return true;
+    return info;
   }
 
   info.cam2_from_cam1 = *two_view_geometry.cam2_from_cam1;
@@ -751,8 +743,7 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   info.camera1 = two_view_geometry.camera1;
   info.camera2 = two_view_geometry.camera2;
 
-  init_info = std::move(info);
-  return true;
+  return info;
 }
 
 }  // namespace colmap
