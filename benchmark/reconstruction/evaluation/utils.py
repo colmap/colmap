@@ -531,6 +531,9 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
             )
         if any(seed < 0 for seed in args.seeds):
             parser.error("--seeds must be non-negative")
+    # Names the flag the user actually passed, so the non-determinism warning
+    # does not point at --random_seed during a --seeds/--num_seeds run.
+    args.seed_flag = "--seeds" if args.seeds is not None else "--random_seed"
     if args.fast and args.fast_num_scenes <= 0:
         parser.error("--fast_num_scenes must be > 0 when --fast is set")
     if args.progress is None:
@@ -916,6 +919,17 @@ def _process_scene_with_gpu(
     )
 
 
+@functools.cache
+def _warn_nondeterministic(seed_flag: str, num_threads_per_scene: int) -> None:
+    """Warns once per process; process_scenes() runs per dataset and seed."""
+    pycolmap.logging.warning(
+        f"{seed_flag} is set but "
+        f"num_threads_per_scene={num_threads_per_scene} > 1: RANSAC seeds "
+        "per thread, so results are NOT deterministic. Pass "
+        "--threads_per_scene 1 for reproducible / paired A-B runs."
+    )
+
+
 def process_scenes(
     args: argparse.Namespace,
     scene_infos: list[SceneInfo],
@@ -936,12 +950,7 @@ def process_scenes(
     else:
         num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
     if args.random_seed >= 0 and num_threads_per_scene != 1:
-        pycolmap.logging.warning(
-            f"--random_seed={args.random_seed} is set but "
-            f"num_threads_per_scene={num_threads_per_scene} > 1: RANSAC "
-            "seeds per thread, so results are NOT deterministic. Pass "
-            "--threads_per_scene 1 for reproducible / paired A-B runs."
-        )
+        _warn_nondeterministic(args.seed_flag, num_threads_per_scene)
 
     manager = None
     progress_status = None
