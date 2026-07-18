@@ -360,6 +360,11 @@ struct CameraResidual {
   Eigen::Matrix3d position_covariance_enu =
       Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
   double orientation_residual_deg = std::numeric_limits<double>::quiet_NaN();
+  bool has_gravity_prior = false;
+  // Gravity (down) in the sensor coordinate system, frame-invariant under
+  // the report's ENU re-expression of the position prior.
+  Eigen::Vector3d gravity_sensor =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
 };
 
 double Percentile(std::vector<double> values, double fraction) {
@@ -539,6 +544,62 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
           ? full_rms_singular_values.z() / full_rms_singular_values.x()
           : std::numeric_limits<double>::quiet_NaN();
 
+  // Gravity-consistency angle: for every registered image with a gravity
+  // prior, rotate the sensor-frame down vector into the (already ENU-
+  // aligned) world frame, average the unit vectors robustly by normalizing
+  // the mean, and compare the result against ENU-down.
+  int num_gravity_priors = 0;
+  Eigen::Vector3d gravity_down_sum = Eigen::Vector3d::Zero();
+  for (const CameraResidual& r : residuals) {
+    if (!r.registered || !r.has_gravity_prior) {
+      continue;
+    }
+    const Eigen::Vector3d down_world =
+        reconstruction.Image(r.image_id).CamFromWorld().rotation().inverse() *
+        r.gravity_sensor;
+    if (!down_world.allFinite() || down_world.norm() < 1e-9) {
+      continue;
+    }
+    gravity_down_sum += down_world.normalized();
+    ++num_gravity_priors;
+  }
+  double gravity_consistency_angle_deg =
+      std::numeric_limits<double>::quiet_NaN();
+  if (num_gravity_priors > 0 && gravity_down_sum.norm() > 1e-9) {
+    const Eigen::Vector3d mean_down_world = gravity_down_sum.normalized();
+    const Eigen::Vector3d enu_down(0.0, 0.0, -1.0);
+    const double cos_angle =
+        std::clamp(mean_down_world.dot(enu_down), -1.0, 1.0);
+    gravity_consistency_angle_deg = RadToDeg(std::acos(cos_angle));
+  }
+
+  // Pipeline-policy warning thresholds (see the ground-truth "Post-alignment
+  // warnings" section); values and thresholds are recorded in the report so
+  // policy can evolve without re-running.
+  constexpr double kCollinearityRatioThreshold = 0.1;
+  constexpr double kGravityAngleThresholdDeg = 3.0;
+  const bool collinearity_warning_fired =
+      std::isfinite(horizontal_condition_ratio) &&
+      horizontal_condition_ratio < kCollinearityRatioThreshold;
+  const bool gravity_warning_fired =
+      std::isfinite(gravity_consistency_angle_deg) &&
+      gravity_consistency_angle_deg > kGravityAngleThresholdDeg;
+  if (collinearity_warning_fired) {
+    LOG(WARNING) << StringPrintf(
+        "=> Near-collinear position support (horizontal singular-value "
+        "ratio %.6f < %.2f) — rotation about the track axis is weakly "
+        "constrained",
+        horizontal_condition_ratio,
+        kCollinearityRatioThreshold);
+  }
+  if (gravity_warning_fired) {
+    LOG(WARNING) << StringPrintf(
+        "=> Aligned up-axis disagrees with gravity priors (%.3f deg > %.2f "
+        "deg)",
+        gravity_consistency_angle_deg,
+        kGravityAngleThresholdDeg);
+  }
+
   int num_registered = 0;
   int num_with_prior = 0;
   for (const CameraResidual& r : residuals) {
@@ -575,6 +636,29 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   json << "\"sfm_from_ecef\":" << JSONSim3(sfm_from_ecef);
   json << "},";
   json << "\"metres_per_sfm_unit\":" << JSONNumber(enu_from_sfm.scale()) << ",";
+  json << "\"frame_contract\":{";
+  json << "\"schema_version\":1,";
+  json << "\"geometry_frame\":\"ENU_LOCAL\",";
+  json << "\"geometry_already_transformed\":true,";
+  json << "\"handedness\":\"RIGHT\",";
+  json << "\"up_axis\":\"Z\",";
+  json << "\"units\":\"METRE\",";
+  json << "\"crs\":{";
+  json << "\"ellipsoid\":\"WGS84\",";
+  json << "\"height_datum\":\"ELLIPSOIDAL\",";
+  json << "\"geoid_model\":null,";
+  json << "\"origin\":{\"lat_deg\":" << JSONNumber(origin_lat)
+       << ",\"lon_deg\":" << JSONNumber(origin_lon)
+       << ",\"ellipsoidal_alt_m\":" << JSONNumber(origin_alt) << "}";
+  json << "},";
+  json << "\"targets\":[{";
+  json << "\"name\":\"GLTF_Y_UP\",";
+  json << "\"matrix_row_major_target_from_geometry\":"
+          "[[1,0,0],[0,0,1],[0,-1,0]],";
+  json << "\"note\":\"x=E, y=U, z=S; verify handedness with the round-trip "
+          "test\"";
+  json << "}]";
+  json << "},";
   json << "\"support\":{";
   json << "\"num_database_pose_priors\":" << num_database_pose_priors << ",";
   json << "\"num_registered\":" << num_registered << ",";
@@ -626,7 +710,20 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
        << ",";
   json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius) << ",";
   json << "\"max_ellipsoid_tangent_departure_m\":"
-       << JSONNumber(max_ellipsoid_tangent_departure_m);
+       << JSONNumber(max_ellipsoid_tangent_departure_m) << ",";
+  json << "\"gravity_consistency_angle_deg\":"
+       << JSONNumber(gravity_consistency_angle_deg);
+  json << "},";
+  json << "\"warnings\":{";
+  json << "\"collinearity\":{\"value\":"
+       << JSONNumber(horizontal_condition_ratio)
+       << ",\"threshold\":" << JSONNumber(kCollinearityRatioThreshold)
+       << ",\"fired\":" << (collinearity_warning_fired ? "true" : "false")
+       << "},";
+  json << "\"gravity_disagreement\":{\"value\":"
+       << JSONNumber(gravity_consistency_angle_deg)
+       << ",\"threshold\":" << JSONNumber(kGravityAngleThresholdDeg)
+       << ",\"fired\":" << (gravity_warning_fired ? "true" : "false") << "}";
   json << "},";
   json << "\"position_ransac_threshold_m\":"
        << JSONNumber(position_ransac_threshold) << ",";
@@ -960,6 +1057,8 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
       r.has_position_prior = std::isfinite(prior_it->second.position.x()) &&
                              std::isfinite(prior_it->second.position.y());
       r.has_orientation_prior = prior_it->second.HasRotation();
+      r.has_gravity_prior = prior_it->second.HasGravity();
+      r.gravity_sensor = prior_it->second.gravity;
     }
     const auto enu_it = enu_prior_by_image.find(r.image_id);
     if (enu_it != enu_prior_by_image.end()) {

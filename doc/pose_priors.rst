@@ -225,6 +225,38 @@ optional download/curl/crypto feature and does not compute file hashes —
 geometry/report SHA256 values belong one layer downstream, in an exported
 asset's own sidecar (see below), where the actual asset bytes exist.
 
+**The frame contract.** The report's ``frame_contract`` object (schema
+version 1) states the scene geometry's frame explicitly rather than leaving
+it to convention: ``geometry_frame: ENU_LOCAL``, right-handed, Z-up, metres,
+already applied to the written reconstruction (``geometry_already_transformed:
+true`` — there is no separate un-transformed variant to apply this to), plus
+the WGS84 ellipsoid/height-datum/origin also reported at the top level.
+``targets`` lists named export conventions as an explicit
+``matrix_row_major_target_from_geometry`` matrix, stored row-major, mapping
+*from* the reconstruction's ENU geometry *to* the named target frame — the
+direction is stated in the key so a loader never has to guess which way to
+apply it. The one shipped target, ``GLTF_Y_UP``, maps East→+X, Up→+Y,
+North→−Z, matching glTF 2.0's +Y-up right-handed convention. Before trusting
+any target entry in a real loader, round-trip a known ENU basis vector (and
+one camera pose) through it once; a cropped or otherwise unchanged-geometry
+asset preserves the sidecar unchanged, and only a rebasing edit composes a
+new transform.
+
+**Post-alignment warnings.** The report always emits two diagnostics
+alongside their pipeline-policy thresholds, so the threshold can be
+re-derived later without re-running the alignment:
+``diagnostics.horizontal_condition_ratio`` (the centered horizontal
+position-support singular-value ratio s2/s1 — small values mean the camera
+track is close to collinear, leaving rotation about the track axis weakly
+constrained) and ``diagnostics.gravity_consistency_angle_deg`` (the angle
+between the aligned up-axis and the mean gravity direction reported by every
+registered image's pose-prior gravity vector, robustly averaged by
+normalizing the mean of the per-image unit down vectors; ``null`` when no
+prior in the database has gravity). Both land in the top-level ``warnings``
+object as ``{value, threshold, fired}``; the shipped policy defaults fire at
+``s2/s1 < 0.1`` and gravity angle ``> 3.0°``. A fired warning is
+``LOG(WARNING)``-only — it never fails the command.
+
 **The CSV report** (``--camera_residuals_csv``) has one row per database
 image, sorted by name::
 

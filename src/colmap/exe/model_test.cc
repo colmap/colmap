@@ -12,6 +12,7 @@
 #include "colmap/util/testing.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -143,6 +144,11 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
             .normalized();
     prior.rotation_covariance =
         Eigen::Vector3d::Constant(DegToRad(1.0) * DegToRad(1.0)).asDiagonal();
+    // Sensor-frame down vector consistent with the (ENU-aligned) target
+    // reconstruction's orientation, so the gravity-consistency diagnostic is
+    // small and neither warning fires.
+    prior.gravity = target.Image(image_id).CamFromWorld().rotation() *
+                    Eigen::Vector3d(0.0, 0.0, -1.0);
     database->WritePosePrior(prior);
   }
 
@@ -210,6 +216,68 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_GT(std::abs(report.get<double>("enu_origin.lat_deg") -
                      position_outlier_lla.x()),
             1e-4);
+
+  // D1: frame_contract.
+  const auto& frame_contract = report.get_child("frame_contract");
+  EXPECT_EQ(frame_contract.get<int>("schema_version"), 1);
+  EXPECT_EQ(frame_contract.get<std::string>("geometry_frame"), "ENU_LOCAL");
+  EXPECT_TRUE(frame_contract.get<bool>("geometry_already_transformed"));
+  EXPECT_EQ(frame_contract.get<std::string>("handedness"), "RIGHT");
+  EXPECT_EQ(frame_contract.get<std::string>("up_axis"), "Z");
+  EXPECT_EQ(frame_contract.get<std::string>("units"), "METRE");
+  EXPECT_EQ(frame_contract.get<std::string>("crs.ellipsoid"), "WGS84");
+  EXPECT_EQ(frame_contract.get<std::string>("crs.height_datum"), "ELLIPSOIDAL");
+  EXPECT_NEAR(frame_contract.get<double>("crs.origin.lat_deg"),
+              report.get<double>("enu_origin.lat_deg"),
+              1e-9);
+  const auto& target_entry = frame_contract.get_child("targets").front().second;
+  EXPECT_EQ(target_entry.get<std::string>("name"), "GLTF_Y_UP");
+  Eigen::Matrix3d target_from_geometry;
+  {
+    int row = 0;
+    for (const auto& row_node :
+         target_entry.get_child("matrix_row_major_target_from_geometry")) {
+      int col = 0;
+      for (const auto& value_node : row_node.second) {
+        target_from_geometry(row, col) = value_node.second.get_value<double>();
+        ++col;
+      }
+      ASSERT_EQ(col, 3);
+      ++row;
+    }
+    ASSERT_EQ(row, 3);
+  }
+  EXPECT_NEAR(target_from_geometry.determinant(), 1.0, 1e-12);
+  EXPECT_LT((target_from_geometry * Eigen::Vector3d(1.0, 0.0, 0.0) -
+             Eigen::Vector3d(1.0, 0.0, 0.0))
+                .norm(),
+            1e-12);
+  EXPECT_LT((target_from_geometry * Eigen::Vector3d(0.0, 0.0, 1.0) -
+             Eigen::Vector3d(0.0, 1.0, 0.0))
+                .norm(),
+            1e-12);
+  EXPECT_LT((target_from_geometry * Eigen::Vector3d(0.0, 1.0, 0.0) -
+             Eigen::Vector3d(0.0, 0.0, -1.0))
+                .norm(),
+            1e-12);
+
+  // D2: post-alignment diagnostics and warnings. The fixture's positions are
+  // well-spread and gravity priors match the ENU-aligned target orientation,
+  // so neither warning should fire.
+  EXPECT_TRUE(std::isfinite(
+      report.get<double>("diagnostics.horizontal_condition_ratio")));
+  EXPECT_TRUE(std::isfinite(
+      report.get<double>("diagnostics.gravity_consistency_angle_deg")));
+  EXPECT_LT(report.get<double>("diagnostics.gravity_consistency_angle_deg"),
+            3.0);
+  const auto& warnings = report.get_child("warnings");
+  EXPECT_EQ(warnings.get<double>("collinearity.threshold"), 0.1);
+  EXPECT_FALSE(warnings.get<bool>("collinearity.fired"));
+  EXPECT_TRUE(std::isfinite(warnings.get<double>("collinearity.value")));
+  EXPECT_EQ(warnings.get<double>("gravity_disagreement.threshold"), 3.0);
+  EXPECT_FALSE(warnings.get<bool>("gravity_disagreement.fired"));
+  EXPECT_TRUE(
+      std::isfinite(warnings.get<double>("gravity_disagreement.value")));
 
   std::ifstream report_stream(report_path);
   const std::string report_text((std::istreambuf_iterator<char>(report_stream)),
