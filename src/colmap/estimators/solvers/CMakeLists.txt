@@ -43,6 +43,7 @@ COLMAP_ADD_LIBRARY(
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         poselib_utils.h poselib_utils.cc
+        relpose_one_sided_focal.h relpose_one_sided_focal.cc
         relpose_shared_focal.h relpose_shared_focal.cc
         similarity_transform.h similarity_transform.cc
         translation_transform.h
@@ -107,6 +108,11 @@ COLMAP_ADD_TEST(
     NAME poselib_utils_test
     SRCS poselib_utils_test.cc
     LINK_LIBS colmap_estimators_solvers
+)
+COLMAP_ADD_TEST(
+    NAME relpose_one_sided_focal_test
+    SRCS relpose_one_sided_focal_test.cc
+    LINK_LIBS colmap_estimators_solvers colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME relpose_shared_focal_test
