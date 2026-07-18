@@ -1212,7 +1212,7 @@ TEST(MaybeDecomposeRelativePoses, Nominal) {
 // must calibrate the rays with those, not the camera's stale default focal.
 // The pose survives a wrong focal (it comes from E alone); tri_angle, measured
 // between the rays, does not.
-TEST(MaybeDecomposeRelativePoses, SharedFocalUsesEstimatedIntrinsics) {
+TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
   SetPRNGSeed(42);
 
   auto database = Database::Open(kInMemorySqliteDatabasePath);
@@ -1235,9 +1235,9 @@ TEST(MaybeDecomposeRelativePoses, SharedFocalUsesEstimatedIntrinsics) {
   const Rigid3d gt_cam2_from_cam1 =
       image2.CamFromWorld() * Inverse(image1.CamFromWorld());
 
-  // Emulate the shared-focal solver output: the true focal is surfaced via
-  // camera1/camera2, while the camera stored in the database still carries an
-  // arbitrary default focal that must not be used to calibrate the rays.
+  // Emulate an intrinsics-estimating solver: the true focal is surfaced via
+  // camera1/camera2, while the camera stored in the database still carries the
+  // default focal that must not be used to calibrate the rays.
   const Camera true_camera = *image1.CameraPtr();
 
   TwoViewGeometry geometry = database->ReadTwoViewGeometry(1, 2);
@@ -1260,9 +1260,8 @@ TEST(MaybeDecomposeRelativePoses, SharedFocalUsesEstimatedIntrinsics) {
 
   // Now give the database camera the focal it would actually carry without a
   // prior, i.e. ImageReaderOptions::default_focal_length_factor times the
-  // larger image dimension -- which is exactly the case the shared-focal
-  // solver runs in. The result must be unchanged: the decomposition has to key
-  // off the estimated intrinsics, not the database camera.
+  // larger image dimension. The result must be unchanged: the decomposition
+  // has to key off the estimated intrinsics, not the database camera.
   Camera default_camera = true_camera;
   default_camera.SetFocalLength(
       1.2 * std::max(true_camera.width, true_camera.height));
