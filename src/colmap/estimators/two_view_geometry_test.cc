@@ -1207,6 +1207,103 @@ TEST(MaybeDecomposeRelativePoses, Nominal) {
             geometry_second.cam2_from_cam1->translation());
 }
 
+// A pair whose focal a two-view solver recovered is UNCALIBRATED but carries
+// the estimated intrinsics in camera1/camera2. MaybeDecomposeRelativePoses
+// must calibrate the rays with those, not the camera's stale default focal.
+// The pose survives a wrong focal (it comes from E alone); tri_angle, measured
+// between the rays, does not.
+TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  // A focal well away from the no-prior default of 1.2 * max(width, height),
+  // so that using the wrong one is actually observable.
+  synthetic_dataset_options.camera_params = {1000, 512, 384, 0.05};
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+
+  const Image& image1 = reconstruction.Image(1);
+  const Image& image2 = reconstruction.Image(2);
+  ASSERT_EQ(image1.CameraId(), image2.CameraId());
+  const Rigid3d gt_cam2_from_cam1 =
+      image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+
+  // Emulate an intrinsics-estimating solver: the true focal is surfaced via
+  // camera1/camera2, while the camera stored in the database still carries the
+  // default focal that must not be used to calibrate the rays.
+  const Camera true_camera = *image1.CameraPtr();
+
+  TwoViewGeometry geometry = database->ReadTwoViewGeometry(1, 2);
+  ASSERT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::UNCALIBRATED);
+  ASSERT_TRUE(geometry.E.has_value());
+  geometry.camera1 = true_camera;
+  geometry.camera2 = true_camera;
+  database->UpdateTwoViewGeometry(1, 2, geometry);
+
+  // Reference run: the database camera happens to carry the correct focal, so
+  // the estimated intrinsics and the database camera agree.
+  DatabaseCache::Options cache_options;
+  auto reference_cache = DatabaseCache::Create(*database, cache_options);
+  MaybeDecomposeRelativePoses(reference_cache.get());
+  const TwoViewGeometry reference_geometry =
+      reference_cache->CorrespondenceGraph()->ExtractTwoViewGeometry(
+          1, 2, /*extract_inlier_matches=*/false);
+  ASSERT_TRUE(reference_geometry.cam2_from_cam1.has_value());
+  ASSERT_GT(reference_geometry.tri_angle, 0);
+
+  // Now give the database camera the focal it would actually carry without a
+  // prior, i.e. ImageReaderOptions::default_focal_length_factor times the
+  // larger image dimension. The result must be unchanged: the decomposition
+  // has to key off the estimated intrinsics, not the database camera.
+  Camera default_camera = true_camera;
+  default_camera.SetFocalLength(
+      1.2 * std::max(true_camera.width, true_camera.height));
+  default_camera.has_prior_focal_length = false;
+  ASSERT_GT(
+      std::abs(default_camera.FocalLength() / true_camera.FocalLength() - 1.0),
+      0.1);
+  database->UpdateCamera(default_camera);
+
+  auto cache = DatabaseCache::Create(*database, cache_options);
+  const TwoViewGeometry geometry_before =
+      cache->CorrespondenceGraph()->ExtractTwoViewGeometry(
+          1, 2, /*extract_inlier_matches=*/false);
+  ASSERT_FALSE(geometry_before.cam2_from_cam1.has_value());
+  ASSERT_TRUE(geometry_before.camera1.has_value());
+
+  MaybeDecomposeRelativePoses(cache.get());
+
+  const TwoViewGeometry geometry_after =
+      cache->CorrespondenceGraph()->ExtractTwoViewGeometry(
+          1, 2, /*extract_inlier_matches=*/false);
+  ASSERT_TRUE(geometry_after.cam2_from_cam1.has_value());
+
+  // The pose is recovered from E alone, so it is insensitive to the focal used
+  // to calibrate the rays; the triangulation angle is measured between those
+  // rays and is not.
+  EXPECT_THAT(*geometry_after.cam2_from_cam1,
+              Rigid3dNear(*reference_geometry.cam2_from_cam1,
+                          /*rtol=*/1e-6,
+                          /*ttol=*/1e-6));
+  EXPECT_NEAR(geometry_after.tri_angle, reference_geometry.tri_angle, 1e-6);
+
+  // Sanity check that the reference itself is meaningful.
+  EXPECT_THAT(
+      Rigid3d(reference_geometry.cam2_from_cam1->rotation(),
+              reference_geometry.cam2_from_cam1->translation().normalized()),
+      Rigid3dNear(Rigid3d(gt_cam2_from_cam1.rotation(),
+                          gt_cam2_from_cam1.translation().normalized()),
+                  /*rtol=*/1e-3,
+                  /*ttol=*/1e-2));
+}
+
 // Regression test for https://github.com/colmap/colmap/issues/4387: older
 // COLMAP databases stored the two-view geometry config without persisting
 // the E/F/H matrices. MaybeDecomposeRelativePoses must refit the missing

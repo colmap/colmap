@@ -1460,11 +1460,20 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
 
     decompose_count++;
 
+    // Calibrate rays with the intrinsics the solver estimated where available
+    // (its focal, not the camera's stale default), else the given cameras.
+    const Camera& effective_camera1 = two_view_geometry.camera1.has_value()
+                                          ? *two_view_geometry.camera1
+                                          : camera1;
+    const Camera& effective_camera2 = two_view_geometry.camera2.has_value()
+                                          ? *two_view_geometry.camera2
+                                          : camera2;
+
     std::vector<Eigen::Vector3d> inlier_cam_rays1;
     std::vector<Eigen::Vector3d> inlier_cam_rays2;
-    ExtractInlierCamRays(camera1,
+    ExtractInlierCamRays(effective_camera1,
                          points1,
-                         camera2,
+                         effective_camera2,
                          points2,
                          two_view_geometry.inlier_matches,
                          &inlier_cam_rays1,
