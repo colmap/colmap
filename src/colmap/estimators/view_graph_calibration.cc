@@ -120,8 +120,9 @@ void CrossValidatePriorFocalLengths(
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
-      // E now lives in the calibrated frame; solver-estimated intrinsics are
-      // superseded.
+      // E is now built from the K of the cross-validated focal priors, and
+      // consumers calibrate the rays with camera1/camera2 whenever set. Clear
+      // them so the rays use the same K as E, not the solver's own focal.
       tvg.camera1.reset();
       tvg.camera2.reset();
       ++num_upgraded_pairs;
@@ -469,8 +470,9 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
-      // E now lives in the calibrated frame; solver-estimated intrinsics are
-      // superseded.
+      // E is now built from the K of the calibrated focals, and consumers
+      // calibrate the rays with camera1/camera2 whenever set. Clear them so
+      // the rays use the same K as E, not the solver's own focal.
       tvg.camera1.reset();
       tvg.camera2.reset();
       valid_pair_indices.push_back(i);
