@@ -120,6 +120,10 @@ void CrossValidatePriorFocalLengths(
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
+      // E now lives in the calibrated frame; solver-estimated intrinsics are
+      // superseded.
+      tvg.camera1.reset();
+      tvg.camera2.reset();
       ++num_upgraded_pairs;
     }
   }
@@ -363,7 +367,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   // Read UNCALIBRATED and CALIBRATED two-view geometries. A pair whose
   // intrinsics a two-view solver estimated is UNCALIBRATED too: its focal is
   // re-estimated from F rather than trusted, so any estimated intrinsics in
-  // camera1/camera2 are ignored here.
+  // camera1/camera2 are ignored here and cleared on upgrade to CALIBRATED.
   // TODO: study whether seeding from the estimated camera1/camera2 intrinsics,
   // instead of ignoring them, improves the calibration initialization.
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs;
@@ -465,6 +469,10 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
+      // E now lives in the calibrated frame; solver-estimated intrinsics are
+      // superseded.
+      tvg.camera1.reset();
+      tvg.camera2.reset();
       valid_pair_indices.push_back(i);
     }
   }
