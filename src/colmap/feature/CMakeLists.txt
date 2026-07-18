@@ -77,6 +77,16 @@ if(GPU_ENABLED)
     endif()
 endif()
 
+if(FAISS_GPU_MATCHING_ENABLED)
+    target_link_libraries(
+        colmap_feature
+        PRIVATE
+            colmap_util_cuda
+            CUDA::cublas
+            CUDA::cudart
+    )
+endif()
+
 if(OPENMP_FOUND)
     target_link_libraries(colmap_feature PRIVATE OpenMP::OpenMP_CXX)
 endif()

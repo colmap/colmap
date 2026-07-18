@@ -138,6 +138,20 @@ void BindFeatureMatching(py::module& m) {
               "cpu_brute_force_matcher",
               &SiftMatchingOptions::cpu_brute_force_matcher,
               "Whether to use brute-force instead of faiss based CPU matching.")
+          .def_readwrite("faiss_gpu_matcher",
+                         &SiftMatchingOptions::faiss_gpu_matcher,
+                         "Whether to use exact FAISS GPU SIFT matching.")
+          .def_readwrite(
+              "faiss_gpu_cache_size",
+              &SiftMatchingOptions::faiss_gpu_cache_size,
+              "Maximum number of descriptor indices cached on the GPU.")
+          .def_readwrite("faiss_gpu_temp_memory_mb",
+                         &SiftMatchingOptions::faiss_gpu_temp_memory_mb,
+                         "Temporary FAISS GPU workspace in MiB.")
+          .def_readwrite(
+              "faiss_gpu_guided_num_neighbors",
+              &SiftMatchingOptions::faiss_gpu_guided_num_neighbors,
+              "Nearest descriptor candidates tested by guided matching.")
 #ifdef COLMAP_ONNX_ENABLED
           .def_readwrite("lightglue",
                          &SiftMatchingOptions::lightglue,
