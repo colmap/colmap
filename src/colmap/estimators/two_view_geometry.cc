@@ -66,6 +66,12 @@ bool IsPinholeProjection(const Camera& camera) {
   return camera.IsPerspective() && !camera.IsFisheye();
 }
 
+// Whether a camera's intrinsics are known: it either carries a focal prior, or
+// is spherical and has no focal length to estimate in the first place.
+bool IsCameraCalibrated(const Camera& camera) {
+  return camera.IsSpherical() || camera.has_prior_focal_length;
+}
+
 // DEGENSAC uses a different estimator type, so its report is a distinct (but
 // structurally identical) type; adapt it to the plain report type.
 FundamentalMatrixReport ToFundamentalMatrixReport(
@@ -322,12 +328,13 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
 }
 
 // Estimate two-view geometry for an image pair where at least one camera is
-// omnidirectional (no pinhole image plane, e.g. EQUIRECTANGULAR). The
-// fundamental matrix and homography are not geometrically meaningful for such
-// cameras, so only the bearing-based essential matrix is estimated and the
-// result is committed to the CALIBRATED configuration (or DEGENERATE).
-// TODO(jsch): Implement mixed spherical/calibrated perspective camera case
-// using one-sided focal length solver from poselib.
+// omnidirectional (no pinhole image plane, e.g. EQUIRECTANGULAR) and both sides
+// have known intrinsics. The fundamental matrix and homography are not
+// geometrically meaningful for such cameras, so only the bearing-based
+// essential matrix is estimated and the result is committed to the CALIBRATED
+// configuration (or DEGENERATE). A spherical camera paired with one of unknown
+// focal length is routed to EstimateOneSidedFocalTwoViewGeometry instead, which
+// recovers that focal rather than relying on the camera's placeholder.
 TwoViewGeometry EstimateSphericalTwoViewGeometry(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
@@ -469,35 +476,29 @@ TwoViewGeometry EstimateTwoViewGeometry(
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
   } else {
-    // A spherical (omnidirectional) camera has no pinhole image plane, so only
-    // the bearing-based essential matrix is meaningful. Otherwise, if both
-    // images share the same pinhole-projection camera (perspective and
-    // non-fisheye) without a focal-length prior, recover a single shared focal
-    // length jointly with the relative pose; multi-focal models (e.g. PINHOLE)
-    // are seeded isotropically (fx = fy = f) and refined later by bundle
-    // adjustment. Distortion is not a barrier here (as in the
-    // fundamental-matrix path, it is absorbed by the epipolar fit and later
-    // refined). Otherwise, if exactly one image has a known focal length,
-    // recover the other one's jointly with the relative pose, which uses the
-    // known intrinsics that the fundamental-matrix path would discard; the same
-    // pinhole-projection requirement applies, but only to the uncalibrated
-    // side, since the calibrated side is undistorted exactly. Otherwise, use
-    // the calibrated path if both cameras have a known focal length, and the
-    // uncalibrated path otherwise.
-    if (camera1.IsSpherical() || camera2.IsSpherical()) {
+    if (IsCameraCalibrated(camera1) != IsCameraCalibrated(camera2) &&
+        IsPinholeProjection(IsCameraCalibrated(camera1) ? camera2 : camera1)) {
+      // Exactly one side is known, either from a focal prior or because it is
+      // spherical and has no focal at all. Recover the other side's focal
+      // rather than discard the known intrinsics. Only the uncalibrated side
+      // must be a pinhole projection; the calibrated side enters as rays, so
+      // any model is admissible there.
+      return EstimateOneSidedFocalTwoViewGeometry(
+          camera1, points1, camera2, points2, matches, options);
+    } else if (camera1.IsSpherical() || camera2.IsSpherical()) {
+      // No pinhole image plane, so only the bearing-based essential matrix is
+      // meaningful. Mixed spherical/uncalibrated pairs are caught above.
       return EstimateSphericalTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (camera1.camera_id == camera2.camera_id &&
                !camera1.has_prior_focal_length &&
                IsPinholeProjection(camera1)) {
+      // A single shared unknown focal. Multi-focal models (e.g. PINHOLE) are
+      // seeded isotropically (fx = fy = f) and refined later by bundle
+      // adjustment; distortion is absorbed by the epipolar fit, as in the
+      // fundamental-matrix path.
       return EstimateSharedFocalTwoViewGeometry(
           camera1, points1, points2, matches, options);
-    } else if (camera1.has_prior_focal_length !=
-                   camera2.has_prior_focal_length &&
-               IsPinholeProjection(camera1.has_prior_focal_length ? camera2
-                                                                  : camera1)) {
-      return EstimateOneSidedFocalTwoViewGeometry(
-          camera1, points1, camera2, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
                camera2.has_prior_focal_length) {
       return EstimateCalibratedTwoViewGeometry(
@@ -1175,12 +1176,11 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   THROW_CHECK(options.Check());
   // Exactly one side must be calibrated, otherwise this is the calibrated or
   // the shared-focal/uncalibrated problem.
-  THROW_CHECK_NE(camera1.has_prior_focal_length,
-                 camera2.has_prior_focal_length);
+  THROW_CHECK_NE(IsCameraCalibrated(camera1), IsCameraCalibrated(camera2));
 
   // The solver requires the uncalibrated view first. If it is the second one,
   // run with the roles swapped and map the result back via Invert().
-  if (camera1.has_prior_focal_length) {
+  if (IsCameraCalibrated(camera1)) {
     FeatureMatches swapped_matches = matches;
     for (FeatureMatch& match : swapped_matches) {
       std::swap(match.point2D_idx1, match.point2D_idx2);
@@ -1233,11 +1233,18 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
       focal_ransac.Estimate(matched_centered_points1, matched_cam_rays2);
 
   // Homography, to detect planar/panoramic degeneracies where the epipolar
-  // geometry is ill-constrained and the recovered focal is meaningless.
+  // geometry is ill-constrained and the recovered focal is meaningless. Only
+  // meaningful if the calibrated view has a pinhole image plane; for a
+  // spherical one it is skipped, as in the spherical path. A default report has
+  // no inliers, so the checks below then behave as a failed estimate.
+  const bool has_image_plane = !camera2.IsSpherical();
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       ransac_options);
-  const auto H_report =
-      H_ransac.Estimate(matched_img_points1, matched_img_points2);
+  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>::Report
+      H_report;
+  if (has_image_plane) {
+    H_report = H_ransac.Estimate(matched_img_points1, matched_img_points2);
+  }
   if (H_report.success) {
     // Only set on success: a failed report leaves `model` default-constructed,
     // i.e. uninitialized for a fixed-size Eigen matrix, and the swap path below
@@ -1262,10 +1269,10 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   if (focal_report.success &&
       focal_report.support.num_inliers >= min_num_inliers &&
       H_focal_inlier_ratio <= options.max_H_inlier_ratio) {
-    // Labeled UNCALIBRATED, the focal being estimated rather than a trusted
-    // prior, and surfaced via camera1 so consumers can tell it apart from a
-    // plain uncalibrated pair. camera2 stays unset: its intrinsics were an
-    // input, not an estimate.
+    // The focal is estimated rather than a trusted prior, hence UNCALIBRATED,
+    // and is surfaced via camera1 so consumers can tell this apart from a plain
+    // uncalibrated pair. camera2 stays unset: its intrinsics were an input, not
+    // an estimate.
     num_inliers = focal_report.support.num_inliers;
     best_inlier_mask = &focal_report.inlier_mask;
     geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
@@ -1273,14 +1280,17 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
     Camera estimated_camera1 = camera1;
     estimated_camera1.SetFocalLength(focal_report.model.focal);
     geometry.camera1 = estimated_camera1;
-    // Also expose F so epipolar consumers unaware of the estimated focal, e.g.
-    // guided matching, can use this config directly. It assumes a pinhole image
-    // plane on both sides, so it is only an approximation for a non-pinhole
-    // second camera; the exact geometry is carried by E plus the rays.
-    const Eigen::Matrix3d K1_inv =
-        estimated_camera1.CalibrationMatrix().inverse();
-    const Eigen::Matrix3d K2_inv = camera2.CalibrationMatrix().inverse();
-    geometry.F = K2_inv.transpose() * focal_report.model.E * K1_inv;
+    if (has_image_plane) {
+      // Also expose F, so that epipolar consumers unaware of the estimated
+      // focal can use this config directly. It assumes a pinhole image plane on
+      // both sides, so it is only an approximation for a distorted second
+      // camera; the exact geometry is carried by E plus the rays. A spherical
+      // second view has no calibration matrix at all, so no F is published.
+      const Eigen::Matrix3d K1_inv =
+          estimated_camera1.CalibrationMatrix().inverse();
+      const Eigen::Matrix3d K2_inv = camera2.CalibrationMatrix().inverse();
+      geometry.F = K2_inv.transpose() * focal_report.model.E * K1_inv;
+    }
   } else if (H_report.success &&
              H_report.support.num_inliers >= min_num_inliers) {
     num_inliers = H_report.support.num_inliers;

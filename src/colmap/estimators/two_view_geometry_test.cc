@@ -717,10 +717,11 @@ TEST(EstimateTwoViewGeometry, OneSidedFocal) {
   }
 }
 
-TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
+TEST(EstimateTwoViewGeometry, SphericalAndCalibratedPerspective) {
   // Synthesize a perspective two-view dataset to obtain consistent poses and 3D
   // points, then re-project the first image through a EQUIRECTANGULAR camera to
-  // form a mixed spherical/perspective pair.
+  // form a mixed spherical/perspective pair. Both sides are calibrated here;
+  // see SphericalAndUncalibratedPerspective for the case where they are not.
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -763,9 +764,9 @@ TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
   }
   ASSERT_GE(matches.size(), 50u);
 
-  // A pair with one spherical camera routes to the bearing-based essential
-  // matrix path regardless of the other camera, committing to CALIBRATED
-  // without estimating a fundamental matrix or homography.
+  // A spherical pair whose other camera is also calibrated routes to the
+  // bearing-based essential matrix path, committing to CALIBRATED without
+  // estimating a fundamental matrix or homography.
   const TwoViewGeometryOptions two_view_geometry_options;
   const TwoViewGeometry geometry =
       EstimateTwoViewGeometry(spherical_camera,
@@ -779,6 +780,138 @@ TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
   EXPECT_FALSE(geometry.F.has_value());
   EXPECT_FALSE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
+}
+
+TEST(EstimateTwoViewGeometry, SphericalAndUncalibratedPerspective) {
+  // A spherical camera paired with a perspective camera whose focal is unknown.
+  // The spherical side is calibrated by construction, so the pair routes to the
+  // one-sided focal solver instead of the bearing-only spherical path, and the
+  // perspective camera's focal is recovered rather than guessed.
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const Image& image1 = reconstruction.Image(1);
+  const Image& image2 = reconstruction.Image(2);
+  const Camera true_camera = reconstruction.Camera(image2.CameraId());
+  const double kTrueFocal = true_camera.FocalLengthX();
+
+  // Points are projected through the true camera, but the estimator is handed a
+  // camera carrying a deliberately wrong focal and no prior, as an uncalibrated
+  // camera would carry COLMAP's default guess. The recovered focal therefore
+  // cannot merely echo its input.
+  Camera uncalib_camera = true_camera;
+  uncalib_camera.has_prior_focal_length = false;
+  uncalib_camera.SetFocalLength(0.5 * kTrueFocal);
+
+  const Camera spherical_camera =
+      Camera::CreateFromModelId(100,
+                                EquirectangularCameraModel::model_id,
+                                /*focal_length=*/0.0,
+                                1000,
+                                500);
+  ASSERT_TRUE(spherical_camera.IsSpherical());
+
+  std::vector<Eigen::Vector2d> spherical_points;
+  std::vector<Eigen::Vector2d> perspective_points;
+  FeatureMatches matches;
+  for (const auto& [_, point3D] : reconstruction.Points3D()) {
+    const std::optional<Eigen::Vector2d> xy1 =
+        spherical_camera.ImgFromCam(image1.CamFromWorld() * point3D.xyz);
+    const std::optional<Eigen::Vector2d> xy2 =
+        true_camera.ImgFromCam(image2.CamFromWorld() * point3D.xyz);
+    if (!xy1.has_value() || !xy2.has_value()) {
+      continue;
+    }
+    matches.emplace_back(static_cast<point2D_t>(spherical_points.size()),
+                         static_cast<point2D_t>(perspective_points.size()));
+    spherical_points.push_back(*xy1);
+    perspective_points.push_back(*xy2);
+  }
+  ASSERT_GE(matches.size(), 50u);
+
+  const Rigid3d perspective_from_spherical =
+      image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.compute_relative_pose = true;
+
+  // A spherical view has no image plane, so there is no F or H to publish; the
+  // pair is UNCALIBRATED as for any solver-estimated focal. Both orders are
+  // run: the uncalibrated view must reach the solver first, so the
+  // spherical-first case exercises the internal swap.
+  {
+    const TwoViewGeometry geometry =
+        EstimateTwoViewGeometry(spherical_camera,
+                                spherical_points,
+                                uncalib_camera,
+                                perspective_points,
+                                matches,
+                                two_view_geometry_options);
+
+    EXPECT_EQ(geometry.config,
+              TwoViewGeometry::ConfigurationType::UNCALIBRATED);
+    EXPECT_TRUE(geometry.E.has_value());
+    EXPECT_FALSE(geometry.F.has_value());
+    EXPECT_FALSE(geometry.H.has_value());
+    // The estimated intrinsics follow the uncalibrated view, here the second.
+    EXPECT_FALSE(geometry.camera1.has_value());
+    ASSERT_TRUE(geometry.camera2.has_value());
+    EXPECT_NEAR(
+        geometry.camera2->FocalLengthX(), kTrueFocal, 0.05 * kTrueFocal);
+    EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
+
+    ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
+    EXPECT_THAT(
+        Rigid3d(geometry.cam2_from_cam1->rotation(),
+                geometry.cam2_from_cam1->translation().normalized()),
+        Rigid3dNear(
+            Rigid3d(perspective_from_spherical.rotation(),
+                    perspective_from_spherical.translation().normalized()),
+            /*rtol=*/1e-2,
+            /*ttol=*/1e-1));
+  }
+
+  {
+    FeatureMatches swapped_matches = matches;
+    for (FeatureMatch& match : swapped_matches) {
+      std::swap(match.point2D_idx1, match.point2D_idx2);
+    }
+    const TwoViewGeometry geometry =
+        EstimateTwoViewGeometry(uncalib_camera,
+                                perspective_points,
+                                spherical_camera,
+                                spherical_points,
+                                swapped_matches,
+                                two_view_geometry_options);
+
+    EXPECT_EQ(geometry.config,
+              TwoViewGeometry::ConfigurationType::UNCALIBRATED);
+    EXPECT_TRUE(geometry.E.has_value());
+    EXPECT_FALSE(geometry.F.has_value());
+    EXPECT_FALSE(geometry.H.has_value());
+    ASSERT_TRUE(geometry.camera1.has_value());
+    EXPECT_FALSE(geometry.camera2.has_value());
+    EXPECT_NEAR(
+        geometry.camera1->FocalLengthX(), kTrueFocal, 0.05 * kTrueFocal);
+
+    const Rigid3d spherical_from_perspective =
+        Inverse(perspective_from_spherical);
+    ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
+    EXPECT_THAT(
+        Rigid3d(geometry.cam2_from_cam1->rotation(),
+                geometry.cam2_from_cam1->translation().normalized()),
+        Rigid3dNear(
+            Rigid3d(spherical_from_perspective.rotation(),
+                    spherical_from_perspective.translation().normalized()),
+            /*rtol=*/1e-2,
+            /*ttol=*/1e-1));
+  }
 }
 
 TEST(EstimateTwoViewGeometry, DetectWatermark) {
