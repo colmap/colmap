@@ -29,12 +29,14 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
+#include "colmap/estimators/solvers/relpose_shared_focal.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
@@ -450,6 +452,106 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   EXPECT_TRUE(calibrated_geometry.E.has_value());
   EXPECT_FALSE(calibrated_geometry.F.has_value());
   EXPECT_FALSE(calibrated_geometry.H.has_value());
+}
+
+TEST(EstimateTwoViewGeometry, SharedFocal) {
+  SetPRNGSeed(0);
+  // A single shared, uncalibrated, pinhole-projection camera observed from two
+  // frames routes to the shared-focal solver, which jointly recovers the
+  // relative pose and the unknown focal length. Both a single-focal model
+  // (SIMPLE_PINHOLE) and a (here isotropic) two-focal model (PINHOLE, seeded
+  // fx = fy = f) are supported.
+  //
+  // Note: we build a dedicated scene here rather than using SynthesizeDataset,
+  // whose cameras sit far from a unit-sphere point cloud (points subtend only
+  // ~11 deg). Focal-from-two-views needs points spread well off the optical
+  // axis to be well-constrained, so we generate wide-baseline, wide
+  // field-of-view correspondences in front of both cameras.
+  const double kFocal = 1280.0;
+  for (const CameraModelId model_id :
+       {SimplePinholeCameraModel::model_id, PinholeCameraModel::model_id}) {
+    Camera camera = Camera::CreateFromModelId(
+        /*camera_id=*/1, model_id, kFocal, /*width=*/2048, /*height=*/2048);
+    camera.has_prior_focal_length = false;
+    ASSERT_FALSE(camera.has_prior_focal_length);
+    ASSERT_TRUE(camera.IsPerspective());
+
+    // Ground-truth relative pose with a unit baseline and a bounded rotation so
+    // the point cloud is visible in both views. The focal is unidentifiable for
+    // coplanar optical axes, where the estimator downgrades the pair to
+    // UNCALIBRATED, so resample until the pose is clear of that degeneracy,
+    // using the same threshold as the estimator.
+    Rigid3d cam2_from_cam1;
+    do {
+      const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
+      cam2_from_cam1 =
+          Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                      DegToRad(RandomUniformReal<double>(20.0, 60.0)), axis)),
+                  RandomEigenVectord<3>().normalized());
+    } while (
+        RelativePoseSharedFocalEstimator::FocalIdentifiability(cam2_from_cam1) <
+        RelativePoseSharedFocalEstimator::kMinFocalIdentifiability);
+
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    FeatureMatches matches;
+    while (points1.size() < 200) {
+      // Point in front of cam1 with a moderate field of view (|x/z|, |y/z| <=
+      // ~0.5).
+      Eigen::Vector3d dir = RandomEigenVectord<3>();
+      dir.z() = std::abs(dir.z()) + 2.0;
+      const Eigen::Vector3d point_in_cam1 =
+          RandomUniformReal<double>(2.0, 5.0) * dir.normalized();
+      const Eigen::Vector3d point_in_cam2 = cam2_from_cam1 * point_in_cam1;
+      if (point_in_cam2.z() < 0.5) {
+        continue;  // Require cheirality in cam2 (cam1 holds by construction).
+      }
+      const std::optional<Eigen::Vector2d> xy1 =
+          camera.ImgFromCam(point_in_cam1);
+      const std::optional<Eigen::Vector2d> xy2 =
+          camera.ImgFromCam(point_in_cam2);
+      if (!xy1.has_value() || !xy2.has_value()) {
+        continue;
+      }
+      const point2D_t idx = static_cast<point2D_t>(points1.size());
+      points1.push_back(*xy1);
+      points2.push_back(*xy2);
+      matches.emplace_back(idx, idx);
+    }
+
+    TwoViewGeometryOptions two_view_geometry_options;
+    two_view_geometry_options.compute_relative_pose = true;
+
+    const TwoViewGeometry geometry = EstimateTwoViewGeometry(
+        camera, points1, camera, points2, matches, two_view_geometry_options);
+
+    // The shared-focal solver reports an UNCALIBRATED pair carrying an
+    // essential matrix and the estimated intrinsics in camera1/camera2.
+    EXPECT_EQ(geometry.config,
+              TwoViewGeometry::ConfigurationType::UNCALIBRATED);
+    EXPECT_TRUE(geometry.E.has_value());
+    ASSERT_TRUE(geometry.camera1.has_value());
+    ASSERT_TRUE(geometry.camera2.has_value());
+    // Both views share a single camera in this configuration.
+    EXPECT_EQ(*geometry.camera1, *geometry.camera2);
+    EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
+
+    // The estimated shared focal length should match the ground truth. Use
+    // FocalLengthX() so both the single-focal (SIMPLE_PINHOLE) and two-focal
+    // (PINHOLE, fx == fy) models are handled; FocalLength() rejects the latter.
+    EXPECT_NEAR(geometry.camera1->FocalLengthX(), kFocal, 0.05 * kFocal);
+
+    // The recovered relative pose should match the ground truth: rotation
+    // exactly, translation up to scale (the essential matrix fixes only the
+    // translation direction), so compare with normalized translations.
+    ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
+    EXPECT_THAT(Rigid3d(geometry.cam2_from_cam1->rotation(),
+                        geometry.cam2_from_cam1->translation().normalized()),
+                Rigid3dNear(Rigid3d(cam2_from_cam1.rotation(),
+                                    cam2_from_cam1.translation().normalized()),
+                            /*rtol=*/1e-2,
+                            /*ttol=*/1e-1));
+  }
 }
 
 TEST(EstimateTwoViewGeometry, SphericalAndPerspective) {
