@@ -378,6 +378,48 @@ left at the default (greater than 1). So also set that parameter, as below::
         --output_path path/to/dense/workspace/fused.ply
 
 
+.. _faq-extract-poses:
+
+Extracting camera poses and camera centers
+------------------------------------------
+
+Each registered image stores its 6-DoF pose. In the exported ``images.txt`` (and
+the binary ``images.bin``) the pose is given by a quaternion ``(QW, QX, QY, QZ)``
+and a translation ``(TX, TY, TZ)`` that together define the transformation **from
+world to camera coordinates** (Hamilton convention, as also used by Eigen). A
+world point ``X_world`` maps into the camera frame as ``X_cam = R * X_world + T``,
+where ``R`` is the rotation matrix built from the quaternion. See
+:ref:`Output Format <output-format>` for the full field layout.
+
+Note that ``(TX, TY, TZ)`` is **not** the position of the camera in the world. The
+camera center (projection center) in world coordinates is::
+
+    C = -R^t * T
+
+where ``R^t`` is the transpose (inverse) of the rotation matrix. This is a common
+source of confusion when comparing COLMAP poses against GPS or other sensors,
+which usually report the camera center directly.
+
+Using pycolmap, both the world-to-camera pose and the camera center are available
+directly, without manual conversion::
+
+    import pycolmap
+
+    reconstruction = pycolmap.Reconstruction("/path/to/sparse/model")
+    for image_id, image in reconstruction.images.items():
+        cam_from_world = image.cam_from_world        # Rigid3d (world -> camera)
+        world_to_cam = cam_from_world.matrix()       # 3x4 [R | T] matrix
+        center = image.projection_center()           # camera center in world coords
+        print(image.name, center)
+
+The relative pose between two images (transforming points from image ``j``'s
+camera frame into image ``i``'s) can be composed from their world-to-camera poses::
+
+    image_i = reconstruction.images[i]
+    image_j = reconstruction.images[j]
+    i_from_j = image_i.cam_from_world * image_j.cam_from_world.inverse()
+
+
 .. _faq-merge-models:
 
 Merge disconnected models
