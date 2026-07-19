@@ -1322,30 +1322,33 @@ TEST(MatchGuidedSiftFeaturesCPUvsGPUGuided, EssentialMatrix) {
     CreateSiftFeatureMatcher(cpu_options)
         ->MatchGuided(kMaxError, image1, image2, &cpu_geometry);
 
-    TwoViewGeometry gpu_geometry = geometry;
+    EXPECT_GT(cpu_geometry.inlier_matches.size(), 0u)
+        << "model " << camera.ModelName();
+
+    // Note that the assertions must live inside the lambda, since the body is
+    // not executed if the GPU/OpenGL context is unavailable.
     RunGpuTest([&] {
+      TwoViewGeometry gpu_geometry = geometry;
       FeatureMatchingOptions gpu_options(FeatureMatcherType::SIFT_BRUTEFORCE);
       gpu_options.use_gpu = true;
       gpu_options.max_num_matches = 4 * kNumFeatures;
       THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(gpu_options))
           ->MatchGuided(kMaxError, image1, image2, &gpu_geometry);
-    });
 
-    EXPECT_GT(cpu_geometry.inlier_matches.size(), 0u)
-        << "model " << camera.ModelName();
-    EXPECT_EQ(cpu_geometry.inlier_matches.size(),
-              gpu_geometry.inlier_matches.size())
-        << "model " << camera.ModelName();
-    for (size_t i = 0; i < std::min(cpu_geometry.inlier_matches.size(),
-                                    gpu_geometry.inlier_matches.size());
-         ++i) {
-      EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx1,
-                gpu_geometry.inlier_matches[i].point2D_idx1)
-          << "model " << camera.ModelName() << " match " << i;
-      EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx2,
-                gpu_geometry.inlier_matches[i].point2D_idx2)
-          << "model " << camera.ModelName() << " match " << i;
-    }
+      EXPECT_EQ(cpu_geometry.inlier_matches.size(),
+                gpu_geometry.inlier_matches.size())
+          << "model " << camera.ModelName();
+      for (size_t i = 0; i < std::min(cpu_geometry.inlier_matches.size(),
+                                      gpu_geometry.inlier_matches.size());
+           ++i) {
+        EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx1,
+                  gpu_geometry.inlier_matches[i].point2D_idx1)
+            << "model " << camera.ModelName() << " match " << i;
+        EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx2,
+                  gpu_geometry.inlier_matches[i].point2D_idx2)
+            << "model " << camera.ModelName() << " match " << i;
+      }
+    });
   }
 }
 
