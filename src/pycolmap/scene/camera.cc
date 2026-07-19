@@ -136,6 +136,12 @@ void BindCamera(py::module& m) {
            &Camera::IsSpherical,
            "Whether the camera model is spherical (equirectangular "
            "omnidirectional panorama).")
+      .def("is_perspective_fisheye",
+           &Camera::IsPerspectiveFisheye,
+           "Whether the camera model is perspective and fisheye.")
+      .def("is_perspective_pinhole",
+           &Camera::IsPerspectivePinhole,
+           "Whether the camera model is perspective and not fisheye.")
       .def("cam_from_img",
            &Camera::CamFromImg,
            "image_point"_a,
