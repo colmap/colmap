@@ -174,4 +174,29 @@ class ImageColormapNameFilter : public ImageColormapBase {
       image_name_colors_;
 };
 
+// Color images according to their mean reprojection error, on an *absolute*
+// jet scale (0 px = blue, `max_error` px = red). Unlike a relative min/max
+// normalization, this keeps the colors comparable across models: a
+// well-registered model stays blue/cyan, and only genuinely high-error cameras
+// turn red, instead of stretching a tiny error spread over the whole spectrum.
+class ImageColormapReprojectionError : public ImageColormapBase {
+ public:
+  void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+               NodeHashMap<image_t, Image>& images,
+               NodeHashMap<point3D_t, Point3D>& points3D,
+               std::vector<image_t>& reg_image_ids) override;
+
+  void ComputeColor(const Image& image,
+                    Eigen::Vector4f* plane_color,
+                    Eigen::Vector4f* frame_color) override;
+
+  // Errors at or above this value (in pixels) map to the top of the scale
+  // (red). User-adjustable so the sensitivity can be dialed per scene.
+  float max_error = 2.0f;
+
+ private:
+  // Mean reprojection error per image, accumulated from the 3D point tracks.
+  FlatHashMap<image_t, float> image_errors_;
+};
+
 }  // namespace colmap
