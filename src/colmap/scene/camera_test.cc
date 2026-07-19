@@ -338,8 +338,8 @@ TEST(Camera, CamRayFromImgWithJac) {
         const Eigen::Vector2d image_point(x, y);
         const auto ray_and_jac = camera.CamRayFromImgWithJac(image_point);
         ASSERT_TRUE(ray_and_jac.has_value())
-            << "model " << camera.ModelName() << " at " << image_point.
-            transpose();
+            << "model " << camera.ModelName() << " at "
+            << image_point.transpose();
         const auto& [cam_ray, J_ray] = *ray_and_jac;
 
         // The bearing is a unit vector that reprojects to the source pixel.

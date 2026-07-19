@@ -246,9 +246,8 @@ double ComputeSquaredTangentSampsonError(
   const double num = ray2.dot(Eray1);
   // Chain the constraint gradients from ray space into pixel space. The
   // gradient w.r.t. ray1 is E^T ray2 and w.r.t. ray2 is E ray1.
-  const double denom_sq_norm =
-      (J_ray1.transpose() * Etray2).squaredNorm() +
-      (J_ray2.transpose() * Eray1).squaredNorm();
+  const double denom_sq_norm = (J_ray1.transpose() * Etray2).squaredNorm() +
+                               (J_ray2.transpose() * Eray1).squaredNorm();
   if (denom_sq_norm == 0) {
     return std::numeric_limits<double>::max();
   }

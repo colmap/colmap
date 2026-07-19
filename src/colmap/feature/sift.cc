@@ -962,7 +962,7 @@ enum class DistanceType {
 // the pair should be rejected on geometric grounds; rejected pairs get the
 // worst possible distance. Passing indices rather than keypoint coordinates
 // lets the caller filter on whatever geometry it needs - pixels, bearings, or
-// bearings plus their Jacobians - without this function knowing about any of it.
+// bearings plus their Jacobians - without this function knowing any of it.
 Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
     const DistanceType distance_type,
     const FeatureDescriptorsData& descriptors1,
@@ -1474,8 +1474,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     const bool use_homography =
         (two_view_geometry->config == TwoViewGeometry::PLANAR ||
          two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
-         two_view_geometry->config ==
-             TwoViewGeometry::PLANAR_OR_PANORAMIC) &&
+         two_view_geometry->config == TwoViewGeometry::PLANAR_OR_PANORAMIC) &&
         two_view_geometry->H.has_value();
 
     if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||

@@ -117,8 +117,8 @@ void TestCamRayJacobian(const std::vector<double>& params,
   // forwards to the same code, so anything but equality means a switch-macro
   // or storage-order mistake.
   Eigen::Matrix<double, 2, 3> J_uvw;
-  const std::optional<Eigen::Vector2d> xy = CameraModelImgFromCamWithJac(
-      CameraModel::model_id, params, uvw, &J_uvw);
+  const std::optional<Eigen::Vector2d> xy =
+      CameraModelImgFromCamWithJac(CameraModel::model_id, params, uvw, &J_uvw);
   ASSERT_TRUE(xy.has_value());
   EXPECT_EQ(xy->x(), x_ref);
   EXPECT_EQ(xy->y(), y_ref);
@@ -329,9 +329,9 @@ TEST(CamRayFromImgJacobian, RankDeficientReturnsNullopt) {
   rank1 << 1.0, 2.0, 3.0, 2.0, 4.0, 6.0;
   EXPECT_FALSE(CamRayFromImgJacobian(cam_ray, rank1).has_value());
 
-  EXPECT_FALSE(CamRayFromImgJacobian(
-                   cam_ray, Eigen::Matrix<double, 2, 3>::Zero())
-                   .has_value());
+  EXPECT_FALSE(
+      CamRayFromImgJacobian(cam_ray, Eigen::Matrix<double, 2, 3>::Zero())
+          .has_value());
 
   // A well-conditioned Jacobian is accepted and inverts cleanly.
   Eigen::Matrix<double, 2, 3> full_rank;

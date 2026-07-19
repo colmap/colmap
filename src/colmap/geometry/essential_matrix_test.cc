@@ -322,8 +322,8 @@ Eigen::Matrix<double, 3, 2> PinholeUnitRayJacobian(
 // denominator - to machine precision.
 TEST(ComputeSquaredTangentSampsonError, PinholeMatchesScaledSampsonExactly) {
   const Rigid3d cam2_from_cam1(
-      Eigen::Quaterniond(Eigen::AngleAxisd(0.15, Eigen::Vector3d(0.3, 1, 0.2)
-                                                     .normalized())),
+      Eigen::Quaterniond(
+          Eigen::AngleAxisd(0.15, Eigen::Vector3d(0.3, 1, 0.2).normalized())),
       Eigen::Vector3d(1.0, 0.2, 0.1).normalized());
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
@@ -363,8 +363,8 @@ TEST(ComputeSquaredTangentSampsonError, PinholeMatchesScaledSampsonExactly) {
 // an approximation.
 TEST(ComputeSquaredTangentSampsonError, UnitRaysAgreeToFirstOrder) {
   const Rigid3d cam2_from_cam1(
-      Eigen::Quaterniond(Eigen::AngleAxisd(0.15, Eigen::Vector3d(0.3, 1, 0.2)
-                                                     .normalized())),
+      Eigen::Quaterniond(
+          Eigen::AngleAxisd(0.15, Eigen::Vector3d(0.3, 1, 0.2).normalized())),
       Eigen::Vector3d(1.0, 0.2, 0.1).normalized());
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
@@ -379,8 +379,7 @@ TEST(ComputeSquaredTangentSampsonError, UnitRaysAgreeToFirstOrder) {
   // gradient of the constraint is proportional to (l.x, l.y).
   const Eigen::Vector3d m1 = PinholeNormalizedFromImg(image_point1);
   const Eigen::Vector3d epipolar_line2 = E * m1;
-  const Eigen::Vector2d perpendicular =
-      epipolar_line2.head<2>().normalized();
+  const Eigen::Vector2d perpendicular = epipolar_line2.head<2>().normalized();
 
   double prev_rel_diff = std::numeric_limits<double>::max();
   double prev_ratio = 0.0;

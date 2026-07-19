@@ -1263,9 +1263,10 @@ TEST(MatchGuidedSiftFeaturesGPU, UnprojectableKeypoints) {
   });
 }
 
-// The GPU tangent Sampson kernel must reproduce the CPU reference implementation
-// on the same input. This is the check that distinguishes a genuine kernel bug
-// from a plumbing bug, since the CPU path is independently tested above.
+// The GPU tangent Sampson kernel must reproduce the CPU reference
+// implementation on the same input. This is the check that distinguishes a
+// genuine kernel bug from a plumbing bug, since the CPU path is independently
+// tested above.
 TEST(MatchGuidedSiftFeaturesCPUvsGPUGuided, EssentialMatrix) {
   const size_t kNumFeatures = 200;
   std::vector<Camera> cameras;
@@ -1281,12 +1282,12 @@ TEST(MatchGuidedSiftFeaturesCPUvsGPUGuided, EssentialMatrix) {
     FeatureKeypoints keypoints1(kNumFeatures);
     FeatureKeypoints keypoints2(kNumFeatures);
     for (size_t i = 0; i < kNumFeatures; ++i) {
-      keypoints1[i] = FeatureKeypoint(
-          RandomUniformReal<float>(1.0f, camera.width - 1.0f),
-          RandomUniformReal<float>(1.0f, camera.height - 1.0f));
-      keypoints2[i] = FeatureKeypoint(
-          RandomUniformReal<float>(1.0f, camera.width - 1.0f),
-          RandomUniformReal<float>(1.0f, camera.height - 1.0f));
+      keypoints1[i] =
+          FeatureKeypoint(RandomUniformReal<float>(1.0f, camera.width - 1.0f),
+                          RandomUniformReal<float>(1.0f, camera.height - 1.0f));
+      keypoints2[i] =
+          FeatureKeypoint(RandomUniformReal<float>(1.0f, camera.width - 1.0f),
+                          RandomUniformReal<float>(1.0f, camera.height - 1.0f));
     }
 
     const FeatureMatcher::Image image1 = {

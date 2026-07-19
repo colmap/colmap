@@ -2794,28 +2794,29 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
   double J_uvw_data[6];
   double* J_uvw_ptr = (J_uvw == nullptr) ? nullptr : J_uvw_data;
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::model_id:                                             \
-    static_assert(CameraModel::has_img_from_cam_with_jac,                 \
-                  #CameraModel " does not provide an analytic "           \
-                               "ImgFromCamWithJac, which this dispatch "  \
-                               "requires. Implement it in "               \
-                               "models_jacobian.h.");                     \
-    if (CameraModel::ImgFromCamWithJac(params.data(),                     \
-                                       uvw.x(),                           \
-                                       uvw.y(),                           \
-                                       uvw.z(),                           \
-                                       &xy.x(),                           \
-                                       &xy.y(),                           \
-                                       /*J_params=*/nullptr,              \
-                                       J_uvw_ptr)) {                      \
-      if (J_uvw != nullptr) {                                             \
-        *J_uvw =                                                          \
+#define CAMERA_MODEL_CASE(CameraModel)                                      \
+  case CameraModel::model_id:                                               \
+    static_assert(CameraModel::has_img_from_cam_with_jac,                   \
+                  #CameraModel                                              \
+                  " does not provide an analytic "                          \
+                  "ImgFromCamWithJac, which this dispatch "                 \
+                  "requires. Implement it in "                              \
+                  "models_jacobian.h.");                                    \
+    if (CameraModel::ImgFromCamWithJac(params.data(),                       \
+                                       uvw.x(),                             \
+                                       uvw.y(),                             \
+                                       uvw.z(),                             \
+                                       &xy.x(),                             \
+                                       &xy.y(),                             \
+                                       /*J_params=*/nullptr,                \
+                                       J_uvw_ptr)) {                        \
+      if (J_uvw != nullptr) {                                               \
+        *J_uvw =                                                            \
             Eigen::Map<const Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>( \
-                J_uvw_data);                                              \
-      }                                                                   \
-      return xy;                                                          \
-    }                                                                     \
+                J_uvw_data);                                                \
+      }                                                                     \
+      return xy;                                                            \
+    }                                                                       \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -2826,8 +2827,7 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
 }
 
 std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
-    const Eigen::Vector3d& cam_ray,
-    const Eigen::Matrix<double, 2, 3>& J_uvw) {
+    const Eigen::Vector3d& cam_ray, const Eigen::Matrix<double, 2, 3>& J_uvw) {
   const Eigen::Vector3d g_x = J_uvw.row(0);
   const Eigen::Vector3d g_y = J_uvw.row(1);
   const double alpha = cam_ray.dot(g_x.cross(g_y));
