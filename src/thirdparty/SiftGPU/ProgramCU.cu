@@ -1693,6 +1693,183 @@ void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 												MatH, hdistmax, MatF, fdistmax, use_h, use_f);
 }
 
+// Guided matching against an essential matrix scored by the tangent Sampson
+// error, i.e. in pixel units for an arbitrary central camera model.
+//
+// Each feature carries a unit bearing vector r and the Jacobian J = d(r)/d(px)
+// of that bearing with respect to its pixel, laid out as 12 floats
+// (r.x r.y r.z | J00 J10 J20 J01 J11 J21 | pad pad pad) so that it can be
+// fetched as three float4. With C = r2' E r1 the residual is
+//
+//     C^2 / (||J1' (E' r2)||^2 + ||J2' (E r1)||^2)
+//
+// which reduces to the classical Sampson error scaled by f^2 for a pinhole.
+void __global__ MultiplyDescriptorGRay_Kernel(cudaTextureObject_t texDes1, cudaTextureObject_t texDes2,
+										   cudaTextureObject_t texLoc1, cudaTextureObject_t texLoc2,
+										   int* d_result, int num1, int num2, int3* d_temp,
+										   Matrix33 E, float edistmax)
+{
+	int idx01 = (blockIdx.y  * MULT_BLOCK_DIMY);
+	int idx02 = (blockIdx.x  * MULT_BLOCK_DIMX);
+
+	int idx1 = idx01 + threadIdx.y;
+	int idx2 = idx02 + threadIdx.x;
+	__shared__ int data1[17 * 2 * MULT_BLOCK_DIMY];
+	__shared__ float loc1[MULT_BLOCK_DIMY * 12];
+	int read_idx1 = idx01 * 8 +  threadIdx.x ;
+	int read_idx2 = idx2 * 8;
+	int col4 = threadIdx.x & 0x3, row4 = threadIdx.x >> 2;
+	int cache_idx1 = IMUL(row4, 17) + (col4 << 2);
+#if MULT_BLOCK_DIMY == 16
+	uint4 v = tex1Dfetch<uint4>(texDes1, read_idx1);
+	data1[cache_idx1]   = v.x;
+	data1[cache_idx1+1] = v.y;
+	data1[cache_idx1+2] = v.z;
+	data1[cache_idx1+3] = v.w;
+#elif MULT_BLOCK_DIMY == 8
+	if(threadIdx.x < 64)
+	{
+		uint4 v = tex1Dfetch<uint4>(texDes1, read_idx1);
+		data1[cache_idx1]   = v.x;
+		data1[cache_idx1+1] = v.y;
+		data1[cache_idx1+2] = v.z;
+		data1[cache_idx1+3] = v.w;
+	}
+#else
+#error
+#endif
+	__syncthreads();
+	// MULT_BLOCK_DIMY * 12 == 96 <= MULT_TBLOCK_DIMX == 128, so the tile is
+	// filled in a single cooperative pass, as in the two-component kernel.
+	if(threadIdx.x < MULT_BLOCK_DIMY * 12)
+	{
+		loc1[threadIdx.x] = tex1Dfetch<float>(texLoc1, 12 * idx01 + threadIdx.x);
+	}
+	__syncthreads();
+	if(idx2 >= num2) return;
+	int results[MULT_BLOCK_DIMY];
+	/////////////////////////////////////////////////////////////////////////////////////////////
+	//geometric verification
+	/////////////////////////////////////////////////////////////////////////////////////////////
+	int good_count = 0;
+	float4 loc2a = tex1Dfetch<float4>(texLoc2, 3 * idx2);
+	float4 loc2b = tex1Dfetch<float4>(texLoc2, 3 * idx2 + 1);
+	float4 loc2c = tex1Dfetch<float4>(texLoc2, 3 * idx2 + 2);
+	float r2x = loc2a.x, r2y = loc2a.y, r2z = loc2a.z;
+	// J2 columns, in camera-ray space.
+	float J2c0x = loc2a.w, J2c0y = loc2b.x, J2c0z = loc2b.y;
+	float J2c1x = loc2b.z, J2c1y = loc2b.w, J2c1z = loc2c.x;
+	// E' * r2, the gradient of the constraint w.r.t. r1.
+	float etr2[3];
+	etr2[0] = E.mat[0][0] * r2x + E.mat[1][0] * r2y + E.mat[2][0] * r2z;
+	etr2[1] = E.mat[0][1] * r2x + E.mat[1][1] * r2y + E.mat[2][1] * r2z;
+	etr2[2] = E.mat[0][2] * r2x + E.mat[1][2] * r2y + E.mat[2][2] * r2z;
+#pragma unroll
+	for(int i = 0; i < MULT_BLOCK_DIMY; ++i)
+	{
+		if(idx1 + i < num1)
+		{
+			float* loci = loc1 + i * 12;
+			float r1x = loci[0], r1y = loci[1], r1z = loci[2];
+			// E * r1, the gradient of the constraint w.r.t. r2.
+			float er1[3];
+			er1[0] = E.mat[0][0] * r1x + E.mat[0][1] * r1y + E.mat[0][2] * r1z;
+			er1[1] = E.mat[1][0] * r1x + E.mat[1][1] * r1y + E.mat[1][2] * r1z;
+			er1[2] = E.mat[2][0] * r1x + E.mat[2][1] * r1y + E.mat[2][2] * r1z;
+			float num = r2x * er1[0] + r2y * er1[1] + r2z * er1[2];
+			// Project both gradients into pixel space through the Jacobians.
+			float a0 = loci[3] * etr2[0] + loci[4] * etr2[1] + loci[5] * etr2[2];
+			float a1 = loci[6] * etr2[0] + loci[7] * etr2[1] + loci[8] * etr2[2];
+			float b0 = J2c0x * er1[0] + J2c0y * er1[1] + J2c0z * er1[2];
+			float b1 = J2c1x * er1[0] + J2c1y * er1[1] + J2c1z * er1[2];
+			float denom = a0 * a0 + a1 * a1 + b0 * b0 + b1 * b1;
+			// A zero denominator means the correspondence carries no geometric
+			// information (an invalid bearing or a degenerate Jacobian); reject.
+			results[i] = (denom > 0.0f && num * num < edistmax * denom)? 0: -262144;
+		}else
+		{
+			results[i] = -262144;
+		}
+		good_count += (results[i] >=0);
+	}
+	/////////////////////////////////////////////////////////////////////////////////////////////
+	///compare feature descriptors anyway
+	/////////////////////////////////////////////////////////////////////////////////////////////
+	if(good_count > 0)
+	{
+#pragma unroll
+		for(int i = 0; i < 8; ++i)
+		{
+			uint4 v = tex1Dfetch<uint4>(texDes2, read_idx2 + i);
+			unsigned char* p2 = (unsigned char*)(&v);
+#pragma unroll
+			for(int k = 0; k < MULT_BLOCK_DIMY; ++k)
+			{
+				unsigned char* p1 = (unsigned char*) (data1 + k * 34 + i *  4 + (i/4));
+				results[k] += 	 ( IMUL(p1[0], p2[0])	+ IMUL(p1[1], p2[1])
+								 + IMUL(p1[2], p2[2])  	+ IMUL(p1[3], p2[3])
+								 + IMUL(p1[4], p2[4])  	+ IMUL(p1[5], p2[5])
+								 + IMUL(p1[6], p2[6])  	+ IMUL(p1[7], p2[7])
+								 + IMUL(p1[8], p2[8])  	+ IMUL(p1[9], p2[9])
+								 + IMUL(p1[10], p2[10])	+ IMUL(p1[11], p2[11])
+								 + IMUL(p1[12], p2[12])	+ IMUL(p1[13], p2[13])
+								 + IMUL(p1[14], p2[14])	+ IMUL(p1[15], p2[15]));
+			}
+		}
+	}
+	int dst_idx = IMUL(idx1, num2)  + idx2;
+	if(d_temp)
+	{
+		int3 cmp_result = make_int3(0, -1, 0);
+#pragma unroll
+		for(int i= 0; i < MULT_BLOCK_DIMY; ++i)
+		{
+			if(idx1 + i < num1)
+			{
+				cmp_result = results[i] > cmp_result.x?
+				make_int3(results[i], idx1 + i, cmp_result.x) :
+				make_int3(cmp_result.x, cmp_result.y, max(cmp_result.z, results[i]));
+				d_result[dst_idx + IMUL(i, num2)] = max(results[i], 0);
+			}else
+			{
+				break;
+			}
+		}
+		d_temp[ IMUL(blockIdx.y, num2) + idx2] = cmp_result;
+	}else
+	{
+#pragma unroll
+		for(int i = 0; i < MULT_BLOCK_DIMY; ++i)
+		{
+			if(idx1 + i < num1) d_result[dst_idx + IMUL(i, num2)] = max(results[i], 0);
+			else break;
+		}
+	}
+}
+
+void ProgramCU::MultiplyDescriptorGRay(CuTexImage* des1, CuTexImage* des2,
+		CuTexImage* loc1, CuTexImage* loc2, CuTexImage* texDot, CuTexImage* texCRT,
+		float* E, float edistmax)
+{
+	int num1 = des1->GetImgWidth() / 8;
+	int num2 = des2->GetImgWidth() / 8;
+	Matrix33 MatE;
+	memcpy(MatE.mat, E, 9 * sizeof(float));
+	dim3 grid(	(num2 + MULT_BLOCK_DIMX - 1)/ MULT_BLOCK_DIMX,
+		(num1 + MULT_BLOCK_DIMY - 1)/MULT_BLOCK_DIMY);
+	dim3 block(MULT_TBLOCK_DIMX, MULT_TBLOCK_DIMY);
+	texDot->InitTexture( num2,num1);
+	if(texCRT) texCRT->InitTexture( num2, (num1 + MULT_BLOCK_DIMY - 1)/MULT_BLOCK_DIMY, 3);
+	CuTexImage::CuTexObj loc1Tex = loc1->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
+	CuTexImage::CuTexObj loc2Tex = loc2->BindTexture(texDataDesc, cudaCreateChannelDesc<float4>());
+	CuTexImage::CuTexObj des1Tex = des1->BindTexture(texDataDesc, cudaCreateChannelDesc<uint4>());
+	CuTexImage::CuTexObj des2Tex = des2->BindTexture(texDataDesc, cudaCreateChannelDesc<uint4>());
+	MultiplyDescriptorGRay_Kernel<<<grid, block>>>(des1Tex.handle, des2Tex.handle, loc1Tex.handle, loc2Tex.handle,
+												(int*)texDot->_cuData, num1, num2,
+												(texCRT? (int3*)texCRT->_cuData : NULL),
+												MatE, edistmax);
+}
+
 #define ROWMATCH_BLOCK_WIDTH 32
 #define ROWMATCH_BLOCK_HEIGHT 1
 

@@ -1239,6 +1239,115 @@ TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
   });
 }
 
+TEST(MatchGuidedSiftFeaturesGPU, Spherical) {
+  RunGpuTest([] {
+    TestGuidedMatchingSpherical(
+        [](const std::vector<FeatureMatcher::Image>& images) {
+          FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+          options.use_gpu = true;
+          options.max_num_matches = 1000;
+          return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+        });
+  });
+}
+
+TEST(MatchGuidedSiftFeaturesGPU, UnprojectableKeypoints) {
+  RunGpuTest([] {
+    TestGuidedMatchingUnprojectableKeypoints(
+        [](const std::vector<FeatureMatcher::Image>& images) {
+          FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+          options.use_gpu = true;
+          options.max_num_matches = 1000;
+          return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+        });
+  });
+}
+
+// The GPU tangent Sampson kernel must reproduce the CPU reference implementation
+// on the same input. This is the check that distinguishes a genuine kernel bug
+// from a plumbing bug, since the CPU path is independently tested above.
+TEST(MatchGuidedSiftFeaturesCPUvsGPUGuided, EssentialMatrix) {
+  const size_t kNumFeatures = 200;
+  std::vector<Camera> cameras;
+  cameras.push_back(Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 650.0, 1024, 768));
+  cameras.push_back(Camera::CreateFromModelId(
+      2, CameraModelId::kOpenCVFisheye, 350.0, 1024, 768));
+  cameras.push_back(Camera::CreateFromModelId(
+      3, CameraModelId::kEquirectangular, 0.0, 1000, 500));
+
+  for (const Camera& camera : cameras) {
+    SetPRNGSeed(42);
+    FeatureKeypoints keypoints1(kNumFeatures);
+    FeatureKeypoints keypoints2(kNumFeatures);
+    for (size_t i = 0; i < kNumFeatures; ++i) {
+      keypoints1[i] = FeatureKeypoint(
+          RandomUniformReal<float>(1.0f, camera.width - 1.0f),
+          RandomUniformReal<float>(1.0f, camera.height - 1.0f));
+      keypoints2[i] = FeatureKeypoint(
+          RandomUniformReal<float>(1.0f, camera.width - 1.0f),
+          RandomUniformReal<float>(1.0f, camera.height - 1.0f));
+    }
+
+    const FeatureMatcher::Image image1 = {
+        /*image_id=*/1,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(keypoints1),
+        std::make_shared<FeatureDescriptors>(
+            CreateRandomFeatureDescriptors(kNumFeatures))};
+    const FeatureMatcher::Image image2 = {
+        /*image_id=*/2,
+        /*camera=*/&camera,
+        std::make_shared<FeatureKeypoints>(keypoints2),
+        std::make_shared<FeatureDescriptors>(
+            CreateRandomFeatureDescriptors(kNumFeatures))};
+
+    TwoViewGeometry geometry;
+    geometry.config = TwoViewGeometry::CALIBRATED;
+    geometry.E = EssentialMatrixFromPose(
+        Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                    0.2, Eigen::Vector3d(0.3, 1.0, 0.2).normalized())),
+                Eigen::Vector3d(1.0, 0.15, 0.05).normalized()));
+
+    // A loose threshold so a non-trivial number of pairs survive the filter.
+    constexpr double kMaxError = 30.0;
+
+    FeatureDescriptorIndexCacheHelper index_cache_helper({image1, image2});
+    FeatureMatchingOptions cpu_options(FeatureMatcherType::SIFT_BRUTEFORCE);
+    cpu_options.use_gpu = false;
+    cpu_options.sift->cpu_descriptor_index_cache =
+        &index_cache_helper.index_cache;
+    TwoViewGeometry cpu_geometry = geometry;
+    CreateSiftFeatureMatcher(cpu_options)
+        ->MatchGuided(kMaxError, image1, image2, &cpu_geometry);
+
+    TwoViewGeometry gpu_geometry = geometry;
+    RunGpuTest([&] {
+      FeatureMatchingOptions gpu_options(FeatureMatcherType::SIFT_BRUTEFORCE);
+      gpu_options.use_gpu = true;
+      gpu_options.max_num_matches = 4 * kNumFeatures;
+      THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(gpu_options))
+          ->MatchGuided(kMaxError, image1, image2, &gpu_geometry);
+    });
+
+    EXPECT_GT(cpu_geometry.inlier_matches.size(), 0u)
+        << "model " << camera.ModelName();
+    EXPECT_EQ(cpu_geometry.inlier_matches.size(),
+              gpu_geometry.inlier_matches.size())
+        << "model " << camera.ModelName();
+    for (size_t i = 0; i < std::min(cpu_geometry.inlier_matches.size(),
+                                    gpu_geometry.inlier_matches.size());
+         ++i) {
+      EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx1,
+                gpu_geometry.inlier_matches[i].point2D_idx1)
+          << "model " << camera.ModelName() << " match " << i;
+      EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx2,
+                gpu_geometry.inlier_matches[i].point2D_idx2)
+          << "model " << camera.ModelName() << " match " << i;
+    }
+  }
+}
+
 TEST(MatchGuidedSiftFeaturesGPU, SharedFocal) {
   RunGpuTest([] {
     TestGuidedMatchingSharedFocal(

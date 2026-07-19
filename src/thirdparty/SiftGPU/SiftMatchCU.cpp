@@ -131,8 +131,25 @@ void SiftMatchCU::SetFeatureLocation(int index, const float* locations,
                                      int gap, int ncomp) {
   if (_num_sift[index] <= 0) return;
   if (ncomp < 2) ncomp = 2;
-  if (ncomp > 3) ncomp = 3;
-  if (ncomp == 2) {
+  if (ncomp != 2 && ncomp != 3 && ncomp != 9) ncomp = 2;
+  if (ncomp == 9) {
+    // Bearing vector plus unprojection Jacobian, padded to 12 floats so that
+    // the kernel can fetch three float4 per feature. CUDA has no float3 or
+    // float9 channel descriptor.
+    _texLoc[index].InitTexture(_num_sift[index] * 3, 1, 4);
+    sift_buffer.resize(_num_sift[index] * 12);
+    float* pbuf = (float*)(&sift_buffer[0]);
+    for (int i = 0; i < _num_sift[index]; ++i) {
+      for (int k = 0; k < 9; ++k) {
+        pbuf[i * 12 + k] = *locations++;
+      }
+      pbuf[i * 12 + 9] = 0.0f;
+      pbuf[i * 12 + 10] = 0.0f;
+      pbuf[i * 12 + 11] = 0.0f;
+      locations += gap;
+    }
+    _texLoc[index].CopyFromHost(pbuf);
+  } else if (ncomp == 2) {
     _texLoc[index].InitTexture(_num_sift[index], 1, 2);
     if (gap == 0) {
       _texLoc[index].CopyFromHost(locations);
@@ -173,9 +190,18 @@ int SiftMatchCU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2],
   if (_initialized == 0) return 0;
   if (_num_sift[0] <= 0 || _num_sift[1] <= 0) return 0;
   if (_have_loc[0] == 0 || _have_loc[1] == 0) return 0;
-  ProgramCU::MultiplyDescriptorG(_texDes, _texDes + 1, _texLoc, _texLoc + 1,
-                                 &_texDot, (mbm ? &_texCRT : NULL), H, hdistmax,
-                                 F, fdistmax, use_h, use_f);
+  if (_loc_ncomp[0] == 9 && _loc_ncomp[1] == 9) {
+    // Bearing vectors with Jacobians: score the essential matrix in pixels.
+    // This layout carries no image plane points, so the homography branch is
+    // not available and F is interpreted as E.
+    ProgramCU::MultiplyDescriptorGRay(_texDes, _texDes + 1, _texLoc,
+                                      _texLoc + 1, &_texDot,
+                                      (mbm ? &_texCRT : NULL), F, fdistmax);
+  } else {
+    ProgramCU::MultiplyDescriptorG(_texDes, _texDes + 1, _texLoc, _texLoc + 1,
+                                   &_texDot, (mbm ? &_texCRT : NULL), H,
+                                   hdistmax, F, fdistmax, use_h, use_f);
+  }
   return GetBestMatch(max_match, match_buffer, distmax, ratiomax, mbm);
 }
 

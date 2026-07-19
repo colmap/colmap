@@ -1270,35 +1270,32 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
 #if defined(COLMAP_GPU_ENABLED)
 
-// TODO: Remove once the SiftGPU guided matchers take general homogeneous
-// feature locations and can evaluate the tangent Sampson error like the CPU
-// matcher above. Until then the GPU path keeps the previous behavior: it scores
-// the essential matrix on normalized image plane coordinates against an angular
-// threshold. That is defined only on the forward hemisphere, so guided matching
-// of spherical cameras remains broken on the GPU backends.
-FeatureKeypoints NormalizeFeatureKeypoints(const Camera& camera,
-                                           const FeatureKeypoints& keypoints) {
-  FeatureKeypoints normalized_keypoints(keypoints.size());
+// Number of floats per feature in the SiftGPU bearing-plus-Jacobian layout:
+// the unit bearing followed by the two columns of d(bearing) / d(pixel).
+constexpr int kNumCamRayWithJacElems = 9;
+
+// Pack bearings and unprojection Jacobians for the SiftGPU tangent Sampson
+// kernel. Keypoints that cannot be unprojected are zeroed, which makes both the
+// numerator and the denominator of the residual vanish; the kernel treats a
+// zero denominator as "no geometric information" and rejects the pair.
+std::vector<float> PackCamRaysWithJac(const Camera& camera,
+                                      const FeatureKeypoints& keypoints) {
+  std::vector<float> packed(keypoints.size() * kNumCamRayWithJacElems, 0.0f);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     const FeatureKeypoint& keypoint = keypoints[i];
-    if (const auto cam_point =
-            camera.CamFromImg(Eigen::Vector2d(keypoint.x, keypoint.y))) {
-      normalized_keypoints[i] = FeatureKeypoint(cam_point->x(), cam_point->y());
-    } else {
-      // Set to large values to ensure that associated matches are rejected.
-      normalized_keypoints[i] = FeatureKeypoint(1e6f, 1e6f);
+    const auto ray_and_jac =
+        camera.CamRayFromImgWithJac(Eigen::Vector2d(keypoint.x, keypoint.y));
+    if (!ray_and_jac) {
+      continue;
+    }
+    float* out = packed.data() + i * kNumCamRayWithJacElems;
+    for (int k = 0; k < 3; ++k) {
+      out[k] = static_cast<float>(ray_and_jac->first(k));
+      out[3 + k] = static_cast<float>(ray_and_jac->second(k, 0));
+      out[6 + k] = static_cast<float>(ray_and_jac->second(k, 1));
     }
   }
-  return normalized_keypoints;
-}
-
-double ComputeNormalizedGuidedMatchingMaxResidual(const Camera& camera1,
-                                                  const Camera& camera2,
-                                                  const double max_error) {
-  const double normalized_max_error1 = camera1.CamFromImgThreshold(max_error);
-  const double normalized_max_error2 = camera2.CamFromImgThreshold(max_error);
-  return 0.5 * (normalized_max_error1 * normalized_max_error1 +
-                normalized_max_error2 * normalized_max_error2);
+  return packed;
 }
 
 // Mutexes for OpenGL version to protect static variables in SiftGPU.
@@ -1490,12 +1487,12 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                                      image1.descriptors->data.rows(),
                                      image1.descriptors->data.data());
       if (use_essential_matrix) {
-        const FeatureKeypoints normalized_keypoints1 =
-            NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints);
-        sift_match_gpu_.SetFeatureLocation(
-            kIndex,
-            reinterpret_cast<const float*>(normalized_keypoints1.data()),
-            kFeatureShapeNumElems);
+        const std::vector<float> cam_rays1 =
+            PackCamRaysWithJac(*image1.camera, *image1.keypoints);
+        sift_match_gpu_.SetFeatureLocation(kIndex,
+                                           cam_rays1.data(),
+                                           /*gap=*/0,
+                                           kNumCamRayWithJacElems);
       } else {
         sift_match_gpu_.SetFeatureLocation(
             kIndex,
@@ -1514,12 +1511,12 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                                      image2.descriptors->data.rows(),
                                      image2.descriptors->data.data());
       if (use_essential_matrix) {
-        const FeatureKeypoints normalized_keypoints2 =
-            NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints);
-        sift_match_gpu_.SetFeatureLocation(
-            kIndex,
-            reinterpret_cast<const float*>(normalized_keypoints2.data()),
-            kFeatureShapeNumElems);
+        const std::vector<float> cam_rays2 =
+            PackCamRaysWithJac(*image2.camera, *image2.keypoints);
+        sift_match_gpu_.SetFeatureLocation(kIndex,
+                                           cam_rays2.data(),
+                                           /*gap=*/0,
+                                           kNumCamRayWithJacElems);
       } else {
         sift_match_gpu_.SetFeatureLocation(
             kIndex,
@@ -1556,11 +1553,9 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     two_view_geometry->inlier_matches.resize(
         static_cast<size_t>(options_.max_num_matches));
 
-    const float max_residual =
-        use_essential_matrix
-            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
-                  *image1.camera, *image2.camera, max_error))
-            : static_cast<float>(max_error * max_error);
+    // Every config now scores in pixels: the tangent Sampson error for E, the
+    // pixel Sampson error for F, and the pixel transfer error for H.
+    const float max_residual = static_cast<float>(max_error * max_error);
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
