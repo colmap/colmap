@@ -398,6 +398,8 @@ void OptionManager::AddSequentialPairingOptions() {
   AddDefaultOption("SequentialMatching.overlap", &sequential_pairing->overlap);
   AddDefaultOption("SequentialMatching.quadratic_overlap",
                    &sequential_pairing->quadratic_overlap);
+  AddDefaultOption("SequentialMatching.max_prior_distance",
+                   &sequential_pairing->max_prior_distance);
   AddDefaultOption("SequentialMatching.expand_rig_images",
                    &sequential_pairing->expand_rig_images);
   AddDefaultOption("SequentialMatching.loop_detection",

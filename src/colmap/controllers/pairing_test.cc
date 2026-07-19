@@ -275,6 +275,68 @@ TEST(SequentialPairGenerator, Quadratic) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
+TEST(SequentialPairGenerator, MaxPriorDistanceGatesQuadraticProbes) {
+  constexpr int kNumImages = 9;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  // Cluster A: images 0-3 near the origin. Cluster B: images 4-8 ~1000m
+  // away. Image 6's position prior is intentionally omitted.
+  for (int i = 0; i < kNumImages; ++i) {
+    if (i == 6) continue;
+    PosePrior pose_prior;
+    pose_prior.corr_data_id = images[i].DataId();
+    const double x = i < 4 ? i : 1000.0 + (i - 4);
+    pose_prior.position = Eigen::Vector3d(x, 0, 0);
+    database->WritePosePrior(pose_prior);
+  }
+
+  SequentialPairingOptions options;
+  options.overlap = 3;
+  options.quadratic_overlap = true;
+  options.max_prior_distance = 50;
+  SequentialPairGenerator generator(options, database);
+
+  using P = std::pair<image_t, image_t>;
+  auto id = [&](int i) { return images[i].ImageId(); };
+  // Base-overlap pairs (offset <= 3) cross the cluster gap and are still
+  // present. The offset-4 quadratic probe (0,4) is gated away.
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(P(id(0), id(1)), P(id(0), id(2))));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(P(id(1), id(2)), P(id(1), id(3))));
+  // (2,6) is a gated-distance quadratic probe, but image 6 has no prior, so
+  // it passes ungated.
+  EXPECT_THAT(
+      generator.Next(),
+      testing::ElementsAre(P(id(2), id(3)), P(id(2), id(4)), P(id(2), id(6))));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(P(id(3), id(4)), P(id(3), id(5))));
+  // (4,8) is a quadratic probe but both images are in cluster B, within the
+  // gate, so it passes.
+  EXPECT_THAT(
+      generator.Next(),
+      testing::ElementsAre(P(id(4), id(5)), P(id(4), id(6)), P(id(4), id(8))));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(P(id(5), id(6)), P(id(5), id(7))));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(P(id(6), id(7)), P(id(6), id(8))));
+  EXPECT_THAT(generator.Next(), testing::ElementsAre(P(id(7), id(8))));
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+
+  // Disabled (-1): the cross-cluster quadratic probes are kept.
+  SequentialPairingOptions ungated_options = options;
+  ungated_options.max_prior_distance = -1;
+  SequentialPairGenerator ungated_generator(ungated_options, database);
+  const auto ungated_pairs = ungated_generator.AllPairs();
+  EXPECT_THAT(ungated_pairs, testing::Contains(P(id(0), id(4))));
+  EXPECT_THAT(ungated_pairs, testing::Contains(P(id(1), id(5))));
+  EXPECT_THAT(ungated_pairs, testing::Contains(P(id(3), id(7))));
+}
+
 TEST(SpatialPairGenerator, Nominal) {
   constexpr int kNumImages = 3;
   auto database = Database::Open(kInMemorySqliteDatabasePath);

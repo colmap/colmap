@@ -177,6 +177,21 @@ feature matching) uses pose priors only to *propose* candidate image pairs;
 it never substitutes for geometric verification, which remains the sole
 authority on whether a pair is actually a valid two-view match.
 
+``--SequentialMatching.max_prior_distance`` (metres, default ``-1`` =
+disabled) gates sequential matching's quadratic-overlap probes (pairs at
+index offset ``2^k`` beyond the base ``overlap`` window, used to bridge
+temporary pauses or loops) by position-prior separation: a probe whose
+images both carry a usable position prior farther apart than this distance
+is dropped before matching. It applies only to those long-range quadratic
+probes, never to the base ``±overlap`` neighbors that form the sequential
+walk itself, so GPS noise can never sever walk continuity; a probe missing
+a prior on either image always passes ungated. This prevents a specific
+failure on repetitive structure (e.g. a long stretch of near-identical
+stonework or facade): a quadratic probe can pass geometric verification
+against a visually similar but physically distant repetition of the same
+structure, creating a false loop closure that then has no GPS term to
+resist it during visual-only global positioning.
+
 
 model_aligner: Earth alignment and the georeference report
 ------------------------------------------------------------

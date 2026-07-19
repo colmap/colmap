@@ -93,6 +93,22 @@ std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
   return image_pairs;
 }
 
+// Converts a usable position prior (caller checks HasPosition()) to a metric
+// world-frame position: WGS84 via GPSTransform::EllipsoidToECEF, or the raw
+// Cartesian position as-is.
+Eigen::Vector3d PosePriorToMetricPosition(const PosePrior& pose_prior) {
+  switch (pose_prior.coordinate_system) {
+    case PosePrior::CoordinateSystem::WGS84: {
+      GPSTransform gps_transform;
+      return gps_transform.EllipsoidToECEF({pose_prior.position})[0];
+    }
+    case PosePrior::CoordinateSystem::UNDEFINED:
+    default:
+    case PosePrior::CoordinateSystem::CARTESIAN:
+      return pose_prior.position;
+  }
+}
+
 }  // namespace
 
 bool ExistingMatchedPairingOptions::Check() const {
@@ -114,6 +130,7 @@ bool VocabTreePairingOptions::Check() const {
 
 bool SequentialPairingOptions::Check() const {
   CHECK_OPTION_GT(overlap, 0);
+  CHECK_OPTION(max_prior_distance < 0.0 || max_prior_distance > 0.0);
   CHECK_OPTION_GT(loop_detection_period, 0);
   CHECK_OPTION_GT(loop_detection_num_images, 0);
   CHECK_OPTION_GT(loop_detection_num_nearest_neighbors, 0);
@@ -450,6 +467,17 @@ SequentialPairGenerator::SequentialPairGenerator(
       }
     }
   }
+
+  if (options_.max_prior_distance >= 0.0) {
+    position_by_image_.reserve(image_ids_.size());
+    for (const image_t image_id : image_ids_) {
+      const PosePrior* pose_prior = cache_->FindImagePosePriorOrNull(image_id);
+      if (pose_prior != nullptr && pose_prior->HasPosition()) {
+        position_by_image_.emplace(image_id,
+                                   PosePriorToMetricPosition(*pose_prior));
+      }
+    }
+  }
 }
 
 SequentialPairGenerator::SequentialPairGenerator(
@@ -459,6 +487,15 @@ SequentialPairGenerator::SequentialPairGenerator(
           options,
           std::make_shared<FeatureMatcherCache>(
               options.CacheSize(), THROW_CHECK_NOTNULL(database))) {}
+
+SequentialPairGenerator::~SequentialPairGenerator() {
+  if (options_.max_prior_distance >= 0.0) {
+    LOG(INFO) << "Vetoed " << num_vetoed_pairs_
+              << " quadratic-overlap sequential pairs exceeding "
+                 "max_prior_distance="
+              << options_.max_prior_distance << "m";
+  }
+}
 
 void SequentialPairGenerator::Reset() {
   image_idx_ = 0;
@@ -517,11 +554,17 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
 
   for (int i = 0; i < options_.overlap; ++i) {
     if (options_.quadratic_overlap) {
-      const size_t image_idx_2_quadratic = image_idx_ + (1ull << i);
+      const size_t offset = 1ull << i;
+      const size_t image_idx_2_quadratic = image_idx_ + offset;
       if (image_idx_2_quadratic < image_ids_.size()) {
         const image_t image_id2 = image_ids_.at(image_idx_2_quadratic);
-        image_pairs_.emplace_back(image_id1, image_id2);
-        MaybeExpandRigImages(image_id1, image_id2);
+        if (offset > static_cast<size_t>(options_.overlap) &&
+            IsVetoedByPriorDistance(image_id1, image_id2)) {
+          ++num_vetoed_pairs_;
+        } else {
+          image_pairs_.emplace_back(image_id1, image_id2);
+          MaybeExpandRigImages(image_id1, image_id2);
+        }
       } else {
         break;
       }
@@ -538,6 +581,19 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
   }
   ++image_idx_;
   return image_pairs_;
+}
+
+bool SequentialPairGenerator::IsVetoedByPriorDistance(image_t image_id1,
+                                                      image_t image_id2) const {
+  if (options_.max_prior_distance < 0.0) {
+    return false;
+  }
+  const auto it1 = position_by_image_.find(image_id1);
+  const auto it2 = position_by_image_.find(image_id2);
+  if (it1 == position_by_image_.end() || it2 == position_by_image_.end()) {
+    return false;
+  }
+  return (it1->second - it2->second).norm() > options_.max_prior_distance;
 }
 
 std::vector<image_t> SequentialPairGenerator::GetOrderedImageIds() const {

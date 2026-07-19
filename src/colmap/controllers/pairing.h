@@ -90,6 +90,14 @@ struct SequentialPairingOptions {
   // Whether to match images against their quadratic neighbors.
   bool quadratic_overlap = true;
 
+  // Maximum allowed pose-prior position separation (metres) for a quadratic-
+  // overlap probe, i.e. one whose index offset exceeds `overlap`; disabled
+  // when negative. Probes within the base `overlap` window are never gated
+  // by this option, so GPS noise cannot break sequential walk continuity.
+  // A probe with a missing or partial position prior on either image is
+  // never gated.
+  double max_prior_distance = -1;
+
   // Whether to match an image against all images within the same rig frame
   // and all images in neighboring rig frames. Note that this assumes that
   // images are appropriate named according to the following scheme:
@@ -319,6 +327,8 @@ class SequentialPairGenerator : public PairGenerator {
   SequentialPairGenerator(const SequentialPairingOptions& options,
                           const std::shared_ptr<Database>& database);
 
+  ~SequentialPairGenerator() override;
+
   void Reset() override;
 
   bool HasFinished() const override;
@@ -327,6 +337,11 @@ class SequentialPairGenerator : public PairGenerator {
 
  private:
   std::vector<image_t> GetOrderedImageIds() const;
+
+  // True if both images have a usable position prior and their separation
+  // exceeds `options_.max_prior_distance`. Always false when the option is
+  // disabled or either image lacks a usable position prior.
+  bool IsVetoedByPriorDistance(image_t image_id1, image_t image_id2) const;
 
   const SequentialPairingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
@@ -337,6 +352,10 @@ class SequentialPairGenerator : public PairGenerator {
   std::unique_ptr<VocabTreePairGenerator> vocab_tree_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t image_idx_ = 0;
+  // Metric (WGS84->ECEF or Cartesian) position per image with a usable
+  // position prior; populated only when `options_.max_prior_distance >= 0`.
+  NodeHashMap<image_t, Eigen::Vector3d> position_by_image_;
+  int num_vetoed_pairs_ = 0;
 };
 
 class SpatialPairGenerator : public PairGenerator {
