@@ -115,22 +115,9 @@ class RelativePoseSharedFocalEstimator {
 
   // Whether the focal recovered for the given pose should be treated as
   // reliable, i.e. whether the pose is clear of the singular family described
-  // above. Tested as two predicates against the thresholds below: the axes are
-  // sufficiently skew, or, failing that, sufficiently far from isosceles.
+  // above. Tested as two predicates: the axes are sufficiently skew, or,
+  // failing that, sufficiently far from isosceles.
   static bool IsFocalIdentifiable(const Rigid3d& cam2_from_cam1);
-
-  // Minimum sine of the angle between the baseline and the plane of the two
-  // optical axes for the axes to count as skew. Skew axes cannot be singular,
-  // so this admits them outright. Turntable and object-scan capture, the common
-  // near-coplanar case, falls below it and is deferred to the second predicate.
-  static constexpr double kMinAxesSkew = 0.05;
-
-  // Minimum relative difference between the distances of the two camera centers
-  // from the intersection of their optical axes, for near-coplanar axes to
-  // count as clear of the isosceles singularity. Also rejects near-parallel
-  // axes, whose distances diverge together. Both thresholds sit at the knee of
-  // a synthetic focal-accuracy sweep.
-  static constexpr double kMinIsoscelesDeviation = 0.05;
 };
 
 }  // namespace colmap

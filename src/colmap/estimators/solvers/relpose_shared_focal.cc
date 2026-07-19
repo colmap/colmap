@@ -75,7 +75,7 @@ double AxesSkewness(const Rigid3d& cam2_from_cam1) {
   const Eigen::Vector3d baseline_dir =
       cam2_from_cam1.TgtOriginInSrc().normalized();
   if (!baseline_dir.allFinite()) {
-    return 0.0;
+    return 0.0;  // Pure rotation: no baseline direction; fully degenerate.
   }
   return std::abs(baseline_dir.dot(axis1.cross(axis2)));
 }
@@ -266,9 +266,18 @@ void RelativePoseSharedFocalEstimator::Residuals(
 
 bool RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
     const Rigid3d& cam2_from_cam1) {
-  if (cam2_from_cam1.TgtOriginInSrc().squaredNorm() == 0.0) {
-    return false;  // Pure rotation: no baseline; fully degenerate.
-  }
+  // Minimum sine of the angle between the baseline and the plane of the two
+  // optical axes for the axes to count as skew. Skew axes cannot be singular,
+  // so this admits them outright. Turntable and object-scan capture, the common
+  // near-coplanar case, falls below it and is deferred to the second predicate.
+  constexpr double kMinAxesSkew = 0.05;
+  // Minimum relative difference between the distances of the two camera centers
+  // from the intersection of their optical axes, for near-coplanar axes to
+  // count as clear of the isosceles singularity. Also rejects near-parallel
+  // axes, whose distances diverge together. Both thresholds sit at the knee of
+  // a synthetic focal-accuracy sweep.
+  constexpr double kMinIsoscelesDeviation = 0.05;
+
   // Skew optical axes neither intersect nor are parallel, so they can never be
   // singular and the second predicate need not be consulted.
   if (AxesSkewness(cam2_from_cam1) > kMinAxesSkew) {
@@ -276,7 +285,8 @@ bool RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
   }
   // The axes are (near-)coplanar: singular only if they additionally are
   // (near-)parallel, or intersect with the two centers (near-)equidistant from
-  // the intersection point.
+  // the intersection point. A zero baseline (pure rotation) lands here with
+  // both distances zero and is rejected.
   return IsoscelesDeviation(cam2_from_cam1) > kMinIsoscelesDeviation;
 }
 
