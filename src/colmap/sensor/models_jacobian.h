@@ -737,7 +737,9 @@ bool SimpleRadialFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  // Zero-initialized: it is only written when J_uvw is requested, and some
+  // compilers cannot prove that correlation across the inlined call below.
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -803,7 +805,9 @@ bool RadialFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  // Zero-initialized: it is only written when J_uvw is requested, and some
+  // compilers cannot prove that correlation across the inlined call below.
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -874,7 +878,9 @@ bool OpenCVFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  // Zero-initialized: it is only written when J_uvw is requested, and some
+  // compilers cannot prove that correlation across the inlined call below.
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -959,7 +965,9 @@ bool ThinPrismFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  // Zero-initialized: it is only written when J_uvw is requested, and some
+  // compilers cannot prove that correlation across the inlined call below.
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -1061,7 +1069,9 @@ bool RadTanThinPrismFisheyeModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  // Zero-initialized: it is only written when J_uvw is requested, and some
+  // compilers cannot prove that correlation across the inlined call below.
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -1192,7 +1202,9 @@ bool SimpleFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  // Zero-initialized: it is only written when J_uvw is requested, and some
+  // compilers cannot prove that correlation across the inlined call below.
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -1240,7 +1252,9 @@ bool FisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  // Zero-initialized: it is only written when J_uvw is requested, and some
+  // compilers cannot prove that correlation across the inlined call below.
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
