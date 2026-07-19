@@ -1088,9 +1088,9 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-    // If the focal is unidentifiable (coplanar optical axes), drop the
-    // estimated intrinsics so the pair degrades to a plain uncalibrated pair (F
-    // is valid).
+    // If the focal is unidentifiable (parallel or isosceles-intersecting
+    // optical axes), drop the estimated intrinsics so the pair degrades to a
+    // plain uncalibrated pair (F is valid).
     if (geometry.camera1.has_value()) {
       std::vector<Eigen::Vector3d> inlier_cam_rays1;
       std::vector<Eigen::Vector3d> inlier_cam_rays2;
@@ -1109,9 +1109,8 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
                               &cam2_from_cam1,
                               &valid_indices);
       if (valid_indices.empty() ||
-          RelativePoseSharedFocalEstimator::FocalIdentifiability(
-              cam2_from_cam1) <
-              RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
+          !RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
+              cam2_from_cam1)) {
         geometry.E.reset();
         geometry.camera1.reset();
         geometry.camera2.reset();

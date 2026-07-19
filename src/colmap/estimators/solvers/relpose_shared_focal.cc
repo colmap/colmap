@@ -64,6 +64,56 @@ Eigen::Matrix3d FundamentalFromEssentialSharedFocal(const Eigen::Matrix3d& E,
   return K_inv * E * K_inv;
 }
 
+// Sine of the angle between the baseline and the plane spanned by the two
+// optical axes: |b . (a1 x a2)| for unit axes a1 = e_z, a2 = R^T e_z and unit
+// baseline b. Zero iff the axes are coplanar, approaching 1 for skew axes. Only
+// directions enter, so the score is invariant to the translation scale.
+double AxesSkewness(const Rigid3d& cam2_from_cam1) {
+  const Eigen::Vector3d axis1 = Eigen::Vector3d::UnitZ();
+  const Eigen::Vector3d axis2 =
+      cam2_from_cam1.rotation().inverse() * Eigen::Vector3d::UnitZ();
+  const Eigen::Vector3d baseline_dir =
+      cam2_from_cam1.TgtOriginInSrc().normalized();
+  if (!baseline_dir.allFinite()) {
+    return 0.0;
+  }
+  return std::abs(baseline_dir.dot(axis1.cross(axis2)));
+}
+
+// Scale-invariant asymmetry |d1 - d2| / (|d1| + |d2|) in [0, 1] of the
+// distances d1, d2 of the two camera centers from the closest-approach point of
+// their optical axes. For coplanar axes that point is their intersection, and
+// the score is zero exactly for the isosceles configuration. Closest approach
+// is used rather than a true intersection so the distances stay well-defined
+// for merely near-coplanar axes, where the intersection is ill-conditioned.
+//
+// As the axes approach parallel the two distances diverge while their
+// difference stays bounded, so the score decays to zero on its own; the
+// parallel singularity therefore needs no special case.
+double IsoscelesDeviation(const Rigid3d& cam2_from_cam1) {
+  const Eigen::Vector3d center2 = cam2_from_cam1.TgtOriginInSrc();
+  const Eigen::Vector3d axis1 = Eigen::Vector3d::UnitZ();
+  const Eigen::Vector3d axis2 =
+      cam2_from_cam1.rotation().inverse() * Eigen::Vector3d::UnitZ();
+
+  // Closest approach of the lines d1 * axis1 and center2 + d2 * axis2.
+  const double cos_axes = axis1.dot(axis2);
+  const double sin_sq_axes = 1.0 - cos_axes * cos_axes;
+  if (sin_sq_axes == 0.0) {
+    return 0.0;  // Exactly parallel axes: singular.
+  }
+  const double proj1 = center2.dot(axis1);
+  const double proj2 = center2.dot(axis2);
+  const double dist1 = (proj1 - cos_axes * proj2) / sin_sq_axes;
+  const double dist2 = (cos_axes * proj1 - proj2) / sin_sq_axes;
+
+  const double dist_sum = std::abs(dist1) + std::abs(dist2);
+  if (dist_sum == 0.0) {
+    return 0.0;  // Both centers at the intersection point.
+  }
+  return std::abs(dist1 - dist2) / dist_sum;
+}
+
 // Focal-calibrated, normalized camera rays (x / f, y / f, 1) from centered
 // image points.
 std::vector<Eigen::Vector3d> CalibratedRays(
@@ -214,20 +264,20 @@ void RelativePoseSharedFocalEstimator::Residuals(
   ComputeSquaredSampsonError(points1, points2, F, residuals);
 }
 
-double RelativePoseSharedFocalEstimator::FocalIdentifiability(
+bool RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
     const Rigid3d& cam2_from_cam1) {
-  // Only axis and baseline directions enter, so the score is invariant to the
-  // scale-free SfM translation magnitude.
-  const Eigen::Vector3d axis1 = Eigen::Vector3d::UnitZ();
-  const Eigen::Vector3d axis2 =
-      cam2_from_cam1.rotation().inverse() * Eigen::Vector3d::UnitZ();
-  const Eigen::Vector3d baseline_dir =
-      cam2_from_cam1.TgtOriginInSrc().normalized();
-  if (!baseline_dir.allFinite()) {
-    return 0.0;  // Pure rotation: no baseline direction; fully degenerate.
+  if (cam2_from_cam1.TgtOriginInSrc().squaredNorm() == 0.0) {
+    return false;  // Pure rotation: no baseline; fully degenerate.
   }
-  // Parallelepiped volume of the three unit vectors; zero iff axes coplanar.
-  return std::abs(baseline_dir.dot(axis1.cross(axis2)));
+  // Skew optical axes neither intersect nor are parallel, so they can never be
+  // singular and the second predicate need not be consulted.
+  if (AxesSkewness(cam2_from_cam1) > kMinAxesSkew) {
+    return true;
+  }
+  // The axes are (near-)coplanar: singular only if they additionally are
+  // (near-)parallel, or intersect with the two centers (near-)equidistant from
+  // the intersection point.
+  return IsoscelesDeviation(cam2_from_cam1) > kMinIsoscelesDeviation;
 }
 
 }  // namespace colmap

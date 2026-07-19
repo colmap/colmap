@@ -36,6 +36,7 @@
 #include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
+#include <cmath>
 #include <limits>
 
 #include <Eigen/Core>
@@ -59,20 +60,17 @@ constexpr double kMinParallax = 1e-2;  // ~5.7 degrees.
 // near-opposite orientations.
 Rigid3d TestCam2FromCam1() {
   const double max_angle_deg = 60.0;
-  // Resample until the two optical axes are clearly non-coplanar, i.e. the
-  // shared focal is identifiable (the same precondition the estimator enforces
-  // via FocalIdentifiability). For a coplanar pose the focal is unrecoverable
-  // and the minimal solver returns a meaningless focal, which no downstream
-  // assertion can meaningfully check.
+  // Resample until the shared focal is identifiable (the same precondition the
+  // estimator enforces via IsFocalIdentifiable). For a singular pose the focal
+  // is unrecoverable and the minimal solver returns a meaningless focal, which
+  // no downstream assertion can meaningfully check.
   while (true) {
     const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
     const Rigid3d cam2_from_cam1(
         Eigen::Quaterniond(Eigen::AngleAxisd(
             DegToRad(RandomUniformReal<double>(0.0, max_angle_deg)), axis)),
         RandomEigenVectord<3>().normalized());
-    if (RelativePoseSharedFocalEstimator::FocalIdentifiability(
-            cam2_from_cam1) >=
-        RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
+    if (RelativePoseSharedFocalEstimator::IsFocalIdentifiable(cam2_from_cam1)) {
       return cam2_from_cam1;
     }
   }
@@ -262,42 +260,60 @@ TEST(RelativePoseSharedFocalEstimator, RefineFromInitialModel) {
   }
 }
 
-// FocalIdentifiability is ~0 for coplanar (intersecting) axes and large for
-// skew axes, and is invariant to the translation scale.
-TEST(RelativePoseSharedFocalEstimator, FocalIdentifiability) {
-  SetPRNGSeed(0);
+// A relative pose whose two optical axes intersect at a common fixation point
+// on cam1's +z axis, so the axes are coplanar. cam1 sits at distance
+// |fixation| from that point and cam2 at dist2, so the configuration is
+// isosceles iff dist2 == |fixation|.
+Rigid3d FixatingPose(const Eigen::Vector3d& fixation,
+                     double dist2,
+                     double angle_at_fixation_deg) {
+  const double angle = DegToRad(angle_at_fixation_deg);
+  const Eigen::Vector3d center2 =
+      fixation + dist2 * Eigen::Vector3d(-std::sin(angle), 0, -std::cos(angle));
+  const Eigen::Quaterniond rotation = Eigen::Quaterniond::FromTwoVectors(
+      (fixation - center2).normalized(), Eigen::Vector3d::UnitZ());
+  return Rigid3d(rotation, rotation * -center2);
+}
 
-  // A relative pose whose two optical axes intersect at a common fixation point
-  // on cam1's +z axis, so the axes are coplanar and the focal is
-  // unidentifiable.
-  const auto intersecting_cam2_from_cam1 = [] {
-    const Eigen::Vector3d fixation(0, 0, RandomUniformReal<double>(1.5, 3.0));
-    Eigen::Vector3d center2 = RandomEigenVectord<3>();
-    center2.z() = std::abs(center2.z());
-    center2.normalize();
-    const Eigen::Quaterniond rotation = Eigen::Quaterniond::FromTwoVectors(
-        (fixation - center2).normalized(), Eigen::Vector3d::UnitZ());
-    return Rigid3d(rotation, rotation * -center2);
-  };
+// The focal is unidentifiable for parallel axes and for coplanar axes meeting
+// at an isosceles configuration, but identifiable for coplanar axes meeting
+// asymmetrically, and for skew axes.
+TEST(RelativePoseSharedFocalEstimator, IsFocalIdentifiable) {
+  const Eigen::Vector3d fixation(0, 0, 2.0);
 
-  for (size_t k = 0; k < 10; ++k) {
-    EXPECT_LT(RelativePoseSharedFocalEstimator::FocalIdentifiability(
-                  intersecting_cam2_from_cam1()),
-              1e-9);
-  }
+  // Both centers 2.0 from the fixation point: isosceles, unidentifiable.
+  EXPECT_FALSE(RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
+      FixatingPose(fixation, /*dist2=*/2.0, /*angle_at_fixation_deg=*/40.0)));
 
-  // 90 deg about x with a lateral baseline: maximally skew axes, score 1.
+  // Same axes, but cam2 much closer to the fixation point than cam1. Still
+  // coplanar, yet far from isosceles, so the focal is constrained. This is the
+  // case a pure coplanarity criterion would wrongly reject.
+  EXPECT_TRUE(RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
+      FixatingPose(fixation, /*dist2=*/1.0, /*angle_at_fixation_deg=*/40.0)));
+
+  // Parallel axes with a lateral baseline: coplanar, no intersection.
+  const Rigid3d parallel(Eigen::Quaterniond::Identity(),
+                         Eigen::Vector3d(1, 0, 0));
+  EXPECT_FALSE(RelativePoseSharedFocalEstimator::IsFocalIdentifiable(parallel));
+
+  // 90 deg about x with a lateral baseline: maximally skew axes.
   const Rigid3d skew(Eigen::Quaterniond(Eigen::AngleAxisd(
                          DegToRad(90.0), Eigen::Vector3d::UnitX())),
                      Eigen::Vector3d(1, 0, 0));
-  EXPECT_NEAR(
-      RelativePoseSharedFocalEstimator::FocalIdentifiability(skew), 1.0, 1e-9);
-  // Scaling the translation does not change the score.
-  const Rigid3d skew_scaled(skew.rotation(), 1000.0 * skew.translation());
-  EXPECT_NEAR(
-      RelativePoseSharedFocalEstimator::FocalIdentifiability(skew_scaled),
-      1.0,
-      1e-9);
+  EXPECT_TRUE(RelativePoseSharedFocalEstimator::IsFocalIdentifiable(skew));
+
+  // Pure rotation: no baseline at all.
+  EXPECT_FALSE(RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
+      Rigid3d(skew.rotation(), Eigen::Vector3d::Zero())));
+
+  // Scaling the translation scales the whole configuration, leaving both
+  // predicates unchanged.
+  for (const Rigid3d& pose :
+       {FixatingPose(fixation, 2.0, 40.0), FixatingPose(fixation, 1.0, 40.0)}) {
+    const Rigid3d scaled(pose.rotation(), 1000.0 * pose.translation());
+    EXPECT_EQ(RelativePoseSharedFocalEstimator::IsFocalIdentifiable(scaled),
+              RelativePoseSharedFocalEstimator::IsFocalIdentifiable(pose));
+  }
 }
 
 }  // namespace
