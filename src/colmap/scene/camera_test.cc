@@ -399,29 +399,25 @@ TEST(Camera, Spherical) {
   EXPECT_FALSE(pinhole.IsSpherical());
 }
 
-TEST(Camera, HasPinholeProjection) {
+TEST(Camera, IsPerspectivePinhole) {
   const Camera pinhole =
       Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
-  EXPECT_TRUE(pinhole.HasPinholeProjection());
+  EXPECT_TRUE(pinhole.IsPerspectivePinhole());
 
-  // Distortion is layered on top of a pinhole projection.
   const Camera radial = Camera::CreateFromModelId(
       2, SimpleRadialCameraModel::model_id, 1.0, 1, 1);
-  EXPECT_TRUE(radial.HasPinholeProjection());
+  EXPECT_TRUE(radial.IsPerspectivePinhole());
 
-  // Fisheye models are perspective but map angles as r ~ f * theta, so they
-  // have no pinhole projection.
   const Camera fisheye = Camera::CreateFromModelId(
       3, OpenCVFisheyeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(fisheye.IsPerspective());
-  EXPECT_TRUE(fisheye.IsFisheye());
-  EXPECT_FALSE(fisheye.HasPinholeProjection());
+  EXPECT_TRUE(fisheye.IsPerspectiveFisheye());
+  EXPECT_FALSE(fisheye.IsPerspectivePinhole());
 
-  // Spherical models have no focal length at all.
   const Camera spherical = Camera::CreateFromModelId(
       4, EquirectangularCameraModel::model_id, 0.0, 1000, 500);
-  EXPECT_FALSE(spherical.IsFisheye());
-  EXPECT_FALSE(spherical.HasPinholeProjection());
+  EXPECT_FALSE(spherical.IsPerspectiveFisheye());
+  EXPECT_FALSE(spherical.IsPerspectivePinhole());
 }
 
 }  // namespace

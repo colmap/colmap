@@ -942,12 +942,13 @@ inline double CameraModelCamFromImgThreshold(CameraModelId model_id,
                                              const std::vector<double>& params,
                                              double threshold);
 
-// Test if a camera model represents a fisheye camera.
+// Test if a camera model is a perspective fisheye camera model, i.e. derives
+// from BasePerspectiveFisheyeCameraModel.
 //
 // @param model_id      Unique identifier of camera model.
 //
-// @return              Whether it is a fisheye camera model.
-inline bool CameraModelIsFisheye(CameraModelId model_id);
+// @return              Whether it is a perspective fisheye camera model.
+inline bool CameraModelIsPerspectiveFisheye(CameraModelId model_id);
 
 // Test if a camera model is perspective, i.e. has a focal length and a finite
 // pinhole image plane. Omnidirectional models such as EQUIRECTANGULAR are not.
@@ -956,6 +957,14 @@ inline bool CameraModelIsFisheye(CameraModelId model_id);
 //
 // @return              Whether it is a perspective camera model.
 inline bool CameraModelIsPerspective(CameraModelId model_id);
+
+// Test if a camera model is perspective and not fisheye, i.e. derives from
+// BasePerspectiveCameraModel but not BasePerspectiveFisheyeCameraModel.
+//
+// @param model_id      Unique identifier of camera model.
+//
+// @return              Whether it is a perspective pinhole camera model.
+inline bool CameraModelIsPerspectivePinhole(CameraModelId model_id);
 
 // Test if a camera model represents a spherical (equirectangular
 // omnidirectional panorama) camera.
@@ -2807,7 +2816,7 @@ double CameraModelCamFromImgThreshold(const CameraModelId model_id,
   return -1;
 }
 
-bool CameraModelIsFisheye(const CameraModelId model_id) {
+bool CameraModelIsPerspectiveFisheye(const CameraModelId model_id) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel) case CameraModel::model_id:
 
@@ -2835,6 +2844,11 @@ bool CameraModelIsPerspective(const CameraModelId model_id) {
   }
 
   return false;
+}
+
+bool CameraModelIsPerspectivePinhole(const CameraModelId model_id) {
+  return CameraModelIsPerspective(model_id) &&
+         !CameraModelIsPerspectiveFisheye(model_id);
 }
 
 bool CameraModelIsSpherical(const CameraModelId model_id) {

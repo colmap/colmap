@@ -112,8 +112,9 @@ void CrossValidatePriorFocalLengths(
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
 
-    // Computing E from F assumes a pinhole projection for both cameras.
-    if (camera1.HasPinholeProjection() && camera2.HasPinholeProjection() &&
+    // Computing E from F assumes a pinhole projection for both cameras. See
+    // CalibrateFocalLengths for why fisheye models are excluded.
+    if (camera1.IsPerspectivePinhole() && camera2.IsPerspectivePinhole() &&
         camera_validity[camera1.camera_id] &&
         camera_validity[camera2.camera_id]) {
       THROW_CHECK(tvg.F.has_value())
@@ -229,8 +230,14 @@ FocalLengthCalibResult CalibrateFocalLengths(
   auto loss_function = options.CreateLossFunction();
 
   for (const auto& input : inputs) {
-    if (!cameras.at(input.camera_id1).HasPinholeProjection() ||
-        !cameras.at(input.camera_id2).HasPinholeProjection()) {
+    // The focal length is recovered from F in closed form, which requires the
+    // calibration to act projectively on the rays. This holds for pinhole
+    // models: their distortion is zero-initialized at this stage and mild
+    // distortion is absorbed by the epipolar fit. It does not hold for fisheye
+    // models, whose angular projection is part of the model itself, so they
+    // would need a different formulation and are skipped here.
+    if (!cameras.at(input.camera_id1).IsPerspectivePinhole() ||
+        !cameras.at(input.camera_id2).IsPerspectivePinhole()) {
       continue;
     }
     if (input.camera_id1 == input.camera_id2) {
@@ -254,7 +261,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Parameterize cameras (fix those with prior, set lower bound).
   size_t num_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
-    if (!camera.HasPinholeProjection()) continue;
+    if (!camera.IsPerspectivePinhole()) continue;
     double* focal_ptr = &focal_lengths[camera_id].optimized;
     if (!problem.HasParameterBlock(focal_ptr)) continue;
 
@@ -413,7 +420,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
-    if (!camera1.HasPinholeProjection() || !camera2.HasPinholeProjection()) {
+    if (!camera1.IsPerspectivePinhole() || !camera2.IsPerspectivePinhole()) {
       continue;
     }
     THROW_CHECK(tvg.F.has_value())

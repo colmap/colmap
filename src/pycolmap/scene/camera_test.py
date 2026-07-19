@@ -226,18 +226,18 @@ def test_camera_is_spherical(simple_camera):
     assert spherical_camera.is_spherical() is True
 
 
-def test_camera_has_pinhole_projection(simple_camera):
-    assert simple_camera.has_pinhole_projection() is True
+def test_camera_is_perspective_pinhole(simple_camera):
+    assert simple_camera.is_perspective_pinhole() is True
     fisheye_camera = pycolmap.Camera.create_from_model_name(
         3, "OPENCV_FISHEYE", 1.0, 1024, 512
     )
     assert fisheye_camera.is_perspective() is True
-    assert fisheye_camera.is_fisheye() is True
-    assert fisheye_camera.has_pinhole_projection() is False
+    assert fisheye_camera.is_perspective_fisheye() is True
+    assert fisheye_camera.is_perspective_pinhole() is False
     spherical_camera = pycolmap.Camera.create_from_model_name(
         4, "EQUIRECTANGULAR", 0.0, 1024, 512
     )
-    assert spherical_camera.has_pinhole_projection() is False
+    assert spherical_camera.is_perspective_pinhole() is False
 
 
 def test_camera_has_bogus_params(simple_camera):

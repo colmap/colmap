@@ -476,7 +476,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (camera1.camera_id == camera2.camera_id &&
                !camera1.has_prior_focal_length &&
-               camera1.HasPinholeProjection()) {
+               camera1.IsPerspectivePinhole()) {
       return EstimateSharedFocalTwoViewGeometry(
           camera1, points1, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
