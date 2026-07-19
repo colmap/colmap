@@ -270,10 +270,11 @@ TEST(RelativePoseOneSidedFocalEstimator, RefineFromInitialModel) {
   }
 }
 
-// The second view enters as bearing rays, so it needs no pinhole image plane:
-// rays with z <= 0, which only a camera seeing beyond 180 degrees observes and
-// which no pinhole image plane can represent, must be usable correspondences.
-TEST(RelativePoseOneSidedFocalEstimator, SecondViewLargeFoV) {
+// The calibrated view enters as bearing rays, which span the full sphere rather
+// than a pinhole image plane: rays with z <= 0, which only a camera seeing
+// beyond 180 degrees observes and which no pinhole image plane can represent,
+// must be usable correspondences.
+TEST(RelativePoseOneSidedFocalEstimator, FullSphereCalibratedRays) {
   SetPRNGSeed(0);
   for (size_t k = 0; k < 100; ++k) {
     Rigid3d cam2_from_cam1;
