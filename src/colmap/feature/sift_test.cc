@@ -813,6 +813,182 @@ TEST(MatchGuidedSiftFeaturesCPU, SharedFocal) {
       });
 }
 
+// Guided matching of a spherical camera must work over the whole sphere. The
+// normalized image plane representation used previously is undefined for any
+// bearing with rz <= 0, i.e. for half of an equirectangular image, so every
+// correspondence placed there was silently discarded.
+void TestGuidedMatchingSpherical(
+    const std::function<std::unique_ptr<FeatureMatcher>(
+        const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
+
+  // Bearings deliberately in the BACK hemisphere (rz < 0), which is where
+  // CamFromImg fails. E comes from a pure x-translation, whose epipolar
+  // constraint on bearings is ry1 / rz1 == ry2 / rz2, so pairs sharing an
+  // elevation are exact correspondences.
+  // image1[0] corresponds to image2[1] and image1[1] to image2[0], matching the
+  // reversed descriptors below. Corresponding rays share ry / rz and differ
+  // only in rx, i.e. they lie on a common epipolar plane.
+  const Eigen::Vector3d ray11(-0.30, 0.20, -0.93);
+  const Eigen::Vector3d ray12(0.40, -0.15, -0.90);
+  const Eigen::Vector3d ray21(0.55, -0.15, -0.90);
+  const Eigen::Vector3d ray22(-0.10, 0.20, -0.93);
+
+  auto to_keypoint = [&camera](const Eigen::Vector3d& ray) {
+    const Eigen::Vector2d xy = camera.ImgFromCam(ray).value();
+    return FeatureKeypoint(static_cast<float>(xy.x()),
+                           static_cast<float>(xy.y()));
+  };
+
+  // Confirm the premise: these pixels have no normalized image plane
+  // representation at all, so the previous implementation could not match them.
+  for (const Eigen::Vector3d& ray : {ray11, ray12, ray21, ray22}) {
+    const Eigen::Vector2d xy = camera.ImgFromCam(ray).value();
+    ASSERT_FALSE(camera.CamFromImg(xy).has_value());
+    ASSERT_TRUE(camera.CamRayFromImgWithJac(xy).has_value());
+  }
+
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{to_keypoint(ray11), to_keypoint(ray12)}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{to_keypoint(ray21), to_keypoint(ray22)}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  const FeatureMatcher::Image image2_off = {
+      /*image_id=*/3,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(std::vector<FeatureKeypoint>{
+          to_keypoint(Eigen::Vector3d(0.55, 0.60, -0.58)),
+          to_keypoint(Eigen::Vector3d(-0.10, -0.65, -0.75))}),
+      image2.descriptors};
+
+  auto matcher = matcher_factory({image1, image2, image2_off});
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+  two_view_geometry.E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+
+  // A generous threshold: the point of the test is that back-hemisphere
+  // features are matched at all, not the precise tolerance.
+  matcher->MatchGuided(20.0, image1, image2, &two_view_geometry);
+  ExpectReversedInlierMatches(two_view_geometry);
+
+  // The geometry must actually constrain the result. Moving image 2 well off
+  // the epipolar planes has to reject both pairs.
+  //
+  // This half of the test is what makes the first half meaningful. The previous
+  // implementation mapped every back-hemisphere keypoint to the same sentinel
+  // coordinate, which makes the epipolar residual identically zero for *all*
+  // pairs - so it would accept these mismatches, and would have "passed" the
+  // check above for the wrong reason.
+  matcher->MatchGuided(20.0, image1, image2_off, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+}
+
+// Keypoints that cannot be unprojected must be excluded from guided matching
+// outright.
+//
+// They used to be relocated to a far-away sentinel coordinate on the assumption
+// that this makes the epipolar residual large. It does not: the Sampson error
+// is a ratio whose numerator and denominator scale together, so as a point
+// recedes along a direction d the residual converges to the finite distance
+// between its partner and the epipolar line of d. Partners near that line were
+// therefore accepted, turning every unprojectable keypoint into a source of
+// spurious matches concentrated on one line.
+void TestGuidedMatchingUnprojectableKeypoints(
+    const std::function<std::unique_ptr<FeatureMatcher>(
+        const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
+
+  // Back-hemisphere bearings: unprojectable to the normalized image plane.
+  const Eigen::Vector2d unprojectable1 =
+      camera.ImgFromCam(Eigen::Vector3d(0.1, 0.1, -0.99)).value();
+  const Eigen::Vector2d unprojectable2 =
+      camera.ImgFromCam(Eigen::Vector3d(-0.1, -0.35, -0.93)).value();
+  ASSERT_FALSE(camera.CamFromImg(unprojectable1).has_value());
+  ASSERT_FALSE(camera.CamFromImg(unprojectable2).has_value());
+
+  // The sentinel the old implementation used, in normalized coordinates.
+  constexpr double kSentinel = 1e6;
+  const Eigen::Vector3d sentinel_point(kSentinel, kSentinel, 1.0);
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+
+  // Demonstrate the failure mode directly: two keypoints both pushed to the
+  // sentinel have an *exactly zero* epipolar residual, i.e. the sentinel admits
+  // rather than rejects.
+  EXPECT_LT(ComputeSquaredSampsonError(sentinel_point, sentinel_point, E),
+            1e-12);
+
+  // End to end, such keypoints must now yield no matches at all rather than
+  // matching each other.
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(std::vector<FeatureKeypoint>{
+          FeatureKeypoint(static_cast<float>(unprojectable1.x()),
+                          static_cast<float>(unprojectable1.y()))}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(1))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(std::vector<FeatureKeypoint>{
+          FeatureKeypoint(static_cast<float>(unprojectable2.x()),
+                          static_cast<float>(unprojectable2.y()))}),
+      std::make_shared<FeatureDescriptors>(*image1.descriptors)};
+
+  auto matcher = matcher_factory({image1, image2});
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+  two_view_geometry.E = E;
+
+  // Identical descriptors, so only the geometry can reject this pair. It lies
+  // far off the epipolar plane, so it must be rejected - whereas both keypoints
+  // would previously have been collapsed onto the sentinel and matched.
+  matcher->MatchGuided(1.0, image1, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, UnprojectableKeypoints) {
+  std::unique_ptr<FeatureDescriptorIndexCacheHelper> index_cache_helper;
+  TestGuidedMatchingUnprojectableKeypoints(
+      [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
+        index_cache_helper =
+            std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+        options.use_gpu = false;
+        options.sift->cpu_descriptor_index_cache =
+            &index_cache_helper->index_cache;
+        return CreateSiftFeatureMatcher(options);
+      });
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, Spherical) {
+  std::unique_ptr<FeatureDescriptorIndexCacheHelper> index_cache_helper;
+  TestGuidedMatchingSpherical(
+      [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
+        index_cache_helper =
+            std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+        options.use_gpu = false;
+        options.sift->cpu_descriptor_index_cache =
+            &index_cache_helper->index_cache;
+        return CreateSiftFeatureMatcher(options);
+      });
+}
+
 TEST(MatchSiftFeaturesGPU, Nominal) {
   RunGpuTest([] {
     FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
