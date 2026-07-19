@@ -114,8 +114,9 @@ struct IncrementalPipelineOptions {
   // Ceres solver function tolerance for local bundle adjustment
   double ba_local_function_tolerance = 0.0;
 
-  // The maximum number of local bundle adjustment iterations.
-  int ba_local_max_num_iterations = 25;
+  // The maximum number of local bundle adjustment iterations. If -1, the
+  // default of the configured bundle adjustment backend is used.
+  int ba_local_max_num_iterations = -1;
 
   // The growth rates after which to perform global bundle adjustment.
   double ba_global_frames_ratio = 1.1;
@@ -126,8 +127,9 @@ struct IncrementalPipelineOptions {
   // Ceres solver function tolerance for global bundle adjustment
   double ba_global_function_tolerance = 0.0;
 
-  // The maximum number of global bundle adjustment iterations.
-  int ba_global_max_num_iterations = 50;
+  // The maximum number of global bundle adjustment iterations. If -1, the
+  // default of the configured bundle adjustment backend is used.
+  int ba_global_max_num_iterations = -1;
 
   // The thresholds for iterative bundle adjustment refinements.
   int ba_local_max_refinements = 2;
@@ -198,6 +200,12 @@ struct IncrementalPipelineOptions {
   IncrementalTriangulator::Options Triangulation() const;
   BundleAdjustmentOptions LocalBundleAdjustment() const;
   BundleAdjustmentOptions GlobalBundleAdjustment() const;
+
+  // Returns the effective maximum number of local/global bundle adjustment
+  // iterations. If the respective option is set to -1, the default of the
+  // configured bundle adjustment backend is returned.
+  int EffBaLocalMaxNumIterations() const;
+  int EffBaGlobalMaxNumIterations() const;
 
   inline bool IsInitialPairProvided() const {
     return init_image_id1 != -1 && init_image_id2 != -1;

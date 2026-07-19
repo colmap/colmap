@@ -128,8 +128,10 @@ void OptionManager::ModifyForLowQuality() {
   vocab_tree_pairing->max_num_features = 256;
   vocab_tree_pairing->num_images /= 2;
   global_descriptor_pairing->num_images /= 2;
-  mapper->ba_local_max_num_iterations /= 2;
-  mapper->ba_global_max_num_iterations /= 2;
+  mapper->ba_local_max_num_iterations =
+      mapper->EffBaLocalMaxNumIterations() / 2;
+  mapper->ba_global_max_num_iterations =
+      mapper->EffBaGlobalMaxNumIterations() / 2;
   mapper->ba_global_frames_ratio *= 1.2;
   mapper->ba_global_points_ratio *= 1.2;
   mapper->ba_global_max_refinements = 2;
@@ -153,8 +155,10 @@ void OptionManager::ModifyForMediumQuality() {
   vocab_tree_pairing->max_num_features = 1024;
   vocab_tree_pairing->num_images /= 1.5;
   global_descriptor_pairing->num_images /= 1.5;
-  mapper->ba_local_max_num_iterations /= 1.5;
-  mapper->ba_global_max_num_iterations /= 1.5;
+  mapper->ba_local_max_num_iterations =
+      static_cast<int>(mapper->EffBaLocalMaxNumIterations() / 1.5);
+  mapper->ba_global_max_num_iterations =
+      static_cast<int>(mapper->EffBaGlobalMaxNumIterations() / 1.5);
   mapper->ba_global_frames_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;

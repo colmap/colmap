@@ -99,9 +99,9 @@ struct TwoViewGeometryOptions {
   bool force_H_use = false;
 
   // Use DEGENSAC (Chum et al., CVPR 2005) for the fundamental matrix instead of
-  // plain LO-RANSAC, making estimation robust to a dominant scene plane. Off by
+  // plain LO-RANSAC, making estimation robust to a dominant scene plane. On by
   // default.
-  bool use_degensac = false;
+  bool use_degensac = true;
 
   // Whether to compute the relative pose between the two views.
   bool compute_relative_pose = false;
@@ -194,6 +194,34 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const FeatureMatches& matches,
+    const TwoViewGeometryOptions& options);
+
+// Estimate two-view geometry from an image pair captured by a single,
+// uncalibrated camera with an unknown but shared focal length.
+//
+// Runs PoseLib's 6-point shared-focal relative-pose solver (with nonlinear
+// local optimization) against a homography model to reject planar/panoramic
+// degeneracies. On success the returned geometry has the UNCALIBRATED
+// configuration with `E`, `F`, and the estimated shared camera in
+// `camera1`/`camera2` set.
+//
+// Both images are assumed to reference the same pinhole-projection camera
+// (perspective, non-fisheye); `camera` is that shared camera and provides the
+// principal point. A single isotropic focal length is recovered; multi-focal
+// models (e.g. PINHOLE) are seeded fx = fy = f and refined later. Any current
+// distortion is ignored by the epipolar fit (as in the fundamental-matrix path)
+// and refined later by bundle adjustment.
+//
+// @param camera          Shared camera of both images.
+// @param points1         Feature points in first image.
+// @param points2         Feature points in second image.
+// @param matches         Feature matches between first and second image.
+// @param options         Two-view geometry estimation options.
+TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
+    const Camera& camera,
+    const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options);

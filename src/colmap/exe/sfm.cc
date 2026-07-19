@@ -484,7 +484,7 @@ int RunPosePriorMapper(int argc, char** argv) {
       "overwrite_priors_covariance",
       &overwrite_priors_covariance,
       "Priors covariance read from database. If true, overwrite the priors "
-      "covariance using the follwoing prior_position_std_... options");
+      "covariance using the following prior_position_std_... options");
   options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
   options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
   options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
