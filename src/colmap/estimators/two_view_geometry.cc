@@ -509,6 +509,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
           camera1, points1, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
                camera2.has_prior_focal_length) {
+      // Both focals are known, so the pair reduces to the relative pose.
       return EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (!camera1.IsPerspectivePinhole() ||
@@ -528,6 +529,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
       geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
       return geometry;
     } else {
+      // Two independent unknown focals, recovered from the fundamental matrix.
       return EstimateUncalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     }

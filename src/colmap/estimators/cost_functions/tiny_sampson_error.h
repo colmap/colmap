@@ -165,7 +165,7 @@ class TinyFocalSampsonErrorCostFunctor {
 // RelativePoseOneSidedFocalEstimator::Residuals matters because LO-RANSAC
 // scores the refined model with that residual.
 //
-// points1 are principal-point-centered image points of the uncalibrated view.
+// img_points1 are principal-point-centered points of the uncalibrated view.
 // cam_rays2 are calibrated bearing rays of the second view, so any distortion
 // (or a non-pinhole projection such as a fisheye or spherical model) is already
 // undone by the caller and is represented exactly.
@@ -183,11 +183,11 @@ class TinyOneSidedFocalEpipolarErrorCostFunctor {
       NUM_PARAMETERS>;
 
   TinyOneSidedFocalEpipolarErrorCostFunctor(
-      const std::vector<Eigen::Vector2d>& points1,
+      const std::vector<Eigen::Vector2d>& img_points1,
       const std::vector<Eigen::Vector3d>& cam_rays2)
-      : points1_(points1), cam_rays2_(cam_rays2) {}
+      : img_points1_(img_points1), cam_rays2_(cam_rays2) {}
 
-  int NumResiduals() const { return static_cast<int>(points1_.size()); }
+  int NumResiduals() const { return static_cast<int>(img_points1_.size()); }
 
   template <typename T>
   bool operator()(const T* const params, T* residuals) const {
@@ -197,22 +197,23 @@ class TinyOneSidedFocalEpipolarErrorCostFunctor {
     const T inv_f1 = ceres::exp(-params[7]);
     M.template leftCols<2>() *= inv_f1;
     const Eigen::Matrix<T, 3, 3> M_transpose = M.transpose();
-    for (size_t i = 0; i < points1_.size(); ++i) {
+    for (size_t i = 0; i < img_points1_.size(); ++i) {
       const Eigen::Matrix<T, 3, 1> cam_ray2 = cam_rays2_[i].cast<T>();
       const Eigen::Matrix<T, 3, 1> line1 = M_transpose * cam_ray2;
       const T line_norm = line1.template head<2>().norm();
-      if (line_norm == static_cast<T>(0)) {
+      if (!(line_norm > static_cast<T>(0))) {
         residuals[i] = static_cast<T>(0);
         continue;
       }
-      const Eigen::Matrix<T, 3, 1> point1 = points1_[i].cast<T>().homogeneous();
+      const Eigen::Matrix<T, 3, 1> point1 =
+          img_points1_[i].cast<T>().homogeneous();
       residuals[i] = cam_ray2.dot(M * point1) / line_norm;
     }
     return true;
   }
 
  private:
-  const std::vector<Eigen::Vector2d>& points1_;
+  const std::vector<Eigen::Vector2d>& img_points1_;
   const std::vector<Eigen::Vector3d>& cam_rays2_;
 };
 

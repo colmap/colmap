@@ -81,7 +81,7 @@ class RelativePoseOneSidedFocalEstimator {
 
   // Estimate relative pose and the first view's focal from >= 6 correspondences
   // by wrapping poselib::relpose_6pt_onesided_focal (uses the first six).
-  static void Estimate(const std::vector<X_t>& points1,
+  static void Estimate(const std::vector<X_t>& img_points1,
                        const std::vector<Y_t>& cam_rays2,
                        std::vector<M_t>* models);
 
@@ -93,13 +93,13 @@ class RelativePoseOneSidedFocalEstimator {
   // Returns true and overwrites *model with the refined model on success. On a
   // degenerate decomposition (or non-positive focal) it returns false and
   // leaves *model unchanged.
-  static bool Refine(const std::vector<X_t>& points1,
+  static bool Refine(const std::vector<X_t>& img_points1,
                      const std::vector<Y_t>& cam_rays2,
                      M_t* model);
 
   // Squared distance, in first-view pixels, from each point to the epipolar
   // line induced by its ray under M = E * K1inv.
-  static void Residuals(const std::vector<X_t>& points1,
+  static void Residuals(const std::vector<X_t>& img_points1,
                         const std::vector<Y_t>& cam_rays2,
                         const M_t& model,
                         std::vector<double>* residuals);

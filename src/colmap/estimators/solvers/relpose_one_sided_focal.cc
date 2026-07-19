@@ -83,22 +83,22 @@ std::vector<Eigen::Vector3d> CalibratedRays(
 }  // namespace
 
 void RelativePoseOneSidedFocalEstimator::Estimate(
-    const std::vector<X_t>& points1,
+    const std::vector<X_t>& img_points1,
     const std::vector<Y_t>& cam_rays2,
     std::vector<M_t>* models) {
-  THROW_CHECK_EQ(points1.size(), cam_rays2.size());
-  THROW_CHECK_GE(points1.size(), kMinNumSamples);
+  THROW_CHECK_EQ(img_points1.size(), cam_rays2.size());
+  THROW_CHECK_GE(img_points1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(models)->clear();
 
   // Unlike poselib::relpose_6pt_shared_focal, this solver conditions its own
   // input: it isotropically rescales the uncalibrated points internally and
   // undoes that scaling on the recovered focal, which therefore comes back in
-  // the pixel units of `points1`. So pass the centered points through as plain
-  // homogeneous coordinates and do not pre-normalize them here.
-  std::vector<Eigen::Vector3d> points1_homogeneous(points1.size());
+  // the pixel units of `img_points1`. So pass the centered points through as
+  // plain homogeneous coordinates and do not pre-normalize them here.
+  std::vector<Eigen::Vector3d> img_points1_homogeneous(img_points1.size());
   std::vector<Eigen::Vector3d> normalized_cam_rays2(cam_rays2.size());
-  for (size_t i = 0; i < points1.size(); ++i) {
-    points1_homogeneous[i] = points1[i].homogeneous();
+  for (size_t i = 0; i < img_points1.size(); ++i) {
+    img_points1_homogeneous[i] = img_points1[i].homogeneous();
     // The epipolar constraint is homogeneous in the rays, but normalizing keeps
     // the nullspace computation well conditioned.
     normalized_cam_rays2[i] = cam_rays2[i].normalized();
@@ -111,7 +111,7 @@ void RelativePoseOneSidedFocalEstimator::Estimate(
   // into E. The larger template costs only marginally more runtime, as both
   // variants end in the same eigendecomposition, which dominates.
   poselib::ImagePairVector image_pairs;
-  poselib::relpose_6pt_onesided_focal(points1_homogeneous,
+  poselib::relpose_6pt_onesided_focal(img_points1_homogeneous,
                                       normalized_cam_rays2,
                                       &image_pairs,
                                       /*use_elim=*/false);
@@ -133,11 +133,11 @@ void RelativePoseOneSidedFocalEstimator::Estimate(
 }
 
 bool RelativePoseOneSidedFocalEstimator::Refine(
-    const std::vector<X_t>& points1,
+    const std::vector<X_t>& img_points1,
     const std::vector<Y_t>& cam_rays2,
     M_t* model) {
-  THROW_CHECK_EQ(points1.size(), cam_rays2.size());
-  THROW_CHECK_GE(points1.size(), kMinNumSamples);
+  THROW_CHECK_EQ(img_points1.size(), cam_rays2.size());
+  THROW_CHECK_GE(img_points1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(model);
 
   if (!(model->focal > 0.0)) {
@@ -148,7 +148,7 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   // four-fold ambiguity by cheirality. The first view's rays follow from the
   // current focal estimate; the second view's are already calibrated.
   const std::vector<Eigen::Vector3d> cam_rays1 =
-      CalibratedRays(points1, model->focal);
+      CalibratedRays(img_points1, model->focal);
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
@@ -165,7 +165,7 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   // improves exactly the quantity LO-RANSAC measures. Plain least squares: the
   // points are assumed to be the inlier set, so robustness comes from the
   // RANSAC inlier selection.
-  TinyOneSidedFocalEpipolarErrorCostFunctor functor(points1, cam_rays2);
+  TinyOneSidedFocalEpipolarErrorCostFunctor functor(img_points1, cam_rays2);
   TinyOneSidedFocalEpipolarErrorCostFunctor::AutoDiffFunction f(functor);
   using Solver = TinySolver<decltype(f), RelativePoseOneSidedFocalManifold>;
   Solver solver;
@@ -192,30 +192,31 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
 }
 
 void RelativePoseOneSidedFocalEstimator::Residuals(
-    const std::vector<X_t>& points1,
+    const std::vector<X_t>& img_points1,
     const std::vector<Y_t>& cam_rays2,
     const M_t& model,
     std::vector<double>* residuals) {
-  THROW_CHECK_EQ(points1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(img_points1.size(), cam_rays2.size());
   THROW_CHECK_NOTNULL(residuals);
   if (!(model.focal > 0.0)) {
-    residuals->assign(points1.size(), std::numeric_limits<double>::max());
+    residuals->assign(img_points1.size(), std::numeric_limits<double>::max());
     return;
   }
   const Eigen::Matrix3d M = MixedEpipolarMatrix(model.E, model.focal);
-  residuals->resize(points1.size());
-  for (size_t i = 0; i < points1.size(); ++i) {
+  const Eigen::Matrix3d M_transpose = M.transpose();
+  residuals->resize(img_points1.size());
+  for (size_t i = 0; i < img_points1.size(); ++i) {
     const Eigen::Vector3d& cam_ray2 = cam_rays2[i];
     // Epipolar line induced in the first view by the second view's ray,
     // expressed in the first view's pixel coordinates.
-    const Eigen::Vector3d line1 = M.transpose() * cam_ray2;
+    const Eigen::Vector3d line1 = M_transpose * cam_ray2;
     const double squared_line_norm = line1.head<2>().squaredNorm();
     if (!(squared_line_norm > 0)) {
       // Degenerate line, e.g. from a zero ray left by a failed undistortion.
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
-    const double num = cam_ray2.dot(M * points1[i].homogeneous());
+    const double num = cam_ray2.dot(M * img_points1[i].homogeneous());
     (*residuals)[i] = num * num / squared_line_norm;
   }
 }
