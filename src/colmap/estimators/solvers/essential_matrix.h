@@ -177,4 +177,49 @@ class EssentialMatrixLMEstimator {
                         std::vector<double>* residuals);
 };
 
+// A unit bearing vector together with the Jacobian of that bearing with
+// respect to the pixel it was unprojected from, as produced by
+// Camera::CamRayFromImgWithJac.
+//
+// The two are bundled into a single type so that RANSAC's subsampling keeps
+// rays and their Jacobians index-aligned by construction, rather than by an
+// unchecked convention between parallel arrays.
+struct CamRayWithJac {
+  Eigen::Vector3d ray;
+  Eigen::Matrix<double, 3, 2> J;
+};
+
+// Essential matrix estimator scoring correspondences by the tangent Sampson
+// error, i.e. in pixel units, for arbitrary central camera models.
+//
+// The model is estimated by the same five-point solver as
+// EssentialMatrixFivePointEstimator; only the residual differs. Because the
+// residual is measured in pixels rather than radians, the RANSAC threshold is
+// the plain pixel threshold and needs no per-camera conversion via
+// Camera::CamFromImgThreshold. See ComputeSquaredTangentSampsonError.
+class TangentSampsonEssentialMatrixEstimator {
+ public:
+  using X_t = CamRayWithJac;
+  using Y_t = CamRayWithJac;
+  using M_t = Eigen::Matrix3d;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 5;
+
+  // Estimate up to 10 possible essential matrix solutions from a set of
+  // corresponding camera rays. The Jacobians are ignored here; they only
+  // affect scoring.
+  static void Estimate(const std::vector<X_t>& cam_rays1,
+                       const std::vector<Y_t>& cam_rays2,
+                       std::vector<M_t>* models);
+
+  // Calculate the residuals of a set of corresponding rays and a given
+  // essential matrix, as the squared tangent Sampson error in squared pixels,
+  // additionally enforcing the cheirality constraint.
+  static void Residuals(const std::vector<X_t>& cam_rays1,
+                        const std::vector<Y_t>& cam_rays2,
+                        const M_t& E,
+                        std::vector<double>* residuals);
+};
+
 }  // namespace colmap

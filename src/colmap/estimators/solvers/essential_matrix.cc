@@ -233,6 +233,54 @@ void EssentialMatrixEightPointEstimator::Residuals(
   ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
 }
 
+namespace {
+
+// Split the bundled rays out into the contiguous arrays the solvers and the
+// residual functions expect.
+void UnpackCamRays(const std::vector<CamRayWithJac>& cam_rays,
+                   std::vector<Eigen::Vector3d>* rays,
+                   std::vector<Eigen::Matrix<double, 3, 2>>* jacobians) {
+  const size_t num_rays = cam_rays.size();
+  rays->resize(num_rays);
+  if (jacobians != nullptr) {
+    jacobians->resize(num_rays);
+  }
+  for (size_t i = 0; i < num_rays; ++i) {
+    (*rays)[i] = cam_rays[i].ray;
+    if (jacobians != nullptr) {
+      (*jacobians)[i] = cam_rays[i].J;
+    }
+  }
+}
+
+}  // namespace
+
+void TangentSampsonEssentialMatrixEstimator::Estimate(
+    const std::vector<X_t>& cam_rays1,
+    const std::vector<Y_t>& cam_rays2,
+    std::vector<M_t>* models) {
+  std::vector<Eigen::Vector3d> rays1;
+  std::vector<Eigen::Vector3d> rays2;
+  UnpackCamRays(cam_rays1, &rays1, /*jacobians=*/nullptr);
+  UnpackCamRays(cam_rays2, &rays2, /*jacobians=*/nullptr);
+  EssentialMatrixFivePointEstimator::Estimate(rays1, rays2, models);
+}
+
+void TangentSampsonEssentialMatrixEstimator::Residuals(
+    const std::vector<X_t>& cam_rays1,
+    const std::vector<Y_t>& cam_rays2,
+    const M_t& E,
+    std::vector<double>* residuals) {
+  std::vector<Eigen::Vector3d> rays1;
+  std::vector<Eigen::Vector3d> rays2;
+  std::vector<Eigen::Matrix<double, 3, 2>> J_rays1;
+  std::vector<Eigen::Matrix<double, 3, 2>> J_rays2;
+  UnpackCamRays(cam_rays1, &rays1, &J_rays1);
+  UnpackCamRays(cam_rays2, &rays2, &J_rays2);
+  ComputeSquaredTangentSampsonErrorWithCheirality(
+      rays1, J_rays1, rays2, J_rays2, E, residuals);
+}
+
 void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
                                           const std::vector<Y_t>& cam_rays2,
                                           std::vector<M_t>* models) {
