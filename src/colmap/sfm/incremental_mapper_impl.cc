@@ -186,16 +186,16 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
   return ExtractSortedImageIds(image_infos);
 }
 
-bool IncrementalMapperImpl::FindInitialImagePair(
+std::optional<IncrementalMapperImpl::InitInfo>
+IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
     const DatabaseCache& database_cache,
     const Reconstruction& reconstruction,
     const FlatHashMap<image_t, size_t>& init_num_reg_trials,
     const FlatHashMap<image_t, size_t>& num_registrations,
     FlatHashSet<image_pair_t>& init_image_pairs,
-    image_t& image_id1,
-    image_t& image_id2,
-    Rigid3d& cam2_from_cam1) {
+    image_t image_id1,
+    image_t image_id2) {
   THROW_CHECK(options.Check());
 
   const CorrespondenceGraph& correspondence_graph =
@@ -205,13 +205,13 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   if (image_id1 != kInvalidImageId && image_id2 == kInvalidImageId) {
     // Only image_id1 provided.
     if (!database_cache.ExistsImage(image_id1)) {
-      return false;
+      return std::nullopt;
     }
     image_ids1.push_back(image_id1);
   } else if (image_id1 == kInvalidImageId && image_id2 != kInvalidImageId) {
     // Only image_id2 provided.
     if (!database_cache.ExistsImage(image_id2)) {
-      return false;
+      return std::nullopt;
     }
     image_ids1.push_back(image_id2);
   } else {
@@ -224,15 +224,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
                                                      num_registrations);
   }
 
-  struct InitInfo {
-    bool success = false;
-    image_t image_id1 = kInvalidImageId;
-    image_t image_id2 = kInvalidImageId;
-    Rigid3d cam2_from_cam1;
-  };
-
   ThreadPool thread_pool(options.num_threads);
-  std::vector<std::shared_future<InitInfo>> init_infos;
+  std::vector<std::shared_future<std::optional<InitInfo>>> init_infos;
   init_infos.reserve(image_ids1.size());
 
   std::mutex init_image_pairs_mutex;
@@ -240,71 +233,62 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 
   // Try to find good initial pair.
   for (const image_t image_id1 : image_ids1) {
-    init_infos.push_back(thread_pool.AddTask([&, image_id1]() -> InitInfo {
-      if (stop.load()) {
-        return {};
-      }
-
-      const std::vector<image_t> image_ids2 =
-          IncrementalMapperImpl::FindSecondInitialImage(options,
-                                                        image_id1,
-                                                        correspondence_graph,
-                                                        reconstruction,
-                                                        num_registrations);
-
-      for (const image_t image_id2 : image_ids2) {
-        if (stop.load()) {
-          return {};
-        }
-
-        const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-
-        // Try every pair only once.
-        {
-          std::lock_guard<std::mutex> lock_guard(init_image_pairs_mutex);
-          if (!init_image_pairs.emplace(pair_id).second) {
-            continue;
+    init_infos.push_back(
+        thread_pool.AddTask([&, image_id1]() -> std::optional<InitInfo> {
+          if (stop.load()) {
+            return std::nullopt;
           }
-        }
 
-        InitInfo init_info;
-        init_info.image_id1 = image_id1;
-        init_info.image_id2 = image_id2;
-        if (IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-                options,
-                database_cache,
-                init_info.image_id1,
-                init_info.image_id2,
-                init_info.cam2_from_cam1)) {
-          stop.store(true);
-          init_info.success = true;
-          return init_info;
-        }
-      }
+          const std::vector<image_t> image_ids2 =
+              IncrementalMapperImpl::FindSecondInitialImage(
+                  options,
+                  image_id1,
+                  correspondence_graph,
+                  reconstruction,
+                  num_registrations);
 
-      return {};
-    }));
+          for (const image_t image_id2 : image_ids2) {
+            if (stop.load()) {
+              return std::nullopt;
+            }
+
+            const image_pair_t pair_id =
+                ImagePairToPairId(image_id1, image_id2);
+
+            // Try every pair only once.
+            {
+              std::lock_guard<std::mutex> lock_guard(init_image_pairs_mutex);
+              if (!init_image_pairs.emplace(pair_id).second) {
+                continue;
+              }
+            }
+
+            std::optional<InitInfo> pair_init_info =
+                IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+                    options, database_cache, image_id1, image_id2);
+            if (pair_init_info.has_value()) {
+              stop.store(true);
+              return pair_init_info;
+            }
+          }
+
+          return std::nullopt;
+        }));
   }
 
   // Iterate through the already computed results and return the first
   // successful result. This is deterministic and produces the same result
   // as the single-threaded version.
   for (auto& init_info_future : init_infos) {
-    const InitInfo init_info = init_info_future.get();
-    if (init_info.success) {
-      image_id1 = init_info.image_id1;
-      image_id2 = init_info.image_id2;
-      cam2_from_cam1 = init_info.cam2_from_cam1;
+    std::optional<InitInfo> result = init_info_future.get();
+    if (result.has_value()) {
       thread_pool.Stop();
-      return true;
+      return result;
     }
   }
 
   // No suitable pair found in entire dataset.
-  image_id1 = kInvalidImageId;
-  image_id2 = kInvalidImageId;
-
-  return false;
+  return std::nullopt;
 }
 
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
@@ -667,12 +651,12 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
 
 }  // namespace
 
-bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+std::optional<IncrementalMapperImpl::InitInfo>
+IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
     const DatabaseCache& database_cache,
     const image_t image_id1,
-    const image_t image_id2,
-    Rigid3d& cam2_from_cam1) {
+    const image_t image_id2) {
   const Image& image1 = database_cache.Image(image_id1);
   const Image& image2 = database_cache.Image(image_id2);
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
@@ -698,12 +682,15 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
   two_view_geometry_options.ransac_options.random_seed = options.random_seed;
-  TwoViewGeometry two_view_geometry = EstimateCalibratedTwoViewGeometry(
+  // Delegate estimator selection to the general two-view geometry estimator so
+  // it lives in a single place. The relative pose is recovered separately
+  // below.
+  TwoViewGeometry two_view_geometry = EstimateTwoViewGeometry(
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   if (!EstimateTwoViewGeometryPose(
           camera1, points1, camera2, points2, &two_view_geometry)) {
-    return false;
+    return std::nullopt;
   }
 
   VLOG(3) << "Initial image pair with config " << two_view_geometry.config
@@ -718,7 +705,7 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
       std::abs(two_view_geometry.cam2_from_cam1->translation().z()) >=
           options.init_max_forward_motion ||
       two_view_geometry.tri_angle <= DegToRad(options.init_min_tri_angle)) {
-    return false;
+    return std::nullopt;
   }
 
   const Frame& frame1 = database_cache.Frame(image1.FrameId());
@@ -726,24 +713,37 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   const Rig& rig1 = database_cache.Rig(frame1.RigId());
   const Rig& rig2 = database_cache.Rig(frame2.RigId());
 
+  InitInfo info;
+  info.image_id1 = image_id1;
+  info.image_id2 = image_id2;
+
   // If one or both of the frames are non-trivial, initialize using
   // generalized relative pose solver. Note that we intentionally do this
   // after ensuring that the given image pair has stable two-view geometry.
   if (rig1.NumSensors() > 1 || rig2.NumSensors() > 1) {
-    return EstimateInitialGeneralizedTwoViewGeometry(options,
-                                                     database_cache,
-                                                     image1,
-                                                     image2,
-                                                     frame1,
-                                                     frame2,
-                                                     rig1,
-                                                     rig2,
-                                                     cam2_from_cam1);
+    if (!EstimateInitialGeneralizedTwoViewGeometry(options,
+                                                   database_cache,
+                                                   image1,
+                                                   image2,
+                                                   frame1,
+                                                   frame2,
+                                                   rig1,
+                                                   rig2,
+                                                   info.cam2_from_cam1)) {
+      return std::nullopt;
+    }
+    // The generalized solver does not recover intrinsics.
+    return info;
   }
 
-  cam2_from_cam1 = *two_view_geometry.cam2_from_cam1;
+  info.cam2_from_cam1 = *two_view_geometry.cam2_from_cam1;
 
-  return true;
+  // Surface the intrinsics estimated by the two-view solver (if any) so the
+  // caller can seed the cameras before registering the initial pair.
+  info.camera1 = two_view_geometry.camera1;
+  info.camera2 = two_view_geometry.camera2;
+
+  return info;
 }
 
 }  // namespace colmap

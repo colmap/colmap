@@ -730,6 +730,89 @@ TEST(MatchGuidedSiftFeaturesCPU, EssentialMatrix) {
       });
 }
 
+void TestGuidedMatchingSharedFocal(
+    const std::function<std::unique_ptr<FeatureMatcher>(
+        const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
+  // Regression guard: an UNCALIBRATED pair that carries solver-estimated
+  // intrinsics (camera1/camera2) and an essential matrix must still be
+  // guided-matched via its fundamental matrix, like any UNCALIBRATED pair,
+  // rather than diverted to the E path or dropped. A pinhole camera keeps the
+  // pixel-coordinate F exact so matches are actually found.
+  constexpr double kFocal = 100.0;
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, kFocal, 100, 200);
+
+  // Two points on the epipolar line (v=0 in normalized coordinates).
+  const Eigen::Vector2f img_point11 =
+      camera.ImgFromCam({-0.5, 0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point12 =
+      camera.ImgFromCam({0.4, -0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point21 =
+      camera.ImgFromCam({0.3, -0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point22 =
+      camera.ImgFromCam({-0.4, 0.1, 1.0}).value().cast<float>();
+
+  const FeatureMatcher::Image image0 = {
+      /*image_id=*/0,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(0),
+      std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point11.x(), img_point11.y()},
+                                       {img_point12.x(), img_point12.y()}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point21.x(), img_point21.y()},
+                                       {img_point22.x(), img_point22.y()}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  auto matcher = matcher_factory({image0, image1, image2});
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+  two_view_geometry.E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+  two_view_geometry.camera1 = camera;
+  two_view_geometry.camera2 = camera;
+  // F = K^-T E K^-1, as the estimator populates it for this config.
+  two_view_geometry.F =
+      FundamentalFromEssentialMatrix(camera.CalibrationMatrix(),
+                                     two_view_geometry.E.value(),
+                                     camera.CalibrationMatrix());
+
+  constexpr double kMaxError = 1.0;
+
+  // Shared-focal pairs are guided-matched (not dropped) via the F path.
+  matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+  ExpectReversedInlierMatches(two_view_geometry);
+
+  // Non-corresponding images still find nothing.
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+  matcher->MatchGuided(kMaxError, image0, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, SharedFocal) {
+  std::unique_ptr<FeatureDescriptorIndexCacheHelper> index_cache_helper;
+  TestGuidedMatchingSharedFocal(
+      [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
+        index_cache_helper =
+            std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+        options.use_gpu = false;
+        options.sift->cpu_descriptor_index_cache =
+            &index_cache_helper->index_cache;
+        return CreateSiftFeatureMatcher(options);
+      });
+}
+
 TEST(MatchSiftFeaturesGPU, Nominal) {
   RunGpuTest([] {
     FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
@@ -971,6 +1054,18 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
 TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
   RunGpuTest([] {
     TestGuidedMatchingWithCameraDistortion(
+        [](const std::vector<FeatureMatcher::Image>& images) {
+          FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+          options.use_gpu = true;
+          options.max_num_matches = 1000;
+          return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+        });
+  });
+}
+
+TEST(MatchGuidedSiftFeaturesGPU, SharedFocal) {
+  RunGpuTest([] {
+    TestGuidedMatchingSharedFocal(
         [](const std::vector<FeatureMatcher::Image>& images) {
           FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
           options.use_gpu = true;

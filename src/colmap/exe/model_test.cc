@@ -208,8 +208,14 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_EQ(report.get<int>("support.num_orientation_inliers"), 7);
   EXPECT_EQ(report.get<int>("support.num_registered"), 8);
   EXPECT_NEAR(report.get<double>("metres_per_sfm_unit"), scale, 1e-4 * scale);
+  // The 8-camera synthetic layout is normalized to a 2000 m baseline above,
+  // but this diagnostic is measured over the 7 position-prior inliers only
+  // (excluding position_outlier_id), so its exact value depends on which
+  // point the PRNG happens to place at the layout's extremity. Use a
+  // generous margin rather than a value tied to one PRNG implementation's
+  // specific output.
   EXPECT_GT(report.get<double>("diagnostics.max_horizontal_baseline_m"),
-            1900.0);
+            1000.0);
   EXPECT_LT(report.get<double>("diagnostics.position_3d_residual_m.max"), 0.1);
   EXPECT_LT(report.get<double>("diagnostics.orientation_residual_deg.max"),
             0.5);

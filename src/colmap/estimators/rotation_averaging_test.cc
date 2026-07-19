@@ -31,6 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"
@@ -255,7 +256,7 @@ TEST(RotationAveraging, WeightedReducesErrorWithNoisyLowMatchEdges) {
     // carry meaningful IRLS weight (sigma = 5 deg), so the 2x down-weighting
     // has real leverage; sub-5 deg edges anchor the solution.
     const double noise_deg = RandomUniformReal(0.0, 8.0);
-    // Seeded isotropic axis (Eigen::Vector3d::Random() is NOT seeded by
+    // Seeded isotropic axis (RandomEigenVectord<3>() is NOT seeded by
     // SetPRNGSeed).
     Eigen::Vector3d axis(RandomGaussian(0.0, 1.0),
                          RandomGaussian(0.0, 1.0),

@@ -29,7 +29,8 @@ void BindSceneRig(py::module& m) {
   m.def("read_rig_config",
         &ReadRigConfig,
         "path"_a,
-        "Read the rig configuration from a .json file.");
+        "Read the rig configuration from a .json file. Rotations are expected "
+        "in the order [w, x, y, z].");
   m.def("apply_rig_config",
         &ApplyRigConfig,
         "configs"_a,

@@ -175,7 +175,11 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
     const std::vector<char>& tri_mask) {
   Bitmap bitmap;
   if (!bitmap.Read(path, /*as_rgb=*/true)) {
-    LOG(ERROR) << "Cannot read image at path " << path;
+    LOG(WARNING) << "Cannot read image at path " << path
+                 << ", showing metadata only";
+    image1_ = QPixmap();
+    image2_ = image1_;
+    ShowPixmap(image1_);
     return;
   }
 
@@ -378,10 +382,10 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
 }
 
 void DatabaseImageViewerWidget::ResizeTable() {
-  // Set fixed table dimensions.
+  // Set fixed table dimensions. The horizontal header is hidden, so its height
+  // must not be included or it leaves an empty strip below the last row.
   table_widget_->resizeColumnsToContents();
-  int height = table_widget_->horizontalHeader()->height() +
-               2 * table_widget_->frameWidth();
+  int height = 2 * table_widget_->frameWidth();
   for (int i = 0; i < table_widget_->rowCount(); i++) {
     height += table_widget_->rowHeight(i);
   }

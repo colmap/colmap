@@ -132,6 +132,9 @@ struct Camera {
   // panorama), i.e. the EQUIRECTANGULAR model.
   inline bool IsSpherical() const;
 
+  // Whether the camera model is a fisheye model.
+  inline bool IsFisheye() const;
+
   // Check whether camera has bogus parameters.
   inline bool HasBogusParams(double min_focal_length_ratio,
                              double max_focal_length_ratio,
@@ -268,6 +271,8 @@ bool Camera::IsPerspective() const {
 }
 
 bool Camera::IsSpherical() const { return CameraModelIsSpherical(model_id); }
+
+bool Camera::IsFisheye() const { return CameraModelIsFisheye(model_id); }
 
 bool Camera::VerifyParams() const {
   return CameraModelVerifyParams(model_id, params);

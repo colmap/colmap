@@ -39,7 +39,7 @@ COLMAP supports two feature extraction algorithms: SIFT (default) and ALIKED
 
 - **SIFT** is the most widely tested and robust choice. It works well for
   scenarios with moderate to high view overlap, sufficient scene texture,
-  and captured under similar illumination conditiions. It supports both GPU
+  and captured under similar illumination conditions. It supports both GPU
   and CPU extraction.
 
 - **ALIKED** is a learned feature extractor that can produce more repeatable

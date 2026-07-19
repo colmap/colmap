@@ -161,6 +161,73 @@ implementation of BLAS. If you decide to compile against OpenBLAS instead of
 MKL, you must install and select the OpenMP version under Debian/Ubuntu because
 of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
 
+Fedora
+------
+
+*Recommended dependencies:* CUDA (at least version 11.X)
+
+Dependencies from the default Fedora repositories::
+
+    sudo dnf install -y \
+        git \
+        cmake \
+        ninja-build \
+        gcc-c++ \
+        boost-devel \
+        eigen3-devel \
+        OpenImageIO-devel \
+        OpenImageIO-utils \
+        metis-devel \
+        glog-devel \
+        gtest-devel \
+        gmock-devel \
+        sqlite-devel \
+        glew-devel \
+        qt6-qtbase-devel \
+        qt6-qtsvg-devel \
+        CGAL-devel \
+        ceres-solver-devel \
+        suitesparse-devel \
+        suitesparse-static \
+        libcurl-devel \
+        openssl-devel \
+        openblas-devel
+    # suitesparse-static is required even for a dynamic build, because Fedora's
+    # SuiteSparse CMake config references the static targets file regardless of
+    # link type. This can be dropped once Fedora ships SuiteSparse >= 7.11.0 with
+    # its separated static config.
+
+Alternatively, you can also build against Qt 5 instead of Qt 6 using::
+
+    qt5-qtbase-devel qt5-qtsvg-devel
+
+To compile with **CUDA support**, install the CUDA toolkit from NVIDIA's official
+Fedora repository, which (unlike the plain ``cuda`` meta-package) preserves an
+existing NVIDIA driver. Replace ``<VERSION>`` with your Fedora release, e.g.
+``43``::
+
+    sudo dnf config-manager addrepo --from-repofile=https://developer.download.nvidia.com/compute/cuda/repos/fedora<VERSION>/x86_64/cuda-fedora<VERSION>.repo
+    sudo dnf install -y cuda-toolkit
+
+During CMake configuration, specify ``-DCMAKE_CUDA_ARCHITECTURES=native``, if you
+want to run COLMAP only on your current machine (default), "all"/"all-major" to be
+able to distribute to other machines, or a specific CUDA architecture like "89", etc.
+
+Configure and compile COLMAP::
+
+    git clone https://github.com/colmap/colmap.git
+    cd colmap
+    mkdir build
+    cd build
+    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=native
+    ninja
+    sudo ninja install
+
+Run COLMAP::
+
+    colmap -h
+    colmap gui
+
 Mac
 ---
 

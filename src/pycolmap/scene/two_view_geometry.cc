@@ -38,6 +38,8 @@ void BindTwoViewGeometryScene(py::module& m) {
       .def_readwrite("F", &TwoViewGeometry::F)
       .def_readwrite("H", &TwoViewGeometry::H)
       .def_readwrite("cam2_from_cam1", &TwoViewGeometry::cam2_from_cam1)
+      .def_readwrite("camera1", &TwoViewGeometry::camera1)
+      .def_readwrite("camera2", &TwoViewGeometry::camera2)
       .def_property(
           "inlier_matches",
           [](const TwoViewGeometry& self) {

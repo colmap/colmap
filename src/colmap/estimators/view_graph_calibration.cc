@@ -120,6 +120,11 @@ void CrossValidatePriorFocalLengths(
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
+      // E is now built from the K of the cross-validated focal priors, and
+      // consumers calibrate the rays with camera1/camera2 whenever set. Clear
+      // them so the rays use the same K as E, not the solver's own focal.
+      tvg.camera1.reset();
+      tvg.camera2.reset();
       ++num_upgraded_pairs;
     }
   }
@@ -360,7 +365,12 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     image_id_to_camera[image.ImageId()] = &cameras.at(image.CameraId());
   }
 
-  // Read UNCALIBRATED and CALIBRATED two-view geometries.
+  // Read UNCALIBRATED and CALIBRATED two-view geometries. A pair whose
+  // intrinsics a two-view solver estimated is UNCALIBRATED too: its focal is
+  // re-estimated from F rather than trusted, so any estimated intrinsics in
+  // camera1/camera2 are ignored here and cleared on upgrade to CALIBRATED.
+  // TODO: study whether seeding from the estimated camera1/camera2 intrinsics,
+  // instead of ignoring them, improves the calibration initialization.
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs;
   for (auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     if (tvg.config == TwoViewGeometry::UNCALIBRATED ||
@@ -460,6 +470,11 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
+      // E is now built from the K of the calibrated focals, and consumers
+      // calibrate the rays with camera1/camera2 whenever set. Clear them so
+      // the rays use the same K as E, not the solver's own focal.
+      tvg.camera1.reset();
+      tvg.camera2.reset();
       valid_pair_indices.push_back(i);
     }
   }

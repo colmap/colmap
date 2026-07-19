@@ -34,6 +34,7 @@
 #include "colmap/geometry/sim3.h"
 #include "colmap/geometry/sim3_matchers.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -67,8 +68,8 @@ GenerateData(size_t num_inliers,
 }
 
 void TestEstimateRigid3dWithNumCoords(const size_t num_coords) {
-  const Rigid3d gt_tgt_from_src(Eigen::Quaterniond::UnitRandom(),
-                                Eigen::Vector3d::Random());
+  const Rigid3d gt_tgt_from_src(RandomEigenQuaterniond(),
+                                RandomEigenVectord<3>());
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_coords,
       /*num_outliers=*/0,
@@ -106,7 +107,7 @@ TEST(Rigid3d, EstimateRobust) {
   const size_t num_inliers = 1000;
   const size_t num_outliers = 400;
 
-  const Rigid3d gt_tgt_from_src(Eigen::Quaterniond::UnitRandom(),
+  const Rigid3d gt_tgt_from_src(RandomEigenQuaterniond(),
                                 Eigen::Vector3d(100, 10, 10));
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_inliers,
@@ -138,8 +139,8 @@ TEST(Rigid3d, EstimateRobust) {
 
 void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
   const Sim3d gt_tgt_from_src(RandomUniformReal<double>(0.1, 10),
-                              Eigen::Quaterniond::UnitRandom(),
-                              Eigen::Vector3d::Random());
+                              RandomEigenQuaterniond(),
+                              RandomEigenVectord<3>());
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_coords,
       /*num_outliers=*/0,
@@ -179,7 +180,7 @@ TEST(Sim3d, EstimateRobust) {
   const size_t num_outliers = 400;
 
   const Sim3d gt_tgt_from_src(
-      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
+      2, RandomEigenQuaterniond(), Eigen::Vector3d(100, 10, 10));
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_inliers,
       /*num_outliers=*/num_outliers,

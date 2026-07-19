@@ -30,8 +30,11 @@
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
 
 #include "colmap/estimators/cost_functions/sampson_error.h"
+#include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/rigid3.h"
 
 #include <array>
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -83,6 +86,55 @@ TEST(TinySampsonErrorCostFunctor, MatchesSampsonError) {
       ASSERT_TRUE(
           cost_function->Evaluate(parameters, expected_residual, nullptr));
       EXPECT_NEAR(residuals[i], expected_residual[0], 1e-9);
+    }
+  }
+}
+
+// The batched focal functor's residuals match the pixel-space squared Sampson
+// error of the fundamental matrix F = diag(1/f, 1/f, 1) * E * diag(1/f, 1/f, 1)
+// implied by the pose and shared focal, at several poses and focal lengths.
+TEST(TinyFocalSampsonErrorCostFunctor, MatchesSquaredSampsonError) {
+  // Principal-point-centered image points (u - cx, v - cy), not calibrated
+  // rays.
+  const std::vector<Eigen::Vector2d> points1 = {
+      {120.0, -45.0}, {-200.0, 80.0}, {33.0, 210.0}};
+  const std::vector<Eigen::Vector2d> points2 = {
+      {95.0, -60.0}, {-180.0, 100.0}, {50.0, 190.0}};
+
+  const TinyFocalSampsonErrorCostFunctor functor(points1, points2);
+
+  const Eigen::Quaterniond q0(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(0.3, -1.0, 0.5).normalized()));
+  const Eigen::Vector3d t0 = Eigen::Vector3d(1.0, -0.5, 2.0).normalized();
+  const Eigen::Quaterniond q1(
+      Eigen::AngleAxisd(0.25, Eigen::Vector3d(-0.6, 0.4, 1.0).normalized()));
+  const Eigen::Vector3d t1 = Eigen::Vector3d(-0.7, 1.1, 0.3).normalized();
+
+  const std::array<Eigen::Quaterniond, 2> quaternions = {q0, q1};
+  const std::array<Eigen::Vector3d, 2> translations = {t0, t1};
+  const std::array<double, 2> focals = {900.0, 1500.0};
+
+  for (size_t k = 0; k < quaternions.size(); ++k) {
+    const Eigen::Quaterniond q = quaternions[k].normalized();
+    const Eigen::Vector3d& t = translations[k];
+    const double focal = focals[k];
+    double params[8] = {
+        q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z(), std::log(focal)};
+
+    std::vector<double> residuals(points1.size());
+    ASSERT_TRUE(functor(params, residuals.data()));
+
+    // Independent reference: build the pixel-space fundamental matrix and
+    // evaluate the squared Sampson error with a matrix-based implementation.
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(Rigid3d(q, t));
+    const double inv_f = 1.0 / focal;
+    const Eigen::DiagonalMatrix<double, 3> K_inv(inv_f, inv_f, 1.0);
+    const Eigen::Matrix3d F = K_inv * E * K_inv;
+    std::vector<double> expected_squared;
+    ComputeSquaredSampsonError(points1, points2, F, &expected_squared);
+
+    for (size_t i = 0; i < points1.size(); ++i) {
+      EXPECT_NEAR(residuals[i] * residuals[i], expected_squared[i], 1e-9);
     }
   }
 }

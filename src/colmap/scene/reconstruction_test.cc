@@ -30,6 +30,7 @@
 #include "colmap/scene/reconstruction.h"
 
 #include "colmap/geometry/sim3.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -536,7 +537,7 @@ TEST(Reconstruction, RegImageIds) {
 TEST(Reconstruction, AddPoint3D) {
   Reconstruction reconstruction;
   const point3D_t point3D_id =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   EXPECT_TRUE(reconstruction.ExistsPoint3D(point3D_id));
   EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 0);
   EXPECT_EQ(reconstruction.Points3D().count(point3D_id), 1);
@@ -575,7 +576,7 @@ TEST(Reconstruction, AddObservation) {
   track.AddElement(1, 0);
   track.AddElement(2, 1);
   const point3D_t point3D_id =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), track);
   EXPECT_EQ(reconstruction.Image(1).NumPoints3D(), 1);
   EXPECT_TRUE(reconstruction.Image(1).Point2D(0).HasPoint3D());
   EXPECT_FALSE(reconstruction.Image(1).Point2D(1).HasPoint3D());
@@ -623,7 +624,7 @@ TEST(Reconstruction, DeletePoint3D) {
   Reconstruction reconstruction;
   GenerateReconstruction(1, &reconstruction);
   const point3D_t point3D_id =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 0));
   reconstruction.DeletePoint3D(point3D_id);
   EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id));
@@ -952,7 +953,7 @@ TEST(Reconstruction, ComputeNumObservations) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   EXPECT_EQ(reconstruction.ComputeNumObservations(), 0);
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   EXPECT_EQ(reconstruction.ComputeNumObservations(), 1);
@@ -967,7 +968,7 @@ TEST(Reconstruction, ComputeMeanTrackLength) {
   GenerateReconstruction(2, &reconstruction);
   EXPECT_EQ(reconstruction.ComputeMeanTrackLength(), 0);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   EXPECT_EQ(reconstruction.ComputeMeanTrackLength(), 0);
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   EXPECT_EQ(reconstruction.ComputeMeanTrackLength(), 1);
@@ -982,7 +983,7 @@ TEST(Reconstruction, ComputeMeanObservationsPerRegImage) {
   GenerateReconstruction(2, &reconstruction);
   EXPECT_EQ(reconstruction.ComputeMeanObservationsPerRegImage(), 0);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   EXPECT_EQ(reconstruction.ComputeMeanObservationsPerRegImage(), 0);
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   EXPECT_EQ(reconstruction.ComputeMeanObservationsPerRegImage(), 0.5);
@@ -997,7 +998,7 @@ TEST(Reconstruction, ComputeMeanReprojectionError) {
   GenerateReconstruction(2, &reconstruction);
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
   reconstruction.Point3D(point3D_id1).error = 0.0;
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
@@ -1096,7 +1097,7 @@ TEST(Reconstruction, TranscribeImageIdsToDatabase) {
   track.AddElement(recon_image_ids.at(1), 1);
   track.AddElement(recon_image_ids.at(2), 2);
   const point3D_t point3D_id =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), track);
 
   reconstruction.TranscribeImageIdsToDatabase(*database);
 
@@ -1143,7 +1144,7 @@ TEST(Reconstruction, IsValid) {
   Track track;
   track.AddElement(1, 0);
   track.AddElement(2, 1);
-  reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
+  reconstruction.AddPoint3D(RandomEigenVectord<3>(), track);
   EXPECT_TRUE(reconstruction.IsValid());
 
   // Test empty frame pointer for image.
@@ -1175,7 +1176,7 @@ TEST(Reconstruction, DeRegisterFrame) {
   track.AddElement(1, 0);
   track.AddElement(2, 0);
   const point3D_t point3D_id =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), track);
 
   EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   EXPECT_EQ(reconstruction.NumRegImages(), 3);

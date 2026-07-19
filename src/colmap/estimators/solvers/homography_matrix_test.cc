@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/solvers/homography_matrix.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -49,7 +50,7 @@ TEST_P(HomographyMatrixTests, Nominal) {
     std::vector<Eigen::Vector2d> src;
     std::vector<Eigen::Vector2d> dst;
     for (size_t i = 0; i < kNumPoints; ++i) {
-      src.push_back(Eigen::Vector2d::Random());
+      src.push_back(RandomEigenVectord<2>());
       dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
     }
 
@@ -81,7 +82,7 @@ TEST_P(HomographyMatrixTests, NumericalStability) {
     std::vector<Eigen::Vector2d> src;
     std::vector<Eigen::Vector2d> dst;
     for (size_t i = 0; i < kNumPoints; ++i) {
-      src.push_back(Eigen::Vector2d::Random() * kCoordinateScale);
+      src.push_back(RandomEigenVectord<2>() * kCoordinateScale);
       dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
     }
 
@@ -109,9 +110,9 @@ TEST_P(HomographyMatrixTests, NoiseStability) {
     std::vector<Eigen::Vector2d> src;
     std::vector<Eigen::Vector2d> dst;
     for (size_t i = 0; i < kNumPoints; ++i) {
-      src.push_back(Eigen::Vector2d::Random());
+      src.push_back(RandomEigenVectord<2>());
       dst.push_back((expected_H * src[i].homogeneous()).hnormalized() +
-                    Eigen::Vector2d::Random() * kNoise);
+                    RandomEigenVectord<2>() * kNoise);
     }
 
     HomographyMatrixEstimator estimator;
@@ -149,7 +150,7 @@ TEST_P(HomographyMatrixTests, Degenerate) {
     std::vector<Eigen::Vector2d> dst;
     for (size_t i = 0; i < src.size(); ++i) {
       const Eigen::Vector3d dsth = expected_H * src[i].homogeneous();
-      dst.push_back(dsth.hnormalized() + Eigen::Vector2d::Random() * kNoise);
+      dst.push_back(dsth.hnormalized() + RandomEigenVectord<2>() * kNoise);
     }
 
     HomographyMatrixEstimator estimator;

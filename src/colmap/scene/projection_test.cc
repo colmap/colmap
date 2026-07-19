@@ -29,6 +29,7 @@
 
 #include "colmap/scene/projection.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -45,7 +46,7 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
                                Eigen::Vector3d::Zero());
   const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
 
-  const Eigen::Vector3d point3D = Eigen::Vector3d::Random().cwiseAbs();
+  const Eigen::Vector3d point3D = RandomEigenVectord<3>().cwiseAbs();
   const Eigen::Vector3d point2D_h = cam_from_world_mat * point3D.homogeneous();
   const Eigen::Vector2d point2D = point2D_h.hnormalized();
 

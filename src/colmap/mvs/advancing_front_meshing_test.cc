@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/advancing_front_meshing.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
@@ -54,7 +55,7 @@ void WriteRandomPlyPoints(const std::filesystem::path& path,
   std::vector<PlyPoint> ply_points;
   ply_points.reserve(num_points);
   for (int i = 0; i < num_points; ++i) {
-    const Eigen::Vector3d point3D = Eigen::Vector3d::Random();
+    const Eigen::Vector3d point3D = RandomEigenVectord<3>();
     PlyPoint ply_point;
     ply_point.x = point3D.x();
     ply_point.y = point3D.y();
