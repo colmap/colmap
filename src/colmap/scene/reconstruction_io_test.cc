@@ -34,8 +34,10 @@
 
 #include <filesystem>
 #include <fstream>
+#include <locale>
 #include <sstream>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -556,6 +558,69 @@ TEST(ExportVRML, Nominal) {
       reconstruction, images_path, points3D_path, image_scale, image_rgb);
   EXPECT_TRUE(std::filesystem::exists(images_path));
   EXPECT_TRUE(std::filesystem::exists(points3D_path));
+}
+
+// Custom numpunct facet that uses comma as decimal separator, for testing
+// locale independence without requiring a specific system locale.
+struct CommaDecimalFacet : std::numpunct<char> {
+ protected:
+  char do_decimal_point() const override { return ','; }
+};
+
+TEST(TextIO, LocaleIndependentRoundtrip) {
+  // Set global locale to use comma as decimal separator.
+  const std::locale original_locale = std::locale::global(
+      std::locale(std::locale::classic(), new CommaDecimalFacet));
+
+  // Verify that the locale is used correctly.
+  std::stringstream ss;
+  ss << 1.23;
+  EXPECT_EQ(ss.str(), "1,23");
+
+  Reconstruction orig;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &orig);
+
+  // Write under comma-decimal locale.
+  ReaderWriterTextStringStream rw;
+  rw.WriteRigs(orig);
+  rw.WriteCameras(orig);
+  rw.WriteFrames(orig);
+  rw.WriteImages(orig);
+  rw.WritePoints3D(orig);
+
+  // Verify written float data uses dot, not comma, as decimal separator.
+  // Check a data line (skip comment lines starting with '#').
+  {
+    std::istringstream iss(rw.CamerasStr());
+    std::string line;
+    while (std::getline(iss, line)) {
+      if (!line.empty() && line[0] != '#') {
+        EXPECT_THAT(line, testing::HasSubstr("."));
+        EXPECT_THAT(line, testing::Not(testing::HasSubstr(",")));
+      }
+    }
+  }
+
+  // Read back under comma-decimal locale.
+  Reconstruction test;
+  rw.ReadCameras(test);
+  EXPECT_EQ(orig.Cameras(), test.Cameras());
+  rw.ReadRigs(test);
+  EXPECT_EQ(orig.Rigs(), test.Rigs());
+  rw.ReadFrames(test);
+  EXPECT_EQ(orig.Frames(), test.Frames());
+  rw.ReadImages(test);
+  EXPECT_EQ(orig.Images(), test.Images());
+  rw.ReadPoints3D(test);
+  EXPECT_EQ(orig.Points3D(), test.Points3D());
+
+  // Restore original locale.
+  std::locale::global(original_locale);
 }
 
 }  // namespace

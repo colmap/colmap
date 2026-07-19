@@ -115,7 +115,8 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite(
           "ba_local_max_num_iterations",
           &Opts::ba_local_max_num_iterations,
-          "The maximum number of local bundle adjustment iterations.")
+          "The maximum number of local bundle adjustment iterations. If -1, "
+          "the default of the configured bundle adjustment backend is used.")
       .def_readwrite(
           "ba_global_frames_ratio",
           &Opts::ba_global_frames_ratio,
@@ -139,7 +140,8 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite(
           "ba_global_max_num_iterations",
           &Opts::ba_global_max_num_iterations,
-          "The maximum number of global bundle adjustment iterations.")
+          "The maximum number of global bundle adjustment iterations. If -1, "
+          "the default of the configured bundle adjustment backend is used.")
       .def_readwrite(
           "ba_local_max_refinements",
           &Opts::ba_local_max_refinements,
@@ -163,6 +165,14 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("ba_gpu_index",
                      &IncrementalPipelineOptions::ba_gpu_index,
                      "Index of CUDA GPU to use for BA, if available.")
+      .def_readwrite("ba_local_backend",
+                     &Opts::ba_local_backend,
+                     "Bundle adjustment solver backend for local bundle "
+                     "adjustment.")
+      .def_readwrite("ba_global_backend",
+                     &Opts::ba_global_backend,
+                     "Bundle adjustment solver backend for global bundle "
+                     "adjustment.")
       .def_readwrite("use_prior_position",
                      &Opts::use_prior_position,
                      "Whether to use priors on the camera positions.")
@@ -631,10 +641,11 @@ void BindIncrementalMapperImpl(py::module& m) {
            "tri_options"_a,
            "normalize_reconstruction"_a = true,
            "Perform multiple rounds of global bundle adjustment.")
-      .def("filter_frames",
-           &IncrementalMapper::FilterFrames,
-           "options"_a,
-           "Filter frames with degenerate camera parameters.")
+      .def(
+          "filter_frames",
+          &IncrementalMapper::FilterFrames,
+          "options"_a,
+          "Filter frames with degenerate camera parameters or no observations.")
       .def("filter_points",
            &IncrementalMapper::FilterPoints,
            "options"_a,

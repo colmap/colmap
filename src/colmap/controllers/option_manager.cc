@@ -30,19 +30,28 @@
 #include "colmap/controllers/option_manager.h"
 
 #include "colmap/controllers/global_pipeline.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/pairing.h"
+#ifdef CASPAR_ENABLED
+#include "colmap/estimators/bundle_adjustment_caspar.h"
+#endif
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
+#if defined(COLMAP_MVS_ENABLED)
+#include "colmap/mvs/advancing_front_meshing.h"
+#include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/mesh_simplification.h"
-#include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/mvs/poisson_meshing.h"
+#include "colmap/mvs/texture_mapping.h"
+#endif
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
@@ -67,14 +76,20 @@ OptionManager::OptionManager(bool add_project_options)
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
+  hierarchical_mapper = std::make_shared<HierarchicalPipelineOptions>();
   gravity_refiner = std::make_shared<GravityRefinerOptions>();
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
+  advancing_front_meshing =
+      std::make_shared<mvs::AdvancingFrontMeshingOptions>();
+  mesh_texture_mapping = std::make_shared<mvs::MeshTextureMappingOptions>();
   mesh_simplification = std::make_shared<mvs::MeshSimplificationOptions>();
+#endif
   render = std::make_shared<RenderOptions>();
 }
 
@@ -93,24 +108,32 @@ void OptionManager::ModifyForVideoData() {
   mapper->min_focal_length_ratio = 0.1;
   mapper->max_focal_length_ratio = 10;
   mapper->max_extra_param = std::numeric_limits<double>::max();
+#if defined(COLMAP_MVS_ENABLED)
   stereo_fusion->min_num_pixels = 15;
+#endif
 }
 
 void OptionManager::ModifyForInternetData() {
+#if defined(COLMAP_MVS_ENABLED)
   stereo_fusion->min_num_pixels = 10;
+#endif
 }
 
 void OptionManager::ModifyForLowQuality() {
-  feature_extraction->max_image_size = 1000;
+  feature_extraction->max_image_size =
+      static_cast<int>(0.3125 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 2048;
   sequential_pairing->loop_detection_num_images /= 2;
   vocab_tree_pairing->max_num_features = 256;
   vocab_tree_pairing->num_images /= 2;
-  mapper->ba_local_max_num_iterations /= 2;
-  mapper->ba_global_max_num_iterations /= 2;
+  mapper->ba_local_max_num_iterations =
+      mapper->EffBaLocalMaxNumIterations() / 2;
+  mapper->ba_global_max_num_iterations =
+      mapper->EffBaGlobalMaxNumIterations() / 2;
   mapper->ba_global_frames_ratio *= 1.2;
   mapper->ba_global_points_ratio *= 1.2;
   mapper->ba_global_max_refinements = 2;
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 1000;
   patch_match_stereo->window_radius = 4;
   patch_match_stereo->window_step = 2;
@@ -119,19 +142,24 @@ void OptionManager::ModifyForLowQuality() {
   patch_match_stereo->geom_consistency = false;
   stereo_fusion->check_num_images /= 2;
   stereo_fusion->max_image_size = 1000;
+#endif
 }
 
 void OptionManager::ModifyForMediumQuality() {
-  feature_extraction->max_image_size = 1600;
+  feature_extraction->max_image_size =
+      static_cast<int>(0.5 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 4096;
   sequential_pairing->loop_detection_num_images /= 1.5;
   vocab_tree_pairing->max_num_features = 1024;
   vocab_tree_pairing->num_images /= 1.5;
-  mapper->ba_local_max_num_iterations /= 1.5;
-  mapper->ba_global_max_num_iterations /= 1.5;
+  mapper->ba_local_max_num_iterations =
+      static_cast<int>(mapper->EffBaLocalMaxNumIterations() / 1.5);
+  mapper->ba_global_max_num_iterations =
+      static_cast<int>(mapper->EffBaGlobalMaxNumIterations() / 1.5);
   mapper->ba_global_frames_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 1600;
   patch_match_stereo->window_radius = 4;
   patch_match_stereo->window_step = 2;
@@ -140,19 +168,23 @@ void OptionManager::ModifyForMediumQuality() {
   patch_match_stereo->geom_consistency = false;
   stereo_fusion->check_num_images /= 1.5;
   stereo_fusion->max_image_size = 1600;
+#endif
 }
 
 void OptionManager::ModifyForHighQuality() {
   feature_extraction->sift->estimate_affine_shape = true;
-  feature_extraction->max_image_size = 2400;
+  feature_extraction->max_image_size =
+      static_cast<int>(0.75 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 8192;
   feature_matching->guided_matching = true;
   vocab_tree_pairing->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 75;
+#if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 2400;
   stereo_fusion->max_image_size = 2400;
+#endif
 }
 
 void OptionManager::ModifyForExtremeQuality() {
@@ -178,11 +210,15 @@ void OptionManager::AddAllOptions() {
   AddImportedPairingOptions();
   AddBundleAdjustmentOptions();
   AddMapperOptions();
+#if defined(COLMAP_MVS_ENABLED)
   AddPatchMatchStereoOptions();
   AddStereoFusionOptions();
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
+  AddAdvancingFrontMeshingOptions();
+  AddMeshTextureMappingOptions();
   AddMeshSimplificationOptions();
+#endif
   AddRenderOptions();
 }
 
@@ -485,6 +521,10 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->constant_rig_from_world_rotation);
   AddDefaultOption("BundleAdjustment.min_track_length",
                    &bundle_adjustment->min_track_length);
+  AddDefaultEnumOption("BundleAdjustment.backend",
+                       &bundle_adjustment->backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
 
   // Ceres-specific options
   AddDefaultOption(
@@ -523,6 +563,36 @@ void OptionManager::AddBundleAdjustmentOptions() {
   AddDefaultOption(
       "BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver",
       &bundle_adjustment->ceres->max_num_images_direct_sparse_gpu_solver);
+
+#ifdef CASPAR_ENABLED
+  // Caspar-specific options
+  AddDefaultOption("BundleAdjustmentCaspar.solver_iter_max",
+                   &bundle_adjustment->caspar->solver_iter_max);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_iter_max",
+                   &bundle_adjustment->caspar->pcg_iter_max);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_init",
+                   &bundle_adjustment->caspar->diag_init);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_min",
+                   &bundle_adjustment->caspar->diag_min);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_scaling_up",
+                   &bundle_adjustment->caspar->diag_scaling_up);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_scaling_down",
+                   &bundle_adjustment->caspar->diag_scaling_down);
+  AddDefaultOption("BundleAdjustmentCaspar.diag_exit_value",
+                   &bundle_adjustment->caspar->diag_exit_value);
+  AddDefaultOption("BundleAdjustmentCaspar.score_exit_value",
+                   &bundle_adjustment->caspar->score_exit_value);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_rel_error_exit",
+                   &bundle_adjustment->caspar->pcg_rel_error_exit);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_rel_score_exit",
+                   &bundle_adjustment->caspar->pcg_rel_score_exit);
+  AddDefaultOption("BundleAdjustmentCaspar.pcg_rel_decrease_min",
+                   &bundle_adjustment->caspar->pcg_rel_decrease_min);
+  AddDefaultOption("BundleAdjustmentCaspar.solver_rel_decrease_min",
+                   &bundle_adjustment->caspar->solver_rel_decrease_min);
+  AddDefaultOption("BundleAdjustmentCaspar.gpu_index",
+                   &bundle_adjustment->caspar->gpu_index);
+#endif  // CASPAR_ENABLED
 }
 
 void OptionManager::AddMapperOptions() {
@@ -586,6 +656,14 @@ void OptionManager::AddMapperOptions() {
                    &mapper->ba_local_max_refinement_change);
   AddDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
   AddDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddDefaultEnumOption("Mapper.ba_local_backend",
+                       &mapper->ba_local_backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
+  AddDefaultEnumOption("Mapper.ba_global_backend",
+                       &mapper->ba_global_backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
   AddDefaultOption("Mapper.ba_min_num_residuals_for_cpu_multi_threading",
                    &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
@@ -693,6 +771,8 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.track_required_tracks_per_view);
   AddDefaultOption("GlobalMapper.track_min_num_views_per_track",
                    &global_mapper->mapper.track_min_num_views_per_track);
+  AddDefaultOption("GlobalMapper.keep_max_num_tracks",
+                   &global_mapper->mapper.keep_max_num_tracks);
 
   // Global positioning options.
   AddDefaultOption("GlobalMapper.gp_use_gpu",
@@ -723,9 +803,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ba_refine_extra_params",
       &global_mapper->mapper.bundle_adjustment.refine_extra_params);
-  AddDefaultOption(
-      "GlobalMapper.ba_refine_sensor_from_rig",
-      &global_mapper->mapper.bundle_adjustment.refine_sensor_from_rig);
+  AddDefaultOption("GlobalMapper.refine_sensor_from_rig",
+                   &global_mapper->mapper.refine_sensor_from_rig);
   AddDefaultOption(
       "GlobalMapper.ba_refine_rig_from_world",
       &global_mapper->mapper.bundle_adjustment.refine_rig_from_world);
@@ -733,11 +812,15 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.bundle_adjustment.refine_points3D);
   AddDefaultOption("GlobalMapper.ba_min_track_length",
                    &global_mapper->mapper.bundle_adjustment.min_track_length);
+  AddDefaultEnumOption("GlobalMapper.ba_backend",
+                       &global_mapper->mapper.bundle_adjustment.backend,
+                       BundleAdjustmentBackendToString,
+                       BundleAdjustmentBackendFromString);
+  AddDefaultOption("GlobalMapper.ba_gpu_index",
+                   &global_mapper->mapper.ba_gpu_index);
   // Bundle adjustment options (Ceres-specific).
   AddDefaultOption("GlobalMapper.ba_ceres_use_gpu",
                    &global_mapper->mapper.bundle_adjustment.ceres->use_gpu);
-  AddDefaultOption("GlobalMapper.ba_ceres_gpu_index",
-                   &global_mapper->mapper.bundle_adjustment.ceres->gpu_index);
   AddDefaultOption(
       "GlobalMapper.ba_ceres_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.ceres->loss_function_scale);
@@ -760,9 +843,17 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.retriangulation.min_angle);
 
   // Rotation averaging options.
+  AddDefaultOption("GlobalMapper.ra_use_gravity",
+                   &global_mapper->mapper.rotation_averaging.use_gravity);
+  AddDefaultOption("GlobalMapper.ra_use_stratified",
+                   &global_mapper->mapper.rotation_averaging.use_stratified);
   AddDefaultOption(
       "GlobalMapper.ra_max_rotation_error_deg",
       &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
+  AddDefaultEnumOption("GlobalMapper.ra_reweighting",
+                       &global_mapper->mapper.rotation_averaging.reweighting,
+                       RotationAveragingReweightingToString,
+                       RotationAveragingReweightingFromString);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
@@ -771,6 +862,34 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.max_normalized_reproj_error);
   AddDefaultOption("GlobalMapper.min_tri_angle_deg",
                    &global_mapper->mapper.min_tri_angle_deg);
+}
+
+void OptionManager::AddHierarchicalMapperOptions() {
+  if (added_hierarchical_mapper_options_) {
+    return;
+  }
+  added_hierarchical_mapper_options_ = true;
+
+  // The per-cluster reconstruction is configured through the incremental mapper
+  // options (Mapper.*), so only the hierarchical-specific options are added
+  // here. The incremental_options member is populated from `mapper` by callers.
+  AddDefaultOption("HierarchicalMapper.init_num_trials",
+                   &hierarchical_mapper->init_num_trials);
+  AddDefaultOption("HierarchicalMapper.num_threads",
+                   &hierarchical_mapper->num_threads);
+  AddDefaultOption("HierarchicalMapper.num_workers",
+                   &hierarchical_mapper->num_workers);
+  AddDefaultOption("HierarchicalMapper.is_hierarchical",
+                   &hierarchical_mapper->clustering_options.is_hierarchical);
+  AddDefaultOption("HierarchicalMapper.branching",
+                   &hierarchical_mapper->clustering_options.branching);
+  AddDefaultOption("HierarchicalMapper.image_overlap",
+                   &hierarchical_mapper->clustering_options.image_overlap);
+  AddDefaultOption("HierarchicalMapper.num_image_matches",
+                   &hierarchical_mapper->clustering_options.num_image_matches);
+  AddDefaultOption(
+      "HierarchicalMapper.leaf_max_num_images",
+      &hierarchical_mapper->clustering_options.leaf_max_num_images);
 }
 
 void OptionManager::AddGravityRefinerOptions() {
@@ -801,6 +920,7 @@ void OptionManager::AddReconstructionClustererOptions() {
                    &reconstruction_clusterer->min_num_reg_frames);
 }
 
+#if defined(COLMAP_MVS_ENABLED)
 void OptionManager::AddPatchMatchStereoOptions() {
   if (added_patch_match_stereo_options_) {
     return;
@@ -924,6 +1044,57 @@ void OptionManager::AddDelaunayMeshingOptions() {
                    &delaunay_meshing->num_threads);
 }
 
+void OptionManager::AddAdvancingFrontMeshingOptions() {
+  if (added_advancing_front_meshing_options_) {
+    return;
+  }
+  added_advancing_front_meshing_options_ = true;
+
+  AddDefaultOption("AdvancingFrontMeshing.max_edge_length",
+                   &advancing_front_meshing->max_edge_length);
+  AddDefaultOption("AdvancingFrontMeshing.visibility_filtering",
+                   &advancing_front_meshing->visibility_filtering);
+  AddDefaultOption(
+      "AdvancingFrontMeshing.visibility_filtering_max_intersections",
+      &advancing_front_meshing->visibility_filtering_max_intersections);
+  AddDefaultOption("AdvancingFrontMeshing.visibility_post_filtering",
+                   &advancing_front_meshing->visibility_post_filtering);
+  AddDefaultOption("AdvancingFrontMeshing.visibility_ray_trim_offset",
+                   &advancing_front_meshing->visibility_ray_trim_offset);
+  AddDefaultOption("AdvancingFrontMeshing.block_size",
+                   &advancing_front_meshing->block_size);
+  AddDefaultOption("AdvancingFrontMeshing.block_overlap",
+                   &advancing_front_meshing->block_overlap);
+  AddDefaultOption("AdvancingFrontMeshing.num_threads",
+                   &advancing_front_meshing->num_threads);
+}
+
+void OptionManager::AddMeshTextureMappingOptions() {
+  if (added_mesh_texture_mapping_options_) {
+    return;
+  }
+  added_mesh_texture_mapping_options_ = true;
+
+  AddDefaultOption("MeshTextureMapping.min_cos_normal_angle",
+                   &mesh_texture_mapping->min_cos_normal_angle);
+  AddDefaultOption("MeshTextureMapping.min_visible_vertices",
+                   &mesh_texture_mapping->min_visible_vertices);
+  AddDefaultOption("MeshTextureMapping.view_selection_smoothing_iterations",
+                   &mesh_texture_mapping->view_selection_smoothing_iterations);
+  AddDefaultOption("MeshTextureMapping.atlas_patch_padding",
+                   &mesh_texture_mapping->atlas_patch_padding);
+  AddDefaultOption("MeshTextureMapping.inpaint_radius",
+                   &mesh_texture_mapping->inpaint_radius);
+  AddDefaultOption("MeshTextureMapping.apply_color_correction",
+                   &mesh_texture_mapping->apply_color_correction);
+  AddDefaultOption("MeshTextureMapping.color_correction_regularization",
+                   &mesh_texture_mapping->color_correction_regularization);
+  AddDefaultOption("MeshTextureMapping.num_threads",
+                   &mesh_texture_mapping->num_threads);
+  AddDefaultOption("MeshTextureMapping.texture_scale_factor",
+                   &mesh_texture_mapping->texture_scale_factor);
+}
+
 void OptionManager::AddMeshSimplificationOptions() {
   if (added_mesh_simplification_options_) {
     return;
@@ -941,6 +1112,7 @@ void OptionManager::AddMeshSimplificationOptions() {
   AddDefaultOption("MeshSimplification.num_threads",
                    &mesh_simplification->num_threads);
 }
+#endif  // COLMAP_MVS_ENABLED
 
 void OptionManager::AddRenderOptions() {
   if (added_render_options_) {
@@ -973,16 +1145,19 @@ void OptionManager::Reset(bool reset_logging) {
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
   added_reconstruction_clusterer_options_ = false;
+#if defined(COLMAP_MVS_ENABLED)
   added_patch_match_stereo_options_ = false;
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
   added_delaunay_meshing_options_ = false;
+  added_advancing_front_meshing_options_ = false;
+  added_mesh_texture_mapping_options_ = false;
+  added_mesh_simplification_options_ = false;
+#endif
   added_render_options_ = false;
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
-  BaseOptionManager::ResetOptions(reset_paths);
-
   *image_reader = ImageReaderOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
@@ -995,13 +1170,20 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
+  *hierarchical_mapper = HierarchicalPipelineOptions();
   *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
+#if defined(COLMAP_MVS_ENABLED)
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
   *delaunay_meshing = mvs::DelaunayMeshingOptions();
+  *mesh_texture_mapping = mvs::MeshTextureMappingOptions();
+  *mesh_simplification = mvs::MeshSimplificationOptions();
+#endif
   *render = RenderOptions();
+
+  BaseOptionManager::ResetOptions(reset_paths);
 }
 
 bool OptionManager::Check() {
@@ -1026,10 +1208,13 @@ bool OptionManager::Check() {
   if (bundle_adjustment) success = success && bundle_adjustment->Check();
   if (mapper) success = success && mapper->Check();
 
+#if defined(COLMAP_MVS_ENABLED)
   if (patch_match_stereo) success = success && patch_match_stereo->Check();
   if (stereo_fusion) success = success && stereo_fusion->Check();
   if (poisson_meshing) success = success && poisson_meshing->Check();
   if (delaunay_meshing) success = success && delaunay_meshing->Check();
+  if (mesh_texture_mapping) success = success && mesh_texture_mapping->Check();
+#endif
 
 #if defined(COLMAP_GUI_ENABLED)
   if (render) success = success && render->Check();

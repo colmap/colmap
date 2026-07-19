@@ -124,7 +124,7 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
         return 3200;
       case FeatureExtractorType::ALIKED_N16ROT:
       case FeatureExtractorType::ALIKED_N32:
-        return 1280;
+        return 1600;
       default:
         ThrowUnknownFeatureExtractorType(type);
     }

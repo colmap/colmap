@@ -31,6 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/ui/render_options.h"
+#include "colmap/util/hash_containers.h"
 
 using RGBAColor = Eigen::Matrix<uint8_t, 4, 1>;
 
@@ -84,6 +85,245 @@ inline RGBAColor IndexToRGB(const size_t index) {
   return color;
 }
 
+// Builds a translucent + wireframe sphere centered at `center` with the given
+// `radius`. Used to visualize omnidirectional (e.g. EQUIRECTANGULAR) cameras,
+// which observe the full sphere and have no pinhole frustum. The triangle mesh
+// provides the translucent fill and also makes the camera selectable (picking
+// is done against triangles); the lines form the wireframe. The sphere is
+// oriented by `world_from_cam_rot` so that its latitude/longitude lines align
+// with the equirectangular image rows/columns, and a segment from the center
+// along the camera's forward axis (azimuth 0, elevation 0) marks the image
+// center.
+void BuildSphericalCameraModel(
+    const Eigen::Vector3f& center,
+    const float radius,
+    const Eigen::Matrix3f& world_from_cam_rot,
+    const RGBAColor& plane_color,
+    const RGBAColor& frame_color,
+    std::vector<TrianglePainter::Data>* triangle_data,
+    std::vector<LinePainter::Data>* line_data,
+    std::vector<LinePainter::Data>* axis_line_data) {
+  constexpr int kNumStacks = 6;   // Latitude (elevation) divisions.
+  constexpr int kNumSlices = 12;  // Longitude (azimuth) divisions.
+
+  // Sphere point at the given elevation/azimuth grid index, using the same
+  // equirectangular parametrization as the EQUIRECTANGULAR camera model so that
+  // the wireframe aligns with the image: stack 0..N maps elevation +pi/2..-pi/2
+  // (image top to bottom), slice 0..N maps azimuth -pi..pi (image left to
+  // right). The camera-frame bearing is rotated into world space.
+  const auto sphere_point = [&](const int stack,
+                                const int slice) -> Eigen::Vector3f {
+    const double phi =
+        EIGEN_PI * (0.5 - static_cast<double>(stack) / kNumStacks);
+    const double theta =
+        2.0 * EIGEN_PI * (static_cast<double>(slice) / kNumSlices - 0.5);
+    const double cos_phi = std::cos(phi);
+    const Eigen::Vector3f ray_in_cam(
+        static_cast<float>(cos_phi * std::sin(theta)),
+        static_cast<float>(-std::sin(phi)),
+        static_cast<float>(cos_phi * std::cos(theta)));
+    return center + radius * (world_from_cam_rot * ray_in_cam);
+  };
+
+  if (triangle_data != nullptr) {
+    const auto add_triangle = [&](const Eigen::Vector3f& p1,
+                                  const Eigen::Vector3f& p2,
+                                  const Eigen::Vector3f& p3) {
+      triangle_data->emplace_back(PointPainter::Data(p1(0),
+                                                     p1(1),
+                                                     p1(2),
+                                                     plane_color(0),
+                                                     plane_color(1),
+                                                     plane_color(2),
+                                                     plane_color(3)),
+                                  PointPainter::Data(p2(0),
+                                                     p2(1),
+                                                     p2(2),
+                                                     plane_color(0),
+                                                     plane_color(1),
+                                                     plane_color(2),
+                                                     plane_color(3)),
+                                  PointPainter::Data(p3(0),
+                                                     p3(1),
+                                                     p3(2),
+                                                     plane_color(0),
+                                                     plane_color(1),
+                                                     plane_color(2),
+                                                     plane_color(3)));
+    };
+    for (int i = 0; i < kNumStacks; ++i) {
+      for (int j = 0; j < kNumSlices; ++j) {
+        const Eigen::Vector3f p00 = sphere_point(i, j);
+        const Eigen::Vector3f p01 = sphere_point(i, j + 1);
+        const Eigen::Vector3f p10 = sphere_point(i + 1, j);
+        const Eigen::Vector3f p11 = sphere_point(i + 1, j + 1);
+        add_triangle(p00, p01, p11);
+        add_triangle(p00, p11, p10);
+      }
+    }
+  }
+
+  if (line_data != nullptr) {
+    const auto add_line = [&](const Eigen::Vector3f& p1,
+                              const Eigen::Vector3f& p2) {
+      line_data->emplace_back(PointPainter::Data(p1(0),
+                                                 p1(1),
+                                                 p1(2),
+                                                 frame_color(0),
+                                                 frame_color(1),
+                                                 frame_color(2),
+                                                 frame_color(3)),
+                              PointPainter::Data(p2(0),
+                                                 p2(1),
+                                                 p2(2),
+                                                 frame_color(0),
+                                                 frame_color(1),
+                                                 frame_color(2),
+                                                 frame_color(3)));
+    };
+    // Latitude circles (parallels), skipping the degenerate poles.
+    for (int i = 1; i < kNumStacks; ++i) {
+      for (int j = 0; j < kNumSlices; ++j) {
+        add_line(sphere_point(i, j), sphere_point(i, j + 1));
+      }
+    }
+    // Longitude half-circles (meridians).
+    for (int j = 0; j < kNumSlices; ++j) {
+      for (int i = 0; i < kNumStacks; ++i) {
+        add_line(sphere_point(i, j), sphere_point(i + 1, j));
+      }
+    }
+  }
+
+  // Indicate the image center (azimuth 0, elevation 0, i.e. the camera's +Z
+  // axis in world) with a red segment from the sphere center along the forward
+  // direction. Drawn via a separate, thicker painter so it stands out from the
+  // wireframe.
+  if (axis_line_data != nullptr) {
+    const RGBAColor kImageCenterColor(255, 0, 0, 255);
+    const Eigen::Vector3f image_center =
+        center + 1.2f * radius * world_from_cam_rot.col(2);
+    axis_line_data->emplace_back(PointPainter::Data(center(0),
+                                                    center(1),
+                                                    center(2),
+                                                    kImageCenterColor(0),
+                                                    kImageCenterColor(1),
+                                                    kImageCenterColor(2),
+                                                    kImageCenterColor(3)),
+                                 PointPainter::Data(image_center(0),
+                                                    image_center(1),
+                                                    image_center(2),
+                                                    kImageCenterColor(0),
+                                                    kImageCenterColor(1),
+                                                    kImageCenterColor(2),
+                                                    kImageCenterColor(3)));
+  }
+}
+
+// Builds a viewing frustum (image plane as two triangles, plus the frame and
+// connecting lines to the projection center) for a perspective camera.
+void BuildPerspectiveCameraModel(
+    const Eigen::Matrix<float, 3, 4>& world_from_cam_mat,
+    const Camera& camera,
+    const float image_width,
+    const float image_height,
+    const float image_extent,
+    const RGBAColor& plane_color,
+    const RGBAColor& frame_color,
+    const bool show_camera_orientation,
+    std::vector<TrianglePainter::Data>* triangle_data,
+    std::vector<LinePainter::Data>* line_data) {
+  const float camera_extent = std::max(camera.width, camera.height);
+  const float camera_extent_normalized =
+      static_cast<float>(camera.CamFromImgThreshold(camera_extent));
+  const float focal_length = 2.0f * image_extent / camera_extent_normalized;
+
+  // Projection center, top-left, top-right, bottom-right, bottom-left corners.
+  const Eigen::Vector3f pc = world_from_cam_mat.rightCols<1>();
+  const Eigen::Vector3f tl =
+      world_from_cam_mat *
+      Eigen::Vector4f(-image_width, -image_height, focal_length, 1);
+  const Eigen::Vector3f tr =
+      world_from_cam_mat *
+      Eigen::Vector4f(image_width, -image_height, focal_length, 1);
+  const Eigen::Vector3f br =
+      world_from_cam_mat *
+      Eigen::Vector4f(image_width, image_height, focal_length, 1);
+  const Eigen::Vector3f bl =
+      world_from_cam_mat *
+      Eigen::Vector4f(-image_width, image_height, focal_length, 1);
+
+  // Image plane as two triangles.
+  if (triangle_data != nullptr) {
+    const auto add_triangle = [&](const Eigen::Vector3f& p1,
+                                  const Eigen::Vector3f& p2,
+                                  const Eigen::Vector3f& p3,
+                                  const RGBAColor& color) {
+      triangle_data->emplace_back(
+          PointPainter::Data(
+              p1(0), p1(1), p1(2), color(0), color(1), color(2), color(3)),
+          PointPainter::Data(
+              p2(0), p2(1), p2(2), color(0), color(1), color(2), color(3)),
+          PointPainter::Data(
+              p3(0), p3(1), p3(2), color(0), color(1), color(2), color(3)));
+    };
+    add_triangle(tl, tr, bl, plane_color);
+    add_triangle(bl, tr, br, plane_color);
+
+    if (show_camera_orientation) {
+      const Eigen::Matrix3f world_from_cam_rot =
+          world_from_cam_mat.block<3, 3>(0, 0);
+
+      const Eigen::Vector3f right_dir = world_from_cam_rot.col(0);
+      const Eigen::Vector3f up_dir = -world_from_cam_rot.col(1);
+      const Eigen::Vector3f forward_dir = world_from_cam_rot.col(2);
+
+      // Size + offset
+      const float size = 0.5f * image_extent;
+      const float offset = 0.01f * image_extent;
+      const Eigen::Vector3f offset_vec = forward_dir * offset;
+      const Eigen::Vector3f c0 = tl;
+      const Eigen::Vector3f c1 = c0 + size * right_dir;
+      const Eigen::Vector3f c2 = c0 - size * up_dir;
+      add_triangle(
+          c0 + offset_vec, c1 + offset_vec, c2 + offset_vec, frame_color);
+      add_triangle(
+          c0 - offset_vec, c2 - offset_vec, c1 - offset_vec, frame_color);
+    }
+  }
+
+  if (line_data != nullptr) {
+    const auto add_line = [&](const Eigen::Vector3f& p1,
+                              const Eigen::Vector3f& p2) {
+      line_data->emplace_back(PointPainter::Data(p1(0),
+                                                 p1(1),
+                                                 p1(2),
+                                                 frame_color(0),
+                                                 frame_color(1),
+                                                 frame_color(2),
+                                                 frame_color(3)),
+                              PointPainter::Data(p2(0),
+                                                 p2(1),
+                                                 p2(2),
+                                                 frame_color(0),
+                                                 frame_color(1),
+                                                 frame_color(2),
+                                                 frame_color(3)));
+    };
+    // Frame around image plane and connecting lines to projection center.
+
+    add_line(pc, tl);
+    add_line(pc, tr);
+    add_line(pc, br);
+    add_line(pc, bl);
+
+    add_line(tl, tr);
+    add_line(tr, br);
+    add_line(br, bl);
+    add_line(bl, tl);
+  }
+}
+
 void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
                       const Camera& camera,
                       const float image_size,
@@ -91,8 +331,10 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
                       const RGBAColor& frame_color,
                       const Eigen::Vector3d& model_origin,
                       const double model_scale,
+                      const bool show_camera_orientation,
                       std::vector<TrianglePainter::Data>* triangle_data,
-                      std::vector<LinePainter::Data>* line_data) {
+                      std::vector<LinePainter::Data>* line_data,
+                      std::vector<LinePainter::Data>* axis_line_data) {
   // Updating the reconstruction in the viewer (e.g., deleting an image or a
   // point) is not thread-safe when the mapper is running, where some images may
   // be in a partial, incorrect state. In rare circumstances, an image may be
@@ -109,10 +351,6 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
   const float image_height = image_width * static_cast<float>(camera.height) /
                              static_cast<float>(camera.width);
   const float image_extent = std::max(image_width, image_height);
-  const float camera_extent = std::max(camera.width, camera.height);
-  const float camera_extent_normalized =
-      static_cast<float>(camera.CamFromImgThreshold(camera_extent));
-  const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
   Rigid3d world_from_cam = Inverse(*cam_from_world);
   world_from_cam.translation() += model_origin;
@@ -121,193 +359,35 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
   const Eigen::Matrix<float, 3, 4> world_from_cam_mat =
       world_from_cam.ToMatrix().cast<float>();
 
-  // Projection center, top-left, top-right, bottom-right, bottom-left corners.
-
   const Eigen::Vector3f pc = world_from_cam_mat.rightCols<1>();
-  const Eigen::Vector3f tl =
-      world_from_cam_mat *
-      Eigen::Vector4f(-image_width, image_height, focal_length, 1);
-  const Eigen::Vector3f tr =
-      world_from_cam_mat *
-      Eigen::Vector4f(image_width, image_height, focal_length, 1);
-  const Eigen::Vector3f br =
-      world_from_cam_mat *
-      Eigen::Vector4f(image_width, -image_height, focal_length, 1);
-  const Eigen::Vector3f bl =
-      world_from_cam_mat *
-      Eigen::Vector4f(-image_width, -image_height, focal_length, 1);
 
-  // Image plane as two triangles.
-  if (triangle_data != nullptr) {
-    triangle_data->emplace_back(PointPainter::Data(tl(0),
-                                                   tl(1),
-                                                   tl(2),
-                                                   plane_color(0),
-                                                   plane_color(1),
-                                                   plane_color(2),
-                                                   plane_color(3)),
-                                PointPainter::Data(tr(0),
-                                                   tr(1),
-                                                   tr(2),
-                                                   plane_color(0),
-                                                   plane_color(1),
-                                                   plane_color(2),
-                                                   plane_color(3)),
-                                PointPainter::Data(bl(0),
-                                                   bl(1),
-                                                   bl(2),
-                                                   plane_color(0),
-                                                   plane_color(1),
-                                                   plane_color(2),
-                                                   plane_color(3)));
-
-    triangle_data->emplace_back(PointPainter::Data(bl(0),
-                                                   bl(1),
-                                                   bl(2),
-                                                   plane_color(0),
-                                                   plane_color(1),
-                                                   plane_color(2),
-                                                   plane_color(3)),
-                                PointPainter::Data(tr(0),
-                                                   tr(1),
-                                                   tr(2),
-                                                   plane_color(0),
-                                                   plane_color(1),
-                                                   plane_color(2),
-                                                   plane_color(3)),
-                                PointPainter::Data(br(0),
-                                                   br(1),
-                                                   br(2),
-                                                   plane_color(0),
-                                                   plane_color(1),
-                                                   plane_color(2),
-                                                   plane_color(3)));
+  // Spherical (equirectangular) cameras observe the full sphere and have no
+  // pinhole image plane, so a frustum is meaningless. Visualize them as a
+  // sphere centered at the projection center instead; all other models use a
+  // perspective viewing frustum.
+  if (camera.IsSpherical()) {
+    const double radius = image_extent / 2.0;
+    BuildSphericalCameraModel(pc,
+                              radius,
+                              world_from_cam_mat.block<3, 3>(0, 0),
+                              plane_color,
+                              frame_color,
+                              triangle_data,
+                              line_data,
+                              axis_line_data);
+  } else {
+    BuildPerspectiveCameraModel(world_from_cam_mat,
+                                camera,
+                                image_width,
+                                image_height,
+                                image_extent,
+                                plane_color,
+                                frame_color,
+                                show_camera_orientation,
+                                triangle_data,
+                                line_data);
   }
-
-  if (line_data != nullptr) {
-    // Frame around image plane and connecting lines to projection center.
-
-    line_data->emplace_back(PointPainter::Data(pc(0),
-                                               pc(1),
-                                               pc(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(tl(0),
-                                               tl(1),
-                                               tl(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-
-    line_data->emplace_back(PointPainter::Data(pc(0),
-                                               pc(1),
-                                               pc(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(tr(0),
-                                               tr(1),
-                                               tr(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-
-    line_data->emplace_back(PointPainter::Data(pc(0),
-                                               pc(1),
-                                               pc(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(br(0),
-                                               br(1),
-                                               br(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-
-    line_data->emplace_back(PointPainter::Data(pc(0),
-                                               pc(1),
-                                               pc(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(bl(0),
-                                               bl(1),
-                                               bl(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-
-    line_data->emplace_back(PointPainter::Data(tl(0),
-                                               tl(1),
-                                               tl(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(tr(0),
-                                               tr(1),
-                                               tr(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-
-    line_data->emplace_back(PointPainter::Data(tr(0),
-                                               tr(1),
-                                               tr(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(br(0),
-                                               br(1),
-                                               br(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-
-    line_data->emplace_back(PointPainter::Data(br(0),
-                                               br(1),
-                                               br(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(bl(0),
-                                               bl(1),
-                                               bl(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-
-    line_data->emplace_back(PointPainter::Data(bl(0),
-                                               bl(1),
-                                               bl(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)),
-                            PointPainter::Data(tl(0),
-                                               tl(1),
-                                               tl(2),
-                                               frame_color(0),
-                                               frame_color(1),
-                                               frame_color(2),
-                                               frame_color(3)));
-  }
-}
+}  // namespace
 
 }  // namespace
 
@@ -346,6 +426,12 @@ ModelViewerWidget::ModelViewerWidget(QWidget* parent, OptionManager* options)
 
   image_size_ = static_cast<float>(devicePixelRatio() * image_size_);
   point_size_ = static_cast<float>(devicePixelRatio() * point_size_);
+}
+
+ModelViewerWidget::~ModelViewerWidget() {
+  // Make the OpenGL context current so that painter destructors can
+  // cleanly release VAOs and VBOs.
+  makeCurrent();
 }
 
 void ModelViewerWidget::initializeGL() {
@@ -387,13 +473,16 @@ void ModelViewerWidget::paintGL() {
   point_connection_painter_.Render(pmv_matrix, width(), height(), 1);
 
   // Mesh
-  mesh_painter_.Render(
-      pmv_matrix, model_view_matrix_, options_->render->mesh_wireframe);
+  mesh_painter_.Render(pmv_matrix,
+                       model_view_matrix_,
+                       options_->render->mesh_wireframe,
+                       options_->render->mesh_color);
 
   // Images
   image_line_painter_.Render(pmv_matrix, width(), height(), 1);
   image_triangle_painter_.Render(pmv_matrix);
   image_connection_painter_.Render(pmv_matrix, width(), height(), 1);
+  image_axis_painter_.Render(pmv_matrix, width(), height(), 3);
 
   // Movie grabber cameras
   movie_grabber_path_painter_.Render(pmv_matrix, width(), height(), 1.5);
@@ -467,6 +556,9 @@ void ModelViewerWidget::ClearReconstruction() {
   reconstruction = nullptr;
   point_cloud.reset();
   surface_mesh.reset();
+  surface_texture_data.clear();
+  surface_texture_width = 0;
+  surface_texture_height = 0;
   selected_image_id_ = kInvalidImageId;
   selected_point3D_id_ = kInvalidPoint3DId;
   Upload();
@@ -864,6 +956,7 @@ void ModelViewerWidget::SetupPainters() {
   image_line_painter_.Setup();
   image_triangle_painter_.Setup();
   image_connection_painter_.Setup();
+  image_axis_painter_.Setup();
 
   movie_grabber_path_painter_.Setup();
   movie_grabber_line_painter_.Setup();
@@ -908,11 +1001,11 @@ void ModelViewerWidget::ComputeModelOriginAndScale() {
       y_coords.push_back(point.y);
       z_coords.push_back(point.z);
     }
-  } else if (surface_mesh.has_value() && !surface_mesh->vertices.empty()) {
-    x_coords.reserve(surface_mesh->vertices.size());
-    y_coords.reserve(surface_mesh->vertices.size());
-    z_coords.reserve(surface_mesh->vertices.size());
-    for (const auto& vertex : surface_mesh->vertices) {
+  } else if (surface_mesh.has_value() && !surface_mesh->mesh.vertices.empty()) {
+    x_coords.reserve(surface_mesh->mesh.vertices.size());
+    y_coords.reserve(surface_mesh->mesh.vertices.size());
+    z_coords.reserve(surface_mesh->mesh.vertices.size());
+    for (const auto& vertex : surface_mesh->mesh.vertices) {
       x_coords.push_back(vertex.x);
       y_coords.push_back(vertex.y);
       z_coords.push_back(vertex.z);
@@ -1175,6 +1268,9 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
   std::vector<LinePainter::Data> line_data;
   line_data.reserve(8 * reg_image_ids.size());
 
+  // Thicker overlay lines (image-center indicators for spherical cameras).
+  std::vector<LinePainter::Data> axis_line_data;
+
   std::vector<TrianglePainter::Data> triangle_data;
   triangle_data.reserve(2 * reg_image_ids.size());
 
@@ -1219,11 +1315,14 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
                      frame_color,
                      model_origin_,
                      model_scale_,
+                     options_->render->show_camera_orientation,
                      &triangle_data,
-                     selection_mode ? nullptr : &line_data);
+                     selection_mode ? nullptr : &line_data,
+                     selection_mode ? nullptr : &axis_line_data);
   }
 
   image_line_painter_.Upload(line_data);
+  image_axis_painter_.Upload(axis_line_data);
   image_triangle_painter_.Upload(triangle_data);
 }
 
@@ -1252,7 +1351,7 @@ void ModelViewerWidget::UploadImageConnectionData() {
             .cast<float>();
 
     // Collect all connected images
-    std::unordered_set<image_t> conn_image_ids;
+    FlatHashSet<image_t> conn_image_ids;
 
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
@@ -1367,8 +1466,10 @@ void ModelViewerWidget::UploadMovieGrabberData() {
                        frame_color,
                        /*model_origin=*/Eigen::Vector3d::Zero(),
                        /*model_scale=*/1.,
+                       /*show_camera_orientation=*/false,
                        &triangle_data,
-                       &line_data);
+                       &line_data,
+                       /*axis_line_data=*/nullptr);
     }
   }
 
@@ -1404,18 +1505,22 @@ void ModelViewerWidget::UploadPointCloudData() {
 void ModelViewerWidget::UploadSurfaceMeshData() {
   makeCurrent();
 
-  if (!surface_mesh.has_value() || surface_mesh->faces.empty()) {
+  if (!surface_mesh.has_value() || surface_mesh->mesh.faces.empty()) {
     mesh_painter_.Upload({});
     return;
   }
 
-  std::vector<MeshPainter::Data> data;
-  data.reserve(surface_mesh->faces.size() * 3);
+  const PlyMesh& mesh = surface_mesh->mesh;
+  const bool has_uvs = !surface_mesh->face_uvs.empty();
 
-  for (const PlyMeshFace& face : surface_mesh->faces) {
-    const PlyMeshVertex& v0 = surface_mesh->vertices.at(face.vertex_idx1);
-    const PlyMeshVertex& v1 = surface_mesh->vertices.at(face.vertex_idx2);
-    const PlyMeshVertex& v2 = surface_mesh->vertices.at(face.vertex_idx3);
+  std::vector<MeshPainter::Data> data;
+  data.reserve(mesh.faces.size() * 3);
+
+  for (size_t fi = 0; fi < mesh.faces.size(); ++fi) {
+    const PlyMeshFace& face = mesh.faces[fi];
+    const PlyMeshVertex& v0 = mesh.vertices.at(face.vertex_idx1);
+    const PlyMeshVertex& v1 = mesh.vertices.at(face.vertex_idx2);
+    const PlyMeshVertex& v2 = mesh.vertices.at(face.vertex_idx3);
 
     // Transform vertices by model_origin_ and model_scale_
     const Eigen::Vector3f p0(
@@ -1436,37 +1541,80 @@ void ModelViewerWidget::UploadSurfaceMeshData() {
     const Eigen::Vector3f edge2 = p2 - p0;
     const Eigen::Vector3f normal = edge1.cross(edge2).normalized();
 
-    // Flat shading: same normal for all three vertices
-    data.emplace_back(p0.x(),
-                      p0.y(),
-                      p0.z(),
-                      normal.x(),
-                      normal.y(),
-                      normal.z(),
-                      v0.r,
-                      v0.g,
-                      v0.b);
-    data.emplace_back(p1.x(),
-                      p1.y(),
-                      p1.z(),
-                      normal.x(),
-                      normal.y(),
-                      normal.z(),
-                      v1.r,
-                      v1.g,
-                      v1.b);
-    data.emplace_back(p2.x(),
-                      p2.y(),
-                      p2.z(),
-                      normal.x(),
-                      normal.y(),
-                      normal.z(),
-                      v2.r,
-                      v2.g,
-                      v2.b);
+    if (has_uvs) {
+      const float* uvs = &surface_mesh->face_uvs[fi * 6];
+      data.emplace_back(p0.x(),
+                        p0.y(),
+                        p0.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        uvs[0],
+                        uvs[1],
+                        v0.r,
+                        v0.g,
+                        v0.b);
+      data.emplace_back(p1.x(),
+                        p1.y(),
+                        p1.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        uvs[2],
+                        uvs[3],
+                        v1.r,
+                        v1.g,
+                        v1.b);
+      data.emplace_back(p2.x(),
+                        p2.y(),
+                        p2.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        uvs[4],
+                        uvs[5],
+                        v2.r,
+                        v2.g,
+                        v2.b);
+    } else {
+      data.emplace_back(p0.x(),
+                        p0.y(),
+                        p0.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        v0.r,
+                        v0.g,
+                        v0.b);
+      data.emplace_back(p1.x(),
+                        p1.y(),
+                        p1.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        v1.r,
+                        v1.g,
+                        v1.b);
+      data.emplace_back(p2.x(),
+                        p2.y(),
+                        p2.z(),
+                        normal.x(),
+                        normal.y(),
+                        normal.z(),
+                        v2.r,
+                        v2.g,
+                        v2.b);
+    }
   }
 
   mesh_painter_.Upload(data);
+
+  if (!surface_texture_data.empty()) {
+    mesh_painter_.UploadTexture(std::move(surface_texture_data),
+                                surface_texture_width,
+                                surface_texture_height,
+                                3);
+  }
 }
 
 void ModelViewerWidget::ComposeProjectionMatrix() {

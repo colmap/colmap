@@ -11,6 +11,7 @@
         "boost-program-options",
         "boost-property-map",
         "boost-property-tree",
+        "boost-unordered",
         {
             "name": "ceres",
             "features": [
@@ -79,7 +80,8 @@
             "description": "Build with GUI support.",
             "dependencies": [
                 "glew",
-                "qtbase"
+                "qtbase",
+                "qtsvg"
             ]
         },
         "cgal": {

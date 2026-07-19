@@ -12,21 +12,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-namespace {
-
-std::vector<const double*> ConvertListOfPyArraysToConstPointers(
-    const std::vector<py::array_t<double>>& pyarrays) {
-  std::vector<const double*> blocks;
-  blocks.reserve(pyarrays.size());
-  for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
-    py::buffer_info info = it->request();
-    blocks.push_back((const double*)info.ptr);
-  }
-  return blocks;
-}
-
-}  // namespace
-
 void BindCovarianceEstimator(py::module& m) {
   auto PyBACovarianceOptionsParams =
       py::enum_<BACovarianceOptions::Params>(m, "BACovarianceOptionsParams")

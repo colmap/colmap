@@ -219,6 +219,9 @@ COLMAP uses the following workspace folder structure::
     +── fused.ply
     +── meshed-poisson.ply
     +── meshed-delaunay.ply
+    +── textured
+    │   +── mesh.ply
+    │   +── texture.png
     +── run-colmap-geometric.sh
     +── run-colmap-photometric.sh
 
@@ -226,8 +229,11 @@ Here, the ``images`` folder contains the undistorted images, the ``sparse`` fold
 contains the sparse reconstruction with undistorted cameras, the ``stereo`` folder
 contains the stereo reconstruction results, ``fused.ply``, ``meshed-poisson.ply``,
 and ``meshed-delaunay.ply`` are the results of the fusion and meshing procedure,
-and ``run-colmap-geometric.sh`` and ``run-colmap-photometric.sh`` contain example
-command-line usage to perform the dense reconstruction.
+the ``textured`` folder contains the textured mesh (``mesh.ply`` with per-face UV
+coordinates and ``texture.png`` with the texture atlas) produced by
+``mesh_texturer``, and ``run-colmap-geometric.sh`` and
+``run-colmap-photometric.sh`` contain example command-line usage to perform the
+dense reconstruction.
 
 
 ---------------------

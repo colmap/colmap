@@ -54,11 +54,17 @@ struct RenderOptions {
   // reconstruction gets, the less frequently the scene is rendered.
   bool adapt_refresh_rate = true;
 
+  // Whether to show camera orientation (triangle in top-left corner).
+  bool show_camera_orientation = false;
+
   // Whether to visualize image connections.
   bool image_connections = false;
 
   // Whether to render the mesh as wireframe.
   bool mesh_wireframe = false;
+
+  // Whether to render mesh colors/textures (false = uniform gray).
+  bool mesh_color = true;
 
   // The projection type of the renderer.
   int projection_type = ProjectionType::PERSPECTIVE;

@@ -29,6 +29,8 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/bundle_adjustment_caspar.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -63,6 +65,40 @@ TEST(IncrementalPipeline, WithoutNoise) {
   ASSERT_EQ(reconstruction_manager->Size(), 1);
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
+TEST(IncrementalPipeline, WithoutNoiseSphericalCameras) {
+  SetPRNGSeed(0);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 5;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
+                             database,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  const Reconstruction& reconstruction = *reconstruction_manager->Get(0);
+  EXPECT_EQ(reconstruction.NumRegImages(), gt_reconstruction.NumImages());
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
                                  /*max_rotation_error_deg=*/1e-2,
                                  /*max_proj_center_error=*/1e-4));
 }
@@ -168,8 +204,8 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
         sensor_from_rig.value(),
         Rigid3dNear(
             gt_reconstruction.Rig(kConstantRigId).SensorFromRig(sensor_id),
-            /*rtol=*/1e-5,
-            /*ttol=*/1e-5));
+            /*rtol=*/1e-4,
+            /*ttol=*/1e-4));
   }
   EXPECT_EQ(reconstruction.Camera(kConstantCameraId).params,
             gt_reconstruction.Camera(kConstantCameraId).params);
@@ -256,12 +292,21 @@ TEST(IncrementalPipeline, WithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto reconstruction = reconstruction_manager->Get(0);
   EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction_manager->Get(0),
+              ReconstructionNear(*reconstruction,
                                  /*max_rotation_error_deg=*/1e-1,
                                  /*max_proj_center_error=*/1e-1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+
+  // After the pipeline runs, point3D.error must be in pixel units, i.e.
+  // equal to what UpdatePoint3DErrors would recompute.
+  ASSERT_GT(reconstruction->NumPoints3D(), 0u);
+  const double mean_after_run = reconstruction->ComputeMeanReprojectionError();
+  reconstruction->UpdatePoint3DErrors();
+  EXPECT_DOUBLE_EQ(mean_after_run,
+                   reconstruction->ComputeMeanReprojectionError());
 }
 
 TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
@@ -667,6 +712,69 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
       run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
   EXPECT_THAT(*reconstruction_manager0->Get(0),
               ReconstructionEq(*reconstruction_manager1->Get(0)));
+}
+
+TEST(IncrementalPipelineOptions, PropagatesExplicitMaxNumIterations) {
+  // Explicitly set iteration bounds must be forwarded to both backends,
+  // including values that coincide with the previous compiled-in defaults.
+  IncrementalPipelineOptions options;
+  options.ba_local_max_num_iterations = 25;
+  options.ba_global_max_num_iterations = 50;
+
+  const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.ceres);
+  EXPECT_EQ(local_options.ceres->solver_options.max_num_iterations, 25);
+  ASSERT_TRUE(local_options.caspar);
+  EXPECT_EQ(local_options.caspar->solver_iter_max, 25);
+
+  const BundleAdjustmentOptions global_options =
+      options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.ceres);
+  EXPECT_EQ(global_options.ceres->solver_options.max_num_iterations, 50);
+  ASSERT_TRUE(global_options.caspar);
+  EXPECT_EQ(global_options.caspar->solver_iter_max, 50);
+}
+
+TEST(IncrementalPipelineOptions, DefaultMaxNumIterationsUsesBackendDefaults) {
+  // With the -1 sentinel default, each backend must keep its own default:
+  // Ceres the previous 25/50 mapper defaults, Caspar its own tuned
+  // solver_iter_max (see review discussion on #4382/PR #4527).
+  const IncrementalPipelineOptions options;
+  ASSERT_EQ(options.ba_local_max_num_iterations, -1);
+  ASSERT_EQ(options.ba_global_max_num_iterations, -1);
+  const int caspar_default = CasparBundleAdjustmentOptions().solver_iter_max;
+
+  const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.ceres);
+  EXPECT_EQ(local_options.ceres->solver_options.max_num_iterations, 25);
+  ASSERT_TRUE(local_options.caspar);
+  EXPECT_EQ(local_options.caspar->solver_iter_max, caspar_default);
+
+  const BundleAdjustmentOptions global_options =
+      options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.ceres);
+  EXPECT_EQ(global_options.ceres->solver_options.max_num_iterations, 50);
+  ASSERT_TRUE(global_options.caspar);
+  EXPECT_EQ(global_options.caspar->solver_iter_max, caspar_default);
+}
+
+TEST(IncrementalPipelineOptions, EffBaMaxNumIterations) {
+  IncrementalPipelineOptions options;
+  const int caspar_default = CasparBundleAdjustmentOptions().solver_iter_max;
+
+  // Sentinel resolves to the configured backend's default.
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), 25);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), 50);
+  options.ba_local_backend = BundleAdjustmentBackend::CASPAR;
+  options.ba_global_backend = BundleAdjustmentBackend::CASPAR;
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), caspar_default);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), caspar_default);
+
+  // Explicit values win regardless of backend.
+  options.ba_local_max_num_iterations = 7;
+  options.ba_global_max_num_iterations = 13;
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), 7);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), 13);
 }
 
 }  // namespace

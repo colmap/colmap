@@ -33,6 +33,7 @@ set(FOLDER_NAME "ui")
 set(COLMAP_UI_QT_LIBS
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::OpenGL
+    Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::Widgets
 )
 
@@ -79,6 +80,8 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_scene
         colmap_controllers
-        colmap_mvs
         ${COLMAP_UI_QT_LIBS}
 )
+if(MVS_ENABLED)
+    target_link_libraries(colmap_ui PUBLIC colmap_mvs)
+endif()

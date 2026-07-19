@@ -81,7 +81,9 @@ void BaseOptionManager::AddLogOptions() {
   AddDefaultOption("log_severity",
                    &FLAGS_minloglevel,
                    "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
   AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
+#endif
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
@@ -105,7 +107,20 @@ void BaseOptionManager::AddImageOptions() {
 void BaseOptionManager::Reset(bool reset_logging) { ResetImpl(reset_logging); }
 
 void BaseOptionManager::ResetOptions(const bool reset_paths) {
-  ResetOptionsImpl(reset_paths);
+  auto saved_project_path = std::move(*project_path);
+  auto saved_database_path = std::move(*database_path);
+  auto saved_image_path = std::move(*image_path);
+
+  // Re-register all options to update raw pointers, since subclass
+  // ResetOptions() may reallocate internal sub-objects.
+  Reset(/*reset_logging=*/false);
+  AddAllOptions();
+
+  if (!reset_paths) {
+    *project_path = std::move(saved_project_path);
+    *database_path = std::move(saved_database_path);
+    *image_path = std::move(saved_image_path);
+  }
 }
 
 void BaseOptionManager::ResetImpl(bool reset_logging) {
@@ -114,7 +129,9 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
     FLAGS_log_dir = "";
     FLAGS_v = 0;
     FLAGS_minloglevel = 0;
+#if COLMAP_GLOG_HAS_COLOR_SUPPORT
     FLAGS_colorlogtostderr = true;
+#endif
     ApplyLogFlags();
   }
 
@@ -172,8 +189,7 @@ void BaseOptionManager::ApplyEnumConversions() {
 
 void BaseOptionManager::ApplyLogFlags() {
   FLAGS_logtostderr = false;
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
   FLAGS_logtostdout = false;
 #endif
   FLAGS_alsologtostderr = false;
@@ -181,8 +197,7 @@ void BaseOptionManager::ApplyLogFlags() {
   if (log_target_ == "stderr") {
     FLAGS_logtostderr = true;
   } else if (log_target_ == "stdout") {
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
     FLAGS_logtostdout = true;
 #else
     LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
@@ -198,8 +213,7 @@ void BaseOptionManager::ApplyLogFlags() {
     FLAGS_alsologtostderr = true;
   }
 
-#if defined(GLOG_VERSION_MAJOR) && \
-    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+#if COLMAP_GLOG_HAS_STDOUT_SUPPORT
   FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
 #endif
 

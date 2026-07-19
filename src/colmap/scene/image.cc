@@ -79,9 +79,9 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   }
 }
 
-void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
+void Image::SetPoints2D(std::vector<struct Point2D> points) {
   THROW_CHECK(points2D_.empty());
-  points2D_ = points;
+  points2D_ = std::move(points);
   num_points3D_ = 0;
   for (const auto& point2D : points2D_) {
     if (point2D.HasPoint3D()) {

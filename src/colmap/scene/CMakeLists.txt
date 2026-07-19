@@ -73,7 +73,7 @@ COLMAP_ADD_LIBRARY(
         colmap_scene_types
         colmap_util
         Eigen3::Eigen
-        SQLite::SQLite3
+        SQLite3::SQLite3
     PRIVATE_LINK_LIBS
         colmap_optim
 )

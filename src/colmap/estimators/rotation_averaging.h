@@ -3,8 +3,9 @@
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/enum_utils.h"
+#include "colmap/util/hash_containers.h"
 
-#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>
@@ -13,6 +14,13 @@
 // (http://www.theia-sfm.org/). For gravity aligned rotation averaging, refer
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace colmap {
+
+// Reweighting scheme applied to the relative-rotation constraints.
+//   UNIFORM: all constraints are weighted equally.
+//   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
+//     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
+//     edge, normalized to (0, 1].
+MAKE_ENUM_CLASS(RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT);
 
 struct RotationEstimatorOptions {
   // PRNG seed for stochastic methods during rotation averaging.
@@ -34,10 +42,19 @@ struct RotationEstimatorOptions {
   double irls_step_convergence_threshold = 0.001;
 
   // Gravity direction.
-  Eigen::Vector3d gravity_dir = Eigen::Vector3d(0, 1, 0);
+  Eigen::Vector3d gravity_dir = Eigen::Vector3d::UnitY();
 
   // The point where the Huber-like cost function switches from L1 to L2.
   double irls_loss_parameter_sigma = 5.0;  // in degrees
+
+  // Tikhonov ridge added to the diagonal of the normal equations A^T (W) A
+  // before each Cholesky factorization in the L1 and IRLS phases. The
+  // theoretical normal equations of a connected pose graph plus gauge fix are
+  // positive definite, but supernodal Cholesky may still report "matrix not
+  // positive definite" on poorly conditioned graphs (e.g., long sequential
+  // video chains). Set to a small positive value (e.g., 1e-9) to stabilize
+  // such systems. Zero disables regularization (no computational overhead).
+  double ridge_regularization = 1e-9;
 
   enum WeightType {
     // Geman-McClure weight from "Efficient and robust large-scale rotation
@@ -66,6 +83,16 @@ struct RotationEstimatorOptions {
   // If > 0, filter image pairs with rotation error exceeding this threshold
   // after solving, then recompute active set.
   double max_rotation_error_deg = 10.0;
+
+  // When false, treat each non-ref sensor's cam_from_rig rotation as a
+  // pre-calibrated constant
+  bool refine_sensor_from_rig = true;
+
+  // Reweighting scheme for the relative-rotation constraints. Weights are
+  // applied as a block-diagonal scaling of the linear system, so a noise-free
+  // (consistent) system yields an identical solution regardless of reweighting.
+  RotationAveragingReweighting reweighting =
+      RotationAveragingReweighting::UNIFORM;
 };
 
 // High-level interface for rotation averaging.
@@ -83,7 +110,7 @@ class RotationEstimator {
   // Returns true on successful estimation.
   bool EstimateRotations(const PoseGraph& pose_graph,
                          const std::vector<PosePrior>& pose_priors,
-                         const std::unordered_set<image_t>& active_image_ids,
+                         const FlatHashSet<image_t>& active_image_ids,
                          Reconstruction& reconstruction);
 
  private:
@@ -92,20 +119,19 @@ class RotationEstimator {
   bool MaybeSolveGravityAlignedSubset(
       const PoseGraph& pose_graph,
       const std::vector<PosePrior>& pose_priors,
-      const std::unordered_set<image_t>& active_image_ids,
+      const FlatHashSet<image_t>& active_image_ids,
       Reconstruction& reconstruction);
 
   // Core rotation averaging solver.
-  bool SolveRotationAveraging(
-      const PoseGraph& pose_graph,
-      const std::vector<PosePrior>& pose_priors,
-      const std::unordered_set<image_t>& active_image_ids,
-      Reconstruction& reconstruction);
+  bool SolveRotationAveraging(const PoseGraph& pose_graph,
+                              const std::vector<PosePrior>& pose_priors,
+                              const FlatHashSet<image_t>& active_image_ids,
+                              Reconstruction& reconstruction);
 
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
       const PoseGraph& pose_graph,
-      const std::unordered_set<image_t>& active_image_ids,
+      const FlatHashSet<image_t>& active_image_ids,
       Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
@@ -114,9 +140,12 @@ class RotationEstimator {
 // Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
 // then computes rig_from_world for each frame.
+// When refine_sensor_from_rig is false, the per-sensor cam_from_rig
+// values are left untouched.
 bool InitializeRigRotationsFromImages(
-    const std::unordered_map<image_t, Rigid3d>& cams_from_world,
-    Reconstruction& reconstruction);
+    const NodeHashMap<image_t, Rigid3d>& cams_from_world,
+    Reconstruction& reconstruction,
+    bool refine_sensor_from_rig = true);
 
 // High-level rotation averaging solver that handles rig expansion.
 // For cameras with unknown cam_from_rig, first estimates their orientations

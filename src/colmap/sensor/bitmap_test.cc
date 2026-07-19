@@ -271,20 +271,21 @@ TEST(Bitmap, RowMajorDataGrey) {
 TEST(Bitmap, GetAndSetPixelRGB) {
   Bitmap bitmap(2, 3, /*as_rgb=*/true);
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(1, 2, 3));
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+  const auto color = bitmap.GetPixel(1, 1);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
 }
 
 TEST(Bitmap, GetAndSetPixelGrey) {
   Bitmap bitmap(2, 3, /*as_rgb=*/false);
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(0, 2, 3));
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
+  auto color = bitmap.GetPixel(1, 1);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 1, 1));
+  color = bitmap.GetPixel(1, 1);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 1, 1));
 }
 
 TEST(Bitmap, Fill) {
@@ -292,9 +293,9 @@ TEST(Bitmap, Fill) {
   bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
   for (int y = 0; y < bitmap.Height(); ++y) {
     for (int x = 0; x < bitmap.Width(); ++x) {
-      BitmapColor<uint8_t> color;
-      EXPECT_TRUE(bitmap.GetPixel(x, y, &color));
-      EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+      const auto color = bitmap.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
+      EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
     }
   }
 }
@@ -304,9 +305,9 @@ TEST(Bitmap, FillGrey) {
   bitmap.Fill(BitmapColor<uint8_t>(42));
   for (int y = 0; y < bitmap.Height(); ++y) {
     for (int x = 0; x < bitmap.Width(); ++x) {
-      BitmapColor<uint8_t> color;
-      EXPECT_TRUE(bitmap.GetPixel(x, y, &color));
-      EXPECT_EQ(color.r, 42);
+      const auto color = bitmap.GetPixel(x, y);
+      ASSERT_TRUE(color.has_value());
+      EXPECT_EQ(color->r, 42);
     }
   }
 }
@@ -315,55 +316,61 @@ TEST(Bitmap, InterpolateNearestNeighbor) {
   Bitmap bitmap(11, 10, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 4, BitmapColor<uint8_t>(1, 2, 3));
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5, 4, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5.4999, 4.4999, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5.5, 4.5, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(4.5, 4.4999, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+  auto color = bitmap.InterpolateNearestNeighbor(5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
+  color = bitmap.InterpolateNearestNeighbor(5.4999, 4.4999);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
+  color = bitmap.InterpolateNearestNeighbor(5.5, 4.5);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(0, 0, 0));
+  color = bitmap.InterpolateNearestNeighbor(4.5, 4.4999);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<uint8_t>(1, 2, 3));
 }
 
 TEST(Bitmap, InterpolateBilinear) {
   Bitmap bitmap(11, 10, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 4, BitmapColor<uint8_t>(1, 2, 3));
-  BitmapColor<float> color;
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5, 4, &color));
-  EXPECT_EQ(color, BitmapColor<float>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 4, &color));
-  EXPECT_EQ(color, BitmapColor<float>(0.5, 1, 1.5));
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 4.5, &color));
-  EXPECT_EQ(color, BitmapColor<float>(0.25, 0.5, 0.75));
+  auto color = bitmap.InterpolateBilinear(5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<float>(1, 2, 3));
+  color = bitmap.InterpolateBilinear(5.5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<float>(0.5, 1, 1.5));
+  color = bitmap.InterpolateBilinear(5.5, 4.5);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(*color, BitmapColor<float>(0.25, 0.5, 0.75));
 }
 
 TEST(Bitmap, InterpolateBilinearGrey) {
   Bitmap bitmap(11, 10, /*as_rgb=*/false);
   bitmap.Fill(BitmapColor<uint8_t>(0));
   bitmap.SetPixel(5, 4, BitmapColor<uint8_t>(100));
-  BitmapColor<float> color;
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5, 4, &color));
-  EXPECT_EQ(color.r, 100.0f);
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 4, &color));
-  EXPECT_NEAR(color.r, 50.0f, 1e-5);
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 4.5, &color));
-  EXPECT_NEAR(color.r, 25.0f, 1e-5);
+  auto color = bitmap.InterpolateBilinear(5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(color->r, 100.0f);
+  color = bitmap.InterpolateBilinear(5.5, 4);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_NEAR(color->r, 50.0f, 1e-5);
+  color = bitmap.InterpolateBilinear(5.5, 4.5);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_NEAR(color->r, 25.0f, 1e-5);
 }
 
 TEST(Bitmap, InterpolateBilinearOutOfBounds) {
   Bitmap bitmap(11, 10, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
-  BitmapColor<float> color;
   // x at the right boundary: x0=10, x1=11 >= width_=11
-  EXPECT_FALSE(bitmap.InterpolateBilinear(10.0, 5.0, &color));
+  EXPECT_FALSE(bitmap.InterpolateBilinear(10.0, 5.0).has_value());
   // y at the bottom boundary: y0=9, y1=10 >= height_=10
-  EXPECT_FALSE(bitmap.InterpolateBilinear(5.0, 9.0, &color));
+  EXPECT_FALSE(bitmap.InterpolateBilinear(5.0, 9.0).has_value());
   // Negative x: x0=-1 < 0
-  EXPECT_FALSE(bitmap.InterpolateBilinear(-0.5, 5.0, &color));
+  EXPECT_FALSE(bitmap.InterpolateBilinear(-0.5, 5.0).has_value());
   // Negative y: y0=-1 < 0
-  EXPECT_FALSE(bitmap.InterpolateBilinear(5.0, -0.5, &color));
+  EXPECT_FALSE(bitmap.InterpolateBilinear(5.0, -0.5).has_value());
 }
 
 TEST(Bitmap, RescaleRGB) {
@@ -394,6 +401,49 @@ TEST(Bitmap, RescaleGrey) {
   EXPECT_EQ(bitmap2.Channels(), 1);
 }
 
+TEST(Bitmap, Thumbnail) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  // Landscape: width is the limiting dimension.
+  Bitmap landscape = bitmap.Clone();
+  const double landscape_scale = landscape.Thumbnail(/*max_image_size=*/50);
+  EXPECT_DOUBLE_EQ(landscape_scale, 0.5);
+  EXPECT_EQ(landscape.Width(), 50);
+  EXPECT_EQ(landscape.Height(), 40);
+
+  // Portrait: height is the limiting dimension.
+  Bitmap portrait(80, 100, /*as_rgb=*/true);
+  const double portrait_scale = portrait.Thumbnail(/*max_image_size=*/50);
+  EXPECT_DOUBLE_EQ(portrait_scale, 0.5);
+  EXPECT_EQ(portrait.Width(), 40);
+  EXPECT_EQ(portrait.Height(), 50);
+
+  // Non-integer scale: dimensions are rounded to the nearest integer, so the
+  // limiting dimension fits exactly into max_image_size (300 * 100/300 rounds
+  // to 100 rather than truncating to 99) and the other is rounded (200 *
+  // 100/300 = 66.67 rounds to 67).
+  Bitmap non_integer(300, 200, /*as_rgb=*/true);
+  non_integer.Thumbnail(/*max_image_size=*/100);
+  EXPECT_EQ(non_integer.Width(), 100);
+  EXPECT_EQ(non_integer.Height(), 67);
+}
+
+TEST(Bitmap, ThumbnailNoOp) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/false);
+
+  // Bound larger than both dimensions leaves the image unchanged.
+  Bitmap larger = bitmap.Clone();
+  EXPECT_DOUBLE_EQ(larger.Thumbnail(/*max_image_size=*/200), 1.0);
+  EXPECT_EQ(larger.Width(), 100);
+  EXPECT_EQ(larger.Height(), 80);
+
+  // Bound equal to the largest dimension is also a no-op.
+  Bitmap equal = bitmap.Clone();
+  EXPECT_DOUBLE_EQ(equal.Thumbnail(/*max_image_size=*/100), 1.0);
+  EXPECT_EQ(equal.Width(), 100);
+  EXPECT_EQ(equal.Height(), 80);
+}
+
 TEST(Bitmap, Rot90) {
   Bitmap bitmap(10, 5, /*as_rgb=*/false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
@@ -404,27 +454,25 @@ TEST(Bitmap, Rot90) {
   rotated1.Rot90(1);  // 90 CCW
   EXPECT_EQ(rotated1.Width(), 5);
   EXPECT_EQ(rotated1.Height(), 10);
-  BitmapColor<uint8_t> color;
-  rotated1.GetPixel(0, 9, &color);
-  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Bottom-left (0,9)
-  rotated1.GetPixel(0, 0, &color);
-  EXPECT_EQ(color.r, 128);  // Top-right (9,0) -> Top-left (0,0)
-  rotated1.GetPixel(4, 0, &color);
-  EXPECT_EQ(color.r, 64);  // Bottom-right (9,4) -> Top-right (4,0)
+  // Top-left (0,0) -> Bottom-left (0,9)
+  EXPECT_EQ(rotated1.GetPixel(0, 9).value().r, 255);
+  // Top-right (9,0) -> Top-left (0,0)
+  EXPECT_EQ(rotated1.GetPixel(0, 0).value().r, 128);
+  // Bottom-right (9,4) -> Top-right (4,0)
+  EXPECT_EQ(rotated1.GetPixel(4, 0).value().r, 64);
 
   Bitmap rotated2 = bitmap.Clone();
   rotated2.Rot90(2);  // 180 CCW
   EXPECT_EQ(rotated2.Width(), 10);
   EXPECT_EQ(rotated2.Height(), 5);
-  rotated2.GetPixel(9, 4, &color);
-  EXPECT_EQ(color.r, 255);
+  EXPECT_EQ(rotated2.GetPixel(9, 4).value().r, 255);
 
   Bitmap rotated3 = bitmap.Clone();
   rotated3.Rot90(3);  // 270 CCW
   EXPECT_EQ(rotated3.Width(), 5);
   EXPECT_EQ(rotated3.Height(), 10);
-  rotated3.GetPixel(4, 0, &color);
-  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Top-right (4,0)
+  // Top-left (0,0) -> Top-right (4,0)
+  EXPECT_EQ(rotated3.GetPixel(4, 0).value().r, 255);
 }
 
 TEST(Bitmap, Rot90Empty) {
@@ -480,9 +528,8 @@ TEST(Bitmap, Clone) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 3);
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(10, 20, 30));
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(10, 20, 30));
 }
 
 TEST(Bitmap, CloneAsRGB) {
@@ -493,9 +540,8 @@ TEST(Bitmap, CloneAsRGB) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 3);
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(10, 10, 10));
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(10, 10, 10));
   const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
@@ -525,9 +571,8 @@ TEST(Bitmap, CloneAsGrey) {
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 1);
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(19, 19, 19));
+  EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
+            BitmapColor<uint8_t>(19, 19, 19));
   const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
@@ -793,6 +838,26 @@ TEST(Bitmap, ReadWriteAsRGB) {
   EXPECT_EQ(read_bitmap.Channels(), 1);
   EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.CloneAsGrey().RowMajorData());
+}
+
+TEST(Bitmap, ReadWriteUnicodePath) {
+  Bitmap bitmap(2, 3, /*as_rgb=*/true);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(40, 50, 60));
+
+  // Use a non-ASCII filename to ensure the path is round-tripped through OIIO
+  // as UTF-8. On Windows, path.string() would mangle these characters using
+  // the system locale and the read/write would fail.
+  const std::filesystem::path filename =
+      CreateTestDir() / std::filesystem::u8path(u8"éü中文-bitmap.png");
+
+  EXPECT_TRUE(bitmap.Write(filename));
+
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
 }
 
 TEST(Bitmap, ReadWriteAsGrey) {

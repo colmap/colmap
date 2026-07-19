@@ -33,9 +33,9 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
+#include "colmap/util/hash_containers.h"
 
 #include <memory>
-#include <unordered_set>
 
 #include <Eigen/Core>
 
@@ -57,7 +57,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentTerminationType,
                                 USER_FAILURE);
 
 // Backend for bundle adjustment solver.
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentBackend, 0, CERES);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentBackend, 0, CERES, CASPAR);
 
 // Summary of bundle adjustment results, independent of solver backend.
 struct BundleAdjustmentSummary {
@@ -108,8 +108,7 @@ class BundleAdjustmentConfig {
   void SetVariableCamIntrinsics(camera_t camera_id);
   bool HasConstantCamIntrinsics(camera_t camera_id) const;
 
-  // Set the pose of added images as constant. The pose is defined as the
-  // rotational and translational part of the projection matrix.
+  // Set the sensor-from-rig extrinsic pose as constant or variable.
   void SetConstantSensorFromRigPose(sensor_t sensor_id);
   void SetVariableSensorFromRigPose(sensor_t sensor_id);
   bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
@@ -132,27 +131,33 @@ class BundleAdjustmentConfig {
   void RemoveConstantPoint(point3D_t point3D_id);
 
   // Access configuration data.
-  const std::unordered_set<image_t>& Images() const;
-  const std::unordered_set<point3D_t>& VariablePoints() const;
-  const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::unordered_set<camera_t>& ConstantCamIntrinsics() const;
-  const std::unordered_set<sensor_t>& ConstantSensorFromRigPoses() const;
-  const std::unordered_set<frame_t>& ConstantRigFromWorldPoses() const;
+  const FlatHashSet<image_t>& Images() const;
+  const FlatHashSet<point3D_t>& VariablePoints() const;
+  const FlatHashSet<point3D_t>& ConstantPoints() const;
+  const FlatHashSet<camera_t>& ConstantCamIntrinsics() const;
+  const FlatHashSet<sensor_t>& ConstantSensorFromRigPoses() const;
+  const FlatHashSet<frame_t>& ConstantRigFromWorldPoses() const;
 
  private:
   BundleAdjustmentGauge fixed_gauge_ = BundleAdjustmentGauge::UNSPECIFIED;
-  std::unordered_set<camera_t> constant_cam_intrinsics_;
-  std::unordered_set<image_t> image_ids_;
-  std::unordered_set<point3D_t> variable_point3D_ids_;
-  std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<point3D_t> ignored_point3D_ids_;
-  std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
-  std::unordered_set<frame_t> constant_rig_from_world_poses_;
+  FlatHashSet<camera_t> constant_cam_intrinsics_;
+  FlatHashSet<image_t> image_ids_;
+  FlatHashSet<point3D_t> variable_point3D_ids_;
+  FlatHashSet<point3D_t> constant_point3D_ids_;
+  FlatHashSet<point3D_t> ignored_point3D_ids_;
+  FlatHashSet<sensor_t> constant_sensor_from_rig_poses_;
+  FlatHashSet<frame_t> constant_rig_from_world_poses_;
 };
+
+struct CasparBundleAdjustmentOptions;
 
 struct BundleAdjustmentBackendOptions {
   // Ceres-specific options (only used when backend == CERES).
   std::shared_ptr<CeresBundleAdjustmentOptions> ceres;
+
+  // Caspar-specific options (only used when backend == CASPAR).
+  // Type defined in bundle_adjustment_caspar.h.
+  std::shared_ptr<CasparBundleAdjustmentOptions> caspar;
 
   BundleAdjustmentBackendOptions();
   BundleAdjustmentBackendOptions(const BundleAdjustmentBackendOptions& other);

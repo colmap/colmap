@@ -40,6 +40,7 @@ option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
+option(MVS_ENABLED "Whether to enable the Multi-View Stereo module" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(COVERAGE_ENABLED "Whether to enable code coverage" OFF)
@@ -59,6 +60,25 @@ option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package"
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
 option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
+
+# Experimental
+option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
+option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
+
+# Hash map backend used by the performance-critical scene/SfM containers (see
+# src/colmap/util/hash_containers.h). One of: STD, BOOST, or empty for auto.
+# Auto selects BOOST (faster boost::unordered_flat/node maps) when the available
+# Boost is new enough (>= 1.84, for boost::unordered_node_map) and STD otherwise.
+set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
+    "Hash map backend for scene/SfM containers: STD, BOOST, or empty for auto")
+set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST)
+
+if(CASPAR_ENABLED)
+    add_compile_definitions(CASPAR_ENABLED)
+    if(CASPAR_USE_DOUBLE)
+        add_compile_definitions(CASPAR_USE_DOUBLE)
+    endif()
+endif()
 
 # Disables default features, as we specify each required feature manually below.
 list(APPEND VCPKG_MANIFEST_FEATURES "core")
@@ -86,7 +106,7 @@ endif()
 
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.14.0.dev0")
+set(COLMAP_VERSION "4.2.0.dev0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -295,7 +315,9 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/geometry GEOMETRY_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/image IMAGE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/math MATH_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
+if(MVS_ENABLED)
+    COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
+endif()
 COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/scene SCENE_SRCS *.h *.cc)
@@ -326,7 +348,6 @@ if(ALL_SOURCE_TARGET)
         ${GEOMETRY_SRCS}
         ${IMAGE_SRCS}
         ${MATH_SRCS}
-        ${MVS_SRCS}
         ${OPTIM_SRCS}
         ${RETRIEVAL_SRCS}
         ${SCENE_SRCS}
@@ -339,6 +360,12 @@ if(ALL_SOURCE_TARGET)
         ${THIRDPARTY_SIFT_GPU_SRCS}
         ${THIRDPARTY_VLFEAT_SRCS}
     )
+
+    if(MVS_ENABLED)
+        list(APPEND ALL_SRCS
+            ${MVS_SRCS}
+        )
+    endif()
 
     if(LSD_ENABLED)
         list(APPEND ALL_SRCS
@@ -370,9 +397,13 @@ if(IS_MSVC)
             DESTINATION "/")
 endif()
 
-# Install application meny entry under Linux/Unix.
+# Install application meny entry and icon under Linux/Unix.
 if(UNIX AND NOT APPLE)
     install(FILES "doc/COLMAP.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
+    # Install the app icon so the desktop entry's "Icon=colmap" resolves.
+    install(FILES "src/colmap/ui/media/colmap-logo.svg"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
+            RENAME "colmap.svg")
 endif()
 
 # Configure the uninstallation script.
@@ -396,7 +427,6 @@ set(COLMAP_EXPORT_LIBS
     colmap_geometry
     colmap_image
     colmap_math
-    colmap_mvs
     colmap_optim
     colmap_retrieval
     colmap_scene
@@ -408,6 +438,9 @@ set(COLMAP_EXPORT_LIBS
     colmap_poisson_recon
     colmap_vlfeat
 )
+if(MVS_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS colmap_mvs)
+endif()
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          # Third-party.
@@ -422,8 +455,10 @@ endif()
 if(CUDA_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
-         colmap_mvs_cuda
     )
+    if(MVS_ENABLED)
+        list(APPEND COLMAP_EXPORT_LIBS colmap_mvs_cuda)
+    endif()
 endif()
 if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
@@ -435,6 +470,9 @@ if(FETCH_POSELIB)
 endif()
 if(FETCH_FAISS)
     list(APPEND COLMAP_EXPORT_LIBS faiss)
+endif()
+if(CASPAR_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS caspar_lib_core)
 endif()
 
 # Add unified interface library target to export.
@@ -480,7 +518,25 @@ install(
 install(
     DIRECTORY src/thirdparty
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/colmap
-    FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
+    FILES_MATCHING
+        REGEX ".*[.]h|.*[.]hpp|.*[.]inl"
+        PATTERN "Symforce-Caspar" EXCLUDE)
+
+# Only ship the active Caspar precision tree (avoids bundling unused kernel
+# headers and the inactive precision when CASPAR_ENABLED is off).
+if(CASPAR_ENABLED)
+    if(CASPAR_USE_DOUBLE)
+        set(_caspar_install_precision "f64")
+    else()
+        set(_caspar_install_precision "f32")
+    endif()
+    install(
+        DIRECTORY
+            src/thirdparty/Symforce-Caspar/generated/${_caspar_install_precision}
+        DESTINATION
+            ${CMAKE_INSTALL_INCLUDEDIR}/colmap/thirdparty/Symforce-Caspar/generated
+        FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
+endif()
 
 # Install find_package scripts for dependencies.
 install(

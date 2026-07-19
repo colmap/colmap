@@ -32,8 +32,28 @@
 #include "colmap/image/warp.h"
 #include "colmap/math/math.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
+namespace {
+
+// Rescale a camera in place so that neither dimension exceeds
+// options.max_image_size, keeping its model. A no-op when no size limit is
+// requested or the camera already fits within it.
+void RescaleToMaxImageSize(const UndistortCameraOptions& options,
+                           Camera* camera) {
+  if (options.max_image_size < 0) {
+    return;
+  }
+  const double max_image_scale =
+      std::min(options.max_image_size / static_cast<double>(camera->width),
+               options.max_image_size / static_cast<double>(camera->height));
+  if (max_image_scale < 1.0) {
+    camera->Rescale(max_image_scale);
+  }
+}
+
+}  // namespace
 
 Camera UndistortCamera(const UndistortCameraOptions& options,
                        const Camera& camera) {
@@ -48,6 +68,12 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   THROW_CHECK_LE(options.roi_max_y, 1.0);
   THROW_CHECK_LT(options.roi_min_x, options.roi_max_x);
   THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
+
+  // Undistortion produces a pinhole image, which is only well-defined for
+  // perspective cameras. Omnidirectional models (e.g. EQUIRECTANGULAR) have no
+  // pinhole image plane and cannot be undistorted; callers skip them, but guard
+  // here too rather than dereferencing the (empty) focal-length parameters.
+  THROW_CHECK(camera.IsPerspective());
 
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
@@ -103,6 +129,17 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   // Scale in order to match the boundary of the undistorted image.
   if (roi_enabled || (camera.model_id != SimplePinholeCameraModel::model_id &&
                       camera.model_id != PinholeCameraModel::model_id)) {
+    // For fisheye camera, CamFromImg returns perspective-normalized coords
+    // where |cam_point| = tan(theta). Near theta = pi/2, tan(theta) diverges:
+    // border pixels outside the valid fisheye circle (common with off-center
+    // principal points) produce extreme coordinates that blow up the output
+    // dimensions. Skip any cam_point whose norm exceeds the threshold.
+    THROW_CHECK_NE(options.max_cam_point_norm, 0);
+    const double max_cam_point_norm_sq =
+        options.max_cam_point_norm < 0
+            ? std::numeric_limits<double>::infinity()
+            : options.max_cam_point_norm * options.max_cam_point_norm;
+
     // Determine min/max coordinates along top / bottom image border.
 
     double left_min_x = std::numeric_limits<double>::max();
@@ -114,7 +151,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Left border.
       if (const std::optional<Eigen::Vector2d> cam_point1 =
               camera.CamFromImg(Eigen::Vector2d(0.5, y + 0.5));
-          cam_point1.has_value()) {
+          cam_point1.has_value() &&
+          cam_point1->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point1 =
                 undistorted_camera.ImgFromCam(cam_point1->homogeneous());
             undistorted_point1) {
@@ -125,7 +163,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Right border.
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               camera.CamFromImg(Eigen::Vector2d(camera.width - 0.5, y + 0.5));
-          cam_point2.has_value()) {
+          cam_point2.has_value() &&
+          cam_point2->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point2 =
                 undistorted_camera.ImgFromCam(cam_point2->homogeneous());
             undistorted_point2) {
@@ -146,7 +185,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Top border.
       if (const std::optional<Eigen::Vector2d> cam_point1 =
               camera.CamFromImg(Eigen::Vector2d(x + 0.5, 0.5));
-          cam_point1) {
+          cam_point1.has_value() &&
+          cam_point1->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point1 =
                 undistorted_camera.ImgFromCam(cam_point1->homogeneous());
             undistorted_point1) {
@@ -157,7 +197,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       // Bottom border.
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               camera.CamFromImg(Eigen::Vector2d(x + 0.5, camera.height - 0.5));
-          cam_point2) {
+          cam_point2.has_value() &&
+          cam_point2->squaredNorm() < max_cam_point_norm_sq) {
         if (const std::optional<Eigen::Vector2d> undistorted_point2 =
                 undistorted_camera.ImgFromCam(cam_point2->homogeneous());
             undistorted_point2) {
@@ -216,15 +257,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   }
 
   if (options.max_image_size > 0) {
-    const double max_image_scale_x =
-        options.max_image_size / static_cast<double>(undistorted_camera.width);
-    const double max_image_scale_y =
-        options.max_image_size / static_cast<double>(undistorted_camera.height);
-    const double max_image_scale =
-        std::min(max_image_scale_x, max_image_scale_y);
-    if (max_image_scale < 1.0) {
-      undistorted_camera.Rescale(max_image_scale);
-    }
+    RescaleToMaxImageSize(options, &undistorted_camera);
   }
 
   return undistorted_camera;
@@ -238,6 +271,24 @@ void UndistortImage(const UndistortCameraOptions& options,
   THROW_CHECK_EQ(distorted_camera.width, distorted_bitmap.Width());
   THROW_CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
 
+  if (distorted_camera.IsSpherical()) {
+    // Spherical cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane to
+    // undistort to, so keep the model and only apply the max_image_size limit.
+    // The equirectangular pixel<->angle map is linear in the image dimensions,
+    // so this is a plain downscale. The per-pixel bearing warp used below
+    // cannot be reused: CamFromImg has no forward normalized coordinates for
+    // the back hemisphere and would blank out those pixels.
+    *undistorted_camera = distorted_camera;
+    RescaleToMaxImageSize(options, undistorted_camera);
+    *undistorted_bitmap = distorted_bitmap.Clone();
+    if (undistorted_camera->width != distorted_camera.width ||
+        undistorted_camera->height != distorted_camera.height) {
+      undistorted_bitmap->Rescale(static_cast<int>(undistorted_camera->width),
+                                  static_cast<int>(undistorted_camera->height));
+    }
+    return;
+  }
+
   *undistorted_camera = UndistortCamera(options, distorted_camera);
 
   WarpImageBetweenCameras(distorted_camera,
@@ -250,20 +301,63 @@ void UndistortImage(const UndistortCameraOptions& options,
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
-  const std::unordered_map<camera_t, Camera> distorted_cameras =
+  const NodeHashMap<camera_t, Camera> distorted_cameras =
       reconstruction->Cameras();
-  for (const auto& camera : distorted_cameras) {
-    if (camera.second.IsUndistorted()) {
+  // Leave a camera unchanged exactly when the image undistortion also copies
+  // its images through unchanged, so that the reconstruction stays consistent
+  // with the output images (see COLMAPUndistorter::Undistort). Both spherical
+  // cameras (e.g. EQUIRECTANGULAR, which have no pinhole image plane to
+  // undistort to) and already-undistorted perspective cameras are otherwise
+  // copied through as-is. When a max_image_size is requested, they are still
+  // resized to match the rescaled output images: perspective cameras through
+  // undistortion, spherical cameras by resizing to a smaller image of the same
+  // model.
+  const auto keep_unchanged = [&options](const Camera& camera) {
+    return camera.IsUndistorted() && options.max_image_size < 0;
+  };
+  for (const auto& [camera_id, distorted_camera] : distorted_cameras) {
+    if (keep_unchanged(distorted_camera)) {
       continue;
     }
-    reconstruction->Camera(camera.first) =
-        UndistortCamera(options, camera.second);
+    Camera& undistorted_camera = reconstruction->Camera(camera_id);
+    if (distorted_camera.IsSpherical()) {
+      // Only reached with a max_image_size: resize the spherical camera in
+      // place, keeping its model.
+      undistorted_camera = distorted_camera;
+      RescaleToMaxImageSize(options, &undistorted_camera);
+    } else {
+      undistorted_camera = UndistortCamera(options, distorted_camera);
+    }
   }
 
   for (const auto& distorted_image : reconstruction->Images()) {
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
+    // Cameras left unchanged above need no observation rewrite.
+    if (keep_unchanged(distorted_camera)) {
+      continue;
+    }
     const Camera& undistorted_camera = *image.CameraPtr();
+
+    if (distorted_camera.IsSpherical()) {
+      // Spherical models are only resized (see above). The equirectangular
+      // pixel<->angle map is linear in the image dimensions, so observations
+      // scale linearly. Unlike the perspective round-trip below, this stays
+      // valid for back-hemisphere observations, whose bearing has no forward
+      // normalized (CamFromImg) representation.
+      const double scale_x = static_cast<double>(undistorted_camera.width) /
+                             static_cast<double>(distorted_camera.width);
+      const double scale_y = static_cast<double>(undistorted_camera.height) /
+                             static_cast<double>(distorted_camera.height);
+      for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+           ++point2D_idx) {
+        Eigen::Vector2d& xy = image.Point2D(point2D_idx).xy;
+        xy.x() *= scale_x;
+        xy.y() *= scale_y;
+      }
+      continue;
+    }
+
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       auto& point2D = image.Point2D(point2D_idx);

@@ -34,19 +34,16 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/controllers/reconstruction_clustering.h"
 #include "colmap/controllers/rotation_averaging.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
-
-#include <limits>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -92,6 +89,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   std::string feature = "sift";
   std::string mapper = "incremental";
   std::string mesher = "poisson";
+  std::string ba_backend = "ceres";
 
   OptionManager options;
   options.AddRequiredOption("workspace_path",
@@ -124,6 +122,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("random_seed", &reconstruction_options.random_seed);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
+  options.AddDefaultOption("Mapper.ba_backend", &ba_backend, "{ceres, caspar}");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -151,6 +150,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   StringToUpper(&mesher);
   reconstruction_options.mesher =
       AutomaticReconstructionController::MesherFromString(mesher);
+
+  StringToUpper(&ba_backend);
+  reconstruction_options.ba_backend =
+      BundleAdjustmentBackendFromString(ba_backend);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
@@ -205,18 +208,20 @@ int RunBundleAdjuster(int argc, char** argv) {
 int RunColorExtractor(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
+  int num_threads = -1;
 
   OptionManager options;
   options.AddImageOptions();
   options.AddDefaultOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("num_threads", &num_threads);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  reconstruction.ExtractColorsForAllImages(*options.image_path);
+  reconstruction.ExtractColorsForAllImages(*options.image_path, num_threads);
   reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;
@@ -364,6 +369,29 @@ int RunMapper(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+bool RunGlobalMapperImpl(
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
+    const std::shared_ptr<GlobalPipelineOptions>& mapper_options,
+    std::shared_ptr<ReconstructionManager>& reconstruction_manager) {
+  GlobalPipelineOptions options = *mapper_options;
+  options.image_path = image_path;
+
+  GlobalPipeline global_mapper(std::move(options),
+                               Database::Open(database_path),
+                               reconstruction_manager);
+  global_mapper.Run();
+
+  if (reconstruction_manager->Size() == 0) {
+    LOG(ERROR) << "Failed to create sparse model";
+    return false;
+  }
+
+  reconstruction_manager->Write(output_path);
+  return true;
+}
+
 int RunGlobalMapper(int argc, char** argv) {
   std::filesystem::path output_path;
 
@@ -382,40 +410,27 @@ int RunGlobalMapper(int argc, char** argv) {
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-
-  GlobalPipelineOptions global_options = *options.global_mapper;
-  global_options.image_path = *options.image_path;
-
-  GlobalPipeline global_mapper(std::move(global_options),
-                               Database::Open(*options.database_path),
-                               reconstruction_manager);
-  global_mapper.Run();
-
-  if (reconstruction_manager->Size() == 0) {
-    LOG(ERROR) << "Failed to create sparse model";
+  if (!RunGlobalMapperImpl(*options.database_path,
+                           *options.image_path,
+                           output_path,
+                           options.global_mapper,
+                           reconstruction_manager)) {
     return EXIT_FAILURE;
   }
 
-  reconstruction_manager->Write(output_path);
   options.Write(output_path / "project.ini");
-
   return EXIT_SUCCESS;
 }
 
 int RunHierarchicalMapper(int argc, char** argv) {
-  HierarchicalPipeline::Options mapper_options;
   std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddRequiredOption("image_path", &mapper_options.image_path);
+  options.AddRequiredOption("image_path",
+                            &options.hierarchical_mapper->image_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("num_workers", &mapper_options.num_workers);
-  options.AddDefaultOption("image_overlap",
-                           &mapper_options.clustering_options.image_overlap);
-  options.AddDefaultOption(
-      "leaf_max_num_images",
-      &mapper_options.clustering_options.leaf_max_num_images);
+  options.AddHierarchicalMapperOptions();
   options.AddMapperOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -426,10 +441,10 @@ int RunHierarchicalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  mapper_options.incremental_options = *options.mapper;
+  options.hierarchical_mapper->incremental_options = *options.mapper;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline hierarchical_mapper(
-      mapper_options,
+      *options.hierarchical_mapper,
       Database::Open(*options.database_path),
       reconstruction_manager);
   hierarchical_mapper.Run();
@@ -467,7 +482,7 @@ int RunPosePriorMapper(int argc, char** argv) {
       "overwrite_priors_covariance",
       &overwrite_priors_covariance,
       "Priors covariance read from database. If true, overwrite the priors "
-      "covariance using the follwoing prior_position_std_... options");
+      "covariance using the following prior_position_std_... options");
   options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
   options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
   options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
@@ -738,46 +753,6 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   }
 
   LOG(INFO) << "View graph calibration completed successfully";
-  return EXIT_SUCCESS;
-}
-
-int RunReconstructionClusterer(int argc, char** argv) {
-  std::filesystem::path input_path;
-  std::filesystem::path output_path;
-
-  OptionManager options;
-  options.AddRequiredOption("input_path", &input_path);
-  options.AddRequiredOption("output_path", &output_path);
-  options.AddReconstructionClustererOptions();
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (!ExistsDir(input_path)) {
-    LOG(ERROR) << "`input_path` is not a directory";
-    return EXIT_FAILURE;
-  }
-
-  if (!ExistsDir(output_path)) {
-    LOG(ERROR) << "`output_path` is not a directory";
-    return EXIT_FAILURE;
-  }
-
-  LOG_HEADING1("Loading model");
-  auto reconstruction = std::make_shared<Reconstruction>();
-  reconstruction->Read(input_path);
-
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-
-  ReconstructionClustererController controller(
-      *options.reconstruction_clusterer,
-      reconstruction,
-      reconstruction_manager);
-  controller.Run();
-
-  LOG_HEADING1("Writing clustered model(s)");
-  reconstruction_manager->Write(output_path);
-
   return EXIT_SUCCESS;
 }
 

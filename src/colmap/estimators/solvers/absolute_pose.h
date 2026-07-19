@@ -48,7 +48,7 @@ using ImgFromCamFunc =
 struct Point2DWithRay {
   // The 2D image point in pixels.
   Eigen::Vector2d image_point;
-  // The normaled 3D ray direction in the camera frame.
+  // The normalized 3D ray direction in the camera frame.
   Eigen::Vector3d camera_ray;
 };
 
@@ -69,10 +69,9 @@ class P3PEstimator {
   // Estimate the most probable solution of the P3P problem from a set of
   // three 2D-3D point correspondences.
   //
-  // @param points2D   Normalized 2D image points as 3x2 matrix.
-  // @param points3D   3D world points as 3x3 matrix.
-  //
-  // @return           Most probable pose as length-1 vector of a 3x4 matrix.
+  // @param points2D         2D image observations with rays.
+  // @param points3D         3D world points.
+  // @param cams_from_world  Output vector of 3x4 transformation matrices.
   void Estimate(const std::vector<X_t>& points2D,
                 const std::vector<Y_t>& points3D,
                 std::vector<M_t>* cams_from_world) const;
@@ -80,8 +79,8 @@ class P3PEstimator {
   // Calculate the squared reprojection error given a set of 2D-3D point
   // correspondences and a projection matrix.
   //
-  // @param points2D        Normalized 2D image points as Nx2 matrix.
-  // @param points3D        3D world points as Nx3 matrix.
+  // @param points2D        2D image observations with rays.
+  // @param points3D        3D world points.
   // @param cam_from_world  3x4 projection matrix.
   // @param residuals       Output vector of residuals.
   void Residuals(const std::vector<X_t>& points2D,
@@ -104,20 +103,29 @@ class P4PFEstimator {
   struct M_t {
     // The transformation from the world to the camera frame.
     Eigen::Matrix3x4d cam_from_world;
-    // The focal length of the camera.
-    double focal_length = 0.;
+    // The focal lengths (fx, fy) of the camera. Equal when the focal length is
+    // shared (e.g. single-focal camera models).
+    Eigen::Vector2d focal_lengths = Eigen::Vector2d::Zero();
   };
 
   static const int kMinNumSamples = 4;
 
-  static void Estimate(const std::vector<X_t>& points2D,
-                       const std::vector<Y_t>& points3D,
-                       std::vector<M_t>* models);
+  // If share_focal_length is true, a single shared focal length is estimated
+  // (suitable for single-focal camera models, e.g. SIMPLE_PINHOLE). Otherwise,
+  // separate focal lengths for x and y are estimated (e.g. PINHOLE, OPENCV).
+  explicit P4PFEstimator(bool share_focal_length = true);
+
+  void Estimate(const std::vector<X_t>& points2D,
+                const std::vector<Y_t>& points3D,
+                std::vector<M_t>* models) const;
 
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
                         const M_t& model,
                         std::vector<double>* residuals);
+
+ private:
+  const bool share_focal_length_;
 };
 
 // EPNP solver for the PNP (Perspective-N-Point) problem. The solver needs a
@@ -145,13 +153,12 @@ class EPNPEstimator {
 
   explicit EPNPEstimator(ImgFromCamFunc img_from_cam_func);
 
-  // Estimate the most probable solution of the P3P problem from a set of
-  // three 2D-3D point correspondences.
+  // Estimate the most probable solution of the EPNP problem from a set of
+  // four or more 2D-3D point correspondences.
   //
-  // @param points2D   Normalized 2D image points as 3x2 matrix.
-  // @param points3D   3D world points as 3x3 matrix.
-  //
-  // @return           Most probable pose as length-1 vector of a 3x4 matrix.
+  // @param points2D         2D image observations with rays.
+  // @param points3D         3D world points.
+  // @param cams_from_world  Output vector of 3x4 transformation matrices.
   void Estimate(const std::vector<X_t>& points2D,
                 const std::vector<Y_t>& points3D,
                 std::vector<M_t>* cams_from_world);
@@ -159,8 +166,8 @@ class EPNPEstimator {
   // Calculate the squared reprojection error given a set of 2D-3D point
   // correspondences and a projection matrix.
   //
-  // @param points2D        Normalized 2D image points as Nx2 matrix.
-  // @param points3D        3D world points as Nx3 matrix.
+  // @param points2D        2D image observations with rays.
+  // @param points3D        3D world points.
   // @param cam_from_world  3x4 projection matrix.
   // @param residuals       Output vector of residuals.
   void Residuals(const std::vector<X_t>& points2D,

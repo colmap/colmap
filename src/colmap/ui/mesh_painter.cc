@@ -31,6 +31,8 @@
 
 #include "colmap/util/opengl_utils.h"
 
+#include <algorithm>
+
 namespace colmap {
 
 MeshPainter::MeshPainter() : num_vertices_(0) {}
@@ -38,11 +40,21 @@ MeshPainter::MeshPainter() : num_vertices_(0) {}
 MeshPainter::~MeshPainter() {
   vao_.destroy();
   vbo_.destroy();
+  if (texture_id_ != 0) {
+    QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
+    gl_funcs->glDeleteTextures(1, &texture_id_);
+  }
 }
 
 void MeshPainter::Setup() {
   vao_.destroy();
   vbo_.destroy();
+  if (texture_id_ != 0) {
+    QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
+    gl_funcs->glDeleteTextures(1, &texture_id_);
+    texture_id_ = 0;
+    has_texture_ = false;
+  }
   if (shader_program_.isLinked()) {
     shader_program_.release();
     shader_program_.removeAllShaders();
@@ -91,6 +103,11 @@ void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
   shader_program_.setAttributeBuffer(
       "a_normal", GL_FLOAT, 3 * sizeof(GLfloat), 3, sizeof(MeshPainter::Data));
 
+  // a_uv: 2 floats at offset 6*sizeof(float)
+  shader_program_.enableAttributeArray("a_uv");
+  shader_program_.setAttributeBuffer(
+      "a_uv", GL_FLOAT, 6 * sizeof(GLfloat), 2, sizeof(MeshPainter::Data));
+
   // a_color: use glVertexAttribPointer directly because Qt's
   // setAttributeBuffer does not support the normalized parameter,
   // which is needed to map uint8 [0,255] to float [0.0,1.0] in the shader.
@@ -102,7 +119,7 @@ void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
       GL_TRUE,
       sizeof(MeshPainter::Data),
       reinterpret_cast<const void*>(  // NOLINT(performance-no-int-to-ptr)
-          6 * sizeof(GLfloat)));
+          8 * sizeof(GLfloat)));
 
   vbo_.release();
   vao_.release();
@@ -112,9 +129,64 @@ void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
 #endif
 }
 
+void MeshPainter::UploadTexture(std::vector<uint8_t> data,
+                                const int width,
+                                const int height,
+                                const int channels) {
+  QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
+
+  if (texture_id_ != 0) {
+    gl_funcs->glDeleteTextures(1, &texture_id_);
+    texture_id_ = 0;
+  }
+
+  if (data.empty() || width <= 0 || height <= 0) {
+    has_texture_ = false;
+    return;
+  }
+
+  // Flip rows vertically in-place: the input image data is in top-to-bottom
+  // order (standard image convention), but OpenGL's glTexImage2D interprets
+  // the first row as the bottom of the texture. The PLY UV coordinates use
+  // OpenGL convention (V=0 at bottom), so we must flip the image data to
+  // match.
+  const size_t row_bytes = static_cast<size_t>(width) * channels;
+  for (int y = 0; y < height / 2; ++y) {
+    std::swap_ranges(data.begin() + y * row_bytes,
+                     data.begin() + y * row_bytes + row_bytes,
+                     data.begin() + (height - 1 - y) * row_bytes);
+  }
+
+  gl_funcs->glGenTextures(1, &texture_id_);
+  gl_funcs->glBindTexture(GL_TEXTURE_2D, texture_id_);
+
+  gl_funcs->glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+  const GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
+  gl_funcs->glTexImage2D(GL_TEXTURE_2D,
+                         0,
+                         format,
+                         width,
+                         height,
+                         0,
+                         format,
+                         GL_UNSIGNED_BYTE,
+                         data.data());
+
+  gl_funcs->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  gl_funcs->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  gl_funcs->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  gl_funcs->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  gl_funcs->glBindTexture(GL_TEXTURE_2D, 0);
+
+  has_texture_ = true;
+}
+
 void MeshPainter::Render(const QMatrix4x4& pmv_matrix,
                          const QMatrix4x4& model_view_matrix,
-                         const bool wireframe) {
+                         const bool wireframe,
+                         const bool color) {
   if (num_vertices_ == 0) {
     return;
   }
@@ -127,10 +199,23 @@ void MeshPainter::Render(const QMatrix4x4& pmv_matrix,
   shader_program_.setUniformValue("u_normal_matrix",
                                   model_view_matrix.normalMatrix());
   shader_program_.setUniformValue("u_wireframe", wireframe);
+  shader_program_.setUniformValue("u_has_texture", has_texture_ && color);
+  shader_program_.setUniformValue("u_color", color);
 
   QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
+
+  if (has_texture_) {
+    gl_funcs->glActiveTexture(GL_TEXTURE0);
+    gl_funcs->glBindTexture(GL_TEXTURE_2D, texture_id_);
+    shader_program_.setUniformValue("u_texture", 0);
+  }
+
   gl_funcs->glEnable(GL_DEPTH_TEST);
   gl_funcs->glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(num_vertices_));
+
+  if (has_texture_) {
+    gl_funcs->glBindTexture(GL_TEXTURE_2D, 0);
+  }
 
   vao_.release();
 

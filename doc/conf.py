@@ -51,6 +51,9 @@ def get_git_revision():
 extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.autodoc",
+    "sphinx_design",
+    "sphinx_sitemap",
+    "sphinxext.opengraph",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -67,14 +70,14 @@ master_doc = "index"
 
 # General information about the project.
 project = "COLMAP"
-copyright = "2025, Johannes L. Schoenberger"
+copyright = "2026, COLMAP Team"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "3.14.0.dev0" + " | " + get_git_revision()
+version = "4.2.0.dev0" + " | " + get_git_revision()
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -121,37 +124,100 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-html_theme_options = {}
+html_theme_options = {
+    "logo": {
+        "text": "COLMAP",
+        "image_light": "_static/colmap-logo.svg",
+        "image_dark": "_static/colmap-logo-dark.svg",
+    },
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/colmap/colmap",
+            "icon": "fa-brands fa-github",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/pycolmap/",
+            "icon": "fa-brands fa-python",
+        },
+        {
+            "name": "Docker Hub",
+            "url": "https://hub.docker.com/r/colmap/colmap",
+            "icon": "fa-brands fa-docker",
+        },
+    ],
+    "navbar_align": "left",
+    # Show nav links up to "Key Concepts"; collapse the rest into a "More" menu.
+    "header_links_before_dropdown": 3,
+    "navigation_with_keys": True,
+    "show_prev_next": True,
+    "pygments_light_style": "default",
+    "pygments_dark_style": "monokai",
+    "footer_start": ["copyright"],
+    "footer_center": ["version"],
+    "footer_end": ["theme-version"],
+}
 
-# Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = ["_themes"]
+# Follow the visitor's OS/browser preference for light/dark mode by default.
+html_context = {"default_mode": "auto"}
+
+# -- SEO -----------------------------------------------------------------
+
+# Canonical site URL. Base URL for the sitemap and Open Graph tags, and makes
+# every page emit a self-referential <link rel="canonical">. (This alone does
+# not dedupe the hosted legacy/<version>/ copies; those would each need their
+# own HTML updated to point here.)
+html_baseurl = "https://colmap.github.io/"
+
+# sphinx-sitemap: the docs are not multi-version/multi-language, so emit plain
+# page URLs (no {version}/{lang} path segments).
+sitemap_url_scheme = "{link}"
+
+# sphinxext-opengraph: Open Graph / Twitter card metadata + meta description.
+ogp_site_url = html_baseurl
+ogp_site_name = "COLMAP"
+ogp_description_length = 200
+ogp_enable_meta_description = True
+ogp_image = "https://colmap.github.io/_static/og-image.png"
+ogp_image_alt = "COLMAP — Structure-from-Motion & Multi-View Stereo"
+ogp_use_first_image = False
+ogp_custom_meta_tags = [
+    '<meta name="twitter:card" content="summary_large_image" />',
+]
+
+# Copy robots.txt (which points crawlers to the sitemap) to the site root.
+html_extra_path = ["robots.txt"]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-# html_title = None
+html_title = "COLMAP"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 # html_short_title = None
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-# html_logo = None
+html_logo = "_static/colmap-logo.svg"
 
 # The name of an image file (within the static path) to use as favicon of the
-# docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
-# pixels large.
-# html_favicon = None
+# docs.
+html_favicon = "_static/favicon.svg"
+
+# Give the landing page a full-width layout by dropping the left sidebar.
+html_sidebars = {"index": []}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_css_files = ["custom.css"]
+html_css_files = ["custom.css", "landing.css"]
+html_js_files = ["install_selector.js", "external_links.js"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

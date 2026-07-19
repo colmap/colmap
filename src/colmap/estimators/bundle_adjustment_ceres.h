@@ -96,7 +96,7 @@ struct CeresBundleAdjustmentSummary : public BundleAdjustmentSummary {
   std::string BriefReport() const override;
 
   static std::shared_ptr<CeresBundleAdjustmentSummary> Create(
-      const ceres::Solver::Summary& ceres_summary);
+      ceres::Solver::Summary ceres_summary);
 };
 
 // Ceres-specific pose prior bundle adjustment options.
@@ -120,12 +120,12 @@ class CeresBundleAdjuster : public BundleAdjuster {
   virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
 };
 
-std::unique_ptr<BundleAdjuster> CreateDefaultCeresBundleAdjuster(
+std::unique_ptr<CeresBundleAdjuster> CreateDefaultCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction);
 
-std::unique_ptr<BundleAdjuster> CreatePosePriorCeresBundleAdjuster(
+std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const PosePriorBundleAdjustmentOptions& prior_options,
     const BundleAdjustmentConfig& config,

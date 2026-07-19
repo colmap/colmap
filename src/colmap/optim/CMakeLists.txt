@@ -37,8 +37,10 @@ COLMAP_ADD_LIBRARY(
         least_absolute_deviations.h least_absolute_deviations.cc
         progressive_sampler.h progressive_sampler.cc
         random_sampler.h random_sampler.cc
+        sparse_cholesky.h sparse_cholesky.cc
         sprt.h sprt.cc
         support_measurement.h support_measurement.cc
+        tiny_solver.h
     PUBLIC_LINK_LIBS
         colmap_math
         colmap_util
@@ -80,6 +82,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
+    NAME sparse_cholesky_test
+    SRCS sparse_cholesky_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
     NAME sprt_test
     SRCS sprt_test.cc
     LINK_LIBS colmap_optim
@@ -88,4 +95,13 @@ COLMAP_ADD_TEST(
     NAME support_measurement_test
     SRCS support_measurement_test.cc
     LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME tiny_solver_test
+    SRCS tiny_solver_test.cc
+    LINK_LIBS
+        colmap_optim
+        colmap_estimators_cost_functions
+        Ceres::ceres
+        Eigen3::Eigen
 )

@@ -46,14 +46,14 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db
 
-    $ mkdir $DATASET_PATH/sparse
+    $ mkdir -p $DATASET_PATH/sparse
 
     $ colmap mapper \
         --database_path $DATASET_PATH/database.db \
         --image_path $DATASET_PATH/images \
         --output_path $DATASET_PATH/sparse
 
-    $ mkdir $DATASET_PATH/dense
+    $ mkdir -p $DATASET_PATH/dense
 
     $ colmap image_undistorter \
         --image_path $DATASET_PATH/images \
@@ -81,11 +81,51 @@ of commands as an alternative to the automatic reconstruction command::
         --input_path $DATASET_PATH/dense \
         --output_path $DATASET_PATH/dense/meshed-delaunay.ply
 
+    $ colmap advancing_front_mesher \
+        --input_path $DATASET_PATH/dense \
+        --output_path $DATASET_PATH/dense/meshed-advancing-front.ply
+
     # Optionally simplify a dense mesh to reduce its size.
     $ colmap mesh_simplifier \
         --input_path $DATASET_PATH/dense/meshed-poisson.ply \
         --output_path $DATASET_PATH/dense/meshed-poisson-simplified.ply \
         --MeshSimplification.target_face_ratio 0.25
+
+    # Optionally texture a mesh using the undistorted images.
+    $ colmap mesh_texturer \
+        --workspace_path $DATASET_PATH/dense \
+        --input_path $DATASET_PATH/dense/meshed-poisson.ply \
+        --output_path $DATASET_PATH/dense/textured
+
+To use the global SfM pipeline instead of the incremental mapper, replace the
+``mapper`` step with ``global_mapper``. The global mapper depends on good focal
+length priors, so if reliable intrinsics are not available (e.g., from EXIF or
+lab calibration), you should run ``view_graph_calibrator`` first. This step is
+optional but recommended to improve the quality of global SfM, as was always
+the default in `GLOMAP <https://github.com/colmap/glomap>`_. Note that
+``view_graph_calibrator`` modifies camera intrinsics and two-view geometries
+in the database in-place, so it is recommended to work on a copy of the
+database::
+
+    $ colmap feature_extractor \
+       --database_path $DATASET_PATH/database.db \
+       --image_path $DATASET_PATH/images
+
+    $ colmap exhaustive_matcher \
+       --database_path $DATASET_PATH/database.db
+
+    # Optional but often needed: calibrate intrinsics from the view graph.
+    # This modifies the database in-place, so work on a copy.
+    $ cp $DATASET_PATH/database.db $DATASET_PATH/database_global.db
+    $ colmap view_graph_calibrator \
+        --database_path $DATASET_PATH/database_global.db
+
+    $ mkdir -p $DATASET_PATH/sparse
+
+    $ colmap global_mapper \
+        --database_path $DATASET_PATH/database_global.db \
+        --image_path $DATASET_PATH/images \
+        --output_path $DATASET_PATH/sparse
 
 If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
@@ -143,8 +183,10 @@ The available commands can be listed using the command::
           mapper
           matches_importer
           mesh_simplifier
+          mesh_texturer
           model_aligner
           model_analyzer
+          model_clusterer
           model_comparer
           model_converter
           model_cropper
@@ -158,7 +200,6 @@ The available commands can be listed using the command::
           pose_prior_mapper
           poisson_mesher
           project_generator
-          reconstruction_clusterer
           rig_configurator
           rotation_averager
           sequential_matcher
@@ -240,8 +281,8 @@ available as ``colmap [command]``:
   HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
   for different capture scenarios, ``--feature`` (SIFT, ALIKED) to select the
   feature extraction algorithm, ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL)
-  to choose the SfM pipeline, and ``--mesher`` (POISSON, DELAUNAY) to select the
-  surface reconstruction method.
+  to choose the SfM pipeline, and ``--mesher`` (POISSON, DELAUNAY,
+  ADVANCING_FRONT) to select the surface reconstruction method.
 
 - ``project_generator``: Generate project files at different quality settings.
 
@@ -304,6 +345,10 @@ available as ``colmap [command]``:
 - ``delaunay_mesher``: Meshing of the reconstructed sparse or dense point cloud
   using a graph cut on the Delaunay triangulation and visibility voting.
 
+- ``advancing_front_mesher``: Meshing of the fused point cloud using advancing
+  front surface reconstruction. Supports visibility-based filtering and
+  block-wise parallel processing for large-scale scenes. Requires CGAL.
+
 - ``mesh_simplifier``: Simplify a triangle mesh (PLY format) using Quadric Error
   Metric (QEM) decimation. This reduces the number of faces in a mesh while
   preserving its overall shape and appearance. Key options include
@@ -313,6 +358,9 @@ available as ``colmap [command]``:
   ``--MeshSimplification.boundary_weight`` to control boundary edge preservation
   (default 1000). Supports multi-threaded initialization via
   ``--MeshSimplification.num_threads``.
+
+- ``mesh_texturer``: Produce a texture atlas and UV coordinates for a triangle
+  mesh using calibrated multi-view images.
 
 - ``image_registrator``: Register new images in the database against an existing
   model, e.g., when extracting features and matching newly added images in a
@@ -327,7 +375,10 @@ available as ``colmap [command]``:
 
 - ``bundle_adjuster``: Run global bundle adjustment on a reconstructed scene,
   e.g., when a refinement of the intrinsics is needed or
-  after running the ``image_registrator``.
+  after running the ``image_registrator``. The solver backend is selected via
+  ``--BundleAdjustment.backend`` (``CERES`` or ``CASPAR``). Caspar [caspar]_ is
+  an experimental GPU-accelerated backend; see :doc:`faq` for details and
+  limitations.
 
 - ``database_cleaner``: Clean specific or all database tables.
 
@@ -339,6 +390,10 @@ available as ``colmap [command]``:
   might change during the merging process.
 
 - ``model_analyzer``: Print statistics about reconstructions.
+
+- ``model_clusterer``: Split a reconstruction into smaller
+  sub-model clusters. Useful for managing and processing large-scale
+  reconstructions.
 
 - ``model_aligner``: Align/geo-register model to coordinate system of given
   camera centers.
@@ -377,10 +432,6 @@ available as ``colmap [command]``:
 
 - ``vocab_tree_retriever``: Perform vocabulary tree based image retrieval.
 
-- ``reconstruction_clusterer``: Split a reconstruction into smaller
-  sub-model clusters. Useful for managing and processing large-scale
-  reconstructions.
-
 - ``rotation_averager``: Run standalone rotation averaging on the view graph.
   Estimates global camera rotations from pairwise relative rotations.
 
@@ -410,4 +461,5 @@ reconstruction pipelines, COLMAP offers you the following possibilities:
   the ``delaunay_mesher`` can currently not be visualized with COLMAP, instead
   you can use an external viewer, such as Meshlab. Use the ``mesh_simplifier``
   command to reduce the mesh size for faster visualization or downstream
-  processing.
+  processing. Use the ``mesh_texturer`` command to produce a textured mesh
+  with a texture atlas that can be visualized in Meshlab or other 3D viewers.

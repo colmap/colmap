@@ -94,6 +94,9 @@ TEST(PosePrior, GravityFromExifOrientation) {
   EXPECT_FALSE(GravityFromExifOrientation(4).has_value());
   EXPECT_FALSE(GravityFromExifOrientation(5).has_value());
   EXPECT_FALSE(GravityFromExifOrientation(7).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(0).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(42).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(-1).has_value());
 }
 
 TEST(PosePrior, ComputeRot90FromGravity) {

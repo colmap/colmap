@@ -62,6 +62,7 @@ TEST_P(ParameterizedAlikedTests, Nominal) {
 
   FeatureExtractionOptions extraction_options(GetParam());
   extraction_options.use_gpu = false;
+  extraction_options.aliked->min_score = 0.0;
   auto extractor = CreateAlikedFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
@@ -116,6 +117,7 @@ TEST_P(ParameterizedAlikedTests, MaxNumFeatures) {
   // Extract with default max_num_features.
   FeatureExtractionOptions options_default(GetParam());
   options_default.use_gpu = false;
+  options_default.aliked->min_score = 0.0;
   auto extractor_default = CreateAlikedFeatureExtractor(options_default);
   FeatureKeypoints keypoints_default;
   FeatureDescriptors descriptors_default;
@@ -125,6 +127,7 @@ TEST_P(ParameterizedAlikedTests, MaxNumFeatures) {
   // Extract with reduced max_num_features.
   FeatureExtractionOptions options_limited(GetParam());
   options_limited.use_gpu = false;
+  options_limited.aliked->min_score = 0.0;
   options_limited.aliked->max_num_features = 100;
   auto extractor_limited = CreateAlikedFeatureExtractor(options_limited);
   FeatureKeypoints keypoints_limited;
@@ -160,9 +163,24 @@ TEST_P(ParameterizedAlikedTests, MinScore) {
   ASSERT_TRUE(
       extractor_high->Extract(image, &keypoints_high, &descriptors_high));
 
-  // Different min_score values should produce different keypoint counts
-  // (verifies the parameter is being passed to the model).
-  EXPECT_NE(keypoints_high.size(), keypoints_low.size());
+  // Higher min_score should produce strictly fewer keypoints.
+  EXPECT_GT(keypoints_low.size(), 0);
+  EXPECT_LT(keypoints_high.size(), keypoints_low.size());
+
+  // Keypoints from the high-score extraction should be a subset of the
+  // low-score extraction, since raising the threshold only removes keypoints.
+  for (const auto& kp_high : keypoints_high) {
+    bool found = false;
+    for (const auto& kp_low : keypoints_low) {
+      if (kp_high.x == kp_low.x && kp_high.y == kp_low.y) {
+        found = true;
+        break;
+      }
+    }
+    EXPECT_TRUE(found) << "Keypoint (" << kp_high.x << ", " << kp_high.y
+                       << ") from high-score extraction not found in "
+                          "low-score extraction";
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(AlikedTests,

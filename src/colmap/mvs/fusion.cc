@@ -33,12 +33,12 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <unordered_set>
 
 #include <Eigen/Geometry>
 
@@ -352,14 +352,13 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
   fused_pixel_mask = Mat<char>(width, height, 1);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
       mask.Read(mask_path, false)) {
-    BitmapColor<uint8_t> color;
     mask.Rescale(static_cast<int>(width),
                  static_cast<int>(height),
                  Bitmap::RescaleFilter::kBox);
     for (size_t row = 0; row < height; ++row) {
       for (size_t col = 0; col < width; ++col) {
-        mask.GetPixel(col, row, &color);
-        fused_pixel_mask.Set(row, col, color.r == 0 ? 1 : 0);
+        const auto color = mask.GetPixel(col, row);
+        fused_pixel_mask.Set(row, col, (!color || color->r == 0) ? 1 : 0);
       }
     }
   } else {
@@ -388,7 +387,7 @@ void StereoFusion::Fuse(const int thread_id,
   std::vector<uint8_t> fused_point_r;
   std::vector<uint8_t> fused_point_g;
   std::vector<uint8_t> fused_point_b;
-  std::unordered_set<int> fused_point_visibility;
+  FlatHashSet<int> fused_point_visibility;
 
   while (!fusion_queue.empty()) {
     const auto data = fusion_queue.back();
@@ -456,10 +455,12 @@ void StereoFusion::Fuse(const int thread_id,
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
     // Read the color of the pixel.
-    BitmapColor<uint8_t> color;
     const auto& bitmap_scale = bitmap_scales_.at(image_idx);
-    workspace_->GetBitmap(image_idx).InterpolateNearestNeighbor(
-        col / bitmap_scale.first, row / bitmap_scale.second, &color);
+    const auto color =
+        workspace_->GetBitmap(image_idx)
+            .InterpolateNearestNeighbor(col / bitmap_scale.first,
+                                        row / bitmap_scale.second)
+            .value_or(BitmapColor<uint8_t>(0));
 
     // Set the current pixel as visited.
     fused_pixel_mask.Set(row, col, 1);
@@ -571,6 +572,26 @@ void WritePointsVisibility(
       WriteBinaryLittleEndian<uint32_t>(&file, image_idx);
     }
   }
+}
+
+std::vector<std::vector<int>> ReadPointsVisibility(
+    const std::filesystem::path& path, size_t num_points) {
+  std::fstream file(path, std::ios::in | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+
+  const size_t file_num_points = ReadBinaryLittleEndian<uint64_t>(&file);
+  THROW_CHECK_EQ(file_num_points, num_points);
+
+  std::vector<std::vector<int>> visibility(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const uint32_t num_visible = ReadBinaryLittleEndian<uint32_t>(&file);
+    visibility[i].resize(num_visible);
+    for (uint32_t j = 0; j < num_visible; ++j) {
+      visibility[i][j] =
+          static_cast<int>(ReadBinaryLittleEndian<uint32_t>(&file));
+    }
+  }
+  return visibility;
 }
 
 }  // namespace mvs

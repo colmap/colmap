@@ -4,6 +4,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
+#include "colmap/util/hash_containers.h"
 
 #include <algorithm>
 #include <queue>
@@ -25,7 +26,7 @@ bool UseGravity(const RotationEstimatorOptions& options,
   return options.use_gravity && HasGravityPriors(pose_priors);
 }
 
-bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
+bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
   bool all_known = true;
   for (const auto& [rig_id, rig] : rigs) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
@@ -46,10 +47,10 @@ bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
 // Returns the root image_id and populates the parents map.
 image_t ComputeMaximumPoseGraphSpanningTree(
     const PoseGraph& pose_graph,
-    const std::unordered_set<image_t>& image_ids,
-    std::unordered_map<image_t, image_t>& parents) {
+    const FlatHashSet<image_t>& image_ids,
+    NodeHashMap<image_t, image_t>& parents) {
   // Build mapping between image_id and contiguous indices.
-  std::unordered_map<image_t, int> image_id_to_idx;
+  NodeHashMap<image_t, int> image_id_to_idx;
   std::vector<image_t> idx_to_image_id;
   image_id_to_idx.reserve(image_ids.size());
   idx_to_image_id.reserve(image_ids.size());
@@ -92,15 +93,15 @@ image_t ComputeMaximumPoseGraphSpanningTree(
 }
 
 // Computes the largest connected component and returns image ids.
-std::unordered_set<image_t> ComputeLargestConnectedComponentImageIds(
+FlatHashSet<image_t> ComputeLargestConnectedComponentImageIds(
     const PoseGraph& pose_graph,
     const Reconstruction& reconstruction,
     bool filter_unregistered) {
-  const std::unordered_set<frame_t> frame_ids =
+  const FlatHashSet<frame_t> frame_ids =
       pose_graph.ComputeLargestConnectedFrameComponent(reconstruction,
                                                        filter_unregistered);
 
-  std::unordered_set<image_t> image_ids;
+  FlatHashSet<image_t> image_ids;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (frame_ids.count(image.FrameId())) {
       image_ids.insert(image_id);
@@ -137,7 +138,7 @@ Reconstruction CreateExpandedReconstruction(
 
   // Create expanded rigs with known sensors only.
   // Cameras with unknown cam_from_rig get their own singleton rigs.
-  std::unordered_map<camera_t, rig_t> singleton_rig_ids;
+  NodeHashMap<camera_t, rig_t> singleton_rig_ids;
 
   // First, find the max rig ID to avoid conflicts when creating singleton rigs.
   rig_t next_rig_id = 0;
@@ -178,6 +179,11 @@ Reconstruction CreateExpandedReconstruction(
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   const Rigid3d kUnknownPose(kUnknownRotation, kUnknownTranslation);
 
+  // First pass: build expanded frames with their data ids, and collect images
+  // to add afterwards.
+  std::vector<Image> expanded_images;
+  std::vector<Frame> expanded_frames;
+
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     Frame frame_expanded;
     frame_expanded.SetFrameId(frame_id);
@@ -187,13 +193,8 @@ Reconstruction CreateExpandedReconstruction(
     } else {
       frame_expanded.SetRigFromWorld(kUnknownPose);
     }
-    recon_expanded.AddFrame(std::move(frame_expanded));
-  }
 
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    Frame& frame_expanded = recon_expanded.Frame(frame_id);
     const Rig& original_rig = reconstruction.Rig(frame.RigId());
-
     for (const auto& data_id : frame.ImageIds()) {
       const auto& image = reconstruction.Image(data_id.id);
 
@@ -213,7 +214,7 @@ Reconstruction CreateExpandedReconstruction(
         // Camera belongs to this frame's rig.
         frame_expanded.AddDataId(image_expanded.DataId());
         image_expanded.SetFrameId(frame_id);
-        recon_expanded.AddImage(std::move(image_expanded));
+        expanded_images.push_back(std::move(image_expanded));
       } else {
         // Camera has its own singleton rig, create a new frame for it.
         const frame_t new_frame_id = next_frame_id++;
@@ -222,12 +223,21 @@ Reconstruction CreateExpandedReconstruction(
         new_frame.SetRigId(singleton_rig_ids.at(image.CameraId()));
         new_frame.AddDataId(image_expanded.DataId());
         new_frame.SetRigFromWorld(kUnknownPose);
-        recon_expanded.AddFrame(std::move(new_frame));
+        expanded_frames.push_back(std::move(new_frame));
 
         image_expanded.SetFrameId(new_frame_id);
-        recon_expanded.AddImage(std::move(image_expanded));
+        expanded_images.push_back(std::move(image_expanded));
       }
     }
+    expanded_frames.push_back(std::move(frame_expanded));
+  }
+
+  // Second pass: add all frames, then all images.
+  for (auto& frame : expanded_frames) {
+    recon_expanded.AddFrame(std::move(frame));
+  }
+  for (auto& image : expanded_images) {
+    recon_expanded.AddImage(std::move(image));
   }
 
   return recon_expanded;
@@ -269,7 +279,7 @@ void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
 bool RotationEstimator::EstimateRotations(
     const PoseGraph& pose_graph,
     const std::vector<PosePrior>& pose_priors,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   if (UseGravity(options_, pose_priors) &&
       !AllSensorsFromRigKnown(reconstruction.Rigs())) {
@@ -303,10 +313,10 @@ bool RotationEstimator::EstimateRotations(
 bool RotationEstimator::MaybeSolveGravityAlignedSubset(
     const PoseGraph& pose_graph,
     const std::vector<PosePrior>& pose_priors,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   // Build map from image to pose prior.
-  std::unordered_map<image_t, const PosePrior*> image_to_pose_prior;
+  NodeHashMap<image_t, const PosePrior*> image_to_pose_prior;
   for (const auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       image_to_pose_prior[pose_prior.corr_data_id.id] = &pose_prior;
@@ -358,7 +368,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
     Reconstruction gravity_reconstruction(reconstruction);
 
     // Compute largest connected component for gravity subset.
-    std::unordered_set<image_t> gravity_image_ids =
+    FlatHashSet<image_t> gravity_image_ids =
         ComputeLargestConnectedComponentImageIds(gravity_pose_graph,
                                                  gravity_reconstruction,
                                                  /*filter_unregistered=*/false);
@@ -378,13 +388,15 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
           .SetRigFromWorld(gravity_frame.RigFromWorld());
     }
 
-    for (const auto& [gravity_rig_id, gravity_rig] :
-         gravity_reconstruction.Rigs()) {
-      for (const auto& [sensor_id, sensor_from_rig] :
-           gravity_rig.NonRefSensors()) {
-        if (!gravity_rig.HasSensorFromRig(sensor_id)) continue;
-        reconstruction.Rig(gravity_rig_id)
-            .SetSensorFromRig(sensor_id, sensor_from_rig);
+    if (options_.refine_sensor_from_rig) {
+      for (const auto& [gravity_rig_id, gravity_rig] :
+           gravity_reconstruction.Rigs()) {
+        for (const auto& [sensor_id, sensor_from_rig] :
+             gravity_rig.NonRefSensors()) {
+          if (!gravity_rig.HasSensorFromRig(sensor_id)) continue;
+          reconstruction.Rig(gravity_rig_id)
+              .SetSensorFromRig(sensor_id, sensor_from_rig);
+        }
       }
     }
   }
@@ -395,10 +407,12 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 bool RotationEstimator::SolveRotationAveraging(
     const PoseGraph& pose_graph,
     const std::vector<PosePrior>& pose_priors,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
-  // Initialize rotations from maximum spanning tree if no gravity priors.
-  if (!options_.skip_initialization && !UseGravity(options_, pose_priors)) {
+  // Initialize rotations from maximum spanning tree. Note that without
+  // intialization, the gravity-aligned rotation averaging is prone to random
+  // flips by 180deg.
+  if (!options_.skip_initialization) {
     InitializeFromMaximumSpanningTree(
         pose_graph, active_image_ids, reconstruction);
   }
@@ -419,17 +433,17 @@ bool RotationEstimator::SolveRotationAveraging(
 
 void RotationEstimator::InitializeFromMaximumSpanningTree(
     const PoseGraph& pose_graph,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   // Compute maximum spanning tree over active images.
-  std::unordered_map<image_t, image_t> parents;
+  NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
       pose_graph, active_image_ids, parents);
   THROW_CHECK(active_image_ids.count(root));
 
   // Iterate through the tree to initialize the rotation.
   // Establish child info.
-  std::unordered_map<image_t, std::vector<image_t>> children;
+  NodeHashMap<image_t, std::vector<image_t>> children;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (!active_image_ids.count(image_id)) continue;
     children.emplace(image_id, std::vector<image_t>());
@@ -442,7 +456,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   std::queue<image_t> indexes;
   indexes.push(root);
 
-  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  NodeHashMap<image_t, Rigid3d> cams_from_world;
   while (!indexes.empty()) {
     image_t curr = indexes.front();
     indexes.pop();
@@ -459,16 +473,17 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
         (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation();
   }
 
-  InitializeRigRotationsFromImages(cams_from_world, reconstruction);
+  InitializeRigRotationsFromImages(
+      cams_from_world, reconstruction, options_.refine_sensor_from_rig);
 }
 
 bool InitializeRigRotationsFromImages(
-    const std::unordered_map<image_t, Rigid3d>& cams_from_world,
-    Reconstruction& reconstruction) {
+    const NodeHashMap<image_t, Rigid3d>& cams_from_world,
+    Reconstruction& reconstruction,
+    bool refine_sensor_from_rig) {
   // Step 1: Estimate cam_from_rig for cameras with unknown calibration.
   // Collect samples across frames, then average.
-  std::unordered_map<camera_t,
-                     std::pair<rig_t, std::vector<Eigen::Quaterniond>>>
+  NodeHashMap<camera_t, std::pair<rig_t, std::vector<Eigen::Quaterniond>>>
       cam_from_rig_samples;
 
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
@@ -510,14 +525,34 @@ bool InitializeRigRotationsFromImages(
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
 
   std::vector<double> weights;
-  for (auto& [camera_id, rig_id_and_samples] : cam_from_rig_samples) {
-    auto& [rig_id, samples] = rig_id_and_samples;
-    weights.resize(samples.size(), 1.0);
-    const Eigen::Quaterniond cam_from_rig =
-        AverageQuaternions(samples, weights);
-    reconstruction.Rig(rig_id).SetSensorFromRig(
-        sensor_t(SensorType::CAMERA, camera_id),
-        Rigid3d(cam_from_rig, kUnknownTranslation));
+  if (refine_sensor_from_rig) {
+    for (auto& [camera_id, rig_id_and_samples] : cam_from_rig_samples) {
+      auto& [rig_id, samples] = rig_id_and_samples;
+      const auto sensor_id = sensor_t(SensorType::CAMERA, camera_id);
+      const auto existing =
+          reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
+      // If sensor_from_rig is already fully calibrated, preserve it rather
+      // than overwriting with MST-derived approximation.
+      if (existing.has_value() && !existing->translation().hasNaN()) {
+        continue;
+      }
+      weights.resize(samples.size(), 1.0);
+      const Eigen::Quaterniond cam_from_rig =
+          AverageQuaternions(samples, weights);
+      reconstruction.Rig(rig_id).SetSensorFromRig(
+          sensor_id, Rigid3d(cam_from_rig, kUnknownTranslation));
+    }
+  } else {
+    // Check if rotations are valid.
+    for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+      for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+        THROW_CHECK(sensor_from_rig.has_value() &&
+                    !sensor_from_rig->rotation().coeffs().hasNaN())
+            << "sensor_from_rig has NaN rotation but "
+               "refine_sensor_from_rig=false (rig_id="
+            << rig_id << ", sensor_id=" << sensor_id.id << ")";
+      }
+    }
   }
 
   // Step 2: Compute rig_from_world for each frame by averaging across images.
@@ -567,7 +602,7 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           PoseGraph& pose_graph,
                           Reconstruction& reconstruction,
                           const std::vector<PosePrior>& pose_priors) {
-  std::unordered_set<image_t> active_image_ids;
+  FlatHashSet<image_t> active_image_ids;
 
   // Step 1: Solve rotation averaging on the largest connected component.
   if (!HasUnknownCamsFromRig(reconstruction)) {
@@ -598,7 +633,7 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
     Reconstruction recon_expanded =
         CreateExpandedReconstruction(reconstruction);
 
-    std::unordered_set<image_t> expanded_active_image_ids =
+    FlatHashSet<image_t> expanded_active_image_ids =
         ComputeLargestConnectedComponentImageIds(
             pose_graph, recon_expanded, options.filter_unregistered);
 
@@ -619,7 +654,7 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
     }
 
     // Step 1b: Initialize cam_from_rig from expanded results.
-    std::unordered_map<image_t, Rigid3d> expanded_cams_from_world;
+    NodeHashMap<image_t, Rigid3d> expanded_cams_from_world;
     for (const auto& [image_id, image] : recon_expanded.Images()) {
       if (!image.HasPose()) continue;
       expanded_cams_from_world[image_id] = image.CamFromWorld();
@@ -627,7 +662,9 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
 
     LOG(INFO)
         << "Initializing cam_from_rig from preliminary rotation estimates";
-    InitializeRigRotationsFromImages(expanded_cams_from_world, reconstruction);
+    InitializeRigRotationsFromImages(expanded_cams_from_world,
+                                     reconstruction,
+                                     options.refine_sensor_from_rig);
 
     // Step 1c: Solve on original reconstruction with initialized cam_from_rig.
     active_image_ids = ComputeLargestConnectedComponentImageIds(
@@ -667,12 +704,13 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     // De-register frames outside the new active set.
-    std::unordered_set<frame_t> active_frame_ids;
+    FlatHashSet<frame_t> active_frame_ids;
     for (const image_t image_id : active_image_ids) {
       active_frame_ids.insert(reconstruction.Image(image_id).FrameId());
     }
-    for (const image_t image_id : reconstruction.RegImageIds()) {
-      const frame_t frame_id = reconstruction.Image(image_id).FrameId();
+    const std::vector<frame_t> reg_frame_ids_snapshot =
+        reconstruction.RegFrameIds();
+    for (const frame_t frame_id : reg_frame_ids_snapshot) {
       THROW_CHECK(reconstruction.Frame(frame_id).HasPose());
       if (!active_frame_ids.count(frame_id)) {
         reconstruction.DeRegisterFrame(frame_id);

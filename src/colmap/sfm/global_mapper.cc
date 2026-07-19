@@ -1,10 +1,12 @@
 #include "colmap/sfm/global_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -38,23 +40,48 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
   return ba->Solve()->IsSolutionUsable();
 }
 
-GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
-  // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = options;
-  if (opts.random_seed >= 0) {
-    opts.rotation_averaging.random_seed = opts.random_seed;
-    opts.global_positioning.random_seed = opts.random_seed;
-    opts.global_positioning.use_parameter_block_ordering = false;
-    opts.retriangulation.random_seed = opts.random_seed;
-  }
-  opts.global_positioning.solver_options.num_threads = opts.num_threads;
-  if (opts.bundle_adjustment.ceres) {
-    opts.bundle_adjustment.ceres->solver_options.num_threads = opts.num_threads;
+}  // namespace
+
+RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
+  RotationEstimatorOptions opts = rotation_averaging;
+  opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  if (random_seed >= 0) {
+    opts.random_seed = random_seed;
   }
   return opts;
 }
 
-}  // namespace
+GlobalPositionerOptions GlobalMapperOptions::GlobalPositioning() const {
+  GlobalPositionerOptions opts = global_positioning;
+  opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.solver_options.num_threads = num_threads;
+  if (random_seed >= 0) {
+    opts.random_seed = random_seed;
+    opts.use_parameter_block_ordering = false;
+  }
+  return opts;
+}
+
+BundleAdjustmentOptions GlobalMapperOptions::BundleAdjustment() const {
+  BundleAdjustmentOptions opts = bundle_adjustment;
+  opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  if (opts.ceres) {
+    opts.ceres->solver_options.num_threads = num_threads;
+    opts.ceres->gpu_index = ba_gpu_index;
+  }
+  if (opts.caspar) {
+    opts.caspar->gpu_index = ba_gpu_index;
+  }
+  return opts;
+}
+
+IncrementalTriangulator::Options GlobalMapperOptions::Retriangulation() const {
+  IncrementalTriangulator::Options opts = retriangulation;
+  if (random_seed >= 0) {
+    opts.random_seed = random_seed;
+  }
+  return opts;
+}
 
 GlobalMapper::GlobalMapper(std::shared_ptr<const DatabaseCache> database_cache)
     : database_cache_(std::move(THROW_CHECK_NOTNULL(database_cache))) {}
@@ -114,8 +141,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
 
   // Build keypoints map from registered images.
-  std::unordered_map<image_t, std::vector<Eigen::Vector2d>>
-      image_id_to_keypoints;
+  NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_id_to_keypoints;
   for (const auto image_id : reconstruction_->RegImageIds()) {
     const auto& image = reconstruction_->Image(image_id);
     std::vector<Eigen::Vector2d> points;
@@ -129,7 +155,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   auto corr_graph = database_cache_->CorrespondenceGraph();
 
   // Union all matching observations.
-  UnionFind<Observation> uf;
+  UnionFind<Observation, PairHash> uf;
   FeatureMatches matches;
   for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -151,7 +177,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
 
   // Group observations by their root.
   uf.Compress();
-  std::unordered_map<Observation, std::vector<Observation>> track_map;
+  NodeHashMap<Observation, std::vector<Observation>, PairHash> track_map;
   for (const auto& [obs, root] : uf.Parents()) {
     track_map[root].push_back(obs);
   }
@@ -159,13 +185,13 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
             << uf.Parents().size() << " observations";
 
   // Validate tracks, check consistency, and collect valid ones with lengths.
-  std::unordered_map<point3D_t, Point3D> candidate_points3D;
+  NodeHashMap<point3D_t, Point3D> candidate_points3D;
   std::vector<std::pair<size_t, point3D_t>> track_lengths;
   size_t discarded_counter = 0;
   point3D_t next_point3D_id = 0;
 
   for (const auto& [track_id, observations] : track_map) {
-    std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
+    NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_id_set;
     Point3D point3D;
     bool is_consistent = true;
 
@@ -212,9 +238,15 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   // Sort tracks by length (descending) and select for problem.
   std::sort(track_lengths.begin(), track_lengths.end(), std::greater<>());
 
-  std::unordered_map<image_t, size_t> tracks_per_image;
+  NodeHashMap<image_t, size_t> tracks_per_image;
   size_t images_left = image_id_to_keypoints.size();
+  const size_t max_num_tracks =
+      static_cast<size_t>(options.keep_max_num_tracks);
   for (const auto& [track_length, point3D_id] : track_lengths) {
+    // Stop once the global track budget is exhausted. As tracks are sorted by
+    // decreasing length, this keeps the longest tracks and bounds memory usage.
+    if (reconstruction_->NumPoints3D() >= max_num_tracks) break;
+
     auto& point3D = candidate_points3D.at(point3D_id);
 
     // Check if any image in this track still needs more observations.
@@ -313,7 +345,8 @@ bool GlobalMapper::IterativeBundleAdjustment(
     double min_tri_angle_deg,
     int num_iterations,
     bool skip_fixed_rotation_stage,
-    bool skip_joint_optimization_stage) {
+    bool skip_joint_optimization_stage,
+    const std::function<bool()>& on_progress) {
   for (int ite = 0; ite < num_iterations; ite++) {
     // Optional fixed-rotation stage: optimize positions only
     if (!skip_fixed_rotation_stage) {
@@ -339,6 +372,17 @@ bool GlobalMapper::IterativeBundleAdjustment(
     // TODO: Skip normalization when position priors are used (similar to
     // incremental mapper's !use_prior_position condition).
     reconstruction_->Normalize();
+
+    // Report progress for this refinement iteration and stop early if
+    // requested. The filter passes above leave point3D.error in normalized
+    // units, so recompute it in pixels first to keep intermediate
+    // visualizations consistent with the final reconstruction.
+    if (on_progress) {
+      reconstruction_->UpdatePoint3DErrors();
+      if (on_progress()) {
+        break;
+      }
+    }
 
     // Filter tracks based on the estimation
     // For the filtering, in each round, the criteria for outlier is
@@ -401,7 +445,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Set up bundle adjustment options for colmap's incremental mapper.
-  BundleAdjustmentOptions custom_ba_options;
+  BundleAdjustmentOptions custom_ba_options = ba_options;
   custom_ba_options.print_summary = false;
   if (custom_ba_options.ceres && ba_options.ceres) {
     custom_ba_options.ceres->solver_options.num_threads =
@@ -449,7 +493,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 }
 
 bool GlobalMapper::Solve(const GlobalMapperOptions& options,
-                         std::unordered_map<frame_t, int>& cluster_ids) {
+                         const std::function<bool()>& on_progress) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
 
@@ -458,15 +502,25 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     return false;
   }
 
-  // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = InitializeOptions(options);
+  // Reports the current reconstruction and returns whether a stop was
+  // requested. Point errors are recomputed in pixels before reporting because
+  // the preceding filter passes leave point3D.error in normalized units, which
+  // would otherwise make intermediate visualizations inconsistent with the
+  // final reconstruction.
+  const auto report_and_check_stop = [&]() {
+    if (!on_progress) {
+      return false;
+    }
+    reconstruction_->UpdatePoint3DErrors();
+    return on_progress();
+  };
 
   // Run rotation averaging
-  if (!opts.skip_rotation_averaging) {
+  if (!options.skip_rotation_averaging) {
     LOG_HEADING1("Running rotation averaging");
     Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging)) {
+    if (!RotationAveraging(options.RotationAveraging())) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -474,41 +528,48 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Track establishment and selection
-  if (!opts.skip_track_establishment) {
+  if (!options.skip_track_establishment) {
     LOG_HEADING1("Running track establishment");
     Timer run_timer;
     run_timer.Start();
-    EstablishTracks(opts);
+    EstablishTracks(options);
     LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
 
   // Global positioning
-  if (!opts.skip_global_positioning) {
+  if (!options.skip_global_positioning) {
     LOG_HEADING1("Running global positioning");
     Timer run_timer;
     run_timer.Start();
-    if (!GlobalPositioning(opts.global_positioning,
-                           opts.max_angular_reproj_error_deg,
-                           opts.max_normalized_reproj_error,
-                           opts.min_tri_angle_deg)) {
+    if (!GlobalPositioning(options.GlobalPositioning(),
+                           options.max_angular_reproj_error_deg,
+                           options.max_normalized_reproj_error,
+                           options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
               << " seconds";
+
+    // Report the first 3D view after global positioning and stop early if
+    // requested.
+    if (report_and_check_stop()) {
+      return true;
+    }
   }
 
   // Bundle adjustment
-  if (!opts.skip_bundle_adjustment) {
+  if (!options.skip_bundle_adjustment) {
     LOG_HEADING1("Running iterative bundle adjustment");
     Timer run_timer;
     run_timer.Start();
-    if (!IterativeBundleAdjustment(opts.bundle_adjustment,
-                                   opts.max_normalized_reproj_error,
-                                   opts.min_tri_angle_deg,
-                                   opts.ba_num_iterations,
-                                   opts.ba_skip_fixed_rotation_stage,
-                                   opts.ba_skip_joint_optimization_stage)) {
+    if (!IterativeBundleAdjustment(options.BundleAdjustment(),
+                                   options.max_normalized_reproj_error,
+                                   options.min_tri_angle_deg,
+                                   options.ba_num_iterations,
+                                   options.ba_skip_fixed_rotation_stage,
+                                   options.ba_skip_joint_optimization_stage,
+                                   on_progress)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
@@ -516,19 +577,29 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Retriangulation
-  if (!opts.skip_retriangulation) {
+  if (!options.skip_retriangulation) {
     LOG_HEADING1("Running iterative retriangulation and refinement");
     Timer run_timer;
     run_timer.Start();
-    if (!IterativeRetriangulateAndRefine(opts.retriangulation,
-                                         opts.bundle_adjustment,
-                                         opts.max_normalized_reproj_error,
-                                         opts.min_tri_angle_deg)) {
+    if (!IterativeRetriangulateAndRefine(options.Retriangulation(),
+                                         options.BundleAdjustment(),
+                                         options.max_normalized_reproj_error,
+                                         options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
               << run_timer.ElapsedSeconds() << " seconds";
+
+    // Report the result after retriangulation and stop early if requested.
+    if (report_and_check_stop()) {
+      return true;
+    }
   }
+
+  // Filter passes here use NORMALIZED/ANGULAR error, so point3D.error is
+  // left in non-pixel units. Recompute in pixels for consistent reporting
+  // in model_analyzer.
+  reconstruction_->UpdatePoint3DErrors();
 
   return true;
 }

@@ -29,14 +29,14 @@
 
 #pragma once
 
-#include "colmap/util//enum_utils.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #define THROW_CHECK_FILE_EXISTS(path)                 \

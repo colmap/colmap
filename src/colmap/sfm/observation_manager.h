@@ -34,6 +34,7 @@
 #include "colmap/scene/track.h"
 #include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/enum_utils.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -65,8 +66,14 @@ class ObservationManager {
   inline const class Reconstruction& Reconstruction() const;
   inline class Reconstruction& Reconstruction();
 
-  inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
-      const;
+  inline const FlatHashMap<image_pair_t, ImagePairStat>& ImagePairs() const;
+
+  // Add image stats for streaming/online SfM, so that the image can be
+  // registered and triangulated without rebuilding the ObservationManager.
+  // The image must already be added to the Reconstruction and
+  // CorrespondenceGraph. Note: O(N) per call in the number of existing
+  // images for image pair stats update.
+  void AddImage(image_t image_id);
 
   // Add new 3D object, and return its unique ID.
   point3D_t AddPoint3D(
@@ -97,10 +104,10 @@ class ObservationManager {
   // @return                    The number of filtered observations.
   size_t FilterPoints3D(double max_reproj_error,
                         double min_tri_angle,
-                        const std::unordered_set<point3D_t>& point3D_ids);
+                        const FlatHashSet<point3D_t>& point3D_ids);
   size_t FilterPoints3DInImages(double max_reproj_error,
                                 double min_tri_angle,
-                                const std::unordered_set<image_t>& image_ids);
+                                const FlatHashSet<image_t>& image_ids);
   size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
 
   // Filter points with track length below threshold.
@@ -116,7 +123,7 @@ class ObservationManager {
   size_t FilterObservationsWithNegativeDepth();
 
   size_t FilterPoints3DWithSmallTriangulationAngle(
-      double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
+      double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids);
 
   // Filter observations with large reprojection error.
   //
@@ -129,15 +136,18 @@ class ObservationManager {
   // @return                The number of filtered observations.
   size_t FilterPoints3DWithLargeReprojectionError(
       double max_error,
-      const std::unordered_set<point3D_t>& point3D_ids,
+      const FlatHashSet<point3D_t>& point3D_ids,
       ReprojectionErrorType error_type = ReprojectionErrorType::PIXEL);
 
-  // Filter frames without observations or bogus camera parameters.
+  // Find frames that should be filtered due to having no observations or
+  // bogus camera parameters, without de-registering them. Pass them to
+  // DeRegisterFrame to reset their pose.
   //
-  // @return    The identifiers of the filtered frames.
-  std::vector<frame_t> FilterFrames(double min_focal_length_ratio,
-                                    double max_focal_length_ratio,
-                                    double max_extra_param);
+  // @return    The identifiers of the frames to filter.
+  std::vector<frame_t> FindFramesToFilter(double min_focal_length_ratio,
+                                          double max_focal_length_ratio,
+                                          double max_extra_param,
+                                          int min_num_observations) const;
 
   // Register/De-register an existing frame, and all its references.
   void RegisterFrame(frame_t frame_id);
@@ -212,10 +222,15 @@ class ObservationManager {
     VisibilityPyramid point3D_visibility_pyramid;
   };
 
+  ImageStat InitImageStat(image_t image_id, const Image& image) const;
+
   class Reconstruction& reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
-  std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
-  std::unordered_map<image_t, ImageStat> image_stats_;
+  // These stat maps are fully populated at construction and only their values
+  // are mutated thereafter (no key insert/erase during mapping), so a flat map
+  // is safe and faster.
+  FlatHashMap<image_pair_t, ImagePairStat> image_pair_stats_;
+  FlatHashMap<image_t, ImageStat> image_stats_;
 };
 
 std::ostream& operator<<(std::ostream& stream,
@@ -229,7 +244,7 @@ class Reconstruction& ObservationManager::Reconstruction() {
   return reconstruction_;
 }
 
-const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
+const FlatHashMap<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {
   return image_pair_stats_;
 }

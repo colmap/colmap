@@ -31,10 +31,12 @@
 
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
 #include <fstream>
+#include <locale>
 #include <thread>
 
 namespace colmap {
@@ -70,6 +72,7 @@ void WriteProjectionMatrix(const std::filesystem::path& path,
 
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
+  file.imbue(std::locale::classic());
 
   Eigen::Matrix3d calib_matrix = Eigen::Matrix3d::Identity();
   calib_matrix(0, 0) = camera.FocalLengthX();
@@ -231,11 +234,26 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const auto input_image_path = image_path_ / image.Name();
   const auto output_image_path = output_path_ / "images" / image.Name();
 
-  // Check if the image is already undistorted and copy from source if no
-  // scaling is needed
+  // Non-perspective cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane
+  // to undistort to. Without a size limit they are copied through unchanged
+  // (they cannot be rescaled to a pinhole image for MVS); with a max_image_size
+  // they still go through UndistortImage below, which resizes them to a smaller
+  // image of the same model.
+  if (!camera.IsPerspective() && camera_options_.max_image_size < 0 &&
+      ExistsFile(input_image_path)) {
+    LOG(WARNING) << "Cannot undistort image " << image.Name()
+                 << " with non-perspective camera model " << camera.ModelName()
+                 << "; copying the original image.";
+    FileCopy(input_image_path, output_image_path, options_.copy_type);
+    return true;
+  }
+
+  // Already-undistorted perspective images are copied through only when no
+  // rescaling is requested; with a max_image_size they still go through
+  // UndistortImage below so the size limit is applied.
   if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
       ExistsFile(input_image_path)) {
-    LOG(INFO) << "Copying already distorted image to location: "
+    LOG(INFO) << "Copying already undistorted image to location: "
               << output_image_path;
     FileCopy(input_image_path, output_image_path, options_.copy_type);
     return true;
@@ -410,7 +428,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
   size_t image_idx = 0;
   for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
-    std::unordered_set<image_t> visible_image_ids;
+    FlatHashSet<image_t> visible_image_ids;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
@@ -797,6 +815,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   const auto Q_path = output_path_ / stereo_pair_name / "Q.txt";
   std::ofstream Q_file(Q_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(Q_file, Q_path);
+  Q_file.imbue(std::locale::classic());
   WriteMatrix(Q, &Q_file);
 }
 

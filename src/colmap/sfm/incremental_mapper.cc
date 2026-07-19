@@ -29,16 +29,37 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sfm/incremental_mapper_impl.h"
+#include "colmap/util/hash_containers.h"
 
 #include <array>
 
 namespace colmap {
+namespace {
+
+// Seed the intrinsics estimated for the initial image pair onto the
+// reconstruction, leaving them optimizable for bundle adjustment. No-op for
+// cameras whose intrinsics were not estimated (std::nullopt).
+void SeedEstimatedInitialCameras(Reconstruction& reconstruction,
+                                 const image_t image_id1,
+                                 const image_t image_id2,
+                                 const std::optional<Camera>& camera1,
+                                 const std::optional<Camera>& camera2) {
+  if (camera1.has_value()) {
+    *reconstruction.Image(image_id1).CameraPtr() = *camera1;
+  }
+  if (camera2.has_value()) {
+    *reconstruction.Image(image_id2).CameraPtr() = *camera2;
+  }
+}
+
+}  // namespace
 
 bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GT(init_min_num_inliers, 0);
@@ -83,14 +104,15 @@ void IncrementalMapper::BeginReconstruction(
       database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
 
   reg_stats_.num_shared_reg_images = 0;
+  reg_stats_.num_reg_frames_per_rig.clear();
   reg_stats_.num_reg_images_per_camera.clear();
   for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
     RegisterFrameEvent(frame_id);
   }
 
   existing_frame_ids_ =
-      std::unordered_set<image_t>(reconstruction->RegFrameIds().begin(),
-                                  reconstruction->RegFrameIds().end());
+      FlatHashSet<frame_t>(reconstruction->RegFrameIds().begin(),
+                           reconstruction->RegFrameIds().end());
 
   filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
@@ -105,6 +127,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
     // elements from the underlying vector.
     const std::vector<frame_t> reg_frame_ids = reconstruction_->RegFrameIds();
     for (const frame_t frame_id : reg_frame_ids) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
     }
   }
@@ -119,16 +142,28 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t& image_id1,
                                              image_t& image_id2,
                                              Rigid3d& cam2_from_cam1) {
-  return IncrementalMapperImpl::FindInitialImagePair(
-      options,
-      *database_cache_,
-      *reconstruction_,
-      reg_stats_.init_num_reg_trials,
-      reg_stats_.num_registrations,
-      reg_stats_.init_image_pairs,
-      image_id1,
-      image_id2,
-      cam2_from_cam1);
+  const std::optional<IncrementalMapperImpl::InitInfo> init_info =
+      IncrementalMapperImpl::FindInitialImagePair(
+          options,
+          *database_cache_,
+          *reconstruction_,
+          reg_stats_.init_num_reg_trials,
+          reg_stats_.num_registrations,
+          reg_stats_.init_image_pairs,
+          image_id1,
+          image_id2);
+  if (!init_info.has_value()) {
+    return false;
+  }
+  image_id1 = init_info->image_id1;
+  image_id2 = init_info->image_id2;
+  cam2_from_cam1 = init_info->cam2_from_cam1;
+  SeedEstimatedInitialCameras(*reconstruction_,
+                              image_id1,
+                              image_id2,
+                              init_info->camera1,
+                              init_info->camera2);
+  return true;
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
@@ -176,7 +211,9 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Update Reconstruction
   //////////////////////////////////////////////////////////////////////////////
 
+  obs_manager_->RegisterFrame(image1.FrameId());
   RegisterFrameEvent(image1.FrameId());
+  obs_manager_->RegisterFrame(image2.FrameId());
   RegisterFrameEvent(image2.FrameId());
 }
 
@@ -242,7 +279,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
       database_cache_->CorrespondenceGraph();
 
-  std::unordered_set<point3D_t> corr_point3D_ids;
+  FlatHashSet<point3D_t> corr_point3D_ids;
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
        ++point2D_idx) {
     const Point2D& point2D = image.Point2D(point2D_idx);
@@ -350,6 +387,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     if (!options.abs_pose_refine_extra_params) {
       abs_pose_refinement_options.refine_extra_params = false;
     }
+
+    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no focal length, and
+    // their parameters (e.g. image dimensions) are not distortion coefficients
+    // to be refined during registration.
+    if (!camera.IsPerspective()) {
+      abs_pose_options.estimate_focal_length = false;
+      abs_pose_refinement_options.refine_focal_length = false;
+      abs_pose_refinement_options.refine_extra_params = false;
+    }
   }
 
   // If any of the cameras in the same rig has bogus cameras, reset them to the
@@ -412,6 +458,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -468,7 +515,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
     reg_stats_.num_reg_trials[image_id] += 1;
 
-    std::unordered_set<point3D_t> corr_point3D_ids;
+    FlatHashSet<point3D_t> corr_point3D_ids;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
@@ -589,6 +636,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
   frame.SetRigFromWorld(rig_from_world);
 
+  obs_manager_->RegisterFrame(frame.FrameId());
   RegisterFrameEvent(frame.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -611,7 +659,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                                        const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
-  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
+  if (reconstruction_->NumRegImages() < 2) {
+    VLOG(2) << "Structure-less registration requires at least 2 registered "
+               "images; only "
+            << reconstruction_->NumRegImages() << " available";
+    return false;
+  }
 
   THROW_CHECK(options.Check());
 
@@ -643,7 +696,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   std::vector<size_t> world_camera_idxs;
   std::vector<Rigid3d> world_cams_from_world;
   std::vector<Camera> world_cameras;
-  std::unordered_map<image_t, size_t> world_image_id_to_camera_idx;
+  FlatHashMap<image_t, size_t> world_image_id_to_camera_idx;
 
   const point2D_t num_points2D = image.NumPoints2D();
   for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -776,6 +829,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
+  obs_manager_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
@@ -926,7 +980,7 @@ IncrementalMapper::AdjustLocalBundle(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id,
-    const std::unordered_set<point3D_t>& point3D_ids) {
+    const FlatHashSet<point3D_t>& point3D_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
@@ -938,13 +992,13 @@ IncrementalMapper::AdjustLocalBundle(
 
   // Do the bundle adjustment only if there is any connected images.
   BundleAdjustmentConfig ba_config;
-  std::unordered_set<image_t> image_ids;
+  FlatHashSet<image_t> image_ids;
   if (local_bundle.size() > 0) {
     ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
     // Insert the images of all local frames.
     const Image& image = reconstruction_->Image(image_id);
-    std::set<frame_t> frame_ids;
+    FlatHashSet<frame_t> frame_ids;
     frame_ids.insert(image.FrameId());
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
       ba_config.AddImage(data_id.id);
@@ -967,7 +1021,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Fix rig poses, if not all frames within the local bundle.
-    std::unordered_map<rig_t, size_t> num_frames_per_rig;
+    FlatHashMap<rig_t, size_t> num_frames_per_rig;
     num_frames_per_rig.reserve(frame_ids.size());
     for (const frame_t frame_id : frame_ids) {
       const Frame& frame = reconstruction_->Frame(frame_id);
@@ -984,7 +1038,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Fix camera intrinsics, if not all registered images within local bundle.
-    std::unordered_map<camera_t, size_t> num_images_per_camera;
+    FlatHashMap<camera_t, size_t> num_images_per_camera;
     num_images_per_camera.reserve(ba_config.NumImages());
     for (const image_t image_id : ba_config.Images()) {
       const Image& image = reconstruction_->Image(image_id);
@@ -1002,7 +1056,7 @@ IncrementalMapper::AdjustLocalBundle(
     // long track 3D points as they are usually already very stable and adding
     // to them to bundle adjustment and track merging/completion would slow
     // down the local bundle adjustment significantly.
-    std::unordered_set<point3D_t> variable_point3D_ids;
+    FlatHashSet<point3D_t> variable_point3D_ids;
     for (const point3D_t point3D_id : point3D_ids) {
       const Point3D& point3D = reconstruction_->Point3D(point3D_id);
       constexpr size_t kMaxTrackLength = 15;
@@ -1014,7 +1068,8 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     image_ids = ba_config.Images();
-    std::unique_ptr<BundleAdjuster> bundle_adjuster =
+
+    auto bundle_adjuster =
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
     const auto summary = bundle_adjuster->Solve();
 
@@ -1077,9 +1132,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  THROW_CHECK_GE(ba_config.NumImages(), 2) << "At least two images must be "
-                                              "registered for global "
-                                              "bundle-adjustment";
+  // After filtering, the reconstruction may have fewer than 2 images,
+  // in which case global bundle adjustment is not possible.
+  if (ba_config.NumImages() < 2) {
+    LOG(WARNING) << "At least two images must be registered for global "
+                    "bundle-adjustment";
+    return false;
+  }
 
   // Fix the existing images, if option specified.
   if (options.fix_existing_frames) {
@@ -1123,9 +1182,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // with fewer steps as compared to fixing three points.
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
+
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
@@ -1165,8 +1225,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
       }
     }
 
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   }
 
   return bundle_adjuster->Solve()->IsSolutionUsable();
@@ -1256,22 +1316,26 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
     return {};
   }
 
-  const std::vector<frame_t> frame_ids =
-      obs_manager_->FilterFrames(options.min_focal_length_ratio,
-                                 options.max_focal_length_ratio,
-                                 options.max_extra_param);
+  const std::vector<frame_t> filter_frame_ids =
+      obs_manager_->FindFramesToFilter(
+          /*min_focal_length_ratio=*/options.min_focal_length_ratio,
+          /*max_focal_length_ratio=*/options.max_focal_length_ratio,
+          /*max_extra_param=*/options.max_extra_param,
+          /*min_num_observations=*/1);
 
-  for (const frame_t frame_id : frame_ids) {
+  size_t num_filtered = 0;
+  for (const frame_t frame_id : filter_frame_ids) {
     if (!options.fix_existing_frames ||
         existing_frame_ids_.count(frame_id) == 0) {
+      obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
       filtered_frames_.insert(frame_id);
+      ++num_filtered;
     }
   }
 
-  const size_t num_filtered_frames = frame_ids.size();
-  VLOG(1) << "=> Filtered frames: " << num_filtered_frames;
-  return num_filtered_frames;
+  VLOG(1) << "=> Filtered frames: " << num_filtered;
+  return num_filtered;
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
@@ -1298,11 +1362,11 @@ IncrementalTriangulator& IncrementalMapper::Triangulator() const {
   return *triangulator_;
 }
 
-const std::unordered_set<frame_t>& IncrementalMapper::FilteredFrames() const {
+const FlatHashSet<frame_t>& IncrementalMapper::FilteredFrames() const {
   return filtered_frames_;
 }
 
-const std::unordered_set<image_t>& IncrementalMapper::ExistingFrameIds() const {
+const FlatHashSet<frame_t>& IncrementalMapper::ExistingFrameIds() const {
   return existing_frame_ids_;
 }
 
@@ -1311,13 +1375,13 @@ void IncrementalMapper::ResetInitializationStats() {
   reg_stats_.init_num_reg_trials.clear();
 }
 
-const std::unordered_map<rig_t, size_t>& IncrementalMapper::NumRegFramesPerRig()
+const FlatHashMap<rig_t, size_t>& IncrementalMapper::NumRegFramesPerRig()
     const {
   return reg_stats_.num_reg_frames_per_rig;
 }
 
-const std::unordered_map<camera_t, size_t>&
-IncrementalMapper::NumRegImagesPerCamera() const {
+const FlatHashMap<camera_t, size_t>& IncrementalMapper::NumRegImagesPerCamera()
+    const {
   return reg_stats_.num_reg_images_per_camera;
 }
 
@@ -1329,7 +1393,7 @@ size_t IncrementalMapper::NumSharedRegImages() const {
   return reg_stats_.num_shared_reg_images;
 }
 
-const std::unordered_set<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
+const FlatHashSet<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
   return triangulator_->GetModifiedPoints3D();
 }
 
@@ -1344,8 +1408,6 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 }
 
 void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
-  obs_manager_->RegisterFrame(frame_id);
-
   const Frame& frame = reconstruction_->Frame(frame_id);
 
   size_t& num_reg_frames_for_rig =
@@ -1393,8 +1455,6 @@ void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
       reg_stats_.num_shared_reg_images -= 1;
     }
   }
-
-  obs_manager_->DeRegisterFrame(frame_id);
 }
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(
@@ -1402,8 +1462,19 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     Rigid3d& cam2_from_cam1) {
-  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, *database_cache_, image_id1, image_id2, cam2_from_cam1);
+  const std::optional<IncrementalMapperImpl::InitInfo> init_info =
+      IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+          options, *database_cache_, image_id1, image_id2);
+  if (!init_info.has_value()) {
+    return false;
+  }
+  cam2_from_cam1 = init_info->cam2_from_cam1;
+  SeedEstimatedInitialCameras(*reconstruction_,
+                              image_id1,
+                              image_id2,
+                              init_info->camera1,
+                              init_info->camera2);
+  return true;
 }
 
 }  // namespace colmap

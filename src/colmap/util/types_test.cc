@@ -29,7 +29,9 @@
 
 #include "colmap/util/types.h"
 
-#include <unordered_set>
+#include "colmap/util/hash_containers.h"
+
+#include <limits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -63,6 +65,17 @@ TEST(ImagePairToPairId, Nominal) {
       }
     }
   }
+}
+
+TEST(Span, SizeAndEmpty) {
+  std::vector<int> container = {1, 2, 3};
+  const span<int> non_empty(container.data(), container.size());
+  EXPECT_EQ(non_empty.size(), 3);
+  EXPECT_FALSE(non_empty.empty());
+
+  const span<int> empty(container.data(), 0);
+  EXPECT_EQ(empty.size(), 0);
+  EXPECT_TRUE(empty.empty());
 }
 
 TEST(FilterView, Empty) {
@@ -113,7 +126,7 @@ TEST(FilterView, RangeExpression) {
 }
 
 TEST(FeatureMatchHashing, Nominal) {
-  std::unordered_set<std::pair<point2D_t, point2D_t>> set;
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> set;
   set.emplace(1, 2);
   EXPECT_EQ(set.size(), 1);
   set.emplace(1, 2);
@@ -126,6 +139,94 @@ TEST(FeatureMatchHashing, Nominal) {
   EXPECT_EQ(set.count(std::make_pair(0, 0)), 0);
   EXPECT_EQ(set.count(std::make_pair(1, 2)), 1);
   EXPECT_EQ(set.count(std::make_pair(2, 1)), 1);
+}
+
+TEST(FeatureMatchHashing, LargeValues) {
+  const point2D_t hi = std::numeric_limits<point2D_t>::max();
+  const point2D_t lo = 1;
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> set;
+  set.emplace(hi, lo);
+  set.emplace(lo, hi);
+  set.emplace(hi, hi);
+  set.emplace(lo, lo);
+  EXPECT_EQ(set.size(), 4);
+  EXPECT_EQ(set.count(std::make_pair(hi, lo)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(hi, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, lo)), 1);
+}
+
+TEST(FeatureMatchHashing, Deterministic) {
+  PairHash h;
+  EXPECT_EQ(h(std::make_pair<point2D_t, point2D_t>(42, 99)),
+            h(std::make_pair<point2D_t, point2D_t>(42, 99)));
+  EXPECT_NE(h(std::make_pair<point2D_t, point2D_t>(42, 99)),
+            h(std::make_pair<point2D_t, point2D_t>(99, 42)));
+}
+
+TEST(SignedPairHashing, LargeValues) {
+  const int32_t hi = std::numeric_limits<int32_t>::max();
+  const int32_t lo = std::numeric_limits<int32_t>::min();
+  FlatHashSet<std::pair<int32_t, int32_t>, PairHash> set;
+  set.emplace(hi, lo);
+  set.emplace(lo, hi);
+  set.emplace(hi, hi);
+  set.emplace(lo, lo);
+  EXPECT_EQ(set.size(), 4);
+  EXPECT_EQ(set.count(std::make_pair(hi, lo)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(hi, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, lo)), 1);
+}
+
+TEST(SignedPairHashing, Deterministic) {
+  PairHash h;
+  EXPECT_EQ(h(std::make_pair<int32_t, int32_t>(-42, 99)),
+            h(std::make_pair<int32_t, int32_t>(-42, 99)));
+  EXPECT_NE(h(std::make_pair<int32_t, int32_t>(-42, 99)),
+            h(std::make_pair<int32_t, int32_t>(99, -42)));
+  // Distinct negatives that share low bits with positives must not collide.
+  EXPECT_NE(h(std::make_pair<int32_t, int32_t>(-1, 0)),
+            h(std::make_pair<int32_t, int32_t>(0, -1)));
+}
+
+TEST(Point3DPairHashing, Nominal) {
+  FlatHashSet<std::pair<point3D_t, point3D_t>, PairHash> set;
+  set.emplace(1, 2);
+  EXPECT_EQ(set.size(), 1);
+  set.emplace(1, 2);
+  EXPECT_EQ(set.size(), 1);
+  EXPECT_EQ(set.count(std::make_pair<point3D_t, point3D_t>(0, 0)), 0);
+  EXPECT_EQ(set.count(std::make_pair<point3D_t, point3D_t>(1, 2)), 1);
+  EXPECT_EQ(set.count(std::make_pair<point3D_t, point3D_t>(2, 1)), 0);
+  set.emplace(2, 1);
+  EXPECT_EQ(set.size(), 2);
+  EXPECT_EQ(set.count(std::make_pair<point3D_t, point3D_t>(0, 0)), 0);
+  EXPECT_EQ(set.count(std::make_pair<point3D_t, point3D_t>(1, 2)), 1);
+  EXPECT_EQ(set.count(std::make_pair<point3D_t, point3D_t>(2, 1)), 1);
+}
+
+TEST(Point3DPairHashing, LargeValues) {
+  const point3D_t hi = std::numeric_limits<point3D_t>::max();
+  const point3D_t lo = 1;
+  FlatHashSet<std::pair<point3D_t, point3D_t>, PairHash> set;
+  set.emplace(hi, lo);
+  set.emplace(lo, hi);
+  set.emplace(hi, hi);
+  set.emplace(lo, lo);
+  EXPECT_EQ(set.size(), 4);
+  EXPECT_EQ(set.count(std::make_pair(hi, lo)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(hi, hi)), 1);
+  EXPECT_EQ(set.count(std::make_pair(lo, lo)), 1);
+}
+
+TEST(Point3DPairHashing, Deterministic) {
+  PairHash h;
+  EXPECT_EQ(h(std::make_pair<point3D_t, point3D_t>(42, 99)),
+            h(std::make_pair<point3D_t, point3D_t>(42, 99)));
+  EXPECT_NE(h(std::make_pair<point3D_t, point3D_t>(42, 99)),
+            h(std::make_pair<point3D_t, point3D_t>(99, 42)));
 }
 
 }  // namespace

@@ -83,15 +83,10 @@ TEST(NormalMap, ToBitmap) {
   EXPECT_EQ(bitmap.Width(), normal_map.GetWidth());
   EXPECT_EQ(bitmap.Height(), normal_map.GetHeight());
   EXPECT_TRUE(bitmap.IsRGB());
-  BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(128, 128, 0));
-  EXPECT_TRUE(bitmap.GetPixel(0, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 128, 0));
-  EXPECT_TRUE(bitmap.GetPixel(1, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(128, 0, 0));
-  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(37, 37, 0));
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value(), BitmapColor<uint8_t>(128, 128, 0));
+  EXPECT_EQ(bitmap.GetPixel(0, 1).value(), BitmapColor<uint8_t>(0, 128, 0));
+  EXPECT_EQ(bitmap.GetPixel(1, 0).value(), BitmapColor<uint8_t>(128, 0, 0));
+  EXPECT_EQ(bitmap.GetPixel(1, 1).value(), BitmapColor<uint8_t>(37, 37, 0));
 }
 
 }  // namespace

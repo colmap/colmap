@@ -140,9 +140,27 @@ def download_blended_mvs(data_path: Path) -> None:
             target_folder,
         )
 
+    pycolmap.logging.info("Merging BlendedMVS split archive")
+    combined_zip = target_folder / "BlendedMVS_combined.zip"
+    subprocess.check_call(
+        [
+            "zip",
+            "-q",
+            "-s",
+            "0",
+            str(target_folder / "BlendedMVS.zip"),
+            "--out",
+            str(combined_zip),
+        ]
+    )
+
     pycolmap.logging.info("Extracting BlendedMVS")
-    with zipfile.ZipFile(target_folder / "BlendedMVS.zip", mode="r") as archive:
-        archive.extractall(path=data_path)
+    try:
+        with zipfile.ZipFile(combined_zip, mode="r") as archive:
+            archive.extractall(path=data_path)
+    finally:
+        if combined_zip.exists():
+            combined_zip.unlink()
 
 
 DOWNLOADERS = {

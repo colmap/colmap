@@ -30,6 +30,7 @@
 #include "colmap/scene/correspondence_graph.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random_eigen.h"
 
 #include <gtest/gtest.h>
 
@@ -72,7 +73,10 @@ TEST(CorrespondenceGraph, Print) {
             "CorrespondenceGraph(num_images=2, num_image_pairs=1)");
 }
 
-TEST(CorrespondenceGraph, TwoView) {
+class CorrespondenceGraphFinalizeTest : public testing::TestWithParam<bool> {};
+
+TEST_P(CorrespondenceGraphFinalizeTest, TwoView) {
+  const bool finalize = GetParam();
   CorrespondenceGraph correspondence_graph;
   correspondence_graph.AddImage(0, 10);
   correspondence_graph.AddImage(1, 10);
@@ -82,7 +86,7 @@ TEST(CorrespondenceGraph, TwoView) {
   EXPECT_EQ(correspondence_graph.NumImages(), 2);
   TwoViewGeometry two_view_geometry01;
   two_view_geometry01.cam2_from_cam1 =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   two_view_geometry01.inlier_matches = {
       {0, 0},
       {1, 2},
@@ -90,7 +94,9 @@ TEST(CorrespondenceGraph, TwoView) {
       {4, 8},
   };
   correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry01);
-  correspondence_graph.Finalize();
+  if (finalize) {
+    correspondence_graph.Finalize();
+  }
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 4);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
   const image_pair_t pair_id = ImagePairToPairId(0, 1);
@@ -211,7 +217,8 @@ TEST(CorrespondenceGraph, TwoView) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
 }
 
-TEST(CorrespondenceGraph, ThreeView) {
+TEST_P(CorrespondenceGraphFinalizeTest, ThreeView) {
+  const bool finalize = GetParam();
   CorrespondenceGraph correspondence_graph;
   correspondence_graph.AddImage(0, 10);
   correspondence_graph.AddImage(1, 10);
@@ -225,7 +232,9 @@ TEST(CorrespondenceGraph, ThreeView) {
   TwoViewGeometry two_view_geometry12;
   two_view_geometry12.inlier_matches = {{0, 0}, {5, 5}};
   correspondence_graph.AddTwoViewGeometry(1, 2, two_view_geometry12);
-  correspondence_graph.Finalize();
+  if (finalize) {
+    correspondence_graph.Finalize();
+  }
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(0), 1);
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(1), 2);
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(2), 2);
@@ -288,6 +297,13 @@ TEST(CorrespondenceGraph, ThreeView) {
             2);
 }
 
+INSTANTIATE_TEST_SUITE_P(CorrespondenceGraph,
+                         CorrespondenceGraphFinalizeTest,
+                         testing::Bool(),
+                         [](const auto& info) {
+                           return info.param ? "Finalized" : "NotFinalized";
+                         });
+
 TEST(CorrespondenceGraph, OutOfBounds) {
   CorrespondenceGraph correspondence_graph;
   correspondence_graph.AddImage(0, 10);
@@ -343,7 +359,7 @@ TEST(CorrespondenceGraph, UpdateTwoViewGeometry) {
   // Update with a decomposed relative pose.
   TwoViewGeometry updated = extracted;
   updated.cam2_from_cam1 =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   correspondence_graph.UpdateTwoViewGeometry(0, 1, updated);
 
   // Verify the updated geometry is returned.
@@ -372,8 +388,8 @@ TEST(CorrespondenceGraph, UpdateTwoViewGeometrySwapped) {
   correspondence_graph.Finalize();
 
   // Update using the swapped order (1, 0).
-  const Rigid3d cam1_from_cam0(Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random());
+  const Rigid3d cam1_from_cam0(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
   TwoViewGeometry updated;
   updated.config = TwoViewGeometry::CALIBRATED;
   updated.cam2_from_cam1 = cam1_from_cam0;

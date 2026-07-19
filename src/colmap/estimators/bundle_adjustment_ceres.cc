@@ -35,6 +35,7 @@
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -81,13 +82,12 @@ std::unique_ptr<ceres::LossFunction> CreateLossFunction(
 }  // namespace
 
 std::shared_ptr<CeresBundleAdjustmentSummary>
-CeresBundleAdjustmentSummary::Create(
-    const ceres::Solver::Summary& ceres_summary) {
+CeresBundleAdjustmentSummary::Create(ceres::Solver::Summary ceres_summary) {
   auto summary = std::make_shared<CeresBundleAdjustmentSummary>();
   summary->termination_type =
       CeresTerminationTypeToTerminationType(ceres_summary.termination_type);
   summary->num_residuals = ceres_summary.num_residuals_reduced;
-  summary->ceres_summary = ceres_summary;
+  summary->ceres_summary = std::move(ceres_summary);
   return summary;
 }
 
@@ -260,7 +260,7 @@ struct FixedGaugeWithThreePoints {
 };
 
 void FixGaugeWithThreePoints(
-    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    const FlatHashMap<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   FixedGaugeWithThreePoints fixed_gauge;
@@ -301,7 +301,7 @@ void FixGaugeWithTwoCamsFromWorld(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     const std::set<image_t>& image_ids,
-    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    const FlatHashMap<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   // No need to fix the Gauge if all frames are constant.
@@ -425,6 +425,13 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
       std::vector<int> const_camera_params;
       const_camera_params.reserve(camera.params.size());
 
+      {
+        // Metadata parameters (e.g. the (w, h) image dimensions of spherical
+        // models) are sensor properties and are never optimized.
+        const span<const size_t> params_idxs = camera.MetaDataParamsIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
       if (!options.refine_focal_length) {
         const span<const size_t> params_idxs = camera.FocalLengthIdxs();
         const_camera_params.insert(
@@ -441,7 +448,9 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
             const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
 
-      if (!const_camera_params.empty()) {
+      if (const_camera_params.size() == camera.params.size()) {
+        problem.SetParameterBlockConstant(camera.params.data());
+      } else if (!const_camera_params.empty()) {
         SetManifold(
             &problem,
             camera.params.data(),
@@ -456,9 +465,9 @@ void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
                                const std::set<image_t>& image_ids,
                                Reconstruction& reconstruction,
                                ceres::Problem& problem) {
-  std::unordered_set<rig_t> parameterized_rig_ids;
-  std::unordered_set<sensor_t> parameterized_sensor_ids;
-  std::unordered_set<frame_t> parameterized_frame_ids;
+  FlatHashSet<rig_t> parameterized_rig_ids;
+  FlatHashSet<sensor_t> parameterized_sensor_ids;
+  FlatHashSet<frame_t> parameterized_frame_ids;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
     parameterized_rig_ids.insert(image.FramePtr()->RigId());
@@ -529,7 +538,7 @@ void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
 void ParameterizePoints(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    const FlatHashMap<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
@@ -543,6 +552,45 @@ void ParameterizePoints(
     Point3D& point3D = reconstruction.Point3D(point3D_id);
     problem.SetParameterBlockConstant(point3D.xyz.data());
   }
+}
+
+std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
+    ceres::Solver::Summary ceres_summary, const std::string& context) {
+  auto summary = CeresBundleAdjustmentSummary::Create(std::move(ceres_summary));
+  if (!summary->IsSolutionUsable()) {
+    LOG(ERROR) << context << " failed: " << summary->ceres_summary.message;
+  }
+  return summary;
+}
+
+ceres::Solver::Summary SolveWithGpuFallback(
+    const BundleAdjustmentOptions& options,
+    const BundleAdjustmentConfig& config,
+    ceres::Problem* problem) {
+  const ceres::Solver::Options solver_options =
+      options.ceres->CreateSolverOptions(config, *problem);
+
+  ceres::Solver::Summary ceres_summary;
+  ceres::Solve(solver_options, problem, &ceres_summary);
+
+  if (ceres_summary.termination_type == ceres::FAILURE &&
+      options.ceres->use_gpu) {
+    const std::string& msg = ceres_summary.message;
+    if (msg.find("CUDA initialization failed") != std::string::npos ||
+        msg.find("non-numeric") != std::string::npos ||
+        msg.find("Unable to create Jacobian") != std::string::npos) {
+      LOG(WARNING) << "GPU bundle adjustment failed (" << msg
+                   << "), retrying with CPU.";
+      auto cpu_options =
+          std::make_shared<CeresBundleAdjustmentOptions>(*options.ceres);
+      cpu_options->use_gpu = false;
+      const ceres::Solver::Options cpu_solver_options =
+          cpu_options->CreateSolverOptions(config, *problem);
+      ceres::Solve(cpu_solver_options, problem, &ceres_summary);
+    }
+  }
+
+  return ceres_summary;
 }
 
 class DefaultBundleAdjuster : public CeresBundleAdjuster {
@@ -610,17 +658,15 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
-    const ceres::Solver::Options solver_options =
-        options_.ceres->CreateSolverOptions(config_, *problem_);
-
-    ceres::Solver::Summary ceres_summary;
-    ceres::Solve(solver_options, problem_.get(), &ceres_summary);
+    ceres::Solver::Summary ceres_summary =
+        SolveWithGpuFallback(options_, config_, problem_.get());
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
       PrintSolverSummary(ceres_summary, "Bundle adjustment report");
     }
 
-    return CeresBundleAdjustmentSummary::Create(ceres_summary);
+    return CreateSummaryAndLogFailure(std::move(ceres_summary),
+                                      "Bundle adjustment");
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
@@ -838,7 +884,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
   std::set<camera_t> parameterized_camera_ids_;
   std::set<image_t> parameterized_image_ids_;
-  std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+  FlatHashMap<point3D_t, size_t> point3D_num_observations_;
 };
 
 class PosePriorBundleAdjuster : public CeresBundleAdjuster {
@@ -908,11 +954,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
-    const ceres::Solver::Options solver_options =
-        options_.ceres->CreateSolverOptions(config_, *problem);
-
-    ceres::Solver::Summary ceres_summary;
-    ceres::Solve(solver_options, problem.get(), &ceres_summary);
+    ceres::Solver::Summary ceres_summary =
+        SolveWithGpuFallback(options_, config_, problem.get());
 
     reconstruction_.Transform(Inverse(normalized_from_metric_));
 
@@ -920,7 +963,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       PrintSolverSummary(ceres_summary, "Pose Prior Bundle adjustment report");
     }
 
-    return CeresBundleAdjustmentSummary::Create(ceres_summary);
+    return CreateSummaryAndLogFailure(std::move(ceres_summary),
+                                      "Pose prior bundle adjustment");
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
@@ -1048,7 +1092,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
 }  // namespace
 
-std::unique_ptr<BundleAdjuster> CreateDefaultCeresBundleAdjuster(
+std::unique_ptr<CeresBundleAdjuster> CreateDefaultCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction) {
@@ -1056,7 +1100,7 @@ std::unique_ptr<BundleAdjuster> CreateDefaultCeresBundleAdjuster(
       options, config, reconstruction);
 }
 
-std::unique_ptr<BundleAdjuster> CreatePosePriorCeresBundleAdjuster(
+std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const PosePriorBundleAdjustmentOptions& prior_options,
     const BundleAdjustmentConfig& config,

@@ -288,6 +288,46 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, ToleranceSettings) {
   EXPECT_LT(residual2, 0.99 * residual1);
 }
 
+TEST_P(ParameterizedLeastAbsoluteDeviationsTests, RidgeRegularization) {
+  // Singular matrix (rank 1, two identical columns) makes A^T A not positive
+  // definite. With ridge regularization, the solver still factorizes A^T A
+  // and Solve returns a finite solution (no NaN). Without regularization, the
+  // solver should detect failure and return false.
+  Eigen::SparseMatrix<double> A(3, 2);
+  A.insert(0, 0) = 1.0;
+  A.insert(0, 1) = 1.0;
+  A.insert(1, 0) = 2.0;
+  A.insert(1, 1) = 2.0;
+  A.insert(2, 0) = 3.0;
+  A.insert(2, 1) = 3.0;
+
+  Eigen::VectorXd b(3);
+  b << 2.0, 4.0, 6.0;
+
+  // Without regularization, the singular A^T A is not factorizable.
+  {
+    LeastAbsoluteDeviationSolver::Options options = GetOptions();
+    LeastAbsoluteDeviationSolver solver(options, A);
+    EXPECT_FALSE(solver.Valid());
+    Eigen::VectorXd x = Eigen::VectorXd::Zero(2);
+    EXPECT_FALSE(solver.Solve(b, &x));
+  }
+
+  // With regularization, factorization succeeds and Solve returns a finite
+  // (non-NaN) solution.
+  {
+    LeastAbsoluteDeviationSolver::Options options = GetOptions();
+    options.ridge_regularization = 1e-9;
+    LeastAbsoluteDeviationSolver solver(options, A);
+    EXPECT_TRUE(solver.Valid());
+    Eigen::VectorXd x = Eigen::VectorXd::Zero(2);
+    EXPECT_TRUE(solver.Solve(b, &x));
+    EXPECT_FALSE(x.array().isNaN().any());
+    // Either column achieves residual ~ 0 since b lies in span(A.col(0)).
+    EXPECT_LE((A * x - b).lpNorm<1>(), 1e-3);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     LeastAbsoluteDeviationsTests,
     ParameterizedLeastAbsoluteDeviationsTests,

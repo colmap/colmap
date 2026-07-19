@@ -37,7 +37,9 @@
 
 #include <atomic>
 #include <cfloat>
+#include <mutex>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 #ifdef _OPENMP
@@ -45,6 +47,26 @@
 #endif
 
 namespace colmap {
+
+namespace internal {
+
+// Detects whether a local estimator provides a Refine method that takes an
+// initial model: `Refine(X, Y, initial_model, models)`. If so, LO-RANSAC passes
+// the current best model as the initial value for the local optimization (e.g.
+// a nonlinear refiner that starts from the current model). Estimators without a
+// Refine method use `Estimate(X, Y, models)` and are unaffected.
+template <typename Estimator, typename = void>
+struct SupportsRefineWithInitialModel : std::false_type {};
+
+template <typename Estimator>
+struct SupportsRefineWithInitialModel<
+    Estimator,
+    std::void_t<decltype(std::declval<Estimator&>().Refine(
+        std::declval<const std::vector<typename Estimator::X_t>&>(),
+        std::declval<const std::vector<typename Estimator::Y_t>&>(),
+        std::declval<typename Estimator::M_t*>()))>> : std::true_type {};
+
+}  // namespace internal
 
 // Implementation of LO-RANSAC (Locally Optimized RANSAC).
 //
@@ -143,6 +165,15 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   std::atomic<size_t> dyn_max_num_trials(max_num_trials);
   std::atomic<bool> abort_flag(false);
 
+  // Guards updates to the shared best model/support in the parallel case. We
+  // deliberately avoid `#pragma omp critical`, which maps to a single
+  // process-global lock and would serialize concurrent single-threaded RANSAC
+  // calls (e.g. during multi-threaded geometric verification, where many
+  // matches are estimated in parallel with num_threads == 1). A per-call mutex
+  // is only contended among this call's own threads and is not even locked in
+  // the serial case.
+  std::mutex best_mutex;
+
 // This creates a parallel region that runs with num_threads threads (or
 // serially when num_threads == 1 via the if-clause). Without OpenMP, the
 // pragma is absent and the block runs once serially.
@@ -207,10 +238,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
         // case, multiple threads may pass this check concurrently — the
         // authoritative update below re-checks under the same lock.
         bool is_better = false;
-#ifdef _OPENMP
-#pragma omp critical
-#endif
         {
+          std::unique_lock<std::mutex> lock(best_mutex, std::defer_lock);
+          if (num_threads > 1) {
+            lock.lock();
+          }
           is_better =
               thread_support_measurer.IsLeftBetter(support, best_support);
         }
@@ -242,12 +274,21 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
               }
 
               local_models.clear();
-              thread_local_estimator.Estimate(
-                  X_inlier, Y_inlier, &local_models);
+              if constexpr (internal::SupportsRefineWithInitialModel<
+                                LocalEstimator>::value) {
+                // Initialize the local optimization with the current best model
+                // and refine it in place.
+                typename LocalEstimator::M_t refined_model = *local_best_model;
+                if (thread_local_estimator.Refine(
+                        X_inlier, Y_inlier, &refined_model)) {
+                  local_models.push_back(refined_model);
+                }
+              } else {
+                thread_local_estimator.Estimate(
+                    X_inlier, Y_inlier, &local_models);
+              }
 
-              const size_t prev_best_num_inliers =
-                  local_best_support.num_inliers;
-
+              bool improved_support = false;
               for (const auto& local_model : local_models) {
                 thread_local_estimator.Residuals(X, Y, local_model, &residuals);
                 THROW_CHECK_EQ(residuals.size(), num_samples);
@@ -261,13 +302,13 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
                   local_best_support = local_support;
                   local_best_model = local_model;
                   local_best_is_local = true;
+                  improved_support = true;
                   std::swap(residuals, best_local_residuals);
                 }
               }
 
-              // Only continue recursive local optimization, if the inlier set
-              // size increased and we thus have a chance to further improve.
-              if (local_best_support.num_inliers <= prev_best_num_inliers) {
+              // Keep expanding only while the refit improves the support.
+              if (!improved_support) {
                 break;
               }
 
@@ -278,10 +319,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           }
 
           // Commit local optimization result to global best under lock.
-#ifdef _OPENMP
-#pragma omp critical
-#endif
           {
+            std::unique_lock<std::mutex> lock(best_mutex, std::defer_lock);
+            if (num_threads > 1) {
+              lock.lock();
+            }
             if (thread_support_measurer.IsLeftBetter(local_best_support,
                                                      best_support)) {
               best_support = local_best_support;

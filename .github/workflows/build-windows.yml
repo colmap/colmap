@@ -46,12 +46,12 @@ jobs:
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
-      CUDA_MAJOR_VERSION: 12
-      CUDA_MINOR_VERSION: 9
-      CUDA_PATCH_VERSION: 1
+      CUDA_MAJOR_VERSION: 13
+      CUDA_MINOR_VERSION: 2
+      CUDA_PATCH_VERSION: 0
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # We define the vcpkg binary sources using separate variables for read and
       # write operations:
@@ -77,7 +77,7 @@ jobs:
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
@@ -85,7 +85,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -103,12 +103,19 @@ jobs:
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.30
+        uses: Jimver/cuda-toolkit@v0.2.35
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
           cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
-          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          # CUDA 13 reorganized the toolkit, so the compiler now needs three
+          # extra components beyond the old list: crt (crt/host_config.h,
+          # included by cuda_runtime.h), nvvm (the cicc device compiler +
+          # libdevice; no longer bundled in the nvcc subpackage) and thrust
+          # (Thrust/CUB headers, on Windows the subpackage is "thrust", not
+          # "cccl"). We avoid a full install to skip the large math/Nsight
+          # subpackages COLMAP does not use.
+          sub-packages: '["nvcc", "crt", "nvvm", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
       - name: Setup vcpkg
@@ -123,7 +130,11 @@ jobs:
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "3.31.0"
+          # CMake >= 4.1 knows the CUDA 13 architecture set, so "all-major"
+          # expands to Turing..Blackwell (75..120). Older CMake predates CUDA 13
+          # and would expand it to a stale set including Maxwell/Pascal/Volta
+          # (compute_50/60/70), which CUDA 13 no longer supports.
+          cmakeVersion: "4.1.0"
           ninjaVersion: "1.12.1"
 
       - name: Configure and build
@@ -134,6 +145,16 @@ jobs:
           ./vcpkg/vcpkg.exe integrate install
           mkdir -Force build
           cd build
+          if ($${{ matrix.config.cudaEnabled }}) {
+            # The windows-2025 runner ships a newer MSVC toolset (VS 18,
+            # _MSC_VER 19.5x) than older CUDA host_config.h versions whitelist,
+            # which otherwise aborts CUDA compiler detection with "unsupported
+            # Microsoft Visual Studio version". Kept as a safety net in case the
+            # pinned CUDA toolkit still lags the runner's MSVC; it is a no-op
+            # when the host compiler is already supported. CMake reads CUDAFLAGS
+            # during CUDA compiler detection.
+            $env:CUDAFLAGS = "-allow-unsupported-compiler"
+          }
           cmake .. `
             -GNinja `
             -DCMAKE_MAKE_PROGRAM=ninja `
@@ -175,7 +196,22 @@ jobs:
           ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
-          cp -r vcpkg_export/colmap/installed/x64-windows/Qt6/plugins install
+          # Deploy the Qt plugins from the x64-windows-release triplet, which is
+          # the triplet COLMAP is actually built against. qtsvg is only installed
+          # for that triplet, so copying from x64-windows would miss the SVG
+          # plugins (imageformats/qsvg.dll and iconengines/qsvgicon.dll) that Qt
+          # needs to render the SVG toolbar/menu icons, leaving them blank.
+          cp -r vcpkg_export/colmap/installed/x64-windows-release/Qt6/plugins install
+
+          # Fail loudly if the SVG plugins are missing: without them Qt cannot
+          # render the SVG icons and the toolbar/menu icons show up blank, but
+          # the build itself succeeds, so the regression is otherwise silent.
+          if (-not (Test-Path install/plugins/iconengines/qsvgicon.dll)) {
+              throw "Missing Qt SVG icon engine plugin (iconengines/qsvgicon.dll); SVG icons would not render."
+          }
+          if (-not (Test-Path install/plugins/imageformats/qsvg.dll)) {
+              throw "Missing Qt SVG image format plugin (imageformats/qsvg.dll); SVG icons would not render."
+          }
           if ($${{ matrix.config.cudaEnabled }}) {
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
@@ -183,14 +219,14 @@ jobs:
           Remove-Item -Recurse -Force -ErrorAction SilentlyContinue install/include,install/lib,install/share
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ matrix.config.exportPackage && matrix.config.cudaEnabled }}
         with:
           name: colmap-x64-windows-cuda
           path: build/install
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ matrix.config.exportPackage && !matrix.config.cudaEnabled }}
         with:
           name: colmap-x64-windows-nocuda

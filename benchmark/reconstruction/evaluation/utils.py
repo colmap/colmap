@@ -30,20 +30,68 @@
 import argparse
 import collections
 import copy
+import ctypes
 import dataclasses
 import datetime
 import functools
 import multiprocessing
+import pickle
+import platform
 import shutil
+import signal
 import subprocess
+import sys
+import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
 
 import pycolmap
+
+from .covisibility import filter_covisibility  # noqa: F401
+from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
+
+_PR_SET_PDEATHSIG = 1
+_LIBC = (
+    ctypes.CDLL("libc.so.6", use_errno=True)
+    if platform.system() == "Linux"
+    else None
+)
+
+
+def _set_pdeathsig() -> None:
+    """preexec_fn: ensure child process is killed if parent dies."""
+    if _LIBC is not None:
+        _LIBC.prctl(_PR_SET_PDEATHSIG, signal.SIGTERM)
+
+
+def _init_pool_worker() -> None:
+    """Pool initializer: ignore SIGINT in workers so the main process
+    handles KeyboardInterrupt and terminates the pool cleanly."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _run_with_log(
+    cmd: list, log_path: Path, check: bool = True, **kwargs
+) -> int:
+    """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
+
+    Always uses preexec_fn=_set_pdeathsig so children die with their parent.
+    Raises CalledProcessError on non-zero exit when check=True.
+    """
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "wb") as fh:
+        runner = subprocess.check_call if check else subprocess.call
+        return runner(
+            cmd,
+            stdout=fh,
+            stderr=subprocess.STDOUT,
+            preexec_fn=_set_pdeathsig,
+            **kwargs,
+        )
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -54,6 +102,8 @@ class SceneInfo:
     category: str
     # Scene name.
     scene: str
+    # Number of input images in the scene.
+    num_images: int
     # Path to the workspace directory in the run directory.
     workspace_path: Path
     # Path to the input images.
@@ -98,11 +148,23 @@ class Metrics:
     num_components: int
     # Number of images in the largest component.
     largest_component: int
+    # Raw errors that produced aucs/recalls. Empty for entries (like __avg__)
+    # where no underlying error pool exists. Retained so higher-level summaries
+    # (per-dataset, overall) can recompute pooled __all__ statistics.
+    errors: npt.NDArray[np.floating] = dataclasses.field(
+        default_factory=lambda: np.array([])
+    )
+    # Ground-truth position accuracy (used as min_error when computing AUC).
+    # Carried so cross-dataset aggregations can pick a sensible value.
+    position_accuracy_gt: float = 0.0
 
 
 MetricsByScene = dict[str, Metrics]
 MetricsByCatByScene = dict[str, MetricsByScene]
 MetricsByDatasetByCatByScene = dict[str, MetricsByCatByScene]
+
+# Identifies one scene across reports: (dataset, category, scene).
+SceneKey = tuple[str, str, str]
 
 
 class Dataset(ABC):
@@ -137,10 +199,102 @@ class Dataset(ABC):
         pass
 
 
-def parse_args() -> argparse.Namespace:
+class _PhaseTracker:
+    """Worker-side helper that publishes the current phase for a scene to a
+    shared dict. No-op when status_dict is None."""
+
+    def __init__(self, status_dict=None, scene_key: str = "") -> None:
+        self._dict = status_dict
+        self._key = scene_key
+
+    def set(self, phase: str) -> None:
+        if self._dict is not None:
+            self._dict[self._key] = phase
+
+
+def _scene_key(scene_info: SceneInfo) -> str:
+    return f"{scene_info.dataset}/{scene_info.category}/{scene_info.scene}"
+
+
+def _run_progress_monitor(
+    status_dict, total: int, stop_event: threading.Event
+) -> None:
+    """Render a live progress display of in-flight scenes until stop_event is
+    set. Counts entries marked "done" toward overall completion; everything
+    else is shown as an in-progress task with a spinner and elapsed time."""
+    from rich.console import Group
+    from rich.live import Live
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+
+    overall = Progress(
+        TextColumn("[bold]Scenes[/bold]"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+    )
+    scenes = Progress(
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        TextColumn("[cyan]{task.fields[phase]:>14}[/cyan]"),
+        TimeElapsedColumn(),
+    )
+    overall_task = overall.add_task("scenes", total=total)
+    scene_tasks: dict[str, int] = {}
+
+    def refresh() -> None:
+        snapshot = dict(status_dict)
+        done = sum(1 for v in snapshot.values() if v == "finished")
+        overall.update(overall_task, completed=done)
+        in_progress = {k: v for k, v in snapshot.items() if v != "finished"}
+        for key in list(scene_tasks):
+            if key not in in_progress:
+                scenes.remove_task(scene_tasks.pop(key))
+        for key, phase in in_progress.items():
+            if key in scene_tasks:
+                scenes.update(scene_tasks[key], phase=phase)
+            else:
+                scene_tasks[key] = scenes.add_task(key, total=None, phase=phase)
+
+    with Live(Group(overall, scenes), refresh_per_second=4):
+        while not stop_event.is_set():
+            refresh()
+            stop_event.wait(0.5)
+        refresh()
+
+
+def filter_smallest_scenes_per_category(
+    scene_infos: list[SceneInfo], num_scenes: int
+) -> list[SceneInfo]:
+    """Keep only the `num_scenes` smallest scenes (by num_images) per category,
+    preserving the original order."""
+    indices_by_category: dict[str, list[int]] = collections.defaultdict(list)
+    for i, scene_info in enumerate(scene_infos):
+        indices_by_category[scene_info.category].append(i)
+
+    keep: set[int] = set()
+    for indices in indices_by_category.values():
+        smallest = sorted(indices, key=lambda i: scene_infos[i].num_images)[
+            :num_scenes
+        ]
+        keep.update(smallest)
+
+    return [scene_infos[i] for i in sorted(keep)]
+
+
+def parse_args(description: str | None = None) -> argparse.Namespace:
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--data_path", default=Path(__file__).parent.parent / "data", type=Path
     )
@@ -162,15 +316,51 @@ def parse_args() -> argparse.Namespace:
         help="Scenes to evaluate, if empty all scenes are evaluated.",
     )
     parser.add_argument(
+        "--progress",
+        default=None,
+        action=argparse.BooleanOptionalAction,
+        help="Show a live progress display of in-flight scenes "
+        "(default: enabled when stdout is a TTY).",
+    )
+    parser.add_argument(
+        "--fast",
+        default=False,
+        action="store_true",
+        help="Fast mode: only evaluate the N smallest scenes per category, "
+        "where N is set by --fast_num_scenes.",
+    )
+    parser.add_argument(
+        "--fast_num_scenes",
+        type=int,
+        default=1,
+        help="Number of smallest scenes per category to evaluate in --fast "
+        "mode.",
+    )
+    parser.add_argument(
         "--run_path", default=Path(__file__).parent.parent / "runs", type=Path
     )
     parser.add_argument("--run_name", default=datetime_str)
-    parser.add_argument("--report_name", default=f"report-{datetime_str}")
+    parser.add_argument(
+        "--report_name",
+        default=f"report-{datetime_str}",
+        help="Report file stem, without the .pkl suffix. With "
+        "--seeds/--num_seeds it is the stem of every run, which are written "
+        "as <report_name>_s<seed>.pkl; compare.py reads that naming back via "
+        "--report_a_path_prefix/--report_b_path_prefix.",
+    )
     parser.add_argument(
         "--overwrite_database", default=False, action="store_true"
     )
     parser.add_argument(
         "--overwrite_matches", default=False, action="store_true"
+    )
+    parser.add_argument(
+        "--overwrite_two_view_geometries",
+        default=False,
+        action="store_true",
+        help="Clear two-view geometries (inlier matches) but keep raw matches, "
+        "so geometric verification is recomputed from the cached matches. "
+        "Useful for re-tuning geometric verification without re-matching.",
     )
     parser.add_argument(
         "--overwrite_reconstruction", default=False, action="store_true"
@@ -182,10 +372,68 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
     parser.add_argument(
-        "--parallelism",
+        "--num_threads",
         type=int,
-        default=multiprocessing.cpu_count(),
-        help="Number of processes for parallel reconstruction.",
+        default=-1,
+        help=(
+            "Total number of threads to use across all parallel scenes. "
+            "Defaults to 2x the number of logical CPU cores (-1)."
+        ),
+    )
+    parser.add_argument(
+        "--num_parallel_scenes",
+        type=int,
+        default=-1,
+        help=(
+            "Number of scenes to reconstruct in parallel. "
+            "Defaults to max(1, num_threads // 4) (-1)."
+        ),
+    )
+    parser.add_argument(
+        "--threads_per_scene",
+        type=int,
+        default=-1,
+        help=(
+            "Override the number of threads used within each scene. "
+            "Defaults to num_threads // num_parallel_scenes (-1). Set to 1 "
+            "for reproducible runs: RANSAC seeds per thread as "
+            "random_seed + omp_get_thread_num(), so with a fixed --random_seed "
+            "only single-threaded scenes are deterministic (required for "
+            "paired common-random-number A/B comparison)."
+        ),
+    )
+    parser.add_argument(
+        "--gpu_index",
+        type=str,
+        default="-1",
+        help="GPU indices to use for reconstruction. "
+        "Use '-1' to auto-detect and use all available GPUs. "
+        "Use comma-separated indices like '0,1,2' to specify exact GPUs.",
+    )
+    parser.add_argument(
+        "--random_seed",
+        type=int,
+        default=-1,
+        help="Random seed forwarded to colmap's automatic_reconstructor "
+        "(two-view RANSAC + mapper). -1 (default) uses a nondeterministic "
+        "random device, matching prior harness behavior. Fix it to a "
+        "non-negative value for reproducible / paired A-B runs.",
+    )
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument(
+        "--seeds",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Run the evaluation once per seed, writing "
+        "<report_name>_s<seed>.pkl each time, to measure run-to-run spread. "
+        "Mutually exclusive with --random_seed.",
+    )
+    seed_group.add_argument(
+        "--num_seeds",
+        type=int,
+        default=None,
+        help="Shorthand for --seeds 0 1 ... N-1.",
     )
     parser.add_argument(
         "--feature",
@@ -207,6 +455,41 @@ def parse_args() -> argparse.Namespace:
         help="Whether to evaluate the setting of uncalibrated input cameras, "
         "even if normal setting for the dataset contains calibrated inputs. "
         "This is useful for evaluating the performance of self-calibration.",
+    )
+    parser.add_argument(
+        "--filter_covisibility",
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help="Filter out non-covisible image pairs based on GT camera poses. "
+        "Use --no-filter_covisibility to disable.",
+    )
+    parser.add_argument(
+        "--covisibility_frustum_near",
+        type=float,
+        default=None,
+        help="Near plane for frustum co-visibility check. "
+        "Auto-detected from GT points if not specified.",
+    )
+    parser.add_argument(
+        "--covisibility_frustum_far",
+        type=float,
+        default=None,
+        help="Far plane for frustum co-visibility check. "
+        "Auto-detected from GT points if not specified.",
+    )
+    parser.add_argument(
+        "--covisibility_max_viewing_angle",
+        type=float,
+        default=120.0,
+        help="Maximum viewing angle in degrees for co-visibility check.",
+    )
+    parser.add_argument(
+        "--covisibility_min_shared_points",
+        type=int,
+        default=5,
+        help="Minimum number of shared GT 3D points for two images to be "
+        "considered covisible. If GT tracks are available and this is > 0, "
+        "track-based covisibility is preferred over frustum-based checking.",
     )
     parser.add_argument(
         "--error_type",
@@ -236,6 +519,29 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    if args.num_seeds is not None:
+        if args.num_seeds <= 0:
+            parser.error("--num_seeds must be > 0")
+        args.seeds = list(range(args.num_seeds))
+    if args.seeds is not None:
+        if args.random_seed >= 0:
+            parser.error(
+                "--random_seed sets the seed of a single run; use "
+                "--seeds/--num_seeds to run once per seed"
+            )
+        if any(seed < 0 for seed in args.seeds):
+            parser.error("--seeds must be non-negative")
+    # Names the flag the user actually passed, so the non-determinism warning
+    # does not point at --random_seed during a --seeds/--num_seeds run.
+    args.seed_flag = "--seeds" if args.seeds is not None else "--random_seed"
+    if args.fast and args.fast_num_scenes <= 0:
+        parser.error("--fast_num_scenes must be > 0 when --fast is set")
+    if args.progress is None:
+        args.progress = sys.stdout.isatty()
+    if args.num_threads <= 0:
+        args.num_threads = 2 * multiprocessing.cpu_count()
+    if args.num_parallel_scenes <= 0:
+        args.num_parallel_scenes = max(1, args.num_threads // 4)
     if args.overwrite_database:
         pycolmap.logging.info(
             "Overwriting database also overwrites reconstruction"
@@ -244,6 +550,11 @@ def parse_args() -> argparse.Namespace:
     if args.overwrite_matches:
         pycolmap.logging.info(
             "Overwriting matches also overwrites reconstruction"
+        )
+        args.overwrite_reconstruction = True
+    if args.overwrite_two_view_geometries:
+        pycolmap.logging.info(
+            "Overwriting two-view geometries also overwrites reconstruction"
         )
         args.overwrite_reconstruction = True
     if args.overwrite_reconstruction:
@@ -287,9 +598,13 @@ def colmap_reconstruction(
     workspace_path: Path,
     image_path: Path,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
+    covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
     colmap_extra_args: list | None = None,
     num_threads: int = 1,
+    gpu_index: str = "-1",
+    phase_tracker: _PhaseTracker | None = None,
 ) -> None:
+    phase_tracker = phase_tracker or _PhaseTracker()
     workspace_path.mkdir(parents=True, exist_ok=True)
 
     database_path = workspace_path / "database.db"
@@ -304,7 +619,15 @@ def colmap_reconstruction(
         pycolmap.logging.info("Skipping reconstruction, as it already exists")
         return
 
+    # Clearing matches also clears two-view geometries, so there is no need to
+    # clear the latter separately when both flags are set.
     if args.overwrite_matches:
+        cleaner_type = "matches"
+    elif args.overwrite_two_view_geometries:
+        cleaner_type = "two_view_geometries"
+    else:
+        cleaner_type = None
+    if cleaner_type is not None:
         subprocess.check_call(
             [
                 args.colmap_path,
@@ -312,9 +635,10 @@ def colmap_reconstruction(
                 "--database_path",
                 database_path,
                 "--type",
-                "matches",
+                cleaner_type,
             ],
             cwd=workspace_path,
+            preexec_fn=_set_pdeathsig,
         )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead
@@ -329,8 +653,12 @@ def colmap_reconstruction(
         workspace_path,
         "--use_gpu",
         "1" if args.use_gpu else "0",
+        "--gpu_index",
+        gpu_index,
         "--num_threads",
         str(num_threads),
+        "--random_seed",
+        str(args.random_seed),
         "--feature",
         args.feature,
         "--mapper",
@@ -339,7 +667,8 @@ def colmap_reconstruction(
         args.quality,
     ]
 
-    subprocess.check_call(
+    phase_tracker.set("extraction")
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -352,13 +681,15 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "extraction.log",
         cwd=workspace_path,
     )
 
     if camera_priors_sparse_gt is not None:
         set_camera_priors(database_path, camera_priors_sparse_gt)
 
-    subprocess.check_call(
+    phase_tracker.set("matching")
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -371,14 +702,26 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "matching.log",
         cwd=workspace_path,
     )
+
+    if covisibility_sparse_gt is not None:
+        filter_covisibility(
+            database_path,
+            covisibility_sparse_gt,
+            args.covisibility_frustum_near,
+            args.covisibility_frustum_far,
+            args.covisibility_max_viewing_angle,
+            args.covisibility_min_shared_points,
+        )
 
     # Decouple matching from sparse reconstruction, because matching will
     # initialize an OpenGL context and Mac on Apple silicon tends to assign GUI
     # applications to the low efficiency cores but we want to use the
     # performance cores.
-    subprocess.check_call(
+    phase_tracker.set("reconstruction")
+    _run_with_log(
         colmap_args
         + (colmap_extra_args or [])
         + [
@@ -391,6 +734,7 @@ def colmap_reconstruction(
             "--dense",
             "0",
         ],
+        workspace_path / "reconstruction.log",
         cwd=workspace_path,
     )
 
@@ -410,7 +754,7 @@ def colmap_alignment(
 
     if sparse_path.exists():
         sparse_aligned_path.mkdir(parents=True, exist_ok=True)
-        subprocess.call(
+        _run_with_log(
             [
                 args.colmap_path,
                 "model_aligner",
@@ -422,7 +766,9 @@ def colmap_alignment(
                 sparse_aligned_path,
                 "--alignment_max_error",
                 str(max_ref_model_error),
-            ]
+            ],
+            sparse_aligned_path.parent / "alignment.log",
+            check=False,
         )
 
 
@@ -432,6 +778,8 @@ def process_scene(
     prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
     num_threads: int,
+    gpu_index: str = "-1",
+    progress_status=None,
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -439,6 +787,9 @@ def process_scene(
         f"scene={scene_info.scene}"
     )
 
+    tracker = _PhaseTracker(progress_status, _scene_key(scene_info))
+
+    tracker.set("setup")
     prepare_scene(scene_info)
 
     sparse_gt = pycolmap.Reconstruction(str(scene_info.sparse_gt_path))
@@ -452,9 +803,16 @@ def process_scene(
             if not args.uncalibrated and scene_info.has_camera_priors
             else None
         ),
+        covisibility_sparse_gt=(
+            sparse_gt if args.filter_covisibility else None
+        ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
+        gpu_index=gpu_index,
+        phase_tracker=tracker,
     )
+
+    tracker.set("evaluation")
 
     # Merge all sub-models into a single reconstruction. Each sub-model will be
     # "randomly" aligned to the other sub-models. We then compute the overall
@@ -518,6 +876,7 @@ def process_scene(
     else:
         raise ValueError(f"Invalid error type: {args.error_type}")
 
+    tracker.set("finished")
     return SceneResult(
         scene_info=scene_info,
         errors=errors,
@@ -525,6 +884,49 @@ def process_scene(
         num_reg_images=sparse_merged.num_images(),
         num_components=num_components,
         largest_component=largest_component,
+    )
+
+
+def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
+    if args.gpu_index == "-1":
+        if not pycolmap.has_cuda:
+            return [-1]
+        num_devices = pycolmap.get_num_cuda_devices()  # type: ignore[attr-defined]
+        if num_devices <= 0:
+            return [-1]
+        return list(range(num_devices))
+    indices = [int(idx) for idx in args.gpu_index.split(",") if idx.strip()]
+    return indices if indices else [-1]
+
+
+def _process_scene_with_gpu(
+    scene_info_and_gpu: tuple[SceneInfo, str],
+    args: argparse.Namespace,
+    prepare_scene: Callable[[SceneInfo], None],
+    position_accuracy_gt: float,
+    num_threads: int,
+    progress_status=None,
+) -> SceneResult:
+    scene_info, gpu_index = scene_info_and_gpu
+    return process_scene(
+        args=args,
+        scene_info=scene_info,
+        prepare_scene=prepare_scene,
+        position_accuracy_gt=position_accuracy_gt,
+        num_threads=num_threads,
+        gpu_index=gpu_index,
+        progress_status=progress_status,
+    )
+
+
+@functools.cache
+def _warn_nondeterministic(seed_flag: str, num_threads_per_scene: int) -> None:
+    """Warns once per process; process_scenes() runs per dataset and seed."""
+    pycolmap.logging.warning(
+        f"{seed_flag} is set but "
+        f"num_threads_per_scene={num_threads_per_scene} > 1: RANSAC seeds "
+        "per thread, so results are NOT deterministic. Pass "
+        "--threads_per_scene 1 for reproducible / paired A-B runs."
     )
 
 
@@ -536,34 +938,75 @@ def process_scenes(
 ) -> MetricsByCatByScene:
     error_thresholds = get_error_thresholds(args)
 
-    num_threads = min(
-        args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
-    )
-    with multiprocessing.Pool(processes=args.parallelism) as p:
-        results = p.map(
-            functools.partial(
-                process_scene,
-                args,
-                prepare_scene=prepare_scene,
-                position_accuracy_gt=position_accuracy_gt,
-                num_threads=num_threads,
-            ),
-            scene_infos,
+    gpu_index = _parse_gpu_index(args)
+    scene_gpu_pairs = [
+        (scene_info, str(gpu_index[i % len(gpu_index)]))
+        for i, scene_info in enumerate(scene_infos)
+    ]
+
+    num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
+    if args.threads_per_scene > 0:
+        num_threads_per_scene = args.threads_per_scene
+    else:
+        num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
+    if args.random_seed >= 0 and num_threads_per_scene != 1:
+        _warn_nondeterministic(args.seed_flag, num_threads_per_scene)
+
+    manager = None
+    progress_status = None
+    monitor_thread = None
+    stop_event = threading.Event()
+    if args.progress:
+        manager = multiprocessing.Manager()
+        progress_status = manager.dict()
+        monitor_thread = threading.Thread(
+            target=_run_progress_monitor,
+            args=(progress_status, len(scene_infos), stop_event),
+            daemon=True,
         )
+        monitor_thread.start()
+
+    try:
+        p = multiprocessing.Pool(
+            processes=num_parallel_scenes, initializer=_init_pool_worker
+        )
+        try:
+            results = list(
+                p.imap_unordered(
+                    functools.partial(
+                        _process_scene_with_gpu,
+                        args=args,
+                        prepare_scene=prepare_scene,
+                        position_accuracy_gt=position_accuracy_gt,
+                        num_threads=num_threads_per_scene,
+                        progress_status=progress_status,
+                    ),
+                    scene_gpu_pairs,
+                    chunksize=1,
+                )
+            )
+        except KeyboardInterrupt:
+            pycolmap.logging.warning(
+                "Interrupted, terminating workers and child processes..."
+            )
+            p.terminate()
+            raise
+        except BaseException:
+            p.terminate()
+            raise
+        else:
+            p.close()
+        finally:
+            p.join()
+    finally:
+        stop_event.set()
+        if monitor_thread is not None:
+            monitor_thread.join()
+        if manager is not None:
+            manager.shutdown()
 
     metrics: MetricsByCatByScene = collections.defaultdict(dict)
-    errors_by_category: dict[str, list] = collections.defaultdict(list)
-    total_num_images = 0
-    total_num_reg_images = 0
-    total_num_components = 0
-    total_largest_components = 0
-    num_scenes = len(results)
     for result in results:
-        errors_by_category[result.scene_info.category].extend(result.errors)
-        total_num_images += result.num_images
-        total_num_reg_images += result.num_reg_images
-        total_num_components += result.num_components
-        total_largest_components += result.largest_component
         metrics[result.scene_info.category][result.scene_info.scene] = Metrics(
             aucs=compute_auc(
                 result.errors,
@@ -577,50 +1020,79 @@ def process_scenes(
             num_reg_images=result.num_reg_images,
             num_components=result.num_components,
             largest_component=result.largest_component,
+            errors=np.asarray(result.errors),
+            position_accuracy_gt=position_accuracy_gt,
         )
 
-    for category, errors in errors_by_category.items():
-        errors_array = np.array(errors)
-        metrics[category]["__all__"] = Metrics(
-            aucs=compute_auc(
-                errors_array,
-                error_thresholds,
-                min_error=position_accuracy_gt,
-            ),
-            recalls=compute_recall(errors_array, error_thresholds),
-            error_thresholds=error_thresholds,
-            error_type=args.error_type,
-            num_images=total_num_images,
-            num_reg_images=total_num_reg_images,
-            num_components=total_num_components,
-            largest_component=total_largest_components,
-        )
-        aucs, recalls = compute_avg_metrics(metrics[category])
-        metrics[category]["__avg__"] = Metrics(
-            aucs=aucs,
-            recalls=recalls,
-            error_thresholds=error_thresholds,
-            error_type=args.error_type,
-            num_images=int(round(total_num_images / num_scenes)),
-            num_reg_images=int(round(total_num_reg_images / num_scenes)),
-            num_components=int(round(total_num_components / num_scenes)),
-            largest_component=int(round(total_largest_components / num_scenes)),
+    for category in metrics:
+        metrics[category].update(
+            aggregate_scene_metrics(
+                metrics[category].items(),
+                error_thresholds=error_thresholds,
+                error_type=args.error_type,
+            )
         )
 
     return metrics
 
 
-def normalize_vec(
-    vec: npt.NDArray[np.floating], eps: float = 1e-10
-) -> npt.NDArray[np.floating]:
-    return vec / max(eps, float(np.linalg.norm(vec)))
+def aggregate_scene_metrics(
+    scene_metrics: Iterable[tuple[str, Metrics]],
+    error_thresholds: npt.NDArray[np.floating],
+    error_type: str,
+) -> dict[str, Metrics]:
+    """Compute __avg__ (mean of per-scene metrics) and __all__ (recomputed
+    from the pool of raw errors) summary entries from per-scene Metrics.
 
+    Skips entries whose key starts and ends with "__" so this can be applied
+    iteratively at higher levels (category -> dataset -> overall) without
+    double-counting previously-emitted summaries.
+    """
+    real = [
+        m
+        for k, m in scene_metrics
+        if not (k.startswith("__") and k.endswith("__"))
+    ]
+    if not real:
+        return {}
 
-def vec_angular_dist_deg(
-    vec1: npt.NDArray[np.floating], vec2: npt.NDArray[np.floating]
-) -> float:
-    cos_dist = np.clip(np.dot(normalize_vec(vec1), normalize_vec(vec2)), -1, 1)
-    return np.rad2deg(np.acos(cos_dist))
+    n = len(real)
+    sum_num_images = sum(m.num_images for m in real)
+    sum_num_reg_images = sum(m.num_reg_images for m in real)
+    sum_num_components = sum(m.num_components for m in real)
+    sum_largest_component = sum(m.largest_component for m in real)
+    min_pos_acc = min(m.position_accuracy_gt for m in real)
+    pooled_errors = np.concatenate([m.errors for m in real])
+
+    summary = {
+        "__avg__": Metrics(
+            aucs=np.mean([m.aucs for m in real], axis=0),
+            recalls=np.mean([m.recalls for m in real], axis=0),
+            error_thresholds=error_thresholds,
+            error_type=error_type,
+            num_images=int(round(sum_num_images / n)),
+            num_reg_images=int(round(sum_num_reg_images / n)),
+            num_components=int(round(sum_num_components / n)),
+            largest_component=int(round(sum_largest_component / n)),
+            position_accuracy_gt=min_pos_acc,
+        ),
+    }
+    if pooled_errors.size:
+        summary["__all__"] = Metrics(
+            aucs=compute_auc(
+                pooled_errors, error_thresholds, min_error=min_pos_acc
+            ),
+            recalls=compute_recall(pooled_errors, error_thresholds),
+            error_thresholds=error_thresholds,
+            error_type=error_type,
+            num_images=sum_num_images,
+            num_reg_images=sum_num_reg_images,
+            num_components=sum_num_components,
+            largest_component=sum_largest_component,
+            errors=pooled_errors,
+            position_accuracy_gt=min_pos_acc,
+        )
+    return summary
 
 
 def get_error_thresholds(args: argparse.Namespace) -> npt.NDArray[np.floating]:
@@ -878,6 +1350,11 @@ def diff_metrics(
     return metrics_diff
 
 
+def _is_summary_scene(scene: str) -> bool:
+    """Whether a scene name is an aggregate row (e.g. __avg__, __all__)."""
+    return scene.startswith("__") and scene.endswith("__")
+
+
 def create_result_table(
     dataset_metrics: MetricsByDatasetByCatByScene,
 ) -> str:
@@ -917,24 +1394,383 @@ def create_result_table(
     header += " ".join(f"{str(t).rstrip('.'):^6}" for t in thresholds)
     header += "    reg   all  num largest"
     text = [header]
+
+    def render_block(
+        header_text: str,
+        scene_metrics: MetricsByScene,
+        header_fill: str = "=",
+    ) -> None:
+        text.append(f"\n{header_text:{header_fill}^{size_sep}}")
+        any_scene_row = False
+        summary_separator_drawn = False
+        for scene, metrics in sorted(
+            scene_metrics.items(),
+            key=lambda x: (
+                x[0].startswith("__"),
+                x[0],
+            ),
+        ):
+            scores = get_scores(first_metrics.error_type, metrics)
+            assert len(scores) == len(thresholds)
+            row = ""
+            is_summary = _is_summary_scene(scene)
+            if is_summary and any_scene_row and not summary_separator_drawn:
+                row += "-" * size_sep + "\n"
+                summary_separator_drawn = True
+            if not is_summary:
+                any_scene_row = True
+            if scene == "__avg__":
+                scene = "average"
+            if scene == "__all__":
+                scene = "overall"
+            row += f"{scene:<{size_scenes}} "
+            row += " ".join(f"{score:>6.2f}" for score in scores)
+            row += f" {metrics.num_reg_images:6d}"
+            row += f"{metrics.num_images:6d}"
+            row += f" {metrics.num_components:4d}"
+            row += f"{metrics.largest_component:8d}"
+            text.append(row)
+
+    overall_scene_metrics: list[tuple[str, Metrics]] = []
     for dataset, category_metrics in dataset_metrics.items():
+        dataset_scene_metrics: list[tuple[str, Metrics]] = []
         for category, scene_metrics in category_metrics.items():
-            text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
-            for scene, metrics in scene_metrics.items():
-                scores = get_scores(first_metrics.error_type, metrics)
-                assert len(scores) == len(thresholds)
-                row = ""
-                if scene == "__avg__":
-                    scene = "average"
-                    row += "-" * size_sep + "\n"
-                if scene == "__all__":
-                    scene = "overall"
-                    row += "-" * size_sep + "\n"
-                row += f"{scene:<{size_scenes}} "
-                row += " ".join(f"{score:>6.2f}" for score in scores)
-                row += f" {metrics.num_reg_images:6d}"
-                row += f"{metrics.num_images:6d}"
-                row += f" {metrics.num_components:4d}"
-                row += f"{metrics.largest_component:8d}"
-                text.append(row)
+            render_block(f"{dataset}={category}", scene_metrics)
+            dataset_scene_metrics.extend(scene_metrics.items())
+        if len(category_metrics) > 1:
+            render_block(
+                dataset,
+                aggregate_scene_metrics(
+                    dataset_scene_metrics,
+                    error_thresholds=first_metrics.error_thresholds,
+                    error_type=first_metrics.error_type,
+                ),
+                header_fill="#",
+            )
+        overall_scene_metrics.extend(dataset_scene_metrics)
+
+    if len(dataset_metrics) > 1:
+        render_block(
+            "overall",
+            aggregate_scene_metrics(
+                overall_scene_metrics,
+                error_thresholds=first_metrics.error_thresholds,
+                error_type=first_metrics.error_type,
+            ),
+            header_fill="#",
+        )
+
     return "\n".join(text)
+
+
+def load_report(path: Path) -> MetricsByDatasetByCatByScene:
+    """Loads a report pickled by evaluate.py."""
+    with open(path, "rb") as report_file:
+        return pickle.load(report_file)
+
+
+def _collect_reports(prefix: Path) -> dict[int, Path] | Path:
+    """Collects the reports of one variant given as a report path prefix.
+
+    Returns seed -> path for the <prefix>_s<seed>.pkl reports of a seeded run,
+    or the single <prefix>.pkl path of an unseeded one.
+    """
+    reports: dict[int, Path] = {}
+    for path in prefix.parent.glob(f"{prefix.name}_s*.pkl"):
+        seed = path.stem[len(prefix.name) + 2 :]
+        if seed.isdigit():
+            reports[int(seed)] = path
+    if reports:
+        return reports
+    path = prefix.with_name(f"{prefix.name}.pkl")
+    if not path.exists():
+        raise SystemExit(
+            f"found neither {prefix.name}_s<seed>.pkl reports nor {path}"
+        )
+    return path
+
+
+def collect_reports(
+    path: Path | None, prefix: Path | None
+) -> dict[int, Path] | Path:
+    """Collects one variant's reports from a report path or a path prefix.
+
+    Returns the single report path, or seed -> path for the
+    <prefix>_s<seed>.pkl reports of a seeded run.
+    """
+    if path is not None:
+        if not path.exists():
+            raise SystemExit(f"no such report: {path}")
+        return path
+    assert prefix is not None
+    return _collect_reports(prefix)
+
+
+def pair_reports(
+    reports_a: dict[int, Path] | Path,
+    reports_b: dict[int, Path] | Path,
+    labels: Sequence[str] = ("A", "B"),
+    seeds: list[int] | None = None,
+) -> tuple[list[Path], list[Path], list[int] | None]:
+    """Pairs up the collected reports of two variants.
+
+    Seeded variants are matched on the seeds they have in common; pass seeds
+    to restrict the comparison to a subset. A variant that is a single report
+    is compared against every seed of the other.
+    """
+    label_a, label_b = labels
+
+    if isinstance(reports_a, dict) and isinstance(reports_b, dict):
+        # Both seeded: pair them up on the seeds they have in common.
+        shared = sorted(set(reports_a) & set(reports_b))
+        if not shared:
+            raise SystemExit(
+                f"{label_a} and {label_b} share no seed, but the "
+                "comparison is paired per seed "
+                f"({label_a}: {sorted(reports_a)}, "
+                f"{label_b}: {sorted(reports_b)})"
+            )
+        for label, reports in ((label_a, reports_a), (label_b, reports_b)):
+            dropped = sorted(set(reports) - set(shared))
+            if dropped:
+                pycolmap.logging.warning(
+                    f"ignoring {len(dropped)} of {label}'s "
+                    f"{len(reports)} reports, seed(s) {dropped}: the other "
+                    "variant has no report for them"
+                )
+    elif isinstance(reports_a, dict):
+        # Only A seeded: B is a single run, compared against each of A's seeds.
+        shared = sorted(reports_a)
+    elif isinstance(reports_b, dict):
+        shared = sorted(reports_b)
+    else:
+        # Neither seeded: a plain one-to-one comparison.
+        return [reports_a], [reports_b], None
+
+    if seeds is not None:
+        unknown = sorted(set(seeds) - set(shared))
+        if unknown:
+            pycolmap.logging.warning(
+                f"skipping seed(s) {unknown}: not present for both variants"
+            )
+        shared = [seed for seed in shared if seed in set(seeds)]
+        if not shared:
+            raise SystemExit(f"none of the seeds {seeds} is available")
+
+    def paths(reports: dict[int, Path] | Path) -> list[Path]:
+        if isinstance(reports, Path):
+            return [reports] * len(shared)
+        return [reports[seed] for seed in shared]
+
+    return paths(reports_a), paths(reports_b), shared
+
+
+def _first_metrics(report: MetricsByDatasetByCatByScene) -> Metrics:
+    return next(iter(next(iter(next(iter(report.values())).values())).values()))
+
+
+def _common_scene_keys(
+    reports: list[MetricsByDatasetByCatByScene],
+) -> list[SceneKey]:
+    """Scene keys present in every report, ordered as in the first report."""
+    key_sets: list[set[SceneKey]] = []
+    for report in reports:
+        keys: set[SceneKey] = set()
+        for dataset, cat_metrics in report.items():
+            for category, scene_metrics in cat_metrics.items():
+                for scene in scene_metrics:
+                    keys.add((dataset, category, scene))
+        key_sets.append(keys)
+    shared: set[SceneKey] = set()
+    if key_sets:
+        shared = key_sets[0].intersection(*key_sets[1:])
+    ordered: list[SceneKey] = []
+    for dataset, cat_metrics in reports[0].items():
+        for category, scene_metrics in cat_metrics.items():
+            for scene in scene_metrics:
+                if (dataset, category, scene) in shared:
+                    ordered.append((dataset, category, scene))
+    return ordered
+
+
+def _stack_scores(
+    reports: list[MetricsByDatasetByCatByScene],
+    key: SceneKey,
+    error_type: str,
+) -> npt.NDArray[np.floating]:
+    """Scores for one scene across reports, shaped (num_reports, num_thr)."""
+    dataset, category, scene = key
+    return np.array(
+        [
+            get_scores(error_type, report[dataset][category][scene])
+            for report in reports
+        ]
+    )
+
+
+def _render_meanstd(
+    title: str,
+    per_key_stack: dict[SceneKey, npt.NDArray[np.floating]],
+    keys: list[SceneKey],
+    error_type: str,
+    thresholds: npt.NDArray[np.floating],
+    num_runs: int,
+    signed: bool = False,
+    num_reported: int | None = None,
+) -> str:
+    """Renders one mean +/- std table over runs, per scene x threshold.
+
+    per_key_stack maps each key to a (num_runs, num_thresholds) score array.
+    num_reported is shown in the trailing N column as the number of distinct
+    runs behind the statistics, which is 1 for a single run compared against
+    every seed of the other variant, and whose std is then zero.
+    """
+    is_relative = error_type.startswith("relative")
+    thresholds_disp = thresholds if is_relative else 100 * thresholds
+    size_scene = max(8, max(len(s) for _, _, s in keys))
+    size_cell = 12  # "+dd.dd±dd.dd"
+    fmt = "{:+6.2f}±{:5.2f}" if signed else "{:6.2f}±{:5.2f}"
+    header = f"{'scene':<{size_scene}} {'N':>3} " + " ".join(
+        f"{'@' + str(t).rstrip('.'):^{size_cell}}" for t in thresholds_disp
+    )
+    num_reported = num_runs if num_reported is None else num_reported
+    lines: list[str] = [title, header, "-" * len(header)]
+    prev_summary = False
+    for key in sorted(keys, key=lambda k: (_is_summary_scene(k[2]), k)):
+        scene = key[2]
+        if _is_summary_scene(scene) and not prev_summary:
+            lines.append("-" * len(header))
+            prev_summary = True
+        scores = per_key_stack[key]  # (num_runs, num_thresholds)
+        mean = scores.mean(axis=0)
+        std = (
+            scores.std(axis=0, ddof=1) if num_runs > 1 else np.zeros_like(mean)
+        )
+        label = {"__avg__": "average", "__all__": "overall"}.get(scene, scene)
+        cells = " ".join(
+            fmt.format(m, s) for m, s in zip(mean, std, strict=True)
+        )
+        lines.append(f"{label:<{size_scene}} {num_reported:>3} {cells}")
+    return "\n".join(lines)
+
+
+def compare_reports(
+    report_a_paths: list[Path],
+    report_b_paths: list[Path],
+    labels: Sequence[str] = ("A", "B"),
+    seeds: list[int] | None = None,
+) -> None:
+    """Logs an A vs B comparison of two sets of paired reports.
+
+    With one report per variant this prints the usual result tables for A, B
+    and A - B. With several reports per variant (one per seed, paired by
+    position) it instead prints mean +/- std over the runs, with A - B computed
+    per seed before averaging.
+    """
+    if len(report_a_paths) != len(report_b_paths):
+        raise SystemExit(
+            "A and B must have the same number of reports (paired by seed): "
+            f"{len(report_a_paths)} vs {len(report_b_paths)}"
+        )
+    num_runs = len(report_a_paths)
+    if num_runs == 0:
+        raise SystemExit("no reports to compare")
+    if seeds is not None and len(seeds) != num_runs:
+        raise SystemExit(
+            f"seed count ({len(seeds)}) != report count ({num_runs})"
+        )
+    label_a, label_b = labels
+
+    reports_a = [load_report(path) for path in report_a_paths]
+    reports_b = [load_report(path) for path in report_b_paths]
+
+    if num_runs == 1:
+        metrics_a, metrics_b = reports_a[0], reports_b[0]
+        metrics_diff = diff_metrics(metrics_a, metrics_b)
+        pycolmap.logging.info(
+            f"Results {label_a}:\n" + create_result_table(metrics_a)
+        )
+        pycolmap.logging.info(
+            f"Results {label_b}:\n" + create_result_table(metrics_b)
+        )
+        pycolmap.logging.info(
+            f"Results {label_a} - {label_b}:\n"
+            + create_result_table(metrics_diff)
+        )
+        return
+
+    keys = _common_scene_keys(reports_a + reports_b)
+    if not keys:
+        raise SystemExit("No scenes shared across all reports.")
+
+    first_metrics = _first_metrics(reports_a[0])
+    error_type = first_metrics.error_type
+    thresholds = np.asarray(first_metrics.error_thresholds)
+    score = "AUC" if error_type.endswith("auc") else "Recall"
+
+    # A variant may be a single run compared against every seed of the other,
+    # in which case it has no spread of its own and is labelled as such.
+    single_a = len(set(report_a_paths)) == 1 and num_runs > 1
+    single_b = len(set(report_b_paths)) == 1 and num_runs > 1
+    # Both variants ran on the same seeds, so the difference is paired; a
+    # single run broadcast against the other's seeds is not.
+    shared = not (single_a or single_b)
+    over_seeds = f"{score} mean ± std over {num_runs} seeds"
+
+    seeds_label = " ".join(map(str, seeds)) if seeds is not None else "-"
+    num_scenes = len([k for k in keys if not _is_summary_scene(k[2])])
+    num_reconstructions = num_runs * (2 - single_a - single_b)
+    pycolmap.logging.info(
+        f"{label_a} vs {label_b}: {num_runs} seeds; "
+        f"{num_reconstructions} reconstruction runs over {num_scenes} scenes; "
+        f"seeds: [{seeds_label}]"
+    )
+    if single_a or single_b:
+        single, seeded = (label_a, label_b) if single_a else (label_b, label_a)
+        pycolmap.logging.warning(
+            f"{single} is a single run compared against every seed of "
+            f"{seeded}: the difference therefore carries only {seeded}'s "
+            f"spread, and is not a paired (common random number) comparison. "
+            f"Run {single} on the same seeds for that."
+        )
+
+    stacks_a = {k: _stack_scores(reports_a, k, error_type) for k in keys}
+    stacks_b = {k: _stack_scores(reports_b, k, error_type) for k in keys}
+    stacks_diff = {k: stacks_a[k] - stacks_b[k] for k in keys}
+
+    common = (keys, error_type, thresholds, num_runs)
+    pycolmap.logging.info(
+        "\n"
+        + _render_meanstd(
+            f"A = {label_a}  "
+            + (f"({score}, single run)" if single_a else f"({over_seeds})"),
+            stacks_a,
+            *common,
+            num_reported=1 if single_a else num_runs,
+        )
+    )
+    pycolmap.logging.info(
+        "\n"
+        + _render_meanstd(
+            f"B = {label_b}  "
+            + (f"({score}, single run)" if single_b else f"({over_seeds})"),
+            stacks_b,
+            *common,
+            num_reported=1 if single_b else num_runs,
+        )
+    )
+    pycolmap.logging.info(
+        "\n"
+        + _render_meanstd(
+            f"A - B = {label_a} - {label_b}  ({over_seeds}, "
+            + (
+                "shared seeds -> paired)"
+                if shared
+                else f"seeds NOT shared -> {label_b if single_a else label_a}"
+                "'s spread only)"
+            ),
+            stacks_diff,
+            *common,
+            signed=True,
+        )
+    )

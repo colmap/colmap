@@ -29,6 +29,7 @@
 
 #include "colmap/scene/rig.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -250,7 +251,7 @@ TEST(ApplyRigConfig, WithDifferingDatabaseAndReconstructionIds) {
     differing_frame.ResetRigPtr();
     differing_frame.SetFrameId(frame.FrameId() + 1);
     differing_frame.SetRigId(frame.RigId() + 1);
-    differing_frame.DataIds().clear();
+    differing_frame.ClearDataIds();
     for (auto& data_id : frame.DataIds()) {
       differing_frame.AddDataId(
           data_t(sensor_t(data_id.sensor_id.type, data_id.sensor_id.id + 1),
@@ -334,7 +335,7 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
   camera2.camera =
       Camera::CreateFromModelId(2, CameraModelId::kOpenCV, 2.0, 1024, 768);
   camera2.cam_from_rig =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
 
   ApplyRigConfig(configs, *database);
   EXPECT_EQ(database->NumRigs(), 1);

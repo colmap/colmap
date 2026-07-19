@@ -55,16 +55,30 @@ if(TARGET CHOLMOD::CHOLMOD)
     message(STATUS "Found CHOLMOD")
     message(STATUS "  Target : CHOLMOD::CHOLMOD")
 else()
-    find_path(CHOLMOD_INCLUDE_DIRS
-        NAMES
-        suitesparse/cholmod.h
-        PATHS
+    list(APPEND CHOLMOD_INCLUDE_SEARCH_PATHS
         ${CHOLMOD_INCLUDE_DIR_HINTS}
         /usr/include
         /usr/local/include
         /sw/include
         /opt/include
         /opt/local/include)
+
+    # Some distros don't package suitesparse under a /suitesparse subdirectory (e.g. NixOS).
+    # Search for both layouts separately so that the suitesparse/ subdirectory
+    # layout is reliably preferred across all search paths.  A single find_path
+    # call with both names would iterate search paths first and names second,
+    # which could pick up a bare cholmod.h from an earlier path over
+    # suitesparse/cholmod.h from a later one.
+    find_path(CHOLMOD_INCLUDE_DIRS
+        NAMES suitesparse/cholmod.h
+        PATHS ${CHOLMOD_INCLUDE_SEARCH_PATHS})
+    if(NOT CHOLMOD_INCLUDE_DIRS)
+        unset(CHOLMOD_INCLUDE_DIRS CACHE)
+        find_path(CHOLMOD_INCLUDE_DIRS
+            NAMES cholmod.h
+            PATHS ${CHOLMOD_INCLUDE_SEARCH_PATHS})
+    endif()
+
     find_library(CHOLMOD_LIBRARIES
         NAMES
         cholmod
@@ -87,9 +101,15 @@ else()
         set(CHOLMOD_FOUND FALSE)
     endif()
 
+    if(EXISTS "${CHOLMOD_INCLUDE_DIRS}/suitesparse/cholmod.h")
+        set(CHOLMOD_INTERFACE_INCLUDE_DIRS "${CHOLMOD_INCLUDE_DIRS}/suitesparse")
+    else()
+        set(CHOLMOD_INTERFACE_INCLUDE_DIRS "${CHOLMOD_INCLUDE_DIRS}")
+    endif()
+
     add_library(CHOLMOD::CHOLMOD INTERFACE IMPORTED)
     target_include_directories(
-        CHOLMOD::CHOLMOD INTERFACE ${CHOLMOD_INCLUDE_DIRS}/suitesparse)
+        CHOLMOD::CHOLMOD INTERFACE ${CHOLMOD_INTERFACE_INCLUDE_DIRS})
     target_link_libraries(
         CHOLMOD::CHOLMOD INTERFACE ${CHOLMOD_LIBRARIES})
 endif()

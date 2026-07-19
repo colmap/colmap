@@ -194,7 +194,7 @@ void BindReconstruction(py::module& m) {
       .def("register_frame",
            &Reconstruction::RegisterFrame,
            "frame_id"_a,
-           "Register an existing frame.")
+           "Register an existing frame, and all its references.")
       .def("deregister_frame",
            &Reconstruction::DeRegisterFrame,
            "frame_id"_a,
@@ -273,7 +273,8 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::ExtractColorsForAllImages,
            "Extract colors for all 3D points by computing the mean color of "
            "all images.",
-           "path"_a)
+           "path"_a,
+           "num_threads"_a = -1)
       .def("create_image_dirs",
            &Reconstruction::CreateImageDirs,
            "path"_a,

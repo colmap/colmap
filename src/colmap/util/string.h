@@ -34,6 +34,10 @@
 
 namespace colmap {
 
+// Locale-independent string-to-double conversion.
+// Always uses '.' as decimal separator regardless of LC_NUMERIC.
+double StringToDouble(const std::string& str);
+
 // Format string by replacing embedded format specifiers with their respective
 // values, see `printf` for more details. This is a modified implementation
 // of Google's BSD-licensed StringPrintf function.
@@ -44,7 +48,7 @@ std::string StringReplace(const std::string& str,
                           const std::string& old_str,
                           const std::string& new_str);
 
-// Get substring of string after search key
+// Get substring of string after the last occurrence of the search key.
 std::string StringGetAfter(const std::string& str, const std::string& key);
 
 // Split string into list of words using the given delimiters.

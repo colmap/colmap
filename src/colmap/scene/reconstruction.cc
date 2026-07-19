@@ -37,7 +37,9 @@
 #include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/ply.h"
+#include "colmap/util/threading.h"
 
 #include <set>
 
@@ -106,8 +108,8 @@ std::vector<image_t> Reconstruction::RegImageIds() const {
   return reg_image_ids;
 }
 
-std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
-  std::unordered_set<point3D_t> point3D_ids;
+FlatHashSet<point3D_t> Reconstruction::Point3DIds() const {
+  FlatHashSet<point3D_t> point3D_ids;
   point3D_ids.reserve(points3D_.size());
 
   for (const auto& [point3D_id, _] : points3D_) {
@@ -349,7 +351,7 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 
 void Reconstruction::TearDown() {
   // Remove all non-registered frames/images.
-  std::unordered_set<rig_t> keep_rig_ids;
+  FlatHashSet<rig_t> keep_rig_ids;
   for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
     for (const data_t& data_id : frame_it->second.ImageIds()) {
       auto image_it = images_.find(data_id.id);
@@ -361,7 +363,9 @@ void Reconstruction::TearDown() {
       keep_rig_ids.insert(frame_it->second.RigId());
       ++frame_it;
     } else {
-      frame_it = frames_.erase(frame_it);
+      // erase(it++) rather than it = erase(it): portable across hash map
+      // backends (Abseil's erase() returns void); frames_ is node-based.
+      frames_.erase(frame_it++);
     }
   }
 
@@ -378,7 +382,7 @@ void Reconstruction::TearDown() {
             break;
         }
       }
-      it = rigs_.erase(it);
+      rigs_.erase(it++);
     } else {
       ++it;
     }
@@ -455,7 +459,11 @@ void Reconstruction::AddFrame(class Frame frame) {
   }
   const bool is_registered = frame.HasPose();
   const frame_t frame_id = frame.FrameId();
-  THROW_CHECK(frames_.emplace(frame_id, std::move(frame)).second);
+  auto [it, inserted] = frames_.emplace(frame_id, std::move(frame));
+  THROW_CHECK(inserted);
+  // We finalize the data ids, otherwise some internal bookkeeping
+  // (e.g., counting reg_image_ids_) will be incorrect.
+  it->second.FinalizeDataIds();
   if (is_registered) {
     THROW_CHECK_NE(frame_id, kInvalidFrameId);
     RegisterFrame(frame_id);
@@ -633,7 +641,8 @@ void Reconstruction::SetRigsAndFrames(std::vector<class Rig> rigs,
   frames_.clear();
   frames_.reserve(frames.size());
   reg_frame_ids_.clear();
-  std::unordered_map<image_t, frame_t> image_to_frame_ids;
+  num_reg_images_ = 0;
+  NodeHashMap<image_t, frame_t> image_to_frame_ids;
   for (auto& frame : frames) {
     for (const data_t& data_id : frame.ImageIds()) {
       THROW_CHECK(
@@ -816,7 +825,7 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
     }
     cropped_reconstruction.AddImage(std::move(image));
   }
-  std::unordered_set<image_t> cropped_frame_ids;
+  FlatHashSet<image_t> cropped_frame_ids;
   for (const auto& [_, point3D] : points3D_) {
     if (bbox.contains(point3D.xyz)) {
       for (const auto& track_el : point3D.track.Elements()) {
@@ -862,10 +871,10 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
 }
 
 void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
-  std::unordered_map<image_t, image_t> old_to_new_image_ids;
+  NodeHashMap<image_t, image_t> old_to_new_image_ids;
   old_to_new_image_ids.reserve(NumImages());
 
-  std::unordered_map<image_t, class Image> new_images;
+  NodeHashMap<image_t, class Image> new_images;
   new_images.reserve(NumImages());
 
   for (auto& [_, image] : images_) {
@@ -884,7 +893,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   // Transcribe frame data.
   for (auto& [_, frame] : frames_) {
-    auto new_frame = frame;
+    class Frame new_frame = frame;
     new_frame.ClearDataIds();
     for (data_t data_id : frame.DataIds()) {
       if (data_id.sensor_id.type == SensorType::CAMERA) {
@@ -892,6 +901,9 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
       }
       new_frame.AddDataId(data_id);
     }
+    // We finalize the data ids, otherwise some internal bookkeeping (e.g.,
+    // counting reg_image_ids_) will be incorrect.
+    new_frame.FinalizeDataIds();
     frame = std::move(new_frame);
   }
 
@@ -1094,11 +1106,10 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
     if (point2D.HasPoint3D()) {
       struct Point3D& point3D = Point3D(point2D.point3D_id);
       if (point3D.color == kBlackColor) {
-        BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
-        if (bitmap.InterpolateBilinear(
-                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
-          const BitmapColor<uint8_t> color_ub = color.Cast<uint8_t>();
+        if (const auto color = bitmap.InterpolateBilinear(
+                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5)) {
+          const BitmapColor<uint8_t> color_ub = color->Cast<uint8_t>();
           point3D.color = Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b);
         }
       }
@@ -1109,48 +1120,59 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 }
 
 void Reconstruction::ExtractColorsForAllImages(
-    const std::filesystem::path& path) {
-  std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
-  std::unordered_map<point3D_t, size_t> color_counts;
+    const std::filesystem::path& path, const int num_threads) {
+  struct ColorData {
+    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+    int count = 0;
+  };
+  ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
+  std::vector<FlatHashMap<point3D_t, ColorData>> thread_data(
+      thread_pool.NumThreads());
 
   for (const auto& image_id : RegImageIds()) {
-    const class Image& image = Image(image_id);
-    const auto image_path = path / image.Name();
+    thread_pool.AddTask([&, image_id]() {
+      const class Image& image = Image(image_id);
+      const auto image_path = path / image.Name();
 
-    Bitmap bitmap;
-    if (!bitmap.Read(image_path,
-                     /*as_rgb=*/true)) {
-      LOG(WARNING) << "Could not read image " << image.Name() << " at path "
-                   << image_path;
-      continue;
-    }
+      Bitmap bitmap;
+      if (!bitmap.Read(image_path, /*as_rgb=*/true)) {
+        LOG(WARNING) << "Could not read image " << image.Name() << " at path "
+                     << image_path;
+        return;
+      }
 
-    for (const Point2D& point2D : image.Points2D()) {
-      if (point2D.HasPoint3D()) {
-        BitmapColor<float> color;
-        // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
-        if (bitmap.InterpolateBilinear(
-                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
-          if (color_sums.count(point2D.point3D_id)) {
-            Eigen::Vector3d& color_sum = color_sums[point2D.point3D_id];
-            color_sum(0) += color.r;
-            color_sum(1) += color.g;
-            color_sum(2) += color.b;
-            color_counts[point2D.point3D_id] += 1;
-          } else {
-            color_sums.emplace(point2D.point3D_id,
-                               Eigen::Vector3d(color.r, color.g, color.b));
-            color_counts.emplace(point2D.point3D_id, 1);
+      auto& data = thread_data[thread_pool.GetThreadIndex()];
+      for (const Point2D& point2D : image.Points2D()) {
+        if (point2D.HasPoint3D()) {
+          // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
+          if (const auto color = bitmap.InterpolateBilinear(
+                  point2D.xy(0) - 0.5, point2D.xy(1) - 0.5)) {
+            auto& color_data = data[point2D.point3D_id];
+            color_data.sum(0) += color->r;
+            color_data.sum(1) += color->g;
+            color_data.sum(2) += color->b;
+            ++color_data.count;
           }
         }
       }
+    });
+  }
+  thread_pool.Wait();
+
+  // Merge per-thread results.
+  FlatHashMap<point3D_t, ColorData> merged_data;
+  for (const auto& data : thread_data) {
+    for (const auto& [point3D_id, thread_color_data] : data) {
+      auto& merged_color_data = merged_data[point3D_id];
+      merged_color_data.sum += thread_color_data.sum;
+      merged_color_data.count += thread_color_data.count;
     }
   }
 
   const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
   for (auto& [point3D_id, point3D] : points3D_) {
-    if (color_sums.count(point3D_id)) {
-      Eigen::Vector3d color = color_sums[point3D_id] / color_counts[point3D_id];
+    if (auto it = merged_data.find(point3D_id); it != merged_data.end()) {
+      Eigen::Vector3d color = it->second.sum / it->second.count;
       for (Eigen::Index i = 0; i < color.size(); ++i) {
         color[i] = std::round(color[i]);
       }
