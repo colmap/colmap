@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <vector>
@@ -175,18 +176,6 @@ class EssentialMatrixLMEstimator {
                         const std::vector<Y_t>& cam_rays2,
                         const M_t& E,
                         std::vector<double>* residuals);
-};
-
-// A unit bearing vector together with the Jacobian of that bearing with
-// respect to the pixel it was unprojected from, as produced by
-// Camera::CamRayFromImgWithJac.
-//
-// The two are bundled into a single type so that RANSAC's subsampling keeps
-// rays and their Jacobians index-aligned by construction, rather than by an
-// unchecked convention between parallel arrays.
-struct CamRayWithJac {
-  Eigen::Vector3d ray;
-  Eigen::Matrix<double, 3, 2> J;
 };
 
 // Essential matrix estimator scoring correspondences by the tangent Sampson

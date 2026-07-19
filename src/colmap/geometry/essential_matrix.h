@@ -253,6 +253,19 @@ void ComputeSquaredTangentSampsonError(
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals);
 
+// A unit bearing vector together with the Jacobian of that bearing with respect
+// to the pixel it was unprojected from, as produced by
+// Camera::CamRayFromImgWithJac.
+//
+// The two are bundled into a single type so that consumers which subsample
+// correspondences - RANSAC in particular - keep rays and their Jacobians
+// index-aligned by construction, rather than by an unchecked convention between
+// parallel arrays.
+struct CamRayWithJac {
+  Eigen::Vector3d ray;
+  Eigen::Matrix<double, 3, 2> J;
+};
+
 // Calculate the residuals of a set of corresponding rays and a given essential
 // matrix as the squared tangent Sampson error, additionally enforcing the
 // cheirality constraint.
@@ -260,17 +273,17 @@ void ComputeSquaredTangentSampsonError(
 // Correspondences that triangulate behind either camera are assigned an
 // infinite residual, as in ComputeSquaredSampsonErrorWithCheirality.
 //
-// @param rays1       Corresponding unit bearing vectors.
-// @param J_rays1     Corresponding Jacobians d(ray1) / d(pixel1).
-// @param rays2       Corresponding unit bearing vectors.
-// @param J_rays2     Corresponding Jacobians d(ray2) / d(pixel2).
+// This is called once per RANSAC hypothesis, so it avoids copying the bundled
+// input: only the bearings are materialized, because PoseFromEssentialMatrix
+// requires contiguous vectors.
+//
+// @param cam_rays1   First set of corresponding bearings with Jacobians.
+// @param cam_rays2   Second set of corresponding bearings with Jacobians.
 // @param E           3x3 essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredTangentSampsonErrorWithCheirality(
-    const std::vector<Eigen::Vector3d>& rays1,
-    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays1,
-    const std::vector<Eigen::Vector3d>& rays2,
-    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays2,
+    const std::vector<CamRayWithJac>& cam_rays1,
+    const std::vector<CamRayWithJac>& cam_rays2,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals);
 

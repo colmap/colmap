@@ -472,9 +472,16 @@ TEST(ComputeSquaredTangentSampsonError, VectorOverloadAndCheirality) {
       rays1, J_rays1, rays2, J_rays2, E, &plain_residuals);
   EXPECT_LT(plain_residuals[1], 1e-16);
 
+  std::vector<CamRayWithJac> cam_rays1(points3D.size());
+  std::vector<CamRayWithJac> cam_rays2(points3D.size());
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    cam_rays1[i] = {rays1[i], J_rays1[i]};
+    cam_rays2[i] = {rays2[i], J_rays2[i]};
+  }
+
   std::vector<double> cheiral_residuals;
   ComputeSquaredTangentSampsonErrorWithCheirality(
-      rays1, J_rays1, rays2, J_rays2, E, &cheiral_residuals);
+      cam_rays1, cam_rays2, E, &cheiral_residuals);
   ASSERT_EQ(cheiral_residuals.size(), points3D.size());
   EXPECT_EQ(cheiral_residuals[1], std::numeric_limits<double>::max());
   EXPECT_EQ(cheiral_residuals[0], plain_residuals[0]);
