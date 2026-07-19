@@ -28,12 +28,14 @@
 #include <algorithm>
 using namespace std;
 #include <string.h>
+#include <cfloat>
 #include "GlobalUtil.h"
 
 #include "ProgramGLSL.h"
 #include "GLTexImage.h"
 #include "SiftGPU.h"
 #include "SiftMatch.h"
+
 #include "FrameBufferObject.h"
 
 #if defined(SIFTGPU_CUDA_ENABLED)
@@ -48,6 +50,7 @@ SiftMatchGL::SiftMatchGL(int max_sift, int use_glsl): SiftMatchGPU()
 	_num_sift[0] = _num_sift[1] = 0;
 	_id_sift[0] = _id_sift[1] = 0;
 	_have_loc[0] = _have_loc[1] = 0;
+	_loc_ncomp[0] = _loc_ncomp[1] = 2;
 	__max_sift = max_sift <=0 ? 4096 : ((max_sift + 31)/ 32 * 32) ;
 	_pixel_per_sift = 32; //must be 32
 	_sift_num_stripe = 1;
@@ -79,6 +82,7 @@ void SiftMatchGL::SetMaxSift(int max_sift)
 		__max_sift = max_sift;
 		AllocateSiftMatch();
 		_have_loc[0] = _have_loc[1] = 0;
+	_loc_ncomp[0] = _loc_ncomp[1] = 2;
 		_id_sift[0] = _id_sift[1] = -1;
 		_num_sift[0] = _num_sift[1] = 1;
 	}else
@@ -170,11 +174,16 @@ void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descri
 
 }
 
-void SiftMatchGL::SetFeatureLocation(int index, const float* locations, int gap)
+void SiftMatchGL::SetFeatureLocation(int index, const float* locations, int gap, int ncomp)
 {
 	if(_num_sift[index] <=0) return;
+	if(ncomp < 2) ncomp = 2;
+	if(ncomp > 3) ncomp = 3;
+	_loc_ncomp[index] = ncomp;
 	int w = _sift_per_row ;
 	int h = (_num_sift[index] + _sift_per_row  - 1)/ _sift_per_row;
+	if(ncomp == 2)
+	{
 	sift_buffer.resize(_num_sift[index] * 2);
 	if(gap == 0)
 	{
@@ -202,6 +211,36 @@ void SiftMatchGL::SetFeatureLocation(int index, const float* locations, int gap)
 			int x = i * ws;
 			int pos = i * ws * h * 2;
 			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_LUMINANCE_ALPHA , GL_FLOAT, &sift_buffer[pos]);
+		}
+	}
+	}else
+	{
+		// Three-component locations are uploaded as RGBA; the underlying
+		// texture is already GL_RGBA32F, so only the upload format differs.
+		sift_buffer.resize(_num_sift[index] * 4);
+		for(int i = 0; i < _num_sift[index]; ++i)
+		{
+			sift_buffer[i*4] = *locations++;
+			sift_buffer[i*4+1] = *locations++;
+			sift_buffer[i*4+2] = *locations++;
+			sift_buffer[i*4+3] = 0.0f;
+			locations += gap;
+		}
+		sift_buffer.resize(w * h * 4, 0);
+		_texLoc[index].SetImageSize(w , h);
+		_texLoc[index].BindTex();
+		if(_sift_num_stripe == 1)
+		{
+			glTexSubImage2D(GlobalUtil::_texTarget, 0, 0, 0, w, h, GL_RGBA, GL_FLOAT, &sift_buffer[0]);
+		}else
+		{
+			for(int i = 0; i < _sift_num_stripe; ++i)
+			{
+				int ws = _sift_per_stripe;
+				int x = i * ws;
+				int pos = i * ws * h * 4;
+				glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_RGBA, GL_FLOAT, &sift_buffer[pos]);
+			}
 		}
 	}
 	_texLoc[index].UnbindTex();
@@ -408,7 +447,8 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 }
 
 int  SiftMatchGL::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
-									 float distmax, float ratiomax, float hdistmax, float fdistmax, int mbm)
+									 float distmax, float ratiomax, float hdistmax, float fdistmax, int mbm,
+									 int use_h, int use_f)
 {
 
 	int dw = _num_sift[1];
@@ -439,6 +479,10 @@ int  SiftMatchGL::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], 
 
 
 	//set parameters glsl
+	// Disabled models get an infinite threshold, which the shader treats as
+	// "skip" without relying on the residual being finite.
+	if(!use_h) hdistmax = FLT_MAX;
+	if(!use_f) fdistmax = FLT_MAX;
 	float dot_param[4] = {(float)_texDes[0].GetDrawHeight(), (float) _texDes[1].GetDrawHeight(), hdistmax, fdistmax};
 	glUniform1i(_param_guided_mult_tex1, 0);
 	glUniform1i(_param_guided_mult_tex2, 1);
@@ -668,13 +712,14 @@ void SiftMatchGPU::SetDescriptors(int index, int num, const float* descriptors, 
 	__matcher->SetDescriptors(index, num, descriptors, id);
 }
 
-void SiftMatchGPU::SetFeatureLocation(int index, const float* locations, int gap)
+void SiftMatchGPU::SetFeatureLocation(int index, const float* locations, int gap, int ncomp)
 {
-	__matcher->SetFeatureLocation(index, locations, gap);
+	__matcher->SetFeatureLocation(index, locations, gap, ncomp);
 
 }
 int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
-				float distmax, float ratiomax, float hdistmax, float fdistmax, int mutual_best_match)
+				float distmax, float ratiomax, float hdistmax, float fdistmax, int mutual_best_match,
+				int use_h, int use_f)
 {
 	if(H == NULL && F == NULL)
 	{
@@ -683,8 +728,12 @@ int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2],
 	{
 		float Z[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1}, ti = (1.0e+20F);
 
+		// The unused model is still handed an identity matrix so the kernel has
+		// well-defined inputs, but it is disabled through an explicit flag
+		// rather than through a threshold large enough to swallow it.
 		return __matcher->GetGuidedSiftMatch(max_match, match_buffer, H? H : Z, F? F : Z,
-			distmax, ratiomax, H? hdistmax: ti,  F? fdistmax: ti, mutual_best_match);
+			distmax, ratiomax, H? hdistmax: ti,  F? fdistmax: ti, mutual_best_match,
+			H != NULL, F != NULL);
 	}
 }
 

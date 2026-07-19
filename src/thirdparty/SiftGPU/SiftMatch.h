@@ -60,6 +60,7 @@ private:
 	int _num_sift[2];
 	int _id_sift[2];
 	int _have_loc[2];
+	int _loc_ncomp[2];
 
 	//gpu parameter
 	int _sift_per_stripe;
@@ -82,10 +83,11 @@ public:
 	void SetMaxSift(int max_sift) override;
 	void SetDescriptors(int index, int num, const unsigned char * descriptor, int id = -1);
 	void SetDescriptors(int index, int num, const float * descriptor, int id = -1);
-	void SetFeatureLocation(int index, const float* locatoins, int gap);
+	void SetFeatureLocation(int index, const float* locatoins, int gap, int ncomp);
 	int  GetSiftMatch(int max_match, uint32_t match_buffer[][2], float distmax, float ratiomax, int mbm);
 	int  GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
-		float distmax, float ratiomax, float hdistmax,float fdistmax, int mbm);
+		float distmax, float ratiomax, float hdistmax,float fdistmax, int mbm,
+		int use_h, int use_f);
 };
 
 

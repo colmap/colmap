@@ -48,6 +48,7 @@ SiftMatchCU::SiftMatchCU(int max_sift) : SiftMatchGPU() {
   _num_sift[0] = _num_sift[1] = 0;
   _id_sift[0] = _id_sift[1] = 0;
   _have_loc[0] = _have_loc[1] = 0;
+  _loc_ncomp[0] = _loc_ncomp[1] = 2;
   __max_sift = max_sift <= 0 ? 4096 : ((max_sift + 31) / 32 * 32);
   _initialized = 0;
 }
@@ -127,34 +128,54 @@ void SiftMatchCU::SetDescriptors(int index, int num, const float* descriptors,
 }
 
 void SiftMatchCU::SetFeatureLocation(int index, const float* locations,
-                                     int gap) {
+                                     int gap, int ncomp) {
   if (_num_sift[index] <= 0) return;
-  _texLoc[index].InitTexture(_num_sift[index], 1, 2);
-  if (gap == 0) {
-    _texLoc[index].CopyFromHost(locations);
+  if (ncomp < 2) ncomp = 2;
+  if (ncomp > 3) ncomp = 3;
+  if (ncomp == 2) {
+    _texLoc[index].InitTexture(_num_sift[index], 1, 2);
+    if (gap == 0) {
+      _texLoc[index].CopyFromHost(locations);
+    } else {
+      sift_buffer.resize(_num_sift[index] * 2);
+      float* pbuf = (float*)(&sift_buffer[0]);
+      for (int i = 0; i < _num_sift[index]; ++i) {
+        pbuf[i * 2] = *locations++;
+        pbuf[i * 2 + 1] = *locations++;
+        locations += gap;
+      }
+      _texLoc[index].CopyFromHost(pbuf);
+    }
   } else {
-    sift_buffer.resize(_num_sift[index] * 2);
+    // CUDA has no float3 channel descriptor, so general homogeneous locations
+    // are padded to four floats per feature.
+    _texLoc[index].InitTexture(_num_sift[index], 1, 4);
+    sift_buffer.resize(_num_sift[index] * 4);
     float* pbuf = (float*)(&sift_buffer[0]);
     for (int i = 0; i < _num_sift[index]; ++i) {
-      pbuf[i * 2] = *locations++;
-      pbuf[i * 2 + 1] = *locations++;
+      pbuf[i * 4] = *locations++;
+      pbuf[i * 4 + 1] = *locations++;
+      pbuf[i * 4 + 2] = *locations++;
+      pbuf[i * 4 + 3] = 0.0f;
       locations += gap;
     }
     _texLoc[index].CopyFromHost(pbuf);
   }
+  _loc_ncomp[index] = ncomp;
   _have_loc[index] = 1;
 }
 
 int SiftMatchCU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2],
                                     float* H, float* F, float distmax,
                                     float ratiomax, float hdistmax,
-                                    float fdistmax, int mbm) {
+                                    float fdistmax, int mbm, int use_h,
+                                    int use_f) {
   if (_initialized == 0) return 0;
   if (_num_sift[0] <= 0 || _num_sift[1] <= 0) return 0;
   if (_have_loc[0] == 0 || _have_loc[1] == 0) return 0;
   ProgramCU::MultiplyDescriptorG(_texDes, _texDes + 1, _texLoc, _texLoc + 1,
                                  &_texDot, (mbm ? &_texCRT : NULL), H, hdistmax,
-                                 F, fdistmax);
+                                 F, fdistmax, use_h, use_f);
   return GetBestMatch(max_match, match_buffer, distmax, ratiomax, mbm);
 }
 

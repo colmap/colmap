@@ -1521,7 +1521,8 @@ struct Matrix33
 void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaTextureObject_t texDes2,
 										   cudaTextureObject_t texLoc1, cudaTextureObject_t texLoc2, 
 										   int* d_result, int num1, int num2, int3* d_temp,
-										   Matrix33 H, float hdistmax, Matrix33 F, float fdistmax)
+										   Matrix33 H, float hdistmax, Matrix33 F, float fdistmax,
+										   int use_h, int use_f)
 {
 	int idx01 = (blockIdx.y  * MULT_BLOCK_DIMY);
 	int idx02 = (blockIdx.x  * MULT_BLOCK_DIMX);
@@ -1581,7 +1582,9 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 			diff[0] = FDIV(x[0], x[2]) - loc2.x;
 			diff[1] = FDIV(x[1], x[2]) - loc2.y;
       float hdist = diff[0] * diff[0] + diff[1] * diff[1];
-			if(hdist < hdistmax)
+			// An explicit flag rather than an identity H with a huge threshold:
+			// the latter silently rejects whenever the residual is inf or NaN.
+			if(!use_h || hdist < hdistmax)
 			{
 				//check fundamental matrix
 				float fx1[3], ftx2[3], x2fx1, se;
@@ -1595,7 +1598,7 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 
 				x2fx1 = loc2.x * fx1[0]  + loc2.y * fx1[1] + fx1[2];
 				se = FDIV(x2fx1 * x2fx1, fx1[0] * fx1[0] + fx1[1] * fx1[1] + ftx2[0] * ftx2[0] + ftx2[1] * ftx2[1]);
-				results[i] = se < fdistmax? 0: -262144;
+				results[i] = (!use_f || se < fdistmax)? 0: -262144;
 			}else
 			{
 				results[i] = -262144;
@@ -1665,7 +1668,7 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 
 void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 		CuTexImage* loc1, CuTexImage* loc2, CuTexImage* texDot, CuTexImage* texCRT,
-		float* H, float hdistmax, float* F, float fdistmax)
+		float* H, float hdistmax, float* F, float fdistmax, int use_h, int use_f)
 {
 	int num1 = des1->GetImgWidth() / 8;
 	int num2 = des2->GetImgWidth() / 8;
@@ -1687,7 +1690,7 @@ void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 	MultiplyDescriptorG_Kernel<<<grid, block>>>(des1Tex.handle, des2Tex.handle, loc1Tex.handle, loc2Tex.handle,
 												(int*)texDot->_cuData, num1, num2,
 												(texCRT? (int3*)texCRT->_cuData : NULL),
-												MatH, hdistmax, MatF, fdistmax);
+												MatH, hdistmax, MatF, fdistmax, use_h, use_f);
 }
 
 #define ROWMATCH_BLOCK_WIDTH 32

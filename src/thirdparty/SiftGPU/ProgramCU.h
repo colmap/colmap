@@ -64,7 +64,8 @@ public:
 	static void MultiplyDescriptor(CuTexImage* tex1, CuTexImage* tex2, CuTexImage* texDot, CuTexImage* texCRT);
 	static void MultiplyDescriptorG(CuTexImage* texDes1, CuTexImage* texDes2,
 		CuTexImage* texLoc1, CuTexImage* texLoc2, CuTexImage* texDot, CuTexImage* texCRT,
-		float* H, float hdistmax, float* F, float fdistmax);
+		float* H, float hdistmax, float* F, float fdistmax,
+		int use_h, int use_f);
 	static void GetRowMatch(CuTexImage* texDot, CuTexImage* texMatch, float distmax, float ratiomax);
 	static void GetColMatch(CuTexImage* texCRT, CuTexImage* texMatch, float distmax, float ratiomax);
 };

@@ -1464,9 +1464,22 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     // For calibrated cases, use the essential matrix with normalized
     // coordinates. This properly handles non-pinhole camera models (with
     // distortion) where the fundamental matrix relationship doesn't hold.
+    // Mirror the CPU matcher in also requiring the matrix to be present: a
+    // config alone does not guarantee it, and dereferencing an empty optional
+    // below would throw rather than fall through to the no-model return.
     const bool use_essential_matrix =
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG;
+        (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+         two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG) &&
+        two_view_geometry->E.has_value();
+    const bool use_fundamental_matrix =
+        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED &&
+        two_view_geometry->F.has_value();
+    const bool use_homography =
+        (two_view_geometry->config == TwoViewGeometry::PLANAR ||
+         two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
+         two_view_geometry->config ==
+             TwoViewGeometry::PLANAR_OR_PANORAMIC) &&
+        two_view_geometry->H.has_value();
 
     if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
         prev_image_id1_ != image1.image_id ||
@@ -1523,22 +1536,16 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> H;
     float* E_or_F_ptr = nullptr;
     float* H_ptr = nullptr;
-    if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
-        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
-      if (use_essential_matrix) {
-        // Use essential matrix with normalized coordinates.
-        E_or_F = two_view_geometry->E.value().cast<float>();
-      } else {
-        // Use fundamental matrix with pixel coordinates.
-        E_or_F = two_view_geometry->F.value().cast<float>();
-      }
+    if (use_essential_matrix) {
+      // Use essential matrix with normalized coordinates.
+      E_or_F = two_view_geometry->E->cast<float>();
       E_or_F_ptr = E_or_F.data();
-    } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
-               two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
-               two_view_geometry->config ==
-                   TwoViewGeometry::PLANAR_OR_PANORAMIC) {
-      H = two_view_geometry->H.value().cast<float>();
+    } else if (use_fundamental_matrix) {
+      // Use fundamental matrix with pixel coordinates.
+      E_or_F = two_view_geometry->F->cast<float>();
+      E_or_F_ptr = E_or_F.data();
+    } else if (use_homography) {
+      H = two_view_geometry->H->cast<float>();
       H_ptr = H.data();
     } else {
       return;
