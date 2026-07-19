@@ -282,6 +282,13 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_TRUE(
       std::isfinite(warnings.get<double>("gravity_disagreement.value")));
 
+  // D3: position_inlier_ratio = 7/8 registered correspondences are inliers,
+  // above the 0.8 policy threshold, so the warning does not fire.
+  EXPECT_EQ(warnings.get<double>("position_inlier_ratio.threshold"), 0.8);
+  EXPECT_FALSE(warnings.get<bool>("position_inlier_ratio.fired"));
+  EXPECT_NEAR(
+      warnings.get<double>("position_inlier_ratio.value"), 7.0 / 8.0, 1e-9);
+
   std::ifstream report_stream(report_path);
   const std::string report_text((std::istreambuf_iterator<char>(report_stream)),
                                 std::istreambuf_iterator<char>());

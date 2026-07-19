@@ -282,19 +282,26 @@ one camera pose) through it once; a cropped or otherwise unchanged-geometry
 asset preserves the sidecar unchanged, and only a rebasing edit composes a
 new transform.
 
-**Post-alignment warnings.** The report always emits two diagnostics
+**Post-alignment warnings.** The report always emits three diagnostics
 alongside their pipeline-policy thresholds, so the threshold can be
 re-derived later without re-running the alignment:
 ``diagnostics.horizontal_condition_ratio`` (the centered horizontal
 position-support singular-value ratio s2/s1 — small values mean the camera
 track is close to collinear, leaving rotation about the track axis weakly
-constrained) and ``diagnostics.gravity_consistency_angle_deg`` (the angle
+constrained), ``diagnostics.gravity_consistency_angle_deg`` (the angle
 between the aligned up-axis and the mean gravity direction reported by every
 registered image's pose-prior gravity vector, robustly averaged by
 normalizing the mean of the per-image unit down vectors; ``null`` when no
-prior in the database has gravity). Both land in the top-level ``warnings``
-object as ``{value, threshold, fired}``; the shipped policy defaults fire at
-``s2/s1 < 0.1`` and gravity angle ``> 3.0°``. A fired warning is
+prior in the database has gravity), and ``warnings.position_inlier_ratio``
+(the fraction of registered position-prior correspondences that were
+inliers to the robust Sim3 fit — ``null`` when there are no registered
+correspondences). All three land in the top-level ``warnings`` object as
+``{value, threshold, fired}``; the shipped policy defaults fire at
+``s2/s1 < 0.1``, gravity angle ``> 3.0°``, and position inlier ratio
+``< 0.8``. A low inlier ratio names its likely cause in the log line:
+internal misregistration from repeated structure or false loop closures
+dragging a large minority of the scene onto the wrong location, which the
+robust fit then rejects as outliers rather than fixes. A fired warning is
 ``LOG(WARNING)``-only — it never fails the command.
 
 **The CSV report** (``--camera_residuals_csv``) has one row per database

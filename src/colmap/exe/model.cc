@@ -579,12 +579,21 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   // policy can evolve without re-running.
   constexpr double kCollinearityRatioThreshold = 0.1;
   constexpr double kGravityAngleThresholdDeg = 3.0;
+  constexpr double kPositionInlierRatioThreshold = 0.8;
   const bool collinearity_warning_fired =
       std::isfinite(horizontal_condition_ratio) &&
       horizontal_condition_ratio < kCollinearityRatioThreshold;
   const bool gravity_warning_fired =
       std::isfinite(gravity_consistency_angle_deg) &&
       gravity_consistency_angle_deg > kGravityAngleThresholdDeg;
+  const double position_inlier_ratio =
+      num_registered_correspondences > 0
+          ? static_cast<double>(num_position_inliers) /
+                num_registered_correspondences
+          : std::numeric_limits<double>::quiet_NaN();
+  const bool position_inlier_ratio_warning_fired =
+      std::isfinite(position_inlier_ratio) &&
+      position_inlier_ratio < kPositionInlierRatioThreshold;
   if (collinearity_warning_fired) {
     LOG(WARNING) << StringPrintf(
         "=> Near-collinear position support (horizontal singular-value "
@@ -599,6 +608,14 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
         "deg)",
         gravity_consistency_angle_deg,
         kGravityAngleThresholdDeg);
+  }
+  if (position_inlier_ratio_warning_fired) {
+    LOG(WARNING) << StringPrintf(
+        "=> Large fraction of registered images disagree with the alignment "
+        "(position inlier ratio %.6f < %.2f) — possible internal "
+        "misregistration (repeated structure / false loop closures)",
+        position_inlier_ratio,
+        kPositionInlierRatioThreshold);
   }
 
   int num_registered = 0;
@@ -724,7 +741,12 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   json << "\"gravity_disagreement\":{\"value\":"
        << JSONNumber(gravity_consistency_angle_deg)
        << ",\"threshold\":" << JSONNumber(kGravityAngleThresholdDeg)
-       << ",\"fired\":" << (gravity_warning_fired ? "true" : "false") << "}";
+       << ",\"fired\":" << (gravity_warning_fired ? "true" : "false") << "},";
+  json << "\"position_inlier_ratio\":{\"value\":"
+       << JSONNumber(position_inlier_ratio)
+       << ",\"threshold\":" << JSONNumber(kPositionInlierRatioThreshold)
+       << ",\"fired\":"
+       << (position_inlier_ratio_warning_fired ? "true" : "false") << "}";
   json << "},";
   json << "\"position_ransac_threshold_m\":"
        << JSONNumber(position_ransac_threshold) << ",";
