@@ -209,7 +209,9 @@ FocalLengthCalibResult CalibrateFocalLengths(
     return result;
   }
 
-  // Initialize focal lengths from all perspective cameras.
+  // Initialize focal lengths from all perspective pinhole cameras. Only these
+  // are calibrated below, and every camera seeded here is reported back to the
+  // caller, which marks it as having a prior focal length.
   struct FocalLengthState {
     double optimized = 0.0;
     double initial = 0.0;
@@ -217,7 +219,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   NodeHashMap<camera_t, FocalLengthState> focal_lengths;
   focal_lengths.reserve(cameras.size());
   for (const auto& [camera_id, camera] : cameras) {
-    if (camera.IsPerspective()) {
+    if (camera.IsPerspectivePinhole()) {
       const double focal = camera.MeanFocalLength();
       focal_lengths[camera_id] = {focal, focal};
     }
@@ -307,7 +309,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Validate focal lengths and revert degenerate ones.
   size_t rejected_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
-    if (!camera.IsPerspective()) continue;
+    if (!camera.IsPerspectivePinhole()) continue;
     auto& focal = focal_lengths[camera_id];
     if (!problem.HasParameterBlock(&focal.optimized)) continue;
 
@@ -395,7 +397,9 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
         options.min_calibrated_pair_ratio, image_id_to_camera, pairs);
   }
 
-  // Recompute F from E for CALIBRATED pairs using current calibration.
+  // Recompute F from E for CALIBRATED pairs using current calibration. This
+  // goes through the calibration matrices, so it is restricted to pinhole
+  // models for the same reason as CalibrateFocalLengths below.
   for (auto& [pair_id, tvg] : pairs) {
     if (tvg.config != TwoViewGeometry::CALIBRATED ||
         !tvg.cam2_from_cam1.has_value()) {
@@ -404,7 +408,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
-    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+    if (!camera1.IsPerspectivePinhole() || !camera2.IsPerspectivePinhole()) {
       continue;
     }
     tvg.F = FundamentalFromEssentialMatrix(
