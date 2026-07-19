@@ -191,4 +191,87 @@ void ComputeSquaredSampsonErrorWithCheirality(
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals);
 
+// Calculate the squared tangent Sampson error for a single ray pair and a given
+// essential matrix.
+//
+// The Sampson approximation is C(z)^2 / ||dC/dz||^2 for a constraint C and
+// measurements z. Taking z to be the *pixel* coordinates, rather than the rays,
+// yields an error in pixel units for any central camera model:
+//
+//     C            = ray2^T E ray1
+//     dC/dpx1      = J1^T (E^T ray2)
+//     dC/dpx2      = J2^T (E ray1)
+//     error        = C^2 / (||dC/dpx1||^2 + ||dC/dpx2||^2)
+//
+// where J = d(ray) / d(pixel) is the unprojection Jacobian, obtainable via
+// Camera::CamRayFromImgWithJac. This is the tangent Sampson error of Terekhov
+// and Larsson, "Tangent Sampson Error: Fast Approximate Two-view Reprojection
+// Error for Central Camera Models", ICCV 2023.
+//
+// Pixels are the space in which feature detection noise is (approximately)
+// isotropic and uniform, so a threshold on this residual is meaningful in
+// pixels across the whole image and for every camera model - unlike the plain
+// Sampson error on unit bearings, whose pixel-equivalent tolerance grows with
+// the angle from the principal direction.
+//
+// Note that the Sampson approximation is not invariant to the choice of
+// homogeneous representative when that choice varies with the measurements:
+// rescaling the constraint by g(z) perturbs the result by a term proportional
+// to the residual. For an undistorted pinhole this reduces *exactly* to f^2
+// times the Sampson error on normalized image coordinates when the (u, v, 1)
+// representative is used (its Jacobian being the constant 1/f), and to first
+// order in the residual when unit bearings are used. The latter is the sense in
+// which this is an approximation of the true reprojection error.
+//
+// @param ray1        First unit bearing vector.
+// @param J_ray1      Jacobian d(ray1) / d(pixel1).
+// @param ray2        Second unit bearing vector.
+// @param J_ray2      Jacobian d(ray2) / d(pixel2).
+// @param E           3x3 essential matrix.
+// @return            Squared tangent Sampson error, in squared pixels.
+double ComputeSquaredTangentSampsonError(
+    const Eigen::Vector3d& ray1,
+    const Eigen::Matrix<double, 3, 2>& J_ray1,
+    const Eigen::Vector3d& ray2,
+    const Eigen::Matrix<double, 3, 2>& J_ray2,
+    const Eigen::Matrix3d& E);
+
+// Calculate the residuals of a set of corresponding rays and a given essential
+// matrix, as the squared tangent Sampson error.
+//
+// @param rays1       Corresponding unit bearing vectors.
+// @param J_rays1     Corresponding Jacobians d(ray1) / d(pixel1).
+// @param rays2       Corresponding unit bearing vectors.
+// @param J_rays2     Corresponding Jacobians d(ray2) / d(pixel2).
+// @param E           3x3 essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredTangentSampsonError(
+    const std::vector<Eigen::Vector3d>& rays1,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays1,
+    const std::vector<Eigen::Vector3d>& rays2,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals);
+
+// Calculate the residuals of a set of corresponding rays and a given essential
+// matrix as the squared tangent Sampson error, additionally enforcing the
+// cheirality constraint.
+//
+// Correspondences that triangulate behind either camera are assigned an
+// infinite residual, as in ComputeSquaredSampsonErrorWithCheirality.
+//
+// @param rays1       Corresponding unit bearing vectors.
+// @param J_rays1     Corresponding Jacobians d(ray1) / d(pixel1).
+// @param rays2       Corresponding unit bearing vectors.
+// @param J_rays2     Corresponding Jacobians d(ray2) / d(pixel2).
+// @param E           3x3 essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredTangentSampsonErrorWithCheirality(
+    const std::vector<Eigen::Vector3d>& rays1,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays1,
+    const std::vector<Eigen::Vector3d>& rays2,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals);
+
 }  // namespace colmap

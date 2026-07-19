@@ -235,4 +235,74 @@ void ComputeSquaredSampsonErrorWithCheirality(
   }
 }
 
+double ComputeSquaredTangentSampsonError(
+    const Eigen::Vector3d& ray1,
+    const Eigen::Matrix<double, 3, 2>& J_ray1,
+    const Eigen::Vector3d& ray2,
+    const Eigen::Matrix<double, 3, 2>& J_ray2,
+    const Eigen::Matrix3d& E) {
+  const Eigen::Vector3d Eray1 = E * ray1;
+  const Eigen::Vector3d Etray2 = E.transpose() * ray2;
+  const double num = ray2.dot(Eray1);
+  // Chain the constraint gradients from ray space into pixel space. The
+  // gradient w.r.t. ray1 is E^T ray2 and w.r.t. ray2 is E ray1.
+  const double denom_sq_norm =
+      (J_ray1.transpose() * Etray2).squaredNorm() +
+      (J_ray2.transpose() * Eray1).squaredNorm();
+  if (denom_sq_norm == 0) {
+    return std::numeric_limits<double>::max();
+  }
+  return num * num / denom_sq_norm;
+}
+
+void ComputeSquaredTangentSampsonError(
+    const std::vector<Eigen::Vector3d>& rays1,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays1,
+    const std::vector<Eigen::Vector3d>& rays2,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals) {
+  const size_t num_rays1 = rays1.size();
+  THROW_CHECK_EQ(num_rays1, rays2.size());
+  THROW_CHECK_EQ(num_rays1, J_rays1.size());
+  THROW_CHECK_EQ(num_rays1, J_rays2.size());
+  residuals->resize(num_rays1);
+  for (size_t i = 0; i < num_rays1; ++i) {
+    (*residuals)[i] = ComputeSquaredTangentSampsonError(
+        rays1[i], J_rays1[i], rays2[i], J_rays2[i], E);
+  }
+}
+
+void ComputeSquaredTangentSampsonErrorWithCheirality(
+    const std::vector<Eigen::Vector3d>& rays1,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays1,
+    const std::vector<Eigen::Vector3d>& rays2,
+    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals) {
+  const size_t num_rays1 = rays1.size();
+  THROW_CHECK_EQ(num_rays1, rays2.size());
+  THROW_CHECK_EQ(num_rays1, J_rays1.size());
+  THROW_CHECK_EQ(num_rays1, J_rays2.size());
+  residuals->resize(num_rays1);
+
+  // Recover the relative pose from E (resolving the four-fold decomposition
+  // ambiguity by cheirality voting) and flag which correspondences triangulate
+  // in front of both cameras.
+  Rigid3d cam2_from_cam1;
+  std::vector<int> valid_indices;
+  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1, &valid_indices);
+  std::vector<bool> is_cheiral(num_rays1, false);
+  for (const int idx : valid_indices) {
+    is_cheiral[idx] = true;
+  }
+
+  for (size_t i = 0; i < num_rays1; ++i) {
+    (*residuals)[i] = is_cheiral[i]
+                          ? ComputeSquaredTangentSampsonError(
+                                rays1[i], J_rays1[i], rays2[i], J_rays2[i], E)
+                          : std::numeric_limits<double>::max();
+  }
+}
+
 }  // namespace colmap
