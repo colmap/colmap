@@ -105,8 +105,8 @@ void GlobalPipeline::Run() {
 
   // Add the reconstruction to the manager up front so that intermediate states
   // can be rendered while the global mapper is running.
-  auto reconstruction =
-      reconstruction_manager_->Get(reconstruction_manager_->Add());
+  const size_t reconstruction_idx = reconstruction_manager_->Add();
+  auto reconstruction = reconstruction_manager_->Get(reconstruction_idx);
 
   // Prepare mapper options with top-level options.
   GlobalMapperOptions mapper_options = options_.mapper;
@@ -119,10 +119,14 @@ void GlobalPipeline::Run() {
 
   Timer run_timer;
   run_timer.Start();
-  global_mapper.Solve(mapper_options, [this]() {
-    Callback(MODEL_UPDATE_CALLBACK);
-    return CheckIfStopped();
-  });
+  if (!global_mapper.Solve(mapper_options, [this]() {
+        Callback(MODEL_UPDATE_CALLBACK);
+        return CheckIfStopped();
+      })) {
+    LOG(ERROR) << "Global mapping failed";
+    reconstruction_manager_->Delete(reconstruction_idx);
+    return;
+  }
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 

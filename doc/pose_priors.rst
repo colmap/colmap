@@ -144,6 +144,16 @@ tuning constant). Configuring ``optimize``'s weighting therefore always
 means choosing this gate too; read the logged line before trusting an
 ``optimize`` run.
 
+Global positioning is fail-closed: if the solve does not converge to a
+usable solution, ``global_mapper`` retries exactly once with the same
+problem on CPU (Ceres/SuiteSparse is always available, unlike an optional
+GPU backend) before giving up, logging a ``LOG(WARNING)`` naming the
+failure and the fallback. If the CPU retry also fails, the whole pipeline
+aborts with a logged error and writes no reconstruction, rather than
+silently exporting cameras left at their unoptimized seed positions. This
+guards against a run "succeeding" with exit 0 on a scene that was never
+actually solved.
+
 Rotation mode (``off`` | ``initialize``): selects a single global rotation
 gauge from full-orientation pose priors via robust consensus among frames
 that supply one, then fixes the remaining rotation-averaging gauge freedom

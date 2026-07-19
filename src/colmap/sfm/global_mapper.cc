@@ -500,23 +500,42 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
                                      double max_normalized_reproj_error,
                                      double min_tri_angle_deg) {
   PosePriorPositionSummary summary;
+  bool used_cpu_fallback = false;
+  const class Reconstruction reconstruction_backup = *reconstruction_;
   if (!RunGlobalPositioning(options,
                             *pose_graph_,
                             *reconstruction_,
                             database_cache_->PosePriors(),
                             &summary)) {
-    return false;
+    if (!options.use_gpu) {
+      return false;
+    }
+    LOG(WARNING) << "GPU global positioning solve failed to produce a usable "
+                    "solution; retrying once on CPU";
+    *reconstruction_ = reconstruction_backup;
+    GlobalPositionerOptions cpu_options = options;
+    cpu_options.use_gpu = false;
+    used_cpu_fallback = true;
+    summary = PosePriorPositionSummary();
+    if (!RunGlobalPositioning(cpu_options,
+                              *pose_graph_,
+                              *reconstruction_,
+                              database_cache_->PosePriors(),
+                              &summary)) {
+      return false;
+    }
   }
   if (summary.requested != PosePriorPositionMode::off) {
     LOG(INFO) << StringPrintf(
         "Pose prior position mode requested=%s, engaged=%s, usable "
-        "priors=%d, covered frames=%d, fallback frames=%d, inliers=%d",
+        "priors=%d, covered frames=%d, fallback frames=%d, inliers=%d%s",
         PosePriorPositionModeToString(summary.requested).data(),
         summary.engaged ? "true" : "false",
         summary.num_usable_priors,
         summary.num_covered_frames,
         summary.num_fallback_frames,
-        summary.num_inliers);
+        summary.num_inliers,
+        used_cpu_fallback ? ", gpu_solve_failed=true, cpu_fallback=true" : "");
   }
   // `initialize` seeds are free parameters and carry no metric claim, so only
   // an engaged `optimize` solve is gauge-destroying to normalize away.
