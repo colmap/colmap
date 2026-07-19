@@ -61,6 +61,10 @@ private:
 	int _id_sift[2];
 	int _have_loc[2];
 	int _loc_ncomp[2];
+	ProgramGPU* s_guided_mult_ray;
+	int _param_guided_mult_ray_tex1, _param_guided_mult_ray_tex2;
+	int _param_guided_mult_ray_texl1, _param_guided_mult_ray_texl2;
+	int _param_guided_mult_ray_e, _param_guided_mult_ray_param;
 
 	//gpu parameter
 	int _sift_per_stripe;
