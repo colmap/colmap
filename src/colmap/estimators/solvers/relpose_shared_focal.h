@@ -128,8 +128,8 @@ class RelativePoseSharedFocalEstimator {
   // Minimum relative difference between the distances of the two camera centers
   // from the intersection of their optical axes, for near-coplanar axes to
   // count as clear of the isosceles singularity. Also rejects near-parallel
-  // axes, whose distances diverge together. Admits distance ratios beyond
-  // ~1.1; a conservative default, not yet tuned against pose accuracy.
+  // axes, whose distances diverge together. Both thresholds sit at the knee of
+  // a synthetic focal-accuracy sweep.
   static constexpr double kMinIsoscelesDeviation = 0.05;
 };
 
