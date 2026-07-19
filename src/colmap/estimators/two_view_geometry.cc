@@ -1095,9 +1095,10 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     estimated_camera.SetFocalLength(SF_report.model.focal);
     geometry.camera1 = estimated_camera;
     geometry.camera2 = estimated_camera;
-    // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point) so
-    // epipolar consumers unaware of the shared focal, e.g. guided matching, can
-    // use this config directly.
+    // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point),
+    // which view graph calibration requires from every UNCALIBRATED pair to
+    // calibrate focal lengths. It is also the only epipolar model persisted to
+    // the database, which has no columns for the estimated intrinsics.
     Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
     K(0, 0) = K(1, 1) = SF_report.model.focal;
     K(0, 2) = principal_point.x();
