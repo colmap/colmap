@@ -144,6 +144,27 @@ tuning constant). Configuring ``optimize``'s weighting therefore always
 means choosing this gate too; read the logged line before trusting an
 ``optimize`` run.
 
+A long, weakly-connected sequential chain in ``initialize`` mode (GPS seeds
+positions but has no weight at all in the objective) can drift slowly
+relative to GPS over stretches of tens to hundreds of frames, producing a
+low-frequency wobble at roughly GPS-noise scale; the symptom is a low
+``position_inlier_ratio`` and/or an elevated
+``gravity_consistency_angle_deg`` in the georeference report, since a
+single robust Sim3 fit cannot represent an internal wobble and instead
+rejects the disagreeing frames as outliers. Engaging ``optimize`` with a
+deliberately declared (not fabricated) position covariance corrects this
+aggregate symptom directly — position-inlier admission and the
+gravity-consistency angle both improve — because the continuous GPS terms
+constrain the *overall* rigid gauge. It is not, by itself, guaranteed to
+remove a spatially-varying local wobble: each frame's GPS term is a single
+weighted residual competing against many more visual point-observation
+constraints on that same frame, and neither the joint solve's per-frame
+weighting nor the aligner's single global Sim3 can express a correction
+that varies systematically along the trajectory. Measure the specific
+symptom you are trying to fix (aggregate inlier ratio and gravity angle vs.
+a targeted cross-pass or along-track consistency check) rather than
+assuming one implies the other.
+
 Global positioning is fail-closed: if the solve does not converge to a
 usable solution, ``global_mapper`` retries exactly once with the same
 problem on CPU (Ceres/SuiteSparse is always available, unlike an optional
