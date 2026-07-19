@@ -344,7 +344,7 @@ Camera::CamRayFromImgWithJac(const Eigen::Vector2d& image_point) const {
     return std::nullopt;
   }
   const std::optional<Eigen::Matrix<double, 3, 2>> J_ray =
-      CamRayJacobianFromImgJacobian(J_uvw);
+      CamRayJacobianFromImgJacobian(*cam_ray, J_uvw);
   if (!J_ray.has_value()) {
     return std::nullopt;
   }

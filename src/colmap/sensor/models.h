@@ -914,24 +914,30 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     Eigen::Matrix<double, 2, 3>* J_uvw);
 
 // Compute the unprojection Jacobian d(u, v, w) / d(x, y) from the projection
-// Jacobian d(x, y) / d(u, v, w).
+// Jacobian d(x, y) / d(u, v, w), evaluated at a unit bearing vector.
 //
 // Central projection depends only on the direction of the ray, so the ray lies
-// in the null space of `J_uvw` and `J_uvw` has rank 2. Its Moore-Penrose
-// pseudo-inverse therefore maps image perturbations into the row space of
-// `J_uvw`, which is exactly the tangent plane of the unit sphere at the ray:
+// in the null space of `J_uvw` and `J_uvw` has rank 2. For a *unit* ray its
+// Moore-Penrose pseudo-inverse is exactly the Jacobian of the normalized
+// unprojection, and its range is the tangent plane of the unit sphere at the
+// ray. No explicit tangent basis is therefore required.
 //
-//     J = J_uvw^+ = J_uvw^T (J_uvw J_uvw^T)^-1
+// Uses the closed form of Terekhov and Larsson, "Tangent Sampson Error", ICCV
+// 2023, Lemma 1:
 //
-// This is why no explicit tangent basis is required; the pseudo-inverse both
-// inverts the projection and restricts to the tangent plane.
+//     J_uvw^+ = 1 / (d . (g_x x g_y)) * [ (g_y x d), (d x g_x) ]
 //
+// where g_x and g_y are the rows of `J_uvw`. This is cheaper than forming
+// J^T (J J^T)^-1 and exposes the rank condition directly as the scalar triple
+// product in the denominator.
+//
+// @param cam_ray      Unit bearing vector at which `J_uvw` was evaluated.
 // @param J_uvw        Jacobian d(x, y) / d(u, v, w).
 //
 // @return             Jacobian d(u, v, w) / d(x, y), or std::nullopt if
 //                     `J_uvw` is rank deficient.
 inline std::optional<Eigen::Matrix<double, 3, 2>> CamRayJacobianFromImgJacobian(
-    const Eigen::Matrix<double, 2, 3>& J_uvw);
+    const Eigen::Vector3d& cam_ray, const Eigen::Matrix<double, 2, 3>& J_uvw);
 
 // Transform image to camera coordinates.
 //
@@ -2819,20 +2825,26 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
 }
 
 std::optional<Eigen::Matrix<double, 3, 2>> CamRayJacobianFromImgJacobian(
+    const Eigen::Vector3d& cam_ray,
     const Eigen::Matrix<double, 2, 3>& J_uvw) {
-  const Eigen::Matrix2d JJt = J_uvw * J_uvw.transpose();
-  // JJt is symmetric positive semi-definite with eigenvalues s1^2 >= s2^2, the
-  // squared singular values of J_uvw. Then det = s1^2 * s2^2 and
-  // trace = s1^2 + s2^2, so requiring det > kMinRelDet * trace^2 rejects
-  // singular value ratios below roughly sqrt(kMinRelDet), i.e. condition
-  // numbers worse than ~1e6. Relative so the test is invariant to focal length.
-  constexpr double kMinRelDet = 1e-12;
-  const double trace = JJt.trace();
-  const double det = JJt.determinant();
-  if (!(det > kMinRelDet * trace * trace)) {
+  const Eigen::Vector3d g_x = J_uvw.row(0);
+  const Eigen::Vector3d g_y = J_uvw.row(1);
+  const double alpha = cam_ray.dot(g_x.cross(g_y));
+  // Since the projection is degree-zero homogeneous, g_x x g_y is parallel to
+  // the ray, so for a unit ray |alpha| == ||g_x x g_y|| and alpha^2 is exactly
+  // det(J J^T), the product of the squared singular values. Requiring
+  // |alpha| > kMinRelAlpha * (||g_x||^2 + ||g_y||^2) therefore rejects singular
+  // value ratios below kMinRelAlpha, i.e. condition numbers worse than ~1e6.
+  // Relative, so the test is invariant to focal length.
+  constexpr double kMinRelAlpha = 1e-6;
+  if (!(std::abs(alpha) >
+        kMinRelAlpha * (g_x.squaredNorm() + g_y.squaredNorm()))) {
     return std::nullopt;
   }
-  return J_uvw.transpose() * JJt.inverse();
+  Eigen::Matrix<double, 3, 2> J_ray;
+  J_ray.col(0) = g_y.cross(cam_ray);
+  J_ray.col(1) = cam_ray.cross(g_x);
+  return J_ray / alpha;
 }
 
 std::optional<Eigen::Vector2d> CameraModelCamFromImg(
