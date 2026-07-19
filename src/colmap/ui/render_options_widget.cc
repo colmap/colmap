@@ -31,6 +31,13 @@
 
 #include "colmap/ui/colormaps.h"
 #include "colmap/ui/render_options.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/string.h"
+
+#include <limits>
+#include <memory>
+#include <unordered_map>
+#include <utility>
 
 namespace colmap {
 
@@ -47,7 +54,8 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
       point3D_colormap_min_q_(0.02),
       point3D_colormap_max_q_(0.98),
       image_plane_color_(ImageColormapUniform::kDefaultPlaneColor),
-      image_frame_color_(ImageColormapUniform::kDefaultFrameColor) {
+      image_frame_color_(ImageColormapUniform::kDefaultFrameColor),
+      image_colormap_max_error_(2.0) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Render options");
@@ -134,7 +142,23 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   image_colormap_cb_ = new QComboBox(this);
   image_colormap_cb_->addItem("Uniform color");
   image_colormap_cb_->addItem("Images with words in name");
+  image_colormap_cb_->addItem("Reprojection error");
   AddWidgetRow("Image colormap", image_colormap_cb_);
+
+  // Upper bound of the absolute reprojection-error color scale (0 px = blue,
+  // this value = red). Shown only for the reprojection-error colormap.
+  QDoubleSpinBox* image_colormap_max_error_sb = AddOptionDouble(
+      &image_colormap_max_error_, "Reproj. error for red [px]", 0.1, 1e4, 0.1, 2);
+  image_colormap_max_error_sb->setToolTip(
+      "Absolute color scale for the reprojection-error colormap.\n"
+      "A camera frustum whose mean reprojection error is 0 px is blue; one at\n"
+      "this value (or higher) is red; values in between fade blue->green->red.\n"
+      "\n"
+      "Lower it to spread the colors across low-error cameras (see fine\n"
+      "differences); raise it so only genuinely high-error cameras stand out.\n"
+      "Your model's actual per-image error range is printed to the Log when you\n"
+      "click Apply.");
+  HideOption(&image_colormap_max_error_);
 
   select_image_plane_color_ = new QPushButton(tr("Select color"), this);
   connect(select_image_plane_color_, &QPushButton::released, this, [&]() {
@@ -270,12 +294,58 @@ void RenderOptionsWidget::ApplyImageColormap() {
       image_color_map = std::make_unique<ImageColormapNameFilter>(
           image_colormap_name_filter_);
       break;
+    case 2: {
+      auto reproj_error = std::make_unique<ImageColormapReprojectionError>();
+      reproj_error->max_error = static_cast<float>(image_colormap_max_error_);
+      image_color_map = std::move(reproj_error);
+      // Print the model's actual per-image error range so the abstract color
+      // scale maps to concrete numbers the user can reason about.
+      LogReprojectionErrorScale();
+      break;
+    }
     default:
       image_color_map = std::make_unique<ImageColormapUniform>();
       break;
   }
 
   model_viewer_widget_->SetImageColormap(std::move(image_color_map));
+}
+
+void RenderOptionsWidget::LogReprojectionErrorScale() {
+  const std::shared_ptr<Reconstruction>& reconstruction =
+      model_viewer_widget_->reconstruction;
+  if (reconstruction == nullptr) {
+    return;
+  }
+  // Mean reprojection error per image, accumulated from the 3D point tracks.
+  std::unordered_map<image_t, std::pair<double, int>> error_sums;
+  for (const auto& point3D : reconstruction->Points3D()) {
+    for (const auto& track_el : point3D.second.track.Elements()) {
+      auto& sum = error_sums[track_el.image_id];
+      sum.first += point3D.second.error;
+      sum.second += 1;
+    }
+  }
+  if (error_sums.empty()) {
+    return;
+  }
+  double min_error = std::numeric_limits<double>::max();
+  double max_error = 0.0;
+  double sum_error = 0.0;
+  for (const auto& [image_id, sum] : error_sums) {
+    const double mean_error = sum.second > 0 ? sum.first / sum.second : 0.0;
+    min_error = std::min(min_error, mean_error);
+    max_error = std::max(max_error, mean_error);
+    sum_error += mean_error;
+  }
+  LOG(INFO) << StringPrintf(
+      "Reprojection-error colormap: %zu images, per-image error %.2f-%.2f px "
+      "(mean %.2f px). Color scale: 0 px = blue, %.2f px = red.",
+      error_sums.size(),
+      min_error,
+      max_error,
+      sum_error / error_sums.size(),
+      image_colormap_max_error_);
 }
 
 void RenderOptionsWidget::ApplyBackgroundColor() {
@@ -314,10 +384,18 @@ void RenderOptionsWidget::SelectImageColormap(const int idx) {
     ShowWidget(select_image_plane_color_);
     ShowWidget(select_image_frame_color_);
     HideLayout(image_colormap_name_filter_layout_);
-  } else {
+    HideOption(&image_colormap_max_error_);
+  } else if (idx == 1) {
     HideWidget(select_image_plane_color_);
     HideWidget(select_image_frame_color_);
     ShowLayout(image_colormap_name_filter_layout_);
+    HideOption(&image_colormap_max_error_);
+  } else {
+    // Reprojection-error colormap: only the absolute error scale is adjustable.
+    HideWidget(select_image_plane_color_);
+    HideWidget(select_image_frame_color_);
+    HideLayout(image_colormap_name_filter_layout_);
+    ShowOption(&image_colormap_max_error_);
   }
 }
 
