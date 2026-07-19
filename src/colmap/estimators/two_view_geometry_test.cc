@@ -570,9 +570,9 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
 
     // Ground-truth relative pose with a unit baseline and a bounded rotation so
     // the point cloud is visible in both views. The focal is unidentifiable for
-    // coplanar optical axes, where the estimator downgrades the pair to
-    // UNCALIBRATED, so resample until the pose is clear of that degeneracy,
-    // using the same threshold as the estimator.
+    // singular optical axis configurations, where the estimator downgrades the
+    // pair to UNCALIBRATED, so resample until the pose is clear of that
+    // degeneracy, using the same test as the estimator.
     Rigid3d cam2_from_cam1;
     do {
       const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
@@ -581,8 +581,7 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
                       DegToRad(RandomUniformReal<double>(20.0, 60.0)), axis)),
                   RandomEigenVectord<3>().normalized());
     } while (
-        RelativePoseSharedFocalEstimator::FocalIdentifiability(cam2_from_cam1) <
-        RelativePoseSharedFocalEstimator::kMinFocalIdentifiability);
+        !RelativePoseSharedFocalEstimator::IsFocalIdentifiable(cam2_from_cam1));
 
     std::vector<Eigen::Vector2d> points1;
     std::vector<Eigen::Vector2d> points2;
