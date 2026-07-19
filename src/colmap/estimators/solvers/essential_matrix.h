@@ -197,7 +197,7 @@ struct CamRayWithJac {
 // residual is measured in pixels rather than radians, the RANSAC threshold is
 // the plain pixel threshold and needs no per-camera conversion via
 // Camera::CamFromImgThreshold. See ComputeSquaredTangentSampsonError.
-class TangentSampsonEssentialMatrixEstimator {
+class EssentialMatrixTangentSampsonEstimator {
  public:
   using X_t = CamRayWithJac;
   using Y_t = CamRayWithJac;

@@ -392,8 +392,8 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
   // wrong here: it is exact only at the equator of an equirectangular image and
   // increasingly loose away from it.
 
-  LORANSAC<TangentSampsonEssentialMatrixEstimator,
-           TangentSampsonEssentialMatrixEstimator>
+  LORANSAC<EssentialMatrixTangentSampsonEstimator,
+           EssentialMatrixTangentSampsonEstimator>
       E_ransac(ransac_options);
   const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;
@@ -874,8 +874,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // and homography paths below, so all three share the same unscaled pixel
   // threshold. This also removes the former CamFromImgThreshold conversion,
   // whose single per-camera focal length is only exact at the principal point.
-  LORANSAC<TangentSampsonEssentialMatrixEstimator,
-           TangentSampsonEssentialMatrixEstimator>
+  LORANSAC<EssentialMatrixTangentSampsonEstimator,
+           EssentialMatrixTangentSampsonEstimator>
       E_ransac(ransac_options);
   const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;

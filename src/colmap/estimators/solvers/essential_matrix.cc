@@ -255,7 +255,7 @@ void UnpackCamRays(const std::vector<CamRayWithJac>& cam_rays,
 
 }  // namespace
 
-void TangentSampsonEssentialMatrixEstimator::Estimate(
+void EssentialMatrixTangentSampsonEstimator::Estimate(
     const std::vector<X_t>& cam_rays1,
     const std::vector<Y_t>& cam_rays2,
     std::vector<M_t>* models) {
@@ -266,7 +266,7 @@ void TangentSampsonEssentialMatrixEstimator::Estimate(
   EssentialMatrixFivePointEstimator::Estimate(rays1, rays2, models);
 }
 
-void TangentSampsonEssentialMatrixEstimator::Residuals(
+void EssentialMatrixTangentSampsonEstimator::Residuals(
     const std::vector<X_t>& cam_rays1,
     const std::vector<Y_t>& cam_rays2,
     const M_t& E,

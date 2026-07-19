@@ -913,8 +913,9 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     const Eigen::Vector3d& uvw,
     Eigen::Matrix<double, 2, 3>* J_uvw);
 
-// Compute the unprojection Jacobian d(u, v, w) / d(x, y) from the projection
-// Jacobian d(x, y) / d(u, v, w), evaluated at a unit bearing vector.
+// The Jacobian of `CameraModelCamRayFromImg`, i.e. d(u, v, w) / d(x, y),
+// obtained by inverting the projection Jacobian d(x, y) / d(u, v, w) at a unit
+// bearing vector.
 //
 // Central projection depends only on the direction of the ray, so the ray lies
 // in the null space of `J_uvw` and `J_uvw` has rank 2. For a *unit* ray its
@@ -936,7 +937,7 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
 //
 // @return             Jacobian d(u, v, w) / d(x, y), or std::nullopt if
 //                     `J_uvw` is rank deficient.
-inline std::optional<Eigen::Matrix<double, 3, 2>> CamRayJacobianFromImgJacobian(
+inline std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
     const Eigen::Vector3d& cam_ray, const Eigen::Matrix<double, 2, 3>& J_uvw);
 
 // Transform image to camera coordinates.
@@ -2824,7 +2825,7 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
   return std::nullopt;
 }
 
-std::optional<Eigen::Matrix<double, 3, 2>> CamRayJacobianFromImgJacobian(
+std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
     const Eigen::Vector3d& cam_ray,
     const Eigen::Matrix<double, 2, 3>& J_uvw) {
   const Eigen::Vector3d g_x = J_uvw.row(0);
