@@ -105,6 +105,11 @@ struct Camera {
 
   // Get intrinsic calibration matrix composed from focal length and principal
   // point parameters, excluding distortion parameters.
+  //
+  // This is the affine part of the projection, which is a projective camera
+  // matrix only for pinhole models. For fisheye models the normalized
+  // coordinates are angular, so callers relying on x ~ K * [R | t] * X must
+  // restrict themselves to IsPerspectivePinhole() cameras.
   Eigen::Matrix3d CalibrationMatrix() const;
 
   // Get human-readable information about the parameter vector ordering.
