@@ -458,31 +458,61 @@ TwoViewGeometry EstimateTwoViewGeometry(
     return EstimateMultipleTwoViewGeometries(
         camera1, points1, camera2, points2, matches, multiple_model_options);
   } else if (options.force_H_use) {
+    // In image coordinates, a homography relates two views of a plane only
+    // under a pinhole projection. Fisheye and spherical models map the plane
+    // non-linearly, so the estimated homography would be meaningless.
+    // TODO: support non-pinhole models here, e.g. by estimating the homography
+    // on bearing vectors rather than image points.
+    if (!camera1.IsPerspectivePinhole() || !camera2.IsPerspectivePinhole()) {
+      LOG_FIRST_N(WARNING, 1)
+          << "Ignoring force_H_use for non-pinhole cameras, as a homography "
+             "does not relate their images of a plane. Such pairs are marked "
+             "as degenerate.";
+      TwoViewGeometry geometry;
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
+    }
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
   } else {
     // A spherical (omnidirectional) camera has no pinhole image plane, so only
     // the bearing-based essential matrix is meaningful. Otherwise, if both
-    // images share the same pinhole-projection camera (perspective and
-    // non-fisheye) without a focal-length prior, recover a single shared focal
-    // length jointly with the relative pose; multi-focal models (e.g. PINHOLE)
-    // are seeded isotropically (fx = fy = f) and refined later by bundle
-    // adjustment. Distortion is not a barrier here (as in the
-    // fundamental-matrix path, it is absorbed by the epipolar fit and later
-    // refined). Otherwise, use the calibrated path if both cameras have a known
-    // focal length, and the uncalibrated path otherwise.
+    // images share the same pinhole-projection camera without a focal-length
+    // prior, recover a single shared focal length jointly with the relative
+    // pose; multi-focal models (e.g. PINHOLE) are seeded isotropically
+    // (fx = fy = f) and refined later by bundle adjustment. Distortion is not
+    // a barrier here (as in the fundamental-matrix path, it is absorbed by the
+    // epipolar fit and later refined). Otherwise, use the calibrated path if
+    // both cameras have a known focal length, and the uncalibrated path
+    // otherwise, the latter being restricted to pinhole models.
     if (camera1.IsSpherical() || camera2.IsSpherical()) {
       return EstimateSphericalTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (camera1.camera_id == camera2.camera_id &&
-               !camera1.has_prior_focal_length && camera1.IsPerspective() &&
-               !camera1.IsFisheye()) {
+               !camera1.has_prior_focal_length &&
+               camera1.IsPerspectivePinhole()) {
       return EstimateSharedFocalTwoViewGeometry(
           camera1, points1, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
                camera2.has_prior_focal_length) {
       return EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
+    } else if (!camera1.IsPerspectivePinhole() ||
+               !camera2.IsPerspectivePinhole()) {
+      // Without a focal-length prior, the only remaining option is the
+      // fundamental-matrix path below, which assumes a pinhole projection that
+      // a fisheye camera does not have. The calibrated path above does handle
+      // fisheye, as it works on bearing vectors.
+      // TODO: support uncalibrated fisheye pairs, e.g. by estimating F in a
+      // virtual pinhole frame.
+      LOG_FIRST_N(WARNING, 1)
+          << "Marking fisheye pairs without a focal length prior as "
+             "degenerate, as their focal length cannot be recovered from a "
+             "fundamental matrix. Provide a focal length prior to register "
+             "these pairs.";
+      TwoViewGeometry geometry;
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
     } else {
       return EstimateUncalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);

@@ -399,5 +399,26 @@ TEST(Camera, Spherical) {
   EXPECT_FALSE(pinhole.IsSpherical());
 }
 
+TEST(Camera, IsPerspectivePinhole) {
+  const Camera pinhole =
+      Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(pinhole.IsPerspectivePinhole());
+
+  const Camera radial = Camera::CreateFromModelId(
+      2, SimpleRadialCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(radial.IsPerspectivePinhole());
+
+  const Camera fisheye = Camera::CreateFromModelId(
+      3, OpenCVFisheyeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(fisheye.IsPerspective());
+  EXPECT_TRUE(fisheye.IsPerspectiveFisheye());
+  EXPECT_FALSE(fisheye.IsPerspectivePinhole());
+
+  const Camera spherical = Camera::CreateFromModelId(
+      4, EquirectangularCameraModel::model_id, 0.0, 1000, 500);
+  EXPECT_FALSE(spherical.IsPerspectiveFisheye());
+  EXPECT_FALSE(spherical.IsPerspectivePinhole());
+}
+
 }  // namespace
 }  // namespace colmap
