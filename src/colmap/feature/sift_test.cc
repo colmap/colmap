@@ -647,13 +647,16 @@ void TestGuidedMatchingWithCameraDistortion(
         const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
   // Test guided matching with essential matrix using calibrated cameras.
   // This exercises the code path that uses normalized coordinates.
-  // Use kRadial model with strong radial and tangential distortion.
+  // Use the OPENCV model with strong radial and tangential distortion. Its
+  // params are fx, fy, cx, cy, k1, k2, p1, p2. The distortion is strong enough
+  // that the pixel-coordinate fundamental matrix finds no matches, but must
+  // stay invertible over the keypoints used below, which is what bounds how
+  // large these coefficients can be; p2 is left at zero for that reason.
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 100.0, 100, 200);
-  camera.params[3] = 0.5;   // k1
-  camera.params[4] = -0.5;  // k2
-  camera.params[5] = 0.5;   // p1
-  camera.params[6] = -0.5;  // p2
+  camera.params[4] = -0.5;  // k1
+  camera.params[5] = 0.5;   // k2
+  camera.params[6] = -0.5;  // p1
 
   // Two points on the epipolar line (v=0 in normalized coordinates).
   const Eigen::Vector2f img_point11 =
@@ -719,6 +722,190 @@ void TestGuidedMatchingWithCameraDistortion(
 TEST(MatchGuidedSiftFeaturesCPU, EssentialMatrix) {
   std::unique_ptr<FeatureDescriptorIndexCacheHelper> index_cache_helper;
   TestGuidedMatchingWithCameraDistortion(
+      [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
+        index_cache_helper =
+            std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+        options.use_gpu = false;
+        options.sift->cpu_descriptor_index_cache =
+            &index_cache_helper->index_cache;
+        return CreateSiftFeatureMatcher(options);
+      });
+}
+
+void TestGuidedMatchingSharedFocal(
+    const std::function<std::unique_ptr<FeatureMatcher>(
+        const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
+  // An UNCALIBRATED pair carrying solver-estimated intrinsics (camera1/camera2)
+  // is guided-matched via the essential matrix in normalized coordinates, using
+  // those estimated intrinsics rather than the images' cameras, whose focal
+  // length is only a placeholder. Distortion is strong enough that the
+  // pixel-coordinate F path finds nothing, and the placeholder focal is wrong
+  // enough that normalizing with it finds nothing either, so the test passes
+  // only if the estimated camera is the one used.
+  //
+  // As elsewhere on the E path, E is taken to relate undistorted rays.
+  constexpr double kEstimatedFocal = 100.0;
+  constexpr double kPlaceholderFocal = 500.0;
+  // OPENCV params are fx, fy, cx, cy, k1, k2, p1, p2. Same distortion as in
+  // TestGuidedMatchingWithCameraDistortion: strong, but invertible over the
+  // keypoints used below.
+  Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kOpenCV, kEstimatedFocal, 100, 200);
+  camera.params[4] = -0.5;  // k1
+  camera.params[5] = 0.5;   // k2
+  camera.params[6] = -0.5;  // p1
+
+  // The camera as stored in the database: same model and distortion, but the
+  // focal length has not been recovered yet.
+  Camera placeholder_camera = camera;
+  placeholder_camera.SetFocalLength(kPlaceholderFocal);
+
+  // Two points on the epipolar line (v=0 in normalized coordinates).
+  const Eigen::Vector2f img_point11 =
+      camera.ImgFromCam({-0.5, 0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point12 =
+      camera.ImgFromCam({0.4, -0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point21 =
+      camera.ImgFromCam({0.3, -0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point22 =
+      camera.ImgFromCam({-0.4, 0.1, 1.0}).value().cast<float>();
+
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&placeholder_camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point11.x(), img_point11.y()},
+                                       {img_point12.x(), img_point12.y()}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&placeholder_camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point21.x(), img_point21.y()},
+                                       {img_point22.x(), img_point22.y()}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  auto matcher = matcher_factory({image1, image2});
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+  two_view_geometry.E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+  two_view_geometry.camera1 = camera;
+  two_view_geometry.camera2 = camera;
+  // F = K^-T E K^-1, as the estimator populates it for this config.
+  two_view_geometry.F =
+      FundamentalFromEssentialMatrix(camera.CalibrationMatrix(),
+                                     two_view_geometry.E.value(),
+                                     camera.CalibrationMatrix());
+
+  constexpr double kMaxError = 1.0;
+
+  // Matches are found only by normalizing with the estimated intrinsics. The
+  // complementary case, an UNCALIBRATED pair without them falling back to the
+  // F path, is covered by TestGuidedMatchingWithCameraDistortion.
+  matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+  ExpectReversedInlierMatches(two_view_geometry);
+}
+
+// The normalizing camera is not a function of the image alone: a shared-focal
+// pair carries a focal length estimated per pair, so the same image matched
+// against different partners must be renormalized. Guards the GPU matcher's
+// feature-location cache, which keys on the image id.
+void TestGuidedMatchingSharedFocalPerPairFocal(
+    const std::function<std::unique_ptr<FeatureMatcher>(
+        const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
+  constexpr double kFocalA = 100.0;
+  constexpr double kFocalB = 200.0;
+  const Camera camera_a = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, kFocalA, 100, 200);
+  const Camera camera_b = Camera::CreateFromModelId(
+      2, CameraModelId::kSimplePinhole, kFocalB, 100, 200);
+
+  // image1's pixels normalize to y = +-0.1 under camera_a, and to half that,
+  // y = +-0.05, under camera_b. The relative pose is a pure x-translation, so a
+  // match requires the partner's normalized y to agree.
+  const Eigen::Vector2f img_point11 =
+      camera_a.ImgFromCam({-0.5, 0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point12 =
+      camera_a.ImgFromCam({0.4, -0.1, 1.0}).value().cast<float>();
+  // Partner for the camera_a pair.
+  const Eigen::Vector2f img_point21 =
+      camera_a.ImgFromCam({0.3, -0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point22 =
+      camera_a.ImgFromCam({-0.4, 0.1, 1.0}).value().cast<float>();
+  // Partner for the camera_b pair.
+  const Eigen::Vector2f img_point31 =
+      camera_b.ImgFromCam({0.3, -0.05, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point32 =
+      camera_b.ImgFromCam({-0.4, 0.05, 1.0}).value().cast<float>();
+
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera_a,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point11.x(), img_point11.y()},
+                                       {img_point12.x(), img_point12.y()}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera_a,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point21.x(), img_point21.y()},
+                                       {img_point22.x(), img_point22.y()}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+  const FeatureMatcher::Image image3 = {
+      /*image_id=*/3,
+      /*camera=*/&camera_a,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point31.x(), img_point31.y()},
+                                       {img_point32.x(), img_point32.y()}}),
+      std::make_shared<FeatureDescriptors>(
+          CreateReversedDescriptors(*image1.descriptors))};
+
+  auto matcher = matcher_factory({image1, image2, image3});
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+  two_view_geometry.E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+
+  constexpr double kMaxError = 1.0;
+
+  two_view_geometry.camera1 = camera_a;
+  two_view_geometry.camera2 = camera_a;
+  matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+  ExpectReversedInlierMatches(two_view_geometry);
+
+  // Same image1, different estimated focal: stale normalized keypoints from the
+  // previous call would put image1 at y = +-0.1 instead of +-0.05, far outside
+  // the ~1/f normalized threshold.
+  two_view_geometry.camera1 = camera_b;
+  two_view_geometry.camera2 = camera_b;
+  matcher->MatchGuided(kMaxError, image1, image3, &two_view_geometry);
+  ExpectReversedInlierMatches(two_view_geometry);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, SharedFocal) {
+  std::unique_ptr<FeatureDescriptorIndexCacheHelper> index_cache_helper;
+  TestGuidedMatchingSharedFocal(
+      [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
+        index_cache_helper =
+            std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+        options.use_gpu = false;
+        options.sift->cpu_descriptor_index_cache =
+            &index_cache_helper->index_cache;
+        return CreateSiftFeatureMatcher(options);
+      });
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, SharedFocalPerPairFocal) {
+  std::unique_ptr<FeatureDescriptorIndexCacheHelper> index_cache_helper;
+  TestGuidedMatchingSharedFocalPerPairFocal(
       [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
         index_cache_helper =
             std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
@@ -971,6 +1158,30 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
 TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
   RunGpuTest([] {
     TestGuidedMatchingWithCameraDistortion(
+        [](const std::vector<FeatureMatcher::Image>& images) {
+          FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+          options.use_gpu = true;
+          options.max_num_matches = 1000;
+          return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+        });
+  });
+}
+
+TEST(MatchGuidedSiftFeaturesGPU, SharedFocal) {
+  RunGpuTest([] {
+    TestGuidedMatchingSharedFocal(
+        [](const std::vector<FeatureMatcher::Image>& images) {
+          FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+          options.use_gpu = true;
+          options.max_num_matches = 1000;
+          return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+        });
+  });
+}
+
+TEST(MatchGuidedSiftFeaturesGPU, SharedFocalPerPairFocal) {
+  RunGpuTest([] {
+    TestGuidedMatchingSharedFocalPerPairFocal(
         [](const std::vector<FeatureMatcher::Image>& images) {
           FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
           options.use_gpu = true;

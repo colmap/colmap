@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 
@@ -185,32 +186,30 @@ bool BundleAdjustmentConfig::HasConstantRigFromWorldPose(
          constant_rig_from_world_poses_.end();
 }
 
-const std::unordered_set<image_t>& BundleAdjustmentConfig::Images() const {
+const FlatHashSet<image_t>& BundleAdjustmentConfig::Images() const {
   return image_ids_;
 }
 
-const std::unordered_set<point3D_t>& BundleAdjustmentConfig::VariablePoints()
-    const {
+const FlatHashSet<point3D_t>& BundleAdjustmentConfig::VariablePoints() const {
   return variable_point3D_ids_;
 }
 
-const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
-    const {
+const FlatHashSet<point3D_t>& BundleAdjustmentConfig::ConstantPoints() const {
   return constant_point3D_ids_;
 }
 
-const std::unordered_set<camera_t>&
-BundleAdjustmentConfig::ConstantCamIntrinsics() const {
+const FlatHashSet<camera_t>& BundleAdjustmentConfig::ConstantCamIntrinsics()
+    const {
   return constant_cam_intrinsics_;
 }
 
-const std::unordered_set<sensor_t>&
+const FlatHashSet<sensor_t>&
 BundleAdjustmentConfig::ConstantSensorFromRigPoses() const {
   return constant_sensor_from_rig_poses_;
 }
 
-const std::unordered_set<frame_t>&
-BundleAdjustmentConfig::ConstantRigFromWorldPoses() const {
+const FlatHashSet<frame_t>& BundleAdjustmentConfig::ConstantRigFromWorldPoses()
+    const {
   return constant_rig_from_world_poses_;
 }
 

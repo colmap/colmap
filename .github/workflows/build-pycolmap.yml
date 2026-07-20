@@ -35,8 +35,10 @@ jobs:
       FETCHCONTENT_CACHE_VERSION: 1
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/fetchcontent-cache
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
-      # For faster builds in PRs, skip all but the oldest Python versions.
-      PULL_REQUEST_CIBW_BUILD: cp311-{macosx,manylinux,win}*
+      # For faster builds in PRs, build only a single Python version. We use
+      # cp312 (the oldest Python supported by the pinned Sphinx used in the docs
+      # job, which reuses this wheel); main builds all versions.
+      PULL_REQUEST_CIBW_BUILD: cp312-{macosx,manylinux,win}*
     steps:
       - name: Free disk space
         if: runner.os == 'Linux' && matrix.config.cudaEnabled
@@ -50,10 +52,10 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-compiler
         with:
           key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
@@ -61,7 +63,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-fetchcontent
         with:
           key: pycolmap-fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -217,7 +219,7 @@ jobs:
 
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.4.0
+        uses: pypa/cibuildwheel@v4.1.0
         with:
           package-dir: ./
         env:
@@ -226,7 +228,7 @@ jobs:
             BUILD_CUDA_ENABLED=${{ matrix.config.cudaEnabled }}
 
       - name: Archive wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}${{ matrix.config.cudaEnabled && '-CUDA' || '' }}
           path: wheelhouse/pycolmap*.whl
@@ -246,13 +248,74 @@ jobs:
     if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./artifacts/
       - name: Move wheels
         run: mkdir ./wheelhouse && mv ./artifacts/**/*.whl ./wheelhouse/
       - name: Publish package
-        uses: pypa/gh-action-pypi-publish@v1.13.0
+        uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           skip-existing: true
           packages-dir: ./wheelhouse/
+
+  docs:
+    name: Build and deploy documentation
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7   # conf.py's get_git_revision() needs a git checkout
+
+      # Detect whether docs-relevant files changed (gates the deploy/preview steps).
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'doc/**'
+              - 'CHANGELOG.rst'
+              - 'python/**'   # pycolmap bindings feed the autodoc API pages
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'   # Sphinx 9.1 needs >=3.12; matches the cp312 wheel
+
+      # Wheel from the `build` job (same run) so autodoc introspects a pycolmap
+      # that matches the commit.
+      - uses: actions/download-artifact@v8
+        with:
+          name: pycolmap-ubuntu-24.04-
+          path: wheelhouse
+
+      - name: Install pycolmap + Sphinx deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install wheelhouse/pycolmap-*cp312*manylinux*_x86_64.whl
+          pip install -r doc/requirements.txt
+
+      - name: Build docs
+        run: make -C doc html   # -> doc/_build/html
+
+      # PR dry-run: publish the generated HTML as a downloadable artifact
+      # (no deploy) so reviewers can inspect the rendered docs.
+      - name: Upload docs preview artifact
+        if: github.event_name == 'pull_request' && steps.filter.outputs.docs == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-preview
+          path: doc/_build/html
+
+      - name: Deploy to colmap.github.io
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          steps.filter.outputs.docs == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.COLMAP_GITHUB_IO_DEPLOY_KEY }}
+          external_repository: colmap/colmap.github.io
+          publish_branch: master
+          publish_dir: ./doc/_build/html
+          keep_files: true
+          commit_message: "Update docs from colmap@${{ github.sha }}"
+          full_commit_message: "Update docs from colmap@${{ github.sha }}"

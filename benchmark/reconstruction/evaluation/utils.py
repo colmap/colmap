@@ -34,7 +34,9 @@ import ctypes
 import dataclasses
 import datetime
 import functools
+import itertools
 import multiprocessing
+import pickle
 import platform
 import shutil
 import signal
@@ -42,7 +44,7 @@ import subprocess
 import sys
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -175,6 +177,9 @@ class Metrics:
 MetricsByScene = dict[str, Metrics]
 MetricsByCatByScene = dict[str, MetricsByScene]
 MetricsByDatasetByCatByScene = dict[str, MetricsByCatByScene]
+
+# Identifies one scene across reports: (dataset, category, scene).
+SceneKey = tuple[str, str, str]
 
 
 class Dataset(ABC):
@@ -335,10 +340,13 @@ def filter_smallest_scenes_per_category(
     return [scene_infos[i] for i in sorted(keep)]
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(description: str | None = None) -> argparse.Namespace:
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--data_path", default=Path(__file__).parent.parent / "data", type=Path
     )
@@ -384,12 +392,27 @@ def parse_args() -> argparse.Namespace:
         "--run_path", default=Path(__file__).parent.parent / "runs", type=Path
     )
     parser.add_argument("--run_name", default=datetime_str)
-    parser.add_argument("--report_name", default=f"report-{datetime_str}")
+    parser.add_argument(
+        "--report_name",
+        default=f"report-{datetime_str}",
+        help="Report file stem, without the .pkl suffix. With "
+        "--seeds/--num_seeds it is the stem of every run, which are written "
+        "as <report_name>_s<seed>.pkl; compare.py reads that naming back via "
+        "--report_a_path_prefix/--report_b_path_prefix.",
+    )
     parser.add_argument(
         "--overwrite_database", default=False, action="store_true"
     )
     parser.add_argument(
         "--overwrite_matches", default=False, action="store_true"
+    )
+    parser.add_argument(
+        "--overwrite_two_view_geometries",
+        default=False,
+        action="store_true",
+        help="Clear two-view geometries (inlier matches) but keep raw matches, "
+        "so geometric verification is recomputed from the cached matches. "
+        "Useful for re-tuning geometric verification without re-matching.",
     )
     parser.add_argument(
         "--overwrite_reconstruction", default=False, action="store_true"
@@ -419,12 +442,50 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--threads_per_scene",
+        type=int,
+        default=-1,
+        help=(
+            "Override the number of threads used within each scene. "
+            "Defaults to num_threads // num_parallel_scenes (-1). Set to 1 "
+            "for reproducible runs: RANSAC seeds per thread as "
+            "random_seed + omp_get_thread_num(), so with a fixed --random_seed "
+            "only single-threaded scenes are deterministic (required for "
+            "paired common-random-number A/B comparison)."
+        ),
+    )
+    parser.add_argument(
         "--gpu_index",
         type=str,
         default="-1",
         help="GPU indices to use for reconstruction. "
         "Use '-1' to auto-detect and use all available GPUs. "
         "Use comma-separated indices like '0,1,2' to specify exact GPUs.",
+    )
+    parser.add_argument(
+        "--random_seed",
+        type=int,
+        default=-1,
+        help="Random seed forwarded to colmap's automatic_reconstructor "
+        "(two-view RANSAC + mapper). -1 (default) uses a nondeterministic "
+        "random device, matching prior harness behavior. Fix it to a "
+        "non-negative value for reproducible / paired A-B runs.",
+    )
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument(
+        "--seeds",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Run the evaluation once per seed, writing "
+        "<report_name>_s<seed>.pkl each time, to measure run-to-run spread. "
+        "Mutually exclusive with --random_seed.",
+    )
+    seed_group.add_argument(
+        "--num_seeds",
+        type=int,
+        default=None,
+        help="Shorthand for --seeds 0 1 ... N-1.",
     )
     parser.add_argument(
         "--feature",
@@ -450,8 +511,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--filter_covisibility",
         default=True,
-        action="store_true",
-        help="Filter out non-covisible image pairs based on GT camera poses.",
+        action=argparse.BooleanOptionalAction,
+        help="Filter out non-covisible image pairs based on GT camera poses. "
+        "Use --no-filter_covisibility to disable.",
     )
     parser.add_argument(
         "--covisibility_frustum_near",
@@ -509,6 +571,21 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    if args.num_seeds is not None:
+        if args.num_seeds <= 0:
+            parser.error("--num_seeds must be > 0")
+        args.seeds = list(range(args.num_seeds))
+    if args.seeds is not None:
+        if args.random_seed >= 0:
+            parser.error(
+                "--random_seed sets the seed of a single run; use "
+                "--seeds/--num_seeds to run once per seed"
+            )
+        if any(seed < 0 for seed in args.seeds):
+            parser.error("--seeds must be non-negative")
+    # Names the flag the user actually passed, so the non-determinism warning
+    # does not point at --random_seed during a --seeds/--num_seeds run.
+    args.seed_flag = "--seeds" if args.seeds is not None else "--random_seed"
     if args.fast and args.fast_num_scenes <= 0:
         parser.error("--fast_num_scenes must be > 0 when --fast is set")
     if args.progress is None:
@@ -525,6 +602,11 @@ def parse_args() -> argparse.Namespace:
     if args.overwrite_matches:
         pycolmap.logging.info(
             "Overwriting matches also overwrites reconstruction"
+        )
+        args.overwrite_reconstruction = True
+    if args.overwrite_two_view_geometries:
+        pycolmap.logging.info(
+            "Overwriting two-view geometries also overwrites reconstruction"
         )
         args.overwrite_reconstruction = True
     if args.overwrite_reconstruction:
@@ -589,7 +671,15 @@ def colmap_reconstruction(
         pycolmap.logging.info("Skipping reconstruction, as it already exists")
         return
 
+    # Clearing matches also clears two-view geometries, so there is no need to
+    # clear the latter separately when both flags are set.
     if args.overwrite_matches:
+        cleaner_type = "matches"
+    elif args.overwrite_two_view_geometries:
+        cleaner_type = "two_view_geometries"
+    else:
+        cleaner_type = None
+    if cleaner_type is not None:
         subprocess.check_call(
             [
                 args.colmap_path,
@@ -597,7 +687,7 @@ def colmap_reconstruction(
                 "--database_path",
                 database_path,
                 "--type",
-                "matches",
+                cleaner_type,
             ],
             cwd=workspace_path,
             preexec_fn=_set_pdeathsig,
@@ -619,6 +709,8 @@ def colmap_reconstruction(
         gpu_index,
         "--num_threads",
         str(num_threads),
+        "--random_seed",
+        str(args.random_seed),
         "--feature",
         args.feature,
         "--mapper",
@@ -903,6 +995,17 @@ def _process_scene_with_gpu(
     )
 
 
+@functools.cache
+def _warn_nondeterministic(seed_flag: str, num_threads_per_scene: int) -> None:
+    """Warns once per process; process_scenes() runs per dataset and seed."""
+    pycolmap.logging.warning(
+        f"{seed_flag} is set but "
+        f"num_threads_per_scene={num_threads_per_scene} > 1: RANSAC seeds "
+        "per thread, so results are NOT deterministic. Pass "
+        "--threads_per_scene 1 for reproducible / paired A-B runs."
+    )
+
+
 def process_scenes(
     args: argparse.Namespace,
     scene_infos: list[SceneInfo],
@@ -918,7 +1021,12 @@ def process_scenes(
     ]
 
     num_parallel_scenes = min(args.num_parallel_scenes, len(scene_infos))
-    num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
+    if args.threads_per_scene > 0:
+        num_threads_per_scene = args.threads_per_scene
+    else:
+        num_threads_per_scene = max(1, args.num_threads // num_parallel_scenes)
+    if args.random_seed >= 0 and num_threads_per_scene != 1:
+        _warn_nondeterministic(args.seed_flag, num_threads_per_scene)
 
     manager = None
     progress_status = None
@@ -1122,77 +1230,62 @@ def compute_grouped_rel_errors(
     fragmented registrations) we assign the maximum error of 180 degrees. The
     returned error array covers all pairs in A u B.
 
-    Sets A and B are never materialized: B membership is decided on the fly
-    from image_name_to_gt_recon_ids, and A is tracked with a visited set so the
-    B - A pairs can be found in a second pass.
+    A and B are materialized as flat collections and scored in a single pass.
+    A is a multiset (est_edges): an image may appear in several sub-models, so
+    the same edge can carry several estimated relative poses, each contributing
+    one error entry.
     """
     gt_cam_from_world = {
         image.name: image.cam_from_world()
         for image in sparse_gt.images.values()
     }
 
-    def same_gt_recon(name_a: str, name_b: str) -> bool:
-        recon_a = image_name_to_gt_recon_ids.get(name_a)
-        return (
-            recon_a is not None
-            and recon_a != OUTLIER_RECON_ID
-            and recon_a == image_name_to_gt_recon_ids.get(name_b)
-        )
-
-    visited: set[tuple[str, str]] = set()
-    errors: list[float] = []
-
-    # Pass 1: walk set A (ordered pairs within each estimated sub-model). An
-    # image may appear in several sub-models, so the same edge can be visited
-    # (and scored) multiple times; each estimate contributes an error.
+    # A: ordered estimated edges -> list of relative poses (one per sub-model
+    # containing both endpoints). Keeping a list makes A a multiset.
+    est_edges: dict[tuple[str, str], list[pycolmap.Rigid3d]] = (
+        collections.defaultdict(list)
+    )
     for sub_model in sub_models:
         cam_from_world = {
             image.name: image.cam_from_world()
             for image in sub_model.images.values()
         }
-        names = list(cam_from_world)
-        for name_i in names:
-            for name_j in names:
-                if name_i == name_j:
-                    continue
-                visited.add((name_i, name_j))
-                if (
-                    same_gt_recon(name_i, name_j)
-                    and name_i in gt_cam_from_world
-                    and name_j in gt_cam_from_world
-                ):
-                    # Edge in A n B: measure the relative pose error.
-                    rel_est = (
-                        cam_from_world[name_j]
-                        * cam_from_world[name_i].inverse()
-                    )
-                    rel_gt = (
-                        gt_cam_from_world[name_j]
-                        * gt_cam_from_world[name_i].inverse()
-                    )
-                    dt, dR = relative_pose_error_deg(
-                        rel_est, rel_gt, min_proj_center_dist
-                    )
-                    errors.append(max(dt, dR))
-                else:
-                    # Edge in A - B: wrong merge or registered outlier.
-                    errors.append(180.0)
+        for name_i, name_j in itertools.permutations(cam_from_world, 2):
+            rel_est = cam_from_world[name_j] * cam_from_world[name_i].inverse()
+            est_edges[(name_i, name_j)].append(rel_est)
 
-    # Pass 2: add the B - A pairs (grouped in GT but not jointly estimated).
+    # B: ordered GT edges grouped by GT reconstruction id. Outliers never
+    # belong to a GT reconstruction, and names absent from sparse_gt cannot
+    # form a measurable GT edge, so both are excluded here.
     names_by_recon: dict[int, list[str]] = collections.defaultdict(list)
     for name, recon_id in image_name_to_gt_recon_ids.items():
-        # Outliers never belong to a GT reconstruction, so they form no
-        # GT edges.
-        if recon_id == OUTLIER_RECON_ID:
+        if recon_id == OUTLIER_RECON_ID or name not in gt_cam_from_world:
             continue
         names_by_recon[recon_id].append(name)
+    gt_edges: set[tuple[str, str]] = set()
     for group_names in names_by_recon.values():
-        for name_i in group_names:
-            for name_j in group_names:
-                if name_i == name_j:
-                    continue
-                if (name_i, name_j) not in visited:
-                    errors.append(180.0)
+        gt_edges.update(itertools.permutations(group_names, 2))
+
+    errors: list[float] = []
+    for edge in set(est_edges) | gt_edges:
+        name_i, name_j = edge
+        rel_ests = est_edges.get(edge, [])
+        if edge in gt_edges:
+            rel_gt = (
+                gt_cam_from_world[name_j] * gt_cam_from_world[name_i].inverse()
+            )
+            if not rel_ests:
+                # Edge in B - A: failed / fragmented registration.
+                errors.append(180.0)
+            for rel_est in rel_ests:
+                # Edge in A n B: measure the relative pose error.
+                dt, dR = relative_pose_error_deg(
+                    rel_est, rel_gt, min_proj_center_dist
+                )
+                errors.append(max(dt, dR))
+        else:
+            # Edge in A - B: wrong merge or registered outlier.
+            errors.extend(180.0 for _ in rel_ests)
 
     if not errors:
         # No evaluable pairs (e.g. only singleton GT reconstructions). Report
@@ -1252,9 +1345,34 @@ def compute_abs_errors(
     if image_name_to_gt_recon_ids is None:
         return dts, dRs
 
-    # Mean finite translational error per cluster; outliers and images missing
-    # from the mapping never form a selectable cluster.
-    errors_by_recon: dict[int, list[float]] = collections.defaultdict(list)
+    best_recon_id = _best_gt_cluster(names, dts, image_name_to_gt_recon_ids)
+
+    # Keep only the best cluster intact; max out every other image (other
+    # clusters, outliers, or names missing from the mapping). When no cluster
+    # is selectable (best_recon_id is None) every image is maxed out.
+    for i, name in enumerate(names):
+        in_best_cluster = (
+            best_recon_id is not None
+            and image_name_to_gt_recon_ids.get(name) == best_recon_id
+        )
+        if not in_best_cluster:
+            dts[i] = np.inf
+            dRs[i] = 180
+
+    return dts, dRs
+
+
+def _best_gt_cluster(
+    names: list[str],
+    dts: npt.NDArray[np.floating],
+    image_name_to_gt_recon_ids: dict[str, int],
+) -> int | None:
+    """GT recon id with the smallest mean finite translational error.
+
+    Returns None when no image maps to a selectable cluster. Outliers and
+    names missing from the mapping never form a selectable cluster.
+    """
+    finite_dts_by_recon: dict[int, list[float]] = collections.defaultdict(list)
     for name, dt in zip(names, dts, strict=True):
         recon_id = image_name_to_gt_recon_ids.get(name)
         if (
@@ -1262,28 +1380,13 @@ def compute_abs_errors(
             and recon_id != OUTLIER_RECON_ID
             and np.isfinite(dt)
         ):
-            errors_by_recon[recon_id].append(float(dt))
-
-    best_recon_id = None
-    best_mean = np.inf
-    for recon_id, errs in errors_by_recon.items():
-        mean = float(np.mean(errs))
-        if mean < best_mean:
-            best_mean = mean
-            best_recon_id = recon_id
-
-    # Keep only the best cluster intact; max out every other image.
-    for i, name in enumerate(names):
-        recon_id = image_name_to_gt_recon_ids.get(name)
-        if not (
-            recon_id is not None
-            and recon_id != OUTLIER_RECON_ID
-            and recon_id == best_recon_id
-        ):
-            dts[i] = np.inf
-            dRs[i] = 180
-
-    return dts, dRs
+            finite_dts_by_recon[recon_id].append(float(dt))
+    if not finite_dts_by_recon:
+        return None
+    return min(
+        finite_dts_by_recon,
+        key=lambda recon_id: float(np.mean(finite_dts_by_recon[recon_id])),
+    )
 
 
 def compute_grouped_abs_errors(
@@ -1306,12 +1409,14 @@ def compute_grouped_abs_errors(
     gt_names = [image.name for image in sparse_gt.images.values()]
     gt_name_set = set(gt_names)
 
-    # Collect one error per (image, sub-model) registration. compute_abs_errors
-    # returns errors aligned to the sub-model's images that also exist in the
-    # GT, in sub_model.images.values() order, so we rebuild the matching names
-    # with the same filter/order. Registered images outside a sub-model's best
-    # cluster are maxed out (inf) yet still contribute an error.
-    errors_by_name: dict[str, list[float]] = {name: [] for name in gt_names}
+    # Flat node multiset keyed by GT image name: one translational error per
+    # (GT image, sub-model) registration. compute_abs_errors keeps each
+    # sub-model's best GT cluster intact and maxes out (inf) every other
+    # registered image, which still contributes an error. Its returned errors
+    # are aligned to the sub-model's images that also exist in the GT, in
+    # sub_model.images.values() order, so we rebuild the names with the same
+    # filter/order.
+    errors_by_name: dict[str, list[float]] = collections.defaultdict(list)
     for sub_model in sub_models:
         sub_dts, _ = compute_abs_errors(
             sparse_gt=sparse_gt,
@@ -1326,16 +1431,13 @@ def compute_grouped_abs_errors(
         for name, dt in zip(sub_names, sub_dts, strict=True):
             errors_by_name[name].append(float(dt))
 
-    # Images not registered in any sub-model count as a single failure.
+    # A GT image registered in no sub-model counts as a single failure.
     for name in gt_names:
         if not errors_by_name[name]:
             errors_by_name[name].append(np.inf)
 
-    errors: list[float] = []
-    for name in gt_names:
-        errors.extend(errors_by_name[name])
-
-    return np.array(errors)
+    # Flatten the node dict in GT image order.
+    return np.array([dt for name in gt_names for dt in errors_by_name[name]])
 
 
 def compute_auc(
@@ -1454,6 +1556,11 @@ def diff_metrics(
     return metrics_diff
 
 
+def _is_summary_scene(scene: str) -> bool:
+    """Whether a scene name is an aggregate row (e.g. __avg__, __all__)."""
+    return scene.startswith("__") and scene.endswith("__")
+
+
 def create_result_table(
     dataset_metrics: MetricsByDatasetByCatByScene,
 ) -> str:
@@ -1512,7 +1619,7 @@ def create_result_table(
             scores = get_scores(first_metrics.error_type, metrics)
             assert len(scores) == len(thresholds)
             row = ""
-            is_summary = scene.startswith("__") and scene.endswith("__")
+            is_summary = _is_summary_scene(scene)
             if is_summary and any_scene_row and not summary_separator_drawn:
                 row += "-" * size_sep + "\n"
                 summary_separator_drawn = True
@@ -1560,3 +1667,316 @@ def create_result_table(
         )
 
     return "\n".join(text)
+
+
+def load_report(path: Path) -> MetricsByDatasetByCatByScene:
+    """Loads a report pickled by evaluate.py."""
+    with open(path, "rb") as report_file:
+        return pickle.load(report_file)
+
+
+def _collect_reports(prefix: Path) -> dict[int, Path] | Path:
+    """Collects the reports of one variant given as a report path prefix.
+
+    Returns seed -> path for the <prefix>_s<seed>.pkl reports of a seeded run,
+    or the single <prefix>.pkl path of an unseeded one.
+    """
+    reports: dict[int, Path] = {}
+    for path in prefix.parent.glob(f"{prefix.name}_s*.pkl"):
+        seed = path.stem[len(prefix.name) + 2 :]
+        if seed.isdigit():
+            reports[int(seed)] = path
+    if reports:
+        return reports
+    path = prefix.with_name(f"{prefix.name}.pkl")
+    if not path.exists():
+        raise SystemExit(
+            f"found neither {prefix.name}_s<seed>.pkl reports nor {path}"
+        )
+    return path
+
+
+def collect_reports(
+    path: Path | None, prefix: Path | None
+) -> dict[int, Path] | Path:
+    """Collects one variant's reports from a report path or a path prefix.
+
+    Returns the single report path, or seed -> path for the
+    <prefix>_s<seed>.pkl reports of a seeded run.
+    """
+    if path is not None:
+        if not path.exists():
+            raise SystemExit(f"no such report: {path}")
+        return path
+    assert prefix is not None
+    return _collect_reports(prefix)
+
+
+def pair_reports(
+    reports_a: dict[int, Path] | Path,
+    reports_b: dict[int, Path] | Path,
+    labels: Sequence[str] = ("A", "B"),
+    seeds: list[int] | None = None,
+) -> tuple[list[Path], list[Path], list[int] | None]:
+    """Pairs up the collected reports of two variants.
+
+    Seeded variants are matched on the seeds they have in common; pass seeds
+    to restrict the comparison to a subset. A variant that is a single report
+    is compared against every seed of the other.
+    """
+    label_a, label_b = labels
+
+    if isinstance(reports_a, dict) and isinstance(reports_b, dict):
+        # Both seeded: pair them up on the seeds they have in common.
+        shared = sorted(set(reports_a) & set(reports_b))
+        if not shared:
+            raise SystemExit(
+                f"{label_a} and {label_b} share no seed, but the "
+                "comparison is paired per seed "
+                f"({label_a}: {sorted(reports_a)}, "
+                f"{label_b}: {sorted(reports_b)})"
+            )
+        for label, reports in ((label_a, reports_a), (label_b, reports_b)):
+            dropped = sorted(set(reports) - set(shared))
+            if dropped:
+                pycolmap.logging.warning(
+                    f"ignoring {len(dropped)} of {label}'s "
+                    f"{len(reports)} reports, seed(s) {dropped}: the other "
+                    "variant has no report for them"
+                )
+    elif isinstance(reports_a, dict):
+        # Only A seeded: B is a single run, compared against each of A's seeds.
+        shared = sorted(reports_a)
+    elif isinstance(reports_b, dict):
+        shared = sorted(reports_b)
+    else:
+        # Neither seeded: a plain one-to-one comparison.
+        return [reports_a], [reports_b], None
+
+    if seeds is not None:
+        unknown = sorted(set(seeds) - set(shared))
+        if unknown:
+            pycolmap.logging.warning(
+                f"skipping seed(s) {unknown}: not present for both variants"
+            )
+        shared = [seed for seed in shared if seed in set(seeds)]
+        if not shared:
+            raise SystemExit(f"none of the seeds {seeds} is available")
+
+    def paths(reports: dict[int, Path] | Path) -> list[Path]:
+        if isinstance(reports, Path):
+            return [reports] * len(shared)
+        return [reports[seed] for seed in shared]
+
+    return paths(reports_a), paths(reports_b), shared
+
+
+def _first_metrics(report: MetricsByDatasetByCatByScene) -> Metrics:
+    return next(iter(next(iter(next(iter(report.values())).values())).values()))
+
+
+def _common_scene_keys(
+    reports: list[MetricsByDatasetByCatByScene],
+) -> list[SceneKey]:
+    """Scene keys present in every report, ordered as in the first report."""
+    key_sets: list[set[SceneKey]] = []
+    for report in reports:
+        keys: set[SceneKey] = set()
+        for dataset, cat_metrics in report.items():
+            for category, scene_metrics in cat_metrics.items():
+                for scene in scene_metrics:
+                    keys.add((dataset, category, scene))
+        key_sets.append(keys)
+    shared: set[SceneKey] = set()
+    if key_sets:
+        shared = key_sets[0].intersection(*key_sets[1:])
+    ordered: list[SceneKey] = []
+    for dataset, cat_metrics in reports[0].items():
+        for category, scene_metrics in cat_metrics.items():
+            for scene in scene_metrics:
+                if (dataset, category, scene) in shared:
+                    ordered.append((dataset, category, scene))
+    return ordered
+
+
+def _stack_scores(
+    reports: list[MetricsByDatasetByCatByScene],
+    key: SceneKey,
+    error_type: str,
+) -> npt.NDArray[np.floating]:
+    """Scores for one scene across reports, shaped (num_reports, num_thr)."""
+    dataset, category, scene = key
+    return np.array(
+        [
+            get_scores(error_type, report[dataset][category][scene])
+            for report in reports
+        ]
+    )
+
+
+def _render_meanstd(
+    title: str,
+    per_key_stack: dict[SceneKey, npt.NDArray[np.floating]],
+    keys: list[SceneKey],
+    error_type: str,
+    thresholds: npt.NDArray[np.floating],
+    num_runs: int,
+    signed: bool = False,
+    num_reported: int | None = None,
+) -> str:
+    """Renders one mean +/- std table over runs, per scene x threshold.
+
+    per_key_stack maps each key to a (num_runs, num_thresholds) score array.
+    num_reported is shown in the trailing N column as the number of distinct
+    runs behind the statistics, which is 1 for a single run compared against
+    every seed of the other variant, and whose std is then zero.
+    """
+    is_relative = error_type.startswith("relative")
+    thresholds_disp = thresholds if is_relative else 100 * thresholds
+    size_scene = max(8, max(len(s) for _, _, s in keys))
+    size_cell = 12  # "+dd.dd±dd.dd"
+    fmt = "{:+6.2f}±{:5.2f}" if signed else "{:6.2f}±{:5.2f}"
+    header = f"{'scene':<{size_scene}} {'N':>3} " + " ".join(
+        f"{'@' + str(t).rstrip('.'):^{size_cell}}" for t in thresholds_disp
+    )
+    num_reported = num_runs if num_reported is None else num_reported
+    lines: list[str] = [title, header, "-" * len(header)]
+    prev_summary = False
+    for key in sorted(keys, key=lambda k: (_is_summary_scene(k[2]), k)):
+        scene = key[2]
+        if _is_summary_scene(scene) and not prev_summary:
+            lines.append("-" * len(header))
+            prev_summary = True
+        scores = per_key_stack[key]  # (num_runs, num_thresholds)
+        mean = scores.mean(axis=0)
+        std = (
+            scores.std(axis=0, ddof=1) if num_runs > 1 else np.zeros_like(mean)
+        )
+        label = {"__avg__": "average", "__all__": "overall"}.get(scene, scene)
+        cells = " ".join(
+            fmt.format(m, s) for m, s in zip(mean, std, strict=True)
+        )
+        lines.append(f"{label:<{size_scene}} {num_reported:>3} {cells}")
+    return "\n".join(lines)
+
+
+def compare_reports(
+    report_a_paths: list[Path],
+    report_b_paths: list[Path],
+    labels: Sequence[str] = ("A", "B"),
+    seeds: list[int] | None = None,
+) -> None:
+    """Logs an A vs B comparison of two sets of paired reports.
+
+    With one report per variant this prints the usual result tables for A, B
+    and A - B. With several reports per variant (one per seed, paired by
+    position) it instead prints mean +/- std over the runs, with A - B computed
+    per seed before averaging.
+    """
+    if len(report_a_paths) != len(report_b_paths):
+        raise SystemExit(
+            "A and B must have the same number of reports (paired by seed): "
+            f"{len(report_a_paths)} vs {len(report_b_paths)}"
+        )
+    num_runs = len(report_a_paths)
+    if num_runs == 0:
+        raise SystemExit("no reports to compare")
+    if seeds is not None and len(seeds) != num_runs:
+        raise SystemExit(
+            f"seed count ({len(seeds)}) != report count ({num_runs})"
+        )
+    label_a, label_b = labels
+
+    reports_a = [load_report(path) for path in report_a_paths]
+    reports_b = [load_report(path) for path in report_b_paths]
+
+    if num_runs == 1:
+        metrics_a, metrics_b = reports_a[0], reports_b[0]
+        metrics_diff = diff_metrics(metrics_a, metrics_b)
+        pycolmap.logging.info(
+            f"Results {label_a}:\n" + create_result_table(metrics_a)
+        )
+        pycolmap.logging.info(
+            f"Results {label_b}:\n" + create_result_table(metrics_b)
+        )
+        pycolmap.logging.info(
+            f"Results {label_a} - {label_b}:\n"
+            + create_result_table(metrics_diff)
+        )
+        return
+
+    keys = _common_scene_keys(reports_a + reports_b)
+    if not keys:
+        raise SystemExit("No scenes shared across all reports.")
+
+    first_metrics = _first_metrics(reports_a[0])
+    error_type = first_metrics.error_type
+    thresholds = np.asarray(first_metrics.error_thresholds)
+    score = "AUC" if error_type.endswith("auc") else "Recall"
+
+    # A variant may be a single run compared against every seed of the other,
+    # in which case it has no spread of its own and is labelled as such.
+    single_a = len(set(report_a_paths)) == 1 and num_runs > 1
+    single_b = len(set(report_b_paths)) == 1 and num_runs > 1
+    # Both variants ran on the same seeds, so the difference is paired; a
+    # single run broadcast against the other's seeds is not.
+    shared = not (single_a or single_b)
+    over_seeds = f"{score} mean ± std over {num_runs} seeds"
+
+    seeds_label = " ".join(map(str, seeds)) if seeds is not None else "-"
+    num_scenes = len([k for k in keys if not _is_summary_scene(k[2])])
+    num_reconstructions = num_runs * (2 - single_a - single_b)
+    pycolmap.logging.info(
+        f"{label_a} vs {label_b}: {num_runs} seeds; "
+        f"{num_reconstructions} reconstruction runs over {num_scenes} scenes; "
+        f"seeds: [{seeds_label}]"
+    )
+    if single_a or single_b:
+        single, seeded = (label_a, label_b) if single_a else (label_b, label_a)
+        pycolmap.logging.warning(
+            f"{single} is a single run compared against every seed of "
+            f"{seeded}: the difference therefore carries only {seeded}'s "
+            f"spread, and is not a paired (common random number) comparison. "
+            f"Run {single} on the same seeds for that."
+        )
+
+    stacks_a = {k: _stack_scores(reports_a, k, error_type) for k in keys}
+    stacks_b = {k: _stack_scores(reports_b, k, error_type) for k in keys}
+    stacks_diff = {k: stacks_a[k] - stacks_b[k] for k in keys}
+
+    common = (keys, error_type, thresholds, num_runs)
+    pycolmap.logging.info(
+        "\n"
+        + _render_meanstd(
+            f"A = {label_a}  "
+            + (f"({score}, single run)" if single_a else f"({over_seeds})"),
+            stacks_a,
+            *common,
+            num_reported=1 if single_a else num_runs,
+        )
+    )
+    pycolmap.logging.info(
+        "\n"
+        + _render_meanstd(
+            f"B = {label_b}  "
+            + (f"({score}, single run)" if single_b else f"({over_seeds})"),
+            stacks_b,
+            *common,
+            num_reported=1 if single_b else num_runs,
+        )
+    )
+    pycolmap.logging.info(
+        "\n"
+        + _render_meanstd(
+            f"A - B = {label_a} - {label_b}  ({over_seeds}, "
+            + (
+                "shared seeds -> paired)"
+                if shared
+                else f"seeds NOT shared -> {label_b if single_a else label_a}"
+                "'s spread only)"
+            ),
+            stacks_diff,
+            *common,
+            signed=True,
+        )
+    )

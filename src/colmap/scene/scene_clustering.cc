@@ -30,6 +30,7 @@
 #include "colmap/scene/scene_clustering.h"
 
 #include "colmap/math/graph_cut.h"
+#include "colmap/util/hash_containers.h"
 
 #include <set>
 
@@ -222,7 +223,7 @@ void SceneClustering::PartitionFlatCluster(
             });
 
   // For each image find all related images with their weights
-  std::unordered_map<int, std::vector<std::pair<int, int>>> related_images;
+  NodeHashMap<int, std::vector<std::pair<int, int>>> related_images;
   for (size_t i = 0; i < edges.size(); ++i) {
     related_images[edges[i].first].emplace_back(edges[i].second, weights[i]);
     related_images[edges[i].second].emplace_back(edges[i].first, weights[i]);
@@ -312,7 +313,7 @@ std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
 SceneClustering SceneClustering::Create(const Options& options,
                                         const DatabaseCache& database_cache) {
   LOG(INFO) << "Building scene graph...";
-  const std::unordered_map<image_pair_t, point2D_t> num_matches_between_images =
+  const NodeHashMap<image_pair_t, point2D_t> num_matches_between_images =
       database_cache.CorrespondenceGraph()->NumMatchesBetweenAllImages();
 
   std::vector<std::pair<image_t, image_t>> all_image_pairs;

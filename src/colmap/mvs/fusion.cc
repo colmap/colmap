@@ -33,12 +33,12 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <unordered_set>
 
 #include <Eigen/Geometry>
 
@@ -387,7 +387,7 @@ void StereoFusion::Fuse(const int thread_id,
   std::vector<uint8_t> fused_point_r;
   std::vector<uint8_t> fused_point_g;
   std::vector<uint8_t> fused_point_b;
-  std::unordered_set<int> fused_point_visibility;
+  FlatHashSet<int> fused_point_visibility;
 
   while (!fusion_queue.empty()) {
     const auto data = fusion_queue.back();

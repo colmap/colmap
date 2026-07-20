@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/util/hash_containers.h"
 
 #include <optional>
 #include <variant>
@@ -41,7 +42,7 @@ class RotationAveragingProblem {
   RotationAveragingProblem(const PoseGraph& pose_graph,
                            const std::vector<PosePrior>& pose_priors,
                            const RotationEstimatorOptions& options,
-                           const std::unordered_set<image_t>& active_image_ids,
+                           const FlatHashSet<image_t>& active_image_ids,
                            Reconstruction& reconstruction);
 
   // Computes residual vector b from current rotation estimates.
@@ -60,11 +61,21 @@ class RotationAveragingProblem {
     return constraint_matrix_;
   }
   const Eigen::VectorXd& Residuals() const { return residuals_; }
+  // Diagonal of the residual-space reweighting operator W (one weight per
+  // residual row), or nullopt when no reweighting is configured.
+  const std::optional<Eigen::VectorXd>& ResidualReweighting() const {
+    return residual_reweighting_;
+  }
+  // Constraint matrix A with the reweighting operator applied to its rows
+  // (W * A), or the plain constraint matrix when no reweighting is configured.
+  Eigen::SparseMatrix<double> WeightedConstraintMatrix() const;
+  // Residual vector b with the reweighting operator applied (W * b), or the
+  // plain residuals when no reweighting is configured.
+  Eigen::VectorXd WeightedResiduals() const;
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
   int NumGaugeFixingResiduals() const { return num_gauge_fixing_residuals_; }
-  const std::unordered_map<image_pair_t, PairConstraint>& PairConstraints()
-      const {
+  const NodeHashMap<image_pair_t, PairConstraint>& PairConstraints() const {
     return pair_constraints_;
   }
 
@@ -79,7 +90,7 @@ class RotationAveragingProblem {
   void BuildPairConstraints(const PoseGraph& pose_graph,
                             const Reconstruction& reconstruction);
 
-  // Builds sparse matrix A and edge weight vector.
+  // Builds sparse matrix A and the residual-space reweighting operator W.
   void BuildConstraintMatrix(size_t num_params,
                              const PoseGraph& pose_graph,
                              const Reconstruction& reconstruction);
@@ -87,21 +98,27 @@ class RotationAveragingProblem {
   const RotationEstimatorOptions options_;
 
   // Pose priors indexed by frame ID.
-  std::unordered_map<frame_t, const PosePrior*> frame_to_pose_prior_;
+  NodeHashMap<frame_t, const PosePrior*> frame_to_pose_prior_;
 
   // Linear system components.
   Eigen::SparseMatrix<double> constraint_matrix_;  // Matrix A.
   Eigen::VectorXd residuals_;                      // Vector b.
 
+  // Optional reweighting operator W applied to the residual space (rows of A
+  // and b); the solver works on the reweighted system min ||W (A x - b)||.
+  // Populated when the reweighting scheme is not UNIFORM. Stored as the
+  // diagonal of W (one weight per residual row).
+  std::optional<Eigen::VectorXd> residual_reweighting_;
+
   // Current rotation estimates in tangent space (angle-axis).
   Eigen::VectorXd estimated_rotations_;
 
   // Parameter index mappings.
-  std::unordered_map<frame_t, int> frame_id_to_param_idx_;
-  std::unordered_map<camera_t, int> camera_id_to_param_idx_;
+  NodeHashMap<frame_t, int> frame_id_to_param_idx_;
+  NodeHashMap<camera_t, int> camera_id_to_param_idx_;
 
   // Preprocessed constraints for each image pair.
-  std::unordered_map<image_pair_t, PairConstraint> pair_constraints_;
+  NodeHashMap<image_pair_t, PairConstraint> pair_constraints_;
 
   // Gauge fixing (removes rotational ambiguity).
   frame_t fixed_frame_id_ = kInvalidFrameId;
@@ -109,12 +126,12 @@ class RotationAveragingProblem {
   int num_gauge_fixing_residuals_ = 3;  // 1 for gravity-aligned, 3 otherwise.
 
   // Cached lookups for ComputeResiduals and UpdateState.
-  std::unordered_map<image_t, frame_t> image_id_to_frame_id_;
-  std::unordered_map<camera_t, rig_t> camera_id_to_rig_id_;
-  std::unordered_map<camera_t, std::vector<frame_t>> camera_to_frame_ids_;
+  NodeHashMap<image_t, frame_t> image_id_to_frame_id_;
+  NodeHashMap<camera_t, rig_t> camera_id_to_rig_id_;
+  NodeHashMap<camera_t, std::vector<frame_t>> camera_to_frame_ids_;
 
   // Active frames for the current solve.
-  std::unordered_set<frame_t> active_frame_ids_;
+  FlatHashSet<frame_t> active_frame_ids_;
 };
 
 // Solves the rotation averaging problem using L1 regression followed by IRLS.

@@ -65,6 +65,14 @@ option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for V
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
 
+# Hash map backend used by the performance-critical scene/SfM containers (see
+# src/colmap/util/hash_containers.h). One of: STD, BOOST, or empty for auto.
+# Auto selects BOOST (faster boost::unordered_flat/node maps) when the available
+# Boost is new enough (>= 1.84, for boost::unordered_node_map) and STD otherwise.
+set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
+    "Hash map backend for scene/SfM containers: STD, BOOST, or empty for auto")
+set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST)
+
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
     if(CASPAR_USE_DOUBLE)
@@ -389,9 +397,13 @@ if(IS_MSVC)
             DESTINATION "/")
 endif()
 
-# Install application meny entry under Linux/Unix.
+# Install application meny entry and icon under Linux/Unix.
 if(UNIX AND NOT APPLE)
     install(FILES "doc/COLMAP.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
+    # Install the app icon so the desktop entry's "Icon=colmap" resolves.
+    install(FILES "src/colmap/ui/media/colmap-logo.svg"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
+            RENAME "colmap.svg")
 endif()
 
 # Configure the uninstallation script.

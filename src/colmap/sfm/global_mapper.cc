@@ -6,6 +6,7 @@
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -140,8 +141,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
 
   // Build keypoints map from registered images.
-  std::unordered_map<image_t, std::vector<Eigen::Vector2d>>
-      image_id_to_keypoints;
+  NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_id_to_keypoints;
   for (const auto image_id : reconstruction_->RegImageIds()) {
     const auto& image = reconstruction_->Image(image_id);
     std::vector<Eigen::Vector2d> points;
@@ -155,7 +155,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   auto corr_graph = database_cache_->CorrespondenceGraph();
 
   // Union all matching observations.
-  UnionFind<Observation> uf;
+  UnionFind<Observation, PairHash> uf;
   FeatureMatches matches;
   for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -177,7 +177,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
 
   // Group observations by their root.
   uf.Compress();
-  std::unordered_map<Observation, std::vector<Observation>> track_map;
+  NodeHashMap<Observation, std::vector<Observation>, PairHash> track_map;
   for (const auto& [obs, root] : uf.Parents()) {
     track_map[root].push_back(obs);
   }
@@ -185,13 +185,13 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
             << uf.Parents().size() << " observations";
 
   // Validate tracks, check consistency, and collect valid ones with lengths.
-  std::unordered_map<point3D_t, Point3D> candidate_points3D;
+  NodeHashMap<point3D_t, Point3D> candidate_points3D;
   std::vector<std::pair<size_t, point3D_t>> track_lengths;
   size_t discarded_counter = 0;
   point3D_t next_point3D_id = 0;
 
   for (const auto& [track_id, observations] : track_map) {
-    std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
+    NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_id_set;
     Point3D point3D;
     bool is_consistent = true;
 
@@ -238,7 +238,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   // Sort tracks by length (descending) and select for problem.
   std::sort(track_lengths.begin(), track_lengths.end(), std::greater<>());
 
-  std::unordered_map<image_t, size_t> tracks_per_image;
+  NodeHashMap<image_t, size_t> tracks_per_image;
   size_t images_left = image_id_to_keypoints.size();
   const size_t max_num_tracks =
       static_cast<size_t>(options.keep_max_num_tracks);

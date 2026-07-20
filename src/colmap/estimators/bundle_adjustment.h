@@ -33,9 +33,9 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
+#include "colmap/util/hash_containers.h"
 
 #include <memory>
-#include <unordered_set>
 
 #include <Eigen/Core>
 
@@ -131,22 +131,22 @@ class BundleAdjustmentConfig {
   void RemoveConstantPoint(point3D_t point3D_id);
 
   // Access configuration data.
-  const std::unordered_set<image_t>& Images() const;
-  const std::unordered_set<point3D_t>& VariablePoints() const;
-  const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::unordered_set<camera_t>& ConstantCamIntrinsics() const;
-  const std::unordered_set<sensor_t>& ConstantSensorFromRigPoses() const;
-  const std::unordered_set<frame_t>& ConstantRigFromWorldPoses() const;
+  const FlatHashSet<image_t>& Images() const;
+  const FlatHashSet<point3D_t>& VariablePoints() const;
+  const FlatHashSet<point3D_t>& ConstantPoints() const;
+  const FlatHashSet<camera_t>& ConstantCamIntrinsics() const;
+  const FlatHashSet<sensor_t>& ConstantSensorFromRigPoses() const;
+  const FlatHashSet<frame_t>& ConstantRigFromWorldPoses() const;
 
  private:
   BundleAdjustmentGauge fixed_gauge_ = BundleAdjustmentGauge::UNSPECIFIED;
-  std::unordered_set<camera_t> constant_cam_intrinsics_;
-  std::unordered_set<image_t> image_ids_;
-  std::unordered_set<point3D_t> variable_point3D_ids_;
-  std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<point3D_t> ignored_point3D_ids_;
-  std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
-  std::unordered_set<frame_t> constant_rig_from_world_poses_;
+  FlatHashSet<camera_t> constant_cam_intrinsics_;
+  FlatHashSet<image_t> image_ids_;
+  FlatHashSet<point3D_t> variable_point3D_ids_;
+  FlatHashSet<point3D_t> constant_point3D_ids_;
+  FlatHashSet<point3D_t> ignored_point3D_ids_;
+  FlatHashSet<sensor_t> constant_sensor_from_rig_poses_;
+  FlatHashSet<frame_t> constant_rig_from_world_poses_;
 };
 
 struct CasparBundleAdjustmentOptions;

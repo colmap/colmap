@@ -56,6 +56,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 
 #include <Eigen/Geometry>
@@ -1032,6 +1033,28 @@ double ComputeNormalizedGuidedMatchingMaxResidual(const Camera& camera1,
                 normalized_max_error2 * normalized_max_error2);
 }
 
+// Selects the epipolar model used to guide matching. The essential matrix is
+// preferred whenever the intrinsics are known, which properly handles
+// non-pinhole camera models where the fundamental matrix relationship does not
+// hold. The intrinsics are known either from priors (calibrated configs) or
+// because the two-view solver recovered them: such pairs are labeled
+// UNCALIBRATED but carry the estimated intrinsics in `camera1`/`camera2`.
+// Either side alone suffices, to support solvers that estimate only one side
+// against an already calibrated view.
+bool UseEssentialMatrixForGuidedMatching(const TwoViewGeometry& geometry) {
+  if (!geometry.E.has_value()) {
+    return false;
+  }
+  if (geometry.config == TwoViewGeometry::CALIBRATED ||
+      geometry.config == TwoViewGeometry::CALIBRATED_RIG) {
+    return true;
+  }
+  if (geometry.config == TwoViewGeometry::UNCALIBRATED) {
+    return geometry.camera1.has_value() || geometry.camera2.has_value();
+  }
+  return false;
+}
+
 class SiftCPUFeatureMatcher : public FeatureMatcher {
  public:
   explicit SiftCPUFeatureMatcher(const FeatureMatchingOptions& options)
@@ -1138,14 +1161,10 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       prev_image_id2_ = image2.image_id;
     }
 
-    // For calibrated cases, use the essential matrix with normalized
-    // coordinates. This properly handles non-pinhole camera models (with
-    // distortion) where the fundamental matrix relationship doesn't hold.
     const bool use_essential_matrix =
-        (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
-         two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG) &&
-        two_view_geometry->E.has_value();
+        UseEssentialMatrixForGuidedMatching(*two_view_geometry);
     const bool use_fundamental_matrix =
+        !use_essential_matrix &&
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED &&
         two_view_geometry->F.has_value();
     const bool use_homography =
@@ -1153,13 +1172,21 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
          two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
          two_view_geometry->config == TwoViewGeometry::PLANAR_OR_PANORAMIC) &&
         two_view_geometry->H.has_value();
+    // Normalize with the intrinsics the solver estimated where available (its
+    // focal, not the camera's stale default), else the given cameras.
+    const Camera& effective_camera1 = two_view_geometry->camera1.has_value()
+                                          ? *two_view_geometry->camera1
+                                          : *image1.camera;
+    const Camera& effective_camera2 = two_view_geometry->camera2.has_value()
+                                          ? *two_view_geometry->camera2
+                                          : *image2.camera;
     const FeatureKeypoints normalized_keypoints1 =
         use_essential_matrix
-            ? NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints)
+            ? NormalizeFeatureKeypoints(effective_camera1, *image1.keypoints)
             : FeatureKeypoints();
     const FeatureKeypoints normalized_keypoints2 =
         use_essential_matrix
-            ? NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints)
+            ? NormalizeFeatureKeypoints(effective_camera2, *image2.keypoints)
             : FeatureKeypoints();
 
     const Eigen::Matrix3f E_or_F =
@@ -1175,7 +1202,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     const float max_residual =
         use_essential_matrix
             ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
-                  *image1.camera, *image2.camera, max_error))
+                  effective_camera1, effective_camera2, max_error))
             : static_cast<float>(max_error * max_error);
 
     std::function<bool(float, float, float, float)> guided_filter;
@@ -1407,16 +1434,31 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     constexpr size_t kFeatureShapeNumElems = 4;
 
-    // For calibrated cases, use the essential matrix with normalized
-    // coordinates. This properly handles non-pinhole camera models (with
-    // distortion) where the fundamental matrix relationship doesn't hold.
     const bool use_essential_matrix =
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG;
+        UseEssentialMatrixForGuidedMatching(*two_view_geometry);
+    const bool use_fundamental_matrix =
+        !use_essential_matrix &&
+        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED &&
+        two_view_geometry->F.has_value();
+    // Normalize with the intrinsics the solver estimated where available (its
+    // focal, not the camera's stale default), else the given cameras.
+    const Camera& effective_camera1 = two_view_geometry->camera1.has_value()
+                                          ? *two_view_geometry->camera1
+                                          : *image1.camera;
+    const Camera& effective_camera2 = two_view_geometry->camera2.has_value()
+                                          ? *two_view_geometry->camera2
+                                          : *image2.camera;
 
+    // The uploaded feature locations depend on the normalizing camera, which is
+    // not a function of the image alone: a shared-focal pair carries a focal
+    // length estimated per pair, so the same image matched against different
+    // partners normalizes differently. The camera is therefore part of the
+    // cache key, alongside the image id and the coordinate space.
     if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
         prev_image_id1_ != image1.image_id ||
-        use_essential_matrix != prev_use_essential_matrix_) {
+        use_essential_matrix != prev_use_essential_matrix_ ||
+        (use_essential_matrix &&
+         !SameNormalizationCamera(prev_norm_camera1_, effective_camera1))) {
       WarnIfMaxNumMatchesReachedGPU(image1.descriptors->data);
       constexpr size_t kIndex = 0;
       sift_match_gpu_.SetDescriptors(kIndex,
@@ -1424,23 +1466,27 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                                      image1.descriptors->data.data());
       if (use_essential_matrix) {
         const FeatureKeypoints normalized_keypoints1 =
-            NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints);
+            NormalizeFeatureKeypoints(effective_camera1, *image1.keypoints);
         sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(normalized_keypoints1.data()),
             kFeatureShapeNumElems);
+        prev_norm_camera1_ = effective_camera1;
       } else {
         sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(image1.keypoints->data()),
             kFeatureShapeNumElems);
+        prev_norm_camera1_.reset();
       }
       prev_image_id1_ = image1.image_id;
     }
 
     if (prev_image_id2_ == kInvalidImageId || !prev_is_guided_ ||
         prev_image_id2_ != image2.image_id ||
-        use_essential_matrix != prev_use_essential_matrix_) {
+        use_essential_matrix != prev_use_essential_matrix_ ||
+        (use_essential_matrix &&
+         !SameNormalizationCamera(prev_norm_camera2_, effective_camera2))) {
       WarnIfMaxNumMatchesReachedGPU(image2.descriptors->data);
       constexpr size_t kIndex = 1;
       sift_match_gpu_.SetDescriptors(kIndex,
@@ -1448,16 +1494,18 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                                      image2.descriptors->data.data());
       if (use_essential_matrix) {
         const FeatureKeypoints normalized_keypoints2 =
-            NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints);
+            NormalizeFeatureKeypoints(effective_camera2, *image2.keypoints);
         sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(normalized_keypoints2.data()),
             kFeatureShapeNumElems);
+        prev_norm_camera2_ = effective_camera2;
       } else {
         sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(image2.keypoints->data()),
             kFeatureShapeNumElems);
+        prev_norm_camera2_.reset();
       }
       prev_image_id2_ = image2.image_id;
     }
@@ -1469,22 +1517,22 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> H;
     float* E_or_F_ptr = nullptr;
     float* H_ptr = nullptr;
-    if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
-        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
-        two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
-      if (use_essential_matrix) {
-        // Use essential matrix with normalized coordinates.
-        E_or_F = two_view_geometry->E.value().cast<float>();
-      } else {
-        // Use fundamental matrix with pixel coordinates.
-        E_or_F = two_view_geometry->F.value().cast<float>();
-      }
+    if (use_essential_matrix) {
+      // Use essential matrix with normalized coordinates.
+      E_or_F = two_view_geometry->E->cast<float>();
+      E_or_F_ptr = E_or_F.data();
+    } else if (use_fundamental_matrix) {
+      // Use fundamental matrix with pixel coordinates.
+      E_or_F = two_view_geometry->F->cast<float>();
       E_or_F_ptr = E_or_F.data();
     } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
                two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
                two_view_geometry->config ==
                    TwoViewGeometry::PLANAR_OR_PANORAMIC) {
-      H = two_view_geometry->H.value().cast<float>();
+      if (!two_view_geometry->H.has_value()) {
+        return;
+      }
+      H = two_view_geometry->H->cast<float>();
       H_ptr = H.data();
     } else {
       return;
@@ -1498,7 +1546,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     const float max_residual =
         use_essential_matrix
             ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
-                  *image1.camera, *image2.camera, max_error))
+                  effective_camera1, effective_camera2, max_error))
             : static_cast<float>(max_error * max_error);
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
@@ -1525,6 +1573,14 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   }
 
  private:
+  // Whether keypoints normalized with `prev` can be reused for `camera`. Only
+  // the projection matters, so the image dimensions are not compared.
+  static bool SameNormalizationCamera(const std::optional<Camera>& prev,
+                                      const Camera& camera) {
+    return prev.has_value() && prev->model_id == camera.model_id &&
+           prev->params == camera.params;
+  }
+
   void WarnIfMaxNumMatchesReachedGPU(
       const FeatureDescriptorsData& descriptors) {
     if (sift_match_gpu_.GetMaxSift() < descriptors.rows()) {
@@ -1543,6 +1599,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   bool prev_use_essential_matrix_ = false;
   image_t prev_image_id1_ = kInvalidImageId;
   image_t prev_image_id2_ = kInvalidImageId;
+  // Cameras the currently uploaded feature locations were normalized with, or
+  // nullopt if raw pixel coordinates were uploaded.
+  std::optional<Camera> prev_norm_camera1_;
+  std::optional<Camera> prev_norm_camera2_;
 };
 #endif  // COLMAP_GPU_ENABLED
 

@@ -32,11 +32,11 @@
 #include "colmap/controllers/matcher_cache.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
-#include <unordered_set>
 
 namespace colmap {
 
@@ -332,8 +332,8 @@ class SequentialPairGenerator : public PairGenerator {
   const std::shared_ptr<FeatureMatcherCache> cache_;
   std::vector<image_t> image_ids_;
   // Optional mapping from frames to images and vice versa.
-  std::unordered_map<frame_t, std::vector<image_t>> frame_to_image_ids_;
-  std::unordered_map<image_t, frame_t> image_to_frame_ids_;
+  NodeHashMap<frame_t, std::vector<image_t>> frame_to_image_ids_;
+  NodeHashMap<image_t, frame_t> image_to_frame_ids_;
   std::unique_ptr<VocabTreePairGenerator> vocab_tree_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t image_idx_ = 0;
@@ -392,7 +392,7 @@ class TransitivePairGenerator : public PairGenerator {
   int current_batch_idx_ = 0;
   int current_num_batches_ = 0;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
-  std::unordered_set<image_pair_t> image_pair_ids_;
+  FlatHashSet<image_pair_t> image_pair_ids_;
 };
 
 class ImportedPairGenerator : public PairGenerator {

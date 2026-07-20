@@ -65,7 +65,7 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector3d>& cam_rays1,
                              const std::vector<Eigen::Vector3d>& cam_rays2,
                              Rigid3d* cam2_from_cam1,
-                             std::vector<Eigen::Vector3d>* points3D) {
+                             std::vector<int>* valid_indices) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
 
   Eigen::Matrix3d R1;
@@ -82,14 +82,14 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                                                  Rigid3d(quat1, -t),
                                                  Rigid3d(quat2, -t)}};
 
-  points3D->clear();
-  std::vector<Eigen::Vector3d> tentative_points3D;
+  valid_indices->clear();
+  std::vector<int> tentative_valid_indices;
   for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
     CheckCheirality(
-        cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_points3D);
-    if (tentative_points3D.size() >= points3D->size()) {
+        cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_valid_indices);
+    if (tentative_valid_indices.size() >= valid_indices->size()) {
       *cam2_from_cam1 = cams2_from_cams1[i];
-      std::swap(*points3D, tentative_points3D);
+      std::swap(*valid_indices, tentative_valid_indices);
     }
   }
 }
@@ -203,6 +203,35 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& ray1,
   residuals->resize(num_ray1);
   for (size_t i = 0; i < num_ray1; ++i) {
     (*residuals)[i] = ComputeSquaredSampsonError(ray1[i], ray2[i], E);
+  }
+}
+
+void ComputeSquaredSampsonErrorWithCheirality(
+    const std::vector<Eigen::Vector3d>& ray1,
+    const std::vector<Eigen::Vector3d>& ray2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals) {
+  const size_t num_ray1 = ray1.size();
+  THROW_CHECK_EQ(num_ray1, ray2.size());
+  residuals->resize(num_ray1);
+
+  // Recover the relative pose from E (resolving the four-fold decomposition
+  // ambiguity by cheirality voting) and flag which correspondences triangulate
+  // in front of both cameras.
+  Rigid3d cam2_from_cam1;
+  std::vector<int> valid_indices;
+  PoseFromEssentialMatrix(E, ray1, ray2, &cam2_from_cam1, &valid_indices);
+  std::vector<bool> is_cheiral(num_ray1, false);
+  for (const int idx : valid_indices) {
+    is_cheiral[idx] = true;
+  }
+
+  // Correspondences behind either camera are not valid inliers for the relative
+  // pose regardless of their Sampson error, so they get an infinite residual.
+  for (size_t i = 0; i < num_ray1; ++i) {
+    (*residuals)[i] = is_cheiral[i]
+                          ? ComputeSquaredSampsonError(ray1[i], ray2[i], E)
+                          : std::numeric_limits<double>::max();
   }
 }
 

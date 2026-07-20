@@ -126,8 +126,10 @@ void OptionManager::ModifyForLowQuality() {
   sequential_pairing->loop_detection_num_images /= 2;
   vocab_tree_pairing->max_num_features = 256;
   vocab_tree_pairing->num_images /= 2;
-  mapper->ba_local_max_num_iterations /= 2;
-  mapper->ba_global_max_num_iterations /= 2;
+  mapper->ba_local_max_num_iterations =
+      mapper->EffBaLocalMaxNumIterations() / 2;
+  mapper->ba_global_max_num_iterations =
+      mapper->EffBaGlobalMaxNumIterations() / 2;
   mapper->ba_global_frames_ratio *= 1.2;
   mapper->ba_global_points_ratio *= 1.2;
   mapper->ba_global_max_refinements = 2;
@@ -150,8 +152,10 @@ void OptionManager::ModifyForMediumQuality() {
   sequential_pairing->loop_detection_num_images /= 1.5;
   vocab_tree_pairing->max_num_features = 1024;
   vocab_tree_pairing->num_images /= 1.5;
-  mapper->ba_local_max_num_iterations /= 1.5;
-  mapper->ba_global_max_num_iterations /= 1.5;
+  mapper->ba_local_max_num_iterations =
+      static_cast<int>(mapper->EffBaLocalMaxNumIterations() / 1.5);
+  mapper->ba_global_max_num_iterations =
+      static_cast<int>(mapper->EffBaGlobalMaxNumIterations() / 1.5);
   mapper->ba_global_frames_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;
@@ -846,6 +850,10 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_max_rotation_error_deg",
       &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
+  AddDefaultEnumOption("GlobalMapper.ra_reweighting",
+                       &global_mapper->mapper.rotation_averaging.reweighting,
+                       RotationAveragingReweightingToString,
+                       RotationAveragingReweightingFromString);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",

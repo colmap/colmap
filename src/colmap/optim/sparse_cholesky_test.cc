@@ -29,6 +29,7 @@
 
 #include "colmap/optim/sparse_cholesky.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -171,7 +172,7 @@ TEST(SparseCholeskyWithFallbackSolver, IllConditionedChain) {
   // Long chain Laplacian + gauge fix. Mathematically PD but condition number
   // grows as O(n^2). Exercises the regime that motivated the fallback.
   const Eigen::SparseMatrix<double> A = ChainLaplacianGaugeFixed(500);
-  const Eigen::VectorXd b = Eigen::VectorXd::Random(A.rows());
+  const Eigen::VectorXd b = RandomEigenVectorXd(A.rows());
 
   SparseCholeskyWithFallbackSolver solver;
   ASSERT_TRUE(solver.Compute(A));
