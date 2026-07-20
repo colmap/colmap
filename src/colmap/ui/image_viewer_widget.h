@@ -63,15 +63,15 @@ class ImageViewerWidget : public QWidget {
  private:
   static const double kZoomFactor;
 
-  ImageViewerGraphicsScene graphics_scene_;
-  QGraphicsView* graphics_view_;
-
  protected:
   void resizeEvent(QResizeEvent* event);
   void closeEvent(QCloseEvent* event);
   void ZoomIn();
   void ZoomOut();
   void Save();
+
+  ImageViewerGraphicsScene graphics_scene_;
+  QGraphicsView* graphics_view_;
 
   QGridLayout* grid_layout_;
   QHBoxLayout* button_layout_;
@@ -109,9 +109,15 @@ class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
 
   void ShowImageWithId(image_t image_id);
 
+ protected:
+  // Intercept hover events on the image so a viewing ray can be drawn in the 3D
+  // model viewer for the pixel under the cursor.
+  bool eventFilter(QObject* watched, QEvent* event) override;
+
  private:
   void ResizeTable();
   void DeleteImage();
+  void UpdateHoverRay(const QPointF& scene_pos);
 
   ModelViewerWidget* model_viewer_widget_;
 
