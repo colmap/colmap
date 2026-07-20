@@ -1761,15 +1761,22 @@ void MainWindow::SetLogOptions() {
 }
 
 void MainWindow::About() {
-  QMessageBox::about(
-      this,
-      tr("About"),
-      QString().asprintf("<span style='font-weight:normal'><b>%s</b><br />"
-                         "<small>(%s)</small><br /><br />"
-                         "<b>Author:</b> Johannes L. Schönberger<br /><br />"
-                         "<b>Email:</b> jsch-at-demuc-dot-de</span>",
-                         GetVersionInfo().c_str(),
-                         GetBuildInfo().c_str()));
+  QMessageBox message_box(this);
+  message_box.setWindowTitle(tr("About"));
+  message_box.setTextFormat(Qt::RichText);
+  message_box.setIconPixmap(
+      QPixmap(":/media/colmap-logo.svg").scaledToWidth(96));
+  message_box.setText(QString::fromStdString(GetVersionInfo()));
+  message_box.setInformativeText(QString().asprintf(
+      "<small>%s</small><br><br>"
+      "COLMAP is a general-purpose Structure-from-Motion (SfM) and "
+      "Multi-View Stereo (MVS) pipeline.<br><br>"
+      "COLMAP is developed by its core maintainers together with many "
+      "community contributors. For documentation, source code, and the full "
+      "list of contributors, please visit "
+      "<a href=\"https://colmap.github.io/\">https://colmap.github.io/</a>.",
+      GetBuildInfo().c_str()));
+  message_box.exec();
 }
 
 void MainWindow::Documentation() {
