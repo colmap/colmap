@@ -453,11 +453,12 @@ void BindDatabase(py::module& m) {
       "the database on exit automatically:\n\n"
       "    with pycolmap.Database.open(path) as db:\n"
       "        ...");
-  PyDatabase.def_static("open",
-                        &Database::Open,
-                        "path"_a,
-                        "Open (creating it if necessary) the database file at "
-                        "the given path and return it.")
+  PyDatabase
+      .def_static("open",
+                  &Database::Open,
+                  "path"_a,
+                  "Open (creating it if necessary) the database file at "
+                  "the given path and return it.")
       .def("close", &Database::Close)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
