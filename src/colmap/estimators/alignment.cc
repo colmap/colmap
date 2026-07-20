@@ -489,12 +489,12 @@ bool MergeReconstructions(const double max_reproj_error,
   // built from independent databases that both number their images 1..N -- then
   // distinct physical images end up with colliding ids. Detect the
   // inconsistency via the image name and fail loudly instead.
-FlatHashSet<image_t> common_image_ids;
-common_image_ids.reserve(src_reconstruction.NumRegImages());
-FlatHashSet<image_t> missing_image_ids;
-missing_image_ids.reserve(src_reconstruction.NumRegImages());
-for (const image_t image_id : src_reconstruction.RegImageIds()) {
-if (tgt_reconstruction.ExistsImage(image_id)) {
+  FlatHashSet<image_t> common_image_ids;
+  common_image_ids.reserve(src_reconstruction.NumRegImages());
+  FlatHashSet<image_t> missing_image_ids;
+  missing_image_ids.reserve(src_reconstruction.NumRegImages());
+  for (const image_t image_id : src_reconstruction.RegImageIds()) {
+    if (tgt_reconstruction.ExistsImage(image_id)) {
       const std::string& src_name = src_reconstruction.Image(image_id).Name();
       const std::string& tgt_name = tgt_reconstruction.Image(image_id).Name();
       if (src_name != tgt_name) {
