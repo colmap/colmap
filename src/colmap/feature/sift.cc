@@ -1246,14 +1246,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       guided_filter = [&](const Eigen::Index i1, const Eigen::Index i2) {
         const Eigen::Vector4f& location1 = locations1[i1];
         const Eigen::Vector4f& location2 = locations2[i2];
-        if (location1.w() * location2.w() == 0.0f) {
+        if (location1.w() == 0.0f || location2.w() == 0.0f) {
           return true;
         }
-        const Eigen::Vector3f p1 = location1.head<3>();
-        const Eigen::Vector3f p2 = location2.head<3>();
+        const auto& p1 = location1.head<3>();
+        const auto& p2 = location2.head<3>();
         const Eigen::Vector3f epipolar_line1 = E_or_F * p1;
         const Eigen::Vector3f epipolar_line2 = E_or_F.transpose() * p2;
-        const float nom = p2.transpose() * epipolar_line1;
+        const float nom = p2.dot(epipolar_line1);
         const float denom_sq = epipolar_line1(0) * epipolar_line1(0) +
                                epipolar_line1(1) * epipolar_line1(1) +
                                epipolar_line2(0) * epipolar_line2(0) +
@@ -1262,8 +1262,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       };
     } else if (use_homography) {
       guided_filter = [&](const Eigen::Index i1, const Eigen::Index i2) {
-        const Eigen::Vector3f p1 = locations1[i1].head<3>();
-        const Eigen::Vector2f p2 = locations2[i2].head<2>();
+        const auto& p1 = locations1[i1].head<3>();
+        const auto& p2 = locations2[i2].head<2>();
         return ((H * p1).hnormalized() - p2).squaredNorm() > max_residual;
       };
     } else {
