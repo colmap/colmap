@@ -43,9 +43,13 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QIcon>
+#include <QPainter>
+#include <QPixmap>
 #include <QSettings>
 #include <QStandardPaths>
 #include <clocale>
+
+#include <QtSvg/QSvgRenderer>
 
 static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
@@ -1759,15 +1763,34 @@ void MainWindow::SetLogOptions() {
 }
 
 void MainWindow::About() {
-  QMessageBox::about(
-      this,
-      tr("About"),
-      QString().asprintf("<span style='font-weight:normal'><b>%s</b><br />"
-                         "<small>(%s)</small><br /><br />"
-                         "<b>Author:</b> Johannes L. Schönberger<br /><br />"
-                         "<b>Email:</b> jsch-at-demuc-dot-de</span>",
-                         GetVersionInfo().c_str(),
-                         GetBuildInfo().c_str()));
+  QMessageBox message_box(this);
+  message_box.setWindowTitle(tr("About"));
+  message_box.setTextFormat(Qt::RichText);
+
+  // Render the logo directly from the SVG at the target size (accounting for
+  // high-DPI displays) so it stays crisp instead of scaling a raster.
+  constexpr int kLogoSize = 96;
+  const qreal device_pixel_ratio = devicePixelRatioF();
+  QPixmap logo(QSize(kLogoSize, kLogoSize) * device_pixel_ratio);
+  logo.fill(Qt::transparent);
+  QSvgRenderer logo_renderer(QStringLiteral(":/media/colmap-logo.svg"));
+  QPainter logo_painter(&logo);
+  logo_renderer.render(&logo_painter);
+  logo_painter.end();
+  logo.setDevicePixelRatio(device_pixel_ratio);
+  message_box.setIconPixmap(logo);
+
+  message_box.setText(QString::fromStdString(GetVersionInfo()));
+  message_box.setInformativeText(QString().asprintf(
+      "<small>%s</small><br><br>"
+      "COLMAP is a general-purpose Structure-from-Motion (SfM) and "
+      "Multi-View Stereo (MVS) pipeline.<br><br>"
+      "COLMAP is developed by its core maintainers together with many "
+      "community contributors. For documentation, source code, and the full "
+      "list of contributors, please visit "
+      "<a href=\"https://colmap.github.io/\">https://colmap.github.io/</a>.",
+      GetBuildInfo().c_str()));
+  message_box.exec();
 }
 
 void MainWindow::Documentation() {
