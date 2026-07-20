@@ -54,7 +54,7 @@ Eigen::Matrix<T, 3, 3> EssentialMatrixFromPoseParams(
 
 // Signed Sampson error of a single correspondence (cam_ray1, cam_ray2) under
 // the essential matrix E. Returns 0 when the normalization denominator
-// vanishes.
+// vanishes. Evaluated on unit bearings; see ComputeSquaredSampsonError.
 template <typename T>
 T SampsonError(const Eigen::Matrix<T, 3, 3>& E,
                const Eigen::Matrix<T, 3, 1>& cam_ray1,
