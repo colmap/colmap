@@ -500,8 +500,9 @@ bool MergeReconstructions(const double max_reproj_error,
       if (src_name != tgt_name) {
         LOG(ERROR)
             << "Cannot merge reconstructions: image_id=" << image_id
-            << " refers to \"" << src_name << "\" in the source reconstruction but \""
-            << tgt_name << "\" in the target. MergeReconstructions requires both "
+            << " refers to \"" << src_name
+            << "\" in the source reconstruction but \"" << tgt_name
+            << "\" in the target. MergeReconstructions requires both "
             << "reconstructions to share a consistent image_id<->name mapping "
             << "(i.e., be derived from the same database).";
         return false;
