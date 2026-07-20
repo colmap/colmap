@@ -189,13 +189,11 @@ by hand (the parameters are stored as binary blobs of doubles), but use
 pycolmap's database API instead::
 
     import pycolmap
-
-    db = pycolmap.Database.open("path/to/database.db")
-    camera = db.read_camera(1)
-    camera.params = [fx, fy, cx, cy, k1, k2, p1, p2]
-    camera.has_prior_focal_length = True
-    db.update_camera(camera)
-    db.close()
+    with pycolmap.Database.open("path/to/database.db") as db:
+        camera = db.read_camera(1)
+        camera.params = [fx, fy, cx, cy, k1, k2, p1, p2]
+        camera.has_prior_focal_length = True
+        db.update_camera(camera)
 
 Note that the provided parameters are still refined during bundle adjustment by
 default. To keep them fixed during the reconstruction, see
