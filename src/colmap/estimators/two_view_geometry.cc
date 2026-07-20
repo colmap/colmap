@@ -458,31 +458,61 @@ TwoViewGeometry EstimateTwoViewGeometry(
     return EstimateMultipleTwoViewGeometries(
         camera1, points1, camera2, points2, matches, multiple_model_options);
   } else if (options.force_H_use) {
+    // In image coordinates, a homography relates two views of a plane only
+    // under a pinhole projection. Fisheye and spherical models map the plane
+    // non-linearly, so the estimated homography would be meaningless.
+    // TODO: support non-pinhole models here, e.g. by estimating the homography
+    // on bearing vectors rather than image points.
+    if (!camera1.IsPerspectivePinhole() || !camera2.IsPerspectivePinhole()) {
+      LOG_FIRST_N(WARNING, 1)
+          << "Ignoring force_H_use for non-pinhole cameras, as a homography "
+             "does not relate their images of a plane. Such pairs are marked "
+             "as degenerate.";
+      TwoViewGeometry geometry;
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
+    }
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
   } else {
     // A spherical (omnidirectional) camera has no pinhole image plane, so only
     // the bearing-based essential matrix is meaningful. Otherwise, if both
-    // images share the same pinhole-projection camera (perspective and
-    // non-fisheye) without a focal-length prior, recover a single shared focal
-    // length jointly with the relative pose; multi-focal models (e.g. PINHOLE)
-    // are seeded isotropically (fx = fy = f) and refined later by bundle
-    // adjustment. Distortion is not a barrier here (as in the
-    // fundamental-matrix path, it is absorbed by the epipolar fit and later
-    // refined). Otherwise, use the calibrated path if both cameras have a known
-    // focal length, and the uncalibrated path otherwise.
+    // images share the same pinhole-projection camera without a focal-length
+    // prior, recover a single shared focal length jointly with the relative
+    // pose; multi-focal models (e.g. PINHOLE) are seeded isotropically
+    // (fx = fy = f) and refined later by bundle adjustment. Distortion is not
+    // a barrier here (as in the fundamental-matrix path, it is absorbed by the
+    // epipolar fit and later refined). Otherwise, use the calibrated path if
+    // both cameras have a known focal length, and the uncalibrated path
+    // otherwise, the latter being restricted to pinhole models.
     if (camera1.IsSpherical() || camera2.IsSpherical()) {
       return EstimateSphericalTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (camera1.camera_id == camera2.camera_id &&
-               !camera1.has_prior_focal_length && camera1.IsPerspective() &&
-               !camera1.IsFisheye()) {
+               !camera1.has_prior_focal_length &&
+               camera1.IsPerspectivePinhole()) {
       return EstimateSharedFocalTwoViewGeometry(
           camera1, points1, points2, matches, options);
     } else if (camera1.has_prior_focal_length &&
                camera2.has_prior_focal_length) {
       return EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
+    } else if (!camera1.IsPerspectivePinhole() ||
+               !camera2.IsPerspectivePinhole()) {
+      // Without a focal-length prior, the only remaining option is the
+      // fundamental-matrix path below, which assumes a pinhole projection that
+      // a fisheye camera does not have. The calibrated path above does handle
+      // fisheye, as it works on bearing vectors.
+      // TODO: support uncalibrated fisheye pairs, e.g. by estimating F in a
+      // virtual pinhole frame.
+      LOG_FIRST_N(WARNING, 1)
+          << "Marking fisheye pairs without a focal length prior as "
+             "degenerate, as their focal length cannot be recovered from a "
+             "fundamental matrix. Provide a focal length prior to register "
+             "these pairs.";
+      TwoViewGeometry geometry;
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
     } else {
       return EstimateUncalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
@@ -1065,9 +1095,10 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     estimated_camera.SetFocalLength(SF_report.model.focal);
     geometry.camera1 = estimated_camera;
     geometry.camera2 = estimated_camera;
-    // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point) so
-    // epipolar consumers unaware of the shared focal, e.g. guided matching, can
-    // use this config directly.
+    // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point),
+    // which view graph calibration requires from every UNCALIBRATED pair to
+    // calibrate focal lengths. It is also the only epipolar model persisted to
+    // the database, which has no columns for the estimated intrinsics.
     Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
     K(0, 0) = K(1, 1) = SF_report.model.focal;
     K(0, 2) = principal_point.x();
@@ -1088,9 +1119,9 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-    // If the focal is unidentifiable (coplanar optical axes), drop the
-    // estimated intrinsics so the pair degrades to a plain uncalibrated pair (F
-    // is valid).
+    // If the focal is unidentifiable (parallel or isosceles-intersecting
+    // optical axes), drop the estimated intrinsics so the pair degrades to a
+    // plain uncalibrated pair (F is valid).
     if (geometry.camera1.has_value()) {
       std::vector<Eigen::Vector3d> inlier_cam_rays1;
       std::vector<Eigen::Vector3d> inlier_cam_rays2;
@@ -1109,9 +1140,8 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
                               &cam2_from_cam1,
                               &valid_indices);
       if (valid_indices.empty() ||
-          RelativePoseSharedFocalEstimator::FocalIdentifiability(
-              cam2_from_cam1) <
-              RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
+          !RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
+              cam2_from_cam1)) {
         geometry.E.reset();
         geometry.camera1.reset();
         geometry.camera2.reset();
@@ -1460,11 +1490,20 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
 
     decompose_count++;
 
+    // Calibrate rays with the intrinsics the solver estimated where available
+    // (its focal, not the camera's stale default), else the given cameras.
+    const Camera& effective_camera1 = two_view_geometry.camera1.has_value()
+                                          ? *two_view_geometry.camera1
+                                          : camera1;
+    const Camera& effective_camera2 = two_view_geometry.camera2.has_value()
+                                          ? *two_view_geometry.camera2
+                                          : camera2;
+
     std::vector<Eigen::Vector3d> inlier_cam_rays1;
     std::vector<Eigen::Vector3d> inlier_cam_rays2;
-    ExtractInlierCamRays(camera1,
+    ExtractInlierCamRays(effective_camera1,
                          points1,
-                         camera2,
+                         effective_camera2,
                          points2,
                          two_view_geometry.inlier_matches,
                          &inlier_cam_rays1,
