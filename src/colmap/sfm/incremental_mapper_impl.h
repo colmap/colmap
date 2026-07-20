@@ -35,6 +35,8 @@
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/hash_containers.h"
 
+#include <optional>
+
 namespace colmap {
 
 // Algorithm class for incremental mapper to make it easier to extend
@@ -61,17 +63,32 @@ class IncrementalMapperImpl {
       const Reconstruction& reconstruction,
       const FlatHashMap<image_t, size_t>& num_registrations);
 
+  // Result of selecting and/or estimating the initial image pair. On success,
+  // `camera1`/`camera2` carry the intrinsics estimated for the chosen pair by
+  // two-view solvers that recover them (e.g. the shared-focal solver, which
+  // sets both to the same camera), and are std::nullopt otherwise.
+  struct InitInfo {
+    image_t image_id1 = kInvalidImageId;
+    image_t image_id2 = kInvalidImageId;
+    Rigid3d cam2_from_cam1;
+    std::optional<Camera> camera1;
+    std::optional<Camera> camera2;
+  };
+
   // Implement IncrementalMapper::FindInitialImagePair
-  static bool FindInitialImagePair(
+  // Returns the selected pair, or std::nullopt if no suitable pair was found.
+  // `image_id1`/`image_id2` optionally constrain the search to a specific first
+  // and/or second image (kInvalidImageId leaves the respective image
+  // unconstrained).
+  static std::optional<InitInfo> FindInitialImagePair(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       const Reconstruction& reconstruction,
       const FlatHashMap<image_t, size_t>& init_num_reg_trials,
       const FlatHashMap<image_t, size_t>& num_registrations,
       FlatHashSet<image_pair_t>& init_image_pairs,
-      image_t& image_id1,
-      image_t& image_id2,
-      Rigid3d& cam2_from_cam1);
+      image_t image_id1,
+      image_t image_id2);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
@@ -88,12 +105,13 @@ class IncrementalMapperImpl {
       const Reconstruction& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
-  static bool EstimateInitialTwoViewGeometry(
+  // Returns the estimated two-view geometry, or std::nullopt if the pair is
+  // unsuitable for initialization.
+  static std::optional<InitInfo> EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       image_t image_id1,
-      image_t image_id2,
-      Rigid3d& cam2_from_cam1);
+      image_t image_id2);
 };
 
 }  // namespace colmap
