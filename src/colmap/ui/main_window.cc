@@ -43,8 +43,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QIcon>
+#include <QPainter>
+#include <QPixmap>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QtSvg/QSvgRenderer>
 #include <clocale>
 
 static void InitUiResources() { Q_INIT_RESOURCE(resources); }
@@ -1764,8 +1767,20 @@ void MainWindow::About() {
   QMessageBox message_box(this);
   message_box.setWindowTitle(tr("About"));
   message_box.setTextFormat(Qt::RichText);
-  message_box.setIconPixmap(
-      QPixmap(":/media/colmap-logo.svg").scaledToWidth(96));
+
+  // Render the logo directly from the SVG at the target size (accounting for
+  // high-DPI displays) so it stays crisp instead of scaling a raster.
+  constexpr int kLogoSize = 96;
+  const qreal device_pixel_ratio = devicePixelRatioF();
+  QPixmap logo(QSize(kLogoSize, kLogoSize) * device_pixel_ratio);
+  logo.fill(Qt::transparent);
+  QSvgRenderer logo_renderer(QStringLiteral(":/media/colmap-logo.svg"));
+  QPainter logo_painter(&logo);
+  logo_renderer.render(&logo_painter);
+  logo_painter.end();
+  logo.setDevicePixelRatio(device_pixel_ratio);
+  message_box.setIconPixmap(logo);
+
   message_box.setText(QString::fromStdString(GetVersionInfo()));
   message_box.setInformativeText(QString().asprintf(
       "<small>%s</small><br><br>"
