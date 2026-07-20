@@ -32,9 +32,9 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/hash_containers.h"
 
 #include <optional>
-#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>
@@ -49,9 +49,9 @@ struct PoseParam;
 
 struct BACovariance {
   explicit BACovariance(
-      std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs,
-      std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size,
-      std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
+      FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs,
+      NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size,
+      NodeHashMap<const double*, std::pair<int, int>> other_L_start_size,
       Eigen::MatrixXd L_inv);
 
   // Covariance for 3D points, conditioned on all other variables set constant.
@@ -83,10 +83,9 @@ struct BACovariance {
   std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:
-  const std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs_;
-  const std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size_;
-  const std::unordered_map<const double*, std::pair<int, int>>
-      other_L_start_size_;
+  const FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs_;
+  const NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size_;
+  const NodeHashMap<const double*, std::pair<int, int>> other_L_start_size_;
   const Eigen::MatrixXd L_inv_;
 };
 

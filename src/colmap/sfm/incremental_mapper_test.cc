@@ -33,6 +33,7 @@
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <algorithm>
 
@@ -345,8 +346,8 @@ TEST_F(IncrementalMapperTest, FindLocalBundle) {
   EXPECT_LE(local_bundle.size(), reconstruction_->NumRegImages());
   // All images in the local bundle should be registered
   const auto reg_image_ids = reconstruction_->RegImageIds();
-  const std::unordered_set<image_t> reg_image_id_set(reg_image_ids.begin(),
-                                                     reg_image_ids.end());
+  const FlatHashSet<image_t> reg_image_id_set(reg_image_ids.begin(),
+                                              reg_image_ids.end());
   for (const auto image_id : local_bundle) {
     EXPECT_GT(reg_image_id_set.count(image_id), 0);
   }
@@ -482,7 +483,7 @@ TEST_F(IncrementalMapperLargeDatasetTest,
             num_reg_images_before - num_images_in_frame);
   EXPECT_EQ(mapper_->FilteredFrames().count(target_frame_id), 1);
 
-  std::unordered_set<image_t> filtered_image_ids;
+  FlatHashSet<image_t> filtered_image_ids;
   for (const data_t& data_id : target_frame.ImageIds()) {
     filtered_image_ids.insert(data_id.id);
   }
@@ -554,7 +555,7 @@ TEST_F(IncrementalMapperLargeDatasetTest, FilterFramesRegStatsConsistency) {
   // Record per-rig and per-camera counts before filtering.
   const size_t rig_count_before =
       mapper_->NumRegFramesPerRig().at(target_rig_id);
-  std::unordered_map<camera_t, size_t> camera_counts_before;
+  NodeHashMap<camera_t, size_t> camera_counts_before;
   for (const data_t& data_id : target_frame.ImageIds()) {
     const camera_t camera_id = reconstruction_->Image(data_id.id).CameraId();
     camera_counts_before[camera_id] =

@@ -51,7 +51,7 @@ jobs:
       CUDA_PATCH_VERSION: 0
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # We define the vcpkg binary sources using separate variables for read and
       # write operations:
@@ -77,7 +77,7 @@ jobs:
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
@@ -85,7 +85,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -219,14 +219,14 @@ jobs:
           Remove-Item -Recurse -Force -ErrorAction SilentlyContinue install/include,install/lib,install/share
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ matrix.config.exportPackage && matrix.config.cudaEnabled }}
         with:
           name: colmap-x64-windows-cuda
           path: build/install
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ matrix.config.exportPackage && !matrix.config.cudaEnabled }}
         with:
           name: colmap-x64-windows-nocuda

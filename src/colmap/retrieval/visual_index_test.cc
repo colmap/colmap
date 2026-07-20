@@ -31,6 +31,7 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -235,7 +236,7 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
       }
     } else {
       for (size_t j = 0; j < keypoints.size(); ++j) {
-        const Eigen::Vector2f offset = Eigen::Vector2f::Random();
+        const Eigen::Vector2f offset = RandomEigenVectorf<2>();
         keypoints[j].x = offset.x();
         keypoints[j].y = offset.y();
       }

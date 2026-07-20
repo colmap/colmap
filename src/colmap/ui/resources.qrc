@@ -44,5 +44,7 @@
     <file>media/grab-image.svg</file>
     <file>media/grab-movie.svg</file>
     <file>media/undistort.svg</file>
+
+    <file>media/colmap-logo.svg</file>
 </qresource>
 </RCC>

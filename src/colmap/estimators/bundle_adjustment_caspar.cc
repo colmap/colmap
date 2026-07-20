@@ -6,6 +6,7 @@
 #include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar/caspar_model_adapter.h"
@@ -934,7 +935,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     const bool collect_iters =
         options_.caspar && options_.caspar->collect_iteration_data;
     caspar::SolveResult result = solver.solve(
-        /*print_progress=*/false, /*verbose_logging=*/collect_iters);
+        /*print_progress=*/VLOG_IS_ON(2), /*verbose_logging=*/collect_iters);
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
 
@@ -943,13 +944,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return summary;
   }
 
-  std::unordered_map<CameraModelId, std::unique_ptr<ICasparModelAdapter>>
-      adapters_;
-  std::unordered_map<CameraModelId, ModelData> model_data_per_model_;
-  std::unordered_map<CameraModelId, size_t> calib_num_per_model_;
+  NodeHashMap<CameraModelId, std::unique_ptr<ICasparModelAdapter>> adapters_;
+  NodeHashMap<CameraModelId, ModelData> model_data_per_model_;
+  NodeHashMap<CameraModelId, size_t> calib_num_per_model_;
 
   // camera_id -> calib index within its model's array
-  std::unordered_map<camera_t, size_t> camera_to_calib_index_;
+  NodeHashMap<camera_t, size_t> camera_to_calib_index_;
   // (model_id, calib_idx) -> camera_id  (for write-back)
   std::map<std::pair<CameraModelId, size_t>, camera_t> calib_index_to_camera_;
 
@@ -959,22 +959,21 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   // Pose pools are per-model so that SimpleRadial and Pinhole factors are
   // never batched into the same Caspar block (reducing shared memory use).
-  std::unordered_map<CameraModelId, size_t> num_poses_per_model_;
-  std::unordered_map<CameraModelId, std::vector<StorageType>>
-      pose_data_per_model_;
-  std::unordered_map<CameraModelId, std::unordered_map<frame_t, size_t>>
+  NodeHashMap<CameraModelId, size_t> num_poses_per_model_;
+  NodeHashMap<CameraModelId, std::vector<StorageType>> pose_data_per_model_;
+  NodeHashMap<CameraModelId, NodeHashMap<frame_t, size_t>>
       frame_to_pose_index_per_model_;
-  std::unordered_map<CameraModelId, std::unordered_map<size_t, frame_t>>
+  NodeHashMap<CameraModelId, NodeHashMap<size_t, frame_t>>
       pose_index_to_frame_per_model_;
 
-  std::unordered_map<point3D_t, size_t> point3D_id_to_idx_;
+  FlatHashMap<point3D_t, size_t> point3D_id_to_idx_;
   std::vector<point3D_t> point3D_idx_to_id_;
 
-  std::unordered_set<frame_t> frames_from_outside_config_;
-  std::unordered_set<camera_t> cameras_from_outside_config_;
-  std::unordered_set<frame_t> gauge_fixed_frames_;
-  std::unordered_set<point3D_t> gauge_fixed_points_;
-  std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+  FlatHashSet<frame_t> frames_from_outside_config_;
+  FlatHashSet<camera_t> cameras_from_outside_config_;
+  FlatHashSet<frame_t> gauge_fixed_frames_;
+  FlatHashSet<point3D_t> gauge_fixed_points_;
+  FlatHashMap<point3D_t, size_t> point3D_num_observations_;
 };
 }  // namespace
 

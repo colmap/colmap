@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 namespace {
@@ -246,7 +247,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
 }
 
 size_t IncrementalTriangulator::CompleteTracks(
-    const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
+    const Options& options, const FlatHashSet<point3D_t>& point3D_ids) {
   THROW_CHECK(options.Check());
 
   size_t num_completed = 0;
@@ -275,7 +276,7 @@ size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
 }
 
 size_t IncrementalTriangulator::MergeTracks(
-    const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
+    const Options& options, const FlatHashSet<point3D_t>& point3D_ids) {
   THROW_CHECK(options.Check());
 
   size_t num_merged = 0;
@@ -408,16 +409,20 @@ void IncrementalTriangulator::AddModifiedPoint3D(const point3D_t point3D_id) {
   modified_point3D_ids_.insert(point3D_id);
 }
 
-const std::unordered_set<point3D_t>&
-IncrementalTriangulator::GetModifiedPoints3D() {
-  // First remove any missing 3D points from the set.
-  for (auto it = modified_point3D_ids_.begin();
-       it != modified_point3D_ids_.end();) {
-    if (reconstruction_.ExistsPoint3D(*it)) {
-      ++it;
-    } else {
-      modified_point3D_ids_.erase(it++);
+const FlatHashSet<point3D_t>& IncrementalTriangulator::GetModifiedPoints3D() {
+  // First remove any missing 3D points from the set. Collect the ids to remove
+  // and erase them by key rather than via an iterator loop:
+  // modified_point3D_ids_ is a flat (open-addressing) set whose erase can
+  // invalidate other iterators, so an iterator-based erase loop would be
+  // unsafe. Erase-by-key is safe.
+  std::vector<point3D_t> missing_point3D_ids;
+  for (const point3D_t point3D_id : modified_point3D_ids_) {
+    if (!reconstruction_.ExistsPoint3D(point3D_id)) {
+      missing_point3D_ids.push_back(point3D_id);
     }
+  }
+  for (const point3D_t point3D_id : missing_point3D_ids) {
+    modified_point3D_ids_.erase(point3D_id);
   }
   return modified_point3D_ids_;
 }

@@ -31,8 +31,11 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
+
+#include <limits>
 
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
@@ -41,7 +44,7 @@ namespace colmap {
 namespace {
 
 TEST(DecomposeEssentialMatrix, Nominal) {
-  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                Eigen::Vector3d(0.5, 1, 1).normalized());
   const Eigen::Matrix3d cam2_from_cam1_rot_mat =
       cam2_from_cam1.rotation().toRotationMatrix();
@@ -87,12 +90,11 @@ TEST(PoseFromEssentialMatrix, Nominal) {
     rays2[i] = (cam2_from_world * points3D[i]).normalized();
   }
 
-  points3D.clear();
-
   Rigid3d cam2_from_cam1_est;
-  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1_est, &points3D);
+  std::vector<int> valid_indices;
+  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1_est, &valid_indices);
 
-  EXPECT_EQ(points3D.size(), 4);
+  EXPECT_EQ(valid_indices.size(), 4);
 
   EXPECT_THAT(cam2_from_cam1_est, Rigid3dNear(cam2_from_cam1));
 }
@@ -150,7 +152,7 @@ TEST(InvertEssentialMatrix, Nominal) {
 
 TEST(FundamentalFromEssentialMatrix, Nominal) {
   const Eigen::Matrix3d E = EssentialMatrixFromPose(
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   const Eigen::Matrix3d K1 =
       (Eigen::Matrix3d() << 2, 0, 1, 0, 3, 2, 0, 0, 1).finished();
   const Eigen::Matrix3d K2 =
@@ -165,7 +167,7 @@ TEST(FundamentalFromEssentialMatrix, Nominal) {
 
 TEST(EssentialFromFundamentalMatrix, Nominal) {
   const Eigen::Matrix3d E = EssentialMatrixFromPose(
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>()));
   const Eigen::Matrix3d K1 =
       (Eigen::Matrix3d() << 2, 0, 1, 0, 3, 2, 0, 0, 1).finished();
   const Eigen::Matrix3d K2 =
@@ -195,6 +197,81 @@ TEST(ComputeSquaredSampsonError, Nominal) {
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0.5);
   EXPECT_EQ(residuals[2], 2);
+}
+
+TEST(ComputeSquaredSampsonErrorWithCheirality, AllCorrespondencesInFront) {
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0).normalized());
+  const Eigen::Matrix3d E =
+      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
+
+  std::vector<Eigen::Vector3d> points3D(4);
+  points3D[0] = Eigen::Vector3d(0, 0, 1);
+  points3D[1] = Eigen::Vector3d(0, 0.1, 1);
+  points3D[2] = Eigen::Vector3d(0.1, 0, 1);
+  points3D[3] = Eigen::Vector3d(0.1, 0.1, 1);
+
+  std::vector<Eigen::Vector3d> rays1(points3D.size());
+  std::vector<Eigen::Vector3d> rays2(points3D.size());
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    rays1[i] = (cam1_from_world * points3D[i]).normalized();
+    rays2[i] = (cam2_from_world * points3D[i]).normalized();
+  }
+
+  // All correspondences triangulate in front of both cameras, so enforcing
+  // cheirality must leave every residual identical to the plain Sampson error.
+  std::vector<double> sampson_residuals;
+  ComputeSquaredSampsonError(rays1, rays2, E, &sampson_residuals);
+  std::vector<double> cheiral_residuals;
+  ComputeSquaredSampsonErrorWithCheirality(rays1, rays2, E, &cheiral_residuals);
+
+  ASSERT_EQ(cheiral_residuals.size(), sampson_residuals.size());
+  for (size_t i = 0; i < sampson_residuals.size(); ++i) {
+    EXPECT_EQ(cheiral_residuals[i], sampson_residuals[i]);
+  }
+}
+
+TEST(ComputeSquaredSampsonErrorWithCheirality, CorrespondenceBehindCamera) {
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0).normalized());
+  const Eigen::Matrix3d E =
+      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
+
+  std::vector<Eigen::Vector3d> points3D(4);
+  points3D[0] = Eigen::Vector3d(0, 0, 1);
+  points3D[1] = Eigen::Vector3d(0, 0.1, 1);
+  points3D[2] = Eigen::Vector3d(0.1, 0, 1);
+  points3D[3] = Eigen::Vector3d(0.1, 0.1, 1);
+
+  std::vector<Eigen::Vector3d> rays1(points3D.size());
+  std::vector<Eigen::Vector3d> rays2(points3D.size());
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    rays1[i] = (cam1_from_world * points3D[i]).normalized();
+    rays2[i] = (cam2_from_world * points3D[i]).normalized();
+  }
+
+  // Negating a ray keeps it on the same epipolar line (the Sampson error is
+  // invariant to the sign of the ray) but flips its triangulated depth, so it
+  // ends up behind the cameras.
+  rays2[1] = -rays2[1];
+
+  // The plain Sampson error stays finite (and near zero) for the flipped
+  // correspondence because it ignores cheirality.
+  std::vector<double> sampson_residuals;
+  ComputeSquaredSampsonError(rays1, rays2, E, &sampson_residuals);
+  EXPECT_LT(sampson_residuals[1], 1e-10);
+
+  // Enforcing cheirality rejects the flipped correspondence with an infinite
+  // residual while leaving the remaining ones equal to the Sampson error.
+  std::vector<double> cheiral_residuals;
+  ComputeSquaredSampsonErrorWithCheirality(rays1, rays2, E, &cheiral_residuals);
+  ASSERT_EQ(cheiral_residuals.size(), 4);
+  EXPECT_EQ(cheiral_residuals[1], std::numeric_limits<double>::max());
+  EXPECT_EQ(cheiral_residuals[0], sampson_residuals[0]);
+  EXPECT_EQ(cheiral_residuals[2], sampson_residuals[2]);
+  EXPECT_EQ(cheiral_residuals[3], sampson_residuals[3]);
 }
 
 }  // namespace

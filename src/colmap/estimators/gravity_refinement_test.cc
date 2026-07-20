@@ -31,9 +31,11 @@
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -56,7 +58,7 @@ void SynthesizeGravityOutliers(std::vector<PosePrior>& pose_priors,
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.HasGravity() &&
         RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      pose_prior.gravity = Eigen::Vector3d::Random().normalized();
+      pose_prior.gravity = RandomEigenVectord<3>().normalized();
     }
   }
 }
@@ -66,7 +68,7 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
                         const std::vector<PosePrior>& pose_priors,
                         const double max_gravity_error_deg) {
   const double max_gravity_error_rad = DegToRad(max_gravity_error_deg);
-  std::unordered_map<image_t, const PosePrior*> image_to_pose_prior;
+  NodeHashMap<image_t, const PosePrior*> image_to_pose_prior;
   for (const auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       image_to_pose_prior.emplace(pose_prior.corr_data_id.id, &pose_prior);

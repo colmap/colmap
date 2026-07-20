@@ -29,6 +29,8 @@
 
 #include "colmap/util/string.h"
 
+#include "colmap/util/hash_containers.h"
+
 #include <locale>
 
 #include <gtest/gtest.h>
@@ -228,7 +230,7 @@ TEST(StringContains, Nominal) {
 }
 
 TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtrip) {
-  const std::unordered_map<int, std::string> kCodePageToUTF8Strings = {
+  const NodeHashMap<int, std::string> kCodePageToUTF8Strings = {
       {// English
        {0, u8"Bundle Adjustment"},
        // Simplified Chinese

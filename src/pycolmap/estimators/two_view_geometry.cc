@@ -47,6 +47,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       .def_readwrite("stationary_matches_max_error",
                      &TwoViewGeometryOptions::stationary_matches_max_error)
       .def_readwrite("force_H_use", &TwoViewGeometryOptions::force_H_use)
+      .def_readwrite("use_degensac", &TwoViewGeometryOptions::use_degensac)
       .def_readwrite("compute_relative_pose",
                      &TwoViewGeometryOptions::compute_relative_pose)
       .def_readwrite("multiple_models",

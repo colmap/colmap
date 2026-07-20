@@ -31,23 +31,55 @@
 
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
+// Rejection thresholds used by RandomEpipolarCorrespondences to condition a
+// minimal sample: minimum depth in front of either camera, and minimum parallax
+// between the two rays as sin^2 of their angle (1 - a^2 in the cheirality
+// form).
+constexpr double kMinDepth = 0.2;
+constexpr double kMinParallax = 1e-2;  // ~5.7 degrees.
+
+// Generates a random relative pose with a unit-norm baseline. Bounding the
+// baseline away from zero avoids the (near) pure-rotation degeneracy, where the
+// essential matrix vanishes and the cheirality of every correspondence becomes
+// ill-defined.
+Rigid3d TestCam2FromCam1() {
+  return Rigid3d(RandomEigenQuaterniond(),
+                 RandomEigenVectord<3>().normalized());
+}
+
+// When reject_degenerate is set, resamples correspondences that make a minimal
+// 5-point solve ill-conditioned (near-zero depth or near-parallel rays). Only
+// the minimal case needs this; larger samples are robust to such points.
 void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
                                    size_t num_rays,
+                                   bool reject_degenerate,
                                    std::vector<Eigen::Vector3d>& rays1,
                                    std::vector<Eigen::Vector3d>& rays2) {
   for (size_t i = 0; i < num_rays; ++i) {
-    rays1.push_back(Eigen::Vector3d::Random());
-    const double random_depth = RandomUniformReal<double>(0.2, 2.0);
-    rays2.push_back(
-        (cam2_from_cam1 * (random_depth * rays1.back())).normalized());
+    Eigen::Vector3d ray1;
+    Eigen::Vector3d point_in_cam2;
+    bool degenerate;
+    do {
+      ray1 = RandomEigenVectord<3>().normalized();
+      const double random_depth = RandomUniformReal<double>(kMinDepth, 2.0);
+      point_in_cam2 = cam2_from_cam1 * (random_depth * ray1);
+      const Eigen::Vector3d ray1_in_cam2 = cam2_from_cam1.rotation() * ray1;
+      const double cos_parallax = ray1_in_cam2.dot(point_in_cam2.normalized());
+      degenerate = point_in_cam2.norm() < kMinDepth ||
+                   1.0 - cos_parallax * cos_parallax < kMinParallax;
+    } while (reject_degenerate && degenerate);
+    rays1.push_back(ray1);
+    rays2.push_back(point_in_cam2.normalized());
   }
 }
 
@@ -83,19 +115,32 @@ class EssentialMatrixFivePointEstimatorTests
 TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
+  // The minimal case has no redundancy, so it conditions its sample to stay
+  // well-posed and accepts the solver's numerical accuracy with a looser
+  // tolerance.
+  const bool is_minimal =
+      kNumRays == EssentialMatrixFivePointEstimator::kMinNumSamples;
   for (size_t k = 0; k < 100; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(cam2_from_cam1, kNumRays, rays1, rays2);
+    RandomEpipolarCorrespondences(cam2_from_cam1,
+                                  kNumRays,
+                                  /*reject_degenerate=*/is_minimal,
+                                  rays1,
+                                  rays2);
 
     EssentialMatrixFivePointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(rays1, rays2, &models);
 
-    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
+    ExpectAtLeastOneValidModel(estimator,
+                               rays1,
+                               rays2,
+                               expected_E,
+                               models,
+                               /*E_eps=*/is_minimal ? 5e-3 : 1e-4);
   }
 }
 
@@ -110,12 +155,12 @@ TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
   SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 1; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
     std::vector<Eigen::Vector3d> rays1;
     std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(cam2_from_cam1, kNumRays, rays1, rays2);
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, kNumRays, /*reject_degenerate=*/false, rays1, rays2);
 
     EssentialMatrixEightPointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
@@ -128,6 +173,68 @@ TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
 INSTANTIATE_TEST_SUITE_P(EssentialMatrixEightPointEstimator,
                          EssentialMatrixEightPointEstimatorTests,
                          ::testing::Values(8, 64, 1024));
+
+class EssentialMatrixLMEstimatorTests
+    : public ::testing::TestWithParam<size_t> {};
+
+// Self-seeding (eight-point) refinement recovers the essential matrix on clean
+// correspondences.
+TEST_P(EssentialMatrixLMEstimatorTests, Nominal) {
+  SetPRNGSeed(0);
+  const size_t kNumRays = GetParam();
+  for (size_t k = 0; k < 10; ++k) {
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                                 RandomEigenVectord<3>());
+    Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
+    std::vector<Eigen::Vector3d> rays1;
+    std::vector<Eigen::Vector3d> rays2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, kNumRays, /*reject_degenerate=*/false, rays1, rays2);
+
+    EssentialMatrixLMEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(rays1, rays2, &models);
+
+    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(EssentialMatrixLMEstimator,
+                         EssentialMatrixLMEstimatorTests,
+                         ::testing::Values(8, 64, 1024));
+
+// Refinement recovers the ground truth from a perturbed initial model.
+TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
+  SetPRNGSeed(0);
+  for (size_t k = 0; k < 100; ++k) {
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                                 RandomEigenVectord<3>());
+    Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
+    std::vector<Eigen::Vector3d> rays1;
+    std::vector<Eigen::Vector3d> rays2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, 50, /*reject_degenerate=*/false, rays1, rays2);
+
+    // Build a seed model by perturbing the ground-truth pose.
+    const Eigen::Quaterniond seed_rotation =
+        cam2_from_cam1.rotation() *
+        Eigen::Quaterniond(
+            Eigen::AngleAxisd(0.02, RandomEigenVectord<3>().normalized()));
+    const Eigen::Vector3d seed_translation =
+        cam2_from_cam1.translation() + 0.02 * RandomEigenVectord<3>();
+    const Eigen::Matrix3d seed_E =
+        EssentialMatrixFromPose(Rigid3d(seed_rotation, seed_translation));
+
+    EssentialMatrixLMEstimator estimator;
+    Eigen::Matrix3d refined_E = seed_E;
+    ASSERT_TRUE(estimator.Refine(rays1, rays2, &refined_E));
+
+    // The refined model must match the ground truth, i.e. the refinement pulled
+    // the perturbed seed (which does not) back to the true essential matrix.
+    std::vector<Eigen::Matrix3d> models = {refined_E};
+    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
+  }
+}
 
 }  // namespace
 }  // namespace colmap
