@@ -454,6 +454,98 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   EXPECT_FALSE(calibrated_geometry.H.has_value());
 }
 
+TEST(EstimateTwoViewGeometry, UncalibratedFisheyeIsDegenerate) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_model_id =
+      OpenCVFisheyeCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {1280, 1280, 512, 384, 0, 0, 0, 0};
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
+  ASSERT_FALSE(test_data.camera1.has_prior_focal_length);
+
+  // Without a focal length prior the only remaining model is the fundamental
+  // matrix, which assumes a pinhole projection that a fisheye camera does not
+  // have. The pair is therefore rejected rather than fit with a meaningless
+  // fundamental matrix.
+  TwoViewGeometryOptions two_view_geometry_options;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+  EXPECT_FALSE(geometry.F.has_value());
+  EXPECT_FALSE(geometry.H.has_value());
+}
+
+TEST(EstimateTwoViewGeometry, CalibratedFisheyeIsEstimated) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_model_id =
+      OpenCVFisheyeCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {1280, 1280, 512, 384, 0, 0, 0, 0};
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
+  ASSERT_TRUE(test_data.camera1.has_prior_focal_length);
+
+  // With a known focal length the calibrated path applies, which works on
+  // bearing vectors and is therefore valid for fisheye cameras.
+  TwoViewGeometryOptions two_view_geometry_options;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
+  EXPECT_TRUE(geometry.E.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+}
+
+TEST(EstimateTwoViewGeometry, ForceHUseWithFisheyeIsDegenerate) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_model_id =
+      OpenCVFisheyeCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {1280, 1280, 512, 384, 0, 0, 0, 0};
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
+
+  // A homography only relates two images of a plane under a pinhole
+  // projection, so it is not estimated for fisheye cameras even when the
+  // caller explicitly asks for it.
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.force_H_use = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
+  EXPECT_FALSE(geometry.H.has_value());
+}
+
 TEST(EstimateTwoViewGeometry, SharedFocal) {
   SetPRNGSeed(0);
   // A single shared, uncalibrated, pinhole-projection camera observed from two
@@ -478,9 +570,9 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
 
     // Ground-truth relative pose with a unit baseline and a bounded rotation so
     // the point cloud is visible in both views. The focal is unidentifiable for
-    // coplanar optical axes, where the estimator downgrades the pair to
-    // UNCALIBRATED, so resample until the pose is clear of that degeneracy,
-    // using the same threshold as the estimator.
+    // singular optical axis configurations, where the estimator downgrades the
+    // pair to UNCALIBRATED, so resample until the pose is clear of that
+    // degeneracy, using the same test as the estimator.
     Rigid3d cam2_from_cam1;
     do {
       const Eigen::Vector3d axis = RandomEigenVectord<3>().normalized();
@@ -489,8 +581,7 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
                       DegToRad(RandomUniformReal<double>(20.0, 60.0)), axis)),
                   RandomEigenVectord<3>().normalized());
     } while (
-        RelativePoseSharedFocalEstimator::FocalIdentifiability(cam2_from_cam1) <
-        RelativePoseSharedFocalEstimator::kMinFocalIdentifiability);
+        !RelativePoseSharedFocalEstimator::IsFocalIdentifiable(cam2_from_cam1));
 
     std::vector<Eigen::Vector2d> points1;
     std::vector<Eigen::Vector2d> points2;
