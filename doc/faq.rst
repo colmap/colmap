@@ -164,6 +164,42 @@ and set shared intrinsics in the database management tool. Please, refer to
 :ref:`Database Management <database-management>` for more information.
 
 
+Set known camera intrinsics
+---------------------------
+
+If the camera calibration is known a priori, the recommended way to provide it
+is during feature extraction using the ``ImageReader`` options::
+
+    colmap feature_extractor \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
+        --ImageReader.single_camera 1 \
+        --ImageReader.camera_model OPENCV \
+        --ImageReader.camera_params "fx,fy,cx,cy,k1,k2,p1,p2"
+
+The parameters must be provided as a comma-separated list in the order defined
+by the chosen camera model (see :doc:`cameras`). In the GUI, the equivalent
+settings can be found under ``Processing > Feature extraction > Custom
+parameters``. Use ``--ImageReader.single_camera 1`` if all images were captured
+by the same physical camera with identical settings, so that they share one
+camera in the database (see `Share intrinsics`_).
+
+To modify the intrinsics of an existing database, do not edit the SQLite tables
+by hand (the parameters are stored as binary blobs of doubles), but use
+pycolmap's database API instead::
+
+    import pycolmap
+    with pycolmap.Database.open("path/to/database.db") as db:
+        camera = db.read_camera(1)
+        camera.params = [fx, fy, cx, cy, k1, k2, p1, p2]
+        camera.has_prior_focal_length = True
+        db.update_camera(camera)
+
+Note that the provided parameters are still refined during bundle adjustment by
+default. To keep them fixed during the reconstruction, see
+:ref:`Fix intrinsics <faq-fix-intrinsics>`.
+
+
 .. _faq-fix-intrinsics:
 
 Fix intrinsics
