@@ -378,7 +378,6 @@ void MainWindow::CreateWidgets() {
       new ReconstructionManagerWidget(this, reconstruction_manager_);
   reconstruction_stats_widget_ = new ReconstructionStatsWidget(this);
   match_matrix_widget_ = new MatchMatrixWidget(this, &options_);
-  license_widget_ = new LicenseWidget(this);
 
   dock_log_widget_ = new QDockWidget("Log", this);
   dock_log_widget_->setWidget(log_widget_);
@@ -731,8 +730,7 @@ void MainWindow::CreateActions() {
   action_support_ = new QAction(tr("Support"), this);
   connect(action_support_, &QAction::triggered, this, &MainWindow::Support);
   action_license_ = new QAction(tr("License"), this);
-  connect(
-      action_license_, &QAction::triggered, license_widget_, &QTextEdit::show);
+  connect(action_license_, &QAction::triggered, this, &MainWindow::License);
 }
 
 void MainWindow::CreateMenus() {
@@ -1802,6 +1800,31 @@ void MainWindow::Documentation() {
 void MainWindow::Support() {
   QDesktopServices::openUrl(
       QUrl("https://github.com/colmap/colmap/discussions"));
+}
+
+void MainWindow::License() {
+  QFile file(":/COPYING.txt");
+  QString license;
+  if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    // Reflow the raw license text: ignore the hard line breaks within each
+    // paragraph and only break at blank lines, rendering paragraphs with
+    // spacing between them.
+    const QString text = QString::fromUtf8(file.readAll());
+    const QStringList paragraphs =
+        text.split(QRegularExpression("\n\\s*\n"), Qt::SkipEmptyParts);
+    for (const QString& paragraph : paragraphs) {
+      license += "<p>" + paragraph.simplified().toHtmlEscaped() + "</p>";
+    }
+  } else {
+    license = tr("Failed to load license text.");
+  }
+
+  QMessageBox message_box(this);
+  message_box.setWindowTitle(tr("License"));
+  message_box.setTextFormat(Qt::RichText);
+  message_box.setText(license);
+  message_box.setStyleSheet("QLabel { font-weight: normal; }");
+  message_box.exec();
 }
 
 void MainWindow::RenderToggle() {
