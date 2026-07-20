@@ -84,6 +84,9 @@ exact parameter list of every model is given by its ``params_info`` string and
 defined in the camera models header:
 https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h
 
+Configuration
+-------------
+
 To achieve optimal reconstruction results, you might have to try different
 camera models for your problem. Generally, when the reconstruction fails and the
 estimated focal length values / distortion coefficients are grossly wrong, it is
@@ -96,7 +99,3 @@ images to obtain more reliable results
 (see :ref:`Share intrinsic camera parameters <faq-share-intrinsics>`) or you can
 fix the intrinsic parameters during the reconstruction
 (see :ref:`Fix intrinsic camera parameters <faq-fix-intrinsics>`).
-
-Please, refer to the camera models header file for information on the parameters
-of the different camera models:
-https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h
