@@ -447,10 +447,10 @@ void BindDatabase(py::module& m) {
       "Database",
       "Database storing all extracted and matched information (cameras, "
       "images, keypoints, descriptors, matches, rigs, and pose priors).\n\n"
-      "A Database cannot be constructed directly; open an existing or new "
-      "database file with ``Database.open(path)`` and release it with "
-      "``close()``. It can also be used as a context manager, which closes "
-      "the database on exit:\n\n"
+      "A Database cannot be constructed directly; instead open an existing "
+      "or new database file with ``Database.open(path)`` and release it with "
+      "``close()``. It can also be used with a context manager, which closes "
+      "the database on exit automatically:\n\n"
       "    with pycolmap.Database.open(path) as db:\n"
       "        ...");
   PyDatabase.def_static("open",
