@@ -47,8 +47,9 @@
 #include <QPixmap>
 #include <QSettings>
 #include <QStandardPaths>
-#include <QtSvg/QSvgRenderer>
 #include <clocale>
+
+#include <QtSvg/QSvgRenderer>
 
 static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
