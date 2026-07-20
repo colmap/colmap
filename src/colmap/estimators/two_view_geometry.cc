@@ -1111,9 +1111,10 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     estimated_camera.SetFocalLength(SF_report.model.focal);
     geometry.camera1 = estimated_camera;
     geometry.camera2 = estimated_camera;
-    // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point) so
-    // epipolar consumers unaware of the shared focal, e.g. guided matching, can
-    // use this config directly.
+    // Also expose F = K^-T E K^-1 (K = diag(f, f, 1) at the principal point),
+    // which view graph calibration requires from every UNCALIBRATED pair to
+    // calibrate focal lengths. It is also the only epipolar model persisted to
+    // the database, which has no columns for the estimated intrinsics.
     Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
     K(0, 0) = K(1, 1) = SF_report.model.focal;
     K(0, 2) = principal_point.x();
@@ -1134,9 +1135,9 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-    // If the focal is unidentifiable (coplanar optical axes), drop the
-    // estimated intrinsics so the pair degrades to a plain uncalibrated pair (F
-    // is valid).
+    // If the focal is unidentifiable (parallel or isosceles-intersecting
+    // optical axes), drop the estimated intrinsics so the pair degrades to a
+    // plain uncalibrated pair (F is valid).
     if (geometry.camera1.has_value()) {
       std::vector<Eigen::Vector3d> inlier_cam_rays1;
       std::vector<Eigen::Vector3d> inlier_cam_rays2;
@@ -1155,9 +1156,8 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
                               &cam2_from_cam1,
                               &valid_indices);
       if (valid_indices.empty() ||
-          RelativePoseSharedFocalEstimator::FocalIdentifiability(
-              cam2_from_cam1) <
-              RelativePoseSharedFocalEstimator::kMinFocalIdentifiability) {
+          !RelativePoseSharedFocalEstimator::IsFocalIdentifiable(
+              cam2_from_cam1)) {
         geometry.E.reset();
         geometry.camera1.reset();
         geometry.camera2.reset();
