@@ -61,12 +61,12 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
 // @param cam_rays1       First set of corresponding rays.
 // @param cam_rays2       Second set of corresponding rays.
 // @param cam2_from_cam1  Relative camera transformation.
-// @param points3D        Triangulated 3D points infront of camera.
+// @param valid_indices   Indices of correspondences in front of both cameras.
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector3d>& cam_rays1,
                              const std::vector<Eigen::Vector3d>& cam_rays2,
                              Rigid3d* cam2_from_cam1,
-                             std::vector<Eigen::Vector3d>* points3D);
+                             std::vector<int>* valid_indices);
 
 // Compose essential matrix from relative camera poses.
 //
@@ -133,12 +133,16 @@ Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
 // Calculate the squared Sampson error for a single point pair and a given
 // fundamental or essential matrix.
 //
-// @param ray1        First point/ray in homogeneous coordinates.
-// @param ray2        Second point/ray in homogeneous coordinates.
+// The points must be hnormalized: the error is not invariant to the scale of
+// the homogeneous representative, so unit bearings give a different, smaller
+// error.
+//
+// @param point1      First point in hnormalized homogeneous coordinates.
+// @param point2      Second point in hnormalized homogeneous coordinates.
 // @param E           3x3 fundamental or essential matrix.
 // @return            Squared Sampson error.
-double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
-                                  const Eigen::Vector3d& ray2,
+double ComputeSquaredSampsonError(const Eigen::Vector3d& point1,
+                                  const Eigen::Vector3d& point2,
                                   const Eigen::Matrix3d& E);
 
 // Calculate the residuals of a set of corresponding points and a given
@@ -155,18 +159,52 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
 
-// Calculate the residuals of a set of corresponding rays and a given
+// Calculate the residuals of a set of corresponding points and a given
 // fundamental or essential matrix.
 //
-// Residuals are defined as the squared Sampson error.
+// Residuals are defined as the squared Sampson error. The points must be
+// hnormalized, as above.
 //
-// @param rays1       Corresponding rays.
-// @param rays2       Corresponding rays.
+// TODO: The calibrated estimators call this with unit bearings, so their
+// residuals are neither the Sampson error nor in CamFromImgThreshold units.
+// Hnormalizing here is not an option, as bearings with rz <= 0 are why the
+// calibrated path uses rays. Use the tangent Sampson error instead (Terekhov
+// and Larsson, ICCV 2023), which is in pixels for any central camera model.
+//
+// @param points1     Corresponding points in hnormalized homogeneous
+//                    coordinates.
+// @param points2     Corresponding points in hnormalized homogeneous
+//                    coordinates.
 // @param E           3x3 fundamental or essential matrix.
 // @param residuals   Output vector of residuals.
-void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
-                                const std::vector<Eigen::Vector3d>& rays2,
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
+                                const std::vector<Eigen::Vector3d>& points2,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
+
+// Calculate the residuals of a set of corresponding rays and a given essential
+// matrix, additionally enforcing the cheirality constraint.
+//
+// Residuals are the squared Sampson error, except that correspondences which
+// triangulate behind either camera are assigned an infinite residual. The
+// relative pose is recovered from E (resolving the four-fold decomposition
+// ambiguity by cheirality voting), so an epipolar-consistent correspondence
+// with the wrong depth sign is rejected even when its Sampson error is small.
+//
+// Only meaningful for essential matrices (calibrated rays); the plain
+// ComputeSquaredSampsonError should be used for fundamental matrices.
+//
+// The cheirality check requires bearings, but the Sampson part inherits the
+// unit-bearing issue noted above.
+//
+// @param rays1       Corresponding unit bearings.
+// @param rays2       Corresponding unit bearings.
+// @param E           3x3 essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredSampsonErrorWithCheirality(
+    const std::vector<Eigen::Vector3d>& rays1,
+    const std::vector<Eigen::Vector3d>& rays2,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals);
 
 }  // namespace colmap

@@ -29,6 +29,8 @@
 
 #include "colmap/scene/reconstruction_io_utils.h"
 
+#include "colmap/util/hash_containers.h"
+
 namespace colmap {
 
 void CreateOneRigPerCamera(Reconstruction& reconstruction) {
@@ -51,9 +53,9 @@ void CreateFrameForImage(const Image& image,
   reconstruction.AddFrame(std::move(frame));
 }
 
-std::unordered_map<image_t, Frame*> ExtractImageToFramePtr(
+NodeHashMap<image_t, Frame*> ExtractImageToFramePtr(
     Reconstruction& reconstruction) {
-  std::unordered_map<image_t, Frame*> image_to_frame;
+  NodeHashMap<image_t, Frame*> image_to_frame;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     for (const data_t& data_id : frame.ImageIds()) {
       THROW_CHECK(

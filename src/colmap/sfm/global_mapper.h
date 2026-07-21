@@ -9,6 +9,7 @@
 #include "colmap/sfm/incremental_triangulator.h"
 
 #include <filesystem>
+#include <functional>
 #include <limits>
 
 namespace colmap {
@@ -27,10 +28,10 @@ struct GlobalMapperOptions {
   // If not specified, all point colors will be black.
   std::filesystem::path image_path;
 
-  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated
+  // When false, treat each non-ref sensor's cam_from_rig as a pre-calibrated.
   bool refine_sensor_from_rig = true;
 
-  // Options for each component
+  // Options for each component.
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
   BundleAdjustmentOptions bundle_adjustment = [] {
@@ -66,11 +67,19 @@ struct GlobalMapperOptions {
   int track_required_tracks_per_view = std::numeric_limits<int>::max();
   // Minimum number of views per track.
   int track_min_num_views_per_track = 3;
+  // Maximum total number of tracks to establish. Tracks are selected in order
+  // of decreasing length, so the longest tracks are kept. Use this to bound
+  // memory usage on large datasets. By default, there is no limit.
+  int keep_max_num_tracks = std::numeric_limits<int>::max();
 
   // Thresholds for each component.
   double max_angular_reproj_error_deg = 1.;   // for global positioning
   double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
   double min_tri_angle_deg = 1.;              // for triangulation
+
+  // GPU device index for bundle adjustment, shared by the Ceres and Caspar
+  // backends (-1 = auto-select).
+  std::string ba_gpu_index = "-1";
 
   // Control the number of iterations for bundle adjustment.
   int ba_num_iterations = 3;
@@ -109,8 +118,12 @@ class GlobalMapper {
   void BeginReconstruction(
       const std::shared_ptr<Reconstruction>& reconstruction);
 
-  // Run the global SfM pipeline.
-  bool Solve(const GlobalMapperOptions& options);
+  // Run the global SfM pipeline. The optional `on_progress` callback is invoked
+  // after global positioning, after each bundle-adjustment iteration, and after
+  // retriangulation/refinement; it returns true if a stop has been requested,
+  // in which case the pipeline terminates early and keeps the current result.
+  bool Solve(const GlobalMapperOptions& options,
+             const std::function<bool()>& on_progress = {});
 
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options);
@@ -124,13 +137,16 @@ class GlobalMapper {
                          double max_normalized_reproj_error,
                          double min_tri_angle_deg);
 
-  // Run iterative bundle adjustment to refine poses and structure.
+  // Run iterative bundle adjustment to refine poses and structure. The optional
+  // `on_progress` callback is invoked after each iteration and returns true if
+  // a stop has been requested, in which case the iteration terminates early.
   bool IterativeBundleAdjustment(const BundleAdjustmentOptions& options,
                                  double max_normalized_reproj_error,
                                  double min_tri_angle_deg,
                                  int num_iterations,
                                  bool skip_fixed_rotation_stage = false,
-                                 bool skip_joint_optimization_stage = false);
+                                 bool skip_joint_optimization_stage = false,
+                                 const std::function<bool()>& on_progress = {});
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(

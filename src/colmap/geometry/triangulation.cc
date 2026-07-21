@@ -65,6 +65,35 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
   return true;
 }
 
+bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
+                      const Eigen::Matrix3x4d& cam2_from_world,
+                      const Eigen::Vector3d& cam_ray1,
+                      const Eigen::Vector3d& cam_ray2,
+                      Eigen::Vector3d* xyz) {
+  THROW_CHECK_NOTNULL(xyz);
+
+  Eigen::Matrix<double, 6, 4> A;
+  A.topRows<3>() =
+      cam1_from_world - cam_ray1 * (cam_ray1.transpose() * cam1_from_world);
+  A.bottomRows<3>() =
+      cam2_from_world - cam_ray2 * (cam_ray2.transpose() * cam2_from_world);
+
+  const Eigen::JacobiSVD<Eigen::Matrix<double, 6, 4>> svd(A,
+                                                          Eigen::ComputeFullV);
+#if EIGEN_VERSION_AT_LEAST(3, 4, 0)
+  if (svd.info() != Eigen::Success) {
+    return false;
+  }
+#endif
+
+  if (svd.matrixV()(3, 3) == 0) {
+    return false;
+  }
+
+  *xyz = svd.matrixV().col(3).hnormalized();
+  return true;
+}
+
 bool TriangulateMidPoint(const Rigid3d& cam2_from_cam1,
                          const Eigen::Vector3d& cam_ray1,
                          const Eigen::Vector3d& cam_ray2,
@@ -105,29 +134,58 @@ bool TriangulateMidPoint(const Rigid3d& cam2_from_cam1,
   return true;
 }
 
+namespace {
+
+// Contribution of a single bearing observation to the projector-based DLT
+// normal-equation matrix. With unit bearing b and projection matrix
+// P = cam_from_world, the residual operator is term = P - b b^T P, and the
+// system accumulates term^T term.
+inline Eigen::Matrix4d TriangulationDltTerm(
+    const Eigen::Matrix3x4d& cam_from_world, const Eigen::Vector3d& cam_ray) {
+  const Eigen::Matrix3x4d term =
+      cam_from_world - cam_ray * cam_ray.transpose() * cam_from_world;
+  return term.transpose() * term;
+}
+
+// Solve the DLT system for the homogeneous point (smallest eigenvector of A).
+inline bool SolveTriangulationDlt(const Eigen::Matrix4d& A,
+                                  Eigen::Vector3d* xyz) {
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d> eigen_solver(A);
+  if (eigen_solver.info() != Eigen::Success ||
+      eigen_solver.eigenvectors()(3, 0) == 0) {
+    return false;
+  }
+  *xyz = eigen_solver.eigenvectors().col(0).hnormalized();
+  return true;
+}
+
+}  // namespace
+
 bool TriangulateMultiViewPoint(
     const span<const Eigen::Matrix3x4d>& cams_from_world,
     const span<const Eigen::Vector2d>& cam_points,
     Eigen::Vector3d* xyz) {
   THROW_CHECK_EQ(cams_from_world.size(), cam_points.size());
   THROW_CHECK_NOTNULL(xyz);
-
   Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
-  for (size_t i = 0; i < cam_points.size(); i++) {
-    const Eigen::Vector3d point = cam_points[i].homogeneous().normalized();
-    const Eigen::Matrix3x4d term =
-        cams_from_world[i] - point * point.transpose() * cams_from_world[i];
-    A += term.transpose() * term;
+  for (size_t i = 0; i < cam_points.size(); ++i) {
+    A += TriangulationDltTerm(cams_from_world[i],
+                              cam_points[i].homogeneous().normalized());
   }
+  return SolveTriangulationDlt(A, xyz);
+}
 
-  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d> eigen_solver(A);
-  if (eigen_solver.info() != Eigen::Success ||
-      eigen_solver.eigenvectors()(3, 0) == 0) {
-    return false;
+bool TriangulateMultiViewPoint(
+    const span<const Eigen::Matrix3x4d>& cams_from_world,
+    const span<const Eigen::Vector3d>& cam_rays,
+    Eigen::Vector3d* xyz) {
+  THROW_CHECK_EQ(cams_from_world.size(), cam_rays.size());
+  THROW_CHECK_NOTNULL(xyz);
+  Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
+  for (size_t i = 0; i < cam_rays.size(); ++i) {
+    A += TriangulationDltTerm(cams_from_world[i], cam_rays[i]);
   }
-
-  *xyz = eigen_solver.eigenvectors().col(0).hnormalized();
-  return true;
+  return SolveTriangulationDlt(A, xyz);
 }
 
 bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,

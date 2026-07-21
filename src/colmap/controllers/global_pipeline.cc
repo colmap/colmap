@@ -84,6 +84,8 @@ GlobalPipeline::GlobalPipeline(
   if (options_.decompose_relative_pose) {
     MaybeDecomposeRelativePoses(database_cache_.get());
   }
+
+  RegisterCallback(MODEL_UPDATE_CALLBACK);
 }
 
 void GlobalPipeline::Run() {
@@ -93,7 +95,12 @@ void GlobalPipeline::Run() {
     WarnInsufficientPriorFocalLengths();
   }
 
-  auto reconstruction = std::make_shared<Reconstruction>();
+  // Add the reconstruction to the manager up front so that intermediate states
+  // can be rendered while the global mapper is running. It is discarded again
+  // if the mapper fails, so that the abandoned intermediate state is not
+  // mistaken for a valid result.
+  const size_t reconstruction_idx = reconstruction_manager_->Add();
+  auto reconstruction = reconstruction_manager_->Get(reconstruction_idx);
 
   // Prepare mapper options with top-level options.
   GlobalMapperOptions mapper_options = options_.mapper;
@@ -106,22 +113,32 @@ void GlobalPipeline::Run() {
 
   Timer run_timer;
   run_timer.Start();
-  global_mapper.Solve(mapper_options);
+  const bool success = global_mapper.Solve(mapper_options, [this]() {
+    Callback(MODEL_UPDATE_CALLBACK);
+    return CheckIfStopped();
+  });
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
+
+  // Note that a stop requested through the callback is reported as success, so
+  // this only discards genuinely failed runs. The reconstruction is dropped
+  // rather than written out, because the poses left behind by the stages that
+  // did complete are not trustworthy either: the structure was filtered away
+  // precisely because it disagreed with those poses.
+  if (!success) {
+    LOG(ERROR) << "Global mapping failed";
+    reconstruction_manager_->Delete(reconstruction_idx);
+    return;
+  }
 
   // Align reconstruction to the original metric scales in rig extrinsics.
   AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
                                      reconstruction.get());
 
-  // Output the reconstruction.
-  Reconstruction& output_reconstruction =
-      *reconstruction_manager_->Get(reconstruction_manager_->Add());
-  output_reconstruction = *reconstruction;
   if (!options_.image_path.empty()) {
     LOG(INFO) << "Extracting colors ...";
-    output_reconstruction.ExtractColorsForAllImages(options_.image_path,
-                                                    options_.num_threads);
+    reconstruction->ExtractColorsForAllImages(options_.image_path,
+                                              options_.num_threads);
   }
 
   if (has_insufficient_prior_focal_lengths) {

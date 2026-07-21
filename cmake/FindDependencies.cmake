@@ -21,18 +21,60 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              OPTIONAL_COMPONENTS
              system)
 
+# Hash map backend selection for the scene/SfM containers. Adds the compile
+# definition consumed by src/colmap/util/hash_containers.h. Both backends are
+# header-only (boost-unordered is provided by the Boost::boost target), so no
+# extra linking is required.
+#
+# BOOST (boost::unordered_flat/node maps) is preferred, but its node maps
+# (boost::unordered_node_map) require Boost >= 1.84. When COLMAP_HASH_MAP_BACKEND
+# is empty we auto-select BOOST if the found Boost is new enough, else STD (so
+# e.g. builds against the system Boost on older distributions keep working).
+#
+# Note: downstream consumers re-run this file via find_package(colmap) with
+# COLMAP_HASH_MAP_BACKEND unset; they get the actual COLMAP_HASH_* macro from the
+# exported colmap targets, so the value re-derived here is only used to keep the
+# selection message and any local sources consistent.
+set(COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION "1.84.0")
+if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
+    set(_colmap_boost_version "${Boost_VERSION_STRING}")
+else()
+    set(_colmap_boost_version "${Boost_VERSION}")
+endif()
+string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
+if(NOT COLMAP_HASH_MAP_BACKEND)
+    if(_colmap_boost_version VERSION_GREATER_EQUAL
+       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
+        set(COLMAP_HASH_MAP_BACKEND "BOOST")
+    else()
+        set(COLMAP_HASH_MAP_BACKEND "STD")
+    endif()
+endif()
+if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
+elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
+    if(_colmap_boost_version VERSION_LESS
+       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
+        message(FATAL_ERROR
+                "COLMAP_HASH_MAP_BACKEND=BOOST requires Boost >= "
+                "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION} "
+                "(boost::unordered_node_map), but found Boost "
+                "${_colmap_boost_version}. Upgrade Boost or set "
+                "-DCOLMAP_HASH_MAP_BACKEND=STD.")
+    endif()
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_BOOST)
+else()
+    message(FATAL_ERROR "Unknown COLMAP_HASH_MAP_BACKEND "
+            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST or empty)")
+endif()
+message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend "
+        "(Boost ${_colmap_boost_version})")
+
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
 find_package(OpenImageIO ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
-
-find_package(Glog ${COLMAP_FIND_TYPE})
-if(DEFINED glog_VERSION_MAJOR)
-  # Older versions of glog don't export version variables.
-  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
-  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
-endif()
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
 # Older CMake versions define SQLite::SQLite3 instead of SQLite3::SQLite3.
@@ -49,6 +91,12 @@ find_package(Git)
 
 find_package(CHOLMOD REQUIRED)
 
+# Ceres is found before Glog on purpose. Some distributions (e.g. Fedora) ship a
+# Ceres whose bundled FindGlog.cmake unconditionally calls add_library(glog::glog)
+# in module mode. If we created the glog::glog target first, that call collides
+# with a "target already exists" error (see issue #3347). By finding Ceres first,
+# Ceres creates glog::glog itself, and our subsequent find_package(Glog) reuses
+# the existing target instead.
 find_package(Ceres ${COLMAP_FIND_TYPE})
 if(NOT TARGET Ceres::ceres)
     # Older Ceres versions don't come with an imported interface target.
@@ -57,6 +105,13 @@ if(NOT TARGET Ceres::ceres)
         Ceres::ceres INTERFACE ${CERES_INCLUDE_DIRS})
     target_link_libraries(
         Ceres::ceres INTERFACE ${CERES_LIBRARIES})
+endif()
+
+find_package(Glog ${COLMAP_FIND_TYPE})
+if(DEFINED glog_VERSION_MAJOR)
+  # Older versions of glog don't export version variables.
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
 endif()
 
 if(TESTS_ENABLED)
@@ -189,6 +244,34 @@ if(CUDA_ENABLED AND CUDA_FOUND)
         set(CMAKE_CUDA_ARCHITECTURES "native")
     endif()
 
+    # Caspar's Symforce-generated kernels use cooperative_groups::labeled_partition
+    # and atomicAdd_block, which require compute capability >= 7.0. Fail early with
+    # a clear message instead of a cryptic nvcc error deep in the kernel build. The
+    # numeric check handles list entries and -real/-virtual suffixes; the special
+    # values native/all/all-major cannot be resolved statically here, so they only
+    # get a warning (nvcc may fall back to an older default arch in build
+    # environments without a visible GPU >= 7.0, e.g. containerized builds).
+    if(CASPAR_ENABLED)
+        foreach(_caspar_arch IN LISTS CMAKE_CUDA_ARCHITECTURES)
+            string(REGEX MATCH "^([0-9]+)" _caspar_arch_num "${_caspar_arch}")
+            if(_caspar_arch_num AND _caspar_arch_num LESS 70)
+                message(FATAL_ERROR
+                    "CASPAR_ENABLED requires CUDA architecture >= 70 (compute "
+                    "capability 7.0), but CMAKE_CUDA_ARCHITECTURES contains "
+                    "'${_caspar_arch}'. Set -DCMAKE_CUDA_ARCHITECTURES to 70+.")
+            endif()
+        endforeach()
+        if(CMAKE_CUDA_ARCHITECTURES MATCHES "native|all|all-major")
+            message(WARNING
+                "CASPAR_ENABLED with CMAKE_CUDA_ARCHITECTURES='${CMAKE_CUDA_ARCHITECTURES}': "
+                "Caspar requires compute capability >= 7.0, which cannot be "
+                "verified statically for this value. In an environment without a "
+                "visible GPU >= 7.0 (e.g. containerized builds) nvcc may fall back "
+                "to an older default arch and fail with cryptic kernel errors. "
+                "Set -DCMAKE_CUDA_ARCHITECTURES explicitly (e.g. 75, 86).")
+        endif()
+    endif()
+
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUDA_ENABLED)
 
     # Do not show warnings if the architectures are deprecated.
@@ -251,8 +334,10 @@ if(ONNX_ENABLED)
 
         message(STATUS "Configuring onnxruntime...")
 
-        set(ONNX_VERSION "1.24.4")
-        # ONNX Runtime >= 1.22 GPU binaries are built with CUDA >= 12
+        set(ONNX_VERSION "1.27.1")
+        # ONNX Runtime now ships separate GPU binaries per CUDA major version
+        # (gpu_cuda12 / gpu_cuda13). We consume the CUDA 12 build below, so CUDA
+        # >= 12 is required for the GPU execution provider.
         if(ONNX_VERSION VERSION_GREATER_EQUAL "1.22"
            AND CUDA_ENABLED AND CUDA_FOUND AND CUDAToolkit_VERSION VERSION_LESS "12.0")
             message(WARNING
@@ -273,7 +358,7 @@ if(ONNX_ENABLED)
             else()
                 FetchContent_Declare(onnxruntime
                     URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
-                    URL_HASH SHA256=93787795f47e1eee369182e43ed51b9e5da0878ab0346aecf4258979b8bba989
+                    URL_HASH SHA256=e42b77a7281cc6e55141bf44fcfbac2c782b823a491bbb6ac33c781dd991f8a6
                     ${_fetch_content_declare_args}
                 )
             endif()
@@ -281,28 +366,28 @@ if(ONNX_ENABLED)
             if(IS_ARM64)
                 FetchContent_Declare(onnxruntime
                     URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-aarch64-${ONNX_VERSION}.tgz
-                    URL_HASH SHA256=866109a9248d057671a039b9d725be4bd86888e3754140e6701ec621be9d4d7e
+                    URL_HASH SHA256=33c67e33d1e25b816878366ea276589a024f71f000e7ff955c4b33224d639edd
                     ${_fetch_content_declare_args}
                 )
             else()
                 if(CUDA_ENABLED)
                     FetchContent_Declare(onnxruntime
-                        URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
-                        URL_HASH SHA256=c5f804ff5d239b436fa59e9f2fb288a39f7eb9552f6a636c8b71e792e91a8808
+                        URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu_cuda12-${ONNX_VERSION}.tgz
+                        URL_HASH SHA256=08b568bd69500c36606aff7c3896ee4fa7d3531719f6b00f43e6a34db41dc4bf
                         ${_fetch_content_declare_args}
                     )
                 else()
                     FetchContent_Declare(onnxruntime
                         URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz
-                        URL_HASH SHA256=3a211fbea252c1e66290658f1b735b772056149f28321e71c308942cdb54b747
+                        URL_HASH SHA256=25b1ef1fea1acd210d63f8f24dc870ad6e077795ce1f54876252c6d3803c15af
                         ${_fetch_content_declare_args}
                     )
                 endif()
             endif()
         elseif(IS_WINDOWS)
             FetchContent_Declare(onnxruntime
-                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
-                URL_HASH SHA256=ef3337a0b8184eb8beec310f7c83bd50376b3eefc43aab84ac8e452f6987df0a
+                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu_cuda12-${ONNX_VERSION}.zip
+                URL_HASH SHA256=78d4de5ab262f79ac5dd59f08ff0d049b1cea605497f375f8df5ba1a52f26111
                 ${_fetch_content_declare_args}
             )
         endif()
@@ -413,6 +498,14 @@ endif()
 if(TARGET onnxruntime::onnxruntime)
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
     message(STATUS "Enabling ONNX support")
+    # The prebuilt macOS onnxruntime binaries ship with the CoreML execution
+    # provider, which accelerates ONNX inference on the GPU / Apple Neural
+    # Engine. Enable it as the GPU backend on Apple platforms (CUDA is
+    # unavailable there).
+    if(IS_MACOS)
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_COREML_ENABLED)
+        message(STATUS "Enabling ONNX CoreML execution provider")
+    endif()
 endif()
 
 if(GUI_ENABLED)
@@ -421,7 +514,7 @@ if(GUI_ENABLED)
     if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         list(APPEND COLMAP_QT_COMPONENTS OpenGLWidgets)
     endif()
-    find_package(Qt${QT_VERSION_MAJOR} ${COLMAP_FIND_TYPE} ${COLMAP_QT_COMPONENTS})
+    find_package(Qt${QT_VERSION_MAJOR} ${COLMAP_FIND_TYPE} COMPONENTS ${COLMAP_QT_COMPONENTS})
     message(STATUS "Found Qt")
     message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Core_DIR}")
     message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}OpenGL_DIR}")

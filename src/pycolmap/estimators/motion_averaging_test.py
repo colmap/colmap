@@ -12,9 +12,33 @@ def test_rotation_weight_type_enum():
     }
 
 
+def test_rotation_averaging_reweighting_enum():
+    assert {
+        k: int(v)
+        for k, v in pycolmap.RotationAveragingReweighting.__members__.items()
+    } == {
+        "UNIFORM": 0,
+        "INLIER_MATCH_COUNT": 1,
+    }
+
+
 def test_rotation_estimator_options_default_init():
     options = pycolmap.RotationEstimatorOptions()
     assert options is not None
+    assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+
+
+def test_rotation_estimator_options_reweighting_readwrite():
+    options = pycolmap.RotationEstimatorOptions()
+    options.reweighting = (
+        pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
+    )
+    assert (
+        options.reweighting
+        == pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
+    )
+    options.reweighting = "UNIFORM"
+    assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
 
 
 def test_gravity_refiner_options_default_init():

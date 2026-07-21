@@ -98,6 +98,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("database_creator", &colmap::RunDatabaseCreator);
   commands.emplace_back("database_merger", &colmap::RunDatabaseMerger);
 #if defined(COLMAP_MVS_ENABLED)
+  commands.emplace_back("advancing_front_mesher",
+                        &colmap::RunAdvancingFrontMesher);
   commands.emplace_back("delaunay_mesher", &colmap::RunDelaunayMesher);
 #endif
   commands.emplace_back("exhaustive_matcher", &colmap::RunExhaustiveMatcher);

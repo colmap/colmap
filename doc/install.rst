@@ -92,7 +92,7 @@ Dependencies from the default Ubuntu repositories::
         qt6-base-dev \
         libqt6opengl6-dev \
         libqt6openglwidgets6 \
-        libqt6svg6-dev \
+        qt6-svg-dev \
         libcgal-dev \
         libceres-dev \
         libsuitesparse-dev \
@@ -129,6 +129,19 @@ Configure and compile COLMAP::
     ninja
     sudo ninja install
 
+.. note::
+
+    COLMAP can use ``boost::unordered`` flat/node hash maps for the
+    performance-critical scene and SfM containers, selected via
+    ``-DCOLMAP_HASH_MAP_BACKEND=BOOST|STD`` (default: auto). Auto selects
+    ``BOOST`` when Boost is recent enough (``boost::unordered_node_map`` requires
+    **Boost >= 1.84**) and falls back to ``STD`` (``std::unordered_map``)
+    otherwise. Ubuntu's default Boost is older than 1.84, so apt-based builds use
+    ``STD``; to use the faster ``BOOST`` backend, build against a newer Boost
+    (e.g. via vcpkg, which installs ``boost-unordered`` automatically) or install
+    Boost >= 1.84 manually. Explicitly requesting ``-DCOLMAP_HASH_MAP_BACKEND=BOOST``
+    with an older Boost is a configuration error.
+
 Run COLMAP::
 
     colmap -h
@@ -147,6 +160,73 @@ Notice that the ``BLA_VENDOR=Intel10_64lp`` option tells CMake to find Intel's M
 implementation of BLAS. If you decide to compile against OpenBLAS instead of
 MKL, you must install and select the OpenMP version under Debian/Ubuntu because
 of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
+
+Fedora
+------
+
+*Recommended dependencies:* CUDA (at least version 11.X)
+
+Dependencies from the default Fedora repositories::
+
+    sudo dnf install -y \
+        git \
+        cmake \
+        ninja-build \
+        gcc-c++ \
+        boost-devel \
+        eigen3-devel \
+        OpenImageIO-devel \
+        OpenImageIO-utils \
+        metis-devel \
+        glog-devel \
+        gtest-devel \
+        gmock-devel \
+        sqlite-devel \
+        glew-devel \
+        qt6-qtbase-devel \
+        qt6-qtsvg-devel \
+        CGAL-devel \
+        ceres-solver-devel \
+        suitesparse-devel \
+        suitesparse-static \
+        libcurl-devel \
+        openssl-devel \
+        openblas-devel
+    # suitesparse-static is required even for a dynamic build, because Fedora's
+    # SuiteSparse CMake config references the static targets file regardless of
+    # link type. This can be dropped once Fedora ships SuiteSparse >= 7.11.0 with
+    # its separated static config.
+
+Alternatively, you can also build against Qt 5 instead of Qt 6 using::
+
+    qt5-qtbase-devel qt5-qtsvg-devel
+
+To compile with **CUDA support**, install the CUDA toolkit from NVIDIA's official
+Fedora repository, which (unlike the plain ``cuda`` meta-package) preserves an
+existing NVIDIA driver. Replace ``<VERSION>`` with your Fedora release, e.g.
+``43``::
+
+    sudo dnf config-manager addrepo --from-repofile=https://developer.download.nvidia.com/compute/cuda/repos/fedora<VERSION>/x86_64/cuda-fedora<VERSION>.repo
+    sudo dnf install -y cuda-toolkit
+
+During CMake configuration, specify ``-DCMAKE_CUDA_ARCHITECTURES=native``, if you
+want to run COLMAP only on your current machine (default), "all"/"all-major" to be
+able to distribute to other machines, or a specific CUDA architecture like "89", etc.
+
+Configure and compile COLMAP::
+
+    git clone https://github.com/colmap/colmap.git
+    cd colmap
+    mkdir build
+    cd build
+    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=native
+    ninja
+    sudo ninja install
+
+Run COLMAP::
+
+    colmap -h
+    colmap gui
 
 Mac
 ---
@@ -405,9 +485,16 @@ Documentation
         make latexpdf
         open _build/pdf/COLMAP.pdf
 
-3. Clone the website repository `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__.
-4. Copy the contents of the generated files at ``_build/html`` to the cloned repository root.
-5. Create a pull request to the `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
-   repository with the updated files.
-6. (Optional, if main release) Copy the previous release as legacy to the "legacy" folder,
-   under a folder with the release number `see here <https://github.com/colmap/colmap.github.io/tree/master/legacy>`__.
+Publishing to the website (`colmap.github.io <https://colmap.github.io/>`__) is
+automated: whenever documentation-relevant files change on ``main``, the CI
+pipeline builds these docs and pushes the result to the ``master`` branch of the
+`colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
+repository. Pull requests that touch the docs build them too and upload the
+generated HTML as a downloadable ``docs-preview`` artifact for review, without
+publishing. The manual steps above are therefore only needed to preview the docs
+locally.
+
+For a main release, still copy the previous release as legacy to the "legacy"
+folder in the website repository, under a folder with the release number
+(`see here <https://github.com/colmap/colmap.github.io/tree/master/legacy>`__).
+The automated deploy preserves the existing ``legacy`` folder.

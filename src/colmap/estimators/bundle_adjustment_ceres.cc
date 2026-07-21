@@ -35,6 +35,7 @@
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -259,7 +260,7 @@ struct FixedGaugeWithThreePoints {
 };
 
 void FixGaugeWithThreePoints(
-    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    const FlatHashMap<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   FixedGaugeWithThreePoints fixed_gauge;
@@ -300,7 +301,7 @@ void FixGaugeWithTwoCamsFromWorld(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     const std::set<image_t>& image_ids,
-    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    const FlatHashMap<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   // No need to fix the Gauge if all frames are constant.
@@ -424,6 +425,13 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
       std::vector<int> const_camera_params;
       const_camera_params.reserve(camera.params.size());
 
+      {
+        // Metadata parameters (e.g. the (w, h) image dimensions of spherical
+        // models) are sensor properties and are never optimized.
+        const span<const size_t> params_idxs = camera.MetaDataParamsIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
       if (!options.refine_focal_length) {
         const span<const size_t> params_idxs = camera.FocalLengthIdxs();
         const_camera_params.insert(
@@ -440,7 +448,9 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
             const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
 
-      if (!const_camera_params.empty()) {
+      if (const_camera_params.size() == camera.params.size()) {
+        problem.SetParameterBlockConstant(camera.params.data());
+      } else if (!const_camera_params.empty()) {
         SetManifold(
             &problem,
             camera.params.data(),
@@ -455,9 +465,9 @@ void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
                                const std::set<image_t>& image_ids,
                                Reconstruction& reconstruction,
                                ceres::Problem& problem) {
-  std::unordered_set<rig_t> parameterized_rig_ids;
-  std::unordered_set<sensor_t> parameterized_sensor_ids;
-  std::unordered_set<frame_t> parameterized_frame_ids;
+  FlatHashSet<rig_t> parameterized_rig_ids;
+  FlatHashSet<sensor_t> parameterized_sensor_ids;
+  FlatHashSet<frame_t> parameterized_frame_ids;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
     parameterized_rig_ids.insert(image.FramePtr()->RigId());
@@ -528,7 +538,7 @@ void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
 void ParameterizePoints(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    const FlatHashMap<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
@@ -874,7 +884,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
   std::set<camera_t> parameterized_camera_ids_;
   std::set<image_t> parameterized_image_ids_;
-  std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+  FlatHashMap<point3D_t, size_t> point3D_num_observations_;
 };
 
 class PosePriorBundleAdjuster : public CeresBundleAdjuster {

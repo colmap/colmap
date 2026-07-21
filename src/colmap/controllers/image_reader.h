@@ -31,10 +31,9 @@
 
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/hash_containers.h"
 
 #include <filesystem>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace colmap {
@@ -127,10 +126,10 @@ class ImageReader {
   // Previously processed rig/camera.
   Rig prev_rig_;
   Camera prev_camera_;
-  std::unordered_map<std::string, camera_t> camera_model_to_id_;
+  NodeHashMap<std::string, camera_t> camera_model_to_id_;
   // Names of image sub-folders.
   std::string prev_image_folder_;
-  std::unordered_set<std::string> image_folders_;
+  FlatHashSet<std::string> image_folders_;
 };
 
 }  // namespace colmap

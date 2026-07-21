@@ -34,12 +34,11 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 
 #include <Eigen/Core>
 
@@ -59,7 +58,7 @@ class DatabaseCache {
     // Whether to use only load the data for a subset of the images. Notice
     // that if one image of a frame is included, all other images in the same
     // frame will also be included. All images are used if empty.
-    std::unordered_set<std::string> image_names;
+    FlatHashSet<std::string> image_names;
 
     // Whether to load all candidate images regardless of whether they have
     // correspondences. If false (default), only images that participate in at
@@ -108,10 +107,10 @@ class DatabaseCache {
   inline const class Image& Image(image_t image_id) const;
 
   // Get all objects.
-  inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
-  inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
-  inline const std::unordered_map<frame_t, class Frame>& Frames() const;
-  inline const std::unordered_map<image_t, class Image>& Images() const;
+  inline const NodeHashMap<rig_t, class Rig>& Rigs() const;
+  inline const NodeHashMap<camera_t, struct Camera>& Cameras() const;
+  inline const NodeHashMap<frame_t, class Frame>& Frames() const;
+  inline const NodeHashMap<image_t, class Image>& Images() const;
   inline const std::vector<struct PosePrior>& PosePriors() const;
 
   // Check whether specific object exists.
@@ -131,10 +130,10 @@ class DatabaseCache {
  private:
   void ConvertPosePriorsToENU();
 
-  std::unordered_map<rig_t, class Rig> rigs_;
-  std::unordered_map<camera_t, struct Camera> cameras_;
-  std::unordered_map<frame_t, class Frame> frames_;
-  std::unordered_map<image_t, class Image> images_;
+  NodeHashMap<rig_t, class Rig> rigs_;
+  NodeHashMap<camera_t, struct Camera> cameras_;
+  NodeHashMap<frame_t, class Frame> frames_;
+  NodeHashMap<image_t, class Image> images_;
   std::vector<struct PosePrior> pose_priors_;
   std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
 };
@@ -183,20 +182,19 @@ const class Image& DatabaseCache::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
-const std::unordered_map<rig_t, class Rig>& DatabaseCache::Rigs() const {
+const NodeHashMap<rig_t, class Rig>& DatabaseCache::Rigs() const {
   return rigs_;
 }
 
-const std::unordered_map<camera_t, struct Camera>& DatabaseCache::Cameras()
-    const {
+const NodeHashMap<camera_t, struct Camera>& DatabaseCache::Cameras() const {
   return cameras_;
 }
 
-const std::unordered_map<frame_t, class Frame>& DatabaseCache::Frames() const {
+const NodeHashMap<frame_t, class Frame>& DatabaseCache::Frames() const {
   return frames_;
 }
 
-const std::unordered_map<image_t, class Image>& DatabaseCache::Images() const {
+const NodeHashMap<image_t, class Image>& DatabaseCache::Images() const {
   return images_;
 }
 

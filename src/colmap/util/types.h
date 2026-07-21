@@ -31,6 +31,8 @@
 
 #include <functional>
 #include <iterator>
+#include <type_traits>
+#include <utility>
 
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
@@ -120,6 +122,16 @@ constexpr point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 // unique indices should be large.
 using point3D_t = uint64_t;
 constexpr point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
+
+// Timestamp in nanoseconds. Using int64_t rather than double avoids
+// floating-point precision loss when comparing or differencing large absolute
+// timestamps (e.g., Unix epoch in nanoseconds), and enables exact equality
+// checks for use as map keys.
+using timestamp_t = int64_t;
+// Sentinel for an unset/invalid timestamp. Chosen as INT64_MIN so that any
+// realistic timestamp (including negative ones) remains a valid value.
+constexpr timestamp_t kInvalidTimestamp =
+    std::numeric_limits<timestamp_t>::min();
 
 // Unique identifier for pose priors.
 using pose_prior_t = uint32_t;
@@ -239,6 +251,7 @@ class span {
   T const& operator[](size_t i) const noexcept { return ptr_[i]; }
 
   size_t size() const noexcept { return size_; }
+  bool empty() const noexcept { return size_ == 0; }
 
   T* begin() noexcept { return ptr_; }
   T* end() noexcept { return ptr_ + size_; }
@@ -338,35 +351,54 @@ struct filter_view {
 template <typename>
 struct always_false : std::false_type {};
 
+// Folds `value` into `seed`, following the classic boost::hash_combine spread.
+inline std::size_t HashCombine(std::size_t seed, std::size_t value) {
+  return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
+}
+
+// Hash functor for std::pair, e.g., for use with unordered containers keyed on
+// e.g., std::pair<point3D_t, point3D_t>. Provided as an explicit functor
+// (passed to the container) rather than a std::hash<std::pair<...>>
+// specialization, since specializing std::hash for the std-owned std::pair type
+// is a global ODR hazard: a downstream translation unit that implicitly
+// instantiates the primary template first would make the later explicit
+// specialization ill-formed.
+//
+// Packs both halves into disjoint bits when they fit in a size_t (collision-
+// free), else mixes them with HashCombine.
+struct PairHash {
+  template <typename T1, typename T2>
+  std::size_t operator()(const std::pair<T1, T2>& p) const {
+    // Pack into disjoint bits when possible (collision-free, unlike
+    // HashCombine); otherwise fall back to mixing.
+    if constexpr (std::is_integral_v<T1> && std::is_integral_v<T2> &&
+                  !std::is_same_v<T1, bool> && !std::is_same_v<T2, bool> &&
+                  sizeof(T1) + sizeof(T2) <= sizeof(std::size_t)) {
+      // Convert through the unsigned counterpart: the signed->unsigned cast
+      // is a bijection modulo 2^n, so negatives map losslessly into exactly
+      // their low 8*sizeof(T) bits. Both halves then occupy disjoint bit
+      // ranges, making the pack collision-free (unlike HashCombine).
+      return (static_cast<std::size_t>(
+                  static_cast<std::make_unsigned_t<T1>>(p.first))
+              << (8 * sizeof(T2))) |
+             static_cast<std::size_t>(
+                 static_cast<std::make_unsigned_t<T2>>(p.second));
+    } else {
+      return HashCombine(std::hash<T1>{}(p.first), std::hash<T2>{}(p.second));
+    }
+  }
+};
+
 }  // namespace colmap
 
 // This file provides specializations of the templated hash function for
 // custom types. These are used for comparison in unordered sets/maps.
 namespace std {
-// Hash function specialization for uint32_t pairs, e.g., image_t or camera_t.
-template <>
-struct hash<std::pair<uint32_t, uint32_t>> {
-  std::size_t operator()(const std::pair<uint32_t, uint32_t>& p) const {
-    const uint64_t s = (static_cast<uint64_t>(p.first) << 32) +
-                       static_cast<uint64_t>(p.second);
-    return std::hash<uint64_t>()(s);
-  }
-};
-
-// Hash function specialization for uint64_t pairs, e.g., point3D_t.
-template <>
-struct hash<std::pair<uint64_t, uint64_t>> {
-  std::size_t operator()(const std::pair<uint64_t, uint64_t>& p) const {
-    const std::size_t h1 = std::hash<uint64_t>{}(p.first);
-    const std::size_t h2 = std::hash<uint64_t>{}(p.second);
-    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
-  }
-};
 
 template <>
 struct hash<colmap::sensor_t> {
   std::size_t operator()(const colmap::sensor_t& s) const noexcept {
-    return std::hash<std::pair<uint32_t, uint32_t>>{}(
+    return colmap::PairHash{}(
         std::make_pair(static_cast<uint32_t>(s.type), s.id));
   }
 };
@@ -374,10 +406,8 @@ struct hash<colmap::sensor_t> {
 template <>
 struct hash<colmap::data_t> {
   std::size_t operator()(const colmap::data_t& d) const noexcept {
-    const size_t h1 =
-        std::hash<uint64_t>{}(std::hash<colmap::sensor_t>{}(d.sensor_id));
-    const size_t h2 = std::hash<uint64_t>{}(d.id);
-    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    return colmap::HashCombine(std::hash<colmap::sensor_t>{}(d.sensor_id),
+                               std::hash<uint64_t>{}(d.id));
   }
 };
 

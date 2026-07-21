@@ -64,6 +64,16 @@ OIIO::string_view OIIOFromStdStringView(std::string_view value) {
   return {value.data(), value.size()};
 }
 
+// Convert a filesystem path to a UTF-8 std::string. On Windows,
+// path.string() returns a locale-dependent narrow string, which mangles
+// non-ASCII characters before they reach OIIO. path.u8string() always yields
+// UTF-8 bytes, but its return type changes from std::string in C++17 to
+// std::u8string in C++20; the reinterpret_cast keeps this portable.
+std::string PathToUtf8(const std::filesystem::path& path) {
+  const auto u8 = path.u8string();
+  return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
 std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
                                        int width,
                                        int height,
@@ -457,7 +467,7 @@ bool Bitmap::Read(const std::filesystem::path& path,
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
-  const auto input = OIIO::ImageInput::open(path.string(), &config);
+  const auto input = OIIO::ImageInput::open(PathToUtf8(path), &config);
   if (!input) {
     // Always retrieve the error to clear OIIO's pending error state.
     const std::string error = OIIO::geterror();
@@ -512,7 +522,8 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
 bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
-  const auto output = OIIO::ImageOutput::create(path.string());
+  const std::string utf8_path = PathToUtf8(path);
+  const auto output = OIIO::ImageOutput::create(utf8_path);
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
               << ", error = " << OIIO::geterror() << "\n";
@@ -545,7 +556,7 @@ bool Bitmap::Write(const std::filesystem::path& path,
     }
   }
 
-  if (!output->open(path.string(), meta_data.image_spec)) {
+  if (!output->open(utf8_path, meta_data.image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
             << "\n";
     return false;
@@ -584,6 +595,20 @@ void Bitmap::Rescale(const int new_width,
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   meta_data->image_spec.width = new_width;
   meta_data->image_spec.height = new_height;
+}
+
+double Bitmap::Thumbnail(const int max_image_size, RescaleFilter filter) {
+  THROW_CHECK_GT(max_image_size, 0);
+  if (width_ <= max_image_size && height_ <= max_image_size) {
+    return 1.0;
+  }
+  // Fit the down-sampled version exactly into the max dimensions.
+  const double scale =
+      static_cast<double>(max_image_size) / std::max(width_, height_);
+  Rescale(static_cast<int>(std::round(width_ * scale)),
+          static_cast<int>(std::round(height_ * scale)),
+          filter);
+  return scale;
 }
 
 void Bitmap::Rot90(int k) {

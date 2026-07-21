@@ -103,20 +103,29 @@ class P4PFEstimator {
   struct M_t {
     // The transformation from the world to the camera frame.
     Eigen::Matrix3x4d cam_from_world;
-    // The focal length of the camera.
-    double focal_length = 0.;
+    // The focal lengths (fx, fy) of the camera. Equal when the focal length is
+    // shared (e.g. single-focal camera models).
+    Eigen::Vector2d focal_lengths = Eigen::Vector2d::Zero();
   };
 
   static const int kMinNumSamples = 4;
 
-  static void Estimate(const std::vector<X_t>& points2D,
-                       const std::vector<Y_t>& points3D,
-                       std::vector<M_t>* models);
+  // If share_focal_length is true, a single shared focal length is estimated
+  // (suitable for single-focal camera models, e.g. SIMPLE_PINHOLE). Otherwise,
+  // separate focal lengths for x and y are estimated (e.g. PINHOLE, OPENCV).
+  explicit P4PFEstimator(bool share_focal_length = true);
+
+  void Estimate(const std::vector<X_t>& points2D,
+                const std::vector<Y_t>& points3D,
+                std::vector<M_t>* models) const;
 
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
                         const M_t& model,
                         std::vector<double>* residuals);
+
+ private:
+  const bool share_focal_length_;
 };
 
 // EPNP solver for the PNP (Perspective-N-Point) problem. The solver needs a

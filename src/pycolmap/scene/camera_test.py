@@ -141,6 +141,16 @@ def test_camera_extra_params_idxs(simple_camera):
     assert isinstance(idxs, list)
 
 
+def test_camera_metadata_params_idxs(simple_camera):
+    # Perspective models have no metadata parameters.
+    assert simple_camera.metadata_params_idxs() == []
+    # Spherical models carry their (w, h) image dimensions as metadata.
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.metadata_params_idxs() == [0, 1]
+
+
 def test_camera_calibration_matrix(simple_camera):
     matrix = simple_camera.calibration_matrix()
     assert matrix.shape == (3, 3)
@@ -156,6 +166,22 @@ def test_camera_cam_from_img_matrix(simple_camera):
     points = np.array([[512.0, 384.0], [100.0, 200.0]])
     result = simple_camera.cam_from_img(points)
     assert len(result) == 2
+
+
+def test_camera_cam_ray_from_img_point2d(simple_camera):
+    point2d = np.array([512.0, 384.0])
+    result = simple_camera.cam_ray_from_img(point2d)
+    assert result is not None
+    assert result.shape == (3,)
+    assert np.isclose(np.linalg.norm(result), 1.0)
+
+
+def test_camera_cam_ray_from_img_matrix(simple_camera):
+    points = np.array([[512.0, 384.0], [100.0, 200.0]])
+    result = simple_camera.cam_ray_from_img(points)
+    assert len(result) == 2
+    for ray in result:
+        assert np.isclose(np.linalg.norm(ray), 1.0)
 
 
 def test_camera_img_from_cam_point3d(simple_camera):
@@ -182,6 +208,36 @@ def test_camera_verify_params(simple_camera):
 def test_camera_is_undistorted(simple_camera):
     result = simple_camera.is_undistorted()
     assert isinstance(result, bool)
+
+
+def test_camera_is_perspective(simple_camera):
+    assert simple_camera.is_perspective() is True
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.is_perspective() is False
+
+
+def test_camera_is_spherical(simple_camera):
+    assert simple_camera.is_spherical() is False
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        3, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.is_spherical() is True
+
+
+def test_camera_is_perspective_pinhole(simple_camera):
+    assert simple_camera.is_perspective_pinhole() is True
+    fisheye_camera = pycolmap.Camera.create_from_model_name(
+        3, "OPENCV_FISHEYE", 1.0, 1024, 512
+    )
+    assert fisheye_camera.is_perspective() is True
+    assert fisheye_camera.is_perspective_fisheye() is True
+    assert fisheye_camera.is_perspective_pinhole() is False
+    spherical_camera = pycolmap.Camera.create_from_model_name(
+        4, "EQUIRECTANGULAR", 0.0, 1024, 512
+    )
+    assert spherical_camera.is_perspective_pinhole() is False
 
 
 def test_camera_has_bogus_params(simple_camera):

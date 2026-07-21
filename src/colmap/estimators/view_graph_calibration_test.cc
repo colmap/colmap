@@ -35,6 +35,7 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 
@@ -59,7 +60,7 @@ TEST(CalibrateViewGraph, Nominal) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   // Store ground truth focal lengths.
-  std::unordered_map<camera_t, double> gt_focals;
+  NodeHashMap<camera_t, double> gt_focals;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     gt_focals[camera_id] = camera.MeanFocalLength();
   }
@@ -114,7 +115,7 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   // Store original focal lengths (which have priors).
-  std::unordered_map<camera_t, double> original_focals;
+  NodeHashMap<camera_t, double> original_focals;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     original_focals[camera_id] = camera.MeanFocalLength();
   }
@@ -148,7 +149,7 @@ TEST(CalibrateViewGraph, ConfigTagging) {
   SynthesizeDataset(options, &reconstruction, database.get());
 
   // Add large noise to F matrices for 3 pairs to ensure they become degenerate.
-  std::unordered_set<image_pair_t> perturbed_pairs;
+  FlatHashSet<image_pair_t> perturbed_pairs;
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     if (perturbed_pairs.size() >= 3) break;
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -193,7 +194,7 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
   // Store ground truth relative poses and perturb them in the database.
   // The perturbation must exceed test thresholds (0.1 rad rotation, 0.1
   // normalized translation error) to ensure re-estimation actually runs.
-  std::unordered_map<image_pair_t, Rigid3d> gt_poses;
+  NodeHashMap<image_pair_t, Rigid3d> gt_poses;
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
@@ -237,6 +238,94 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
                                      gt_pose.translation().normalized());
     EXPECT_THAT(*tvg.cam2_from_cam1,
                 Rigid3dNear(gt_pose_normalized, 0.01, 0.01));
+  }
+}
+
+TEST(CalibrateViewGraph, SphericalCamerasAreIgnored) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  // Spherical (omnidirectional) cameras have no focal length and produce
+  // CALIBRATED two-view geometries without a fundamental matrix. View graph
+  // calibration must skip them gracefully instead of trying to optimize a
+  // (non-existent) focal length.
+  SyntheticDatasetOptions options;
+  options.num_rigs = 10;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 200;
+  options.camera_model_id = EquirectangularCameraModel::model_id;
+  options.camera_width = 1000;
+  options.camera_height = 500;
+  options.camera_params = {1000, 500};
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  // Store original camera parameters to verify they remain untouched.
+  NodeHashMap<camera_t, std::vector<double>> original_params;
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    original_params[camera_id] = camera.params;
+  }
+
+  ViewGraphCalibrationOptions calib_options;
+  calib_options.reestimate_relative_pose = false;
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+
+  // Spherical camera parameters must be left unchanged.
+  for (const auto& [camera_id, params] : original_params) {
+    const Camera camera = database->ReadCamera(camera_id);
+    EXPECT_TRUE(camera.IsSpherical());
+    EXPECT_EQ(camera.params, params);
+  }
+
+  // Spherical pairs stay CALIBRATED with valid E matrices and no F matrix.
+  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+    EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
+    EXPECT_TRUE(tvg.E.has_value());
+    EXPECT_FALSE(tvg.F.has_value());
+  }
+}
+
+TEST(CalibrateViewGraph, FisheyeCamerasAreIgnored) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  // A fisheye camera projects angularly, so its focal length cannot be
+  // recovered from a fundamental matrix. View graph calibration must skip it
+  // entirely, leaving both its parameters and its focal length prior flag
+  // untouched, rather than reporting a focal length it never optimized.
+  SyntheticDatasetOptions options;
+  options.num_rigs = 10;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 200;
+  options.camera_model_id = OpenCVFisheyeCameraModel::model_id;
+  options.camera_params = {1280, 1280, 512, 384, 0, 0, 0, 0};
+  options.camera_has_prior_focal_length = false;
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  // Store original camera parameters to verify they remain untouched.
+  NodeHashMap<camera_t, std::vector<double>> original_params;
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    original_params[camera_id] = camera.params;
+  }
+
+  ViewGraphCalibrationOptions calib_options;
+  calib_options.reestimate_relative_pose = false;
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+
+  for (const auto& [camera_id, params] : original_params) {
+    const Camera camera = database->ReadCamera(camera_id);
+    ASSERT_TRUE(camera.IsPerspectiveFisheye());
+    EXPECT_EQ(camera.params, params);
+    // Never calibrated, so it must not be marked as having a prior focal
+    // length, which would make downstream stages trust an unestimated value.
+    EXPECT_FALSE(camera.has_prior_focal_length);
   }
 }
 

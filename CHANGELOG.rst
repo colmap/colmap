@@ -2,6 +2,137 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.1.1 (07/17/2026)
+-------------------------
+
+Improvements
+------------
+* Load the mapper database lazily instead of at GUI startup, avoiding a
+  redundant database read when opening the GUI or a project.
+* Tint UI icons to the palette for improved dark theme legibility.
+* Show image/point viewer metadata when the source images are missing on disk.
+* Fail the Caspar build early with a clear error on CUDA architectures below 7.0.
+
+Bug Fixes
+---------
+* Fix feature matching slowdown (~4-6x) caused by a process-global OpenMP
+  critical section in ``RANSAC``/``LORANSAC``.
+* Fix rescaling of already-undistorted images when ``max_image_size`` is
+  provided.
+* Fix missing SVG icons in the distributed Windows binaries.
+* Fix Caspar CUDA build with MSVC forced includes.
+* Fix glog color support version detection.
+* Fix typos in a user-facing help string and the FAQ.
+
+Breaking Changes
+----------------
+* Renamed the misspelled pycolmap enum ``GPSTransfromEllipsoid`` to
+  ``GPSTransformEllipsoid``. The old name has been removed without a
+  backwards-compatible alias; update any references accordingly.
+
+-------------------------
+COLMAP 4.1.0 (06/26/2026)
+-------------------------
+
+New Features
+------------
+* Added Caspar, a GPU-accelerated bundle adjustment backend, selectable as an
+  alternative to the default Ceres solver. Includes rig support, GPU device
+  selection, and pycolmap bindings for choosing the bundle adjustment and mapper
+  backends. Caspar is often 1-2 orders of magnitude faster than the Ceres CUDA
+  backend for medium- to large-scale problems, leading to drastic speedups
+  especially for the incremental mapper.
+* Added the spherical (equirectangular) camera models. This enables native
+  reconstruction of 360 panoramic images and is generally faster but less
+  accurate than rendering perspective views, as performed in the
+  ``panorama_sfm`` example.
+* Extended the ``panorama_sfm`` example to now convert perspective cameras
+  back to equirectangular and added global mapping support.
+* Added Enhanced Unified Camera Model (EUCM).
+* Added advancing-front surface reconstruction meshing.
+* Added support for extracting gravity pose priors from EXIF orientation tags.
+* Added ``CamRayFromImg`` bearing-vector unprojection interface and bindings.
+* Estimate separate ``fx``/``fy`` in the p4pf solver for two-focal camera models.
+* Added a new ``version`` CLI command to print the COLMAP version.
+* Added ``MVS_ENABLED`` build option to compile without the MVS module.
+* Added ``GlobalMapper.keep_max_num_tracks`` option to bound the number of
+  established tracks.
+* Added rotation averaging options to the GlobalMapper configuration.
+* Added pycolmap bindings for ``ReprojectionErrorType`` and
+  additional point filter methods.
+* Added support for showing camera up vector in the viewer.
+* Replaced the GUI icons with Material Symbols (Apache 2.0).
+* Added keyboard shortcuts for model import/export in the GUI.
+
+Improvements
+------------
+* Accelerated the exhaustive matcher by using ``IndexIVFScalarQuantizer``
+  instead of ``IndexIVFFlat``.
+* Accelerated extraction of colors through parallelization across all images.
+* Accelerated incremental triangulator through reused BFS allocations and
+  simplified ``merge_trials_``.
+* Added and updated sensor specs to the camera database.
+* Avoided a forced copy in ``mvs::Image::SetBitmap``.
+* Support incremental ``CorrespondenceGraph`` and ``ObservationManager``
+  construction, decoupling ``reg_stats`` from ``ObservationManager``.
+* Return ``std::optional`` from ``Bitmap::GetPixel``/``Interpolate*``.
+* Refit missing E/F/H in ``MaybeDecomposeRelativePoses`` for old databases.
+* Inherit all bundle adjustment options in the global mapper.
+* Guard against frame mutation after reconstruction insertion via
+  ``FinalizeDataIds()``.
+* Move semantics for ``SetPoints2D`` (take ``Point2D`` vector by value).
+* Conditional initialization of Google logging.
+* Numerous benchmarking improvements: live progress display, ``--fast`` mode,
+  better parallelism and per-step logging, per-dataset/overall summary rows,
+  GT-covisibility-based filtering, and dynamic scheduling.
+* Added compiler warning flags and a ``WERROR`` option to the pycolmap build.
+* Robustified gravity-aligned rotation averaging against 180deg flips.
+* Clipping extreme pixels in fisheye undistortion.
+* Various tutorial and docstring improvements.
+* For other minor improvements, see the full list of changes below.
+
+Bug Fixes
+---------
+* Fix sequential matching hang with loop detection verification.
+* Fix SiftGPU device selection to include device 0.
+* Fix vocab tree selection in the UI.
+* Fix broken integration of SIFT features with the LightGlue matcher.
+* Fix ``global_mapper`` ``point3D.error`` units for ``model_analyzer``.
+* Fix ``PoissonRecon`` ``num_threads`` handling and undefined behavior.
+* Fix ``pycolmap.Database()`` abort on garbage collection.
+* Fix Windows Unicode path handling in ``Bitmap::Read``/``Bitmap::Write``.
+* Fix NaN failures in rotation averaging from non-PD Cholesky.
+* Fix rotation averaging crash with multi-image rigs.
+* Fix missing rig pose manifold in ``RefineGeneralizedAbsolutePose`` and only
+  set the manifold when residuals exist.
+* Fix applying ``refine_sensor_from_rig`` to all stages of the global mapper.
+* Fix ``mesh_texturer`` occlusion check edge case.
+* Fix SIGABRT in ``RegisterNextStructureLessImage`` when ``NumRegImages < 2``.
+* Fix thread pool worker processes crashing on shutdown.
+* Fix onnxruntime DLL copy error in ``Findonnxruntime.cmake``.
+* Change ``std::filesystem::relative`` to ``lexically_relative`` for
+  ``NormalizePath``.
+* Fix crash in ``AdjustGlobalBundle`` after aggressive frame filtering.
+* Fix stale ``reg_stats``/observation stats and add underflow guards in mapper
+  bookkeeping, and clear ``num_reg_images``.
+* Fix empty PatchMatch results on Blackwell GPUs (sm_100+).
+* Fix locale-dependent float parsing/formatting.
+* Fix thread oversubscription in the hierarchical mapper.
+* Fix mask usage log never printing in the feature writer thread.
+* Fix ``pyceres`` ``.problem`` attribute on ``CeresBundleAdjuster`` factory.
+* Fix conditional Eigen alignment for the 3.4.0 pre-release version.
+* Fix optional access in guided matching.
+* Fix reading of dynamic matrices in the SQLite database.
+* Fix using the ALIKED feature extractor with pycolmap and ALIKED ``min_score``
+  keypoint filtering.
+* Fix various pycolmap and PoissonRecon installation/build issues.
+* Fix missing mesh simplification reset and duplicate sources.
+* Add destructor to ``ModelViewerWidget`` to call ``makeCurrent()``.
+* Fix checks in the ``GpuMat`` constructor.
+* Add missing LightGlue matcher type to the GUI.
+* Log an error instead of crashing on unknown EXIF orientation.
+
+-------------------------
 COLMAP 4.0.4 (04/27/2026)
 -------------------------
 
