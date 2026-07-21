@@ -33,7 +33,7 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
   container.innerHTML = `
     <section class="colmap-viewer" aria-label="COLMAP sparse reconstruction viewer">
       <header class="viewer-toolbar">
-        <div class="viewer-brand"><strong data-viewer="title">3D Viewer</strong><span class="viewer-stats" data-viewer="stats">No model loaded</span></div>
+        <div class="viewer-brand"><strong data-viewer="title">COLMAP - 3D Web Viewer</strong><span class="viewer-stats" data-viewer="stats" hidden></span></div>
         <div class="viewer-actions">
           <button type="button" data-viewer="open">Open folder</button>
           <select data-viewer="model" aria-label="Sparse model" hidden></select>
@@ -68,7 +68,7 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
       <input data-viewer="folder-input" type="file" multiple hidden>
     </section>`;
 
-  viewerElement<HTMLElement>(container, "title").textContent = options.title ?? "3D Viewer";
+  viewerElement<HTMLElement>(container, "title").textContent = options.title ?? "COLMAP - 3D Web Viewer";
   const canvas = viewerElement<HTMLCanvasElement>(container, "canvas");
   let viewer: ReconstructionViewer;
   try {
@@ -120,7 +120,8 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
     reconstruction = null;
     currentSelection = null;
     viewer.clearReconstruction();
-    stats.textContent = "No model loaded";
+    stats.textContent = "";
+    stats.hidden = true;
     for (const button of container.querySelectorAll<HTMLButtonElement>('[data-viewer="reset"], [data-viewer="clear"]')) button.disabled = true;
     inspector.innerHTML = `<div class="viewer-inspector-empty"><h2>Inspector</h2><p>Double-click a point or camera to inspect it.</p></div>`;
   };
@@ -132,6 +133,7 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
     drop.hidden = true;
     setStatus(null);
     stats.textContent = `${parsed.images.size.toLocaleString()} cameras / ${viewer.visiblePointCount.toLocaleString()} visible points`;
+    stats.hidden = false;
     for (const button of container.querySelectorAll<HTMLButtonElement>('[data-viewer="reset"], [data-viewer="clear"]')) button.disabled = false;
     currentSelection = null;
     inspector.innerHTML = `<div class="viewer-inspector-empty"><h2>Model loaded</h2><p>Double-click a point or camera to inspect it.</p><dl><dt>Format</dt><dd>${parsed.modernRigFormat ? "Binary with rigs" : "Legacy binary"}</dd><dt>Images</dt><dd>${parsed.images.size.toLocaleString()}</dd><dt>Points</dt><dd>${parsed.points3D.size.toLocaleString()}</dd></dl></div>`;

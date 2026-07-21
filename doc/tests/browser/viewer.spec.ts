@@ -7,7 +7,8 @@ test("initializes the local-only viewer shell", async ({page}) => {
   await expect(page.getByRole("heading", {name: "Open a COLMAP reconstruction"})).toBeVisible();
   await expect(page.getByRole("button", {name: "Choose folder"})).toBeVisible();
   await expect(page.locator('[data-viewer="canvas"]')).toBeAttached();
-  await expect(page.locator('[data-viewer="stats"]')).toHaveText("No model loaded");
+  await expect(page.locator('[data-viewer="title"]')).toHaveText("COLMAP - 3D Web Viewer");
+  await expect(page.locator('[data-viewer="stats"]')).toBeHidden();
 
   const files = await Promise.all([cameraFile(), imageFile(), pointFile()].map(async (file) => ({
     name: file.name,
@@ -24,7 +25,7 @@ test("initializes the local-only viewer shell", async ({page}) => {
 
   const malformedFiles = files.map((file) => file.name === "cameras.bin" ? {...file, buffer: Buffer.from([1])} : file);
   await input.setInputFiles(malformedFiles);
-  await expect(page.locator('[data-viewer="stats"]')).toHaveText("No model loaded");
+  await expect(page.locator('[data-viewer="stats"]')).toBeHidden();
   await expect(page.getByRole("heading", {name: "Open a COLMAP reconstruction"})).toBeVisible();
   await expect(page.locator('[data-viewer="status"]')).toContainText("Failed to parse model");
   await expect(page.locator('[data-viewer="reset"]')).toBeDisabled();
