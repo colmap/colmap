@@ -340,14 +340,14 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"   vec3 hxloc1 = H* loc1;\n"
 			"   vec2 diff = loc2.xy- (hxloc1.xy/hxloc1.z);\n"
 			"   float disth = diff.x * diff.x + diff.y * diff.y;\n"
-			"   if(disth > size.z ) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+			"   if(size.z >= 0.0 && disth > size.z) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
 
 			//check the guiding fundamental
 			"   vec3 fx1 = (F * loc1), ftx2 = (loc2 * F);\n"
 			"   float x2tfx1 = dot(loc2, fx1);\n"
 			"   vec4 temp = vec4(fx1.xy, ftx2.xy); \n"
 			"   float sampson_error = (x2tfx1 * x2tfx1) / dot(temp, temp);\n"
-			"   if(sampson_error > size.w) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+			"   if(size.w >= 0.0 && sampson_error > size.w) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
 
 			//compare feature descriptor
 			"   vec2 tx = (index_h + stripe_index * SIFT_PER_STRIPE)* vec2(PIXEL_PER_SIFT) + 0.5;\n"
@@ -538,10 +538,11 @@ int  SiftMatchGL::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], 
 
 
 	//set parameters glsl
-	// Disabled models get an infinite threshold, which the shader treats as
-	// "skip" without relying on the residual being finite.
-	if(!use_h) hdistmax = FLT_MAX;
-	if(!use_f) fdistmax = FLT_MAX;
+	// A negative threshold disables the model (the shader guards with size >= 0),
+	// matching the CUDA use_h/use_f short-circuit instead of an inf sentinel that
+	// would spuriously reject on an inf/NaN residual.
+	if(!use_h) hdistmax = -1.0f;
+	if(!use_f) fdistmax = -1.0f;
 	float dot_param[4] = {(float)_texDes[0].GetDrawHeight(), (float) _texDes[1].GetDrawHeight(), hdistmax, fdistmax};
 	glUniform1i(_param_guided_mult_tex1, 0);
 	glUniform1i(_param_guided_mult_tex2, 1);

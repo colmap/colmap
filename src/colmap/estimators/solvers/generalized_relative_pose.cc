@@ -86,8 +86,12 @@ void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
     const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
                                    Inverse(points1[i].cam_from_rig);
     const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
-    (*residuals)[i] = ComputeSquaredTangentSampsonError(
-        points1[i].ray_with_jac(), points2[i].ray_with_jac(), E);
+    (*residuals)[i] =
+        ComputeSquaredTangentSampsonError(points1[i].ray_in_cam,
+                                          points1[i].ray_jacobian_in_cam,
+                                          points2[i].ray_in_cam,
+                                          points2[i].ray_jacobian_in_cam,
+                                          E);
   }
 }
 
