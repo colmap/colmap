@@ -89,6 +89,8 @@ GlobalPipeline::GlobalPipeline(
   if (options_.decompose_relative_pose) {
     MaybeDecomposeRelativePoses(database_cache_.get());
   }
+
+  RegisterCallback(MODEL_UPDATE_CALLBACK);
 }
 
 std::shared_ptr<Reconstruction> GlobalPipeline::RunSingleReconstruction(
@@ -101,9 +103,22 @@ std::shared_ptr<Reconstruction> GlobalPipeline::RunSingleReconstruction(
 
   Timer run_timer;
   run_timer.Start();
-  global_mapper.Solve(mapper_options);
+  const bool success = global_mapper.Solve(mapper_options, [this]() {
+    Callback(MODEL_UPDATE_CALLBACK);
+    return CheckIfStopped();
+  });
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
+
+  // Note that a stop requested through the callback is reported as success, so
+  // this only discards genuinely failed runs. The reconstruction is dropped
+  // rather than written out, because the poses left behind by the stages that
+  // did complete are not trustworthy either: the structure was filtered away
+  // precisely because it disagreed with those poses.
+  if (!success) {
+    LOG(ERROR) << "Global mapping failed";
+    return nullptr;
+  }
 
   // Align reconstruction to the original metric scales in rig extrinsics.
   AlignReconstructionToOrigRigScales(database_cache->Rigs(),
@@ -134,18 +149,21 @@ void GlobalPipeline::Run() {
   }
 
   // Sort reconstructions by the number of registered frames (descending) and
-  // discard those that are too small.
+  // discard those that failed (null) or are too small. Null entries sort last.
   std::sort(reconstructions.begin(),
             reconstructions.end(),
             [](const std::shared_ptr<Reconstruction>& lhs,
                const std::shared_ptr<Reconstruction>& rhs) {
-              return lhs->NumRegFrames() > rhs->NumRegFrames();
+              const size_t lhs_num = lhs ? lhs->NumRegFrames() : 0;
+              const size_t rhs_num = rhs ? rhs->NumRegFrames() : 0;
+              return lhs_num > rhs_num;
             });
 
   size_t num_discarded = 0;
   for (const auto& reconstruction : reconstructions) {
-    if (static_cast<int>(reconstruction->NumRegFrames()) <
-        options_.min_num_frames) {
+    if (reconstruction == nullptr ||
+        static_cast<int>(reconstruction->NumRegFrames()) <
+            options_.min_num_frames) {
       ++num_discarded;
       continue;
     }
@@ -206,7 +224,7 @@ void GlobalPipeline::RunMultiComponents(
   for (size_t i = 0; i < component_manager.Size(); ++i) {
     const auto component = component_manager.Get(i);
 
-    std::unordered_set<std::string> image_names;
+    FlatHashSet<std::string> image_names;
     for (const image_t image_id : component->RegImageIds()) {
       image_names.insert(component->Image(image_id).Name());
     }

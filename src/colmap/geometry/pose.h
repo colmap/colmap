@@ -143,17 +143,22 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
                                const Rigid3d& cam2_from_world,
                                double t);
 
-// Perform cheirality constraint test, i.e., determine which of the triangulated
-// correspondences lie in front of both cameras.
+// Perform cheirality constraint test, i.e., determine which corresponding rays
+// triangulate to a point in front of both cameras.
+//
+// NOTE: The closed-form depth test assumes both rays are unit-normalized;
+// passing rays of arbitrary scale yields incorrect cheirality results.
 //
 // @param cam2_from_cam1  Relative camera transformation.
-// @param cam_rays1       First set of corresponding rays.
-// @param cam_rays2       Second set of corresponding rays.
-// @param points3D        Points that lie in front of both cameras.
+// @param cam_rays1       First set of corresponding rays (must be unit-norm).
+// @param cam_rays2       Second set of corresponding rays (must be unit-norm).
+// @param valid_indices   Indices of correspondences in front of both cameras.
+//
+// @return                Whether any correspondence lies in front of both.
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
-                     std::vector<Eigen::Vector3d>* points3D);
+                     std::vector<int>* valid_indices);
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
                              const Rigid3d& cam_from_world);

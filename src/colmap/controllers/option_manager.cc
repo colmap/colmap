@@ -30,6 +30,7 @@
 #include "colmap/controllers/option_manager.h"
 
 #include "colmap/controllers/global_pipeline.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/pairing.h"
@@ -75,6 +76,7 @@ OptionManager::OptionManager(bool add_project_options)
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
+  hierarchical_mapper = std::make_shared<HierarchicalPipelineOptions>();
   gravity_refiner = std::make_shared<GravityRefinerOptions>();
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
@@ -124,8 +126,10 @@ void OptionManager::ModifyForLowQuality() {
   sequential_pairing->loop_detection_num_images /= 2;
   vocab_tree_pairing->max_num_features = 256;
   vocab_tree_pairing->num_images /= 2;
-  mapper->ba_local_max_num_iterations /= 2;
-  mapper->ba_global_max_num_iterations /= 2;
+  mapper->ba_local_max_num_iterations =
+      mapper->EffBaLocalMaxNumIterations() / 2;
+  mapper->ba_global_max_num_iterations =
+      mapper->EffBaGlobalMaxNumIterations() / 2;
   mapper->ba_global_frames_ratio *= 1.2;
   mapper->ba_global_points_ratio *= 1.2;
   mapper->ba_global_max_refinements = 2;
@@ -148,8 +152,10 @@ void OptionManager::ModifyForMediumQuality() {
   sequential_pairing->loop_detection_num_images /= 1.5;
   vocab_tree_pairing->max_num_features = 1024;
   vocab_tree_pairing->num_images /= 1.5;
-  mapper->ba_local_max_num_iterations /= 1.5;
-  mapper->ba_global_max_num_iterations /= 1.5;
+  mapper->ba_local_max_num_iterations =
+      static_cast<int>(mapper->EffBaLocalMaxNumIterations() / 1.5);
+  mapper->ba_global_max_num_iterations =
+      static_cast<int>(mapper->EffBaGlobalMaxNumIterations() / 1.5);
   mapper->ba_global_frames_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;
@@ -848,6 +854,10 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_max_rotation_error_deg",
       &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
+  AddDefaultEnumOption("GlobalMapper.ra_reweighting",
+                       &global_mapper->mapper.rotation_averaging.reweighting,
+                       RotationAveragingReweightingToString,
+                       RotationAveragingReweightingFromString);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
@@ -856,6 +866,34 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.max_normalized_reproj_error);
   AddDefaultOption("GlobalMapper.min_tri_angle_deg",
                    &global_mapper->mapper.min_tri_angle_deg);
+}
+
+void OptionManager::AddHierarchicalMapperOptions() {
+  if (added_hierarchical_mapper_options_) {
+    return;
+  }
+  added_hierarchical_mapper_options_ = true;
+
+  // The per-cluster reconstruction is configured through the incremental mapper
+  // options (Mapper.*), so only the hierarchical-specific options are added
+  // here. The incremental_options member is populated from `mapper` by callers.
+  AddDefaultOption("HierarchicalMapper.init_num_trials",
+                   &hierarchical_mapper->init_num_trials);
+  AddDefaultOption("HierarchicalMapper.num_threads",
+                   &hierarchical_mapper->num_threads);
+  AddDefaultOption("HierarchicalMapper.num_workers",
+                   &hierarchical_mapper->num_workers);
+  AddDefaultOption("HierarchicalMapper.is_hierarchical",
+                   &hierarchical_mapper->clustering_options.is_hierarchical);
+  AddDefaultOption("HierarchicalMapper.branching",
+                   &hierarchical_mapper->clustering_options.branching);
+  AddDefaultOption("HierarchicalMapper.image_overlap",
+                   &hierarchical_mapper->clustering_options.image_overlap);
+  AddDefaultOption("HierarchicalMapper.num_image_matches",
+                   &hierarchical_mapper->clustering_options.num_image_matches);
+  AddDefaultOption(
+      "HierarchicalMapper.leaf_max_num_images",
+      &hierarchical_mapper->clustering_options.leaf_max_num_images);
 }
 
 void OptionManager::AddGravityRefinerOptions() {
@@ -1136,6 +1174,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
+  *hierarchical_mapper = HierarchicalPipelineOptions();
   *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
 #if defined(COLMAP_MVS_ENABLED)

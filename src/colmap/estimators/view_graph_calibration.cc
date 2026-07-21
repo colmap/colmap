@@ -33,11 +33,11 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
 #include <mutex>
-#include <unordered_set>
 
 namespace colmap {
 namespace {
@@ -56,9 +56,9 @@ struct FocalLengthCalibInput {
 // Result of focal length calibration.
 struct FocalLengthCalibResult {
   // Optimized focal lengths per camera.
-  std::unordered_map<camera_t, double> focal_lengths;
+  NodeHashMap<camera_t, double> focal_lengths;
   // Squared calibration error per image pair (unitless, relative error).
-  std::unordered_map<image_pair_t, double> calibration_errors_sq;
+  NodeHashMap<image_pair_t, double> calibration_errors_sq;
   // Whether the calibration succeeded.
   bool success = false;
 };
@@ -68,11 +68,11 @@ struct FocalLengthCalibResult {
 // CALIBRATED if both cameras have reliable priors.
 void CrossValidatePriorFocalLengths(
     double min_calibrated_pair_ratio,
-    const std::unordered_map<image_t, const Camera*>& image_id_to_camera,
+    const NodeHashMap<image_t, const Camera*>& image_id_to_camera,
     std::vector<std::pair<image_pair_t, TwoViewGeometry>>& pairs) {
   // For each camera, count the number of calibrated vs uncalibrated pairs.
   // first: total count, second: calibrated count.
-  std::unordered_map<camera_t, std::pair<int, int>> camera_counter;
+  NodeHashMap<camera_t, std::pair<int, int>> camera_counter;
   for (const auto& [pair_id, tvg] : pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
@@ -92,7 +92,7 @@ void CrossValidatePriorFocalLengths(
   }
 
   // Camera is valid if the ratio of calibrated pairs exceeds threshold.
-  std::unordered_map<camera_t, bool> camera_validity;
+  NodeHashMap<camera_t, bool> camera_validity;
   camera_validity.reserve(camera_counter.size());
   for (const auto& [camera_id, counter] : camera_counter) {
     const auto [total, calibrated] = counter;
@@ -112,7 +112,10 @@ void CrossValidatePriorFocalLengths(
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
 
-    if (camera_validity[camera1.camera_id] &&
+    // Computing E from F assumes a pinhole projection for both cameras. See
+    // CalibrateFocalLengths for why fisheye models are excluded.
+    if (camera1.IsPerspectivePinhole() && camera2.IsPerspectivePinhole() &&
+        camera_validity[camera1.camera_id] &&
         camera_validity[camera2.camera_id]) {
       THROW_CHECK(tvg.F.has_value())
           << "UNCALIBRATED two-view geometry must have F matrix";
@@ -120,6 +123,11 @@ void CrossValidatePriorFocalLengths(
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
+      // E is now built from the K of the cross-validated focal priors, and
+      // consumers calibrate the rays with camera1/camera2 whenever set. Clear
+      // them so the rays use the same K as E, not the solver's own focal.
+      tvg.camera1.reset();
+      tvg.camera2.reset();
       ++num_upgraded_pairs;
     }
   }
@@ -132,7 +140,7 @@ void CrossValidatePriorFocalLengths(
 void ReestimateRelativePoses(
     const ViewGraphCalibrationOptions& options,
     std::vector<std::pair<image_pair_t, TwoViewGeometry>>& pairs,
-    const std::unordered_map<image_t, const Camera*>& image_id_to_camera,
+    const NodeHashMap<image_t, const Camera*>& image_id_to_camera,
     Database* database) {
   LOG(INFO) << "Re-estimating relative poses for " << pairs.size() << " pairs";
 
@@ -144,7 +152,7 @@ void ReestimateRelativePoses(
   two_view_options.ransac_options.random_seed = options.random_seed;
 
   // Pre-read all keypoints from database.
-  std::unordered_set<image_t> image_ids;
+  FlatHashSet<image_t> image_ids;
   image_ids.reserve(2 * pairs.size());
   for (const auto& [pair_id, tvg] : pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -152,7 +160,7 @@ void ReestimateRelativePoses(
     image_ids.insert(image_id2);
   }
 
-  std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_points;
+  NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_points;
   image_points.reserve(image_ids.size());
   for (const image_t image_id : image_ids) {
     const FeatureKeypoints keypoints = database->ReadKeypoints(image_id);
@@ -198,7 +206,7 @@ void ReestimateRelativePoses(
 FocalLengthCalibResult CalibrateFocalLengths(
     const ViewGraphCalibrationOptions& options,
     const std::vector<FocalLengthCalibInput>& inputs,
-    const std::unordered_map<camera_t, Camera>& cameras) {
+    const NodeHashMap<camera_t, Camera>& cameras) {
   FocalLengthCalibResult result;
 
   if (inputs.empty()) {
@@ -206,15 +214,17 @@ FocalLengthCalibResult CalibrateFocalLengths(
     return result;
   }
 
-  // Initialize focal lengths from all perspective cameras.
+  // Initialize focal lengths from all perspective pinhole cameras. Only these
+  // are calibrated below, and every camera seeded here is reported back to the
+  // caller, which marks it as having a prior focal length.
   struct FocalLengthState {
     double optimized = 0.0;
     double initial = 0.0;
   };
-  std::unordered_map<camera_t, FocalLengthState> focal_lengths;
+  NodeHashMap<camera_t, FocalLengthState> focal_lengths;
   focal_lengths.reserve(cameras.size());
   for (const auto& [camera_id, camera] : cameras) {
-    if (camera.IsPerspective()) {
+    if (camera.IsPerspectivePinhole()) {
       const double focal = camera.MeanFocalLength();
       focal_lengths[camera_id] = {focal, focal};
     }
@@ -227,8 +237,14 @@ FocalLengthCalibResult CalibrateFocalLengths(
   auto loss_function = options.CreateLossFunction();
 
   for (const auto& input : inputs) {
-    if (!cameras.at(input.camera_id1).IsPerspective() ||
-        !cameras.at(input.camera_id2).IsPerspective()) {
+    // The focal length is recovered from F in closed form, which requires the
+    // calibration to act projectively on the rays. This holds for pinhole
+    // models: their distortion is zero-initialized at this stage and mild
+    // distortion is absorbed by the epipolar fit. It does not hold for fisheye
+    // models, whose angular projection is part of the model itself, so they
+    // would need a different formulation and are skipped here.
+    if (!cameras.at(input.camera_id1).IsPerspectivePinhole() ||
+        !cameras.at(input.camera_id2).IsPerspectivePinhole()) {
       continue;
     }
     if (input.camera_id1 == input.camera_id2) {
@@ -252,7 +268,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Parameterize cameras (fix those with prior, set lower bound).
   size_t num_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
-    if (!camera.IsPerspective()) continue;
+    if (!camera.IsPerspectivePinhole()) continue;
     double* focal_ptr = &focal_lengths[camera_id].optimized;
     if (!problem.HasParameterBlock(focal_ptr)) continue;
 
@@ -298,7 +314,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Validate focal lengths and revert degenerate ones.
   size_t rejected_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
-    if (!camera.IsPerspective()) continue;
+    if (!camera.IsPerspectivePinhole()) continue;
     auto& focal = focal_lengths[camera_id];
     if (!problem.HasParameterBlock(&focal.optimized)) continue;
 
@@ -351,16 +367,21 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   THROW_CHECK_NOTNULL(database);
 
   // Read cameras and build image_id -> camera mapping.
-  std::unordered_map<camera_t, Camera> cameras;
+  NodeHashMap<camera_t, Camera> cameras;
   for (Camera& camera : database->ReadAllCameras()) {
     cameras[camera.camera_id] = std::move(camera);
   }
-  std::unordered_map<image_t, const Camera*> image_id_to_camera;
+  NodeHashMap<image_t, const Camera*> image_id_to_camera;
   for (const Image& image : database->ReadAllImages()) {
     image_id_to_camera[image.ImageId()] = &cameras.at(image.CameraId());
   }
 
-  // Read UNCALIBRATED and CALIBRATED two-view geometries.
+  // Read UNCALIBRATED and CALIBRATED two-view geometries. A pair whose
+  // intrinsics a two-view solver estimated is UNCALIBRATED too: its focal is
+  // re-estimated from F rather than trusted, so any estimated intrinsics in
+  // camera1/camera2 are ignored here and cleared on upgrade to CALIBRATED.
+  // TODO: study whether seeding from the estimated camera1/camera2 intrinsics,
+  // instead of ignoring them, improves the calibration initialization.
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs;
   for (auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     if (tvg.config == TwoViewGeometry::UNCALIBRATED ||
@@ -381,7 +402,9 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
         options.min_calibrated_pair_ratio, image_id_to_camera, pairs);
   }
 
-  // Recompute F from E for CALIBRATED pairs using current calibration.
+  // Recompute F from E for CALIBRATED pairs using current calibration. This
+  // goes through the calibration matrices, so it is restricted to pinhole
+  // models for the same reason as CalibrateFocalLengths below.
   for (auto& [pair_id, tvg] : pairs) {
     if (tvg.config != TwoViewGeometry::CALIBRATED ||
         !tvg.cam2_from_cam1.has_value()) {
@@ -390,7 +413,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
-    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+    if (!camera1.IsPerspectivePinhole() || !camera2.IsPerspectivePinhole()) {
       continue;
     }
     tvg.F = FundamentalFromEssentialMatrix(
@@ -406,7 +429,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
-    if (!camera1.IsPerspective() || !camera2.IsPerspective()) {
+    if (!camera1.IsPerspectivePinhole() || !camera2.IsPerspectivePinhole()) {
       continue;
     }
     THROW_CHECK(tvg.F.has_value())
@@ -460,6 +483,11 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                                              tvg.F.value(),
                                              camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
+      // E is now built from the K of the calibrated focals, and consumers
+      // calibrate the rays with camera1/camera2 whenever set. Clear them so
+      // the rays use the same K as E, not the solver's own focal.
+      tvg.camera1.reset();
+      tvg.camera2.reset();
       valid_pair_indices.push_back(i);
     }
   }

@@ -29,6 +29,7 @@
 
 #include "colmap/math/matrix.h"
 
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -38,7 +39,7 @@ namespace {
 
 TEST(DecomposeMatrixRQ, Nominal) {
   for (int i = 0; i < 10; ++i) {
-    const Eigen::Matrix4d A = Eigen::Matrix4d::Random();
+    const Eigen::Matrix4d A = RandomEigenMatrixd<4, 4>();
 
     Eigen::Matrix4d R, Q;
     DecomposeMatrixRQ(A, &R, &Q);

@@ -32,8 +32,10 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 
@@ -42,8 +44,8 @@ namespace {
 
 Sim3d TestSim3d() {
   return Sim3d(RandomUniformReal<double>(0.5, 2),
-               Eigen::Quaterniond::UnitRandom(),
-               Eigen::Vector3d::Random());
+               RandomEigenQuaterniond(),
+               RandomEigenVectord<3>());
 }
 
 void ExpectEqualSim3d(const Sim3d& gt_tgt_from_src, const Sim3d& tgt_from_src) {
@@ -225,6 +227,55 @@ TEST(Alignment, MergeReconstructions) {
             orig_reconstruction.ComputeNumObservations());
 }
 
+TEST(Alignment, MergeReconstructionsInconsistentImageNames) {
+  // Reconstructions built from independent databases can assign the same image
+  // id to distinct physical images. Merging by id would then silently drop
+  // images and corrupt tracks, so such an inconsistent id<->name mapping must
+  // be detected and rejected rather than merged (see issue #3405).
+  Reconstruction src_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
+    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
+    for (const auto& frame_id : frame_ids) {
+      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
+        reconstruction.DeRegisterFrame(frame_id);
+      }
+    }
+  };
+  remove_rig_frames(src_reconstruction, 1);
+  remove_rig_frames(tgt_reconstruction, 2);
+  src_reconstruction.TearDown();
+  tgt_reconstruction.TearDown();
+
+  // Find an image id registered in both reconstructions and give it a different
+  // name in the target, simulating an id collision between two distinct images.
+  // Enough images still share a consistent name for the alignment step (which
+  // matches by name) to succeed, so the merge reaches -- and must fail at --
+  // the id/name consistency check.
+  bool found_shared_id = false;
+  for (const image_t image_id : src_reconstruction.RegImageIds()) {
+    if (tgt_reconstruction.ExistsImage(image_id)) {
+      tgt_reconstruction.Image(image_id).SetName("colliding_name.jpg");
+      found_shared_id = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(found_shared_id);
+
+  const size_t num_tgt_images_before_merge = tgt_reconstruction.NumImages();
+  EXPECT_FALSE(MergeReconstructions(
+      /*max_reproj_error=*/1e-4, src_reconstruction, tgt_reconstruction));
+  // The merge must abort before mutating the target reconstruction.
+  EXPECT_EQ(tgt_reconstruction.NumImages(), num_tgt_images_before_merge);
+}
+
 TEST(Alignment, AlignReconstructionToOrigRigScales) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -233,7 +284,7 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  std::unordered_map<rig_t, Rig> orig_rigs = reconstruction.Rigs();
+  NodeHashMap<rig_t, Rig> orig_rigs = reconstruction.Rigs();
 
   reconstruction.Transform(TestSim3d());
   AlignReconstructionToOrigRigScales(orig_rigs, &reconstruction);

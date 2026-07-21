@@ -30,11 +30,11 @@
 #pragma once
 
 #include "colmap/mvs/image.h"
+#include "colmap/util/hash_containers.h"
 
 #include <filesystem>
 #include <map>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace colmap {
@@ -92,7 +92,7 @@ struct Model {
   bool ReadFromRawPMVS(const std::filesystem::path& path);
 
   std::vector<std::string> image_names_;
-  std::unordered_map<std::string, int> image_name_to_idx_;
+  NodeHashMap<std::string, int> image_name_to_idx_;
 
   std::vector<std::vector<int>> pmvs_vis_dat_;
 };

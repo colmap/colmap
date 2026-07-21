@@ -78,19 +78,18 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   }
 
   Rigid3d cam2_from_cam1;
-  std::vector<Eigen::Vector3d> inlier_points3D;
+  std::vector<int> valid_indices;
   PoseFromEssentialMatrix(report.model,
                           inlier_cam_rays1,
                           inlier_cam_rays2,
                           &cam2_from_cam1,
-                          &inlier_points3D);
+                          &valid_indices);
 
   py::gil_scoped_acquire acquire;
   return py::dict("E"_a = report.model,
                   "cam2_from_cam1"_a = cam2_from_cam1,
                   "num_inliers"_a = report.support.num_inliers,
-                  "inlier_mask"_a = ToPythonMask(report.inlier_mask),
-                  "inlier_points3D"_a = inlier_points3D);
+                  "inlier_mask"_a = ToPythonMask(report.inlier_mask));
 }
 
 void BindEssentialMatrixEstimator(py::module& m) {

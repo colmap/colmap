@@ -5,6 +5,7 @@
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/hash_containers.h"
 
 #include <algorithm>
 #include <queue>
@@ -26,7 +27,7 @@ bool UseGravity(const RotationEstimatorOptions& options,
   return options.use_gravity && HasGravityPriors(pose_priors);
 }
 
-bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
+bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
   bool all_known = true;
   for (const auto& [rig_id, rig] : rigs) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
@@ -47,10 +48,10 @@ bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
 // Returns the root image_id and populates the parents map.
 image_t ComputeMaximumPoseGraphSpanningTree(
     const PoseGraph& pose_graph,
-    const std::unordered_set<image_t>& image_ids,
-    std::unordered_map<image_t, image_t>& parents) {
+    const FlatHashSet<image_t>& image_ids,
+    NodeHashMap<image_t, image_t>& parents) {
   // Build mapping between image_id and contiguous indices.
-  std::unordered_map<image_t, int> image_id_to_idx;
+  NodeHashMap<image_t, int> image_id_to_idx;
   std::vector<image_t> idx_to_image_id;
   image_id_to_idx.reserve(image_ids.size());
   idx_to_image_id.reserve(image_ids.size());
@@ -93,15 +94,15 @@ image_t ComputeMaximumPoseGraphSpanningTree(
 }
 
 // Computes the largest connected component and returns image ids.
-std::unordered_set<image_t> ComputeLargestConnectedComponentImageIds(
+FlatHashSet<image_t> ComputeLargestConnectedComponentImageIds(
     const PoseGraph& pose_graph,
     const Reconstruction& reconstruction,
     bool filter_unregistered) {
-  const std::unordered_set<frame_t> frame_ids =
+  const FlatHashSet<frame_t> frame_ids =
       pose_graph.ComputeLargestConnectedFrameComponent(reconstruction,
                                                        filter_unregistered);
 
-  std::unordered_set<image_t> image_ids;
+  FlatHashSet<image_t> image_ids;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (frame_ids.count(image.FrameId())) {
       image_ids.insert(image_id);
@@ -112,22 +113,22 @@ std::unordered_set<image_t> ComputeLargestConnectedComponentImageIds(
 
 // Computes all connected components and returns their image ids, sorted by
 // descending size (matching the frame component ordering).
-std::vector<std::unordered_set<image_t>> ComputeConnectedComponentsImageIds(
+std::vector<FlatHashSet<image_t>> ComputeConnectedComponentsImageIds(
     const PoseGraph& pose_graph,
     const Reconstruction& reconstruction,
     bool filter_unregistered) {
-  const std::vector<std::unordered_set<frame_t>> frame_components =
+  const std::vector<FlatHashSet<frame_t>> frame_components =
       pose_graph.ComputeConnectedFrameComponents(reconstruction,
                                                  filter_unregistered);
 
-  std::unordered_map<frame_t, int> frame_to_component;
+  NodeHashMap<frame_t, int> frame_to_component;
   for (int comp = 0; comp < static_cast<int>(frame_components.size()); ++comp) {
     for (const frame_t frame_id : frame_components[comp]) {
       frame_to_component[frame_id] = comp;
     }
   }
 
-  std::vector<std::unordered_set<image_t>> image_ids(frame_components.size());
+  std::vector<FlatHashSet<image_t>> image_ids(frame_components.size());
   for (const auto& [image_id, image] : reconstruction.Images()) {
     const auto it = frame_to_component.find(image.FrameId());
     if (it != frame_to_component.end()) {
@@ -142,7 +143,7 @@ std::vector<std::unordered_set<image_t>> ComputeConnectedComponentsImageIds(
 // frame are present in image_ids by construction of the connected components.
 Reconstruction ExtractSubReconstruction(
     const Reconstruction& src,
-    const std::unordered_set<image_t>& image_ids) {
+    const FlatHashSet<image_t>& image_ids) {
   Reconstruction sub;
 
   // Cameras and rigs must be added before frames and images.
@@ -153,7 +154,7 @@ Reconstruction ExtractSubReconstruction(
     sub.AddRig(rig);
   }
 
-  std::unordered_set<frame_t> frame_ids;
+  FlatHashSet<frame_t> frame_ids;
   for (const image_t image_id : image_ids) {
     frame_ids.insert(src.Image(image_id).FrameId());
   }
@@ -203,7 +204,7 @@ Reconstruction CreateExpandedReconstruction(
 
   // Create expanded rigs with known sensors only.
   // Cameras with unknown cam_from_rig get their own singleton rigs.
-  std::unordered_map<camera_t, rig_t> singleton_rig_ids;
+  NodeHashMap<camera_t, rig_t> singleton_rig_ids;
 
   // First, find the max rig ID to avoid conflicts when creating singleton rigs.
   rig_t next_rig_id = 0;
@@ -349,7 +350,7 @@ bool RunRotationAveragingOnComponent(
     PoseGraph& pose_graph,
     Reconstruction& reconstruction,
     const std::vector<PosePrior>& pose_priors) {
-  std::unordered_set<image_t> active_image_ids;
+  FlatHashSet<image_t> active_image_ids;
 
   // Step 1: Solve rotation averaging on the largest connected component.
   if (!HasUnknownCamsFromRig(reconstruction)) {
@@ -380,7 +381,7 @@ bool RunRotationAveragingOnComponent(
     Reconstruction recon_expanded =
         CreateExpandedReconstruction(reconstruction);
 
-    std::unordered_set<image_t> expanded_active_image_ids =
+    FlatHashSet<image_t> expanded_active_image_ids =
         ComputeLargestConnectedComponentImageIds(
             pose_graph, recon_expanded, options.filter_unregistered);
 
@@ -401,7 +402,7 @@ bool RunRotationAveragingOnComponent(
     }
 
     // Step 1b: Initialize cam_from_rig from expanded results.
-    std::unordered_map<image_t, Rigid3d> expanded_cams_from_world;
+    NodeHashMap<image_t, Rigid3d> expanded_cams_from_world;
     for (const auto& [image_id, image] : recon_expanded.Images()) {
       if (!image.HasPose()) continue;
       expanded_cams_from_world[image_id] = image.CamFromWorld();
@@ -442,7 +443,7 @@ bool RunRotationAveragingOnComponent(
 bool RotationEstimator::EstimateRotations(
     const PoseGraph& pose_graph,
     const std::vector<PosePrior>& pose_priors,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   if (UseGravity(options_, pose_priors) &&
       !AllSensorsFromRigKnown(reconstruction.Rigs())) {
@@ -476,10 +477,10 @@ bool RotationEstimator::EstimateRotations(
 bool RotationEstimator::MaybeSolveGravityAlignedSubset(
     const PoseGraph& pose_graph,
     const std::vector<PosePrior>& pose_priors,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   // Build map from image to pose prior.
-  std::unordered_map<image_t, const PosePrior*> image_to_pose_prior;
+  NodeHashMap<image_t, const PosePrior*> image_to_pose_prior;
   for (const auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       image_to_pose_prior[pose_prior.corr_data_id.id] = &pose_prior;
@@ -531,7 +532,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
     Reconstruction gravity_reconstruction(reconstruction);
 
     // Compute largest connected component for gravity subset.
-    std::unordered_set<image_t> gravity_image_ids =
+    FlatHashSet<image_t> gravity_image_ids =
         ComputeLargestConnectedComponentImageIds(gravity_pose_graph,
                                                  gravity_reconstruction,
                                                  /*filter_unregistered=*/false);
@@ -570,7 +571,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 bool RotationEstimator::SolveRotationAveraging(
     const PoseGraph& pose_graph,
     const std::vector<PosePrior>& pose_priors,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   // Initialize rotations from maximum spanning tree. Note that without
   // intialization, the gravity-aligned rotation averaging is prone to random
@@ -596,17 +597,17 @@ bool RotationEstimator::SolveRotationAveraging(
 
 void RotationEstimator::InitializeFromMaximumSpanningTree(
     const PoseGraph& pose_graph,
-    const std::unordered_set<image_t>& active_image_ids,
+    const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   // Compute maximum spanning tree over active images.
-  std::unordered_map<image_t, image_t> parents;
+  NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
       pose_graph, active_image_ids, parents);
   THROW_CHECK(active_image_ids.count(root));
 
   // Iterate through the tree to initialize the rotation.
   // Establish child info.
-  std::unordered_map<image_t, std::vector<image_t>> children;
+  NodeHashMap<image_t, std::vector<image_t>> children;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (!active_image_ids.count(image_id)) continue;
     children.emplace(image_id, std::vector<image_t>());
@@ -619,7 +620,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   std::queue<image_t> indexes;
   indexes.push(root);
 
-  std::unordered_map<image_t, Rigid3d> cams_from_world;
+  NodeHashMap<image_t, Rigid3d> cams_from_world;
   while (!indexes.empty()) {
     image_t curr = indexes.front();
     indexes.pop();
@@ -641,13 +642,12 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
 }
 
 bool InitializeRigRotationsFromImages(
-    const std::unordered_map<image_t, Rigid3d>& cams_from_world,
+    const NodeHashMap<image_t, Rigid3d>& cams_from_world,
     Reconstruction& reconstruction,
     bool refine_sensor_from_rig) {
   // Step 1: Estimate cam_from_rig for cameras with unknown calibration.
   // Collect samples across frames, then average.
-  std::unordered_map<camera_t,
-                     std::pair<rig_t, std::vector<Eigen::Quaterniond>>>
+  NodeHashMap<camera_t, std::pair<rig_t, std::vector<Eigen::Quaterniond>>>
       cam_from_rig_samples;
 
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
@@ -778,7 +778,7 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
         pose_graph, reconstruction, options.max_rotation_error_deg);
 
     // Recompute largest connected component among registered frames.
-    const std::unordered_set<image_t> active_image_ids =
+    const FlatHashSet<image_t> active_image_ids =
         ComputeLargestConnectedComponentImageIds(
             pose_graph, reconstruction, /*filter_unregistered=*/true);
 
@@ -790,7 +790,7 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     // De-register frames outside the new active set.
-    std::unordered_set<frame_t> active_frame_ids;
+    FlatHashSet<frame_t> active_frame_ids;
     for (const image_t image_id : active_image_ids) {
       active_frame_ids.insert(reconstruction.Image(image_id).FrameId());
     }
@@ -819,7 +819,7 @@ bool RunRotationAveragingMultiComponents(
   const Reconstruction base = *reconstruction_manager.Get(0);
 
   // Step 1: Compute the initial connected components of the view graph.
-  const std::vector<std::unordered_set<image_t>> initial_components =
+  const std::vector<FlatHashSet<image_t>> initial_components =
       ComputeConnectedComponentsImageIds(
           pose_graph, base, options.filter_unregistered);
   if (initial_components.empty()) {
@@ -852,7 +852,7 @@ bool RunRotationAveragingMultiComponents(
 
     // Step 4: Emit each disjoint component of the filtered view graph as a
     // separate reconstruction.
-    const std::vector<std::unordered_set<image_t>> disjoint_components =
+    const std::vector<FlatHashSet<image_t>> disjoint_components =
         ComputeConnectedComponentsImageIds(
             component_pose_graph, reconstruction, /*filter_unregistered=*/true);
     for (const auto& disjoint_image_ids : disjoint_components) {

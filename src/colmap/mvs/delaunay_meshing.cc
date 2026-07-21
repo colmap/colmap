@@ -36,10 +36,10 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <fstream>
-#include <unordered_map>
 #include <vector>
 
 #include <omp.h>
@@ -133,7 +133,7 @@ class DelaunayMeshingInput {
     uint32_t num_visible_images = 0;
   };
 
-  std::unordered_map<camera_t, Camera> cameras;
+  NodeHashMap<camera_t, Camera> cameras;
   std::vector<Image> images;
   std::vector<Point> points;
 
@@ -149,7 +149,7 @@ class DelaunayMeshingInput {
 
     cameras = reconstruction.Cameras();
 
-    std::unordered_map<point3D_t, size_t> point_id_to_idx;
+    FlatHashMap<point3D_t, size_t> point_id_to_idx;
     point_id_to_idx.reserve(reconstruction.NumPoints3D());
     for (const auto& point3D : reconstruction.Points3D()) {
       point_id_to_idx.emplace(point3D.first, points.size());
@@ -561,7 +561,7 @@ void WriteDelaunayTriangulationPly(const std::filesystem::path& path,
   file << "property list uchar int vertex_index\n";
   file << "end_header\n";
 
-  std::unordered_map<const Delaunay::Vertex_handle, size_t> vertex_indices;
+  NodeHashMap<const Delaunay::Vertex_handle, size_t> vertex_indices;
   vertex_indices.reserve(triangulation.number_of_vertices());
   for (auto it = triangulation.finite_vertices_begin();
        it != triangulation.finite_vertices_end();
@@ -629,7 +629,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   LOG(INFO) << "Initializing graph optimization...";
 
   using CellGraphData =
-      std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>;
+      NodeHashMap<const Delaunay::Cell_handle, DelaunayCellData>;
 
   CellGraphData cell_graph_data;
   cell_graph_data.reserve(triangulation.number_of_cells());
@@ -836,7 +836,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   LOG(INFO) << "Extracting surface as min-cut...";
 
-  std::unordered_set<Delaunay::Vertex_handle> surface_vertices;
+  FlatHashSet<Delaunay::Vertex_handle> surface_vertices;
   std::vector<Delaunay::Facet> surface_facets;
   std::vector<float> surface_facet_side_lengths;
 
@@ -885,8 +885,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   PlyMesh mesh;
 
-  std::unordered_map<const Delaunay::Vertex_handle, size_t>
-      surface_vertex_indices;
+  NodeHashMap<const Delaunay::Vertex_handle, size_t> surface_vertex_indices;
   surface_vertex_indices.reserve(surface_vertices.size());
   mesh.vertices.reserve(surface_vertices.size());
   for (const auto& vertex : surface_vertices) {

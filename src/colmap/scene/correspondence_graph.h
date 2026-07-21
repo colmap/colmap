@@ -31,10 +31,10 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
-#include <unordered_map>
 #include <vector>
 
 namespace colmap {
@@ -91,8 +91,7 @@ class CorrespondenceGraph {
                                            image_t image_id2) const;
 
   // Get the number of matches between all images.
-  std::unordered_map<image_pair_t, point2D_t> NumMatchesBetweenAllImages()
-      const;
+  NodeHashMap<image_pair_t, point2D_t> NumMatchesBetweenAllImages() const;
 
   // Check whether image exists.
   inline bool ExistsImage(image_t image_id) const;
@@ -186,8 +185,12 @@ class CorrespondenceGraph {
   };
 
   bool finalized_ = false;
-  std::unordered_map<image_t, Image> images_;
-  std::unordered_map<image_pair_t, ImagePair> image_pairs_;
+  // image_pairs_ is only inserted into during graph construction and is
+  // read-only after Finalize(), so a flat (open-addressing) map is safe and
+  // faster. images_ hands out const Image& references during correspondence
+  // traversal, so it uses a node-based map to keep those references stable.
+  NodeHashMap<image_t, Image> images_;
+  FlatHashMap<image_pair_t, ImagePair> image_pairs_;
 };
 
 std::ostream& operator<<(

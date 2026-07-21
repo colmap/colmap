@@ -31,6 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -51,8 +52,8 @@ TEST(DecomposeProjectionMatrix, Nominal) {
     Eigen::Matrix3d ref_K = i * Eigen::Matrix3d::Identity();
     ref_K(0, 2) = i;
     ref_K(1, 2) = 2 * i;
-    const Rigid3d cam_from_world(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+    const Rigid3d cam_from_world(RandomEigenQuaterniond(),
+                                 RandomEigenVectord<3>());
     const Eigen::Matrix3x4d P = ref_K * cam_from_world.ToMatrix();
     Eigen::Matrix3d K;
     Eigen::Matrix3d R;
@@ -66,13 +67,13 @@ TEST(DecomposeProjectionMatrix, Nominal) {
 }
 
 TEST(RotationMatrixToAngleAxis, Roundtrip) {
-  const Eigen::Matrix3d R = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+  const Eigen::Matrix3d R = RandomEigenQuaterniond().toRotationMatrix();
   EXPECT_THAT(AngleAxisToRotationMatrix(RotationMatrixToAngleAxis(R)),
               EigenMatrixNear(R, 1e-6));
 }
 
 TEST(AngleAxisToRotationMatrix, Roundtrip) {
-  const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+  const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
   const Eigen::Vector3d w = aa.angle() * aa.axis();
   EXPECT_THAT(RotationMatrixToAngleAxis(AngleAxisToRotationMatrix(w)),
               EigenMatrixNear(w, 1e-6));
@@ -177,10 +178,10 @@ TEST(AverageQuaternions, Nominal) {
 }
 
 TEST(InterpolateCameraPoses, Nominal) {
-  const Rigid3d cam_from_world1(Eigen::Quaterniond::UnitRandom(),
-                                Eigen::Vector3d::Random());
-  const Rigid3d cam_from_world2(Eigen::Quaterniond::UnitRandom(),
-                                Eigen::Vector3d::Random());
+  const Rigid3d cam_from_world1(RandomEigenQuaterniond(),
+                                RandomEigenVectord<3>());
+  const Rigid3d cam_from_world2(RandomEigenQuaterniond(),
+                                RandomEigenVectord<3>());
 
   const Rigid3d interp_cam_from_world1 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0);
@@ -206,26 +207,26 @@ TEST(CheckCheirality, Nominal) {
 
   std::vector<Eigen::Vector3d> rays1;
   std::vector<Eigen::Vector3d> rays2;
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> valid_indices;
 
   rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
   rays2.push_back(Eigen::Vector3d(0.1, 0, 1).normalized());
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 1);
 
   rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
   rays2.push_back(Eigen::Vector3d(-0.1, 0, 1).normalized());
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 1);
 
   rays2[1][0] = 0.2;
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 2);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 2);
 
   rays2[0][0] = -0.2;
   rays2[1][0] = -0.2;
-  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
-  EXPECT_EQ(points3D.size(), 0);
+  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &valid_indices));
+  EXPECT_EQ(valid_indices.size(), 0);
 }
 
 TEST(AverageUnitVectors, Nominal) {
@@ -293,7 +294,7 @@ TEST(GravityAlignedRotation, Nominal) {
   EXPECT_NEAR(R.determinant(), 1.0, 1e-6);
 
   for (int i = 0; i < 100; ++i) {
-    gravity = Eigen::Vector3d::Random().normalized();
+    gravity = RandomEigenVectord<3>().normalized();
     R = GravityAlignedRotation(gravity);
     EXPECT_THAT(
         Eigen::Matrix3d(R.transpose() * R),
@@ -351,7 +352,7 @@ TEST(QuaternionFromAngleAxis, SmallAngle) {
 TEST(QuaternionFromAngleAxis, Roundtrip) {
   SetPRNGSeed(0);
   for (int i = 0; i < 100; ++i) {
-    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
     const Eigen::Vector3d omega = aa.angle() * aa.axis();
     const Eigen::Quaterniond q = QuaternionFromAngleAxis(omega);
     const Eigen::Matrix3d R_expected = aa.toRotationMatrix();
@@ -370,7 +371,7 @@ TEST(LeftJacobianFromAngleAxis, RelationToRight) {
   // Jr(w) = Jl(-w) for all w.
   SetPRNGSeed(0);
   for (int i = 0; i < 100; ++i) {
-    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
     const Eigen::Vector3d omega = aa.angle() * aa.axis();
     const Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(omega);
     const Eigen::Matrix3d Jl_neg = LeftJacobianFromAngleAxis(-omega);
@@ -392,7 +393,7 @@ TEST(RightJacobianFromAngleAxis, NumericDerivative) {
   SetPRNGSeed(0);
   const double eps = 1e-7;
   for (int i = 0; i < 50; ++i) {
-    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
     const Eigen::Vector3d omega = aa.angle() * aa.axis();
     const Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(omega);
     const Eigen::Matrix3d R = AngleAxisToRotationMatrix(omega);
@@ -416,7 +417,7 @@ TEST(LeftJacobianFromAngleAxis, NumericDerivative) {
   SetPRNGSeed(0);
   const double eps = 1e-7;
   for (int i = 0; i < 50; ++i) {
-    const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+    const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
     const Eigen::Vector3d omega = aa.angle() * aa.axis();
     const Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(omega);
     const Eigen::Matrix3d R = AngleAxisToRotationMatrix(omega);

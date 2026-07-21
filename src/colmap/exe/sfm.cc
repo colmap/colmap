@@ -423,20 +423,14 @@ int RunGlobalMapper(int argc, char** argv) {
 }
 
 int RunHierarchicalMapper(int argc, char** argv) {
-  HierarchicalPipeline::Options mapper_options;
   std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddRequiredOption("image_path", &mapper_options.image_path);
+  options.AddRequiredOption("image_path",
+                            &options.hierarchical_mapper->image_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("num_threads", &mapper_options.num_threads);
-  options.AddDefaultOption("num_workers", &mapper_options.num_workers);
-  options.AddDefaultOption("image_overlap",
-                           &mapper_options.clustering_options.image_overlap);
-  options.AddDefaultOption(
-      "leaf_max_num_images",
-      &mapper_options.clustering_options.leaf_max_num_images);
+  options.AddHierarchicalMapperOptions();
   options.AddMapperOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -447,10 +441,10 @@ int RunHierarchicalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  mapper_options.incremental_options = *options.mapper;
+  options.hierarchical_mapper->incremental_options = *options.mapper;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline hierarchical_mapper(
-      mapper_options,
+      *options.hierarchical_mapper,
       Database::Open(*options.database_path),
       reconstruction_manager);
   hierarchical_mapper.Run();
@@ -488,7 +482,7 @@ int RunPosePriorMapper(int argc, char** argv) {
       "overwrite_priors_covariance",
       &overwrite_priors_covariance,
       "Priors covariance read from database. If true, overwrite the priors "
-      "covariance using the follwoing prior_position_std_... options");
+      "covariance using the following prior_position_std_... options");
   options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
   options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
   options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);

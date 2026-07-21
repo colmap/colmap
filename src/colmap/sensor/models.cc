@@ -29,7 +29,7 @@
 
 #include "colmap/sensor/models.h"
 
-#include <unordered_map>
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 
@@ -72,8 +72,8 @@ SPHERICAL_CAMERA_MODEL_CASES
 
 #undef CAMERA_MODEL_CASE
 
-std::unordered_map<std::string, CameraModelId> InitialzeCameraModelNameToId() {
-  std::unordered_map<std::string, CameraModelId> camera_model_name_to_id;
+NodeHashMap<std::string, CameraModelId> InitialzeCameraModelNameToId() {
+  NodeHashMap<std::string, CameraModelId> camera_model_name_to_id;
 
 #define CAMERA_MODEL_CASE(CameraModel)                     \
   camera_model_name_to_id.emplace(CameraModel::model_name, \
@@ -86,9 +86,8 @@ std::unordered_map<std::string, CameraModelId> InitialzeCameraModelNameToId() {
   return camera_model_name_to_id;
 }
 
-std::unordered_map<CameraModelId, const std::string*>
-InitialzeCameraModelIdToName() {
-  std::unordered_map<CameraModelId, const std::string*> camera_model_id_to_name;
+NodeHashMap<CameraModelId, const std::string*> InitialzeCameraModelIdToName() {
+  NodeHashMap<CameraModelId, const std::string*> camera_model_id_to_name;
 
 #define CAMERA_MODEL_CASE(CameraModel)                   \
   camera_model_id_to_name.emplace(CameraModel::model_id, \
@@ -101,10 +100,10 @@ InitialzeCameraModelIdToName() {
   return camera_model_id_to_name;
 }
 
-static const std::unordered_map<std::string, CameraModelId>
-    kCameraModelNameToId = InitialzeCameraModelNameToId();
+static const NodeHashMap<std::string, CameraModelId> kCameraModelNameToId =
+    InitialzeCameraModelNameToId();
 
-static const std::unordered_map<CameraModelId, const std::string*>
+static const NodeHashMap<CameraModelId, const std::string*>
     kCameraModelIdToName = InitialzeCameraModelIdToName();
 
 bool ExistsCameraModelWithName(const std::string& model_name) {

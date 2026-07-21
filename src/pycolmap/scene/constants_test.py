@@ -31,3 +31,7 @@ def test_invalid_sensor_id():
 
 def test_invalid_data_id():
     assert pycolmap.INVALID_DATA_ID is not None
+
+
+def test_invalid_timestamp():
+    assert pycolmap.INVALID_TIMESTAMP is not None

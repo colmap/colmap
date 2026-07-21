@@ -1,6 +1,7 @@
 #include "colmap/scene/pose_graph.h"
 
 #include "colmap/math/connected_components.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 
@@ -21,10 +22,9 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
-std::vector<std::unordered_set<frame_t>>
-PoseGraph::ComputeConnectedFrameComponents(const Reconstruction& reconstruction,
-                                           bool filter_unregistered) const {
-  std::unordered_set<frame_t> nodes;
+std::vector<FlatHashSet<frame_t>> PoseGraph::ComputeConnectedFrameComponents(
+    const Reconstruction& reconstruction, bool filter_unregistered) const {
+  FlatHashSet<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> graph_edges;
 
   for (const auto& [pair_id, edge] : ValidEdges()) {
@@ -58,7 +58,7 @@ PoseGraph::ComputeConnectedFrameComponents(const Reconstruction& reconstruction,
               return a.size() > b.size();
             });
 
-  std::vector<std::unordered_set<frame_t>> result;
+  std::vector<FlatHashSet<frame_t>> result;
   result.reserve(components.size());
   for (auto& component : components) {
     result.emplace_back(component.begin(), component.end());
@@ -66,9 +66,9 @@ PoseGraph::ComputeConnectedFrameComponents(const Reconstruction& reconstruction,
   return result;
 }
 
-std::unordered_set<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
+FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
-  std::vector<std::unordered_set<frame_t>> components =
+  std::vector<FlatHashSet<frame_t>> components =
       ComputeConnectedFrameComponents(reconstruction, filter_unregistered);
   if (components.empty()) {
     return {};
@@ -78,7 +78,7 @@ std::unordered_set<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
 }
 
 void PoseGraph::InvalidatePairsOutsideActiveImageIds(
-    const std::unordered_set<image_t>& active_image_ids) {
+    const FlatHashSet<image_t>& active_image_ids) {
   for (const auto& [pair_id, edge] : edges_) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (!active_image_ids.count(image_id1) ||
@@ -88,11 +88,10 @@ void PoseGraph::InvalidatePairsOutsideActiveImageIds(
   }
 }
 
-int PoseGraph::MarkConnectedComponents(
-    const Reconstruction& reconstruction,
-    std::unordered_map<frame_t, int>& cluster_ids,
-    int min_num_images) const {
-  std::unordered_set<frame_t> nodes;
+int PoseGraph::MarkConnectedComponents(const Reconstruction& reconstruction,
+                                       NodeHashMap<frame_t, int>& cluster_ids,
+                                       int min_num_images) const {
+  FlatHashSet<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> graph_edges;
   for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);

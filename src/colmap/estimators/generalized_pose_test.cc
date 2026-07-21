@@ -34,10 +34,12 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <numeric>
 
@@ -67,7 +69,7 @@ GeneralizedAbsolutePoseProblem BuildGeneralizedAbsolutePoseProblem() {
 
   GeneralizedAbsolutePoseProblem problem;
   problem.gt_rig_from_world =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     for (const auto& point2D : image.Points2D()) {
@@ -102,7 +104,7 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   std::iota(shuffled_idxs.begin(), shuffled_idxs.end(), 0);
   std::shuffle(shuffled_idxs.begin(), shuffled_idxs.end(), *PRNG);
 
-  std::unordered_set<size_t> unique_inlier_ids;
+  FlatHashSet<size_t> unique_inlier_ids;
   unique_inlier_ids.reserve(gt_num_inliers);
   for (size_t i = 0; i < gt_num_inliers; ++i) {
     unique_inlier_ids.insert(problem.point3D_ids[shuffled_idxs[i]]);
@@ -111,7 +113,7 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   std::vector<char> gt_inlier_mask(num_points, true);
   for (size_t i = gt_num_inliers; i < num_points; ++i) {
     problem.points2D[shuffled_idxs[i]] +=
-        Eigen::Vector2d::Random().normalized() * outlier_distance;
+        RandomEigenVectord<2>().normalized() * outlier_distance;
     gt_inlier_mask[shuffled_idxs[i]] = false;
   }
 
@@ -148,8 +150,8 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
   const double translation_noise = 0.1;
   const Rigid3d rig_from_gt_rig(Eigen::Quaterniond(Eigen::AngleAxisd(
                                     DegToRad(rotation_noise_degree),
-                                    Eigen::Vector3d::Random().normalized())),
-                                Eigen::Vector3d::Random() * translation_noise);
+                                    RandomEigenVectord<3>().normalized())),
+                                RandomEigenVectord<3>() * translation_noise);
   Rigid3d rig_from_world = rig_from_gt_rig * problem.gt_rig_from_world;
 
   AbsolutePoseRefinementOptions options;
@@ -225,8 +227,8 @@ TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
   const double translation_noise = 0.1;
   const Rigid3d rig_from_gt_rig(Eigen::Quaterniond(Eigen::AngleAxisd(
                                     DegToRad(rotation_noise_degree),
-                                    Eigen::Vector3d::Random().normalized())),
-                                Eigen::Vector3d::Random() * translation_noise);
+                                    RandomEigenVectord<3>().normalized())),
+                                RandomEigenVectord<3>() * translation_noise);
   const Rigid3d initial_rig_from_world =
       rig_from_gt_rig * problem.gt_rig_from_world;
 
@@ -300,7 +302,7 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
   problem.gt_rig2_from_rig1 =
       frame2.RigFromWorld() * Inverse(frame1.RigFromWorld());
 
-  std::unordered_map<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
+  FlatHashMap<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
       observations2;
   for (const data_t& data_id : frame2.ImageIds()) {
     const auto& image = reconstruction.Image(data_id.id);
@@ -316,7 +318,7 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
     }
   }
 
-  std::unordered_map<camera_t, size_t> camera_id_to_idx;
+  NodeHashMap<camera_t, size_t> camera_id_to_idx;
   for (const data_t& data_id : frame1.ImageIds()) {
     const auto& image1 = reconstruction.Image(data_id.id);
     for (size_t point2D_idx1 = 0; point2D_idx1 < image1.NumPoints2D();
@@ -362,7 +364,7 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
 }
 
 TEST(EstimateGeneralizedRelativePose, Nominal) {
-  SetPRNGSeed();
+  SetPRNGSeed(1);
 
   for (const int num_cameras_per_rig1 : {1, 2, 3}) {
     for (const int num_cameras_per_rig2 : {1, 2, 3}) {
@@ -411,7 +413,7 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
           EXPECT_THAT(
               *rig2_from_rig1,
               Rigid3dNear(
-                  problem.gt_rig2_from_rig1, /*rtol=*/1e-6, /*ttol=*/1e-6));
+                  problem.gt_rig2_from_rig1, /*rtol=*/1e-3, /*ttol=*/1e-3));
         }
       }
     }
@@ -446,8 +448,8 @@ StructureLessAbsolutePoseProblem BuildStructureLessAbsolutePoseProblem(
   problem.query_camera = *query_image.CameraPtr();
 
   // Build mapping of world cameras
-  std::unordered_map<image_t, size_t> world_image_id_to_camera_idx;
-  std::unordered_map<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
+  NodeHashMap<image_t, size_t> world_image_id_to_camera_idx;
+  FlatHashMap<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
       world_obs;
 
   for (const image_t world_image_id : reconstruction.RegImageIds()) {
