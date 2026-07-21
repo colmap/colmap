@@ -93,13 +93,64 @@ TEST(TinyTangentSampsonErrorCostFunctor, MatchesSquaredTangentSampsonError) {
         q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z()};
 
     std::vector<double> residuals(cam_rays1_with_jac.size());
-    ASSERT_TRUE(functor(cam2_from_cam1, residuals.data()));
+    ASSERT_TRUE(functor(cam2_from_cam1, residuals.data(), nullptr));
 
     const Eigen::Matrix3d E = EssentialMatrixFromPose(Rigid3d(q, t));
     for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
       const double expected = ComputeSquaredTangentSampsonError(
           cam_rays1_with_jac[i], cam_rays2_with_jac[i], E);
       EXPECT_NEAR(residuals[i] * residuals[i], expected, 1e-9);
+    }
+  }
+}
+
+// The closed-form 7-parameter Jacobian matches central finite differences.
+TEST(TinyTangentSampsonErrorCostFunctor, JacobianMatchesFiniteDifference) {
+  auto make = [](const Eigen::Vector3d& ray,
+                 const Eigen::Matrix<double, 3, 2>& jac) {
+    return CamRayWithJac{ray.normalized(), jac};
+  };
+  const std::vector<CamRayWithJac> cam_rays1_with_jac = {
+      make({0.1, 0.2, 1},
+           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1)
+               .finished()),
+      make({-0.3, 0.1, 1},
+           (Eigen::Matrix<double, 3, 2>() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
+               .finished())};
+  const std::vector<CamRayWithJac> cam_rays2_with_jac = {
+      make({0.15, -0.1, 1},
+           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0)
+               .finished()),
+      make({0.05, 0.3, 1},
+           (Eigen::Matrix<double, 3, 2>() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15)
+               .finished())};
+  const TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
+                                                   cam_rays2_with_jac);
+  const int n = static_cast<int>(cam_rays1_with_jac.size());
+
+  const Eigen::Quaterniond q(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(0.2, -1, 0.5).normalized()));
+  const Eigen::Vector3d t = Eigen::Vector3d(0.6, -0.3, 1.0).normalized();
+  double p[7] = {q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z()};
+
+  std::vector<double> residuals(n), jacobian(n * 7);
+  ASSERT_TRUE(functor(p, residuals.data(), jacobian.data()));
+
+  constexpr double kEps = 1e-6;
+  for (int l = 0; l < 7; ++l) {
+    double p_plus[7], p_minus[7];
+    for (int k = 0; k < 7; ++k) {
+      p_plus[k] = p[k];
+      p_minus[k] = p[k];
+    }
+    p_plus[l] += kEps;
+    p_minus[l] -= kEps;
+    std::vector<double> res_plus(n), res_minus(n);
+    functor(p_plus, res_plus.data(), nullptr);
+    functor(p_minus, res_minus.data(), nullptr);
+    for (int i = 0; i < n; ++i) {
+      const double finite_diff = (res_plus[i] - res_minus[i]) / (2 * kEps);
+      EXPECT_NEAR(jacobian[i + l * n], finite_diff, 1e-5);
     }
   }
 }
