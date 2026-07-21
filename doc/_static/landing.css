@@ -285,6 +285,10 @@ section.hero-title > h1 > a.headerlink {
     flex-direction: column;
     gap: 0.4rem;
   }
+  .cis__label {
+    flex: none;
+    padding-top: 0;
+  }
   .hero__title {
     font-size: 2.25rem;
   }
