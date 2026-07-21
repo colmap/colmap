@@ -110,30 +110,30 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 }
 
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector3d>& cam_rays1,
-                          const std::vector<Eigen::Vector3d>& cam_rays2,
+                          const std::vector<CamRayWithJac>& cam_rays_with_jac1,
+                          const std::vector<CamRayWithJac>& cam_rays_with_jac2,
                           Rigid3d* cam2_from_cam1,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(cam_rays_with_jac1.size(), cam_rays_with_jac2.size());
 
-  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+  LORANSAC<EssentialMatrixTangentSampsonEstimator,
+           EssentialMatrixTangentSampsonEstimator>
       ransac(ransac_options);
-  auto report = ransac.Estimate(cam_rays1, cam_rays2);
+  const auto report = ransac.Estimate(cam_rays_with_jac1, cam_rays_with_jac2);
 
   if (!report.success) {
     return false;
   }
 
-  std::vector<Eigen::Vector3d> inlier_cam_rays1(report.support.num_inliers);
-  std::vector<Eigen::Vector3d> inlier_cam_rays2(report.support.num_inliers);
-
-  size_t j = 0;
-  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+  std::vector<Eigen::Vector3d> inlier_cam_rays1;
+  std::vector<Eigen::Vector3d> inlier_cam_rays2;
+  inlier_cam_rays1.reserve(report.support.num_inliers);
+  inlier_cam_rays2.reserve(report.support.num_inliers);
+  for (size_t i = 0; i < cam_rays_with_jac1.size(); ++i) {
     if (report.inlier_mask[i]) {
-      inlier_cam_rays1[j] = cam_rays1[i];
-      inlier_cam_rays2[j] = cam_rays2[i];
-      j += 1;
+      inlier_cam_rays1.push_back(cam_rays_with_jac1[i].ray);
+      inlier_cam_rays2.push_back(cam_rays_with_jac2[i].ray);
     }
   }
 

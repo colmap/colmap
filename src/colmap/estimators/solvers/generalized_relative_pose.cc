@@ -78,20 +78,16 @@ void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
                               std::vector<double>* residuals) {
   THROW_CHECK_EQ(points1.size(), points2.size());
   residuals->resize(points1.size());
-  // TODO: This inlines the Sampson error on unit bearings, so it does not match
-  // the max_error given in Camera::CamFromImgThreshold units. See
-  // ComputeSquaredSampsonError, which this should call once fixed.
+  // Score in pixel units with the tangent Sampson error. Each correspondence
+  // has its own essential matrix, formed from the two cameras' rig poses, and
+  // is evaluated in each camera's own frame, where that camera's ray Jacobian
+  // lives - so no rig-frame rotation of the rays or Jacobians is needed.
   for (size_t i = 0; i < points1.size(); ++i) {
     const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
                                    Inverse(points1[i].cam_from_rig);
     const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
-    const Eigen::Vector3d epipolar_line1 = E * points1[i].ray_in_cam;
-    const double num = points2[i].ray_in_cam.dot(epipolar_line1);
-    const Eigen::Vector4d denom(points2[i].ray_in_cam.dot(E.col(0)),
-                                points2[i].ray_in_cam.dot(E.col(1)),
-                                epipolar_line1.x(),
-                                epipolar_line1.y());
-    (*residuals)[i] = num * num / denom.squaredNorm();
+    (*residuals)[i] = ComputeSquaredTangentSampsonError(
+        points1[i].ray_with_jac(), points2[i].ray_with_jac(), E);
   }
 }
 

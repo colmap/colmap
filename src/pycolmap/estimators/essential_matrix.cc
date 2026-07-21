@@ -30,35 +30,29 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   const size_t num_points2D = points2D1.size();
 
-  std::vector<Eigen::Vector3d> cam_rays1(num_points2D);
-  std::vector<Eigen::Vector3d> cam_rays2(num_points2D);
+  // Unproject to rays + per-ray Jacobians (for the pixel-unit tangent Sampson
+  // score). End users pass camera + 2D points; Jacobians are never part of the
+  // interface. Unprojectable points are zeroed -> infinite residual ->
+  // rejected.
+  std::vector<CamRayWithJac> cam_rays_with_jac1(num_points2D);
+  std::vector<CamRayWithJac> cam_rays_with_jac2(num_points2D);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            camera1.CamFromImg(points2D1[point2D_idx]);
-        cam_point1) {
-      cam_rays1[point2D_idx] = cam_point1->homogeneous().normalized();
-    } else {
-      cam_rays1[point2D_idx].setZero();
-    }
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            camera2.CamFromImg(points2D2[point2D_idx]);
-        cam_point2) {
-      cam_rays2[point2D_idx] = cam_point2->homogeneous().normalized();
-    } else {
-      cam_rays2[point2D_idx].setZero();
-    }
+    cam_rays_with_jac1[point2D_idx] =
+        camera1.CamRayFromImgWithJac(points2D1[point2D_idx])
+            .value_or(CamRayWithJac::Zero());
+    cam_rays_with_jac2[point2D_idx] =
+        camera2.CamRayFromImgWithJac(points2D2[point2D_idx])
+            .value_or(CamRayWithJac::Zero());
   }
 
-  const double max_error_px = options.max_error;
-  RANSACOptions ransac_options(options);
-  ransac_options.max_error = 0.5 * (max_error_px / camera1.MeanFocalLength() +
-                                    max_error_px / camera2.MeanFocalLength());
-
-  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
-      ransac(ransac_options);
+  // The tangent Sampson residual is in pixels, so the pixel threshold is used
+  // directly (no CamFromImgThreshold / focal-length conversion).
+  LORANSAC<EssentialMatrixTangentSampsonEstimator,
+           EssentialMatrixTangentSampsonEstimator>
+      ransac(options);
 
   // Essential matrix estimation.
-  const auto report = ransac.Estimate(cam_rays1, cam_rays2);
+  const auto report = ransac.Estimate(cam_rays_with_jac1, cam_rays_with_jac2);
 
   if (!report.success) {
     py::gil_scoped_acquire acquire;
@@ -69,11 +63,11 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   std::vector<Eigen::Vector3d> inlier_cam_rays1;
   inlier_cam_rays1.reserve(report.support.num_inliers);
   std::vector<Eigen::Vector3d> inlier_cam_rays2;
-  inlier_cam_rays1.reserve(report.support.num_inliers);
+  inlier_cam_rays2.reserve(report.support.num_inliers);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     if (report.inlier_mask[point2D_idx]) {
-      inlier_cam_rays1.push_back(cam_rays1[point2D_idx]);
-      inlier_cam_rays2.push_back(cam_rays2[point2D_idx]);
+      inlier_cam_rays1.push_back(cam_rays_with_jac1[point2D_idx].ray);
+      inlier_cam_rays2.push_back(cam_rays_with_jac2[point2D_idx].ray);
     }
   }
 

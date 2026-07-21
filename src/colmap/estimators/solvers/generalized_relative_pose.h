@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -41,6 +42,15 @@ namespace colmap {
 struct GRNPObservation {
   Rigid3d cam_from_rig;
   Eigen::Vector3d ray_in_cam;
+  // Jacobian d(ray_in_cam) / d(pixel), so Residuals can score in pixel units
+  // with the tangent Sampson error. Only the residual uses it; the solver reads
+  // ray_in_cam alone.
+  Eigen::Matrix<double, 3, 2> ray_jacobian_in_cam;
+
+  // Bundle the ray and its Jacobian for ComputeSquaredTangentSampsonError.
+  CamRayWithJac ray_with_jac() const {
+    return {ray_in_cam, ray_jacobian_in_cam};
+  }
 };
 
 // Minimal generalized relative pose estimator based on poselib.
@@ -62,7 +72,8 @@ class GR6PEstimator {
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* rigs2_from_rigs1);
 
-  // Calculate the squared Sampson error between corresponding points.
+  // Calculate the squared tangent Sampson error (in pixels) between
+  // corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
                         const std::vector<Y_t>& points2,
                         const M_t& rig2_from_rig1,
@@ -98,7 +109,8 @@ class GR8PEstimator {
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* rigs2_from_rigs1);
 
-  // Calculate the squared Sampson error between corresponding points.
+  // Calculate the squared tangent Sampson error (in pixels) between
+  // corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
                         const std::vector<Y_t>& points2,
                         const M_t& rig2_from_rig1,

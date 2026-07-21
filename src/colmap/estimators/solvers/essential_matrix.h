@@ -67,19 +67,10 @@ class EssentialMatrixFivePointEstimator {
                        const std::vector<Y_t>& cam_rays2,
                        std::vector<M_t>* models);
 
-  // Calculate the residuals of a set of corresponding rays and a given
-  // essential matrix.
-  //
-  // Residuals are defined as the squared Sampson error.
-  //
-  // @param cam_rays1  First set of corresponding rays.
-  // @param cam_rays2  Second set of corresponding rays.
-  // @param E          3x3 essential matrix.
-  // @param residuals  Output vector of residuals.
-  static void Residuals(const std::vector<X_t>& cam_rays1,
-                        const std::vector<Y_t>& cam_rays2,
-                        const M_t& E,
-                        std::vector<double>* residuals);
+  // NOTE: This minimal solver no longer provides a Residuals() method; inlier
+  // scoring for essential matrices is done in pixel units by
+  // EssentialMatrixTangentSampsonEstimator. The former Sampson-on-unit-bearings
+  // Residuals (ComputeSquaredSampsonErrorWithCheirality) has been retired.
 };
 
 // Essential matrix estimator from corresponding normalized camera ray pairs.
@@ -105,77 +96,9 @@ class EssentialMatrixEightPointEstimator {
   // @param cam_rays2  Second set of corresponding rays.
   static void Estimate(const std::vector<X_t>& cam_rays1,
                        const std::vector<Y_t>& cam_rays2,
-
                        std::vector<M_t>* models);
 
-  // Calculate the residuals of a set of corresponding rays and a given
-  // essential matrix.
-  //
-  // Residuals are defined as the squared Sampson error.
-  //
-  // @param cam_rays1  First set of corresponding rays.
-  // @param cam_rays2  Second set of corresponding rays.
-  // @param E          3x3 essential matrix.
-  // @param residuals  Output vector of residuals.
-  static void Residuals(const std::vector<X_t>& cam_rays1,
-                        const std::vector<Y_t>& cam_rays2,
-                        const M_t& E,
-                        std::vector<double>* residuals);
-};
-
-// Essential matrix estimator that nonlinearly refines an essential matrix by
-// minimizing the Sampson error of the corresponding relative pose (via a
-// fixed-size ceres::TinySolver over the 5-DoF pose tangent).
-//
-// Unlike the algebraic five/eight-point estimators, this is a non-minimal
-// refinement estimator: it either starts from a supplied initial model or
-// self-seeds with the eight-point solver. It is intended to be used as the
-// local-optimization (non-minimal) solver inside LO-RANSAC, seeded from the
-// current best model through the initial-model hook in loransac.h.
-class EssentialMatrixLMEstimator {
- public:
-  using X_t = Eigen::Vector3d;
-  using Y_t = Eigen::Vector3d;
-  using M_t = Eigen::Matrix3d;
-
-  // The minimum number of samples needed to refine a model, i.e. the five
-  // degrees of freedom of the essential matrix. The self-seeding Estimate()
-  // method additionally requires at least eight rays for its eight-point
-  // initialization.
-  static const int kMinNumSamples = 5;
-
-  // Refine an essential matrix, self-seeded with the eight-point solver.
-  //
-  // Returns a single refined model, or no model if the initialization is
-  // degenerate.
-  //
-  // @param cam_rays1  First set of corresponding rays.
-  // @param cam_rays2  Second set of corresponding rays.
-  // @param models     Output refined essential matrix (0 or 1 model).
-  static void Estimate(const std::vector<X_t>& cam_rays1,
-                       const std::vector<Y_t>& cam_rays2,
-                       std::vector<M_t>* models);
-
-  // Refine an essential matrix in place, starting from *E. This is the entry
-  // point used by LO-RANSAC for local optimization (see
-  // SupportsRefineWithInitialModel in loransac.h).
-  //
-  // Returns true and overwrites *E with the refined model on success. On a
-  // degenerate decomposition it returns false and leaves *E unchanged.
-  //
-  // @param cam_rays1  First set of corresponding rays.
-  // @param cam_rays2  Second set of corresponding rays.
-  // @param E          Essential matrix to refine in place.
-  static bool Refine(const std::vector<X_t>& cam_rays1,
-                     const std::vector<Y_t>& cam_rays2,
-                     M_t* E);
-
-  // Calculate the residuals of a set of corresponding rays and a given
-  // essential matrix. Residuals are defined as the squared Sampson error.
-  static void Residuals(const std::vector<X_t>& cam_rays1,
-                        const std::vector<Y_t>& cam_rays2,
-                        const M_t& E,
-                        std::vector<double>* residuals);
+  // NOTE: Residuals() retired; see EssentialMatrixFivePointEstimator above.
 };
 
 // Essential matrix estimator scoring correspondences by the tangent Sampson
@@ -198,15 +121,15 @@ class EssentialMatrixTangentSampsonEstimator {
   // Estimate up to 10 possible essential matrix solutions from a set of
   // corresponding camera rays. The Jacobians are ignored here; they only
   // affect scoring.
-  static void Estimate(const std::vector<X_t>& cam_rays1,
-                       const std::vector<Y_t>& cam_rays2,
+  static void Estimate(const std::vector<X_t>& cam_rays_with_jac1,
+                       const std::vector<Y_t>& cam_rays_with_jac2,
                        std::vector<M_t>* models);
 
   // Calculate the residuals of a set of corresponding rays and a given
   // essential matrix, as the squared tangent Sampson error in squared pixels,
   // additionally enforcing the cheirality constraint.
-  static void Residuals(const std::vector<X_t>& cam_rays1,
-                        const std::vector<Y_t>& cam_rays2,
+  static void Residuals(const std::vector<X_t>& cam_rays_with_jac1,
+                        const std::vector<Y_t>& cam_rays_with_jac2,
                         const M_t& E,
                         std::vector<double>* residuals);
 };

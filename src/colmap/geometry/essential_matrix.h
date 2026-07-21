@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -176,31 +177,6 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
 
-// Calculate the residuals of a set of corresponding rays and a given essential
-// matrix, additionally enforcing the cheirality constraint.
-//
-// Residuals are the squared Sampson error, except that correspondences which
-// triangulate behind either camera are assigned an infinite residual. The
-// relative pose is recovered from E (resolving the four-fold decomposition
-// ambiguity by cheirality voting), so an epipolar-consistent correspondence
-// with the wrong depth sign is rejected even when its Sampson error is small.
-//
-// Only meaningful for essential matrices (calibrated rays); the plain
-// ComputeSquaredSampsonError should be used for fundamental matrices.
-//
-// Sampson on unit bearings (required by cheirality): not a pixel-unit residual.
-// Use the tangent Sampson variant where a camera model is available.
-//
-// @param rays1       Corresponding unit bearings.
-// @param rays2       Corresponding unit bearings.
-// @param E           3x3 essential matrix.
-// @param residuals   Output vector of residuals.
-void ComputeSquaredSampsonErrorWithCheirality(
-    const std::vector<Eigen::Vector3d>& rays1,
-    const std::vector<Eigen::Vector3d>& rays2,
-    const Eigen::Matrix3d& E,
-    std::vector<double>* residuals);
-
 // Calculate the squared tangent Sampson error for a single ray pair and a given
 // essential matrix.
 //
@@ -233,67 +209,49 @@ void ComputeSquaredSampsonErrorWithCheirality(
 // order in the residual when unit bearings are used. The latter is the sense in
 // which this is an approximation of the true reprojection error.
 //
-// @param ray1        First unit bearing vector.
-// @param J_ray1      Jacobian d(ray1) / d(pixel1).
-// @param ray2        Second unit bearing vector.
-// @param J_ray2      Jacobian d(ray2) / d(pixel2).
+// @param cam_ray_with_jac1  First bearing with its Jacobian d(ray1) /
+// d(pixel1).
+// @param cam_ray_with_jac2  Second bearing with its Jacobian d(ray2) /
+// d(pixel2).
 // @param E           3x3 essential matrix.
 // @return            Squared tangent Sampson error, in squared pixels.
-double ComputeSquaredTangentSampsonError(
-    const Eigen::Vector3d& ray1,
-    const Eigen::Matrix<double, 3, 2>& J_ray1,
-    const Eigen::Vector3d& ray2,
-    const Eigen::Matrix<double, 3, 2>& J_ray2,
-    const Eigen::Matrix3d& E);
+double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray_with_jac1,
+                                         const CamRayWithJac& cam_ray_with_jac2,
+                                         const Eigen::Matrix3d& E);
 
 // Calculate the residuals of a set of corresponding rays and a given essential
 // matrix, as the squared tangent Sampson error.
 //
-// @param rays1       Corresponding unit bearing vectors.
-// @param J_rays1     Corresponding Jacobians d(ray1) / d(pixel1).
-// @param rays2       Corresponding unit bearing vectors.
-// @param J_rays2     Corresponding Jacobians d(ray2) / d(pixel2).
+// @param cam_rays_with_jac1  Corresponding bearings with their Jacobians.
+// @param cam_rays_with_jac2  Corresponding bearings with their Jacobians.
 // @param E           3x3 essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredTangentSampsonError(
-    const std::vector<Eigen::Vector3d>& rays1,
-    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays1,
-    const std::vector<Eigen::Vector3d>& rays2,
-    const std::vector<Eigen::Matrix<double, 3, 2>>& J_rays2,
+    const std::vector<CamRayWithJac>& cam_rays_with_jac1,
+    const std::vector<CamRayWithJac>& cam_rays_with_jac2,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals);
-
-// A unit bearing vector together with the Jacobian of that bearing with respect
-// to the pixel it was unprojected from, as produced by
-// Camera::CamRayFromImgWithJac.
-//
-// The two are bundled into a single type so that consumers which subsample
-// correspondences - RANSAC in particular - keep rays and their Jacobians
-// index-aligned by construction, rather than by an unchecked convention between
-// parallel arrays.
-struct CamRayWithJac {
-  Eigen::Vector3d ray;
-  Eigen::Matrix<double, 3, 2> J;
-};
 
 // Calculate the residuals of a set of corresponding rays and a given essential
 // matrix as the squared tangent Sampson error, additionally enforcing the
 // cheirality constraint.
 //
-// Correspondences that triangulate behind either camera are assigned an
-// infinite residual, as in ComputeSquaredSampsonErrorWithCheirality.
+// Correspondences that triangulate behind either camera (the relative pose is
+// recovered from E by cheirality voting) are assigned an infinite residual.
 //
 // This is called once per RANSAC hypothesis, so it avoids copying the bundled
 // input: only the bearings are materialized, because PoseFromEssentialMatrix
 // requires contiguous vectors.
 //
-// @param cam_rays1   First set of corresponding bearings with Jacobians.
-// @param cam_rays2   Second set of corresponding bearings with Jacobians.
+// @param cam_rays_with_jac1   First set of corresponding bearings with
+// Jacobians.
+// @param cam_rays_with_jac2   Second set of corresponding bearings with
+// Jacobians.
 // @param E           3x3 essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredTangentSampsonErrorWithCheirality(
-    const std::vector<CamRayWithJac>& cam_rays1,
-    const std::vector<CamRayWithJac>& cam_rays2,
+    const std::vector<CamRayWithJac>& cam_rays_with_jac1,
+    const std::vector<CamRayWithJac>& cam_rays_with_jac2,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals);
 

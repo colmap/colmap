@@ -545,7 +545,9 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
   }
 
   StructureLessAbsolutePoseEstimationOptions options;
-  options.ransac_options.max_error = 1e-3;
+  // Pixel-unit tangent Sampson threshold: comfortably above the (near-zero)
+  // residual of the exact inliers and far below the +1000px outliers.
+  options.ransac_options.max_error = 1.0;
   Rigid3d cam_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;

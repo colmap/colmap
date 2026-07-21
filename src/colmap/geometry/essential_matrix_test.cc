@@ -198,82 +198,6 @@ TEST(ComputeSquaredSampsonError, Nominal) {
   EXPECT_EQ(residuals[1], 0.5);
   EXPECT_EQ(residuals[2], 2);
 }
-
-TEST(ComputeSquaredSampsonErrorWithCheirality, AllCorrespondencesInFront) {
-  const Rigid3d cam1_from_world;
-  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
-                                Eigen::Vector3d(1, 0, 0).normalized());
-  const Eigen::Matrix3d E =
-      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
-
-  std::vector<Eigen::Vector3d> points3D(4);
-  points3D[0] = Eigen::Vector3d(0, 0, 1);
-  points3D[1] = Eigen::Vector3d(0, 0.1, 1);
-  points3D[2] = Eigen::Vector3d(0.1, 0, 1);
-  points3D[3] = Eigen::Vector3d(0.1, 0.1, 1);
-
-  std::vector<Eigen::Vector3d> rays1(points3D.size());
-  std::vector<Eigen::Vector3d> rays2(points3D.size());
-  for (size_t i = 0; i < points3D.size(); ++i) {
-    rays1[i] = (cam1_from_world * points3D[i]).normalized();
-    rays2[i] = (cam2_from_world * points3D[i]).normalized();
-  }
-
-  // All correspondences triangulate in front of both cameras, so enforcing
-  // cheirality must leave every residual identical to the plain Sampson error.
-  std::vector<double> sampson_residuals;
-  ComputeSquaredSampsonError(rays1, rays2, E, &sampson_residuals);
-  std::vector<double> cheiral_residuals;
-  ComputeSquaredSampsonErrorWithCheirality(rays1, rays2, E, &cheiral_residuals);
-
-  ASSERT_EQ(cheiral_residuals.size(), sampson_residuals.size());
-  for (size_t i = 0; i < sampson_residuals.size(); ++i) {
-    EXPECT_EQ(cheiral_residuals[i], sampson_residuals[i]);
-  }
-}
-
-TEST(ComputeSquaredSampsonErrorWithCheirality, CorrespondenceBehindCamera) {
-  const Rigid3d cam1_from_world;
-  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
-                                Eigen::Vector3d(1, 0, 0).normalized());
-  const Eigen::Matrix3d E =
-      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
-
-  std::vector<Eigen::Vector3d> points3D(4);
-  points3D[0] = Eigen::Vector3d(0, 0, 1);
-  points3D[1] = Eigen::Vector3d(0, 0.1, 1);
-  points3D[2] = Eigen::Vector3d(0.1, 0, 1);
-  points3D[3] = Eigen::Vector3d(0.1, 0.1, 1);
-
-  std::vector<Eigen::Vector3d> rays1(points3D.size());
-  std::vector<Eigen::Vector3d> rays2(points3D.size());
-  for (size_t i = 0; i < points3D.size(); ++i) {
-    rays1[i] = (cam1_from_world * points3D[i]).normalized();
-    rays2[i] = (cam2_from_world * points3D[i]).normalized();
-  }
-
-  // Negating a ray keeps it on the same epipolar line (the Sampson error is
-  // invariant to the sign of the ray) but flips its triangulated depth, so it
-  // ends up behind the cameras.
-  rays2[1] = -rays2[1];
-
-  // The plain Sampson error stays finite (and near zero) for the flipped
-  // correspondence because it ignores cheirality.
-  std::vector<double> sampson_residuals;
-  ComputeSquaredSampsonError(rays1, rays2, E, &sampson_residuals);
-  EXPECT_LT(sampson_residuals[1], 1e-10);
-
-  // Enforcing cheirality rejects the flipped correspondence with an infinite
-  // residual while leaving the remaining ones equal to the Sampson error.
-  std::vector<double> cheiral_residuals;
-  ComputeSquaredSampsonErrorWithCheirality(rays1, rays2, E, &cheiral_residuals);
-  ASSERT_EQ(cheiral_residuals.size(), 4);
-  EXPECT_EQ(cheiral_residuals[1], std::numeric_limits<double>::max());
-  EXPECT_EQ(cheiral_residuals[0], sampson_residuals[0]);
-  EXPECT_EQ(cheiral_residuals[2], sampson_residuals[2]);
-  EXPECT_EQ(cheiral_residuals[3], sampson_residuals[3]);
-}
-
 namespace {
 
 // A pinhole geometry to exercise the tangent Sampson error against a known
@@ -341,7 +265,7 @@ TEST(ComputeSquaredTangentSampsonError, PinholeMatchesScaledSampsonExactly) {
               PinholeNormalizedFromImg(Eigen::Vector2d(x2, y2));
 
           const double tangent_sampson =
-              ComputeSquaredTangentSampsonError(m1, J_norm, m2, J_norm, E);
+              ComputeSquaredTangentSampsonError({m1, J_norm}, {m2, J_norm}, E);
           const double scaled_sampson =
               kFocal * kFocal * ComputeSquaredSampsonError(m1, m2, E);
 
@@ -387,12 +311,10 @@ TEST(ComputeSquaredTangentSampsonError, UnitRaysAgreeToFirstOrder) {
     const Eigen::Vector3d m2 =
         PinholeNormalizedFromImg(image_point2 + offset * perpendicular);
 
-    const double tangent_sampson =
-        ComputeSquaredTangentSampsonError(m1.normalized(),
-                                          PinholeUnitRayJacobian(m1),
-                                          m2.normalized(),
-                                          PinholeUnitRayJacobian(m2),
-                                          E);
+    const double tangent_sampson = ComputeSquaredTangentSampsonError(
+        {m1.normalized(), PinholeUnitRayJacobian(m1)},
+        {m2.normalized(), PinholeUnitRayJacobian(m2)},
+        E);
     const double scaled_sampson =
         kFocal * kFocal * ComputeSquaredSampsonError(m1, m2, E);
 
@@ -421,11 +343,20 @@ TEST(ComputeSquaredTangentSampsonError, UnitRaysAgreeToFirstOrder) {
 
 TEST(ComputeSquaredTangentSampsonError, DegenerateDenominatorReturnsMax) {
   const Eigen::Matrix<double, 3, 2> J_norm = PinholeNormalizedJacobian();
-  EXPECT_EQ(ComputeSquaredTangentSampsonError(Eigen::Vector3d(0, 0, 1),
-                                              J_norm,
-                                              Eigen::Vector3d(0, 0, 1),
-                                              J_norm,
-                                              Eigen::Matrix3d::Zero()),
+  EXPECT_EQ(
+      ComputeSquaredTangentSampsonError({Eigen::Vector3d(0, 0, 1), J_norm},
+                                        {Eigen::Vector3d(0, 0, 1), J_norm},
+                                        Eigen::Matrix3d::Zero()),
+      std::numeric_limits<double>::max());
+
+  // The CamRayWithJac::Zero() sentinel that callers substitute for an
+  // unprojectable point must be rejected for any essential matrix: its zero ray
+  // and Jacobian force the denominator to zero regardless of a (nonzero) E.
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(),
+              Eigen::Vector3d(1, 0.1, 0.2).normalized()));
+  EXPECT_EQ(ComputeSquaredTangentSampsonError(
+                CamRayWithJac::Zero(), {Eigen::Vector3d(0, 0, 1), J_norm}, E),
             std::numeric_limits<double>::max());
 }
 
@@ -441,22 +372,22 @@ TEST(ComputeSquaredTangentSampsonError, VectorOverloadAndCheirality) {
                                                  Eigen::Vector3d(0.1, 0, 1),
                                                  Eigen::Vector3d(0.1, 0.1, 1)};
 
-  std::vector<Eigen::Vector3d> rays1(points3D.size());
-  std::vector<Eigen::Vector3d> rays2(points3D.size());
-  std::vector<Eigen::Matrix<double, 3, 2>> J_rays1(points3D.size());
-  std::vector<Eigen::Matrix<double, 3, 2>> J_rays2(points3D.size());
+  std::vector<CamRayWithJac> cam_rays_with_jac1(points3D.size());
+  std::vector<CamRayWithJac> cam_rays_with_jac2(points3D.size());
   for (size_t i = 0; i < points3D.size(); ++i) {
     const Eigen::Vector3d cam1_point = cam1_from_world * points3D[i];
     const Eigen::Vector3d cam2_point = cam2_from_world * points3D[i];
-    rays1[i] = cam1_point.normalized();
-    rays2[i] = cam2_point.normalized();
-    J_rays1[i] = PinholeUnitRayJacobian(cam1_point / cam1_point.z());
-    J_rays2[i] = PinholeUnitRayJacobian(cam2_point / cam2_point.z());
+    cam_rays_with_jac1[i] = {
+        cam1_point.normalized(),
+        PinholeUnitRayJacobian(cam1_point / cam1_point.z())};
+    cam_rays_with_jac2[i] = {
+        cam2_point.normalized(),
+        PinholeUnitRayJacobian(cam2_point / cam2_point.z())};
   }
 
   std::vector<double> residuals;
   ComputeSquaredTangentSampsonError(
-      rays1, J_rays1, rays2, J_rays2, E, &residuals);
+      cam_rays_with_jac1, cam_rays_with_jac2, E, &residuals);
   ASSERT_EQ(residuals.size(), points3D.size());
   for (const double residual : residuals) {
     EXPECT_LT(residual, 1e-16);
@@ -464,24 +395,17 @@ TEST(ComputeSquaredTangentSampsonError, VectorOverloadAndCheirality) {
 
   // Flipping one correspondence behind both cameras leaves the epipolar
   // constraint satisfied but must be rejected once cheirality is enforced.
-  rays1[1] = -rays1[1];
-  rays2[1] = -rays2[1];
+  cam_rays_with_jac1[1].ray = -cam_rays_with_jac1[1].ray;
+  cam_rays_with_jac2[1].ray = -cam_rays_with_jac2[1].ray;
 
   std::vector<double> plain_residuals;
   ComputeSquaredTangentSampsonError(
-      rays1, J_rays1, rays2, J_rays2, E, &plain_residuals);
+      cam_rays_with_jac1, cam_rays_with_jac2, E, &plain_residuals);
   EXPECT_LT(plain_residuals[1], 1e-16);
-
-  std::vector<CamRayWithJac> cam_rays1(points3D.size());
-  std::vector<CamRayWithJac> cam_rays2(points3D.size());
-  for (size_t i = 0; i < points3D.size(); ++i) {
-    cam_rays1[i] = {rays1[i], J_rays1[i]};
-    cam_rays2[i] = {rays2[i], J_rays2[i]};
-  }
 
   std::vector<double> cheiral_residuals;
   ComputeSquaredTangentSampsonErrorWithCheirality(
-      cam_rays1, cam_rays2, E, &cheiral_residuals);
+      cam_rays_with_jac1, cam_rays_with_jac2, E, &cheiral_residuals);
   ASSERT_EQ(cheiral_residuals.size(), points3D.size());
   EXPECT_EQ(cheiral_residuals[1], std::numeric_limits<double>::max());
   EXPECT_EQ(cheiral_residuals[0], plain_residuals[0]);

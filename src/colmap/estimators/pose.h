@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
@@ -130,17 +131,23 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 // of second camera is given as world-to-image transformation,
 // i.e. `x2 = [R | t] * X2`.
 //
-// @param ransac_options       RANSAC options.
-// @param cam_rays1            Corresponding 3D rays in first camera frame.
-// @param cam_rays2            Corresponding 3D rays in second camera frame.
+// Inliers are scored with the pixel-unit tangent Sampson error, so callers
+// supply each ray together with its unprojection Jacobian d(ray)/d(pixel) as a
+// CamRayWithJac (see Camera::CamRayFromImgWithJac). Every in-tree caller has a
+// camera model, so this is always available; the former bearing-only path
+// (Sampson error on unit bearings) has been retired.
+//
+// @param ransac_options       RANSAC options (max_error in pixels).
+// @param cam_rays_with_jac1   Corresponding rays + Jacobians, first camera.
+// @param cam_rays_with_jac2   Corresponding rays + Jacobians, second camera.
 // @param cam2_from_cam1       Estimated pose between cameras.
 // @param num_inliers          Number of inliers in RANSAC.
 // @param inlier_mask          Inlier mask for 2D-2D correspondences.
 //
 // @return                     Whether pose is estimated successfully.
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector3d>& cam_rays1,
-                          const std::vector<Eigen::Vector3d>& cam_rays2,
+                          const std::vector<CamRayWithJac>& cam_rays_with_jac1,
+                          const std::vector<CamRayWithJac>& cam_rays_with_jac2,
                           Rigid3d* cam2_from_cam1,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask);

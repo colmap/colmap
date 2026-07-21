@@ -359,6 +359,19 @@ TEST(Camera, CamRayFromImgWithJac) {
   }
 }
 
+TEST(Camera, CamRayFromImgWithJacUnprojectable) {
+  // A pixel the camera cannot unproject (iterative undistortion diverges) must
+  // yield no ray + Jacobian, rather than a garbage one.
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 100.0, 100, 200);
+  camera.params[4] = -0.5;  // k1
+  camera.params[5] = 0.5;   // k2
+  camera.params[6] = -0.5;  // p1
+  const Eigen::Vector2d unprojectable(50.0, 150.0);
+  ASSERT_FALSE(camera.CamFromImg(unprojectable).has_value());
+  EXPECT_FALSE(camera.CamRayFromImgWithJac(unprojectable).has_value());
+}
+
 TEST(Camera, Rescale) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);

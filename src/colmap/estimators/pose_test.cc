@@ -152,36 +152,104 @@ TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
 }
 
 TEST(EstimateRelativePose, Nominal) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 512.0, 1024, 1024);
   const Rigid3d cam1_from_world;
   const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
                                 Eigen::Vector3d(1, 0.1, 0.2).normalized());
 
-  std::vector<Eigen::Vector3d> points3D(100);
-  for (size_t i = 0; i < points3D.size(); ++i) {
-    points3D[i] = RandomEigenVectord<3>();
-  }
-
-  std::vector<Eigen::Vector3d> rays1(points3D.size());
-  std::vector<Eigen::Vector3d> rays2(points3D.size());
-  for (size_t i = 0; i < points3D.size(); ++i) {
-    rays1[i] = (cam1_from_world * points3D[i]).normalized();
-    rays2[i] = (cam2_from_world * points3D[i]).normalized();
+  // EstimateRelativePose scores with the pixel-unit tangent Sampson error, so
+  // it takes rays with their unprojection Jacobians (CamRayWithJac). Points are
+  // placed in front of both cameras and projected to pixels.
+  std::vector<CamRayWithJac> cam_rays_with_jac1(100);
+  std::vector<CamRayWithJac> cam_rays_with_jac2(100);
+  for (size_t i = 0; i < cam_rays_with_jac1.size(); ++i) {
+    const Eigen::Vector3d point3D =
+        RandomEigenVectord<3>() + Eigen::Vector3d(0, 0, 3);
+    const Eigen::Vector2d point2D1 =
+        camera.ImgFromCam(cam1_from_world * point3D).value();
+    const Eigen::Vector2d point2D2 =
+        camera.ImgFromCam(cam2_from_world * point3D).value();
+    cam_rays_with_jac1[i] = camera.CamRayFromImgWithJac(point2D1).value();
+    cam_rays_with_jac2[i] = camera.CamRayFromImgWithJac(point2D2).value();
   }
 
   RANSACOptions options;
-  options.max_error = 1e-3;
+  options.max_error = 1.0;  // pixels
   Rigid3d cam2_from_cam1;
   size_t num_inliers = 0;
   std::vector<char> inlier_mask;
-  EXPECT_TRUE(EstimateRelativePose(
-      options, rays1, rays2, &cam2_from_cam1, &num_inliers, &inlier_mask));
+  EXPECT_TRUE(EstimateRelativePose(options,
+                                   cam_rays_with_jac1,
+                                   cam_rays_with_jac2,
+                                   &cam2_from_cam1,
+                                   &num_inliers,
+                                   &inlier_mask));
 
   EXPECT_THAT(cam2_from_cam1,
               Rigid3dNear(cam2_from_world * Inverse(cam1_from_world),
                           /*rtol=*/1e-3,
                           /*ttol=*/1e-3));
-  EXPECT_EQ(num_inliers, points3D.size());
+  EXPECT_EQ(num_inliers, cam_rays_with_jac1.size());
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+}
+
+TEST(EstimateRelativePose, ZeroSentinelRaysExcluded) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 512.0, 1024, 1024);
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0.1, 0.2).normalized());
+
+  std::vector<CamRayWithJac> cam_rays_with_jac1(100);
+  std::vector<CamRayWithJac> cam_rays_with_jac2(100);
+  for (size_t i = 0; i < cam_rays_with_jac1.size(); ++i) {
+    const Eigen::Vector3d point3D =
+        RandomEigenVectord<3>() + Eigen::Vector3d(0, 0, 3);
+    cam_rays_with_jac1[i] =
+        camera
+            .CamRayFromImgWithJac(
+                camera.ImgFromCam(cam1_from_world * point3D).value())
+            .value();
+    cam_rays_with_jac2[i] =
+        camera
+            .CamRayFromImgWithJac(
+                camera.ImgFromCam(cam2_from_world * point3D).value())
+            .value();
+  }
+
+  // Emulate unprojectable correspondences: CamRayFromImgWithJac returns nullopt
+  // and callers substitute the CamRayWithJac::Zero() sentinel. These must be
+  // rejected (infinite tangent Sampson residual) and never counted as inliers,
+  // while the pose is still recovered from the remaining correspondences.
+  std::vector<bool> is_zeroed(cam_rays_with_jac1.size(), false);
+  for (const size_t i : {3, 17, 42, 88}) {
+    cam_rays_with_jac1[i] = CamRayWithJac::Zero();
+    cam_rays_with_jac2[i] = CamRayWithJac::Zero();
+    is_zeroed[i] = true;
+  }
+
+  RANSACOptions options;
+  options.max_error = 1.0;  // pixels
+  Rigid3d cam2_from_cam1;
+  size_t num_inliers = 0;
+  std::vector<char> inlier_mask;
+  EXPECT_TRUE(EstimateRelativePose(options,
+                                   cam_rays_with_jac1,
+                                   cam_rays_with_jac2,
+                                   &cam2_from_cam1,
+                                   &num_inliers,
+                                   &inlier_mask));
+
+  EXPECT_THAT(cam2_from_cam1,
+              Rigid3dNear(cam2_from_world * Inverse(cam1_from_world),
+                          /*rtol=*/1e-3,
+                          /*ttol=*/1e-3));
+  EXPECT_EQ(num_inliers, cam_rays_with_jac1.size() - 4);
+  ASSERT_EQ(inlier_mask.size(), is_zeroed.size());
+  for (size_t i = 0; i < inlier_mask.size(); ++i) {
+    EXPECT_EQ(static_cast<bool>(inlier_mask[i]), !is_zeroed[i]);
+  }
 }
 
 TEST(RefineAbsolutePose, Nominal) {

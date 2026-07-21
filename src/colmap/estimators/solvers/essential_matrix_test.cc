@@ -98,8 +98,11 @@ void ExpectAtLeastOneValidModel(const Estimator& estimator,
       continue;
     }
 
+    // The five/eight-point solvers no longer expose Residuals (bearing Sampson
+    // was retired); verify the recovered model directly with the plain Sampson
+    // error, which is ~0 for these noiseless, in-front correspondences.
     std::vector<double> residuals;
-    estimator.Residuals(rays1, rays2, E, &residuals);
+    ComputeSquaredSampsonError(rays1, rays2, E, &residuals);
     for (size_t j = 0; j < rays1.size(); ++j) {
       EXPECT_LT(residuals[j], r_eps);
     }
@@ -173,68 +176,5 @@ TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
 INSTANTIATE_TEST_SUITE_P(EssentialMatrixEightPointEstimator,
                          EssentialMatrixEightPointEstimatorTests,
                          ::testing::Values(8, 64, 1024));
-
-class EssentialMatrixLMEstimatorTests
-    : public ::testing::TestWithParam<size_t> {};
-
-// Self-seeding (eight-point) refinement recovers the essential matrix on clean
-// correspondences.
-TEST_P(EssentialMatrixLMEstimatorTests, Nominal) {
-  SetPRNGSeed(0);
-  const size_t kNumRays = GetParam();
-  for (size_t k = 0; k < 10; ++k) {
-    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
-                                 RandomEigenVectord<3>());
-    Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
-    std::vector<Eigen::Vector3d> rays1;
-    std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(
-        cam2_from_cam1, kNumRays, /*reject_degenerate=*/false, rays1, rays2);
-
-    EssentialMatrixLMEstimator estimator;
-    std::vector<Eigen::Matrix3d> models;
-    estimator.Estimate(rays1, rays2, &models);
-
-    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
-  }
-}
-
-INSTANTIATE_TEST_SUITE_P(EssentialMatrixLMEstimator,
-                         EssentialMatrixLMEstimatorTests,
-                         ::testing::Values(8, 64, 1024));
-
-// Refinement recovers the ground truth from a perturbed initial model.
-TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
-  SetPRNGSeed(0);
-  for (size_t k = 0; k < 100; ++k) {
-    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
-                                 RandomEigenVectord<3>());
-    Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
-    std::vector<Eigen::Vector3d> rays1;
-    std::vector<Eigen::Vector3d> rays2;
-    RandomEpipolarCorrespondences(
-        cam2_from_cam1, 50, /*reject_degenerate=*/false, rays1, rays2);
-
-    // Build a seed model by perturbing the ground-truth pose.
-    const Eigen::Quaterniond seed_rotation =
-        cam2_from_cam1.rotation() *
-        Eigen::Quaterniond(
-            Eigen::AngleAxisd(0.02, RandomEigenVectord<3>().normalized()));
-    const Eigen::Vector3d seed_translation =
-        cam2_from_cam1.translation() + 0.02 * RandomEigenVectord<3>();
-    const Eigen::Matrix3d seed_E =
-        EssentialMatrixFromPose(Rigid3d(seed_rotation, seed_translation));
-
-    EssentialMatrixLMEstimator estimator;
-    Eigen::Matrix3d refined_E = seed_E;
-    ASSERT_TRUE(estimator.Refine(rays1, rays2, &refined_E));
-
-    // The refined model must match the ground truth, i.e. the refinement pulled
-    // the perturbed seed (which does not) back to the true essential matrix.
-    std::vector<Eigen::Matrix3d> models = {refined_E};
-    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
-  }
-}
-
 }  // namespace
 }  // namespace colmap

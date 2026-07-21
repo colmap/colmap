@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -183,8 +184,8 @@ struct Camera {
   // evaluated in pixel units for any central camera model. Returns std::nullopt
   // if the pixel cannot be unprojected or the projection is rank deficient
   // there.
-  inline std::optional<std::pair<Eigen::Vector3d, Eigen::Matrix<double, 3, 2>>>
-  CamRayFromImgWithJac(const Eigen::Vector2d& image_point) const;
+  inline std::optional<CamRayWithJac> CamRayFromImgWithJac(
+      const Eigen::Vector2d& image_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.
@@ -347,8 +348,8 @@ std::optional<Eigen::Vector2d> Camera::ImgFromCamWithJac(
   return CameraModelImgFromCamWithJac(model_id, params, cam_point, J_uvw);
 }
 
-std::optional<std::pair<Eigen::Vector3d, Eigen::Matrix<double, 3, 2>>>
-Camera::CamRayFromImgWithJac(const Eigen::Vector2d& image_point) const {
+std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
+    const Eigen::Vector2d& image_point) const {
   const std::optional<Eigen::Vector3d> cam_ray = CamRayFromImg(image_point);
   if (!cam_ray.has_value()) {
     return std::nullopt;
@@ -362,7 +363,7 @@ Camera::CamRayFromImgWithJac(const Eigen::Vector2d& image_point) const {
   if (!J_ray.has_value()) {
     return std::nullopt;
   }
-  return std::make_pair(*cam_ray, *J_ray);
+  return CamRayWithJac{*cam_ray, *J_ray};
 }
 
 bool Camera::operator==(const Camera& other) const {
