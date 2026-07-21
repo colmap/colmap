@@ -91,6 +91,36 @@ with ``SIMPLE_RADIAL`` and inspect the reprojection errors in the model
 statistics.
 
 
+Using calibration from OpenCV, Kalibr, or other tools
+-----------------------------------------------------
+
+If you already calibrated your camera with an external tool such as OpenCV or
+Kalibr, you can reuse those intrinsics in COLMAP (see :ref:`Fix intrinsics
+<faq-fix-intrinsics>` to keep them constant during reconstruction). Two
+conventions have to be matched first.
+
+**Pixel coordinate convention.** COLMAP places the origin at the top-left
+*corner* of the image, so the center of the top-left pixel is at ``(0.5, 0.5)``
+and a centered principal point is ``(width / 2, height / 2)``. OpenCV and Kalibr
+place integer coordinates at pixel *centers*, so their centered principal point
+is ``((width - 1) / 2, (height - 1) / 2)``. To convert a principal point from
+OpenCV/Kalibr to COLMAP, add ``0.5`` to both ``cx`` and ``cy``::
+
+    cx_colmap = cx_opencv + 0.5
+    cy_colmap = cy_opencv + 0.5
+
+For example, an OpenCV calibration of an 800×600 image with a centered principal
+point ``(399.5, 299.5)`` becomes ``(400.0, 300.0)`` in COLMAP. The focal lengths
+``fx``, ``fy`` and the distortion coefficients are unaffected by this shift.
+
+**Distortion parameter order.** COLMAP's ``OPENCV`` model uses the same
+``k1, k2, p1, p2`` distortion parameters as OpenCV, and ``FULL_OPENCV``
+additionally uses ``k3, k4, k5, k6``, in that order (see :doc:`cameras`). A
+camera line in ``cameras.txt`` for the example above is therefore::
+
+    1 OPENCV 800 600 fx fy 400.0 300.0 k1 k2 p1 p2
+
+
 Choosing between incremental, global, and hierarchical SfM
 ----------------------------------------------------------
 
