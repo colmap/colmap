@@ -71,7 +71,9 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   models->clear();
 
   const size_t num_points = points1.size();
-  // A four-point projective basis must not contain a collinear triplet.
+  // A minimal homography requires four points in general position (no three
+  // collinear) in both images. See Hartley and Zisserman, Multiple View
+  // Geometry in Computer Vision, 2nd ed., Sec. 4.1.3, pp. 91-92.
   if (num_points == 4 &&
       (HasCollinearTriplet(points1) || HasCollinearTriplet(points2))) {
     return;
