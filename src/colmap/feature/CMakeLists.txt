@@ -131,17 +131,3 @@ COLMAP_ADD_TEST(
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt${QT_VERSION_MAJOR}::Widgets)
 endif()
-
-# TEMPORARY relative-pose micro-benchmark (uncommitted). Remove before merge.
-COLMAP_ADD_EXECUTABLE(
-    NAME relpose_bench
-    SRCS relpose_bench.cc
-    LINK_LIBS
-        colmap_estimators
-        colmap_estimators_solvers
-        colmap_scene
-        colmap_geometry
-        colmap_optim
-        colmap_math
-        Ceres::ceres
-)
