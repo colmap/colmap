@@ -6,9 +6,13 @@ export default defineConfig({
     outDir: "_static/viewer",
     emptyOutDir: true,
     lib: {
-      entry: "viewer_src/main.ts",
+      entry: {
+        component: "viewer_src/main.ts",
+        viewer: "viewer_src/auto_mount.ts",
+      },
+      cssFileName: "viewer",
       formats: ["es"],
-      fileName: () => "viewer.js",
+      fileName: (_format, entryName) => `${entryName}.js`,
     },
     rollupOptions: {
       output: {

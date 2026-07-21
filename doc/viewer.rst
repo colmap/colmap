@@ -19,6 +19,7 @@ point clouds and meshes.
 
 .. raw:: html
 
+   <link rel="stylesheet" href="_static/viewer/viewer.css">
    <div id="colmap-viewer-root">
      <noscript>This viewer requires JavaScript.</noscript>
    </div>
@@ -55,4 +56,42 @@ The viewer requires a current desktop browser with WebGL2. Folder selection is
 available as a fallback when directory drag-and-drop is not supported by the
 browser.
 
-The viewer uses `Three.js <_static/viewer-licenses.txt>`_ under the MIT license.
+
+Reusing the Viewer
+------------------
+
+The viewer is also an ES module component. Build it with ``npm run build`` in
+the ``doc`` directory, copy the complete ``_static/viewer`` directory so that
+the parser worker remains beside the module, and include both generated assets:
+
+.. code-block:: html
+
+   <link rel="stylesheet" href="/viewer/viewer.css">
+   <div id="my-viewer"></div>
+   <input id="model-folder" type="file" webkitdirectory multiple>
+   <script type="module">
+     import {mountColmapViewer} from "/viewer/component.js";
+
+     const viewer = mountColmapViewer(document.querySelector("#my-viewer"));
+     document.querySelector("#model-folder").addEventListener("change", async event => {
+       const entries = [...event.target.files].map(file => ({
+         path: file.webkitRelativePath || file.name,
+         file,
+       }));
+       await viewer.load(entries);
+     });
+
+     // viewer.load() also accepts an already parsed Reconstruction object.
+     // Call viewer.clear() or viewer.dispose() when appropriate.
+   </script>
+
+Each ``LocalFile`` entry has the shape ``{path, file}``, where ``path`` is the
+file's relative path and ``file`` is a browser ``File`` object. Multiple
+component instances can coexist on one page. The TypeScript source also exports
+the mount settings and lifecycle types.
+
+When embedding the component on another website, please include visible
+attribution to the `COLMAP project <https://colmap.github.io/>`_ and reproduce
+the full :doc:`COLMAP new BSD license notice <license>` in the website's legal
+or third-party notices. Also retain the bundled
+`Three.js license notice <_static/viewer-licenses.txt>`_ for that dependency.
