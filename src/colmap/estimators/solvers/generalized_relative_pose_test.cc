@@ -107,22 +107,22 @@ GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
       continue;
     }
 
-    const CamRayWithJac ray_with_jac1 =
+    const CamRayWithJac ray1_with_jac =
         camera.CamRayFromImgWithJac(camera.ImgFromCam(point3D_in_cam1).value())
             .value();
-    const CamRayWithJac ray_with_jac2 =
+    const CamRayWithJac ray2_with_jac =
         camera.CamRayFromImgWithJac(camera.ImgFromCam(point3D_in_cam2).value())
             .value();
 
     auto& point1 = problem.points1.emplace_back();
     point1.cam_from_rig = cams_from_rig1[cam_idx1];
-    point1.ray_in_cam = ray_with_jac1.ray;
-    point1.ray_jacobian_in_cam = ray_with_jac1.J;
+    point1.ray_in_cam = ray1_with_jac.ray;
+    point1.ray_jacobian_in_cam = ray1_with_jac.J;
 
     auto& point2 = problem.points2.emplace_back();
     point2.cam_from_rig = cams_from_rig2[cam_idx2];
-    point2.ray_in_cam = ray_with_jac2.ray;
-    point2.ray_jacobian_in_cam = ray_with_jac2.J;
+    point2.ray_in_cam = ray2_with_jac.ray;
+    point2.ray_jacobian_in_cam = ray2_with_jac.J;
   }
 
   return problem;

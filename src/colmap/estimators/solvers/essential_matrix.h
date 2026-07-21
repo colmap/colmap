@@ -121,15 +121,24 @@ class EssentialMatrixTangentSampsonEstimator {
   // Estimate up to 10 possible essential matrix solutions from a set of
   // corresponding camera rays. The Jacobians are ignored here; they only
   // affect scoring.
-  static void Estimate(const std::vector<X_t>& cam_rays_with_jac1,
-                       const std::vector<Y_t>& cam_rays_with_jac2,
+  static void Estimate(const std::vector<X_t>& cam_rays1_with_jac,
+                       const std::vector<Y_t>& cam_rays2_with_jac,
                        std::vector<M_t>* models);
+
+  // Refine E in place by nonlinearly minimizing the pixel-unit tangent Sampson
+  // error over the given correspondences, starting from *E. This is the local
+  // optimizer used by LO-RANSAC (see SupportsRefineWithInitialModel in
+  // loransac.h). Returns false and leaves *E unchanged on a degenerate
+  // decomposition.
+  static bool Refine(const std::vector<X_t>& cam_rays1_with_jac,
+                     const std::vector<Y_t>& cam_rays2_with_jac,
+                     M_t* E);
 
   // Calculate the residuals of a set of corresponding rays and a given
   // essential matrix, as the squared tangent Sampson error in squared pixels,
   // additionally enforcing the cheirality constraint.
-  static void Residuals(const std::vector<X_t>& cam_rays_with_jac1,
-                        const std::vector<Y_t>& cam_rays_with_jac2,
+  static void Residuals(const std::vector<X_t>& cam_rays1_with_jac,
+                        const std::vector<Y_t>& cam_rays2_with_jac,
                         const M_t& E,
                         std::vector<double>* residuals);
 };

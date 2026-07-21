@@ -206,17 +206,17 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
   }
 }
 
-double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray_with_jac1,
-                                         const CamRayWithJac& cam_ray_with_jac2,
+double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
+                                         const CamRayWithJac& cam_ray2_with_jac,
                                          const Eigen::Matrix3d& E) {
-  const Eigen::Vector3d Eray1 = E * cam_ray_with_jac1.ray;
-  const Eigen::Vector3d Etray2 = E.transpose() * cam_ray_with_jac2.ray;
-  const double num = cam_ray_with_jac2.ray.dot(Eray1);
+  const Eigen::Vector3d Eray1 = E * cam_ray1_with_jac.ray;
+  const Eigen::Vector3d Etray2 = E.transpose() * cam_ray2_with_jac.ray;
+  const double num = cam_ray2_with_jac.ray.dot(Eray1);
   // Chain the constraint gradients from ray space into pixel space. The
   // gradient w.r.t. ray1 is E^T ray2 and w.r.t. ray2 is E ray1.
   const double denom_sq_norm =
-      (cam_ray_with_jac1.J.transpose() * Etray2).squaredNorm() +
-      (cam_ray_with_jac2.J.transpose() * Eray1).squaredNorm();
+      (cam_ray1_with_jac.J.transpose() * Etray2).squaredNorm() +
+      (cam_ray2_with_jac.J.transpose() * Eray1).squaredNorm();
   if (denom_sq_norm == 0) {
     return std::numeric_limits<double>::max();
   }
@@ -224,26 +224,26 @@ double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray_with_jac1,
 }
 
 void ComputeSquaredTangentSampsonError(
-    const std::vector<CamRayWithJac>& cam_rays_with_jac1,
-    const std::vector<CamRayWithJac>& cam_rays_with_jac2,
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals) {
-  const size_t num_rays = cam_rays_with_jac1.size();
-  THROW_CHECK_EQ(num_rays, cam_rays_with_jac2.size());
+  const size_t num_rays = cam_rays1_with_jac.size();
+  THROW_CHECK_EQ(num_rays, cam_rays2_with_jac.size());
   residuals->resize(num_rays);
   for (size_t i = 0; i < num_rays; ++i) {
     (*residuals)[i] = ComputeSquaredTangentSampsonError(
-        cam_rays_with_jac1[i], cam_rays_with_jac2[i], E);
+        cam_rays1_with_jac[i], cam_rays2_with_jac[i], E);
   }
 }
 
 void ComputeSquaredTangentSampsonErrorWithCheirality(
-    const std::vector<CamRayWithJac>& cam_rays_with_jac1,
-    const std::vector<CamRayWithJac>& cam_rays_with_jac2,
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals) {
-  const size_t num_rays = cam_rays_with_jac1.size();
-  THROW_CHECK_EQ(num_rays, cam_rays_with_jac2.size());
+  const size_t num_rays = cam_rays1_with_jac.size();
+  THROW_CHECK_EQ(num_rays, cam_rays2_with_jac.size());
   residuals->resize(num_rays);
 
   // Recover the relative pose from E (resolving the four-fold decomposition
@@ -257,8 +257,8 @@ void ComputeSquaredTangentSampsonErrorWithCheirality(
   rays1.resize(num_rays);
   rays2.resize(num_rays);
   for (size_t i = 0; i < num_rays; ++i) {
-    rays1[i] = cam_rays_with_jac1[i].ray;
-    rays2[i] = cam_rays_with_jac2[i].ray;
+    rays1[i] = cam_rays1_with_jac[i].ray;
+    rays2[i] = cam_rays2_with_jac[i].ray;
   }
 
   Rigid3d cam2_from_cam1;
@@ -275,7 +275,7 @@ void ComputeSquaredTangentSampsonErrorWithCheirality(
   for (size_t i = 0; i < num_rays; ++i) {
     (*residuals)[i] = is_cheiral[i]
                           ? ComputeSquaredTangentSampsonError(
-                                cam_rays_with_jac1[i], cam_rays_with_jac2[i], E)
+                                cam_rays1_with_jac[i], cam_rays2_with_jac[i], E)
                           : std::numeric_limits<double>::max();
   }
 }

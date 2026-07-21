@@ -32,6 +32,8 @@
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
+#include "colmap/optim/loransac.h"
+#include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -176,5 +178,85 @@ TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
 INSTANTIATE_TEST_SUITE_P(EssentialMatrixEightPointEstimator,
                          EssentialMatrixEightPointEstimatorTests,
                          ::testing::Values(8, 64, 1024));
+
+// Attaches an unprojection Jacobian to each bearing via a spherical camera,
+// which maps every direction to a valid pixel.
+std::vector<CamRayWithJac> WithJacobians(
+    const Camera& camera, const std::vector<Eigen::Vector3d>& rays) {
+  std::vector<CamRayWithJac> cam_rays_with_jac(rays.size());
+  for (size_t i = 0; i < rays.size(); ++i) {
+    cam_rays_with_jac[i] =
+        camera.CamRayFromImgWithJac(camera.ImgFromCam(rays[i]).value()).value();
+  }
+  return cam_rays_with_jac;
+}
+
+// Refine recovers the true pose from a perturbed initial E on exact rays.
+TEST(EssentialMatrixTangentSampsonEstimator, RefineRecoversPose) {
+  SetPRNGSeed(0);
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
+  for (size_t k = 0; k < 30; ++k) {
+    const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
+    const Eigen::Matrix3d expected =
+        EssentialMatrixFromPose(cam2_from_cam1).normalized();
+    std::vector<Eigen::Vector3d> rays1;
+    std::vector<Eigen::Vector3d> rays2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, 50, /*reject_degenerate=*/false, rays1, rays2);
+    const std::vector<CamRayWithJac> crj1 = WithJacobians(camera, rays1);
+    const std::vector<CamRayWithJac> crj2 = WithJacobians(camera, rays2);
+
+    // Seed the refinement from a slightly perturbed pose.
+    const Rigid3d init(
+        cam2_from_cam1.rotation() *
+            Eigen::Quaterniond(
+                Eigen::AngleAxisd(0.01, RandomEigenVectord<3>().normalized())),
+        (cam2_from_cam1.translation() + 0.01 * RandomEigenVectord<3>())
+            .normalized());
+    Eigen::Matrix3d E = EssentialMatrixFromPose(init);
+
+    auto dist = [&expected](const Eigen::Matrix3d& m) {
+      const Eigen::Matrix3d n = m.normalized();
+      return std::min((n - expected).norm(), (n + expected).norm());
+    };
+    const double init_dist = dist(E);
+    ASSERT_TRUE(EssentialMatrixTangentSampsonEstimator::Refine(crj1, crj2, &E));
+    EXPECT_LT(dist(E), 1e-4);
+    EXPECT_LT(dist(E), init_dist);
+  }
+}
+
+// The LO-RANSAC estimator recovers the pose despite 30% gross outliers.
+TEST(EssentialMatrixTangentSampsonEstimator, LORANSACWithOutliers) {
+  SetPRNGSeed(0);
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
+  for (size_t k = 0; k < 10; ++k) {
+    const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
+    const Eigen::Matrix3d expected =
+        EssentialMatrixFromPose(cam2_from_cam1).normalized();
+    std::vector<Eigen::Vector3d> rays1;
+    std::vector<Eigen::Vector3d> rays2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, 200, /*reject_degenerate=*/false, rays1, rays2);
+    for (size_t i = 0; i < 60; ++i) {  // 30% gross outliers.
+      rays2[i] = RandomEigenVectord<3>().normalized();
+    }
+    const std::vector<CamRayWithJac> crj1 = WithJacobians(camera, rays1);
+    const std::vector<CamRayWithJac> crj2 = WithJacobians(camera, rays2);
+
+    RANSACOptions options;
+    options.max_error = 2.0;  // pixels
+    LORANSAC<EssentialMatrixTangentSampsonEstimator,
+             EssentialMatrixTangentSampsonEstimator>
+        ransac(options);
+    const auto report = ransac.Estimate(crj1, crj2);
+
+    ASSERT_TRUE(report.success);
+    const Eigen::Matrix3d E = report.model.normalized();
+    EXPECT_LT(std::min((E - expected).norm(), (E + expected).norm()), 1e-2);
+  }
+}
 }  // namespace
 }  // namespace colmap

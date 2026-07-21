@@ -233,23 +233,69 @@ void UnpackCamRaysWithJac(const std::vector<CamRayWithJac>& cam_rays_with_jac,
 }  // namespace
 
 void EssentialMatrixTangentSampsonEstimator::Estimate(
-    const std::vector<X_t>& cam_rays_with_jac1,
-    const std::vector<Y_t>& cam_rays_with_jac2,
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
     std::vector<M_t>* models) {
   std::vector<Eigen::Vector3d> rays1;
   std::vector<Eigen::Vector3d> rays2;
-  UnpackCamRaysWithJac(cam_rays_with_jac1, &rays1);
-  UnpackCamRaysWithJac(cam_rays_with_jac2, &rays2);
+  UnpackCamRaysWithJac(cam_rays1_with_jac, &rays1);
+  UnpackCamRaysWithJac(cam_rays2_with_jac, &rays2);
   EssentialMatrixFivePointEstimator::Estimate(rays1, rays2, models);
 }
 
+bool EssentialMatrixTangentSampsonEstimator::Refine(
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
+    M_t* E) {
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), cam_rays2_with_jac.size());
+  THROW_CHECK_GE(cam_rays1_with_jac.size(), kMinNumSamples);
+  THROW_CHECK_NOTNULL(E);
+
+  // Decompose the initial E into a relative pose (resolving the four-fold
+  // ambiguity via cheirality over the bearings).
+  std::vector<Eigen::Vector3d> rays1;
+  std::vector<Eigen::Vector3d> rays2;
+  UnpackCamRaysWithJac(cam_rays1_with_jac, &rays1);
+  UnpackCamRaysWithJac(cam_rays2_with_jac, &rays2);
+  Rigid3d cam2_from_cam1;
+  std::vector<int> valid_indices;
+  PoseFromEssentialMatrix(*E, rays1, rays2, &cam2_from_cam1, &valid_indices);
+  if (valid_indices.empty()) {
+    return false;
+  }
+
+  // Nonlinear pixel-space tangent Sampson refinement of the full 7-parameter
+  // pose via ceres::TinySolver, applying the relative pose manifold. Plain
+  // least squares: robustness comes from the RANSAC inlier selection.
+  TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
+                                             cam_rays2_with_jac);
+  TinyTangentSampsonErrorCostFunctor::AutoDiffFunction f(functor);
+  using Solver = TinySolver<decltype(f), RelativePoseManifold>;
+  Solver solver;
+  Solver::Options options;
+  options.max_num_iterations = 25;
+
+  Eigen::Matrix<double, 7, 1> x;
+  x.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
+  x.tail<3>() = cam2_from_cam1.translation().normalized();
+  solver.Solve(f, &x, options);
+
+  // Keep the refined pose only if the solve stayed finite.
+  if (x.allFinite()) {
+    cam2_from_cam1 =
+        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), x.tail<3>());
+  }
+  *E = EssentialMatrixFromPose(cam2_from_cam1);
+  return true;
+}
+
 void EssentialMatrixTangentSampsonEstimator::Residuals(
-    const std::vector<X_t>& cam_rays_with_jac1,
-    const std::vector<Y_t>& cam_rays_with_jac2,
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
     const M_t& E,
     std::vector<double>* residuals) {
   ComputeSquaredTangentSampsonErrorWithCheirality(
-      cam_rays_with_jac1, cam_rays_with_jac2, E, residuals);
+      cam_rays1_with_jac, cam_rays2_with_jac, E, residuals);
 }
 
 }  // namespace colmap

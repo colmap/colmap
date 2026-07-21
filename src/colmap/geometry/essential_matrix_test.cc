@@ -372,22 +372,22 @@ TEST(ComputeSquaredTangentSampsonError, VectorOverloadAndCheirality) {
                                                  Eigen::Vector3d(0.1, 0, 1),
                                                  Eigen::Vector3d(0.1, 0.1, 1)};
 
-  std::vector<CamRayWithJac> cam_rays_with_jac1(points3D.size());
-  std::vector<CamRayWithJac> cam_rays_with_jac2(points3D.size());
+  std::vector<CamRayWithJac> cam_rays1_with_jac(points3D.size());
+  std::vector<CamRayWithJac> cam_rays2_with_jac(points3D.size());
   for (size_t i = 0; i < points3D.size(); ++i) {
     const Eigen::Vector3d cam1_point = cam1_from_world * points3D[i];
     const Eigen::Vector3d cam2_point = cam2_from_world * points3D[i];
-    cam_rays_with_jac1[i] = {
+    cam_rays1_with_jac[i] = {
         cam1_point.normalized(),
         PinholeUnitRayJacobian(cam1_point / cam1_point.z())};
-    cam_rays_with_jac2[i] = {
+    cam_rays2_with_jac[i] = {
         cam2_point.normalized(),
         PinholeUnitRayJacobian(cam2_point / cam2_point.z())};
   }
 
   std::vector<double> residuals;
   ComputeSquaredTangentSampsonError(
-      cam_rays_with_jac1, cam_rays_with_jac2, E, &residuals);
+      cam_rays1_with_jac, cam_rays2_with_jac, E, &residuals);
   ASSERT_EQ(residuals.size(), points3D.size());
   for (const double residual : residuals) {
     EXPECT_LT(residual, 1e-16);
@@ -395,17 +395,17 @@ TEST(ComputeSquaredTangentSampsonError, VectorOverloadAndCheirality) {
 
   // Flipping one correspondence behind both cameras leaves the epipolar
   // constraint satisfied but must be rejected once cheirality is enforced.
-  cam_rays_with_jac1[1].ray = -cam_rays_with_jac1[1].ray;
-  cam_rays_with_jac2[1].ray = -cam_rays_with_jac2[1].ray;
+  cam_rays1_with_jac[1].ray = -cam_rays1_with_jac[1].ray;
+  cam_rays2_with_jac[1].ray = -cam_rays2_with_jac[1].ray;
 
   std::vector<double> plain_residuals;
   ComputeSquaredTangentSampsonError(
-      cam_rays_with_jac1, cam_rays_with_jac2, E, &plain_residuals);
+      cam_rays1_with_jac, cam_rays2_with_jac, E, &plain_residuals);
   EXPECT_LT(plain_residuals[1], 1e-16);
 
   std::vector<double> cheiral_residuals;
   ComputeSquaredTangentSampsonErrorWithCheirality(
-      cam_rays_with_jac1, cam_rays_with_jac2, E, &cheiral_residuals);
+      cam_rays1_with_jac, cam_rays2_with_jac, E, &cheiral_residuals);
   ASSERT_EQ(cheiral_residuals.size(), points3D.size());
   EXPECT_EQ(cheiral_residuals[1], std::numeric_limits<double>::max());
   EXPECT_EQ(cheiral_residuals[0], plain_residuals[0]);

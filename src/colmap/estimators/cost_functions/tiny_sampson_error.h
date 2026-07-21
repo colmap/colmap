@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/estimators/cost_functions/sampson_error.h"
+#include "colmap/geometry/pose.h"
 
 #include <vector>
 
@@ -38,18 +39,12 @@
 
 namespace colmap {
 
-// Sampson-error cost functor for fixed-size (colmap::TinySolver) refinement of
-// a two-view relative pose.
-//
-// Like SampsonErrorCostFunctor it minimizes the Sampson error of E = [t]_x R,
-// parameterized by the full 7-parameter relative pose
-// [qx, qy, qz, qw, tx, ty, tz] (Rigid3d::params layout), and shares the same
-// EssentialMatrixFromPoseParams / SampsonError helpers. Unlike the per-point
-// SampsonErrorCostFunctor it evaluates all correspondences in a single
-// (dynamically sized) residual and builds E only once. The rotation-plus-sphere
-// manifold is applied by the solver (see tiny_manifold.h), not baked into this
-// functor, so the ambient pose is parameterized directly.
-class TinySampsonErrorCostFunctor {
+// Tangent Sampson (pixel-space) cost functor for TinySolver refinement of a
+// two-view relative pose from calibrated rays with unprojection Jacobians.
+// E = [t]_x R is built from the pose [qx, qy, qz, qw, tx, ty, tz]
+// (Rigid3d::params). The solver applies the manifold. Pixel-accurate for any
+// central model, matching EssentialMatrixTangentSampsonEstimator's score.
+class TinyTangentSampsonErrorCostFunctor {
  public:
   using Scalar = double;
   static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
@@ -58,49 +53,55 @@ class TinySampsonErrorCostFunctor {
   // ceres::TinySolver-compatible autodiff wrapper for this functor. Note that
   // it stores the functor by reference, so the wrapped functor must outlive it.
   using AutoDiffFunction =
-      ceres::TinySolverAutoDiffFunction<TinySampsonErrorCostFunctor,
+      ceres::TinySolverAutoDiffFunction<TinyTangentSampsonErrorCostFunctor,
                                         NUM_RESIDUALS,
                                         NUM_PARAMETERS>;
 
-  TinySampsonErrorCostFunctor(const std::vector<Eigen::Vector3d>& cam_rays1,
-                              const std::vector<Eigen::Vector3d>& cam_rays2)
-      : cam_rays1_(cam_rays1), cam_rays2_(cam_rays2) {}
+  TinyTangentSampsonErrorCostFunctor(
+      const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+      const std::vector<CamRayWithJac>& cam_rays2_with_jac)
+      : cam_rays1_with_jac_(cam_rays1_with_jac),
+        cam_rays2_with_jac_(cam_rays2_with_jac) {}
 
-  int NumResiduals() const { return static_cast<int>(cam_rays1_.size()); }
+  int NumResiduals() const {
+    return static_cast<int>(cam_rays1_with_jac_.size());
+  }
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1, T* residuals) const {
     // Build E once and reuse it across all correspondences.
     const Eigen::Matrix<T, 3, 3> E =
         EssentialMatrixFromPoseParams(cam2_from_cam1);
-    for (size_t i = 0; i < cam_rays1_.size(); ++i) {
+    for (size_t i = 0; i < cam_rays1_with_jac_.size(); ++i) {
       residuals[i] =
-          SampsonError<T>(E, cam_rays1_[i].cast<T>(), cam_rays2_[i].cast<T>());
+          TangentSampsonError<T>(E,
+                                 cam_rays1_with_jac_[i].ray.cast<T>(),
+                                 cam_rays1_with_jac_[i].J.cast<T>(),
+                                 cam_rays2_with_jac_[i].ray.cast<T>(),
+                                 cam_rays2_with_jac_[i].J.cast<T>());
     }
     return true;
   }
 
  private:
-  const std::vector<Eigen::Vector3d>& cam_rays1_;
-  const std::vector<Eigen::Vector3d>& cam_rays2_;
+  const std::vector<CamRayWithJac>& cam_rays1_with_jac_;
+  const std::vector<CamRayWithJac>& cam_rays2_with_jac_;
 };
 
 // Sampson-error cost functor for fixed-size (colmap::TinySolver) refinement of
 // a two-view relative pose *and* a shared, unknown focal length.
 //
-// This is the shared-focal analog of TinySampsonErrorCostFunctor. The pose is
-// parameterized identically ([qx, qy, qz, qw, tx, ty, tz]) and the focal is
+// The pose is parameterized as [qx, qy, qz, qw, tx, ty, tz] and the focal is
 // appended as an eighth parameter optimized in log-space (log_f), which keeps
 // it strictly positive and gives a scale-invariant step. The essential matrix
-// is built from the pose exactly as in TinySampsonErrorCostFunctor, then
-// converted to the fundamental matrix implied by the focal so the Sampson error
-// is measured in *pixel* space:
+// is built from the pose, then converted to the fundamental matrix implied by
+// the focal so the Sampson error is measured in *pixel* space:
 //
 //   F = diag(1/f, 1/f, 1) * E * diag(1/f, 1/f, 1),   f = exp(log_f).
 //
 // The inputs points1/points2 are therefore principal-point-centered image
 // points (u - cx, v - cy), not calibrated rays. The 8 ambient parameters are
-// parameterized directly here; the 6-DoF manifold (rotation on SO(3),
+// parameterized directly here. The 6-DoF manifold (rotation on SO(3),
 // translation on the unit sphere, log-focal) is applied by the solver.
 class TinyFocalSampsonErrorCostFunctor {
  public:

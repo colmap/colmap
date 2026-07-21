@@ -209,26 +209,26 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
 // order in the residual when unit bearings are used. The latter is the sense in
 // which this is an approximation of the true reprojection error.
 //
-// @param cam_ray_with_jac1  First bearing with its Jacobian d(ray1) /
+// @param cam_ray1_with_jac  First bearing with its Jacobian d(ray1) /
 // d(pixel1).
-// @param cam_ray_with_jac2  Second bearing with its Jacobian d(ray2) /
+// @param cam_ray2_with_jac  Second bearing with its Jacobian d(ray2) /
 // d(pixel2).
 // @param E           3x3 essential matrix.
 // @return            Squared tangent Sampson error, in squared pixels.
-double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray_with_jac1,
-                                         const CamRayWithJac& cam_ray_with_jac2,
+double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
+                                         const CamRayWithJac& cam_ray2_with_jac,
                                          const Eigen::Matrix3d& E);
 
 // Calculate the residuals of a set of corresponding rays and a given essential
 // matrix, as the squared tangent Sampson error.
 //
-// @param cam_rays_with_jac1  Corresponding bearings with their Jacobians.
-// @param cam_rays_with_jac2  Corresponding bearings with their Jacobians.
+// @param cam_rays1_with_jac  Corresponding bearings with their Jacobians.
+// @param cam_rays2_with_jac  Corresponding bearings with their Jacobians.
 // @param E           3x3 essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredTangentSampsonError(
-    const std::vector<CamRayWithJac>& cam_rays_with_jac1,
-    const std::vector<CamRayWithJac>& cam_rays_with_jac2,
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals);
 
@@ -243,15 +243,15 @@ void ComputeSquaredTangentSampsonError(
 // input: only the bearings are materialized, because PoseFromEssentialMatrix
 // requires contiguous vectors.
 //
-// @param cam_rays_with_jac1   First set of corresponding bearings with
+// @param cam_rays1_with_jac   First set of corresponding bearings with
 // Jacobians.
-// @param cam_rays_with_jac2   Second set of corresponding bearings with
+// @param cam_rays2_with_jac   Second set of corresponding bearings with
 // Jacobians.
 // @param E           3x3 essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredTangentSampsonErrorWithCheirality(
-    const std::vector<CamRayWithJac>& cam_rays_with_jac1,
-    const std::vector<CamRayWithJac>& cam_rays_with_jac2,
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals);
 

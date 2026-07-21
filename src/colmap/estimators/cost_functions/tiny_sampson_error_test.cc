@@ -45,19 +45,36 @@
 namespace colmap {
 namespace {
 
-// The batched functor's residuals match the per-point reference
-// SampsonErrorCostFunctor at several 7-parameter poses.
-TEST(TinySampsonErrorCostFunctor, MatchesSampsonError) {
-  const std::vector<Eigen::Vector3d> cam_rays1 = {
-      Eigen::Vector3d(0.1, 0.2, 1).normalized(),
-      Eigen::Vector3d(-0.3, 0.1, 1).normalized(),
-      Eigen::Vector3d(0.2, -0.25, 1).normalized()};
-  const std::vector<Eigen::Vector3d> cam_rays2 = {
-      Eigen::Vector3d(0.15, -0.1, 1).normalized(),
-      Eigen::Vector3d(0.05, 0.3, 1).normalized(),
-      Eigen::Vector3d(-0.2, -0.15, 1).normalized()};
+// The batched functor's squared residuals match
+// ComputeSquaredTangentSampsonError at several 7-parameter poses.
+TEST(TinyTangentSampsonErrorCostFunctor, MatchesSquaredTangentSampsonError) {
+  auto make = [](const Eigen::Vector3d& ray,
+                 const Eigen::Matrix<double, 3, 2>& jac) {
+    return CamRayWithJac{ray.normalized(), jac};
+  };
+  const std::vector<CamRayWithJac> cam_rays1_with_jac = {
+      make({0.1, 0.2, 1},
+           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1)
+               .finished()),
+      make({-0.3, 0.1, 1},
+           (Eigen::Matrix<double, 3, 2>() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
+               .finished()),
+      make({0.2, -0.25, 1},
+           (Eigen::Matrix<double, 3, 2>() << 1.05, 0.0, 0.0, 0.95, 0.1, 0.1)
+               .finished())};
+  const std::vector<CamRayWithJac> cam_rays2_with_jac = {
+      make({0.15, -0.1, 1},
+           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0)
+               .finished()),
+      make({0.05, 0.3, 1},
+           (Eigen::Matrix<double, 3, 2>() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15)
+               .finished()),
+      make({-0.2, -0.15, 1},
+           (Eigen::Matrix<double, 3, 2>() << 1.1, -0.05, 0.05, 0.9, -0.1, 0.1)
+               .finished())};
 
-  const TinySampsonErrorCostFunctor functor(cam_rays1, cam_rays2);
+  const TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
+                                                   cam_rays2_with_jac);
 
   const Eigen::Quaterniond q0(
       Eigen::AngleAxisd(0.9, Eigen::Vector3d(-1, 0.5, 2).normalized()));
@@ -70,22 +87,19 @@ TEST(TinySampsonErrorCostFunctor, MatchesSampsonError) {
   const std::array<Eigen::Vector3d, 2> translations = {t0, t1};
 
   for (size_t k = 0; k < quaternions.size(); ++k) {
-    const Eigen::Quaterniond& q = quaternions[k];
+    const Eigen::Quaterniond q = quaternions[k].normalized();
     const Eigen::Vector3d& t = translations[k];
     double cam2_from_cam1[7] = {
         q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z()};
 
-    std::vector<double> residuals(cam_rays1.size());
+    std::vector<double> residuals(cam_rays1_with_jac.size());
     ASSERT_TRUE(functor(cam2_from_cam1, residuals.data()));
 
-    const double* parameters[1] = {cam2_from_cam1};
-    for (size_t i = 0; i < cam_rays1.size(); ++i) {
-      std::unique_ptr<ceres::CostFunction> cost_function(
-          SampsonErrorCostFunctor::Create(cam_rays1[i], cam_rays2[i]));
-      double expected_residual[1];
-      ASSERT_TRUE(
-          cost_function->Evaluate(parameters, expected_residual, nullptr));
-      EXPECT_NEAR(residuals[i], expected_residual[0], 1e-9);
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(Rigid3d(q, t));
+    for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
+      const double expected = ComputeSquaredTangentSampsonError(
+          cam_rays1_with_jac[i], cam_rays2_with_jac[i], E);
+      EXPECT_NEAR(residuals[i] * residuals[i], expected, 1e-9);
     }
   }
 }

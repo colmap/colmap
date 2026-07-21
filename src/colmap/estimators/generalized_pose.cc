@@ -221,18 +221,18 @@ bool EstimateGeneralizedRelativePose(
     // each ray carries its unprojection Jacobian, rotated into the rig frame by
     // the same rotation as the ray. Unprojectable points are zeroed, which the
     // tangent Sampson residual reports as infinite (rejected).
-    std::vector<CamRayWithJac> cam_rays_with_jac1(num_points);
-    std::vector<CamRayWithJac> cam_rays_with_jac2(num_points);
+    std::vector<CamRayWithJac> cam_rays1_with_jac(num_points);
+    std::vector<CamRayWithJac> cam_rays2_with_jac(num_points);
     for (size_t i = 0; i < num_points; ++i) {
       const size_t camera_idx1 = camera_idxs1[i];
       const Eigen::Matrix3d rig_from_cam1 =
           cams_from_rig[camera_idx1].rotation().inverse().toRotationMatrix();
       if (const auto rj =
               cameras[camera_idx1].CamRayFromImgWithJac(points2D1[i])) {
-        cam_rays_with_jac1[i] = {rig_from_cam1 * rj->ray,
+        cam_rays1_with_jac[i] = {rig_from_cam1 * rj->ray,
                                  rig_from_cam1 * rj->J};
       } else {
-        cam_rays_with_jac1[i] = CamRayWithJac::Zero();
+        cam_rays1_with_jac[i] = CamRayWithJac::Zero();
       }
 
       const size_t camera_idx2 = camera_idxs2[i];
@@ -240,15 +240,15 @@ bool EstimateGeneralizedRelativePose(
           cams_from_rig[camera_idx2].rotation().inverse().toRotationMatrix();
       if (const auto rj =
               cameras[camera_idx2].CamRayFromImgWithJac(points2D2[i])) {
-        cam_rays_with_jac2[i] = {rig_from_cam2 * rj->ray,
+        cam_rays2_with_jac[i] = {rig_from_cam2 * rj->ray,
                                  rig_from_cam2 * rj->J};
       } else {
-        cam_rays_with_jac2[i] = CamRayWithJac::Zero();
+        cam_rays2_with_jac[i] = CamRayWithJac::Zero();
       }
     }
     if (EstimateRelativePose(ransac_options,
-                             cam_rays_with_jac1,
-                             cam_rays_with_jac2,
+                             cam_rays1_with_jac,
+                             cam_rays2_with_jac,
                              &cam2_from_cam1,
                              num_inliers,
                              inlier_mask)) {
@@ -261,17 +261,17 @@ bool EstimateGeneralizedRelativePose(
   std::vector<GRNPObservation> points1(num_points);
   std::vector<GRNPObservation> points2(num_points);
   for (size_t i = 0; i < num_points; ++i) {
-    const CamRayWithJac ray_with_jac1 = cameras[camera_idxs1[i]]
+    const CamRayWithJac ray1_with_jac = cameras[camera_idxs1[i]]
                                             .CamRayFromImgWithJac(points2D1[i])
                                             .value_or(CamRayWithJac::Zero());
     points1[i] = {
-        cams_from_rig[camera_idxs1[i]], ray_with_jac1.ray, ray_with_jac1.J};
+        cams_from_rig[camera_idxs1[i]], ray1_with_jac.ray, ray1_with_jac.J};
 
-    const CamRayWithJac ray_with_jac2 = cameras[camera_idxs2[i]]
+    const CamRayWithJac ray2_with_jac = cameras[camera_idxs2[i]]
                                             .CamRayFromImgWithJac(points2D2[i])
                                             .value_or(CamRayWithJac::Zero());
     points2[i] = {
-        cams_from_rig[camera_idxs2[i]], ray_with_jac2.ray, ray_with_jac2.J};
+        cams_from_rig[camera_idxs2[i]], ray2_with_jac.ray, ray2_with_jac.J};
   }
 
   LORANSAC<GR6PEstimator, GR8PEstimator> ransac(ransac_options);

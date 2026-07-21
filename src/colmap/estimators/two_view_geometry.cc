@@ -361,15 +361,15 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
   // representation; the raw image points are kept only for watermark detection.
   std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
-  std::vector<CamRayWithJac> matched_cam_rays_with_jac1(matches.size());
-  std::vector<CamRayWithJac> matched_cam_rays_with_jac2(matches.size());
+  std::vector<CamRayWithJac> matched_cam_rays1_with_jac(matches.size());
+  std::vector<CamRayWithJac> matched_cam_rays2_with_jac(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
-    matched_cam_rays_with_jac1[i] = CamRayWithJacOrZero(camera1, points1[idx1]);
-    matched_cam_rays_with_jac2[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
+    matched_cam_rays1_with_jac[i] = CamRayWithJacOrZero(camera1, points1[idx1]);
+    matched_cam_rays2_with_jac[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
   }
 
   // Only the bearing-based essential matrix is meaningful: the fundamental
@@ -379,16 +379,14 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
   if (options.min_inlier_ratio > 0) {
     ransac_options.min_inlier_ratio = options.min_inlier_ratio;
   }
-  // The tangent Sampson residual is measured in pixels, so the pixel threshold
-  // is used unscaled. An angular conversion via CamFromImgThreshold would be
-  // wrong here: it is exact only at the equator of an equirectangular image and
-  // increasingly loose away from it.
+  // The tangent Sampson residual is in pixels, so the threshold is used
+  // unscaled.
 
   LORANSAC<EssentialMatrixTangentSampsonEstimator,
            EssentialMatrixTangentSampsonEstimator>
       E_ransac(ransac_options);
   const auto E_report =
-      E_ransac.Estimate(matched_cam_rays_with_jac1, matched_cam_rays_with_jac2);
+      E_ransac.Estimate(matched_cam_rays1_with_jac, matched_cam_rays2_with_jac);
   geometry.E = E_report.model;
 
   if (!E_report.success || E_report.support.num_inliers < min_num_inliers) {
@@ -875,15 +873,15 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // Extract corresponding points.
   std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
-  std::vector<CamRayWithJac> matched_cam_rays_with_jac1(matches.size());
-  std::vector<CamRayWithJac> matched_cam_rays_with_jac2(matches.size());
+  std::vector<CamRayWithJac> matched_cam_rays1_with_jac(matches.size());
+  std::vector<CamRayWithJac> matched_cam_rays2_with_jac(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
-    matched_cam_rays_with_jac1[i] = CamRayWithJacOrZero(camera1, points1[idx1]);
-    matched_cam_rays_with_jac2[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
+    matched_cam_rays1_with_jac[i] = CamRayWithJacOrZero(camera1, points1[idx1]);
+    matched_cam_rays2_with_jac[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
   }
 
   // Estimate epipolar models.
@@ -901,7 +899,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
            EssentialMatrixTangentSampsonEstimator>
       E_ransac(ransac_options);
   const auto E_report =
-      E_ransac.Estimate(matched_cam_rays_with_jac1, matched_cam_rays_with_jac2);
+      E_ransac.Estimate(matched_cam_rays1_with_jac, matched_cam_rays2_with_jac);
   geometry.E = E_report.model;
 
   const auto F_report = EstimateFundamentalMatrix(
@@ -1292,19 +1290,19 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
   // Score in pixels with the tangent Sampson error, matching the design of
   // EstimateCalibratedTwoViewGeometry, so that a pair filtered here and a pair
   // verified there are held to the same threshold.
-  std::vector<CamRayWithJac> matched_cam_rays_with_jac1(num_matches);
-  std::vector<CamRayWithJac> matched_cam_rays_with_jac2(num_matches);
+  std::vector<CamRayWithJac> matched_cam_rays1_with_jac(num_matches);
+  std::vector<CamRayWithJac> matched_cam_rays2_with_jac(num_matches);
   for (size_t i = 0; i < num_matches; ++i) {
-    matched_cam_rays_with_jac1[i] =
+    matched_cam_rays1_with_jac[i] =
         CamRayWithJacOrZero(camera1, points1[matches[i].point2D_idx1]);
-    matched_cam_rays_with_jac2[i] =
+    matched_cam_rays2_with_jac[i] =
         CamRayWithJacOrZero(camera2, points2[matches[i].point2D_idx2]);
   }
 
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
   std::vector<double> residuals(num_matches);
   ComputeSquaredTangentSampsonError(
-      matched_cam_rays_with_jac1, matched_cam_rays_with_jac2, E, &residuals);
+      matched_cam_rays1_with_jac, matched_cam_rays2_with_jac, E, &residuals);
   FeatureMatches inlier_matches;
   const double squared_max_error = max_error * max_error;
   for (size_t i = 0; i < num_matches; ++i) {

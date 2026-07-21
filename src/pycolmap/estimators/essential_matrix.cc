@@ -34,13 +34,13 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   // score). End users pass camera + 2D points; Jacobians are never part of the
   // interface. Unprojectable points are zeroed -> infinite residual ->
   // rejected.
-  std::vector<CamRayWithJac> cam_rays_with_jac1(num_points2D);
-  std::vector<CamRayWithJac> cam_rays_with_jac2(num_points2D);
+  std::vector<CamRayWithJac> cam_rays1_with_jac(num_points2D);
+  std::vector<CamRayWithJac> cam_rays2_with_jac(num_points2D);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-    cam_rays_with_jac1[point2D_idx] =
+    cam_rays1_with_jac[point2D_idx] =
         camera1.CamRayFromImgWithJac(points2D1[point2D_idx])
             .value_or(CamRayWithJac::Zero());
-    cam_rays_with_jac2[point2D_idx] =
+    cam_rays2_with_jac[point2D_idx] =
         camera2.CamRayFromImgWithJac(points2D2[point2D_idx])
             .value_or(CamRayWithJac::Zero());
   }
@@ -52,7 +52,7 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
       ransac(options);
 
   // Essential matrix estimation.
-  const auto report = ransac.Estimate(cam_rays_with_jac1, cam_rays_with_jac2);
+  const auto report = ransac.Estimate(cam_rays1_with_jac, cam_rays2_with_jac);
 
   if (!report.success) {
     py::gil_scoped_acquire acquire;
@@ -66,8 +66,8 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   inlier_cam_rays2.reserve(report.support.num_inliers);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     if (report.inlier_mask[point2D_idx]) {
-      inlier_cam_rays1.push_back(cam_rays_with_jac1[point2D_idx].ray);
-      inlier_cam_rays2.push_back(cam_rays_with_jac2[point2D_idx].ray);
+      inlier_cam_rays1.push_back(cam_rays1_with_jac[point2D_idx].ray);
+      inlier_cam_rays2.push_back(cam_rays2_with_jac[point2D_idx].ray);
     }
   }
 
