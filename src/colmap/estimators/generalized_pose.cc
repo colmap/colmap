@@ -212,7 +212,7 @@ bool EstimateGeneralizedRelativePose(
   }
 
   // Both branches below score with the pixel-unit tangent Sampson error, so the
-  // RANSAC threshold is the plain pixel ransac_options throughout - no
+  // RANSAC threshold is the plain pixel ransac_options throughout. No
   // per-camera conversion to normalized/angular units is needed.
   if (IsPanoramicRig(camera_idxs1, cams_from_rig) &&
       IsPanoramicRig(camera_idxs2, cams_from_rig)) {
@@ -481,7 +481,7 @@ bool EstimateStructureLessAbsolutePose(
   }
 
   // GR6P/GR8P score with the pixel-unit tangent Sampson error, so the RANSAC
-  // threshold is the plain pixel max_error - no per-camera conversion needed.
+  // threshold is the plain pixel max_error. No per-camera conversion needed.
   LORANSAC<GR6PEstimator, GR8PEstimator> ransac(options.ransac_options);
   auto report = ransac.Estimate(world_obs, query_obs);
   if (!report.success) {

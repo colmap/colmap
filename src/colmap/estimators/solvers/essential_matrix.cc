@@ -62,7 +62,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
   THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(models)->clear();
 
-  // PoseLib's 5-point solver only supports the minimal case; the non-minimal
+  // PoseLib's 5-point solver only supports the minimal case. The non-minimal
   // case falls through to the SVD-based solver below.
   if (cam_rays1.size() == kMinNumSamples) {
     std::vector<M_t> candidate_models;
@@ -220,7 +220,7 @@ void EssentialMatrixEightPointEstimator::Estimate(
 namespace {
 
 // Extract the bearings into the contiguous array the five-point solver expects.
-// The Jacobians play no part in estimation; they only affect scoring.
+// The Jacobians play no part in estimation. They only affect scoring.
 void UnpackCamRaysWithJac(const std::vector<CamRayWithJac>& cam_rays_with_jac,
                           std::vector<Eigen::Vector3d>* rays) {
   const size_t num_rays = cam_rays_with_jac.size();

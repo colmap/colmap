@@ -336,7 +336,7 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   THROW_CHECK_EQ(cam_rays1_with_jac.size(), cam_rays2_with_jac.size());
   THROW_CHECK_EQ(cam_rays1_with_jac.size(), inlier_mask.size());
 
-  // Collect inliers. PoseFromEssentialMatrix needs the bare bearings; the
+  // Collect inliers. PoseFromEssentialMatrix needs the bare bearings. The
   // refinement additionally needs their unprojection Jacobians.
   std::vector<CamRayWithJac> inlier_cam_rays1_with_jac;
   std::vector<CamRayWithJac> inlier_cam_rays2_with_jac;

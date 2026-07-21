@@ -161,7 +161,7 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
     std::vector<double> residuals;
     GR6PEstimator::Residuals(
         problem.points1, problem.points2, report.model, &residuals);
-    // Residuals are squared pixels; the RANSAC inlier bound is max_error^2.
+    // Residuals are squared pixels. The RANSAC inlier bound is max_error^2.
     for (size_t i = 0; i < residuals.size(); ++i) {
       EXPECT_LE(residuals[i], options.max_error * options.max_error);
     }

@@ -101,7 +101,7 @@ void ExpectAtLeastOneValidModel(const Estimator& estimator,
     }
 
     // The five/eight-point solvers no longer expose Residuals (bearing Sampson
-    // was retired); verify the recovered model directly with the plain Sampson
+    // was retired). Verify the recovered model directly with the plain Sampson
     // error, which is ~0 for these noiseless, in-front correspondences.
     std::vector<double> residuals;
     ComputeSquaredSampsonError(rays1, rays2, E, &residuals);

@@ -430,7 +430,7 @@ TEST(RefineEssentialMatrix, Nominal) {
   }
 
   // Score with the pixel-unit tangent Sampson error, so each ray carries its
-  // unprojection Jacobian; a spherical camera keeps every direction valid.
+  // unprojection Jacobian. A spherical camera keeps every direction valid.
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
   std::vector<CamRayWithJac> cam_rays1_with_jac(points3D.size());

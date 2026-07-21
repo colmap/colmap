@@ -67,7 +67,7 @@ class EssentialMatrixFivePointEstimator {
                        const std::vector<Y_t>& cam_rays2,
                        std::vector<M_t>* models);
 
-  // NOTE: This minimal solver no longer provides a Residuals() method; inlier
+  // NOTE: This minimal solver no longer provides a Residuals() method. Inlier
   // scoring for essential matrices is done in pixel units by
   // EssentialMatrixTangentSampsonEstimator. The former Sampson-on-unit-bearings
   // Residuals (ComputeSquaredSampsonErrorWithCheirality) has been retired.
@@ -98,14 +98,14 @@ class EssentialMatrixEightPointEstimator {
                        const std::vector<Y_t>& cam_rays2,
                        std::vector<M_t>* models);
 
-  // NOTE: Residuals() retired; see EssentialMatrixFivePointEstimator above.
+  // NOTE: Residuals() retired. See EssentialMatrixFivePointEstimator above.
 };
 
 // Essential matrix estimator scoring correspondences by the tangent Sampson
 // error, i.e. in pixel units, for arbitrary central camera models.
 //
 // The model is estimated by the same five-point solver as
-// EssentialMatrixFivePointEstimator; only the residual differs. Because the
+// EssentialMatrixFivePointEstimator. Only the residual differs. Because the
 // residual is measured in pixels rather than radians, the RANSAC threshold is
 // the plain pixel threshold and needs no per-camera conversion via
 // Camera::CamFromImgThreshold. See ComputeSquaredTangentSampsonError.
@@ -119,7 +119,7 @@ class EssentialMatrixTangentSampsonEstimator {
   static const int kMinNumSamples = 5;
 
   // Estimate up to 10 possible essential matrix solutions from a set of
-  // corresponding camera rays. The Jacobians are ignored here; they only
+  // corresponding camera rays. The Jacobians are ignored here. They only
   // affect scoring.
   static void Estimate(const std::vector<X_t>& cam_rays1_with_jac,
                        const std::vector<Y_t>& cam_rays2_with_jac,

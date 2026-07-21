@@ -31,7 +31,7 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   const size_t num_points2D = points2D1.size();
 
   // Unproject to rays + per-ray Jacobians (for the pixel-unit tangent Sampson
-  // score). End users pass camera + 2D points; Jacobians are never part of the
+  // score). End users pass camera + 2D points. Jacobians are never part of the
   // interface. Unprojectable points are zeroed -> infinite residual ->
   // rejected.
   std::vector<CamRayWithJac> cam_rays1_with_jac(num_points2D);

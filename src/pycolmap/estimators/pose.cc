@@ -124,7 +124,7 @@ py::typing::Optional<py::dict> PyEstimateRelativePose(
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   const size_t num_points = points2D1.size();
-  // End users pass camera + 2D points; the rays and their unprojection
+  // End users pass camera + 2D points. The rays and their unprojection
   // Jacobians (needed for the pixel-unit tangent Sampson score) are built here,
   // never part of the interface. Unprojectable points are zeroed -> infinite
   // residual -> rejected.
@@ -166,7 +166,7 @@ py::typing::Optional<py::dict> PyRefineRelativePose(
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   const size_t num_points = points2D1.size();
-  // End users pass camera + 2D points; the rays and their unprojection
+  // End users pass camera + 2D points. The rays and their unprojection
   // Jacobians (for the pixel-unit tangent Sampson cost) are built here.
   std::vector<CamRayWithJac> cam_rays1_with_jac(num_points);
   std::vector<CamRayWithJac> cam_rays2_with_jac(num_points);

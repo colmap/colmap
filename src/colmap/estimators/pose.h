@@ -134,7 +134,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 // Inliers are scored with the pixel-unit tangent Sampson error, so callers
 // supply each ray together with its unprojection Jacobian d(ray)/d(pixel) as a
 // CamRayWithJac (see Camera::CamRayFromImgWithJac). Every in-tree caller has a
-// camera model, so this is always available; the former bearing-only path
+// camera model, so this is always available. The former bearing-only path
 // (Sampson error on unit bearings) has been retired.
 //
 // @param ransac_options       RANSAC options (max_error in pixels).
