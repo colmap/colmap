@@ -308,8 +308,9 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
     }
     ceres::CostFunction* cost_function = TangentSampsonErrorCostFunctor::Create(
         cam_rays1_with_jac[i], cam_rays2_with_jac[i]);
-    problem.AddResidualBlock(
-        cost_function, /*loss_function=*/nullptr, cam2_from_cam1->params.data());
+    problem.AddResidualBlock(cost_function,
+                             /*loss_function=*/nullptr,
+                             cam2_from_cam1->params.data());
   }
 
   SetManifold(&problem,
