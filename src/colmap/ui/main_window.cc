@@ -43,9 +43,13 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QIcon>
+#include <QPainter>
+#include <QPixmap>
 #include <QSettings>
 #include <QStandardPaths>
 #include <clocale>
+
+#include <QtSvg/QSvgRenderer>
 
 static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
@@ -374,7 +378,6 @@ void MainWindow::CreateWidgets() {
       new ReconstructionManagerWidget(this, reconstruction_manager_);
   reconstruction_stats_widget_ = new ReconstructionStatsWidget(this);
   match_matrix_widget_ = new MatchMatrixWidget(this, &options_);
-  license_widget_ = new LicenseWidget(this);
 
   dock_log_widget_ = new QDockWidget("Log", this);
   dock_log_widget_->setWidget(log_widget_);
@@ -727,8 +730,7 @@ void MainWindow::CreateActions() {
   action_support_ = new QAction(tr("Support"), this);
   connect(action_support_, &QAction::triggered, this, &MainWindow::Support);
   action_license_ = new QAction(tr("License"), this);
-  connect(
-      action_license_, &QAction::triggered, license_widget_, &QTextEdit::show);
+  connect(action_license_, &QAction::triggered, this, &MainWindow::License);
 }
 
 void MainWindow::CreateMenus() {
@@ -1761,15 +1763,34 @@ void MainWindow::SetLogOptions() {
 }
 
 void MainWindow::About() {
-  QMessageBox::about(
-      this,
-      tr("About"),
-      QString().asprintf("<span style='font-weight:normal'><b>%s</b><br />"
-                         "<small>(%s)</small><br /><br />"
-                         "<b>Author:</b> Johannes L. Schönberger<br /><br />"
-                         "<b>Email:</b> jsch-at-demuc-dot-de</span>",
-                         GetVersionInfo().c_str(),
-                         GetBuildInfo().c_str()));
+  QMessageBox message_box(this);
+  message_box.setWindowTitle(tr("About"));
+  message_box.setTextFormat(Qt::RichText);
+
+  // Render the logo directly from the SVG at the target size (accounting for
+  // high-DPI displays) so it stays crisp instead of scaling a raster.
+  constexpr int kLogoSize = 96;
+  const qreal device_pixel_ratio = devicePixelRatioF();
+  QPixmap logo(QSize(kLogoSize, kLogoSize) * device_pixel_ratio);
+  logo.fill(Qt::transparent);
+  QSvgRenderer logo_renderer(QStringLiteral(":/media/colmap-logo.svg"));
+  QPainter logo_painter(&logo);
+  logo_renderer.render(&logo_painter);
+  logo_painter.end();
+  logo.setDevicePixelRatio(device_pixel_ratio);
+  message_box.setIconPixmap(logo);
+
+  message_box.setText(QString::fromStdString(GetVersionInfo()));
+  message_box.setInformativeText(QString().asprintf(
+      "<small>%s</small><br><br>"
+      "COLMAP is a general-purpose Structure-from-Motion (SfM) and "
+      "Multi-View Stereo (MVS) pipeline.<br><br>"
+      "COLMAP is developed by its core maintainers together with many "
+      "community contributors. For documentation, source code, and the full "
+      "list of contributors, please visit "
+      "<a href=\"https://colmap.github.io/\">https://colmap.github.io/</a>.",
+      GetBuildInfo().c_str()));
+  message_box.exec();
 }
 
 void MainWindow::Documentation() {
@@ -1779,6 +1800,31 @@ void MainWindow::Documentation() {
 void MainWindow::Support() {
   QDesktopServices::openUrl(
       QUrl("https://github.com/colmap/colmap/discussions"));
+}
+
+void MainWindow::License() {
+  QFile file(":/COPYING.txt");
+  QString license;
+  if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    // Reflow the raw license text: ignore the hard line breaks within each
+    // paragraph and only break at blank lines, rendering paragraphs with
+    // spacing between them.
+    const QString text = QString::fromUtf8(file.readAll());
+    const QStringList paragraphs =
+        text.split(QRegularExpression("\n\\s*\n"), Qt::SkipEmptyParts);
+    for (const QString& paragraph : paragraphs) {
+      license += "<p>" + paragraph.simplified().toHtmlEscaped() + "</p>";
+    }
+  } else {
+    license = tr("Failed to load license text.");
+  }
+
+  QMessageBox message_box(this);
+  message_box.setWindowTitle(tr("License"));
+  message_box.setTextFormat(Qt::RichText);
+  message_box.setText(license);
+  message_box.setStyleSheet("QLabel { font-weight: normal; }");
+  message_box.exec();
 }
 
 void MainWindow::RenderToggle() {

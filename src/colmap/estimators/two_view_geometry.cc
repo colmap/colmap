@@ -1481,6 +1481,8 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
 
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
   std::vector<double> residuals(num_matches);
+  // TODO: Sampson error on unit bearings does not match max_error_in_cam.
+  // See ComputeSquaredSampsonError.
   ComputeSquaredSampsonError(
       matched_cam_rays1, matched_cam_rays2, E, &residuals);
   FeatureMatches inlier_matches;
