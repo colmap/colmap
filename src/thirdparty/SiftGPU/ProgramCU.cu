@@ -1739,11 +1739,11 @@ void __global__ MultiplyDescriptorGRay_Kernel(cudaTextureObject_t texDes1, cudaT
 #error
 #endif
 	__syncthreads();
-	// MULT_BLOCK_DIMY * 12 == 96 <= MULT_TBLOCK_DIMX == 128, so the tile is
-	// filled in a single cooperative pass, as in the two-component kernel.
-	if(threadIdx.x < MULT_BLOCK_DIMY * 12)
+	// Strided fill: a single pass leaves a garbage tail once the tile exceeds the
+	// block width (MULT_BLOCK_DIMY == 16 gives 192 > 128).
+	for(int j = threadIdx.x; j < MULT_BLOCK_DIMY * 12; j += MULT_TBLOCK_DIMX)
 	{
-		loc1[threadIdx.x] = tex1Dfetch<float>(texLoc1, 12 * idx01 + threadIdx.x);
+		loc1[j] = tex1Dfetch<float>(texLoc1, 12 * idx01 + j);
 	}
 	__syncthreads();
 	if(idx2 >= num2) return;
@@ -1785,7 +1785,7 @@ void __global__ MultiplyDescriptorGRay_Kernel(cudaTextureObject_t texDes1, cudaT
 			float denom = a0 * a0 + a1 * a1 + b0 * b0 + b1 * b1;
 			// A zero denominator means the correspondence carries no geometric
 			// information (an invalid bearing or a degenerate Jacobian); reject.
-			results[i] = (denom > 0.0f && num * num < edistmax * denom)? 0: -262144;
+			results[i] = (denom > 0.0f && num * num <= edistmax * denom)? 0: -262144;
 		}else
 		{
 			results[i] = -262144;

@@ -32,6 +32,9 @@
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/util/logging.h"
+
+#include <cmath>
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -105,7 +108,12 @@ class SampsonErrorCostFunctor
  public:
   SampsonErrorCostFunctor(const Eigen::Vector3d& point1,
                           const Eigen::Vector3d& point2)
-      : point1_(point1), point2_(point2) {}
+      : point1_(point1), point2_(point2) {
+    // Enforce the (x, y, 1) contract. Unit bearings (z != 1) would be silently
+    // rescaled, since the Sampson error is not invariant to the point's scale.
+    THROW_CHECK_LT(std::abs(point1.z() - 1.0), 1e-6);
+    THROW_CHECK_LT(std::abs(point2.z() - 1.0), 1e-6);
+  }
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1, T* residuals) const {
@@ -136,11 +144,12 @@ class TangentSampsonErrorCostFunctor
   bool operator()(const T* const cam2_from_cam1, T* residuals) const {
     const Eigen::Matrix<T, 3, 3> E =
         EssentialMatrixFromPoseParams(cam2_from_cam1);
-    residuals[0] = TangentSampsonError<T>(E,
-                                          cam_ray1_with_jac_.ray.cast<T>(),
-                                          cam_ray1_with_jac_.J.cast<T>(),
-                                          cam_ray2_with_jac_.ray.cast<T>(),
-                                          cam_ray2_with_jac_.J.cast<T>());
+    residuals[0] =
+        TangentSampsonError<T>(E,
+                               cam_ray1_with_jac_.ray.cast<T>(),
+                               cam_ray1_with_jac_.jacobian.cast<T>(),
+                               cam_ray2_with_jac_.ray.cast<T>(),
+                               cam_ray2_with_jac_.jacobian.cast<T>());
     return true;
   }
 

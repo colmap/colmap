@@ -101,8 +101,8 @@ class TinyTangentSampsonErrorCostFunctor {
     for (int i = 0; i < n; ++i) {
       const Eigen::Vector3d& ray1 = cam_rays1_with_jac_[i].ray;
       const Eigen::Vector3d& ray2 = cam_rays2_with_jac_[i].ray;
-      const Eigen::Matrix<double, 3, 2>& J1 = cam_rays1_with_jac_[i].J;
-      const Eigen::Matrix<double, 3, 2>& J2 = cam_rays2_with_jac_[i].J;
+      const Eigen::Matrix<double, 3, 2>& J1 = cam_rays1_with_jac_[i].jacobian;
+      const Eigen::Matrix<double, 3, 2>& J2 = cam_rays2_with_jac_[i].jacobian;
       const Eigen::Vector3d Eray1 = E * ray1;
       const Eigen::Vector3d Etray2 = E.transpose() * ray2;
       const double num = ray2.dot(Eray1);

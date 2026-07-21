@@ -120,7 +120,7 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
   LORANSAC<EssentialMatrixTangentSampsonEstimator,
            EssentialMatrixTangentSampsonEstimator>
       ransac(ransac_options);
-  const auto report = ransac.Estimate(cam_rays1_with_jac, cam_rays2_with_jac);
+  auto report = ransac.Estimate(cam_rays1_with_jac, cam_rays2_with_jac);
 
   if (!report.success) {
     return false;

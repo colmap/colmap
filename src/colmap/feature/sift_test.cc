@@ -42,6 +42,8 @@
 #include "colmap/util/opengl_utils.h"
 
 #include <functional>
+#include <set>
+#include <utility>
 
 namespace colmap {
 namespace {
@@ -1560,19 +1562,25 @@ TEST(MatchGuidedSiftFeaturesCPUvsGPUGuided, EssentialMatrix) {
       THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(gpu_options))
           ->MatchGuided(kMaxError, image1, image2, &gpu_geometry);
 
-      EXPECT_EQ(cpu_geometry.inlier_matches.size(),
-                gpu_geometry.inlier_matches.size())
-          << "model " << camera.ModelName();
-      for (size_t i = 0; i < std::min(cpu_geometry.inlier_matches.size(),
-                                      gpu_geometry.inlier_matches.size());
-           ++i) {
-        EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx1,
-                  gpu_geometry.inlier_matches[i].point2D_idx1)
-            << "model " << camera.ModelName() << " match " << i;
-        EXPECT_EQ(cpu_geometry.inlier_matches[i].point2D_idx2,
-                  gpu_geometry.inlier_matches[i].point2D_idx2)
-            << "model " << camera.ModelName() << " match " << i;
-      }
+      // The CPU scores in double and the GPU in float, so a pair whose tangent
+      // Sampson residual sits within float epsilon of kMaxError can flip
+      // inclusion. Compare as sets and tolerate a few boundary flips rather
+      // than requiring identical size and order.
+      const auto to_set = [](const FeatureMatches& matches) {
+        std::set<std::pair<point2D_t, point2D_t>> set;
+        for (const auto& match : matches) {
+          set.emplace(match.point2D_idx1, match.point2D_idx2);
+        }
+        return set;
+      };
+      const std::set<std::pair<point2D_t, point2D_t>> cpu_set =
+          to_set(cpu_geometry.inlier_matches);
+      const std::set<std::pair<point2D_t, point2D_t>> gpu_set =
+          to_set(gpu_geometry.inlier_matches);
+      size_t num_disagree = 0;
+      for (const auto& match : cpu_set) num_disagree += !gpu_set.count(match);
+      for (const auto& match : gpu_set) num_disagree += !cpu_set.count(match);
+      EXPECT_LE(num_disagree, 4u) << "model " << camera.ModelName();
     });
   }
 }

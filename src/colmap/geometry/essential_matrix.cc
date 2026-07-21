@@ -206,21 +206,32 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
   }
 }
 
-double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
-                                         const CamRayWithJac& cam_ray2_with_jac,
+double ComputeSquaredTangentSampsonError(const Eigen::Vector3d& cam_ray1,
+                                         const Eigen::Matrix<double, 3, 2>& J1,
+                                         const Eigen::Vector3d& cam_ray2,
+                                         const Eigen::Matrix<double, 3, 2>& J2,
                                          const Eigen::Matrix3d& E) {
-  const Eigen::Vector3d Eray1 = E * cam_ray1_with_jac.ray;
-  const Eigen::Vector3d Etray2 = E.transpose() * cam_ray2_with_jac.ray;
-  const double num = cam_ray2_with_jac.ray.dot(Eray1);
+  const Eigen::Vector3d Eray1 = E * cam_ray1;
+  const Eigen::Vector3d Etray2 = E.transpose() * cam_ray2;
+  const double num = cam_ray2.dot(Eray1);
   // Chain the constraint gradients from ray space into pixel space. The
   // gradient w.r.t. ray1 is E^T ray2 and w.r.t. ray2 is E ray1.
-  const double denom_sq_norm =
-      (cam_ray1_with_jac.J.transpose() * Etray2).squaredNorm() +
-      (cam_ray2_with_jac.J.transpose() * Eray1).squaredNorm();
+  const double denom_sq_norm = (J1.transpose() * Etray2).squaredNorm() +
+                               (J2.transpose() * Eray1).squaredNorm();
   if (denom_sq_norm == 0) {
     return std::numeric_limits<double>::max();
   }
   return num * num / denom_sq_norm;
+}
+
+double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
+                                         const CamRayWithJac& cam_ray2_with_jac,
+                                         const Eigen::Matrix3d& E) {
+  return ComputeSquaredTangentSampsonError(cam_ray1_with_jac.ray,
+                                           cam_ray1_with_jac.jacobian,
+                                           cam_ray2_with_jac.ray,
+                                           cam_ray2_with_jac.jacobian,
+                                           E);
 }
 
 void ComputeSquaredTangentSampsonError(
@@ -250,12 +261,8 @@ void ComputeSquaredTangentSampsonErrorWithCheirality(
   // ambiguity by cheirality voting) and flag which correspondences triangulate
   // in front of both cameras. Only the bearings are materialized, since that is
   // all PoseFromEssentialMatrix needs; the Jacobians are read in place below.
-  // The scratch buffers are reused across calls because this runs once per
-  // RANSAC hypothesis.
-  thread_local std::vector<Eigen::Vector3d> rays1;
-  thread_local std::vector<Eigen::Vector3d> rays2;
-  rays1.resize(num_rays);
-  rays2.resize(num_rays);
+  std::vector<Eigen::Vector3d> rays1(num_rays);
+  std::vector<Eigen::Vector3d> rays2(num_rays);
   for (size_t i = 0; i < num_rays; ++i) {
     rays1[i] = cam_rays1_with_jac[i].ray;
     rays2[i] = cam_rays2_with_jac[i].ray;
@@ -264,8 +271,7 @@ void ComputeSquaredTangentSampsonErrorWithCheirality(
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1, &valid_indices);
-  thread_local std::vector<bool> is_cheiral;
-  is_cheiral.assign(num_rays, false);
+  std::vector<bool> is_cheiral(num_rays, false);
   for (const int idx : valid_indices) {
     is_cheiral[idx] = true;
   }

@@ -48,7 +48,7 @@ namespace colmap {
 // index-aligned.
 struct CamRayWithJac {
   Eigen::Vector3d ray;
-  Eigen::Matrix<double, 3, 2> J;
+  Eigen::Matrix<double, 3, 2> jacobian;
 
   // Fallback when unprojection fails. The estimators take a dense
   // vector<CamRayWithJac>, not optionals, so a failed ray is kept as zero,

@@ -2820,8 +2820,9 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     const Eigen::Vector3d& uvw,
     Eigen::Matrix<double, 2, 3>* J_uvw) {
   Eigen::Vector2d xy;
-  // The per-model kernels write the Jacobian as 2x3 row-major.
-  double J_uvw_data[6];
+  // 2x3 row-major Jacobian. Zero-init so a kernel that skips an entry can't
+  // leak an uninitialized read through the Map below.
+  double J_uvw_data[6] = {};
   double* J_uvw_ptr = (J_uvw == nullptr) ? nullptr : J_uvw_data;
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                      \

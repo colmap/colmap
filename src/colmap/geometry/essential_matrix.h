@@ -219,6 +219,15 @@ double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
                                          const CamRayWithJac& cam_ray2_with_jac,
                                          const Eigen::Matrix3d& E);
 
+// Overload reading the ray and Jacobian in place, so hot loops (e.g. the CPU
+// guided-matching filter, called O(N1*N2) times) avoid materializing a
+// CamRayWithJac per correspondence.
+double ComputeSquaredTangentSampsonError(const Eigen::Vector3d& cam_ray1,
+                                         const Eigen::Matrix<double, 3, 2>& J1,
+                                         const Eigen::Vector3d& cam_ray2,
+                                         const Eigen::Matrix<double, 3, 2>& J2,
+                                         const Eigen::Matrix3d& E);
+
 // Calculate the residuals of a set of corresponding rays and a given essential
 // matrix, as the squared tangent Sampson error.
 //

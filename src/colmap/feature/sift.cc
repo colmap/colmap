@@ -1037,7 +1037,7 @@ CamRaysWithJac ComputeCamRaysWithJac(const Camera& camera,
     if (const auto ray_and_jac = camera.CamRayFromImgWithJac(
             Eigen::Vector2d(keypoint.x, keypoint.y))) {
       cam_rays.rays[i] = ray_and_jac->ray;
-      cam_rays.jacobians[i] = ray_and_jac->J;
+      cam_rays.jacobians[i] = ray_and_jac->jacobian;
       cam_rays.valid[i] = true;
     } else {
       cam_rays.rays[i].setZero();
@@ -1236,8 +1236,11 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
         if (!cam_rays1.valid[i1] || !cam_rays2.valid[i2]) {
           return true;
         }
-        return ComputeSquaredTangentSampsonError(
-                   cam_rays1[i1], cam_rays2[i2], E) > max_residual_double;
+        return ComputeSquaredTangentSampsonError(cam_rays1.rays[i1],
+                                                 cam_rays1.jacobians[i1],
+                                                 cam_rays2.rays[i2],
+                                                 cam_rays2.jacobians[i2],
+                                                 E) > max_residual_double;
       };
     } else if (use_fundamental_matrix) {
       guided_filter = [&](const Eigen::Index i1, const Eigen::Index i2) {
@@ -1333,8 +1336,8 @@ std::vector<float> PackCamRaysWithJac(const Camera& camera,
     float* out = packed.data() + i * kNumCamRayWithJacElems;
     for (int k = 0; k < 3; ++k) {
       out[k] = static_cast<float>(ray_and_jac->ray(k));
-      out[3 + k] = static_cast<float>(ray_and_jac->J(k, 0));
-      out[6 + k] = static_cast<float>(ray_and_jac->J(k, 1));
+      out[3 + k] = static_cast<float>(ray_and_jac->jacobian(k, 0));
+      out[6 + k] = static_cast<float>(ray_and_jac->jacobian(k, 1));
     }
   }
   return packed;
