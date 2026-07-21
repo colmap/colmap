@@ -43,6 +43,7 @@ if "%1" == "help" (
 if "%1" == "clean" (
 	for /d %%i in (%BUILDDIR%\*) do rmdir /q /s %%i
 	del /q /s %BUILDDIR%\*
+	if exist _static\viewer rmdir /q /s _static\viewer
 	goto end
 )
 
@@ -61,6 +62,8 @@ if errorlevel 9009 (
 )
 
 if "%1" == "html" (
+	npm run build
+	if errorlevel 1 exit /b 1
 	%SPHINXBUILD% -b html %ALLSPHINXOPTS% %BUILDDIR%/html
 	if errorlevel 1 exit /b 1
 	echo.
@@ -69,6 +72,8 @@ if "%1" == "html" (
 )
 
 if "%1" == "dirhtml" (
+	npm run build
+	if errorlevel 1 exit /b 1
 	%SPHINXBUILD% -b dirhtml %ALLSPHINXOPTS% %BUILDDIR%/dirhtml
 	if errorlevel 1 exit /b 1
 	echo.
@@ -77,6 +82,8 @@ if "%1" == "dirhtml" (
 )
 
 if "%1" == "singlehtml" (
+	npm run build
+	if errorlevel 1 exit /b 1
 	%SPHINXBUILD% -b singlehtml %ALLSPHINXOPTS% %BUILDDIR%/singlehtml
 	if errorlevel 1 exit /b 1
 	echo.

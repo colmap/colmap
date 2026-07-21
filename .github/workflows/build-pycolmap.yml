@@ -280,6 +280,12 @@ jobs:
         with:
           python-version: '3.12'   # Sphinx 9.1 needs >=3.12; matches the cp312 wheel
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: doc/package-lock.json
+
       # Wheel from the `build` job (same run) so autodoc introspects a pycolmap
       # that matches the commit.
       - uses: actions/download-artifact@v8
@@ -292,6 +298,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install wheelhouse/pycolmap-*cp312*manylinux*_x86_64.whl
           pip install -r doc/requirements.txt
+
+      - name: Install and test viewer
+        run: |
+          npm ci --prefix doc
+          npm test --prefix doc
+          npx --prefix doc playwright install --with-deps chromium
+          npm run test:browser --prefix doc
 
       - name: Build docs
         run: make -C doc html   # -> doc/_build/html
