@@ -297,14 +297,9 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   // CostFunction assumes unit quaternions.
   cam2_from_cam1->rotation().normalize();
 
-  // Robust loss scale in pixels, since the tangent Sampson residual is in
-  // pixels.
-  constexpr double kMaxL2Error = 1.0;
-  const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
-
-  ceres::Problem::Options problem_options;
-  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  ceres::Problem problem(problem_options);
+  // No robust loss: the observations are already RANSAC-gated inliers, so the
+  // refinement is plain least squares.
+  ceres::Problem problem;
 
   for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
     // Skip outlier observations
@@ -314,7 +309,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
     ceres::CostFunction* cost_function = TangentSampsonErrorCostFunctor::Create(
         cam_rays1_with_jac[i], cam_rays2_with_jac[i]);
     problem.AddResidualBlock(
-        cost_function, loss_function.get(), cam2_from_cam1->params.data());
+        cost_function, /*loss_function=*/nullptr, cam2_from_cam1->params.data());
   }
 
   SetManifold(&problem,
