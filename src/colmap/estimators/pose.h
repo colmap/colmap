@@ -176,10 +176,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
 // Refine relative pose of two cameras.
 //
-// Minimizes the pixel-unit tangent Sampson error between corresponding rays
-// using a robust cost function, i.e. the corresponding points need not
-// necessarily be inliers given a sufficient initial guess for the relative
-// pose.
+// Minimizes the pixel-unit tangent Sampson error over the masked-in
+// correspondences as plain least squares (no robust loss): the inlier_mask must
+// already exclude outliers.
 //
 // Assumes that first camera pose has projection matrix P = [I | 0], and
 // pose of second camera is given as transformation from world to camera system.

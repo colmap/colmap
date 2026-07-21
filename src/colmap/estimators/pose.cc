@@ -302,8 +302,10 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   ceres::Problem problem;
 
   for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
-    // Skip outlier observations
-    if (!inlier_mask[i]) {
+    // Skip outliers and unprojectable (zero) rays, which the residual scores as
+    // a perfect fit rather than rejecting.
+    if (!inlier_mask[i] || cam_rays1_with_jac[i].ray.isZero() ||
+        cam_rays2_with_jac[i].ray.isZero()) {
       continue;
     }
     ceres::CostFunction* cost_function = TangentSampsonErrorCostFunctor::Create(

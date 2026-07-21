@@ -46,11 +46,6 @@ struct GRNPObservation {
   // with the tangent Sampson error. Only the residual uses it; the solver reads
   // ray_in_cam alone.
   Eigen::Matrix<double, 3, 2> ray_jacobian_in_cam;
-
-  // Bundle the ray and its Jacobian for ComputeSquaredTangentSampsonError.
-  CamRayWithJac ray_with_jac() const {
-    return {ray_in_cam, ray_jacobian_in_cam};
-  }
 };
 
 // Minimal generalized relative pose estimator based on poselib.

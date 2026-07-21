@@ -1018,12 +1018,6 @@ struct CamRaysWithJac {
   std::vector<Eigen::Vector3d> rays;
   std::vector<Eigen::Matrix<double, 3, 2>> jacobians;
   std::vector<bool> valid;
-
-  // Bundle the ray and Jacobian at index i, e.g. for
-  // ComputeSquaredTangentSampsonError.
-  CamRayWithJac operator[](Eigen::Index i) const {
-    return {rays[i], jacobians[i]};
-  }
 };
 
 CamRaysWithJac ComputeCamRaysWithJac(const Camera& camera,
