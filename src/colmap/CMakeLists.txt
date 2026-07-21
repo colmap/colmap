@@ -40,6 +40,14 @@ elseif(IS_GNU OR IS_CLANG)
     if(WERROR_ENABLED)
         add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Werror>)
     endif()
+    if(IS_GNU AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15 AND
+       CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16)
+        # GCC 15 emits false positives in Eigen 3.4 and libstdc++ internals.
+        add_compile_options(
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=array-bounds>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=maybe-uninitialized>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=stringop-overflow>)
+    endif()
 endif()
 
 if(CUDA_ENABLED)
