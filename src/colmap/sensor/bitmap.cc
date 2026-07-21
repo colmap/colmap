@@ -466,6 +466,9 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
+  // Preserve color values when reading formats with unassociated alpha. Alpha
+  // is discarded below, so automatic premultiplication would darken pixels.
+  config["oiio:UnassociatedAlpha"] = 1;
 
   const auto input = OIIO::ImageInput::open(PathToUtf8(path), &config);
   if (!input) {
