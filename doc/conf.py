@@ -153,7 +153,8 @@ html_theme_options = {
         },
     ],
     "navbar_align": "left",
-    # Keep the primary guides and 3D Viewer visible; collapse the rest into More.
+    # Keep the primary guides and 3D Viewer visible. Collapse the rest into
+    # More.
     "header_links_before_dropdown": 4,
     "navigation_with_keys": True,
     "show_prev_next": True,
