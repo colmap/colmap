@@ -153,8 +153,9 @@ html_theme_options = {
         },
     ],
     "navbar_align": "left",
-    # Show nav links up to "Key Concepts"; collapse the rest into a "More" menu.
-    "header_links_before_dropdown": 3,
+    # Keep the primary guides and 3D Viewer visible. Collapse the rest into
+    # More.
+    "header_links_before_dropdown": 4,
     "navigation_with_keys": True,
     "show_prev_next": True,
     "pygments_light_style": "default",
@@ -210,7 +211,7 @@ html_logo = "_static/colmap-logo.svg"
 html_favicon = "_static/favicon.svg"
 
 # Give the landing page a full-width layout by dropping the left sidebar.
-html_sidebars = {"index": []}
+html_sidebars = {"index": [], "viewer": []}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
