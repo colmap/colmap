@@ -151,9 +151,9 @@ def download_imc2025(data_path: Path) -> None:
     category_path = data_path / "train/all"
     category_path.mkdir(parents=True, exist_ok=True)
     for scene in (data_path / "train").iterdir():
-        if str(scene).endswith("/all"):
+        if scene.name == "all":
             continue
-        shutil.move(scene, data_path / category_path)
+        shutil.move(scene, category_path)
 
 
 # TODO: BlendedMVS+ and BlendedMVS++.
