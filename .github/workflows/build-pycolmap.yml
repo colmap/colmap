@@ -302,6 +302,8 @@ jobs:
       - name: Install and test viewer
         run: |
           npm ci --prefix doc
+          npm run typecheck --prefix doc
+          python doc/tests/camera_models_registry_test.py
           npm test --prefix doc
           npx --prefix doc playwright install --with-deps chromium
           npm run test:browser --prefix doc

@@ -54,9 +54,13 @@ clean:
 	rm -rf _static/viewer
 
 viewer-assets:
-	@command -v npm >/dev/null 2>&1 || (echo "npm is required to build the interactive viewer"; exit 1)
-	@test -d node_modules || (echo "Run 'npm ci --prefix doc' from the repository root first"; exit 1)
-	npm run build
+	@if command -v npm >/dev/null 2>&1 && test -d node_modules; then \
+		npm run build; \
+	elif test "$(STRICT_VIEWER)" = "1"; then \
+		echo "npm and doc/node_modules are required when STRICT_VIEWER=1"; exit 1; \
+	else \
+		echo "WARNING: skipping 3D viewer build (npm or doc/node_modules not found)"; \
+	fi
 
 html: viewer-assets
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

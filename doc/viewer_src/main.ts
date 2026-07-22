@@ -3,6 +3,7 @@ import "./viewer.css";
 import {CAMERA_MODEL_NAMES, project} from "./camera_models";
 import {projectionCenter, transformPoint} from "./math";
 import {discoverSparseModels, normalizePath, parseReconstruction} from "./parser";
+import {INVALID_POINT3D_ID, point2DAt, point2DCount, point3DCount} from "./types";
 import type {ImageRecord, LocalFile, Point3D, Reconstruction, SparseModelCandidate} from "./types";
 import {ReconstructionViewer} from "./viewer";
 
@@ -23,6 +24,11 @@ export interface ColmapViewerHandle {
 
 interface InspectorResources {
   observer: IntersectionObserver | null;
+}
+
+interface ImageFileIndex {
+  exact: Map<string, File>;
+  suffix: Map<string, File>;
 }
 
 const mountedViewers = new WeakMap<HTMLElement, ColmapViewerHandle>();
@@ -91,7 +97,7 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
   let allEntries: LocalFile[] = [];
   let candidates: SparseModelCandidate[] = [];
   let reconstruction: Reconstruction | null = null;
-  let imageFiles = new Map<string, File>();
+  let imageFiles = createImageFileIndex([]);
   let currentSelection: {type: "point"; value: Point3D} | {type: "image"; value: ImageRecord} | null = null;
   let activeLoad: AbortController | null = null;
   let statusTimeout: number | null = null;
@@ -110,7 +116,7 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
   };
 
   const refreshImages = (): void => {
-    imageFiles = new Map(allEntries.map((entry) => [normalizePath(entry.path), entry.file]));
+    imageFiles = createImageFileIndex(allEntries);
     if (currentSelection && reconstruction) renderInspector(inspector, currentSelection, reconstruction, imageFiles, inspectorResources);
   };
 
@@ -132,11 +138,11 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
     reconstruction = parsed;
     drop.hidden = true;
     setStatus(null);
-    stats.textContent = `${parsed.images.size.toLocaleString()} cameras / ${viewer.visiblePointCount.toLocaleString()} visible points`;
+    stats.textContent = `${parsed.images.size.toLocaleString()} images / ${viewer.visiblePointCount.toLocaleString()} visible points`;
     stats.hidden = false;
     for (const button of container.querySelectorAll<HTMLButtonElement>('[data-viewer="reset"], [data-viewer="clear"]')) button.disabled = false;
     currentSelection = null;
-    inspector.innerHTML = `<div class="viewer-inspector-empty"><h2>Model loaded</h2><p>Double-click a point or camera to inspect it.</p><dl><dt>Format</dt><dd>${parsed.modernRigFormat ? "Binary with rigs" : "Legacy binary"}</dd><dt>Images</dt><dd>${parsed.images.size.toLocaleString()}</dd><dt>Points</dt><dd>${parsed.points3D.size.toLocaleString()}</dd></dl></div>`;
+    inspector.innerHTML = `<div class="viewer-inspector-empty"><h2>Model loaded</h2><p>Double-click a point or camera to inspect it.</p><dl><dt>Format</dt><dd>${parsed.modernRigFormat ? "Binary with rigs" : "Legacy binary"}</dd><dt>Images</dt><dd>${parsed.images.size.toLocaleString()}</dd><dt>Points</dt><dd>${point3DCount(parsed.points3D).toLocaleString()}</dd></dl></div>`;
     refreshImages();
   };
 
@@ -219,7 +225,10 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
     drop.classList.add("is-dragging");
   }, listenerOptions);
   container.addEventListener("dragleave", (event) => {
-    if (!container.contains(event.relatedTarget as Node | null)) drop.classList.remove("is-dragging");
+    if (!container.contains(event.relatedTarget as Node | null)) {
+      drop.classList.remove("is-dragging");
+      if (reconstruction) drop.hidden = true;
+    }
   }, listenerOptions);
   container.addEventListener("drop", (event) => {
     event.preventDefault();
@@ -239,6 +248,9 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
     console.error("[COLMAP viewer] WebGL render failed", error);
     setStatus(`WebGL render failed: ${error.name}: ${error.message || "Unknown error"}`, true);
     options.onError?.(error);
+  };
+  viewer.onContextChange = (contextLost) => {
+    setStatus(contextLost ? "WebGL context lost. Waiting for the browser to restore it..." : null, contextLost);
   };
   viewer.onSettingsChange = (settings) => {
     viewerElement<HTMLInputElement>(container, "point-size").value = String(settings.pointSize);
@@ -280,7 +292,7 @@ export function mountColmapViewer(container: HTMLElement, options: ColmapViewerO
       activeLoad = null;
       allEntries = [];
       candidates = [];
-      imageFiles.clear();
+      imageFiles = createImageFileIndex([]);
       modelSelect.replaceChildren();
       modelSelect.hidden = true;
       clearLoadedModel();
@@ -376,14 +388,28 @@ async function readEntry(entry: FileSystemEntry, path: string): Promise<LocalFil
   return nested.flat();
 }
 
-function findImageFile(files: Map<string, File>, name: string): File | null {
+function createImageFileIndex(entries: readonly LocalFile[]): ImageFileIndex {
+  const exact = new Map(entries.map((entry) => [normalizePath(entry.path), entry.file]));
+  const suffix = new Map<string, File>();
+  const suffixPathLength = new Map<string, number>();
+  for (const [path, file] of exact) {
+    for (let start = 0; start < path.length;) {
+      const candidate = path.slice(start);
+      if (!suffixPathLength.has(candidate) || path.length < suffixPathLength.get(candidate)!) {
+        suffix.set(candidate, file);
+        suffixPathLength.set(candidate, path.length);
+      }
+      const slash = path.indexOf("/", start);
+      if (slash < 0) break;
+      start = slash + 1;
+    }
+  }
+  return {exact, suffix};
+}
+
+function findImageFile(files: ImageFileIndex, name: string): File | null {
   const normalized = normalizePath(name);
-  const direct = files.get(normalized);
-  if (direct) return direct;
-  const suffix = `/${normalized}`;
-  let best: [string, File] | null = null;
-  for (const entry of files) if (entry[0].endsWith(suffix) && (!best || entry[0].length < best[0].length)) best = entry;
-  return best?.[1] ?? null;
+  return files.exact.get(normalized) ?? files.suffix.get(normalized) ?? null;
 }
 
 function metadata(title: string, rows: Array<[string, string]>): HTMLElement {
@@ -406,7 +432,7 @@ function renderInspector(
   inspector: HTMLElement,
   selection: {type: "point"; value: Point3D} | {type: "image"; value: ImageRecord},
   reconstruction: Reconstruction,
-  files: Map<string, File>,
+  files: ImageFileIndex,
   resources: InspectorResources,
 ): void {
   resources.observer?.disconnect();
@@ -415,14 +441,15 @@ function renderInspector(
   if (selection.type === "image") {
     const image = selection.value;
     const camera = reconstruction.cameras.get(image.cameraId)!;
-    const triangulated = image.points2D.filter((point) => point.point3DId !== null).length;
+    let triangulated = 0;
+    for (const point3DId of image.points2D.point3DIds) if (point3DId !== INVALID_POINT3D_ID) ++triangulated;
     const center = projectionCenter(image.camFromWorld);
     inspector.append(metadata(`Image ${image.id}`, [
       ["Image", image.name],
       ["Camera model", CAMERA_MODEL_NAMES[camera.modelId] ?? `Unknown (${camera.modelId})`],
       ["Dimensions", `${camera.width} x ${camera.height}`],
       ["Frame / rig", `${image.frameId} / ${image.rigId}`],
-      ["Observations", `${triangulated.toLocaleString()} / ${image.points2D.length.toLocaleString()} triangulated`],
+      ["Observations", `${triangulated.toLocaleString()} / ${point2DCount(image).toLocaleString()} triangulated`],
       ["Center", center.map((value) => value.toFixed(6)).join(", ")],
       ["Pose (qw,qx,qy,qz | tx,ty,tz)", `${image.camFromWorld.rotation.map((value) => value.toFixed(6)).join(", ")} | ${image.camFromWorld.translation.map((value) => value.toFixed(6)).join(", ")}`],
     ]));
@@ -451,7 +478,7 @@ function renderInspector(
     for (const track of tracks) {
       const image = reconstruction.images.get(track.imageId);
       if (!image) continue;
-      const observed = image.points2D[track.point2DIdx];
+      const observed = point2DAt(image, track.point2DIdx);
       const camera = reconstruction.cameras.get(image.cameraId);
       if (!observed || !camera) continue;
       const projected = project(camera, transformPoint(image.camFromWorld, point.xyz));
@@ -510,7 +537,8 @@ async function drawCameraImage(canvas: HTMLCanvasElement, file: File, image: Ima
   bitmap.close();
   const sx = canvas.width / width;
   const sy = canvas.height / height;
-  for (const point of image.points2D) {
+  for (let pointIndex = 0; pointIndex < point2DCount(image); ++pointIndex) {
+    const point = point2DAt(image, pointIndex)!;
     context.fillStyle = point.point3DId === null ? "#ef3028" : "#ff00ff";
     context.beginPath();
     context.arc(point.xy[0] * sx, point.xy[1] * sy, 1.6, 0, Math.PI * 2);

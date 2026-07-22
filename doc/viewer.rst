@@ -21,6 +21,7 @@ point clouds and meshes.
 
    <link rel="stylesheet" href="_static/viewer/viewer.css">
    <div id="colmap-viewer-root">
+     <p>The interactive viewer is unavailable in this documentation build.</p>
      <noscript>This viewer requires JavaScript.</noscript>
    </div>
    <script type="module" src="_static/viewer/viewer.js"></script>

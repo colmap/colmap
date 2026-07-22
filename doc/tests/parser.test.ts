@@ -1,7 +1,8 @@
 import {describe, expect, test} from "vitest";
 
-import {discoverSparseModels, parseReconstruction} from "../viewer_src/parser";
-import {cameraFile, imageFile, modernRigFiles, pointFile} from "./binary_fixture";
+import {discoverSparseModels, parseReconstruction, reconstructionTransferables} from "../viewer_src/parser";
+import {findPoint3DIndex, point2DAt, point3DAt} from "../viewer_src/types";
+import {BinaryWriter, cameraFile, imageFile, modernRigFiles, pointFile} from "./binary_fixture";
 
 function modelFiles(cameraId = 1): Map<string, File> {
   return new Map([
@@ -21,8 +22,30 @@ describe("binary reconstruction parser", () => {
     expect(reconstruction.modernRigFormat).toBe(false);
     expect(reconstruction.cameras.get(1)?.params).toEqual([500, 320, 240]);
     expect(reconstruction.images.get(2)?.camFromWorld.translation).toEqual([4, 5, 6]);
-    expect(reconstruction.images.get(2)?.points2D[0]?.point3DId).toBe(pointId);
-    expect(reconstruction.points3D.get(pointId)?.track).toEqual([{imageId: 2, point2DIdx: 0}]);
+    expect(point2DAt(reconstruction.images.get(2)!, 0)?.point3DId).toBe(pointId);
+    const pointIndex = findPoint3DIndex(reconstruction.points3D, pointId);
+    expect(point3DAt(reconstruction.points3D, pointIndex).track).toEqual([{imageId: 2, point2DIdx: 0}]);
+    expect(reconstruction.points3D.xyz).toBeInstanceOf(Float64Array);
+    expect(reconstruction.points3D.colors).toBeInstanceOf(Uint8Array);
+    expect(reconstruction.points3D.trackImageIds).toBeInstanceOf(Uint32Array);
+    const transfer = reconstructionTransferables(reconstruction);
+    expect(transfer).toHaveLength(9);
+    const transferred = structuredClone(reconstruction, {transfer});
+    expect(reconstruction.points3D.ids.byteLength).toBe(0);
+    expect(transferred.points3D.ids[0]).toBe(pointId);
+  });
+
+  test("sorts point ids for compact binary-search lookup", async () => {
+    const points = new BinaryWriter().u64(2);
+    for (const [id, x] of [[9, 90], [3, 30]] as const) {
+      points.u64(id).f64(x).f64(0).f64(0).u8(1).u8(2).u8(3).f64(0.5).u64(0);
+    }
+    const files = modelFiles();
+    files.set("points3D.bin", points.file("points3D.bin"));
+    const reconstruction = await parseReconstruction(files);
+    expect([...reconstruction.points3D.ids]).toEqual([3n, 9n]);
+    expect(point3DAt(reconstruction.points3D, findPoint3DIndex(reconstruction.points3D, 3n)).xyz).toEqual([30, 0, 0]);
+    expect(point3DAt(reconstruction.points3D, findPoint3DIndex(reconstruction.points3D, 9n)).xyz).toEqual([90, 0, 0]);
   });
 
   test("composes modern sensor and rig poses", async () => {

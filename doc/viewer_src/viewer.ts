@@ -5,6 +5,14 @@ import {LineSegments2} from "three/addons/lines/LineSegments2.js";
 import {LineSegmentsGeometry} from "three/addons/lines/LineSegmentsGeometry.js";
 
 import {median, percentile, projectionCenter, quatRotate} from "./math";
+import {
+  findPoint3DIndex,
+  INVALID_POINT3D_ID,
+  point2DCount,
+  point3DAt,
+  point3DCount,
+  point3DTrackLength,
+} from "./types";
 import type {Camera, ImageRecord, Point3D, Reconstruction, Vec3} from "./types";
 
 export const CAMERA_FRUSTUM_COLORS = {
@@ -31,6 +39,7 @@ const COLORS = {
 };
 
 type Selection = {type: "point"; value: Point3D} | {type: "image"; value: ImageRecord} | null;
+type InternalSelection = {type: "point"; index: number} | {type: "image"; value: ImageRecord} | null;
 
 export interface ViewerSettings {
   pointSize: number;
@@ -43,10 +52,6 @@ export interface ViewerSettings {
 
 function toThreeQuaternion(rotation: [number, number, number, number]): THREE.Quaternion {
   return new THREE.Quaternion(rotation[1], rotation[2], rotation[3], rotation[0]).invert();
-}
-
-function pushColor(target: number[], color: THREE.Color, count = 1): void {
-  for (let i = 0; i < count; ++i) target.push(color.r, color.g, color.b);
 }
 
 function pushRgba(target: number[], color: readonly [number, number, number, number], count = 1): void {
@@ -62,6 +67,32 @@ function vertexRgbaMaterial(side: THREE.Side = THREE.FrontSide, depthWrite = tru
     side,
     toneMapped: false,
   });
+}
+
+function cameraRgbaMaterial(cameraSize: number, side: THREE.Side = THREE.FrontSide, depthWrite = true): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {cameraSize: {value: cameraSize}},
+    vertexShader: "attribute vec3 cameraCenter; attribute vec4 color; varying vec4 vColor; uniform float cameraSize; void main(){vColor=color; vec3 p=cameraCenter+(position-cameraCenter)*cameraSize; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}",
+    fragmentShader: "varying vec4 vColor; void main(){gl_FragColor=vColor;}",
+    transparent: true,
+    depthWrite,
+    side,
+    toneMapped: false,
+  });
+}
+
+function cameraPickingMaterial(cameraSize: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {cameraSize: {value: cameraSize}},
+    vertexShader: "attribute vec3 cameraCenter; attribute vec3 color; varying vec3 vColor; uniform float cameraSize; void main(){vColor=color; vec3 p=cameraCenter+(position-cameraCenter)*cameraSize; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}",
+    fragmentShader: "varying vec3 vColor; void main(){gl_FragColor=vec4(vColor,1.0);}",
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+}
+
+function pushVector(target: number[], vector: THREE.Vector3, count: number): void {
+  for (let i = 0; i < count; ++i) target.push(vector.x, vector.y, vector.z);
 }
 
 function coordinateLines(colors: ReadonlyArray<readonly [number, number, number, number]>): THREE.LineSegments {
@@ -122,6 +153,7 @@ export class ReconstructionViewer {
 
   onSelection: (selection: Selection) => void = () => undefined;
   onError: (error: Error) => void = () => undefined;
+  onContextChange: (contextLost: boolean) => void = () => undefined;
   onSettingsChange: (settings: Readonly<ViewerSettings>) => void = () => undefined;
 
   private readonly renderer: THREE.WebGLRenderer;
@@ -134,22 +166,28 @@ export class ReconstructionViewer {
   private readonly renderTarget = new THREE.WebGLRenderTarget(1, 1, {depthBuffer: true, stencilBuffer: false});
   private readonly content = new THREE.Group();
   private readonly pickingContent = new THREE.Group();
+  private readonly pointContent = new THREE.Group();
+  private readonly cameraContent = new THREE.Group();
+  private readonly connectionContent = new THREE.Group();
+  private readonly pointPickingContent = new THREE.Group();
+  private readonly cameraPickingContent = new THREE.Group();
   private readonly coordinateGrid = coordinateLines([COORDINATE_COLORS.grid, COORDINATE_COLORS.grid, COORDINATE_COLORS.grid]);
   private readonly coordinateAxes = thickCoordinateAxes();
   private readonly resizeObserver: ResizeObserver;
   private reconstruction: Reconstruction | null = null;
   private pointsObject: THREE.Points | null = null;
   private pickPointsObject: THREE.Points | null = null;
-  private pointDrawList: Point3D[] = [];
+  private pointDrawList = new Uint32Array();
   private imageDrawList: ImageRecord[] = [];
-  private pickTable: Selection[] = [null];
   private center: Vec3 = [0, 0, 0];
   private scale = 1;
   private viewCenter = new THREE.Vector3();
   private viewRadius = 1;
   private coordinateOrigin = new THREE.Vector3();
-  private selection: Selection = null;
+  private selection: InternalSelection = null;
   private animationFrame = 0;
+  private contextLost = false;
+  private disposed = false;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({canvas, antialias: true, preserveDrawingBuffer: false});
@@ -159,6 +197,8 @@ export class ReconstructionViewer {
     this.coordinateAxes.visible = false;
     this.coordinateGrid.renderOrder = -2;
     this.coordinateAxes.renderOrder = -1;
+    this.content.add(this.pointContent, this.cameraContent, this.connectionContent);
+    this.pickingContent.add(this.pointPickingContent, this.cameraPickingContent);
     this.scene.add(this.coordinateGrid, this.coordinateAxes, this.content);
     this.pickingScene.add(this.pickingContent);
     this.perspectiveCamera.position.set(1.8, -1.8, 1.8);
@@ -170,8 +210,10 @@ export class ReconstructionViewer {
     canvas.addEventListener("dblclick", (event) => this.pick(event));
     canvas.addEventListener("contextmenu", (event) => event.preventDefault());
     canvas.addEventListener("wheel", (event) => this.handleModifiedWheel(event), {passive: false, capture: true});
+    canvas.addEventListener("webglcontextlost", this.handleContextLost);
+    canvas.addEventListener("webglcontextrestored", this.handleContextRestored);
     this.resize();
-    this.animate();
+    this.startAnimation();
   }
 
   private createControls(camera: THREE.Camera): OrbitControls {
@@ -185,20 +227,47 @@ export class ReconstructionViewer {
     return controls;
   }
 
+  private startAnimation(): void {
+    if (this.animationFrame === 0 && !this.contextLost && !this.disposed) this.animationFrame = requestAnimationFrame(this.animate);
+  }
+
   private animate = (): void => {
-    this.animationFrame = requestAnimationFrame(this.animate);
+    this.animationFrame = 0;
+    if (this.contextLost || this.disposed) return;
     this.controls.update();
     this.updateCoordinateOverlays();
     try {
       this.renderer.render(this.scene, this.activeCamera);
+      this.startAnimation();
     } catch (error) {
-      cancelAnimationFrame(this.animationFrame);
       this.onError(error instanceof Error ? error : new Error(String(error)));
     }
   };
 
-  dispose(): void {
+  private handleContextLost = (event: Event): void => {
+    event.preventDefault();
+    this.contextLost = true;
     cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = 0;
+    if (!this.disposed) this.onContextChange(true);
+  };
+
+  private handleContextRestored = (): void => {
+    if (this.disposed) return;
+    this.contextLost = false;
+    this.renderer.resetState();
+    this.resize();
+    this.onContextChange(false);
+    this.startAnimation();
+  };
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = 0;
+    this.canvas.removeEventListener("webglcontextlost", this.handleContextLost);
+    this.canvas.removeEventListener("webglcontextrestored", this.handleContextRestored);
     this.resizeObserver.disconnect();
     this.controls.dispose();
     this.clearGroups();
@@ -236,9 +305,8 @@ export class ReconstructionViewer {
     this.reconstruction = null;
     this.selection = null;
     this.clearGroups();
-    this.pointDrawList = [];
+    this.pointDrawList = new Uint32Array();
     this.imageDrawList = [];
-    this.pickTable = [null];
     this.coordinateGrid.visible = false;
     this.coordinateAxes.visible = false;
     this.onSelection(null);
@@ -250,18 +318,27 @@ export class ReconstructionViewer {
 
   updateSettings(settings: Partial<ViewerSettings>): void {
     const projectionChanged = settings.projection !== undefined && settings.projection !== this.settings.projection;
-    const pointSizeOnly = Object.keys(settings).length === 1 && settings.pointSize !== undefined;
+    const pointSizeChanged = settings.pointSize !== undefined && settings.pointSize !== this.settings.pointSize;
+    const cameraSizeChanged = settings.cameraSize !== undefined && settings.cameraSize !== this.settings.cameraSize;
+    const filtersChanged =
+      (settings.minTrackLength !== undefined && settings.minTrackLength !== this.settings.minTrackLength) ||
+      (settings.maxError !== undefined && settings.maxError !== this.settings.maxError);
+    const connectionsChanged = settings.showConnections !== undefined && settings.showConnections !== this.settings.showConnections;
     Object.assign(this.settings, settings);
     this.onSettingsChange(this.settings);
-    if (pointSizeOnly) {
+    if (projectionChanged) this.switchProjection();
+    if (filtersChanged) {
+      this.rebuild();
+      return;
+    }
+    if (pointSizeChanged) {
       const material = this.pointsObject?.material as THREE.PointsMaterial | undefined;
       if (material) material.size = this.settings.pointSize;
       const pickMaterial = this.pickPointsObject?.material as THREE.ShaderMaterial | undefined;
       if (pickMaterial) pickMaterial.uniforms.pointSize!.value = Math.max(8, this.settings.pointSize * 2);
-      return;
     }
-    if (projectionChanged) this.switchProjection();
-    this.rebuild();
+    if (cameraSizeChanged) this.updateCameraSize();
+    if (connectionsChanged) this.rebuildConnections();
   }
 
   resetView(): void {
@@ -289,6 +366,12 @@ export class ReconstructionViewer {
       (point[1] - this.center[1]) * this.scale,
       (point[2] - this.center[2]) * this.scale,
     );
+  }
+
+  private normalizedPoint(index: number): THREE.Vector3 {
+    const xyz = this.reconstruction!.points3D.xyz;
+    const offset = index * 3;
+    return this.normalized([xyz[offset]!, xyz[offset + 1]!, xyz[offset + 2]!]);
   }
 
   private worldUnitsPerPixel(): number {
@@ -326,12 +409,16 @@ export class ReconstructionViewer {
     axesStarts.data.needsUpdate = true;
   }
 
+  private clearGroup(group: THREE.Group): void {
+    for (const child of [...group.children]) {
+      group.remove(child);
+      disposeObject(child);
+    }
+  }
+
   private clearGroups(): void {
-    for (const group of [this.content, this.pickingContent]) {
-      for (const child of [...group.children]) {
-        group.remove(child);
-        disposeObject(child);
-      }
+    for (const group of [this.pointContent, this.cameraContent, this.connectionContent, this.pointPickingContent, this.cameraPickingContent]) {
+      this.clearGroup(group);
     }
     this.pointsObject = null;
     this.pickPointsObject = null;
@@ -340,10 +427,29 @@ export class ReconstructionViewer {
   private rebuild(): void {
     if (!this.reconstruction) return;
     this.clearGroups();
-    this.pickTable = [null];
     this.buildPoints();
     this.buildCameras();
     this.buildConnections();
+  }
+
+  private rebuildConnections(): void {
+    if (!this.reconstruction) return;
+    this.clearGroup(this.connectionContent);
+    this.buildConnections();
+  }
+
+  private updateCameraSize(): void {
+    for (const group of [this.cameraContent, this.cameraPickingContent]) {
+      group.traverse((object) => {
+        const material = (object as THREE.Mesh).material;
+        const materials = Array.isArray(material) ? material : [material];
+        for (const item of materials) {
+          if (item instanceof THREE.ShaderMaterial && item.uniforms.cameraSize) {
+            item.uniforms.cameraSize.value = this.settings.cameraSize;
+          }
+        }
+      });
+    }
   }
 
   private computeViewBounds(): void {
@@ -355,7 +461,15 @@ export class ReconstructionViewer {
       axes[2].push(point.z);
     };
     const stride = Math.max(1, Math.floor(this.pointDrawList.length / 100000));
-    for (let i = 0; i < this.pointDrawList.length; i += stride) append(this.normalized(this.pointDrawList[i]!.xyz));
+    for (let i = 0; i < this.pointDrawList.length; i += stride) {
+      const pointIndex = this.pointDrawList[i]!;
+      const offset = pointIndex * 3;
+      append(this.normalized([
+        this.reconstruction.points3D.xyz[offset]!,
+        this.reconstruction.points3D.xyz[offset + 1]!,
+        this.reconstruction.points3D.xyz[offset + 2]!,
+      ]));
+    }
     for (const image of this.reconstruction.images.values()) append(this.normalized(projectionCenter(image.camFromWorld)));
     if (axes[0].length === 0) {
       this.viewCenter.set(0, 0, 0);
@@ -372,28 +486,54 @@ export class ReconstructionViewer {
     const reconstruction = this.reconstruction!;
     const selectedImage = this.selection?.type === "image" ? this.selection.value : null;
     const observed = new Set<bigint>();
-    if (selectedImage) for (const point of selectedImage.points2D) if (point.point3DId !== null) observed.add(point.point3DId);
-    this.pointDrawList = [...reconstruction.points3D.values()].filter(
-      (point) => point.error <= this.settings.maxError && point.track.length >= this.settings.minTrackLength,
-    );
-    const positions: number[] = [];
-    const colors: number[] = [];
-    const pickColors: number[] = [];
-    for (const point of this.pointDrawList) {
-      positions.push(...this.normalized(point.xyz).toArray());
-      let color = photometricPointColor(point.color);
-      if (this.selection?.type === "point" && this.selection.value.id === point.id) color = COLORS.selectedPoint;
-      else if (observed.has(point.id)) color = COLORS.selectedCameraPlane;
-      pushColor(colors, color);
-      const index = this.pickTable.length;
-      this.pickTable.push({type: "point", value: point});
-      pickColors.push((index & 255) / 255, ((index >> 8) & 255) / 255, ((index >> 16) & 255) / 255);
+    if (selectedImage) {
+      for (const point3DId of selectedImage.points2D.point3DIds) {
+        if (point3DId !== INVALID_POINT3D_ID) observed.add(point3DId);
+      }
+    }
+    const points = reconstruction.points3D;
+    let visibleCount = 0;
+    for (let pointIndex = 0; pointIndex < point3DCount(points); ++pointIndex) {
+      if (points.errors[pointIndex]! <= this.settings.maxError && point3DTrackLength(points, pointIndex) >= this.settings.minTrackLength) {
+        ++visibleCount;
+      }
+    }
+    this.pointDrawList = new Uint32Array(visibleCount);
+    const positions = new Float32Array(visibleCount * 3);
+    const colors = new Float32Array(visibleCount * 3);
+    const pickColors = new Float32Array(visibleCount * 3);
+    const color = new THREE.Color();
+    let drawIndex = 0;
+    for (let pointIndex = 0; pointIndex < point3DCount(points); ++pointIndex) {
+      if (points.errors[pointIndex]! > this.settings.maxError || point3DTrackLength(points, pointIndex) < this.settings.minTrackLength) continue;
+      this.pointDrawList[drawIndex] = pointIndex;
+      const sourceOffset = pointIndex * 3;
+      const targetOffset = drawIndex * 3;
+      positions[targetOffset] = (points.xyz[sourceOffset]! - this.center[0]) * this.scale;
+      positions[targetOffset + 1] = (points.xyz[sourceOffset + 1]! - this.center[1]) * this.scale;
+      positions[targetOffset + 2] = (points.xyz[sourceOffset + 2]! - this.center[2]) * this.scale;
+      color.setRGB(
+        points.colors[sourceOffset]! / 255,
+        points.colors[sourceOffset + 1]! / 255,
+        points.colors[sourceOffset + 2]! / 255,
+        THREE.SRGBColorSpace,
+      );
+      if (this.selection?.type === "point" && this.selection.index === pointIndex) color.copy(COLORS.selectedPoint);
+      else if (observed.has(points.ids[pointIndex]!)) color.copy(COLORS.selectedCameraPlane);
+      colors[targetOffset] = color.r;
+      colors[targetOffset + 1] = color.g;
+      colors[targetOffset + 2] = color.b;
+      const pickIndex = drawIndex + 1;
+      pickColors[targetOffset] = (pickIndex & 255) / 255;
+      pickColors[targetOffset + 1] = ((pickIndex >> 8) & 255) / 255;
+      pickColors[targetOffset + 2] = ((pickIndex >> 16) & 255) / 255;
+      ++drawIndex;
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.pointsObject = new THREE.Points(geometry, new THREE.PointsMaterial({size: this.settings.pointSize, sizeAttenuation: false, vertexColors: true}));
-    this.content.add(this.pointsObject);
+    this.pointContent.add(this.pointsObject);
 
     const pickGeometry = new THREE.BufferGeometry();
     pickGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -405,7 +545,7 @@ export class ReconstructionViewer {
       toneMapped: false,
     });
     this.pickPointsObject = new THREE.Points(pickGeometry, pickMaterial);
-    this.pickingContent.add(this.pickPointsObject);
+    this.pointPickingContent.add(this.pickPointsObject);
   }
 
   private cameraGeometry(image: ImageRecord, camera: Camera): {center: THREE.Vector3; corners: THREE.Vector3[]} {
@@ -413,10 +553,10 @@ export class ReconstructionViewer {
     const quaternion = toThreeQuaternion(image.camFromWorld.rotation);
     const aspectWidth = camera.width / Math.max(camera.width, camera.height);
     const aspectHeight = camera.height / Math.max(camera.width, camera.height);
-    const focal = camera.modelId === 17 ? 0.5 : (camera.params[0] ?? Math.max(camera.width, camera.height)) / Math.max(camera.width, camera.height);
-    const halfWidth = this.settings.cameraSize * aspectWidth * 0.5;
-    const halfHeight = this.settings.cameraSize * aspectHeight * 0.5;
-    const depth = Math.max(this.settings.cameraSize * focal, this.settings.cameraSize * 0.25);
+    const focal = (camera.params[0] ?? Math.max(camera.width, camera.height)) / Math.max(camera.width, camera.height);
+    const halfWidth = aspectWidth * 0.5;
+    const halfHeight = aspectHeight * 0.5;
+    const depth = Math.max(focal, 0.25);
     const corners = [
       new THREE.Vector3(-halfWidth, -halfHeight, depth),
       new THREE.Vector3(halfWidth, -halfHeight, depth),
@@ -429,7 +569,7 @@ export class ReconstructionViewer {
   private sphericalCameraGeometry(image: ImageRecord): {center: THREE.Vector3; lines: THREE.Vector3[]; triangles: THREE.Vector3[]} {
     const center = this.normalized(projectionCenter(image.camFromWorld));
     const quaternion = toThreeQuaternion(image.camFromWorld.rotation);
-    const radius = this.settings.cameraSize * 0.55;
+    const radius = 0.55;
     const worldPoint = (point: THREE.Vector3): THREE.Vector3 => point.applyQuaternion(quaternion).add(center);
     const lines: THREE.Vector3[] = [];
     const segments = 24;
@@ -461,29 +601,35 @@ export class ReconstructionViewer {
     this.imageDrawList = [...reconstruction.images.values()];
     const linePositions: number[] = [];
     const lineColors: number[] = [];
+    const lineCenters: number[] = [];
     const planePositions: number[] = [];
     const planeColors: number[] = [];
+    const planeCenters: number[] = [];
     const pickPositions: number[] = [];
     const pickColors: number[] = [];
+    const pickCenters: number[] = [];
     const selectedFrame = this.selection?.type === "image" ? this.selection.value.frameId : -1;
 
-    for (const image of this.imageDrawList) {
+    for (let imageIndex = 0; imageIndex < this.imageDrawList.length; ++imageIndex) {
+      const image = this.imageDrawList[imageIndex]!;
       const camera = reconstruction.cameras.get(image.cameraId)!;
       const selected = this.selection?.type === "image" && this.selection.value.id === image.id;
       const sameFrame = !selected && image.frameId === selectedFrame;
       const lineColor = selected ? CAMERA_FRUSTUM_COLORS.selectedFrame : sameFrame ? CAMERA_FRUSTUM_COLORS.sameFrame : CAMERA_FRUSTUM_COLORS.frame;
       const planeColor = selected ? CAMERA_FRUSTUM_COLORS.selectedPlane : sameFrame ? CAMERA_FRUSTUM_COLORS.sameFramePlane : CAMERA_FRUSTUM_COLORS.plane;
-      const index = this.pickTable.length;
-      this.pickTable.push({type: "image", value: image});
+      const index = this.pointDrawList.length + imageIndex + 1;
       if (camera.modelId === 17) {
         const sphere = this.sphericalCameraGeometry(image);
         for (const vertex of sphere.lines) linePositions.push(...vertex.toArray());
         pushRgba(lineColors, lineColor, sphere.lines.length);
+        pushVector(lineCenters, sphere.center, sphere.lines.length);
         for (const vertex of sphere.triangles) {
           planePositions.push(...vertex.toArray());
           pickPositions.push(...vertex.toArray());
         }
         pushRgba(planeColors, planeColor, sphere.triangles.length);
+        pushVector(planeCenters, sphere.center, sphere.triangles.length);
+        pushVector(pickCenters, sphere.center, sphere.triangles.length);
         for (let i = 0; i < sphere.triangles.length; ++i) pickColors.push((index & 255) / 255, ((index >> 8) & 255) / 255, ((index >> 16) & 255) / 255);
         continue;
       }
@@ -492,31 +638,38 @@ export class ReconstructionViewer {
         linePositions.push(...center.toArray(), ...corners[i]!.toArray());
         linePositions.push(...corners[i]!.toArray(), ...corners[(i + 1) % 4]!.toArray());
         pushRgba(lineColors, lineColor, 4);
+        pushVector(lineCenters, center, 4);
       }
       const triangles = [corners[0]!, corners[1]!, corners[2]!, corners[0]!, corners[2]!, corners[3]!];
       for (const vertex of triangles) planePositions.push(...vertex.toArray());
       pushRgba(planeColors, planeColor, 6);
+      pushVector(planeCenters, center, 6);
       for (const vertex of triangles) pickPositions.push(...vertex.toArray());
+      pushVector(pickCenters, center, 6);
       for (let i = 0; i < 6; ++i) pickColors.push((index & 255) / 255, ((index >> 8) & 255) / 255, ((index >> 16) & 255) / 255);
     }
     const lineGeometry = new THREE.BufferGeometry();
     lineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
     lineGeometry.setAttribute("color", new THREE.Float32BufferAttribute(lineColors, 4));
-    this.content.add(new THREE.LineSegments(lineGeometry, vertexRgbaMaterial()));
+    lineGeometry.setAttribute("cameraCenter", new THREE.Float32BufferAttribute(lineCenters, 3));
+    this.cameraContent.add(new THREE.LineSegments(lineGeometry, cameraRgbaMaterial(this.settings.cameraSize)));
 
     const planeGeometry = new THREE.BufferGeometry();
     planeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(planePositions, 3));
     planeGeometry.setAttribute("color", new THREE.Float32BufferAttribute(planeColors, 4));
-    this.content.add(new THREE.Mesh(planeGeometry, vertexRgbaMaterial(THREE.DoubleSide, false)));
+    planeGeometry.setAttribute("cameraCenter", new THREE.Float32BufferAttribute(planeCenters, 3));
+    this.cameraContent.add(new THREE.Mesh(planeGeometry, cameraRgbaMaterial(this.settings.cameraSize, THREE.DoubleSide, false)));
 
     const pickGeometry = new THREE.BufferGeometry();
     pickGeometry.setAttribute("position", new THREE.Float32BufferAttribute(pickPositions, 3));
     pickGeometry.setAttribute("color", new THREE.Float32BufferAttribute(pickColors, 3));
-    this.pickingContent.add(new THREE.Mesh(pickGeometry, new THREE.MeshBasicMaterial({vertexColors: true, side: THREE.DoubleSide, toneMapped: false})));
+    pickGeometry.setAttribute("cameraCenter", new THREE.Float32BufferAttribute(pickCenters, 3));
+    this.cameraPickingContent.add(new THREE.Mesh(pickGeometry, cameraPickingMaterial(this.settings.cameraSize)));
   }
 
   private buildConnections(): void {
     if (!this.reconstruction || (!this.selection && !this.settings.showConnections)) return;
+    const points = this.reconstruction.points3D;
     const positions: number[] = [];
     let color = COLORS.pointConnection;
     if (!this.selection) {
@@ -524,15 +677,19 @@ export class ReconstructionViewer {
       const pairs = new Set<string>();
       for (const image of this.reconstruction.images.values()) {
         const from = this.normalized(projectionCenter(image.camFromWorld));
-        for (const observation of image.points2D) {
-          if (observation.point3DId === null) continue;
-          for (const track of this.reconstruction.points3D.get(observation.point3DId)?.track ?? []) {
-            if (track.imageId === image.id) continue;
-            const a = Math.min(image.id, track.imageId);
-            const b = Math.max(image.id, track.imageId);
+        for (let observationIndex = 0; observationIndex < point2DCount(image); ++observationIndex) {
+          const point3DId = image.points2D.point3DIds[observationIndex]!;
+          if (point3DId === INVALID_POINT3D_ID) continue;
+          const pointIndex = findPoint3DIndex(points, point3DId);
+          if (pointIndex < 0) continue;
+          for (let trackIndex = points.trackOffsets[pointIndex]!; trackIndex < points.trackOffsets[pointIndex + 1]!; ++trackIndex) {
+            const trackImageId = points.trackImageIds[trackIndex]!;
+            if (trackImageId === image.id) continue;
+            const a = Math.min(image.id, trackImageId);
+            const b = Math.max(image.id, trackImageId);
             const key = `${a}:${b}`;
             if (pairs.has(key)) continue;
-            const connected = this.reconstruction.images.get(track.imageId);
+            const connected = this.reconstruction.images.get(trackImageId);
             if (!connected) continue;
             pairs.add(key);
             positions.push(...from.toArray(), ...this.normalized(projectionCenter(connected.camFromWorld)).toArray());
@@ -540,18 +697,22 @@ export class ReconstructionViewer {
         }
       }
     } else if (this.selection.type === "point") {
-      const pointPosition = this.normalized(this.selection.value.xyz);
-      for (const track of this.selection.value.track) {
-        const image = this.reconstruction.images.get(track.imageId);
+      const pointPosition = this.normalizedPoint(this.selection.index);
+      for (let trackIndex = points.trackOffsets[this.selection.index]!; trackIndex < points.trackOffsets[this.selection.index + 1]!; ++trackIndex) {
+        const image = this.reconstruction.images.get(points.trackImageIds[trackIndex]!);
         if (image) positions.push(...pointPosition.toArray(), ...this.normalized(projectionCenter(image.camFromWorld)).toArray());
       }
     } else {
       color = COLORS.imageConnection;
       const selectedCenter = this.normalized(projectionCenter(this.selection.value.camFromWorld));
       const connected = new Set<number>();
-      for (const observation of this.selection.value.points2D) {
-        if (observation.point3DId === null) continue;
-        for (const track of this.reconstruction.points3D.get(observation.point3DId)?.track ?? []) connected.add(track.imageId);
+      for (const point3DId of this.selection.value.points2D.point3DIds) {
+        if (point3DId === INVALID_POINT3D_ID) continue;
+        const pointIndex = findPoint3DIndex(points, point3DId);
+        if (pointIndex < 0) continue;
+        for (let trackIndex = points.trackOffsets[pointIndex]!; trackIndex < points.trackOffsets[pointIndex + 1]!; ++trackIndex) {
+          connected.add(points.trackImageIds[trackIndex]!);
+        }
       }
       connected.delete(this.selection.value.id);
       for (const imageId of connected) {
@@ -562,11 +723,11 @@ export class ReconstructionViewer {
     if (positions.length === 0) return;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    this.content.add(new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.8})));
+    this.connectionContent.add(new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.8})));
   }
 
   private pick(event: MouseEvent): void {
-    if (!this.reconstruction || this.pickTable.length <= 1) return;
+    if (!this.reconstruction || this.pointDrawList.length + this.imageDrawList.length === 0) return;
     const bounds = this.canvas.getBoundingClientRect();
     const x = Math.floor(event.clientX - bounds.left);
     const y = Math.floor(event.clientY - bounds.top);
@@ -583,19 +744,30 @@ export class ReconstructionViewer {
     this.renderer.setClearColor(0xffffff, 1);
     this.activeCamera.clearViewOffset();
     const index = pixel[0]! + (pixel[1]! << 8) + (pixel[2]! << 16);
-    this.selection = this.pickTable[index] ?? null;
+    if (index > 0 && index <= this.pointDrawList.length) {
+      this.selection = {type: "point", index: this.pointDrawList[index - 1]!};
+    } else {
+      const image = this.imageDrawList[index - this.pointDrawList.length - 1];
+      this.selection = image ? {type: "image", value: image} : null;
+    }
     this.rebuild();
-    this.onSelection(this.selection);
+    if (this.selection?.type === "point") {
+      this.onSelection({type: "point", value: point3DAt(this.reconstruction.points3D, this.selection.index)});
+    } else {
+      this.onSelection(this.selection);
+    }
   }
 
   private switchProjection(): void {
     const previous = this.activeCamera;
+    const target = this.controls.target.clone();
     this.activeCamera = this.settings.projection === "perspective" ? this.perspectiveCamera : this.orthographicCamera;
     this.activeCamera.position.copy(previous.position);
     this.activeCamera.quaternion.copy(previous.quaternion);
     this.activeCamera.up.copy(previous.up);
     this.controls = this.createControls(this.activeCamera);
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.copy(target);
+    this.controls.update();
     this.resize();
   }
 
@@ -608,7 +780,7 @@ export class ReconstructionViewer {
     this.perspectiveCamera.aspect = width / height;
     this.perspectiveCamera.updateProjectionMatrix();
     const distance = Math.max(0.2, this.activeCamera.position.distanceTo(this.controls.target));
-    const extent = Math.tan(THREE.MathUtils.degToRad(25) / 2) * distance;
+    const extent = Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov) / 2) * distance;
     this.orthographicCamera.left = -extent * width / height;
     this.orthographicCamera.right = extent * width / height;
     this.orthographicCamera.top = extent;

@@ -4,15 +4,13 @@ import type {
   Camera,
   ImageRecord,
   LocalFile,
-  Point3D,
+  Point3DData,
   Quat,
   Reconstruction,
   Rigid3d,
   SparseModelCandidate,
   Vec3,
 } from "./types";
-
-const INVALID_POINT3D_ID = 0xffffffffffffffffn;
 
 class BinaryReader {
   private readonly view: DataView;
@@ -33,6 +31,7 @@ class BinaryReader {
   u32(): number { this.require(4); const value = this.view.getUint32(this.offset, true); this.offset += 4; return value; }
   u64(): bigint { this.require(8); const value = this.view.getBigUint64(this.offset, true); this.offset += 8; return value; }
   f64(): number { this.require(8); const value = this.view.getFloat64(this.offset, true); this.offset += 8; return value; }
+  skip(bytes: number): void { this.require(bytes); this.offset += bytes; }
 
   count(name: string, minimumBytesPerItem = 1): number {
     const value = this.u64();
@@ -158,12 +157,15 @@ function parseImages(
     const cameraId = reader.u32();
     const name = reader.string();
     const pointCount = reader.count("point2D count", 24);
-    const points2D = Array.from({length: pointCount}, () => {
-      const xy: [number, number] = [reader.f64(), reader.f64()];
-      if (!xy.every(Number.isFinite)) throw new Error(`Image ${id} has a non-finite observation`);
-      const point3DId = reader.u64();
-      return {xy, point3DId: point3DId === INVALID_POINT3D_ID ? null : point3DId};
-    });
+    const points2D = {xy: new Float64Array(pointCount * 2), point3DIds: new BigUint64Array(pointCount)};
+    for (let pointIdx = 0; pointIdx < pointCount; ++pointIdx) {
+      const x = reader.f64();
+      const y = reader.f64();
+      if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error(`Image ${id} has a non-finite observation`);
+      points2D.xy[pointIdx * 2] = x;
+      points2D.xy[pointIdx * 2 + 1] = y;
+      points2D.point3DIds[pointIdx] = reader.u64();
+    }
 
     let camFromWorld = serializedPose;
     let frameId = id;
@@ -186,21 +188,79 @@ function parseImages(
   return images;
 }
 
-function parsePoints3D(buffer: ArrayBuffer): Map<bigint, Point3D> {
-  const reader = new BinaryReader(buffer, "points3D.bin");
-  const count = reader.count("point3D count", 51);
-  const points = new Map<bigint, Point3D>();
+function parsePoints3D(buffer: ArrayBuffer): Point3DData {
+  const scan = new BinaryReader(buffer, "points3D.bin");
+  const count = scan.count("point3D count", 51);
+  if (count > 0xffffffff) throw new Error("points3D.bin has too many points for this browser");
+  const sourceIds = new BigUint64Array(count);
+  const trackLengths = new Uint32Array(count);
+  let totalTracks = 0;
+  let sorted = true;
   for (let i = 0; i < count; ++i) {
+    const id = scan.u64();
+    sourceIds[i] = id;
+    sorted &&= i === 0 || sourceIds[i - 1]! < id;
+    scan.skip(35);
+    const trackLength = scan.count("track length", 8);
+    if (trackLength > 0xffffffff || totalTracks + trackLength > 0xffffffff) {
+      throw new Error("points3D.bin has too many track elements for this browser");
+    }
+    trackLengths[i] = trackLength;
+    totalTracks += trackLength;
+    scan.skip(trackLength * 8);
+  }
+  if (scan.remaining !== 0) throw new Error("points3D.bin contains trailing data");
+
+  let ids = sourceIds;
+  let destinationForSource: Uint32Array | null = null;
+  let sourceForDestination: Uint32Array | null = null;
+  if (!sorted) {
+    sourceForDestination = new Uint32Array(count);
+    for (let index = 0; index < count; ++index) sourceForDestination[index] = index;
+    sourceForDestination.sort((a, b) => sourceIds[a]! < sourceIds[b]! ? -1 : sourceIds[a]! > sourceIds[b]! ? 1 : 0);
+    ids = new BigUint64Array(count);
+    destinationForSource = new Uint32Array(count);
+    for (let destination = 0; destination < count; ++destination) {
+      const source = sourceForDestination[destination]!;
+      ids[destination] = sourceIds[source]!;
+      destinationForSource[source] = destination;
+    }
+  }
+  for (let i = 1; i < count; ++i) if (ids[i - 1] === ids[i]) throw new Error(`points3D.bin contains duplicate point id ${ids[i]}`);
+
+  const points: Point3DData = {
+    ids,
+    xyz: new Float64Array(count * 3),
+    colors: new Uint8Array(count * 3),
+    errors: new Float32Array(count),
+    trackOffsets: new Uint32Array(count + 1),
+    trackImageIds: new Uint32Array(totalTracks),
+    trackPoint2DIdxs: new Uint32Array(totalTracks),
+  };
+  for (let destination = 0; destination < count; ++destination) {
+    const source = sourceForDestination?.[destination] ?? destination;
+    points.trackOffsets[destination + 1] = points.trackOffsets[destination]! + trackLengths[source]!;
+  }
+
+  const reader = new BinaryReader(buffer, "points3D.bin");
+  reader.count("point3D count", 51);
+  for (let source = 0; source < count; ++source) {
+    const destination = destinationForSource?.[source] ?? source;
     const id = reader.u64();
     const xyz = readVec3(reader);
     const color: [number, number, number] = [reader.u8(), reader.u8(), reader.u8()];
     const error = reader.f64();
     if (![...xyz, error].every(Number.isFinite)) throw new Error(`Point ${id} contains non-finite values`);
+    points.xyz.set(xyz, destination * 3);
+    points.colors.set(color, destination * 3);
+    points.errors[destination] = error;
     const trackLength = reader.count("track length", 8);
-    const track = Array.from({length: trackLength}, () => ({imageId: reader.u32(), point2DIdx: reader.u32()}));
-    points.set(id, {id, xyz, color, error, track});
+    let trackIndex = points.trackOffsets[destination]!;
+    for (let i = 0; i < trackLength; ++i, ++trackIndex) {
+      points.trackImageIds[trackIndex] = reader.u32();
+      points.trackPoint2DIdxs[trackIndex] = reader.u32();
+    }
   }
-  if (reader.remaining !== 0) throw new Error("points3D.bin contains trailing data");
   return points;
 }
 
@@ -247,4 +307,21 @@ export async function parseReconstruction(files: Map<string, File>): Promise<Rec
   const images = parseImages(buffers[1], rigs, frames);
   for (const image of images.values()) if (!cameras.has(image.cameraId)) throw new Error(`Image ${image.id} references missing camera ${image.cameraId}`);
   return {cameras, images, points3D: parsePoints3D(buffers[2]), modernRigFormat};
+}
+
+export function reconstructionTransferables(reconstruction: Reconstruction): ArrayBuffer[] {
+  const points = reconstruction.points3D;
+  const buffers = [
+    points.ids.buffer,
+    points.xyz.buffer,
+    points.colors.buffer,
+    points.errors.buffer,
+    points.trackOffsets.buffer,
+    points.trackImageIds.buffer,
+    points.trackPoint2DIdxs.buffer,
+  ] as ArrayBuffer[];
+  for (const image of reconstruction.images.values()) {
+    buffers.push(image.points2D.xy.buffer as ArrayBuffer, image.points2D.point3DIds.buffer as ArrayBuffer);
+  }
+  return buffers;
 }

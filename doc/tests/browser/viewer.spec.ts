@@ -18,10 +18,23 @@ test("initializes the local-only viewer shell", async ({page}) => {
   const input = page.locator('[data-viewer="folder-input"]');
   await input.evaluate((element) => element.removeAttribute("webkitdirectory"));
   await input.setInputFiles(files);
-  await expect(page.locator('[data-viewer="stats"]')).toHaveText("1 cameras / 1 points");
+  await expect(page.locator('[data-viewer="stats"]')).toHaveText("1 images / 1 visible points");
   await expect(page.getByRole("heading", {name: "Model loaded"})).toBeVisible();
+
+  const drop = page.locator('[data-viewer="drop"]');
+  await drop.evaluate((element) => element.closest(".colmap-viewer-host")!.dispatchEvent(new DragEvent("dragenter", {bubbles: true})));
+  await expect(drop).toBeVisible();
+  await drop.evaluate((element) => element.closest(".colmap-viewer-host")!.dispatchEvent(new DragEvent("dragleave", {bubbles: true, relatedTarget: null})));
+  await expect(drop).toBeHidden();
+
   await page.locator('[data-viewer="projection"]').selectOption("orthographic");
   await expect(page.locator('[data-viewer="projection"]')).toHaveValue("orthographic");
+
+  const canvas = page.locator('[data-viewer="canvas"]');
+  await canvas.evaluate((element) => element.dispatchEvent(new Event("webglcontextlost", {cancelable: true})));
+  await expect(page.locator('[data-viewer="status"]')).toContainText("WebGL context lost");
+  await canvas.evaluate((element) => element.dispatchEvent(new Event("webglcontextrestored")));
+  await expect(page.locator('[data-viewer="status"]')).toBeHidden();
 
   const malformedFiles = files.map((file) => file.name === "cameras.bin" ? {...file, buffer: Buffer.from([1])} : file);
   await input.setInputFiles(malformedFiles);
