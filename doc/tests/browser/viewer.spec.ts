@@ -10,7 +10,8 @@ test("initializes the local-only viewer shell", async ({page}) => {
   await expect(page.locator('[data-viewer="title"]')).toHaveText("COLMAP - 3D Web Viewer");
   await expect(page.locator('[data-viewer="stats"]')).toBeHidden();
 
-  const files = await Promise.all([cameraFile(), imageFile(), pointFile()].map(async (file) => ({
+  // The point needs a track of at least 3 observations to pass the viewer's default track length filter.
+  const files = await Promise.all([cameraFile(), imageFile(), pointFile(2, 42n, 3)].map(async (file) => ({
     name: file.name,
     mimeType: "application/octet-stream",
     buffer: Buffer.from(await file.arrayBuffer()),
