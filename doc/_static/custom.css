@@ -33,3 +33,20 @@ dt.sig > dl > dd {
 dt.sig > dl {
     margin-bottom: 0px;
 }
+
+/* Interactive sparse reconstruction viewer. */
+body:has(#colmap-viewer-root) .bd-main .bd-content,
+body:has(#colmap-viewer-root) .bd-main .bd-content .bd-article-container {
+    max-width: none;
+    width: 100%;
+}
+
+body:has(#colmap-viewer-root) .bd-article {
+    padding-left: clamp(0.75rem, 2vw, 2rem);
+    padding-right: clamp(0.75rem, 2vw, 2rem);
+}
+
+
+#colmap-viewer-root {
+    margin: 0.75rem 0 2rem;
+}
