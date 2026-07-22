@@ -442,6 +442,14 @@ class DatasetIMC2025(_DatasetIMC):
         # Lazily-parsed {dataset: [image, ...]} from train_labels.csv.
         self._images_by_dataset_cache: dict[str, list[str]] | None = None
 
+    @property
+    def supports_covisibility_filtering(self) -> bool:
+        # IMC2025 ships neither intrinsics nor 3D points, and the placeholder GT
+        # stores every scene in its own arbitrary gauge. Feeding that to the
+        # frustum filter would delete valid verified pairs based on guessed
+        # focal/depth values, so covisibility filtering is disabled here.
+        return False
+
     def _labels_path(self) -> Path:
         """Path to train_labels.csv (sibling of the train/ folder)."""
         return self.data_path / "imc2025" / _TRAIN_LABELS_FILENAME

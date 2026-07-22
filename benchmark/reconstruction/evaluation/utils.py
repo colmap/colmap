@@ -44,7 +44,7 @@ import subprocess
 import sys
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -212,6 +212,17 @@ class Dataset(ABC):
     def prepare_scene(self, scene_info: SceneInfo) -> None:
         """Prepare the scene for reconstruction."""
         pass
+
+    @property
+    def supports_covisibility_filtering(self) -> bool:
+        """Whether the GT reconstruction can drive covisibility filtering.
+
+        The frustum/track-based filter needs a GT reconstruction with real
+        intrinsics (and ideally 3D points) in a shared gauge. Datasets whose GT
+        lacks these (e.g. IMC2025 with placeholder cameras) should return False
+        so process_scene does not pass their GT to the filter.
+        """
+        return True
 
     def compute_scene_errors(
         self,
@@ -886,7 +897,10 @@ def process_scene(
             else None
         ),
         covisibility_sparse_gt=(
-            sparse_gt if args.filter_covisibility else None
+            sparse_gt
+            if args.filter_covisibility
+            and dataset.supports_covisibility_filtering
+            else None
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
@@ -934,12 +948,16 @@ def process_scene(
         largest_component = max(largest_component, sparse.num_images())
         sub_models.append(sparse)
 
-    # Registered images counted as the union of names across all sub-models.
+    # Registered images counted as the union of names across all sub-models,
+    # restricted to GT images so registered outliers (e.g. IMC2025) are not
+    # counted and num_reg_images stays consistent with num_images.
+    gt_image_names = {image.name for image in sparse_gt.images.values()}
     num_reg_images = len(
         {
             image.name
             for sub_model in sub_models
             for image in sub_model.images.values()
+            if image.name in gt_image_names
         }
     )
 
