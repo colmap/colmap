@@ -400,6 +400,31 @@ recommended to run another global bundle adjustment after the merge::
         --output_path /path/to/refined-merged-model
 
 
+Why is the reconstruction scale/orientation arbitrary?
+------------------------------------------------------
+
+Structure-from-Motion from images alone can only recover the scene up to an
+arbitrary similarity transformation: the global scale, orientation, and position
+of a reconstruction are not determined by 2D image measurements. The same images
+could show a small object up close or a large object from far away and produce
+identical projections, so the absolute scale is unobservable. The particular
+scale and orientation you obtain also depend on which image pair was used to
+initialize the reconstruction.
+
+To obtain a metric and/or geo-referenced reconstruction, you must supply
+external information:
+
+- **Known distance:** if you know one real-world distance in the scene (between
+  two 3D points, two camera centers, or a camera and a point), measure the same
+  distance in the model; the ratio of the two gives the scale factor.
+- **GPS / control points:** align the model to known camera-center coordinates
+  with ``model_aligner``, which estimates a full 3D similarity transform (scale,
+  rotation, and translation); see the `Geo-registration`_ section below.
+- **Pose priors during mapping:** reconstruct with the ``pose_prior_mapper`` so
+  that GPS (or other) position priors constrain the solution during mapping; see
+  the `Reconstruction with pose priors (GPS)`_ section.
+
+
 Geo-registration
 ----------------
 
