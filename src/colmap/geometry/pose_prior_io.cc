@@ -266,8 +266,18 @@ const FlatHashMap<PosePriorArchive::ColumnId, cell_parser_t>& GetCellParsers() {
 
 #undef COLMAP_COLUMN_PARSER_ENTRY
 
+std::optional<PosePriorArchive::ColumnId> TryColumnIdFromString(
+    const std::string& name) {
+  try {
+    return PosePriorArchive::ColumnIdFromString(name);
+  } catch (const std::exception&) {
+    return std::nullopt;
+  }
+}
+
 PosePriorArchive ReadPosePriorArchiveFromJSON(
-    const std::filesystem::path& path) {
+    const std::filesystem::path& path,
+    const PosePriorArchiveReadOptions& options) {
   boost::property_tree::ptree pt;
   boost::property_tree::read_json(path.string(), pt);
 
@@ -324,14 +334,46 @@ PosePriorArchive ReadPosePriorArchiveFromJSON(
     archive.metadata.enu_origin = origin;
   }
 
-  // Parse schema: ordered list of column type strings.
+  // Parse schema: ordered list of column type strings. An unrecognized name
+  // is a likely typo far more often than a deliberate new column, so it
+  // fails by default (UnknownColumnPolicy::ERROR); forward compatibility
+  // with a producer's extra, source-specific columns is opt-in via
+  // UnknownColumnPolicy::IGNORE, not automatic.
   const auto schema_node = pt.get_child("schema");
   THROW_CHECK(!schema_node.empty())
       << "PosePriorArchive JSON must contain a non-empty schema array";
+  std::vector<std::string> ignored_column_names;
+  size_t schema_index = 0;
   for (const auto& item : schema_node) {
     std::string column_name = item.second.get_value<std::string>();
-    archive.schema.columns.push_back(
-        PosePriorArchive::ColumnIdFromString(column_name));
+    const std::optional<PosePriorArchive::ColumnId> column_id =
+        TryColumnIdFromString(column_name);
+    if (column_id.has_value()) {
+      archive.schema.columns.push_back(*column_id);
+    } else if (options.unknown_column_policy ==
+               UnknownColumnPolicy::IGNORE) {
+      archive.schema.columns.push_back(PosePriorArchive::ColumnId::UNKNOWN);
+      ignored_column_names.push_back(column_name);
+    } else {
+      LOG(FATAL_THROW) << StringPrintf(
+          "Unrecognized pose-prior schema column \"%s\" at schema index "
+          "%zu. Pass --unknown_column_policy=ignore to skip unrecognized "
+          "columns explicitly.",
+          column_name.c_str(),
+          schema_index);
+    }
+    ++schema_index;
+  }
+  if (!ignored_column_names.empty()) {
+    std::string joined;
+    for (size_t i = 0; i < ignored_column_names.size(); ++i) {
+      if (i > 0) {
+        joined += ", ";
+      }
+      joined += ignored_column_names[i];
+    }
+    LOG(WARNING) << "Ignored " << ignored_column_names.size()
+                << " unrecognized pose-prior schema column(s): " << joined;
   }
 
   THROW_CHECK(archive.IsValid())
@@ -381,8 +423,6 @@ PosePriorArchive ReadPosePriorArchiveFromJSON(
 
   return archive;
 }
-
-// TODO: Implement ReadPosePriorArchiveFromCSV
 
 }  // namespace
 
@@ -614,10 +654,12 @@ bool PosePriorArchive::IsValid() const {
   return metadata.IsValid() && schema.IsValid(metadata);
 }
 
-PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path) {
+PosePriorArchive ReadPosePriorArchive(
+    const std::filesystem::path& path,
+    const PosePriorArchiveReadOptions& options) {
   const std::string ext = path.extension().string();
   if (ext == ".json") {
-    return ReadPosePriorArchiveFromJSON(path);
+    return ReadPosePriorArchiveFromJSON(path, options);
   }
   LOG(FATAL_THROW) << "Unsupported pose prior archive format: " << ext;
   // Unreachable, silence -Wreturn-type for non-MSVC compilers.

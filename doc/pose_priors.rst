@@ -51,8 +51,13 @@ An archive has three parts:
   type, reference ellipsoid, and the conventions below. These apply to every
   row in the archive.
 - **Schema**: an ordered list of column names describing each data row.
-  Column order is arbitrary and unknown columns are parsed but discarded, so
-  archives can carry extra source-specific columns without breaking import.
+  Column order is arbitrary. An unrecognized column name fails the import by
+  default (``--unknown_column_policy error``, since a typo is far more
+  likely than a deliberate new column); pass
+  ``--unknown_column_policy ignore`` to instead discard that column's cells
+  and log one warning naming every ignored column, so a producer's extra
+  source-specific columns can be carried without breaking import. Forward
+  compatibility is opt-in, not automatic.
 - **Data**: one row per image. ``NAME`` resolves to a database image by
   filename; rows that don't resolve are skipped with a warning, not an
   error, so a partial archive against a partial dataset still imports.

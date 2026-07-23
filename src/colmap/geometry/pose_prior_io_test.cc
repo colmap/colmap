@@ -296,6 +296,149 @@ TEST(PosePriorArchive, ReadPosePriorArchive_WithENUMetadata) {
   EXPECT_DOUBLE_EQ(archive.metadata.enu_origin->x(), 47.0);
 }
 
+TEST(PosePriorArchive, ReadPosePriorArchive_UnknownColumnFailsByDefault) {
+  // A typo'd column name must fail strictly by default -- forward
+  // compatibility with an unrecognized column is opt-in, not automatic.
+  const auto path = WriteTestJSON(R"({
+    "coordinate_system": "CARTESIAN",
+    "schema": ["NAME", "TX", "TY", "TZ", "LATT"],
+    "data": [
+      ["img001.jpg", 1.0, 2.0, 3.0, 9.0]
+    ]
+  })");
+  EXPECT_THROW(ReadPosePriorArchive(path), std::exception);
+}
+
+TEST(PosePriorArchive, ReadPosePriorArchive_UnknownColumnErrorNamesColumnAndIndex) {
+  const auto path = WriteTestJSON(R"({
+    "coordinate_system": "CARTESIAN",
+    "schema": ["NAME", "TX", "TY", "TZ", "LATT"],
+    "data": [
+      ["img001.jpg", 1.0, 2.0, 3.0, 9.0]
+    ]
+  })");
+  try {
+    ReadPosePriorArchive(path);
+    FAIL() << "Expected ReadPosePriorArchive to throw";
+  } catch (const std::exception& e) {
+    const std::string message = e.what();
+    EXPECT_NE(message.find("LATT"), std::string::npos);
+    EXPECT_NE(message.find("4"), std::string::npos);
+  }
+}
+
+TEST(PosePriorArchive, ReadPosePriorArchive_IgnorePolicyImportsRecognizedFields) {
+  PosePriorArchiveReadOptions options;
+  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
+  const auto path = WriteTestJSON(R"({
+    "coordinate_system": "CARTESIAN",
+    "position_covariance_frame": "CARTESIAN",
+    "schema": ["NAME", "TX", "TY", "TZ", "STD_TX", "STD_TY", "STD_TZ", "SOME_UNKNOWN_FIELD"],
+    "data": [
+      ["img001.jpg", 1.0, 2.0, 3.0, 0.1, 0.2, 0.3, "vendor-specific"]
+    ]
+  })");
+  const auto archive = ReadPosePriorArchive(path, options);
+  ASSERT_EQ(archive.schema.columns.size(), 8);
+  EXPECT_EQ(archive.schema.columns.back(), PosePriorArchive::ColumnId::UNKNOWN);
+
+  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
+    if (name == "img001.jpg") {
+      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
+    }
+    return std::nullopt;
+  };
+  const auto priors = archive.ToPosePriors(resolve);
+  ASSERT_EQ(priors.size(), 1);
+  EXPECT_TRUE(priors[0].HasPosition());
+  EXPECT_DOUBLE_EQ(priors[0].position.x(), 1.0);
+  EXPECT_TRUE(priors[0].HasPositionCov());
+  EXPECT_DOUBLE_EQ(priors[0].position_covariance(0, 0), 0.01);
+}
+
+TEST(PosePriorArchive, ReadPosePriorArchive_IgnoredColumnsPreserveRowAlignment) {
+  // Ignored columns at the beginning, middle, and end must not shift
+  // adjacent recognized columns' cells onto the wrong field.
+  PosePriorArchiveReadOptions options;
+  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
+  const auto path = WriteTestJSON(R"({
+    "coordinate_system": "CARTESIAN",
+    "schema": ["LEADING_UNKNOWN", "NAME", "TX", "MIDDLE_UNKNOWN", "TY", "TZ", "TRAILING_UNKNOWN"],
+    "data": [
+      ["lead", "img001.jpg", 1.0, "mid", 2.0, 3.0, "trail"]
+    ]
+  })");
+  const auto archive = ReadPosePriorArchive(path, options);
+  ASSERT_EQ(archive.schema.columns.size(), 7);
+  EXPECT_EQ(archive.schema.columns[0], PosePriorArchive::ColumnId::UNKNOWN);
+  EXPECT_EQ(archive.schema.columns[1], PosePriorArchive::ColumnId::NAME);
+  EXPECT_EQ(archive.schema.columns[2], PosePriorArchive::ColumnId::TX);
+  EXPECT_EQ(archive.schema.columns[3], PosePriorArchive::ColumnId::UNKNOWN);
+  EXPECT_EQ(archive.schema.columns[4], PosePriorArchive::ColumnId::TY);
+  EXPECT_EQ(archive.schema.columns[5], PosePriorArchive::ColumnId::TZ);
+  EXPECT_EQ(archive.schema.columns[6], PosePriorArchive::ColumnId::UNKNOWN);
+
+  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
+    if (name == "img001.jpg") {
+      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
+    }
+    return std::nullopt;
+  };
+  const auto priors = archive.ToPosePriors(resolve);
+  ASSERT_EQ(priors.size(), 1);
+  EXPECT_DOUBLE_EQ(priors[0].position.x(), 1.0);
+  EXPECT_DOUBLE_EQ(priors[0].position.y(), 2.0);
+  EXPECT_DOUBLE_EQ(priors[0].position.z(), 3.0);
+}
+
+TEST(PosePriorArchive, ReadPosePriorArchive_MultipleIgnoredColumns) {
+  PosePriorArchiveReadOptions options;
+  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
+  const auto path = WriteTestJSON(R"({
+    "coordinate_system": "CARTESIAN",
+    "schema": ["NAME", "VENDOR_A", "TX", "TY", "TZ", "VENDOR_B", "VENDOR_C"],
+    "data": [
+      ["img001.jpg", "a", 1.0, 2.0, 3.0, "b", "c"]
+    ]
+  })");
+  const auto archive = ReadPosePriorArchive(path, options);
+  ASSERT_EQ(archive.schema.columns.size(), 7);
+  int num_unknown = 0;
+  for (const auto column : archive.schema.columns) {
+    if (column == PosePriorArchive::ColumnId::UNKNOWN) {
+      ++num_unknown;
+    }
+  }
+  EXPECT_EQ(num_unknown, 3);
+
+  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
+    if (name == "img001.jpg") {
+      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
+    }
+    return std::nullopt;
+  };
+  const auto priors = archive.ToPosePriors(resolve);
+  ASSERT_EQ(priors.size(), 1);
+  EXPECT_TRUE(priors[0].HasPosition());
+}
+
+TEST(PosePriorArchive,
+    ReadPosePriorArchive_IgnorePolicyDoesNotHideIncompleteRecognizedGroup) {
+  // Ignore mode must not mask an otherwise-invalid schema: TX/TY without TZ
+  // is still an incomplete Cartesian-position group and must still fail
+  // validation, regardless of the unrelated ignored column.
+  PosePriorArchiveReadOptions options;
+  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
+  const auto path = WriteTestJSON(R"({
+    "coordinate_system": "CARTESIAN",
+    "schema": ["NAME", "TX", "TY", "VENDOR_FIELD"],
+    "data": [
+      ["img001.jpg", 1.0, 2.0, "x"]
+    ]
+  })");
+  EXPECT_THROW(ReadPosePriorArchive(path, options), std::exception);
+}
+
 TEST(PosePriorArchive, ToPosePriors_WGS84) {
   const auto path = WriteTestJSON(R"({
     "coordinate_system": "WGS84",

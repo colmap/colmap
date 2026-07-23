@@ -191,6 +191,25 @@ struct PosePriorArchive {
       const data_id_resolver_t& data_id_from_name) const;
 };
 
+// Policy for schema column names that ColumnIdFromString does not
+// recognize. Forward compatibility with newer/other producers' schema
+// columns is opt-in, not automatic: an unrecognized name is a likely typo
+// far more often than it is a deliberate new column, so silently accepting
+// it by default would be dangerous.
+enum class UnknownColumnPolicy {
+  // An unrecognized column name fails the read with the name and its
+  // schema index. Default.
+  ERROR,
+  // An unrecognized column name is treated as ColumnId::UNKNOWN: its cells
+  // are parsed and discarded (preserving row width), and one concise
+  // warning lists every ignored column name.
+  IGNORE,
+};
+
+struct PosePriorArchiveReadOptions {
+  UnknownColumnPolicy unknown_column_policy = UnknownColumnPolicy::ERROR;
+};
+
 // Read a pose prior archive from a file.
 //
 // JSON format:
@@ -207,9 +226,10 @@ struct PosePriorArchive {
 //       ["img002.jpg", 47.3770, 8.5418, 501.0]
 //     ]
 //   }
-PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path);
-
-// TODO: Implement WritePosePriorArchive
+// The importer accepts JSON archives only; there is no writer API.
+PosePriorArchive ReadPosePriorArchive(
+    const std::filesystem::path& path,
+    const PosePriorArchiveReadOptions& options = {});
 
 template <>
 struct PosePriorArchive::ColumnTraits<PosePriorArchive::ColumnId::UNKNOWN> {

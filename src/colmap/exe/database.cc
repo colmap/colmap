@@ -172,6 +172,7 @@ int RunRigConfigurator(int argc, char** argv) {
 int RunPosePriorImporter(int argc, char** argv) {
   std::filesystem::path pose_prior_path;
   std::string existing_policy;
+  std::string unknown_column_policy_str = "error";
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -183,6 +184,15 @@ int RunPosePriorImporter(int argc, char** argv) {
       "image already has a prior; `replace` replaces the complete prior for "
       "that image (groups absent from the row become absent); `merge` "
       "updates only the groups present in the row and preserves the rest.");
+  options.AddDefaultOption(
+      "unknown_column_policy",
+      &unknown_column_policy_str,
+      "One of error|ignore: `error` (default) fails the import if the "
+      "archive's schema contains a column name this build does not "
+      "recognize; `ignore` discards that column's cells (preserving row "
+      "width) and logs one warning naming every ignored column. Forward "
+      "compatibility with a producer's extra columns is opt-in, not "
+      "automatic.");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -194,12 +204,23 @@ int RunPosePriorImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  PosePriorArchiveReadOptions read_options;
+  if (unknown_column_policy_str == "error") {
+    read_options.unknown_column_policy = UnknownColumnPolicy::ERROR;
+  } else if (unknown_column_policy_str == "ignore") {
+    read_options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
+  } else {
+    LOG(ERROR) << "`unknown_column_policy` must be one of error|ignore, got: `"
+               << unknown_column_policy_str << "`";
+    return EXIT_FAILURE;
+  }
+
   if (!ExistsFile(pose_prior_path)) {
     LOG(ERROR) << "`pose_prior_path` is not a file.";
     return EXIT_FAILURE;
   }
 
-  const auto archive = ReadPosePriorArchive(pose_prior_path);
+  const auto archive = ReadPosePriorArchive(pose_prior_path, read_options);
 
   auto database = Database::Open(*options.database_path);
 
