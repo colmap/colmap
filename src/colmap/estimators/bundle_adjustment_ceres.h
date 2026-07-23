@@ -106,8 +106,34 @@ struct CeresPosePriorBundleAdjustmentOptions {
       prior_position_loss_function_type =
           CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
 
-  // Threshold on the residual for the robust loss.
+  // Threshold on the *standardized* (covariance-whitened) residual norm for
+  // the robust loss, in "number of standard deviations" -- NOT metres, and
+  // NOT chi-square units. CovarianceWeightedCostFunctor whitens the raw
+  // position residual before Ceres ever sees it, and Ceres scales a robust
+  // loss as rho(s, a) = a^2 * rho(s / a^2) where `a` is in residual-norm
+  // units, so the 95%-confidence-radius threshold for a 3-DOF whitened
+  // residual is sqrt(chi-square_3dof_95), not the raw chi-square quantile.
   double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
+
+  // Loss function for the gravity prior residual. Defaults to CAUCHY
+  // (unlike the position prior's TRIVIAL default): a single corrupted
+  // gravity reading is a known real failure mode for consumer IMU/CORI
+  // sensors, and robustness is required even at the default settings once
+  // use_prior_gravity is enabled.
+  CeresBundleAdjustmentOptions::LossFunctionType
+      prior_gravity_loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+
+  // Threshold on the *standardized* (covariance-whitened) residual norm for
+  // the gravity robust loss, in "number of standard deviations" -- NOT
+  // radians/degrees. AbsoluteGravityPriorCostFunctor's raw residual is a
+  // 3-component chordal difference (see its comment in pose_prior.h), which
+  // CovarianceWeightedCostFunctor whitens by the angular covariance before
+  // Ceres sees it; the result is a dimensionless standardized residual, not
+  // an angle. The chordal residual's local rank at truth is 2 (not 3), so
+  // the 95%-confidence-radius default is sqrt(chi-square_2dof_95), mirroring
+  // prior_position_loss_scale's 3-DOF convention.
+  double prior_gravity_loss_scale = std::sqrt(kChiSquare95TwoDof);
 
   bool Check() const;
 };

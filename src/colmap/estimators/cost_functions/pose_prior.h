@@ -125,6 +125,86 @@ struct AbsoluteRigPosePositionPriorCostFunctor
   const Eigen::Vector3d position_in_world_prior_;
 };
 
+// 3-DoF chordal error on the "down" direction (gravity) predicted by the
+// sensor's rotation vs. a measured sensor-frame down direction. `world_down`
+// and `measured_down_in_sensor` are constants baked in at construction,
+// exactly like AbsolutePosePositionPriorCostFunctor's
+// `position_in_world_prior`.
+//
+// residual = predicted_down_in_sensor - measured_down_in_sensor
+//
+// Its norm is 2*sin(theta/2) for angular error theta between the two unit
+// vectors: strictly increasing and zero only at theta=0 over the full domain
+// [0, pi]. This is deliberately NOT the residual projected onto the tangent
+// plane orthogonal to measured_down (norm sin(theta)): that projection is
+// also zero at theta=180 degrees (an inverted prediction), since
+// tangent_basis^T * (-m - m) = -2 * tangent_basis^T * m = 0 by construction
+// (the tangent basis is orthogonal to m). A gravity residual with a false
+// minimum at the antipode can hide or even attract an upside-down solution,
+// so the full chordal difference is used instead.
+//
+// The residual is 3-dimensional but its local rank at the true solution is 2
+// (predicted_down_in_sensor is constrained to the unit sphere, which is
+// 2-dimensional), so a chi-square gate for the robust loss on this residual
+// should still use 2 degrees of freedom -- see prior_gravity_loss_scale.
+//
+// Exactly yaw-invariant (not just to first order): rotating sensor_from_world
+// about its own predicted-down axis by any angle leaves
+// predicted_down_in_sensor unchanged, because rotation about an axis fixes
+// that axis -- so a pure yaw perturbation produces an identically zero
+// residual, satisfying "roll/pitch only, yaw free".
+struct AbsoluteGravityPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsoluteGravityPriorCostFunctor, 3, 7> {
+ public:
+  AbsoluteGravityPriorCostFunctor(
+      const Eigen::Vector3d& world_down,
+      const Eigen::Vector3d& measured_down_in_sensor)
+      : world_down_(world_down.normalized()),
+        measured_down_in_sensor_(measured_down_in_sensor.normalized()) {}
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_world, T* residuals_ptr) const {
+    const Eigen::Matrix<T, 3, 1> predicted_down_in_sensor =
+        EigenQuaternionMap<T>(sensor_from_world) * world_down_.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = predicted_down_in_sensor - measured_down_in_sensor_.cast<T>();
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d world_down_;
+  const Eigen::Vector3d measured_down_in_sensor_;
+};
+
+// Rig variant of AbsoluteGravityPriorCostFunctor, for non-reference sensors.
+struct AbsoluteRigGravityPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsoluteRigGravityPriorCostFunctor, 3, 7, 7> {
+ public:
+  AbsoluteRigGravityPriorCostFunctor(
+      const Eigen::Vector3d& world_down,
+      const Eigen::Vector3d& measured_down_in_sensor)
+      : world_down_(world_down.normalized()),
+        measured_down_in_sensor_(measured_down_in_sensor.normalized()) {}
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_rig,
+                  const T* const rig_from_world,
+                  T* residuals_ptr) const {
+    const Eigen::Quaternion<T> sensor_from_world_rotation =
+        EigenQuaternionMap<T>(sensor_from_rig) *
+        EigenQuaternionMap<T>(rig_from_world);
+    const Eigen::Matrix<T, 3, 1> predicted_down_in_sensor =
+        sensor_from_world_rotation * world_down_.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = predicted_down_in_sensor - measured_down_in_sensor_.cast<T>();
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d world_down_;
+  const Eigen::Vector3d measured_down_in_sensor_;
+};
+
 // 6-DoF error between two absolute camera poses based on a prior on their
 // relative pose, with identical scale for the translation. The residual is
 // computed in the frame of camera i. Its first and last three components

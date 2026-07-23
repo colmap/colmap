@@ -34,6 +34,7 @@
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
@@ -244,6 +245,7 @@ bool CeresBundleAdjustmentOptions::Check() const {
 
 bool CeresPosePriorBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GT(prior_position_loss_scale, 0);
+  CHECK_OPTION_GT(prior_gravity_loss_scale, 0);
   return true;
 }
 
@@ -897,6 +899,44 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
   FlatHashMap<point3D_t, size_t> point3D_num_observations_;
 };
 
+// Returns true if `cov` is finite, symmetric, and strictly positive definite
+// -- the conditions CovarianceWeightedCostFunctor's cov.inverse().llt()
+// whitening silently assumes. A per-row covariance read from the database or
+// an external archive can be finite (passing PosePrior::HasPositionCov())
+// while still being zero, singular, or only approximately symmetric, any of
+// which corrupts the whitening rather than raising an error. Callers must
+// treat a false return as "this row's declared covariance is not usable" and
+// fall back to a declared sensor-class/fallback stddev instead of inverting
+// it anyway.
+bool IsValidPositionCovariance(const Eigen::Matrix3d& cov) {
+  if (!cov.allFinite()) {
+    return false;
+  }
+  if (!cov.isApprox(cov.transpose(), 1e-6)) {
+    return false;
+  }
+  if ((cov.diagonal().array() <= 0.0).any()) {
+    return false;
+  }
+  const Eigen::LLT<Eigen::Matrix3d> llt(cov);
+  return llt.info() == Eigen::Success;
+}
+
+const char* LossFunctionTypeName(
+    CeresBundleAdjustmentOptions::LossFunctionType type) {
+  switch (type) {
+    case CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL:
+      return "TRIVIAL";
+    case CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1:
+      return "SOFT_L1";
+    case CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY:
+      return "CAUCHY";
+    case CeresBundleAdjustmentOptions::LossFunctionType::HUBER:
+      return "HUBER";
+  }
+  return "UNKNOWN";
+}
+
 class PosePriorBundleAdjuster : public CeresBundleAdjuster {
  public:
   PosePriorBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -910,12 +950,20 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         reconstruction_(reconstruction) {
     THROW_CHECK(prior_options_.Check());
 
-    // Filter irrelevant pose priors.
+    // Filter irrelevant pose priors. A prior is relevant if it has a usable
+    // position (for the position residual) or, when use_prior_gravity is
+    // enabled, a usable gravity reading (for the gravity residual) -- so a
+    // gravity-only row (e.g. a momentary GPS dropout) is not dropped
+    // outright when gravity mode is on.
     pose_priors_.erase(
         std::remove_if(pose_priors_.begin(),
                        pose_priors_.end(),
                        [this](const auto& pose_prior) {
-                         return !pose_prior.HasPosition() ||
+                         const bool has_usable_measurement =
+                             pose_prior.HasPosition() ||
+                             (prior_options_.use_prior_gravity &&
+                              pose_prior.HasGravity());
+                         return !has_usable_measurement ||
                                 pose_prior.corr_data_id.sensor_id.type !=
                                     SensorType::CAMERA ||
                                 !config_.HasImage(pose_prior.corr_data_id.id);
@@ -942,18 +990,59 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       prior_loss_function_ = CreateLossFunction(
           prior_options_.ceres->prior_position_loss_function_type,
           prior_options_.ceres->prior_position_loss_scale);
+      if (prior_options_.use_prior_gravity) {
+        prior_gravity_loss_function_ = CreateLossFunction(
+            prior_options_.ceres->prior_gravity_loss_function_type,
+            prior_options_.ceres->prior_gravity_loss_scale);
+      }
 
       // Only consider parameterized images for pose priors. Notice that some
       // images may be configured to be included in the BA problem but have no
       // reprojection constraints, etc.
       const std::set<image_t>& parameterized_image_ids =
           default_bundle_adjuster_->ParameterizedImageIds();
+      int num_position_priors_considered = 0;
+      int num_gravity_priors_considered = 0;
       for (const auto& pose_prior : pose_priors_) {
         if (parameterized_image_ids.count(pose_prior.corr_data_id.id) > 0) {
+          if (pose_prior.HasPosition()) {
+            ++num_position_priors_considered;
+          }
+          if (prior_options_.use_prior_gravity && pose_prior.HasGravity()) {
+            ++num_gravity_priors_considered;
+          }
           AddImagePosePriorToProblem(
               pose_prior.corr_data_id.id, pose_prior, reconstruction);
         }
       }
+      LOG(INFO) << "Pose prior BA support: " << parameterized_image_ids.size()
+                << " parameterized images, " << num_position_priors_considered
+                << " position priors considered -> "
+                << num_position_residuals_added_ << " position residuals "
+                << "added (loss="
+                << LossFunctionTypeName(
+                       prior_options_.ceres->prior_position_loss_function_type)
+                << ", standardized_scale="
+                << prior_options_.ceres->prior_position_loss_scale << "), "
+                << num_position_cov_rejected_
+                << " rows with invalid declared covariance fell back to "
+                << prior_options_.prior_position_fallback_stddev << " m; "
+                << num_gravity_priors_considered
+                << " gravity priors considered -> "
+                << num_gravity_residuals_added_ << " gravity residuals added"
+                << (prior_options_.use_prior_gravity
+                        ? (std::string(" (loss=") +
+                           LossFunctionTypeName(
+                               prior_options_.ceres
+                                   ->prior_gravity_loss_function_type) +
+                           ", standardized_scale=" +
+                           std::to_string(
+                               prior_options_.ceres->prior_gravity_loss_scale) +
+                           ", stddev_deg=" +
+                           std::to_string(
+                               prior_options_.prior_gravity_stddev_deg) +
+                           ")")
+                        : std::string(" (gravity mode off)"));
     }
   }
 
@@ -1006,8 +1095,18 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
         normalized_from_metric_.scale() *
         normalized_from_metric_.rotation().toRotationMatrix();
+    const bool has_valid_position_cov =
+        pose_prior.HasPositionCov() &&
+        IsValidPositionCovariance(pose_prior.position_covariance);
+    if (pose_prior.HasPositionCov() && !has_valid_position_cov) {
+      ++num_position_cov_rejected_;
+      VLOG(2) << "Image " << image_id
+              << ": declared position covariance is not finite/SPD; falling "
+                 "back to declared sensor-class stddev "
+              << prior_options_.prior_position_fallback_stddev << " m.";
+    }
     const Eigen::Matrix3d position_cov =
-        pose_prior.HasPositionCov()
+        has_valid_position_cov
             ? pose_prior.position_covariance
             : (prior_options_.prior_position_fallback_stddev *
                prior_options_.prior_position_fallback_stddev *
@@ -1016,22 +1115,65 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         normalized_from_metric_scaled_rotation * position_cov *
         normalized_from_metric_scaled_rotation.transpose();
 
+    // Gravity is a rotation-only comparison, unaffected by
+    // normalized_from_metric_'s translation+scale (Normalize()'s rotation is
+    // always identity -- see Reconstruction::Normalize), so world_down_ is
+    // valid directly in the normalized solver frame with no transform.
+    const bool add_gravity_residual =
+        prior_options_.use_prior_gravity && pose_prior.HasGravity();
+    Eigen::Vector3d measured_down;
+    Eigen::Matrix3d gravity_cov;
+    if (add_gravity_residual) {
+      measured_down = pose_prior.gravity.normalized();
+      const double stddev_rad =
+          DegToRad(prior_options_.prior_gravity_stddev_deg);
+      gravity_cov = (stddev_rad * stddev_rad) * Eigen::Matrix3d::Identity();
+    }
+
     if (image.IsRefInFrame()) {
-      problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
-          prior_loss_function_.get(),
-          rig_from_world.params.data());
+      if (pose_prior.HasPosition()) {
+        problem.AddResidualBlock(
+            CovarianceWeightedCostFunctor<
+                AbsolutePosePositionPriorCostFunctor>::
+                Create(normalized_position_cov, normalized_position),
+            prior_loss_function_.get(),
+            rig_from_world.params.data());
+        ++num_position_residuals_added_;
+      }
+      if (add_gravity_residual) {
+        problem.AddResidualBlock(
+            CovarianceWeightedCostFunctor<
+                AbsoluteGravityPriorCostFunctor>::Create(gravity_cov,
+                                                         world_down_,
+                                                         measured_down),
+            prior_gravity_loss_function_.get(),
+            rig_from_world.params.data());
+        ++num_gravity_residuals_added_;
+      }
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
-      problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<
-              AbsoluteRigPosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
-          prior_loss_function_.get(),
-          cam_from_rig.params.data(),
-          rig_from_world.params.data());
+      if (pose_prior.HasPosition()) {
+        problem.AddResidualBlock(
+            CovarianceWeightedCostFunctor<
+                AbsoluteRigPosePositionPriorCostFunctor>::
+                Create(normalized_position_cov, normalized_position),
+            prior_loss_function_.get(),
+            cam_from_rig.params.data(),
+            rig_from_world.params.data());
+        ++num_position_residuals_added_;
+      }
+      if (add_gravity_residual) {
+        problem.AddResidualBlock(
+            CovarianceWeightedCostFunctor<
+                AbsoluteRigGravityPriorCostFunctor>::Create(gravity_cov,
+                                                            world_down_,
+                                                            measured_down),
+            prior_gravity_loss_function_.get(),
+            cam_from_rig.params.data(),
+            rig_from_world.params.data());
+        ++num_gravity_residuals_added_;
+      }
     }
   }
 
@@ -1041,10 +1183,17 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       std::vector<double> rms_vars;
       rms_vars.reserve(pose_priors_.size());
       for (const auto& pose_prior : pose_priors_) {
-        const double trace = pose_prior.position_covariance.trace();
-        if (trace <= 0.0) {
+        // Gravity-only priors (kept by the constructor's filter when
+        // use_prior_gravity is enabled) have no position_covariance; skip
+        // them here explicitly. Also skip a row whose covariance is finite
+        // but not itself usable (zero, singular, or non-SPD) -- relying on
+        // `trace <= 0.0` alone would both admit some non-PD matrices with a
+        // positive trace and mishandle a NaN trace (NaN <= 0.0 is false).
+        if (!pose_prior.HasPositionCov() ||
+            !IsValidPositionCovariance(pose_prior.position_covariance)) {
           continue;
         }
+        const double trace = pose_prior.position_covariance.trace();
         rms_vars.push_back(trace / 3.0);
       }
 
@@ -1096,8 +1245,23 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
+  std::unique_ptr<ceres::LossFunction> prior_gravity_loss_function_;
 
   Sim3d normalized_from_metric_;
+
+  // The gravity (down) direction in the metric/ENU-aligned frame that
+  // AlignReconstruction() establishes: East=+X, North=+Y, Up=+Z (see
+  // DatabaseCache::ConvertPosePriorsToENU and model.cc's own
+  // `enu_down(0,0,-1)` diagnostic convention). Valid in the normalized
+  // solver frame too, since Normalize()'s rotation is always identity.
+  const Eigen::Vector3d world_down_ = Eigen::Vector3d(0.0, 0.0, -1.0);
+
+  // Per-stage support counters, logged once in the constructor after all
+  // pose priors have been processed. These provide aggregate support;
+  // per-image detail is reported separately via camera_residuals.csv.
+  int num_position_residuals_added_ = 0;
+  int num_gravity_residuals_added_ = 0;
+  int num_position_cov_rejected_ = 0;
 };
 
 }  // namespace

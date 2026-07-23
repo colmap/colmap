@@ -254,6 +254,21 @@ struct PosePriorBundleAdjustmentOptions
   // Fallback if no prior position covariance is provided.
   double prior_position_fallback_stddev = 1.0;
 
+  // Whether to add a soft gravity (roll/pitch-only, yaw-free) residual for
+  // every pose prior with a gravity reading, alongside the position
+  // residual. Off by default -- preserves existing behavior byte-for-byte
+  // until explicitly requested. Only meaningful once position priors have
+  // established a metric/ENU-aligned gauge (see AlignReconstruction()):
+  // there is no other point in this adjuster's solve where "down" has a
+  // known physical direction to compare against.
+  bool use_prior_gravity = false;
+
+  // Global sensor-class angular uncertainty for the gravity residual, in
+  // degrees. Applied uniformly to every prior with a gravity reading --
+  // PosePrior has no per-row gravity covariance field (deferred; see
+  // doc/pose_priors.rst).
+  double prior_gravity_stddev_deg = 5.0;
+
   // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
 

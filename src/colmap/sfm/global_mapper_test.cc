@@ -289,6 +289,122 @@ TEST(GlobalMapper, InitializeRotationGaugeFromPosePriors) {
   }
 }
 
+// Regression test for the bug where
+// GlobalMapper::IterativeRetriangulateAndRefine left
+// IncrementalMapper::Options::use_prior_position at its default false, so
+// IncrementalMapper::IterativeGlobalRefinement's own inner Normalize() call
+// unconditionally discarded the metric gauge that an engaged `optimize`
+// pose-prior position solve had just established -- even though GlobalMapper's
+// own outer Normalize() calls were already correctly guarded by
+// pose_prior_position_engaged_. Before the fix, this test's final scale would
+// drift by roughly an order of magnitude (matching the ~20x drift observed on
+// real data); after the fix it must stay within a tight tolerance of ground
+// truth through the full Solve(), including retriangulation.
+TEST(GlobalMapper, PosePriorPositionOptimizeSurvivesRetriangulation) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 12;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  for (const auto& [image_id, image] : gt_reconstruction.Images()) {
+    PosePrior prior;
+    prior.corr_data_id = image.DataId();
+    prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    prior.position = image.ProjectionCenter();
+    database->WritePosePrior(prior);
+  }
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
+
+  GlobalMapperOptions options;
+  options.global_positioning.use_gpu = false;
+  options.global_positioning.random_seed = 42;
+  options.global_positioning.pose_prior_position_mode =
+      PosePriorPositionMode::optimize;
+  // No position_covariance on the synthetic priors above, so alignment and
+  // BA both fall back to this declared stddev (matches the pattern used in
+  // GlobalPositioning.PosePriorPositionMode).
+  options.global_positioning.pose_prior_position_fallback_stddev = 3.0;
+
+  ASSERT_TRUE(global_mapper.Solve(options));
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction,
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1,
+                                 /*max_scale_error=*/0.05,
+                                 /*num_obs_tolerance=*/0.05));
+}
+
+// End-to-end wiring test for the soft gravity BA residual through the full
+// GlobalMapper::Solve() pipeline (CLI-level PosePriorGravityBAMode ->
+// GlobalMapperOptions -> RunBundleAdjustment()'s prior branch ->
+// PosePriorBundleAdjuster, and also through IterativeRetriangulateAndRefine's
+// mapper_options per M2's fix). The hard ra_use_gravity rotation-averaging
+// reduction is deliberately left off (rotation_averaging.use_gravity =
+// false), so any rotation accuracy here is attributable to the soft BA
+// residual and the reprojection/position-prior terms, not the legacy hard
+// mechanism -- matching the requirement to not silently keep relying on
+// ra_use_gravity once the soft path is engaged. Precise isolation of
+// gravity's own marginal contribution (yaw invariance, robustness to one bad
+// reading, exact tilt magnitude) is covered at the functor level
+// (pose_prior_test.cc) and the single-BA-solve integration level
+// (bundle_adjustment_ceres_test.cc); this test's job is only to prove the
+// full pipeline wiring is correct and stays metric/near-truth end-to-end.
+TEST(GlobalMapper, PosePriorGravityOptimizeSurvivesFullPipeline) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 12;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.prior_gravity = true;
+  // Match AbsoluteGravityPriorCostFunctor's fixed ENU-down convention.
+  synthetic_dataset_options.prior_gravity_in_world = Eigen::Vector3d(0, 0, -1);
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
+
+  GlobalMapperOptions options;
+  options.rotation_averaging.use_gravity = false;
+  options.global_positioning.use_gpu = false;
+  options.global_positioning.random_seed = 42;
+  options.global_positioning.pose_prior_position_mode =
+      PosePriorPositionMode::optimize;
+  options.global_positioning.pose_prior_position_fallback_stddev = 3.0;
+  options.pose_prior_gravity_ba_mode = PosePriorGravityBAMode::optimize;
+  options.pose_prior_gravity_stddev_deg = 2.0;
+
+  ASSERT_TRUE(global_mapper.Solve(options));
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/0.05,
+                                 /*num_obs_tolerance=*/0.05));
+}
+
 TEST(GlobalMapperOptions, RefineSensorFromRigPropagatesToSubOptions) {
   GlobalMapperOptions options;
   options.refine_sensor_from_rig = false;

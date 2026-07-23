@@ -19,30 +19,6 @@
 namespace colmap {
 namespace {
 
-bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
-                         Reconstruction& reconstruction) {
-  if (reconstruction.NumImages() == 0) {
-    LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
-    return false;
-  }
-  if (reconstruction.NumPoints3D() == 0) {
-    LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
-    return false;
-  }
-
-  BundleAdjustmentConfig ba_config;
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (image.HasPose()) {
-      ba_config.AddImage(image_id);
-    }
-  }
-  ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  auto ba = CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
-
-  return ba->Solve()->IsSolutionUsable();
-}
-
 // One frame's candidate estimate of the single global rotation gauge
 // solver_from_prior_world, derived from the chain:
 //   rig_from_prior_world = Inverse(sensor_from_rig) * sensor_from_prior_world
@@ -541,6 +517,11 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
   // an engaged `optimize` solve is gauge-destroying to normalize away.
   pose_prior_position_engaged_ =
       summary.requested == PosePriorPositionMode::optimize && summary.engaged;
+  // Cached here (not only in Solve()) so RunBundleAdjustment() stays correct
+  // even if a caller invokes the BA stages directly after GlobalPositioning(),
+  // without going through Solve().
+  pose_prior_position_fallback_stddev_ =
+      options.pose_prior_position_fallback_stddev;
 
   // Filter tracks based on the estimation
   ObservationManager obs_manager(*reconstruction_);
@@ -597,6 +578,58 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
   return true;
 }
 
+bool GlobalMapper::RunBundleAdjustment(const BundleAdjustmentOptions& options) {
+  if (reconstruction_->NumImages() == 0) {
+    LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
+    return false;
+  }
+  if (reconstruction_->NumPoints3D() == 0) {
+    LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
+    return false;
+  }
+
+  BundleAdjustmentConfig ba_config;
+  for (const auto& [image_id, image] : reconstruction_->Images()) {
+    if (image.HasPose()) {
+      ba_config.AddImage(image_id);
+    }
+  }
+
+  // Mirrors IncrementalMapper::AdjustGlobalBundle's own gate: only use
+  // prior-position residuals if enough images are registered to make the
+  // resulting BA problem well-posed.
+  const bool use_prior_position =
+      pose_prior_position_engaged_ && ba_config.NumImages() > 2;
+
+  std::unique_ptr<BundleAdjuster> ba;
+  if (use_prior_position) {
+    PosePriorBundleAdjustmentOptions prior_options;
+    prior_options.prior_position_fallback_stddev =
+        pose_prior_position_fallback_stddev_;
+    if (pose_prior_ba_use_robust_loss_) {
+      prior_options.ceres->prior_position_loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+    }
+    prior_options.ceres->prior_position_loss_scale = pose_prior_ba_loss_scale_;
+    // Gravity mode only takes effect once position priors have established
+    // the metric/ENU gauge (use_prior_position is already true here).
+    prior_options.use_prior_gravity = pose_prior_gravity_requested_;
+    prior_options.prior_gravity_stddev_deg = pose_prior_gravity_stddev_deg_;
+    prior_options.ceres->prior_gravity_loss_scale =
+        pose_prior_gravity_loss_scale_;
+    ba = CreatePosePriorBundleAdjuster(options,
+                                       prior_options,
+                                       ba_config,
+                                       database_cache_->PosePriors(),
+                                       *reconstruction_);
+  } else {
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+    ba = CreateDefaultBundleAdjuster(options, ba_config, *reconstruction_);
+  }
+
+  return ba->Solve()->IsSolutionUsable();
+}
+
 bool GlobalMapper::IterativeBundleAdjustment(
     const BundleAdjustmentOptions& options,
     double max_normalized_reproj_error,
@@ -610,7 +643,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
     if (!skip_fixed_rotation_stage) {
       BundleAdjustmentOptions opts_position_only = options;
       opts_position_only.constant_rig_from_world_rotation = true;
-      if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
+      if (!RunBundleAdjustment(opts_position_only)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -619,7 +652,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
 
     // Joint optimization stage: default BA
     if (!skip_joint_optimization_stage) {
-      if (!RunBundleAdjustment(options, *reconstruction_)) {
+      if (!RunBundleAdjustment(options)) {
         return false;
       }
     }
@@ -713,9 +746,24 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     custom_ba_options.ceres->solver_options.max_linear_solver_iterations = 100;
   }
 
-  // Iterative global refinement.
+  // Iterative global refinement. use_prior_position must mirror
+  // pose_prior_position_engaged_ here: IncrementalMapper::
+  // IterativeGlobalRefinement's own inner Normalize() call (and its calls
+  // into AdjustGlobalBundle, which otherwise always fixes the gauge with
+  // CreateDefaultBundleAdjuster) are gated on this flag, not on GlobalMapper's
+  // own pose_prior_position_engaged_ member -- leaving it false here would
+  // silently re-normalize away (and never GPS-constrain) the metric gauge
+  // established by GlobalPositioning(), even though the outer Normalize()
+  // calls in this file are correctly guarded.
   IncrementalMapper::Options mapper_options;
   mapper_options.random_seed = options.random_seed;
+  mapper_options.use_prior_position = pose_prior_position_engaged_;
+  mapper_options.use_robust_loss_on_prior_position =
+      pose_prior_ba_use_robust_loss_;
+  mapper_options.prior_position_loss_scale = pose_prior_ba_loss_scale_;
+  mapper_options.use_prior_gravity = pose_prior_gravity_requested_;
+  mapper_options.prior_gravity_stddev_deg = pose_prior_gravity_stddev_deg_;
+  mapper_options.prior_gravity_loss_scale = pose_prior_gravity_loss_scale_;
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
@@ -732,7 +780,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
       reconstruction_->Point3DIds(),
       ReprojectionErrorType::NORMALIZED);
 
-  if (!RunBundleAdjustment(ba_options, *reconstruction_)) {
+  if (!RunBundleAdjustment(ba_options)) {
     return false;
   }
 
@@ -771,6 +819,13 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(ERROR) << "Cannot continue with empty pose graph";
     return false;
   }
+
+  pose_prior_ba_use_robust_loss_ = options.ba_use_robust_loss_on_prior_position;
+  pose_prior_ba_loss_scale_ = options.ba_prior_position_loss_scale;
+  pose_prior_gravity_requested_ =
+      options.pose_prior_gravity_ba_mode == PosePriorGravityBAMode::optimize;
+  pose_prior_gravity_stddev_deg_ = options.pose_prior_gravity_stddev_deg;
+  pose_prior_gravity_loss_scale_ = options.pose_prior_gravity_loss_scale;
 
   // Reports the current reconstruction and returns whether a stop was
   // requested. Point errors are recomputed in pixels before reporting because

@@ -46,6 +46,9 @@ namespace colmap {
 // 95% quantile of chi-square distribution with 3 degrees of freedom.
 constexpr double kChiSquare95ThreeDof = 7.814727903251179;
 
+// 95% quantile of chi-square distribution with 2 degrees of freedom.
+constexpr double kChiSquare95TwoDof = 5.991464547107981;
+
 // Return 1 if number is positive (including 0), -1 if negative.
 // Undefined behavior if the value is NaN.
 template <typename T>

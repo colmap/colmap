@@ -367,6 +367,7 @@ PosePriorBundleAdjustmentBackendOptions::operator=(
 
 bool PosePriorBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GT(prior_position_fallback_stddev, 0);
+  CHECK_OPTION_GT(prior_gravity_stddev_deg, 0);
   return THROW_CHECK_NOTNULL(ceres)->Check();
 }
 

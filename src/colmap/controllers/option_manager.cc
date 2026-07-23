@@ -811,6 +811,15 @@ void OptionManager::AddGlobalMapperOptions() {
                        &PosePriorRotationModeToString,
                        &PosePriorRotationModeFromString,
                        "off|initialize");
+  AddDefaultEnumOption("GlobalMapper.pose_prior_gravity_ba_mode",
+                       &global_mapper->mapper.pose_prior_gravity_ba_mode,
+                       &PosePriorGravityBAModeToString,
+                       &PosePriorGravityBAModeFromString,
+                       "off|optimize");
+  AddDefaultOption("GlobalMapper.pose_prior_gravity_stddev_deg",
+                   &global_mapper->mapper.pose_prior_gravity_stddev_deg);
+  AddDefaultOption("GlobalMapper.pose_prior_gravity_loss_scale",
+                   &global_mapper->mapper.pose_prior_gravity_loss_scale);
 
   // Bundle adjustment options (solver-agnostic).
   AddDefaultOption(
@@ -850,6 +859,10 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.ba_skip_fixed_rotation_stage);
   AddDefaultOption("GlobalMapper.ba_skip_joint_optimization_stage",
                    &global_mapper->mapper.ba_skip_joint_optimization_stage);
+  AddDefaultOption("GlobalMapper.ba_use_robust_loss_on_prior_position",
+                   &global_mapper->mapper.ba_use_robust_loss_on_prior_position);
+  AddDefaultOption("GlobalMapper.ba_prior_position_loss_scale",
+                   &global_mapper->mapper.ba_prior_position_loss_scale);
 
   // Retriangulation options.
   AddDefaultOption(

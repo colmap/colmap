@@ -1544,6 +1544,75 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
+TEST(PosePriorBundleAdjuster, InvalidCovarianceFallsBackSafely) {
+  // A declared-but-degenerate per-row covariance (zero, singular, or
+  // non-symmetric) must not reach CovarianceWeightedCostFunctor's
+  // cov.inverse().llt() whitening: that row should instead fall back to
+  // prior_position_fallback_stddev, exactly as if HasPositionCov() were
+  // false. Before this validation existed, a singular matrix here could
+  // produce a non-PD "square root information" and corrupt the whole solve
+  // with NaNs/Infs.
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.prior_position = true;
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point3D_stddev = 0.2;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  ASSERT_GE(pose_priors.size(), 3u);
+  // Zero covariance: finite (passes HasPositionCov()), but singular.
+  pose_priors.at(0).position_covariance = Eigen::Matrix3d::Zero();
+  // Non-symmetric: finite, nonsingular diagonal, but not a valid covariance.
+  pose_priors.at(1).position_covariance = Eigen::Matrix3d::Identity();
+  pose_priors.at(1).position_covariance(0, 1) = 5.0;
+  // Negative diagonal: finite, symmetric, but not positive definite.
+  pose_priors.at(2).position_covariance = -Eigen::Matrix3d::Identity();
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.prior_position_fallback_stddev = 1.0;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    EXPECT_TRUE(
+        reconstruction.Frame(frame_id).RigFromWorld().params.allFinite());
+  }
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
+}
+
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
@@ -1597,6 +1666,81 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
               ReconstructionNear(reconstruction,
                                  /*max_rotation_error_deg=*/0.1,
                                  /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
+}
+
+TEST(PosePriorBundleAdjuster, GravityPriorSolveUsableWithOneOutlier) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 10;
+  synthetic_options.num_points3D = 100;
+  synthetic_options.prior_position = true;
+  synthetic_options.prior_gravity = true;
+  // Match AbsoluteGravityPriorCostFunctor's fixed ENU-down convention (see
+  // PosePriorBundleAdjuster::world_down_ in bundle_adjustment_ceres.cc):
+  // gravity residuals are only added once position priors have established
+  // the metric/ENU-aligned gauge, so ground-truth gravity in this test must
+  // be expressed in that same convention for the residual to be zero at
+  // ground truth.
+  synthetic_options.prior_gravity_in_world = Eigen::Vector3d(0, 0, -1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point3D_stddev = 0.2;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 3.0;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  // Corrupt one image's gravity reading with a large (90 deg) tilt error --
+  // a plausible single-frame IMU/CORI glitch -- while leaving its position
+  // prior untouched.
+  ASSERT_FALSE(pose_priors.empty());
+  pose_priors[0].gravity =
+      Eigen::AngleAxisd(DegToRad(90.0), Eigen::Vector3d::UnitX()) *
+      pose_priors[0].gravity;
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.use_prior_gravity = true;
+  prior_ba_options.prior_gravity_stddev_deg = 2.0;
+  // Default gravity loss is already CAUCHY; explicit here to document intent
+  // and keep this test resilient to a future default change elsewhere.
+  prior_ba_options.ceres->prior_gravity_loss_function_type =
+      CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  // This is an integration guard that the gravity-enabled solve remains
+  // usable and accurate with one corrupted reading. It does not attempt to
+  // isolate a numerical Cauchy-vs-trivial delta; the exact loss selection is
+  // wired and reported by PosePriorBundleAdjuster, while robust-loss behavior
+  // itself is covered by Ceres.
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/0.2,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
 }

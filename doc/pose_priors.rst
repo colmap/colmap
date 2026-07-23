@@ -165,6 +165,24 @@ symptom you are trying to fix (aggregate inlier ratio and gravity angle vs.
 a targeted cross-pass or along-track consistency check) rather than
 assuming one implies the other.
 
+**Consumer-GPS defaults.** For a single-receiver consumer GNSS/action-camera
+source (no RTK, no dual-frequency correction), a declared position standard
+deviation of ``2.5 m`` East, ``2.5 m`` North, ``5.0 m`` Up (vertical is
+weaker than horizontal for this receiver class) is a reasonable, sensor-
+class-appropriate default — not a fabricated one, but also not a substitute
+for an actual accuracy figure from the receiver if one is available.
+Covariance inflation (multiplying the declared variance by a constant
+factor to account for temporal correlation between consecutive fixes) is
+opt-in and must be derived from a measurement of the correlated-group size
+(for example, an autocorrelation analysis of visual-to-GPS residuals for
+that specific dataset), never applied as a blanket default — a large
+inflation factor observed on one capture is evidence about that capture's
+correlation structure, not a general operating parameter for the sensor
+class. Whatever stddev and inflation are in effect, report both the raw
+(metre) and whitened (covariance-weighted) residual summaries so a reader
+can tell whether a large raw residual reflects genuine sensor noise or an
+under-declared covariance.
+
 Global positioning is fail-closed: if the solve does not converge to a
 usable solution, ``global_mapper`` retries exactly once with the same
 problem on CPU (Ceres/SuiteSparse is always available, unlike an optional
@@ -192,6 +210,49 @@ specific local-world orientation must be preserved, or when orientation
 residuals are themselves diagnostically important. A position-only archive
 is fully supported and leaves ``pose_prior_rotation_mode`` unengaged by
 design.
+
+**Soft gravity in bundle adjustment** (``--GlobalMapper.pose_prior_gravity_ba_mode
+{off, optimize}``, default ``off``) is a separate mechanism from
+``--GlobalMapper.ra_use_gravity``. ``ra_use_gravity`` is a *hard* constraint
+inside rotation averaging: a gravity-paired relative-rotation edge is
+reduced to a single rotational degree of freedom (yaw only) before the
+solve, with no tunable uncertainty. ``pose_prior_gravity_ba_mode=optimize``
+instead adds a *soft*, covariance-weighted, yaw-free residual directly in
+bundle adjustment (``--GlobalMapper.pose_prior_gravity_stddev_deg``,
+default ``5.0``, and ``--GlobalMapper.pose_prior_gravity_loss_scale``, a
+robust-loss threshold defaulting to a Cauchy loss — a single corrupted
+gravity reading is treated as an expected failure mode for this sensor
+class, not an exceptional one). The residual itself is a 3-component
+chordal difference between the predicted and measured down directions
+(``predicted_down_in_sensor - measured_down_in_sensor``), whose norm is
+monotonic and has a unique zero at truth over the full ``[0, 180]`` degree
+domain — *not* the direction projected onto the tangent plane orthogonal to
+the measured vector, whose norm is ``sin(angle)`` and is therefore also
+(falsely) zero at a 180-degree inverted prediction. ``pose_prior_gravity_loss_scale``
+(like ``pose_prior_position_loss_scale``/``ba_prior_position_loss_scale``) is
+in *standardized* (covariance-whitened) residual-norm units — "number of
+standard deviations" — not radians/degrees/metres, even though the input
+knob (``*_stddev_deg``) is an angle; do not read a loss-scale value as an
+angle after whitening. It only takes effect once
+``pose_prior_position_mode=optimize`` has actually engaged: only then does
+the reconstruction sit in the same ENU-aligned frame the gravity residual's
+fixed "down" direction assumes (see the frame contract below), so gravity
+mode is intentionally coupled to GPS optimize mode rather than usable
+independently. The two mechanisms are not mutually exclusive but are not
+meant to be layered either — running rotation averaging with
+``ra_use_gravity=1`` and then also engaging the soft BA residual double-
+counts the same measurement; a normal configuration picks one, typically
+the hard mode for an ``initialize``-only run and the soft mode once
+``optimize`` is engaged.
+
+Per-row gravity uncertainty (an angular stddev specific to one image's
+gravity reading, analogous to ``ROT_COV_*`` for orientation) is not
+currently supported — ``PosePrior`` has no such field, and adding one would
+touch the database schema, archive import/export, and every source
+adapter. ``pose_prior_gravity_stddev_deg`` is deliberately a single global
+sensor-class value instead. This is a known, deliberate limitation, not an
+oversight; revisit only if a source adapter can actually supply per-sample
+gravity confidence.
 
 Note that :ref:`spatial/sequential/retrieval pairing <cli>` (used before
 feature matching) uses pose priors only to *propose* candidate image pairs;
@@ -286,22 +347,33 @@ optional download/curl/crypto feature and does not compute file hashes —
 geometry/report SHA256 values belong one layer downstream, in an exported
 asset's own sidecar (see below), where the actual asset bytes exist.
 
-**The frame contract.** The report's ``frame_contract`` object (schema
-version 1) states the scene geometry's frame explicitly rather than leaving
-it to convention: ``geometry_frame: ENU_LOCAL``, right-handed, Z-up, metres,
-already applied to the written reconstruction (``geometry_already_transformed:
-true`` — there is no separate un-transformed variant to apply this to), plus
-the WGS84 ellipsoid/height-datum/origin also reported at the top level.
-``targets`` lists named export conventions as an explicit
-``matrix_row_major_target_from_geometry`` matrix, stored row-major, mapping
-*from* the reconstruction's ENU geometry *to* the named target frame — the
-direction is stated in the key so a loader never has to guess which way to
-apply it. The one shipped target, ``GLTF_Y_UP``, maps East→+X, Up→+Y,
-North→−Z, matching glTF 2.0's +Y-up right-handed convention. Before trusting
-any target entry in a real loader, round-trip a known ENU basis vector (and
-one camera pose) through it once; a cropped or otherwise unchanged-geometry
-asset preserves the sidecar unchanged, and only a rebasing edit composes a
-new transform.
+**The frame contract.** ``--output_coordinate_frame`` selects which frame the
+written reconstruction actually ends up in: ``ENU_Z_UP`` (default, unchanged
+existing behavior: right-handed, Z-up, metres), ``GLTF_Y_UP`` (East→+X,
+Up→+Y, North→−Z, matching generic glTF 2.0 world-space convention), or
+``LICHTFELD_COLMAP`` (raw COLMAP-data East→+X, Up→−Y, North→+Z, precomposed
+so that LichtFeld Studio's own documented
+``visualizer_from_colmap_data = diag(1,-1,-1)`` boundary transform displays
+the scene upright there). The report's ``frame_contract`` object (schema
+version 2) states this explicitly rather than leaving it to convention:
+``geometry_frame``/``up_axis`` describe the frame actually written
+(``geometry_already_transformed: true`` — there is no separate
+un-transformed variant), plus a full ``transforms`` sub-object
+(``geometry_from_enu``, ``enu_from_geometry``, ``ecef_from_geometry``,
+``geometry_from_ecef`` — complete ``Sim3d``s, not just an informal rotation
+note) so any delivered artifact can be composed back to ENU or ECEF/WGS84
+regardless of which frame it was written in. When ``LICHTFELD_COLMAP`` is
+selected, a ``consumer_profile`` object additionally records the pinned
+LichtFeld source reference and states
+``verified_against_installed_build: false`` — this profile is derived from
+source inspection and its complete East/North/Up contract has not yet been
+confirmed against a real install with an axis-labelled fixture; treat it as
+unverified until that check has been run. A legacy single-entry ``targets``
+array is kept alongside ``transforms`` for existing consumers. Before
+trusting any transform in a real loader, round-trip a known ENU basis vector
+(and one camera pose) through it once; a cropped or otherwise
+unchanged-geometry asset preserves the sidecar unchanged, and only a
+rebasing edit composes a new transform.
 
 **Post-alignment warnings.** The report always emits three diagnostics
 alongside their pipeline-policy thresholds, so the threshold can be
@@ -309,14 +381,23 @@ re-derived later without re-running the alignment:
 ``diagnostics.horizontal_condition_ratio`` (the centered horizontal
 position-support singular-value ratio s2/s1 — small values mean the camera
 track is close to collinear, leaving rotation about the track axis weakly
-constrained), ``diagnostics.gravity_consistency_angle_deg`` (the angle
-between the aligned up-axis and the mean gravity direction reported by every
-registered image's pose-prior gravity vector, robustly averaged by
-normalizing the mean of the per-image unit down vectors; ``null`` when no
-prior in the database has gravity), and ``warnings.position_inlier_ratio``
-(the fraction of registered position-prior correspondences that were
-inliers to the robust Sim3 fit — ``null`` when there are no registered
-correspondences). All three land in the top-level ``warnings`` object as
+constrained), ``diagnostics.gravity_consistency_angle_deg`` (the **median**
+of a per-image angle computed between that image's own predicted-down and
+measured-down vectors — deliberately not a single angle of the normalized
+*mean* down vector, which lets images with opposite-signed errors cancel in
+the sum and read as a falsely small angle even when individual images
+disagree substantially; the full per-image distribution is in
+``diagnostics.gravity_residual_deg`` as ``{mean, median, p90, max,
+num_support}``, and every registered image's own
+``has_gravity_prior``/``gravity_measured_*``/``gravity_predicted_*``/
+``gravity_residual_deg`` columns are in ``camera_residuals.csv`` -- the
+per-image detail needed to identify which specific image is behind a large
+``max``, which the aggregate statistics alone cannot show; ``null`` when no
+prior in the database has gravity), and
+``warnings.position_inlier_ratio`` (the fraction of registered
+position-prior correspondences that were inliers to the robust Sim3 fit —
+``null`` when there are no registered correspondences). All three land in
+the top-level ``warnings`` object as
 ``{value, threshold, fired}``; the shipped policy defaults fire at
 ``s2/s1 < 0.1``, gravity angle ``> 3.0°``, and position inlier ratio
 ``< 0.8``. A low inlier ratio names its likely cause in the log line:
@@ -339,6 +420,16 @@ residuals whether they were fit inliers or outliers, so the CSV preserves the
 very disagreements that are most useful for diagnosing bad metadata,
 timestamp association, or reconstruction failure.
 
+**Altitude datum.** The report declares ``height_datum: ELLIPSOIDAL``
+unconditionally and does not perform geoid or orthometric-height
+conversion; a source adapter supplying orthometric/MSL altitude must
+convert to ellipsoidal height itself before import (see "Source-adapter
+responsibilities" below) or accept that reported altitudes carry that
+offset uncorrected. This is an intentional scope boundary for now, not an
+oversight — datum conversion may be revisited later for survey-grade
+absolute elevation, but does not block or otherwise affect any pipeline
+stage today.
+
 **Report diagnostics have limitations worth knowing before trusting them at
 face value**: residuals are computed after the same robust fit that used
 those very points as (candidate) inliers, so they describe fit quality, not
@@ -346,7 +437,20 @@ an independent validation; the RANSAC inlier/outlier split is a hard
 threshold on one robust fit, not a calibrated per-point confidence; measured
 covariance describes the upstream measurement model and can itself be wrong;
 and a low residual cannot establish absolute accuracy without independent
-control observations.
+control observations. The consumer-GPS defaults documented above
+(``2.5 m`` E/N, ``5.0 m`` U) are an **operator-declared sensor-class
+model**, not per-image "detected" covariance — this pipeline's GoPro
+telemetry adapter does not extract or calibrate a per-sample GPS
+accuracy/DOP field, so do not describe a run's covariance as measured or
+detected in any report or summary derived from it. Consumer GPS also carries
+correlated multipath and several-metre absolute bias that many independent
+frames do not average away; a self-consistent fit against the same GPS
+observations used as priors is not proof of absolute accuracy. Label a
+result **"metric, consumer-GPS georeferenced"**, not **"mapping-grade"**,
+unless independent checkpoints (surveyed/GNSS control, trusted features with
+known uncertainty, or a withheld held-out GPS split explicitly flagged as
+still-not-independent) have actually been measured against it and a stated
+numerical tolerance is met.
 
 
 Downstream asset composition

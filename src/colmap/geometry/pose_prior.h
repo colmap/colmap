@@ -77,9 +77,18 @@ struct PosePrior {
   // basis as `rotation`.
   Eigen::Matrix3d rotation_covariance = Eigen::Matrix3d::Constant(kNaN);
 
+  // Epsilon below which a nominally-finite gravity/direction vector is
+  // treated as degenerate (zero or near-zero) rather than a usable
+  // measurement -- a finite zero vector can reach here from a corrupt
+  // database row or a non-archive producer; without this check it would
+  // silently normalize to an arbitrary direction wherever it is consumed.
+  constexpr static double kMinDirectionNorm = 1e-6;
+
   inline bool HasPosition() const { return position.allFinite(); }
   inline bool HasPositionCov() const { return position_covariance.allFinite(); }
-  inline bool HasGravity() const { return gravity.allFinite(); }
+  inline bool HasGravity() const {
+    return gravity.allFinite() && gravity.norm() > kMinDirectionNorm;
+  }
   inline bool HasRotation() const {
     return rotation.coeffs().allFinite() && rotation.norm() > 0;
   }

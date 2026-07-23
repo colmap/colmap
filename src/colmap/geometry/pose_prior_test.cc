@@ -88,6 +88,23 @@ TEST(PosePrior, Print) {
             "nan])");
 }
 
+TEST(PosePrior, HasGravityRejectsDegenerateDirections) {
+  PosePrior prior;
+  EXPECT_FALSE(prior.HasGravity());
+
+  prior.gravity = Eigen::Vector3d::Zero();
+  EXPECT_FALSE(prior.HasGravity());
+
+  prior.gravity = 0.5 * PosePrior::kMinDirectionNorm * Eigen::Vector3d::UnitZ();
+  EXPECT_FALSE(prior.HasGravity());
+
+  prior.gravity = 2.0 * PosePrior::kMinDirectionNorm * Eigen::Vector3d::UnitZ();
+  EXPECT_TRUE(prior.HasGravity());
+
+  prior.gravity = Eigen::Vector3d::UnitZ();
+  EXPECT_TRUE(prior.HasGravity());
+}
+
 TEST(PosePrior, GravityFromExifOrientation) {
   EXPECT_EQ(GravityFromExifOrientation(1).value(), Eigen::Vector3d(0, 1, 0));
   EXPECT_EQ(GravityFromExifOrientation(3).value(), Eigen::Vector3d(0, -1, 0));

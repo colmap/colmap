@@ -286,6 +286,22 @@ std::string JSONSim3(const Sim3d& s) {
       JSONNumber(s.translation().z()).c_str());
 }
 
+// Row-major 3x3 rotation matrix as a JSON array-of-arrays, e.g.
+// [[1,0,0],[0,0,-1],[0,1,0]].
+std::string JSONRotationMatrix(const Eigen::Quaterniond& rotation) {
+  const Eigen::Matrix3d m = rotation.toRotationMatrix();
+  return StringPrintf("[[%s,%s,%s],[%s,%s,%s],[%s,%s,%s]]",
+                      JSONNumber(m(0, 0)).c_str(),
+                      JSONNumber(m(0, 1)).c_str(),
+                      JSONNumber(m(0, 2)).c_str(),
+                      JSONNumber(m(1, 0)).c_str(),
+                      JSONNumber(m(1, 1)).c_str(),
+                      JSONNumber(m(1, 2)).c_str(),
+                      JSONNumber(m(2, 0)).c_str(),
+                      JSONNumber(m(2, 1)).c_str(),
+                      JSONNumber(m(2, 2)).c_str());
+}
+
 // RFC 4122 version-4 UUID.
 std::string GenerateUUIDv4() {
   std::random_device rd;
@@ -362,9 +378,21 @@ struct CameraResidual {
   double orientation_residual_deg = std::numeric_limits<double>::quiet_NaN();
   bool has_gravity_prior = false;
   // Gravity (down) in the sensor coordinate system, frame-invariant under
-  // the report's ENU re-expression of the position prior.
+  // the report's ENU re-expression of the position prior. Measured value as
+  // read from the pose prior archive.
   Eigen::Vector3d gravity_sensor =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  // Predicted down direction in the sensor frame, i.e.
+  // CamFromWorld().rotation()
+  // * ENU-down, for a registered image with a gravity prior. Directly
+  // comparable to gravity_sensor -- see F6/F8 in
+  // MAPPING_GRADE_DEEP_INVESTIGATION_FIX_PLAN.md ("the CSV does not identify
+  // the gravity outlier").
+  Eigen::Vector3d predicted_gravity_sensor =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  // Angle between predicted_gravity_sensor and gravity_sensor, in degrees,
+  // allowing an individual bad gravity reading to be identified in the CSV.
+  double gravity_residual_deg = std::numeric_limits<double>::quiet_NaN();
 };
 
 double Percentile(std::vector<double> values, double fraction) {
@@ -424,6 +452,105 @@ Eigen::Matrix<double, kDim, 1> CenteredRmsSingularValues(
   return values;
 }
 
+// The output frame model_aligner writes its reconstruction in.
+// ENU_Z_UP: unchanged existing behavior (East=+X, North=+Y, Up=+Z).
+// GLTF_Y_UP: East=+X, Up=+Y, North=-Z, matching generic glTF 2.0 world-space
+//   convention -- applied to the actual in-memory Reconstruction (points,
+//   camera centers, orientations, frames, rigs) via Reconstruction::Transform,
+//   not a post-export script. This is NOT necessarily correct for a COLMAP
+//   dataset consumed by a specific tool's COLMAP importer, which may apply
+//   its own data-to-visualizer basis change at its own load boundary -- see
+//   LICHTFELD_COLMAP below.
+// LICHTFELD_COLMAP: raw COLMAP-convention data (East=+X, -Up=+Y, North=+Z)
+//   precomposed so that after LichtFeld Studio's own documented
+//   visualizer_from_colmap_data = diag(1,-1,-1) boundary transform (see
+//   LichtFeld's coordinate_conventions.hpp, upstream commit 11118860db73),
+//   the scene displays East=+X, Up=+Y, North=-Z. Derived from source
+//   inspection only -- NOT independently confirmed against the exact
+//   installed LichtFeld build via an axis-labelled import test; treat the
+//   complete axis contract as unverified until that check is done. Distinct
+//   from GLTF_Y_UP because a COLMAP dataset and a generic glTF/world asset
+//   are different interface contracts for LichtFeld's loader.
+enum class OutputCoordinateFrame { ENU_Z_UP, GLTF_Y_UP, LICHTFELD_COLMAP };
+
+bool OutputCoordinateFrameFromString(const std::string& value,
+                                     OutputCoordinateFrame* frame) {
+  if (value == "ENU_Z_UP") {
+    *frame = OutputCoordinateFrame::ENU_Z_UP;
+    return true;
+  }
+  if (value == "GLTF_Y_UP") {
+    *frame = OutputCoordinateFrame::GLTF_Y_UP;
+    return true;
+  }
+  if (value == "LICHTFELD_COLMAP") {
+    *frame = OutputCoordinateFrame::LICHTFELD_COLMAP;
+    return true;
+  }
+  return false;
+}
+
+// East->+X, Up->+Y, North->-Z. This is the identical rotation already
+// documented (informationally, until this change) in the georeference
+// report's frame_contract.targets[GLTF_Y_UP] entry.
+Sim3d GltfYUpFromEnu() {
+  Eigen::Matrix3d rotation;
+  // clang-format off
+  rotation << 1, 0,  0,
+              0, 0,  1,
+              0, -1, 0;
+  // clang-format on
+  return Sim3d(1.0, Eigen::Quaterniond(rotation), Eigen::Vector3d::Zero());
+}
+
+// East->+X (raw), Up->-Y (raw), North->+Z (raw). This is the exact
+// inverse/transpose of GltfYUpFromEnu()'s rotation, i.e. it precomposes the
+// data so that LichtFeld's own visualizer_from_colmap_data = diag(1,-1,-1)
+// boundary transform (applied by LichtFeld itself at import/render time, not
+// by this exporter) results in a displayed East=+X, Up=+Y, North=-Z scene.
+// Determinant +1 (proper rotation, handedness preserved). The complete axis
+// contract has not yet been confirmed with an axis-labelled fixture against
+// a real installed LichtFeld build.
+Sim3d LichtfeldColmapFromEnu() {
+  Eigen::Matrix3d rotation;
+  // clang-format off
+  rotation << 1, 0,  0,
+              0, 0, -1,
+              0, 1,  0;
+  // clang-format on
+  return Sim3d(1.0, Eigen::Quaterniond(rotation), Eigen::Vector3d::Zero());
+}
+
+// LichtFeld's own documented data-to-visualizer boundary transform (a pure
+// axis-sign flip, not applied by this exporter -- informational only, for
+// composing the full "what the user actually sees" chain in the
+// georeference report). See LichtfeldColmapFromEnu()'s comment for the
+// source reference.
+Sim3d LichtfeldVisualizerFromColmapData() {
+  Eigen::Matrix3d rotation;
+  // clang-format off
+  rotation << 1, 0,  0,
+              0, -1, 0,
+              0, 0, -1;
+  // clang-format on
+  return Sim3d(1.0, Eigen::Quaterniond(rotation), Eigen::Vector3d::Zero());
+}
+
+// Returns the pure-rotation Sim3d that this exporter applies to go from the
+// canonical ENU frame to the requested output frame's raw written data.
+// Identity for ENU_Z_UP.
+Sim3d GeometryFromEnu(OutputCoordinateFrame output_coordinate_frame) {
+  switch (output_coordinate_frame) {
+    case OutputCoordinateFrame::ENU_Z_UP:
+      return Sim3d();
+    case OutputCoordinateFrame::GLTF_Y_UP:
+      return GltfYUpFromEnu();
+    case OutputCoordinateFrame::LICHTFELD_COLMAP:
+      return LichtfeldColmapFromEnu();
+  }
+  return Sim3d();
+}
+
 void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
                                  const std::string& scene_id,
                                  const std::string& source_commit,
@@ -442,7 +569,9 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
                                  int alignment_random_seed,
                                  double orientation_max_error_deg,
                                  bool orientation_requested,
-                                 bool orientation_engaged) {
+                                 bool orientation_engaged,
+                                 OutputCoordinateFrame output_coordinate_frame,
+                                 bool reject_material_realignment_requested) {
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   const Eigen::Matrix3d ecef_from_enu_rotation =
@@ -545,34 +674,29 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
           ? full_rms_singular_values.z() / full_rms_singular_values.x()
           : std::numeric_limits<double>::quiet_NaN();
 
-  // Gravity-consistency angle: for every registered image with a gravity
+  // Per-image gravity residual: for every registered image with a gravity
   // prior, rotate the sensor-frame down vector into the (already ENU-
-  // aligned) world frame, average the unit vectors robustly by normalizing
-  // the mean, and compare the result against ENU-down.
-  int num_gravity_priors = 0;
-  Eigen::Vector3d gravity_down_sum = Eigen::Vector3d::Zero();
+  // aligned) world frame and compare it against ENU-down individually.
+  // Deliberately not a single angle of the normalized mean vector -- that
+  // construction lets images with opposite-signed errors cancel in the sum,
+  // reading as a falsely small angle even when individual images disagree
+  // substantially. median/p90/max/support are reported like every other
+  // residual stat in this report (see position_3d_residual_m etc. above),
+  // and the legacy single-number `gravity_consistency_angle_deg` field (and
+  // the warning gate that uses it) is now defined as the robust median of
+  // these per-image values, not the old mean-vector angle.
+  std::vector<double> gravity_residuals_deg;
   for (const CameraResidual& r : residuals) {
-    if (!r.registered || !r.has_gravity_prior) {
+    if (!r.registered || !r.has_gravity_prior ||
+        !std::isfinite(r.gravity_residual_deg)) {
       continue;
     }
-    const Eigen::Vector3d down_world =
-        reconstruction.Image(r.image_id).CamFromWorld().rotation().inverse() *
-        r.gravity_sensor;
-    if (!down_world.allFinite() || down_world.norm() < 1e-9) {
-      continue;
-    }
-    gravity_down_sum += down_world.normalized();
-    ++num_gravity_priors;
+    gravity_residuals_deg.push_back(r.gravity_residual_deg);
   }
-  double gravity_consistency_angle_deg =
-      std::numeric_limits<double>::quiet_NaN();
-  if (num_gravity_priors > 0 && gravity_down_sum.norm() > 1e-9) {
-    const Eigen::Vector3d mean_down_world = gravity_down_sum.normalized();
-    const Eigen::Vector3d enu_down(0.0, 0.0, -1.0);
-    const double cos_angle =
-        std::clamp(mean_down_world.dot(enu_down), -1.0, 1.0);
-    gravity_consistency_angle_deg = RadToDeg(std::acos(cos_angle));
-  }
+  const int num_gravity_priors = static_cast<int>(gravity_residuals_deg.size());
+  const ScalarStatistics gravity_stats =
+      ComputeStatistics(gravity_residuals_deg);
+  const double gravity_consistency_angle_deg = gravity_stats.median;
 
   // Pipeline-policy warning thresholds (see the ground-truth "Post-alignment
   // warnings" section); values and thresholds are recorded in the report so
@@ -654,12 +778,52 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   json << "\"sfm_from_ecef\":" << JSONSim3(sfm_from_ecef);
   json << "},";
   json << "\"metres_per_sfm_unit\":" << JSONNumber(enu_from_sfm.scale()) << ",";
+
+  // Full transform chain relative to the geometry actually written to
+  // output_path -- not just an informal inverse-rotation note. A consumer
+  // must be able to recover ENU and ECEF/WGS84 from any delivered artifact,
+  // and the frame choice changes the serialized world coordinates, so it
+  // must compose into these transforms rather than being described only by
+  // `targets`.
+  const Sim3d geometry_from_enu = GeometryFromEnu(output_coordinate_frame);
+  const Sim3d enu_from_geometry = Inverse(geometry_from_enu);
+  const Sim3d ecef_from_geometry = ecef_from_enu * enu_from_geometry;
+  const Sim3d geometry_from_ecef = Inverse(ecef_from_geometry);
+  verify_inverse(geometry_from_enu, enu_from_geometry);
+  verify_inverse(ecef_from_geometry, geometry_from_ecef);
+
+  std::string geometry_frame_name;
+  std::string up_axis;
+  switch (output_coordinate_frame) {
+    case OutputCoordinateFrame::ENU_Z_UP:
+      geometry_frame_name = "ENU_LOCAL";
+      up_axis = "Z";
+      break;
+    case OutputCoordinateFrame::GLTF_Y_UP:
+      geometry_frame_name = "GLTF_Y_UP";
+      up_axis = "Y";
+      break;
+    case OutputCoordinateFrame::LICHTFELD_COLMAP:
+      geometry_frame_name = "LICHTFELD_COLMAP";
+      // The bytes written to output_path are ordinary COLMAP convention
+      // (Y increases downward); only after LichtFeld's own boundary
+      // transform does the *displayed* scene have Y pointing up -- see
+      // consumer_profile.visualizer_up_axis below. Do not read this as "the
+      // file itself is Y-up".
+      up_axis = "-Y";
+      break;
+  }
+
+  // geometry_frame/up_axis describe the frame actually written to
+  // output_path by this command (see the Transform applied just before
+  // Reconstruction::Write in the caller) -- never claim ENU bytes while
+  // Y-up or LichtFeld-precomposed bytes were written, or vice versa.
   json << "\"frame_contract\":{";
-  json << "\"schema_version\":1,";
-  json << "\"geometry_frame\":\"ENU_LOCAL\",";
+  json << "\"schema_version\":2,";
+  json << "\"geometry_frame\":\"" << geometry_frame_name << "\",";
   json << "\"geometry_already_transformed\":true,";
   json << "\"handedness\":\"RIGHT\",";
-  json << "\"up_axis\":\"Z\",";
+  json << "\"up_axis\":\"" << up_axis << "\",";
   json << "\"units\":\"METRE\",";
   json << "\"crs\":{";
   json << "\"ellipsoid\":\"WGS84\",";
@@ -669,12 +833,62 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
        << ",\"lon_deg\":" << JSONNumber(origin_lon)
        << ",\"ellipsoidal_alt_m\":" << JSONNumber(origin_alt) << "}";
   json << "},";
+  json << "\"transforms\":{";
+  json << "\"geometry_from_enu\":" << JSONSim3(geometry_from_enu) << ",";
+  json << "\"enu_from_geometry\":" << JSONSim3(enu_from_geometry) << ",";
+  json << "\"ecef_from_geometry\":" << JSONSim3(ecef_from_geometry) << ",";
+  json << "\"geometry_from_ecef\":" << JSONSim3(geometry_from_ecef);
+  json << "},";
+  if (output_coordinate_frame == OutputCoordinateFrame::LICHTFELD_COLMAP) {
+    const Sim3d visualizer_from_geometry = LichtfeldVisualizerFromColmapData();
+    json << "\"consumer_profile\":{";
+    json << "\"name\":\"LICHTFELD_COLMAP\",";
+    // NOT independently confirmed against the exact installed LichtFeld
+    // build with an axis-labelled fixture -- derived from source inspection
+    // of the pinned commit below only.
+    json << "\"verified_against_installed_build\":false,";
+    json << "\"pinned_source_reference\":"
+            "\"https://github.com/MrNeRF/LichtFeld-Studio/blob/"
+            "11118860db73ecf372bd9bc7448a1e250c8f3572/src/rendering/include/"
+            "rendering/coordinate_conventions.hpp\",";
+    json << "\"visualizer_from_geometry\":"
+         << JSONSim3(visualizer_from_geometry) << ",";
+    json << "\"visualizer_up_axis\":\"Y\"";
+    json << "},";
+  }
+  // Legacy single-target recovery/forward hint, kept byte-for-byte for
+  // ENU_Z_UP/GLTF_Y_UP for existing consumers. Prefer `transforms` above,
+  // which is complete (includes ECEF and both directions, for every output
+  // frame) and is not conditioned on which frame was requested.
   json << "\"targets\":[{";
-  json << "\"name\":\"GLTF_Y_UP\",";
-  json << "\"matrix_row_major_target_from_geometry\":"
-          "[[1,0,0],[0,0,1],[0,-1,0]],";
-  json << "\"note\":\"x=E, y=U, z=S; verify handedness with the round-trip "
-          "test\"";
+  switch (output_coordinate_frame) {
+    case OutputCoordinateFrame::GLTF_Y_UP:
+      // Inverse of the ENU_LOCAL->GLTF_Y_UP rotation (transpose, since it is
+      // a pure rotation): recovers ENU_LOCAL from the geometry actually
+      // written.
+      json << "\"name\":\"ENU_LOCAL\",";
+      json << "\"matrix_row_major_target_from_geometry\":"
+              "[[1,0,0],[0,0,-1],[0,1,0]],";
+      json << "\"note\":\"x=E, y=N, z=U; verify handedness with the "
+              "round-trip test\"";
+      break;
+    case OutputCoordinateFrame::LICHTFELD_COLMAP:
+      json << "\"name\":\"ENU_LOCAL\",";
+      json << "\"matrix_row_major_target_from_geometry\":"
+           << JSONRotationMatrix(enu_from_geometry.rotation()) << ",";
+      json << "\"note\":\"Recovers ENU_LOCAL from the raw COLMAP-convention "
+              "geometry actually written (not from what a LichtFeld "
+              "visualizer displays -- see consumer_profile above for that "
+              "boundary transform).\"";
+      break;
+    case OutputCoordinateFrame::ENU_Z_UP:
+      json << "\"name\":\"GLTF_Y_UP\",";
+      json << "\"matrix_row_major_target_from_geometry\":"
+              "[[1,0,0],[0,0,1],[0,-1,0]],";
+      json << "\"note\":\"x=E, y=U, z=S; verify handedness with the "
+              "round-trip test\"";
+      break;
+  }
   json << "}]";
   json << "},";
   json << "\"support\":{";
@@ -730,7 +944,13 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
   json << "\"max_ellipsoid_tangent_departure_m\":"
        << JSONNumber(max_ellipsoid_tangent_departure_m) << ",";
   json << "\"gravity_consistency_angle_deg\":"
-       << JSONNumber(gravity_consistency_angle_deg);
+       << JSONNumber(gravity_consistency_angle_deg) << ",";
+  json << "\"gravity_residual_deg\":{"
+       << "\"mean\":" << JSONNumber(gravity_stats.mean)
+       << ",\"median\":" << JSONNumber(gravity_stats.median)
+       << ",\"p90\":" << JSONNumber(gravity_stats.p90)
+       << ",\"max\":" << JSONNumber(gravity_stats.max)
+       << ",\"num_support\":" << num_gravity_priors << "}";
   json << "},";
   json << "\"warnings\":{";
   json << "\"collinearity\":{\"value\":"
@@ -755,8 +975,41 @@ void WriteGeoreferenceReportJSON(const std::filesystem::path& path,
        << JSONNumber(orientation_max_error_deg) << ",";
   json << "\"orientation_requested\":"
        << (orientation_requested ? "true" : "false") << ",";
-  json << "\"orientation_engaged\":"
-       << (orientation_engaged ? "true" : "false");
+  json << "\"orientation_engaged\":" << (orientation_engaged ? "true" : "false")
+       << ",";
+  // How large a correction this report's own equal-weight robust Sim3 fit
+  // (enu_from_sfm above) applied on top of whatever frame the input
+  // reconstruction was already in. Always reported; only enforced as a hard
+  // gate (RunModelAlignerReport returning EXIT_FAILURE before this file is
+  // even written) when --reject_material_realignment is set -- see that
+  // flag's registration for the threshold rationale.
+  {
+    constexpr double kMaterialRealignmentRotationDegThreshold = 0.5;
+    constexpr double kMaterialRealignmentTranslationMThreshold = 1.0;
+    constexpr double kMaterialRealignmentScaleRatioThreshold = 0.01;
+    const double rotation_deg =
+        RadToDeg(Eigen::AngleAxisd(enu_from_sfm.rotation()).angle());
+    const double translation_m = enu_from_sfm.translation().norm();
+    const double scale_ratio = std::abs(enu_from_sfm.scale() - 1.0);
+    const bool is_material =
+        rotation_deg > kMaterialRealignmentRotationDegThreshold ||
+        translation_m > kMaterialRealignmentTranslationMThreshold ||
+        scale_ratio > kMaterialRealignmentScaleRatioThreshold;
+    json << "\"final_realignment_check\":{";
+    json << "\"rotation_deg\":" << JSONNumber(rotation_deg) << ",";
+    json << "\"translation_m\":" << JSONNumber(translation_m) << ",";
+    json << "\"scale_ratio\":" << JSONNumber(scale_ratio) << ",";
+    json << "\"rotation_deg_threshold\":"
+         << JSONNumber(kMaterialRealignmentRotationDegThreshold) << ",";
+    json << "\"translation_m_threshold\":"
+         << JSONNumber(kMaterialRealignmentTranslationMThreshold) << ",";
+    json << "\"scale_ratio_threshold\":"
+         << JSONNumber(kMaterialRealignmentScaleRatioThreshold) << ",";
+    json << "\"is_material\":" << (is_material ? "true" : "false") << ",";
+    json << "\"enforced_as_hard_gate\":"
+         << (reject_material_realignment_requested ? "true" : "false");
+    json << "}";
+  }
   json << "}";
 
   std::ofstream file(path, std::ios::trunc);
@@ -818,7 +1071,10 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
           "residual_e,residual_n,residual_u,residual_horizontal,"
           "residual_vertical,residual_3d,"
           "has_orientation_prior,orientation_fit_inlier,"
-          "orientation_residual_deg\n";
+          "orientation_residual_deg,"
+          "has_gravity_prior,gravity_measured_x,gravity_measured_y,"
+          "gravity_measured_z,gravity_predicted_x,gravity_predicted_y,"
+          "gravity_predicted_z,gravity_residual_deg\n";
   for (const CameraResidual& r : sorted_residuals) {
     Eigen::Vector3d residual =
         Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
@@ -848,7 +1104,15 @@ void WriteCameraResidualsCSV(const std::filesystem::path& path,
          << CSVNumber(std::abs(residual.z())) << ',' << CSVNumber(residual_3d)
          << ',' << (r.has_orientation_prior ? 1 : 0) << ','
          << (r.orientation_fit_inlier ? 1 : 0) << ','
-         << CSVNumber(r.orientation_residual_deg) << '\n';
+         << CSVNumber(r.orientation_residual_deg) << ','
+         << (r.has_gravity_prior ? 1 : 0) << ','
+         << CSVNumber(r.gravity_sensor.x()) << ','
+         << CSVNumber(r.gravity_sensor.y()) << ','
+         << CSVNumber(r.gravity_sensor.z()) << ','
+         << CSVNumber(r.predicted_gravity_sensor.x()) << ','
+         << CSVNumber(r.predicted_gravity_sensor.y()) << ','
+         << CSVNumber(r.predicted_gravity_sensor.z()) << ','
+         << CSVNumber(r.gravity_residual_deg) << '\n';
   }
 }
 
@@ -922,7 +1186,9 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
                           double orientation_max_error_deg,
                           const std::string& scene_id_option,
                           const std::filesystem::path& georeference_json,
-                          const std::filesystem::path& camera_residuals_csv) {
+                          const std::filesystem::path& camera_residuals_csv,
+                          OutputCoordinateFrame output_coordinate_frame,
+                          bool reject_material_realignment) {
   auto database = Database::Open(database_path);
   const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
 
@@ -1045,6 +1311,50 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
         &result);
   }
 
+  // This robust Sim3 fit is equal-weight among RANSAC inliers and ignores
+  // per-row GPS covariance.
+  // If the input reconstruction already came from an upstream
+  // pose_prior_position_mode=optimize solve (which *did* use
+  // covariance-weighted BA throughout), this correction should be small; a
+  // material one means either that solve didn't hold for this input or this
+  // step is silently overriding it with a less-informed fit. Thresholds are
+  // a physically-motivated "this should be a no-op" bar, not tuned against
+  // any specific dataset: 0.5 deg is well below the gravity-warning
+  // threshold used elsewhere in this report, 1 m is at the low end of
+  // consumer-GPS position uncertainty, 1% scale is far tighter than the
+  // metric-gauge regression test's 1% tolerance would even notice.
+  constexpr double kMaterialRealignmentRotationDegThreshold = 0.5;
+  constexpr double kMaterialRealignmentTranslationMThreshold = 1.0;
+  constexpr double kMaterialRealignmentScaleRatioThreshold = 0.01;
+  const double realignment_rotation_deg =
+      RadToDeg(Eigen::AngleAxisd(result.tgt_from_src.rotation()).angle());
+  const double realignment_translation_m =
+      result.tgt_from_src.translation().norm();
+  const double realignment_scale_ratio =
+      std::abs(result.tgt_from_src.scale() - 1.0);
+  const bool realignment_is_material =
+      realignment_rotation_deg > kMaterialRealignmentRotationDegThreshold ||
+      realignment_translation_m > kMaterialRealignmentTranslationMThreshold ||
+      realignment_scale_ratio > kMaterialRealignmentScaleRatioThreshold;
+  if (reject_material_realignment && realignment_is_material) {
+    LOG(ERROR) << StringPrintf(
+        "=> --reject_material_realignment: the final robust Sim3 fit found a "
+        "material correction (rotation=%.4f deg > %.2f, translation=%.4f m "
+        "> %.2f, scale_ratio=%.6f > %.4f) on an input declared "
+        "already-metric-ENU-optimized. This equal-weight refit ignores "
+        "per-row GPS covariance; a correction this large means either the "
+        "upstream optimize solve did not actually hold for this input, or "
+        "this step is silently overriding it with a less-informed fit. "
+        "Investigate before deploying this result.",
+        realignment_rotation_deg,
+        kMaterialRealignmentRotationDegThreshold,
+        realignment_translation_m,
+        kMaterialRealignmentTranslationMThreshold,
+        realignment_scale_ratio,
+        kMaterialRealignmentScaleRatioThreshold);
+    return EXIT_FAILURE;
+  }
+
   reconstruction.Transform(result.tgt_from_src);
 
   FlatHashSet<image_t> inlier_image_ids;
@@ -1099,6 +1409,21 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
         r.orientation_residual_deg =
             RadToDeg(enu_it->second->rotation.angularDistance(
                 image.CamFromWorld().rotation()));
+      }
+      if (r.has_gravity_prior) {
+        // world_down_ convention: East=+X, North=+Y, Up=+Z (see
+        // PosePriorBundleAdjuster::world_down_ in bundle_adjustment_ceres.cc
+        // and this file's enu_down usage below) -- valid here because this
+        // report only runs after the reconstruction has been aligned to ENU.
+        r.predicted_gravity_sensor =
+            image.CamFromWorld().rotation() * Eigen::Vector3d(0.0, 0.0, -1.0);
+        const Eigen::Vector3d measured_down_sensor =
+            r.gravity_sensor.normalized();
+        const double cos_angle = std::clamp(
+            r.predicted_gravity_sensor.normalized().dot(measured_down_sensor),
+            -1.0,
+            1.0);
+        r.gravity_residual_deg = RadToDeg(std::acos(cos_angle));
       }
     }
     residuals.push_back(r);
@@ -1156,7 +1481,9 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
                                 ransac_options.random_seed,
                                 orientation_max_error_deg,
                                 result.orientation_requested,
-                                result.orientation_engaged);
+                                result.orientation_engaged,
+                                output_coordinate_frame,
+                                reject_material_realignment);
   }
   if (!camera_residuals_csv.empty()) {
     WriteCameraResidualsCSV(camera_residuals_csv, residuals);
@@ -1170,6 +1497,13 @@ int RunModelAlignerReport(const std::filesystem::path& input_path,
       origin_lon,
       origin_alt,
       origin_is_explicit ? "true" : "false");
+  // Applied last, after every diagnostic/report computation above (which
+  // reads camera rotations/positions and assumes the ENU convention -- e.g.
+  // the gravity_consistency_angle_deg comparison against enu_down), so only
+  // the written bytes change frame, never the report's own math.
+  if (output_coordinate_frame != OutputCoordinateFrame::ENU_Z_UP) {
+    reconstruction.Transform(GeometryFromEnu(output_coordinate_frame));
+  }
   reconstruction.Write(output_path);
   return EXIT_SUCCESS;
 }
@@ -1238,6 +1572,8 @@ int RunModelAligner(int argc, char** argv) {
   std::string pose_prior_cartesian_frame;
   std::filesystem::path georeference_json;
   std::filesystem::path camera_residuals_csv;
+  std::string output_coordinate_frame_str = "ENU_Z_UP";
+  bool reject_material_realignment = false;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -1268,7 +1604,30 @@ int RunModelAligner(int argc, char** argv) {
                            &pose_prior_cartesian_frame);
   options.AddDefaultOption("georeference_json", &georeference_json);
   options.AddDefaultOption("camera_residuals_csv", &camera_residuals_csv);
+  options.AddDefaultOption("output_coordinate_frame",
+                           &output_coordinate_frame_str,
+                           "{ENU_Z_UP, GLTF_Y_UP, LICHTFELD_COLMAP}");
+  // This report's robust Sim3 fit re-aligns equal-weight among RANSAC
+  // inliers, ignoring per-row GPS covariance. When the input reconstruction
+  // already comes from
+  // an upstream pose_prior_position_mode=optimize solve (which *did* use
+  // covariance-weighted BA throughout), a large correction here would mean
+  // either that upstream solve didn't actually hold, or this equal-weight
+  // refit is silently overriding it -- both worth failing loudly on rather
+  // than accepting silently. Off by default (preserves existing behavior
+  // byte-for-byte); the pre/post-correction diagnostic is always reported
+  // regardless of this flag.
+  options.AddDefaultOption("reject_material_realignment",
+                           &reject_material_realignment);
   if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  OutputCoordinateFrame output_coordinate_frame;
+  if (!OutputCoordinateFrameFromString(output_coordinate_frame_str,
+                                       &output_coordinate_frame)) {
+    LOG(ERROR) << "Invalid `output_coordinate_frame` - supported values are "
+                  "{'ENU_Z_UP', 'GLTF_Y_UP', 'LICHTFELD_COLMAP'}";
     return EXIT_FAILURE;
   }
 
@@ -1343,7 +1702,9 @@ int RunModelAligner(int argc, char** argv) {
                                  orientation_max_error_deg,
                                  scene_id,
                                  georeference_json,
-                                 camera_residuals_csv);
+                                 camera_residuals_csv,
+                                 output_coordinate_frame,
+                                 reject_material_realignment);
   }
 
   StringToLower(&alignment_type);
@@ -1353,6 +1714,21 @@ int RunModelAligner(int argc, char** argv) {
     LOG(ERROR) << "Invalid `alignment_type` - supported values are "
                   "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', "
                   "'custom'}";
+    return EXIT_FAILURE;
+  }
+
+  // Both the GLTF_Y_UP and LICHTFELD_COLMAP rotations assume the
+  // reconstruction is actually in the ENU frame they were derived against --
+  // 'plane', 'ecef', and 'custom' alignments do not produce that frame, so
+  // silently applying either rotation there would rotate the geometry
+  // incorrectly.
+  if (output_coordinate_frame != OutputCoordinateFrame::ENU_Z_UP &&
+      alignment_type != "enu" && alignment_type != "enu-plane" &&
+      alignment_type != "enu-plane-unscaled") {
+    LOG(ERROR) << "=> --output_coordinate_frame requires --alignment_type to "
+                  "be 'enu', 'enu-plane', or 'enu-plane-unscaled' (the "
+                  "geometry must actually be in ENU for the output rotation "
+                  "to be meaningful)";
     return EXIT_FAILURE;
   }
 
@@ -1475,6 +1851,16 @@ int RunModelAligner(int argc, char** argv) {
   }
 
   LOG(INFO) << "=> Alignment succeeded";
+  // Applied last, after alignment and any origin merge, so --transform_path
+  // (if requested) keeps reporting the alignment Sim3 only -- the output-
+  // frame rotation is tracked separately from "the transformation used for
+  // the alignment". It is NOT cosmetic: it changes the serialized world
+  // coordinates actually written to output_path, so any downstream
+  // ENU/ECEF transform composition must account for it (see frame_contract
+  // in the georeference report).
+  if (output_coordinate_frame != OutputCoordinateFrame::ENU_Z_UP) {
+    reconstruction.Transform(GeometryFromEnu(output_coordinate_frame));
+  }
   reconstruction.Write(output_path);
   if (!transform_path.empty()) {
     tform.ToFile(transform_path);
