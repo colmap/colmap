@@ -44,7 +44,7 @@ import subprocess
 import sys
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -212,6 +212,54 @@ class Dataset(ABC):
     def prepare_scene(self, scene_info: SceneInfo) -> None:
         """Prepare the scene for reconstruction."""
         pass
+
+    @property
+    def supports_covisibility_filtering(self) -> bool:
+        """Whether the GT reconstruction can drive covisibility filtering.
+
+        The frustum/track-based filter needs a GT reconstruction with real
+        intrinsics (and ideally 3D points) in a shared gauge. Datasets whose GT
+        lacks these (e.g. IMC2025 with placeholder cameras) should return False
+        so process_scene does not pass their GT to the filter.
+        """
+        return True
+
+    def compute_scene_errors(
+        self,
+        args: argparse.Namespace,
+        scene_info: SceneInfo,
+        sub_models: list[pycolmap.Reconstruction],
+        sparse_gt: pycolmap.Reconstruction,
+        position_accuracy_gt: float,
+    ) -> npt.NDArray[np.floating]:
+        """Compute the flat error array for a reconstructed scene.
+
+        The default implementation keeps the estimated sub-models separate and
+        computes the set-based, GT-cluster-aware relative or absolute pose
+        errors against the ground truth. The GT clusters come from
+        scene_info.image_name_to_gt_recon_ids, defaulting to a single
+        reconstruction (all GT images in cluster 0) when the dataset does not
+        provide one. Datasets can populate that mapping or override this method
+        to implement a custom error metric.
+        """
+        image_name_to_gt_recon_ids = scene_info.image_name_to_gt_recon_ids or {
+            image.name: 0 for image in sparse_gt.images.values()
+        }
+        if args.error_type.startswith("relative"):
+            return compute_grouped_rel_errors(
+                sparse_gt=sparse_gt,
+                sub_models=sub_models,
+                image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+                min_proj_center_dist=position_accuracy_gt,
+            )
+        elif args.error_type.startswith("absolute"):
+            return compute_grouped_abs_errors(
+                sparse_gt=sparse_gt,
+                sub_models=sub_models,
+                image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            )
+        else:
+            raise ValueError(f"Invalid error type: {args.error_type}")
 
 
 class _PhaseTracker:
@@ -787,11 +835,39 @@ def colmap_alignment(
         )
 
 
+def merge_sub_models(
+    sub_models: list[pycolmap.Reconstruction],
+) -> pycolmap.Reconstruction:
+    """Merge estimated sub-models into a single reconstruction.
+
+    Each sub-model keeps its own (independent) gauge, so sub-models are
+    "randomly" aligned to each other. With this simple approach there is a
+    small chance that images from different sub-models happen to be correctly
+    aligned and the error is therefore underestimated, but this is very
+    unlikely to happen.
+    """
+    sparse_merged = pycolmap.Reconstruction()
+    for sparse in sub_models:
+        for image in sparse.images.values():
+            if image.image_id in sparse_merged.images:
+                continue
+            if image.camera_id not in sparse_merged.cameras:
+                sparse_merged.add_camera(image.camera)
+            if image.frame_id not in sparse_merged.frames:
+                if image.frame.rig_id not in sparse_merged.rigs:
+                    sparse_merged.add_rig(image.frame.rig)
+                image.frame.reset_rig_ptr()
+                sparse_merged.add_frame(image.frame)
+            image.reset_camera_ptr()
+            image.reset_frame_ptr()
+            sparse_merged.add_image(image)
+    return sparse_merged
+
+
 def process_scene(
     args: argparse.Namespace,
     scene_info: SceneInfo,
-    prepare_scene: Callable[[SceneInfo], None],
-    position_accuracy_gt: float,
+    dataset: Dataset,
     num_threads: int,
     gpu_index: str = "-1",
     progress_status=None,
@@ -802,10 +878,12 @@ def process_scene(
         f"scene={scene_info.scene}"
     )
 
+    position_accuracy_gt = dataset.position_accuracy_gt
+
     tracker = _PhaseTracker(progress_status, _scene_key(scene_info))
 
     tracker.set("setup")
-    prepare_scene(scene_info)
+    dataset.prepare_scene(scene_info)
 
     sparse_gt = pycolmap.Reconstruction(str(scene_info.sparse_gt_path))
 
@@ -819,7 +897,10 @@ def process_scene(
             else None
         ),
         covisibility_sparse_gt=(
-            sparse_gt if args.filter_covisibility else None
+            sparse_gt
+            if args.filter_covisibility
+            and dataset.supports_covisibility_filtering
+            else None
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
@@ -833,6 +914,8 @@ def process_scene(
     # the relative set-based metric forms edges within a sub-model, and the
     # absolute metric scores each GT image against the best-aligned sub-model.
     # For absolute errors each sub-model is aligned to the GT independently.
+    # The dataset is responsible for turning these sub-models into a flat error
+    # array via compute_scene_errors.
     sub_models: list[pycolmap.Reconstruction] = []
     num_components = 0
     largest_component = 0
@@ -865,36 +948,29 @@ def process_scene(
         largest_component = max(largest_component, sparse.num_images())
         sub_models.append(sparse)
 
-    # Materialize the GT-cluster mapping, defaulting to a single reconstruction
-    # (all GT images in cluster 0) when the dataset does not provide one.
-    image_name_to_gt_recon_ids = scene_info.image_name_to_gt_recon_ids or {
-        image.name: 0 for image in sparse_gt.images.values()
-    }
-
-    # Registered images counted as the union of names across all sub-models.
+    # Registered images counted as the union of names across all sub-models,
+    # restricted to GT images so registered outliers (e.g. IMC2025) are not
+    # counted and num_reg_images stays consistent with num_images.
+    gt_image_names = {image.name for image in sparse_gt.images.values()}
     num_reg_images = len(
         {
             image.name
             for sub_model in sub_models
             for image in sub_model.images.values()
+            if image.name in gt_image_names
         }
     )
 
-    if args.error_type.startswith("relative"):
-        errors = compute_grouped_rel_errors(
-            sparse_gt=sparse_gt,
-            sub_models=sub_models,
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
-            min_proj_center_dist=position_accuracy_gt,
-        )
-    elif args.error_type.startswith("absolute"):
-        errors = compute_grouped_abs_errors(
-            sparse_gt=sparse_gt,
-            sub_models=sub_models,
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
-        )
-    else:
-        raise ValueError(f"Invalid error type: {args.error_type}")
+    # The dataset turns the estimated sub-models into a flat error array. The
+    # default implementation uses the set-based grouped metrics; datasets (e.g.
+    # IMC2025) can customize the grouping or override the computation entirely.
+    errors = dataset.compute_scene_errors(
+        args=args,
+        scene_info=scene_info,
+        sub_models=sub_models,
+        sparse_gt=sparse_gt,
+        position_accuracy_gt=position_accuracy_gt,
+    )
 
     tracker.set("finished")
     return SceneResult(
@@ -922,8 +998,7 @@ def _parse_gpu_index(args: argparse.Namespace) -> list[int]:
 def _process_scene_with_gpu(
     scene_info_and_gpu: tuple[SceneInfo, str],
     args: argparse.Namespace,
-    prepare_scene: Callable[[SceneInfo], None],
-    position_accuracy_gt: float,
+    dataset: Dataset,
     num_threads: int,
     progress_status=None,
 ) -> SceneResult:
@@ -931,8 +1006,7 @@ def _process_scene_with_gpu(
     return process_scene(
         args=args,
         scene_info=scene_info,
-        prepare_scene=prepare_scene,
-        position_accuracy_gt=position_accuracy_gt,
+        dataset=dataset,
         num_threads=num_threads,
         gpu_index=gpu_index,
         progress_status=progress_status,
@@ -953,9 +1027,9 @@ def _warn_nondeterministic(seed_flag: str, num_threads_per_scene: int) -> None:
 def process_scenes(
     args: argparse.Namespace,
     scene_infos: list[SceneInfo],
-    prepare_scene: Callable[[SceneInfo], None],
-    position_accuracy_gt: float,
+    dataset: Dataset,
 ) -> MetricsByCatByScene:
+    position_accuracy_gt = dataset.position_accuracy_gt
     error_thresholds = get_error_thresholds(args)
 
     gpu_index = _parse_gpu_index(args)
@@ -996,8 +1070,7 @@ def process_scenes(
                     functools.partial(
                         _process_scene_with_gpu,
                         args=args,
-                        prepare_scene=prepare_scene,
-                        position_accuracy_gt=position_accuracy_gt,
+                        dataset=dataset,
                         num_threads=num_threads_per_scene,
                         progress_status=progress_status,
                     ),
