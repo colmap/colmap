@@ -68,3 +68,37 @@ def test_align_reconstruction_to_pose_priors_robust_no_priors(
         synthetic_reconstruction, [], pycolmap.RANSACOptions()
     )
     assert result.success is False
+
+
+def test_anisotropic_position_gate_default_init():
+    gate = pycolmap.AnisotropicPositionGate()
+    assert gate.max_horizontal_error == -1.0
+    assert gate.max_vertical_error == -1.0
+    assert gate.is_set() is False
+
+
+def test_anisotropic_position_gate_readwrite_and_is_set():
+    gate = pycolmap.AnisotropicPositionGate()
+    gate.max_horizontal_error = 10.0
+    assert gate.is_set() is False
+    gate.max_vertical_error = 20.0
+    assert gate.max_horizontal_error == 10.0
+    assert gate.max_vertical_error == 20.0
+    assert gate.is_set() is True
+
+
+def test_align_reconstruction_to_pose_priors_robust_with_anisotropic_gate(
+    synthetic_reconstruction,
+):
+    # No priors resolve regardless of the gate, but this exercises the
+    # anisotropic_gate keyword argument round-trip through the binding.
+    gate = pycolmap.AnisotropicPositionGate()
+    gate.max_horizontal_error = 10.0
+    gate.max_vertical_error = 20.0
+    result = pycolmap.align_reconstruction_to_pose_priors_robust(
+        synthetic_reconstruction,
+        [],
+        pycolmap.RANSACOptions(),
+        anisotropic_gate=gate,
+    )
+    assert result.success is False

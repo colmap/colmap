@@ -351,12 +351,11 @@ TEST(GlobalMapper, PosePriorPositionOptimizeSurvivesRetriangulation) {
 // GlobalMapper::Solve() pipeline (CLI-level PosePriorGravityBAMode ->
 // GlobalMapperOptions -> RunBundleAdjustment()'s prior branch ->
 // PosePriorBundleAdjuster, and also through IterativeRetriangulateAndRefine's
-// mapper_options per M2's fix). The hard ra_use_gravity rotation-averaging
+// propagated mapper options). The hard ra_use_gravity rotation-averaging
 // reduction is deliberately left off (rotation_averaging.use_gravity =
 // false), so any rotation accuracy here is attributable to the soft BA
 // residual and the reprojection/position-prior terms, not the legacy hard
-// mechanism -- matching the requirement to not silently keep relying on
-// ra_use_gravity once the soft path is engaged. Precise isolation of
+// mechanism. Precise isolation of
 // gravity's own marginal contribution (yaw invariance, robustness to one bad
 // reading, exact tilt magnitude) is covered at the functor level
 // (pose_prior_test.cc) and the single-BA-solve integration level

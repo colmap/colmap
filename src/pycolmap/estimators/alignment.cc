@@ -159,14 +159,25 @@ void BindAlignmentEstimator(py::module& m) {
             return ToPythonMask(self.orientation_inlier_mask);
           });
 
+  py::classh<AnisotropicPositionGate>(m, "AnisotropicPositionGate")
+      .def(py::init<>())
+      .def_readwrite("max_horizontal_error",
+                     &AnisotropicPositionGate::max_horizontal_error)
+      .def_readwrite("max_vertical_error",
+                     &AnisotropicPositionGate::max_vertical_error)
+      .def("is_set", &AnisotropicPositionGate::IsSet);
+
   m.def("align_reconstruction_to_pose_priors_robust",
         &AlignReconstructionToPosePriorsRobust,
         "src_reconstruction"_a,
         "tgt_pose_priors"_a,
         "ransac_options"_a,
+        "anisotropic_gate"_a = AnisotropicPositionGate(),
         "Robustly align a reconstruction to pose priors, returning the "
         "RANSAC inlier mask and correspondence image ids alongside the "
-        "similarity transform.");
+        "similarity transform. If anisotropic_gate is set, RANSAC "
+        "admission evaluates ENU horizontal/vertical residuals separately "
+        "instead of the isotropic ransac_options.max_error gate.");
 
   m.def(
       "refine_pose_prior_alignment_with_orientations",

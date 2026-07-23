@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 
@@ -75,6 +76,41 @@ Sim3d GeometryFromEnu(OutputCoordinateFrame output_coordinate_frame);
 Sim3d LichtfeldVisualizerFromColmapData();
 
 ////////////////////////////////////////////////////////////////////////////
+// Georeference report quality-warning thresholds
+////////////////////////////////////////////////////////////////////////////
+
+// Thresholds for the report's informational quality warnings (collinearity,
+// gravity disagreement, position inlier ratio). These do not gate alignment
+// admission -- they only control which `warnings.*.fired` flags the report
+// sets, so a later policy can be reevaluated from the recorded value +
+// threshold without rerunning COLMAP. Defaults match the values hard-coded
+// prior to this option's introduction.
+struct GeoreferenceQualityThresholds {
+  double collinearity_ratio_threshold = 0.1;
+  double gravity_median_threshold_deg = 3.0;
+  double min_position_inlier_ratio = 0.8;
+};
+
+////////////////////////////////////////////////////////////////////////////
+// Material-realignment thresholds
+////////////////////////////////////////////////////////////////////////////
+
+// Thresholds distinguishing a no-op re-fit from a "material" one, used both
+// to evaluate the report's always-present final_realignment_check
+// diagnostic and, when --reject_material_realignment is set, to enforce it
+// as a hard gate. Defined once so evaluation and serialization cannot drift
+// apart. Defaults match the values hard-coded prior to this option's
+// introduction: 0.5 deg is well below the gravity-warning threshold used
+// elsewhere in this report, 1 m is at the low end of consumer-GPS position
+// uncertainty, 1% scale is far tighter than the metric-gauge regression
+// test's 1% tolerance would even notice.
+struct MaterialRealignmentThresholds {
+  double max_rotation_deg = 0.5;
+  double max_translation_m = 1.0;
+  double max_scale_ratio = 0.01;
+};
+
+////////////////////////////////////////////////////////////////////////////
 // Options
 ////////////////////////////////////////////////////////////////////////////
 
@@ -95,6 +131,9 @@ struct ModelGeoreferenceOptions {
   std::string pose_prior_cartesian_frame;
   int min_common_images = 3;
   RANSACOptions ransac_options;
+  // See AnisotropicPositionGate: unset (default) preserves the isotropic
+  // ransac_options.max_error gate path bit for bit.
+  AnisotropicPositionGate anisotropic_position_gate;
 
   bool use_pose_prior_orientation = false;
   double orientation_max_error_deg = 10.0;
@@ -109,6 +148,9 @@ struct ModelGeoreferenceOptions {
   // pre/post-correction diagnostic is always reported regardless of this
   // flag. See RunModelAlignerReport's implementation for the rationale.
   bool reject_material_realignment = false;
+
+  GeoreferenceQualityThresholds quality_thresholds;
+  MaterialRealignmentThresholds material_realignment_thresholds;
 };
 
 // Extends model_aligner with the scene georeference report path. Reads the

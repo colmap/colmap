@@ -761,6 +761,8 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   mapper_options.use_robust_loss_on_prior_position =
       pose_prior_ba_use_robust_loss_;
   mapper_options.prior_position_loss_scale = pose_prior_ba_loss_scale_;
+  mapper_options.prior_position_fallback_stddev =
+      pose_prior_position_fallback_stddev_;
   mapper_options.use_prior_gravity = pose_prior_gravity_requested_;
   mapper_options.prior_gravity_stddev_deg = pose_prior_gravity_stddev_deg_;
   mapper_options.prior_gravity_loss_scale = pose_prior_gravity_loss_scale_;

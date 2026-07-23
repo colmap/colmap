@@ -1194,6 +1194,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
     prior_options.ceres->prior_position_loss_scale =
         options.prior_position_loss_scale;
+    prior_options.prior_position_fallback_stddev =
+        options.prior_position_fallback_stddev;
     prior_options.use_prior_gravity = options.use_prior_gravity;
     prior_options.prior_gravity_stddev_deg = options.prior_gravity_stddev_deg;
     prior_options.ceres->prior_gravity_loss_scale =

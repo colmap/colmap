@@ -159,6 +159,15 @@ class IncrementalMapper {
     // is sqrt(chi-square_3dof_95), not the raw chi-square quantile itself.
     double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
+    // Fallback position standard deviation (metres) used only when a prior
+    // has no usable position covariance. Must be forwarded into every
+    // pose-prior BA stage this options struct reaches (see GlobalMapper's
+    // pose_prior_position_fallback_stddev_ and
+    // IterativeRetriangulateAndRefine) -- a stage that silently falls back
+    // to PosePriorBundleAdjustmentOptions' own default instead is a
+    // correctness bug, not merely a different tuning choice.
+    double prior_position_fallback_stddev = 1.0;
+
     // Whether to add a soft, yaw-free gravity residual for every pose prior
     // with a gravity reading, alongside the position residual. Only takes
     // effect together with use_prior_position (there is no other point in

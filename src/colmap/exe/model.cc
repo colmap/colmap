@@ -284,6 +284,9 @@ int RunModelAligner(int argc, char** argv) {
   std::filesystem::path camera_residuals_csv;
   std::string output_coordinate_frame_str = "ENU_Z_UP";
   bool reject_material_realignment = false;
+  GeoreferenceQualityThresholds quality_thresholds;
+  MaterialRealignmentThresholds material_realignment_thresholds;
+  AnisotropicPositionGate anisotropic_position_gate;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -329,6 +332,30 @@ int RunModelAligner(int argc, char** argv) {
   // regardless of this flag.
   options.AddDefaultOption("reject_material_realignment",
                            &reject_material_realignment);
+  options.AddDefaultOption("georeference_collinearity_ratio_threshold",
+                           &quality_thresholds.collinearity_ratio_threshold);
+  options.AddDefaultOption("georeference_gravity_median_threshold_deg",
+                           &quality_thresholds.gravity_median_threshold_deg);
+  options.AddDefaultOption("georeference_min_position_inlier_ratio",
+                           &quality_thresholds.min_position_inlier_ratio);
+  options.AddDefaultOption("material_realignment_max_rotation_deg",
+                           &material_realignment_thresholds.max_rotation_deg);
+  options.AddDefaultOption(
+      "material_realignment_max_translation_m",
+      &material_realignment_thresholds.max_translation_m);
+  options.AddDefaultOption(
+      "material_realignment_max_scale_ratio",
+      &material_realignment_thresholds.max_scale_ratio);
+  // Optional anisotropic ENU horizontal/vertical RANSAC admission gate for
+  // the georeference report path (see AnisotropicPositionGate). Both must
+  // be supplied together; when absent the legacy isotropic
+  // --alignment_max_error gate applies unchanged. This is NOT labeled
+  // "RealityScan-compatible": that product's precise residual shape and
+  // boundary semantics are not known here.
+  options.AddDefaultOption("alignment_max_horizontal_error",
+                           &anisotropic_position_gate.max_horizontal_error);
+  options.AddDefaultOption("alignment_max_vertical_error",
+                           &anisotropic_position_gate.max_vertical_error);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -398,6 +425,42 @@ int RunModelAligner(int argc, char** argv) {
       LOG(ERROR) << "=> --orientation_max_error_deg must be greater than zero";
       return EXIT_FAILURE;
     }
+    if (quality_thresholds.collinearity_ratio_threshold < 0.0 ||
+        quality_thresholds.collinearity_ratio_threshold > 1.0) {
+      LOG(ERROR) << "=> --georeference_collinearity_ratio_threshold must be "
+                    "in [0, 1]";
+      return EXIT_FAILURE;
+    }
+    if (quality_thresholds.gravity_median_threshold_deg <= 0.0 ||
+        quality_thresholds.gravity_median_threshold_deg > 180.0) {
+      LOG(ERROR) << "=> --georeference_gravity_median_threshold_deg must be "
+                    "> 0 and <= 180";
+      return EXIT_FAILURE;
+    }
+    if (quality_thresholds.min_position_inlier_ratio < 0.0 ||
+        quality_thresholds.min_position_inlier_ratio > 1.0) {
+      LOG(ERROR) << "=> --georeference_min_position_inlier_ratio must be in "
+                    "[0, 1]";
+      return EXIT_FAILURE;
+    }
+    if (material_realignment_thresholds.max_rotation_deg <= 0.0 ||
+        material_realignment_thresholds.max_translation_m <= 0.0 ||
+        material_realignment_thresholds.max_scale_ratio <= 0.0) {
+      LOG(ERROR) << "=> --material_realignment_max_rotation_deg/"
+                    "--material_realignment_max_translation_m/"
+                    "--material_realignment_max_scale_ratio must all be > 0";
+      return EXIT_FAILURE;
+    }
+    const bool has_horizontal_gate =
+        anisotropic_position_gate.max_horizontal_error > 0.0;
+    const bool has_vertical_gate =
+        anisotropic_position_gate.max_vertical_error > 0.0;
+    if (has_horizontal_gate != has_vertical_gate) {
+      LOG(ERROR) << "=> --alignment_max_horizontal_error and "
+                    "--alignment_max_vertical_error must be supplied "
+                    "together";
+      return EXIT_FAILURE;
+    }
     ModelGeoreferenceOptions georeference_options;
     georeference_options.input_path = input_path;
     georeference_options.output_path = output_path;
@@ -417,6 +480,10 @@ int RunModelAligner(int argc, char** argv) {
     georeference_options.output_coordinate_frame = output_coordinate_frame;
     georeference_options.reject_material_realignment =
         reject_material_realignment;
+    georeference_options.quality_thresholds = quality_thresholds;
+    georeference_options.material_realignment_thresholds =
+        material_realignment_thresholds;
+    georeference_options.anisotropic_position_gate = anisotropic_position_gate;
     return RunModelAlignerReport(georeference_options);
   }
 

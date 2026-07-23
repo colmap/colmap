@@ -65,6 +65,14 @@ struct GlobalPositionerOptions {
   // Fallback position standard deviation (metres) used only when a prior has
   // no position covariance.
   double pose_prior_position_fallback_stddev = 1.0;
+  // Explicit RANSAC admission gate (metres) for the gauge fit between
+  // solved and pose-prior frame centers in `optimize` mode. A negative value
+  // (default) retains the legacy derived gate:
+  // pose_prior_position_loss_scale * pose_prior_position_fallback_stddev.
+  // Coupling the gate to the robust-loss scale conflates two different
+  // decisions (loss shape vs. RANSAC admission); this option decouples them
+  // without changing the legacy default.
+  double pose_prior_position_ransac_max_error = -1.0;
 
   // Whether to use custom parameter block ordering for Schur-based solvers.
   // Disable for deterministic behavior when using a fixed random seed.

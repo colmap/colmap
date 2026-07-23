@@ -272,6 +272,84 @@ TEST_F(IncrementalMapperTest, ModifiedPoints3D) {
   EXPECT_TRUE(mapper_->GetModifiedPoints3D().empty());
 }
 
+// Regression test for the bug where IncrementalMapper::Options had no
+// prior_position_fallback_stddev field at all, so AdjustGlobalBundle's
+// internal PosePriorBundleAdjustmentOptions silently used its own
+// hardcoded default (1.0) regardless of what the caller (GlobalMapper's
+// IterativeRetriangulateAndRefine) configured. This isolates
+// AdjustGlobalBundle itself in a single BA solve (no later, correctly-
+// weighted stage to mask the effect): a small, alternating, covariance-free
+// prior bias -- which a uniform bias could be absorbed by a free rigid-body
+// shift of the whole scene, so it must alternate to create genuine tension
+// with the reprojection constraints -- must pull the solve measurably less
+// under a large declared fallback stddev (low confidence) than under a
+// small one (high confidence). If the configured value never reached the
+// solver, both runs would be identical.
+TEST(IncrementalMapper, PriorPositionFallbackStddevControlsGaugeTrust) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 10;
+  synthetic_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  // Alternate by sorted image name (not map-iteration order, which need not
+  // correspond to any geometrically meaningful split) so that cameras
+  // sharing common 3D points are pulled in opposite directions -- a single
+  // rigid-body shift of the whole (single-rig, densely-connected) scene
+  // cannot satisfy both directions at once for free, forcing genuine
+  // tension between the prior and reprojection terms.
+  std::vector<std::pair<std::string, image_t>> sorted_images;
+  for (const auto& [image_id, image] : gt_reconstruction.Images()) {
+    sorted_images.emplace_back(image.Name(), image_id);
+  }
+  std::sort(sorted_images.begin(), sorted_images.end());
+  int image_index = 0;
+  for (const auto& [name, image_id] : sorted_images) {
+    const Image& image = gt_reconstruction.Image(image_id);
+    PosePrior prior;
+    prior.corr_data_id = image.DataId();
+    prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    const Eigen::Vector3d bias = (image_index % 2 == 0)
+                                     ? Eigen::Vector3d(1.0, 0.0, 0.0)
+                                     : Eigen::Vector3d(-1.0, 0.0, 0.0);
+    prior.position = image.ProjectionCenter() + bias;
+    database->WritePosePrior(prior);
+    ++image_index;
+  }
+
+  DatabaseCache::Options cache_options;
+  auto cache = DatabaseCache::Create(*database, cache_options);
+
+  const auto run_with_fallback_stddev = [&](double fallback_stddev) {
+    auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
+    IncrementalMapper mapper(cache);
+    mapper.BeginReconstruction(reconstruction);
+
+    IncrementalMapper::Options options;
+    options.use_prior_position = true;
+    options.prior_position_fallback_stddev = fallback_stddev;
+    EXPECT_TRUE(mapper.AdjustGlobalBundle(options, BundleAdjustmentOptions()));
+
+    double max_position_error = 0.0;
+    for (const auto& [image_id, image] : reconstruction->Images()) {
+      max_position_error =
+          std::max(max_position_error,
+                   (image.ProjectionCenter() -
+                    gt_reconstruction.Image(image_id).ProjectionCenter())
+                       .norm());
+    }
+    mapper.EndReconstruction(/*discard=*/false);
+    return max_position_error;
+  };
+
+  const double weak_trust_error = run_with_fallback_stddev(1000.0);
+  const double strong_trust_error = run_with_fallback_stddev(0.01);
+  EXPECT_LT(weak_trust_error, strong_trust_error);
+}
+
 TEST_F(IncrementalMapperTest, FullPipeline) {
   // Step 1: Find and register initial image pair
   FindAndRegisterInitialPair();

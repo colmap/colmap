@@ -366,7 +366,10 @@ void WriteGeoreferenceReportJSON(
     bool orientation_requested,
     bool orientation_engaged,
     OutputCoordinateFrame output_coordinate_frame,
-    bool reject_material_realignment_requested) {
+    bool reject_material_realignment_requested,
+    const GeoreferenceQualityThresholds& quality_thresholds,
+    const MaterialRealignmentThresholds& material_realignment_thresholds,
+    const AnisotropicPositionGate& anisotropic_position_gate) {
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   const Eigen::Matrix3d ecef_from_enu_rotation =
@@ -496,9 +499,12 @@ void WriteGeoreferenceReportJSON(
   // Pipeline-policy warning thresholds (see the ground-truth "Post-alignment
   // warnings" section); values and thresholds are recorded in the report so
   // policy can evolve without re-running.
-  constexpr double kCollinearityRatioThreshold = 0.1;
-  constexpr double kGravityAngleThresholdDeg = 3.0;
-  constexpr double kPositionInlierRatioThreshold = 0.8;
+  const double kCollinearityRatioThreshold =
+      quality_thresholds.collinearity_ratio_threshold;
+  const double kGravityAngleThresholdDeg =
+      quality_thresholds.gravity_median_threshold_deg;
+  const double kPositionInlierRatioThreshold =
+      quality_thresholds.min_position_inlier_ratio;
   const bool collinearity_warning_fired =
       std::isfinite(horizontal_condition_ratio) &&
       horizontal_condition_ratio < kCollinearityRatioThreshold;
@@ -775,6 +781,24 @@ void WriteGeoreferenceReportJSON(
   json << "},";
   json << "\"position_ransac_threshold_m\":"
        << JSONNumber(position_ransac_threshold) << ",";
+  // Exact gate mode and values used for RANSAC position-prior admission
+  // (workstream 4A): `isotropic` is the legacy single-threshold gate
+  // (position_ransac_threshold_m above); `anisotropic` evaluates ENU
+  // horizontal and vertical residuals against independent thresholds.
+  json << "\"position_ransac_gate\":{";
+  json << "\"mode\":\""
+       << (anisotropic_position_gate.IsSet() ? "anisotropic" : "isotropic")
+       << "\",";
+  json << "\"max_horizontal_error_m\":"
+       << JSONNumber(anisotropic_position_gate.IsSet()
+                        ? anisotropic_position_gate.max_horizontal_error
+                        : std::numeric_limits<double>::quiet_NaN())
+       << ",";
+  json << "\"max_vertical_error_m\":"
+       << JSONNumber(anisotropic_position_gate.IsSet()
+                        ? anisotropic_position_gate.max_vertical_error
+                        : std::numeric_limits<double>::quiet_NaN());
+  json << "},";
   json << "\"alignment_random_seed\":" << alignment_random_seed << ",";
   json << "\"orientation_max_error_deg\":"
        << JSONNumber(orientation_max_error_deg) << ",";
@@ -789,9 +813,12 @@ void WriteGeoreferenceReportJSON(
   // even written) when --reject_material_realignment is set -- see that
   // flag's registration for the threshold rationale.
   {
-    constexpr double kMaterialRealignmentRotationDegThreshold = 0.5;
-    constexpr double kMaterialRealignmentTranslationMThreshold = 1.0;
-    constexpr double kMaterialRealignmentScaleRatioThreshold = 0.01;
+    const double kMaterialRealignmentRotationDegThreshold =
+        material_realignment_thresholds.max_rotation_deg;
+    const double kMaterialRealignmentTranslationMThreshold =
+        material_realignment_thresholds.max_translation_m;
+    const double kMaterialRealignmentScaleRatioThreshold =
+        material_realignment_thresholds.max_scale_ratio;
     const double rotation_deg =
         RadToDeg(Eigen::AngleAxisd(enu_from_sfm.rotation()).angle());
     const double translation_m = enu_from_sfm.translation().norm();
@@ -1046,7 +1073,7 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                 : pose_priors;
 
   PosePriorAlignmentResult result = AlignReconstructionToPosePriorsRobust(
-      reconstruction, enu_priors, o.ransac_options);
+      reconstruction, enu_priors, o.ransac_options, o.anisotropic_position_gate);
   if (!result.success) {
     LOG(ERROR) << "=> Alignment failed";
     return EXIT_FAILURE;
@@ -1071,7 +1098,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
       enu_priors = ConvertPosePriorsToReportENU(
           pose_priors, origin_lat, origin_lon, origin_alt);
       result = AlignReconstructionToPosePriorsRobust(
-          reconstruction, enu_priors, o.ransac_options);
+          reconstruction, enu_priors, o.ransac_options,
+          o.anisotropic_position_gate);
       if (!result.success) {
         LOG(ERROR) << "=> Alignment failed after origin refinement";
         return EXIT_FAILURE;
@@ -1111,13 +1139,16 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
   // material one means either that solve didn't hold for this input or this
   // step is silently overriding it with a less-informed fit. Thresholds are
   // a physically-motivated "this should be a no-op" bar, not tuned against
-  // any specific dataset: 0.5 deg is well below the gravity-warning
-  // threshold used elsewhere in this report, 1 m is at the low end of
-  // consumer-GPS position uncertainty, 1% scale is far tighter than the
-  // metric-gauge regression test's 1% tolerance would even notice.
-  constexpr double kMaterialRealignmentRotationDegThreshold = 0.5;
-  constexpr double kMaterialRealignmentTranslationMThreshold = 1.0;
-  constexpr double kMaterialRealignmentScaleRatioThreshold = 0.01;
+  // any specific dataset -- see MaterialRealignmentThresholds' defaults for
+  // the rationale. The same struct instance is used here (enforcement) and
+  // in WriteGeoreferenceReportJSON (the always-present diagnostic), so
+  // evaluation and serialization cannot drift apart.
+  const double kMaterialRealignmentRotationDegThreshold =
+      o.material_realignment_thresholds.max_rotation_deg;
+  const double kMaterialRealignmentTranslationMThreshold =
+      o.material_realignment_thresholds.max_translation_m;
+  const double kMaterialRealignmentScaleRatioThreshold =
+      o.material_realignment_thresholds.max_scale_ratio;
   const double realignment_rotation_deg =
       RadToDeg(Eigen::AngleAxisd(result.tgt_from_src.rotation()).angle());
   const double realignment_translation_m =
@@ -1277,7 +1308,10 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                                 result.orientation_requested,
                                 result.orientation_engaged,
                                 o.output_coordinate_frame,
-                                o.reject_material_realignment);
+                                o.reject_material_realignment,
+                                o.quality_thresholds,
+                                o.material_realignment_thresholds,
+                                o.anisotropic_position_gate);
   }
   if (!o.camera_residuals_csv.empty()) {
     WriteCameraResidualsCSV(o.camera_residuals_csv, residuals);

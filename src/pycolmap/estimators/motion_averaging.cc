@@ -83,7 +83,14 @@ void BindGlobalPositioner(py::module& m) {
               "pose_prior_position_fallback_stddev",
               &GlobalPositionerOptions::pose_prior_position_fallback_stddev,
               "Fallback position standard deviation (metres) used only when "
-              "a prior has no position covariance.");
+              "a prior has no position covariance.")
+          .def_readwrite(
+              "pose_prior_position_ransac_max_error",
+              &GlobalPositionerOptions::pose_prior_position_ransac_max_error,
+              "Explicit RANSAC admission gate (metres) for the optimize-mode "
+              "gauge fit. Negative (default) retains the legacy derived "
+              "gate: pose_prior_position_loss_scale * "
+              "pose_prior_position_fallback_stddev.");
   MakeDataclass(PyGlobalPositionerOptions);
 
   m.def(

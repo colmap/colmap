@@ -180,20 +180,27 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   }
 
   if (options_.pose_prior_position_mode != PosePriorPositionMode::off) {
-    // The Sim3 RANSAC gate (EngagePositionPriorOptimization, below) reuses
-    // the loss scale and fallback stddev rather than a third tuning
-    // constant; log the product so the coupling is visible, not just
-    // implied.
+    // The Sim3 RANSAC gate (EngagePositionPriorOptimization, below) defaults
+    // to reusing the loss scale and fallback stddev rather than a third
+    // tuning constant, unless pose_prior_position_ransac_max_error
+    // explicitly overrides it; log the value that will actually be used.
+    const bool has_explicit_ransac_gate =
+        options_.pose_prior_position_ransac_max_error >= 0.0;
+    const double ransac_gate =
+        has_explicit_ransac_gate
+            ? options_.pose_prior_position_ransac_max_error
+            : options_.pose_prior_position_loss_scale *
+                  options_.pose_prior_position_fallback_stddev;
     LOG(INFO) << StringPrintf(
         "Pose prior position trust: mode=%s, loss_scale=%.6f, "
-        "fallback_stddev=%.6f, ransac_gate=%.6f",
+        "fallback_stddev=%.6f, ransac_gate=%.6f (%s)",
         std::string(
             PosePriorPositionModeToString(options_.pose_prior_position_mode))
             .c_str(),
         options_.pose_prior_position_loss_scale,
         options_.pose_prior_position_fallback_stddev,
-        options_.pose_prior_position_loss_scale *
-            options_.pose_prior_position_fallback_stddev);
+        ransac_gate,
+        has_explicit_ransac_gate ? "explicit" : "derived");
   }
 
   LOG(INFO) << "Setting up the global positioner problem";
@@ -737,12 +744,17 @@ void GlobalPositioner::EngagePositionPriorOptimization(
     tgt.push_back(seeds.at(frame_id));
   }
 
-  // The RANSAC inlier threshold reuses the same 95%-chi-square-derived scale
-  // as the robust loss (via the fallback stddev), rather than introducing a
-  // third, unrelated tuning constant.
+  // The RANSAC inlier threshold defaults to reusing the same 95%-chi-square-
+  // derived scale as the robust loss (via the fallback stddev), rather than
+  // introducing a third, unrelated tuning constant, unless the caller
+  // explicitly overrides it via pose_prior_position_ransac_max_error.
   RANSACOptions ransac_options;
-  const double error_scale = options_.pose_prior_position_loss_scale *
-                             options_.pose_prior_position_fallback_stddev;
+  const bool has_explicit_ransac_gate =
+      options_.pose_prior_position_ransac_max_error >= 0.0;
+  const double error_scale = has_explicit_ransac_gate
+                                 ? options_.pose_prior_position_ransac_max_error
+                                 : options_.pose_prior_position_loss_scale *
+                                       options_.pose_prior_position_fallback_stddev;
   ransac_options.max_error = error_scale;
 
   Sim3d gauge_from_solver;

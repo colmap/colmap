@@ -266,6 +266,63 @@ struct AlignmentOrientationCostFunctor {
   const Eigen::Matrix3d sqrt_information_;
 };
 
+// Anisotropic ENU horizontal/vertical position RANSAC gate (workstream 4A).
+// Model estimation is identical to SimilarityTransformEstimator<3, true>
+// (delegated directly, so the estimated Sim3d is exactly the same equal-
+// weight Umeyama fit); only the residual/inlier test differs. Assumes both
+// src and tgt points are already expressed in a shared ENU frame (Up = +Z):
+// the residual is normalized so that comparing it against
+// RANSACOptions.max_error == max_horizontal_error (the generic RANSAC
+// template squares max_error into `max_residual`) is equivalent to
+// requiring horizontal_error <= max_horizontal_error AND
+// vertical_error <= max_vertical_error independently.
+struct AnisotropicEnuPositionEstimator {
+  static const int kMinNumSamples = 3;
+
+  using X_t = Eigen::Vector3d;
+  using Y_t = Eigen::Vector3d;
+  using M_t = Eigen::Matrix3x4d;
+
+  AnisotropicEnuPositionEstimator(double max_horizontal_error,
+                                  double max_vertical_error)
+      : max_horizontal_error_(max_horizontal_error),
+        max_vertical_error_(max_vertical_error) {
+    THROW_CHECK_GT(max_horizontal_error, 0.0);
+    THROW_CHECK_GT(max_vertical_error, 0.0);
+  }
+
+  void Estimate(const std::vector<X_t>& src,
+               const std::vector<Y_t>& tgt,
+               std::vector<M_t>* models) const {
+    SimilarityTransformEstimator<3, true>::Estimate(src, tgt, models);
+  }
+
+  void Residuals(const std::vector<X_t>& src,
+                const std::vector<Y_t>& tgt,
+                const M_t& tgt_from_src,
+                std::vector<double>* residuals) const {
+    const size_t num_points = src.size();
+    THROW_CHECK_EQ(num_points, tgt.size());
+    residuals->resize(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+      const Eigen::Vector3d src_transformed =
+          tgt_from_src * src[i].homogeneous();
+      const Eigen::Vector3d diff = tgt[i] - src_transformed;
+      const double horizontal_error = std::hypot(diff.x(), diff.y());
+      const double vertical_error = std::abs(diff.z());
+      const double normalized =
+          std::max(horizontal_error / max_horizontal_error_,
+                   vertical_error / max_vertical_error_);
+      const double scaled = normalized * max_horizontal_error_;
+      (*residuals)[i] = scaled * scaled;
+    }
+  }
+
+ private:
+  double max_horizontal_error_;
+  double max_vertical_error_;
+};
+
 double OrientationResidualDeg(const Image& image,
                               const PosePrior& prior,
                               const Sim3d& tgt_from_src) {
@@ -445,7 +502,8 @@ bool AlignReconstructionToPosePriors(
 PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
-    const RANSACOptions& ransac_options) {
+    const RANSACOptions& ransac_options,
+    const AnisotropicPositionGate& anisotropic_gate) {
   PosePriorAlignmentResult result;
 
   NodeHashMap<image_t, PosePrior> tgt_image_to_pose_prior;
@@ -483,6 +541,28 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
   if (src.size() < 3) {
     LOG(WARNING) << "Not enough valid pose priors for alignment";
     result.inlier_mask.assign(src.size(), 0);
+    return result;
+  }
+
+  if (anisotropic_gate.IsSet()) {
+    // The generic RANSAC template squares RANSACOptions.max_error into its
+    // inlier threshold; AnisotropicEnuPositionEstimator::Residuals()
+    // normalizes by max_horizontal_error so that threshold is meaningful.
+    RANSACOptions gate_options = ransac_options;
+    gate_options.max_error = anisotropic_gate.max_horizontal_error;
+    RANSAC<AnisotropicEnuPositionEstimator> ransac(
+        gate_options,
+        AnisotropicEnuPositionEstimator(anisotropic_gate.max_horizontal_error,
+                                        anisotropic_gate.max_vertical_error));
+    const auto report = ransac.Estimate(src, tgt);
+    result.success = report.success;
+    result.inlier_mask = report.inlier_mask;
+    if (result.success) {
+      result.tgt_from_src = Sim3d::FromMatrix(report.model);
+    }
+    if (result.inlier_mask.empty()) {
+      result.inlier_mask.assign(src.size(), result.success ? 1 : 0);
+    }
     return result;
   }
 
