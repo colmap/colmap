@@ -51,6 +51,7 @@ set(COLMAP_EXE_SRCS
     feature.h feature.cc
     sfm.h sfm.cc
     model.h model.cc
+    model_georeference.h model_georeference.cc
 )
 set(COLMAP_EXE_PUBLIC_LIBS
     colmap_controllers
@@ -83,6 +84,12 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_exe
 )
 
+COLMAP_ADD_TEST(
+    NAME model_georeference_test
+    SRCS model_georeference_test.cc
+    LINK_LIBS colmap_exe
+)
+
 set(COLMAP_MAIN_SRCS
     colmap.cc
     database.cc
@@ -90,6 +97,7 @@ set(COLMAP_MAIN_SRCS
     gui.cc
     image.cc
     model.cc
+    model_georeference.cc
     sfm.cc
     vocab_tree.cc
 )

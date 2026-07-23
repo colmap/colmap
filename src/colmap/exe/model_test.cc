@@ -226,7 +226,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
             1e-4);
   EXPECT_EQ(report.get<int>("alignment_random_seed"), 12345);
 
-  // D1: frame_contract.
+  // Frame contract.
   const auto& frame_contract = report.get_child("frame_contract");
   EXPECT_EQ(frame_contract.get<int>("schema_version"), 2);
   EXPECT_EQ(frame_contract.get<std::string>("geometry_frame"), "ENU_LOCAL");
@@ -270,7 +270,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
                 .norm(),
             1e-12);
 
-  // D2: post-alignment diagnostics and warnings. The fixture's positions are
+  // Post-alignment diagnostics and warnings. The fixture's positions are
   // well-spread and gravity priors match the ENU-aligned target orientation,
   // so neither warning should fire.
   EXPECT_TRUE(std::isfinite(
@@ -298,7 +298,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_TRUE(
       std::isfinite(warnings.get<double>("gravity_disagreement.value")));
 
-  // D3: position_inlier_ratio = 7/8 registered correspondences are inliers,
+  // Position inlier ratio: 7/8 registered correspondences are inliers,
   // above the 0.8 policy threshold, so the warning does not fire.
   EXPECT_EQ(warnings.get<double>("position_inlier_ratio.threshold"), 0.8);
   EXPECT_FALSE(warnings.get<bool>("position_inlier_ratio.fired"));
@@ -362,7 +362,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       (Inverse(ecef_from_child) * (ecef_from_child * probe) - probe).norm(),
       1e-12);
 
-  // D4: the same explicit --alignment_random_seed twice yields an identical
+  // The same explicit --alignment_random_seed twice yields an identical
   // transform; a different seed still succeeds (equality not required).
   const auto run_and_read_enu_from_sfm =
       [&](const std::string& seed,
@@ -733,7 +733,10 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
 
   const auto& consumer_profile = frame_contract.get_child("consumer_profile");
   EXPECT_EQ(consumer_profile.get<std::string>("name"), "LICHTFELD_COLMAP");
-  EXPECT_FALSE(consumer_profile.get<bool>("verified_against_installed_build"));
+  EXPECT_EQ(consumer_profile.get<int>("contract_version"), 1);
+  EXPECT_EQ(consumer_profile.get<std::string>("boundary"),
+            "DATA_TO_VISUALIZER_WORLD_AXES");
+  EXPECT_FALSE(consumer_profile.get<std::string>("source_reference").empty());
   EXPECT_EQ(consumer_profile.get<std::string>("visualizer_up_axis"), "Y");
 
   const auto parse_sim3 = [](const boost::property_tree::ptree& node) {
