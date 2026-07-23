@@ -95,7 +95,10 @@ struct SequentialPairingOptions {
   // when negative. Probes within the base `overlap` window are never gated
   // by this option, so GPS noise cannot break sequential walk continuity.
   // A probe with a missing or partial position prior on either image is
-  // never gated.
+  // never gated. The distance itself is a plain 3D Euclidean separation
+  // between the two images' metric positions (WGS84 priors are converted to
+  // ECEF first; Cartesian priors are compared as-is) -- not a horizontal-
+  // only or great-circle distance.
   double max_prior_distance = -1;
 
   // Whether to match an image against all images within the same rig frame
@@ -335,6 +338,10 @@ class SequentialPairGenerator : public PairGenerator {
 
   std::vector<std::pair<image_t, image_t>> Next() override;
 
+  // Number of quadratic-overlap probes vetoed by max_prior_distance since
+  // construction or the last Reset(), whichever is more recent.
+  int NumVetoedPairs() const { return num_vetoed_pairs_; }
+
  private:
   std::vector<image_t> GetOrderedImageIds() const;
 
@@ -355,6 +362,9 @@ class SequentialPairGenerator : public PairGenerator {
   // Metric (WGS84->ECEF or Cartesian) position per image with a usable
   // position prior; populated only when `options_.max_prior_distance >= 0`.
   NodeHashMap<image_t, Eigen::Vector3d> position_by_image_;
+  // Logged once in the destructor and reset by Reset(), so reusing a
+  // generator instance for a second pairing pass reports only that pass's
+  // count rather than an accumulated total across passes.
   int num_vetoed_pairs_ = 0;
 };
 

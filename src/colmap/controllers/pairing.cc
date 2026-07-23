@@ -499,6 +499,7 @@ SequentialPairGenerator::~SequentialPairGenerator() {
 
 void SequentialPairGenerator::Reset() {
   image_idx_ = 0;
+  num_vetoed_pairs_ = 0;
   if (vocab_tree_pair_generator_) {
     vocab_tree_pair_generator_->Reset();
   }

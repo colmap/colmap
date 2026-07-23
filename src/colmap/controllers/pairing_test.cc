@@ -337,6 +337,54 @@ TEST(SequentialPairGenerator, MaxPriorDistanceGatesQuadraticProbes) {
   EXPECT_THAT(ungated_pairs, testing::Contains(P(id(3), id(7))));
 }
 
+TEST(SequentialPairGenerator, ResetClearsVetoedPairCount) {
+  // Regression test: SequentialPairGenerator::Reset() previously left
+  // num_vetoed_pairs_ untouched, so reusing a generator instance for a
+  // second pairing pass would report a cumulative count (across both
+  // passes) rather than the latest pass's own count.
+  constexpr int kNumImages = 6;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  // Two well-separated clusters (0-1 near the origin, 2-5 ~1000m away) so
+  // every cross-cluster quadratic probe is vetoed. With overlap=3, the
+  // per-image quadratic offsets are 1, 2, 4 (Next()'s loop runs
+  // options_.overlap times with offset = 1 << i); only offset 4 exceeds
+  // `overlap` and is therefore gate-eligible, matching
+  // MaxPriorDistanceGatesQuadraticProbes above.
+  for (int i = 0; i < kNumImages; ++i) {
+    PosePrior pose_prior;
+    pose_prior.corr_data_id = images[i].DataId();
+    pose_prior.position = Eigen::Vector3d(i < 2 ? 0.0 : 1000.0, 0, 0);
+    database->WritePosePrior(pose_prior);
+  }
+
+  SequentialPairingOptions options;
+  options.overlap = 3;
+  options.quadratic_overlap = true;
+  options.max_prior_distance = 50;
+  SequentialPairGenerator generator(options, database);
+
+  EXPECT_EQ(generator.NumVetoedPairs(), 0);
+  const auto first_pass_pairs = generator.AllPairs();
+  const int vetoed_after_first_pass = generator.NumVetoedPairs();
+  ASSERT_GT(vetoed_after_first_pass, 0);
+  EXPECT_TRUE(generator.HasFinished());
+
+  generator.Reset();
+  EXPECT_EQ(generator.NumVetoedPairs(), 0)
+      << "Reset() must clear the vetoed-pair count so a reused generator "
+        "does not report a cumulative total across passes.";
+
+  const auto second_pass_pairs = generator.AllPairs();
+  EXPECT_EQ(generator.NumVetoedPairs(), vetoed_after_first_pass)
+      << "An identical second pass must veto the same number of pairs "
+        "again, not accumulate on top of the first pass's count.";
+  EXPECT_EQ(first_pass_pairs, second_pass_pairs);
+}
+
 TEST(SpatialPairGenerator, Nominal) {
   constexpr int kNumImages = 3;
   auto database = Database::Open(kInMemorySqliteDatabasePath);
