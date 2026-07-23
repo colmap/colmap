@@ -168,7 +168,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
         camera_ptr = &reconstruction_.Camera(camera_id);
         adapter = GetAdapter(camera_ptr->model_id);
         if (adapter) {
-          if (options_.refine_focal_length != options_.refine_extra_params &&
+          // Models with no focal/extra parameters (e.g. SPHERICAL) can never
+          // have variable intrinsics, regardless of the refine_* options.
+          const bool has_focal_and_extra = adapter->FocalAndExtraSize() > 0;
+          const bool has_principal_point = adapter->PrincipalPointSize() > 0;
+          if (has_focal_and_extra &&
+              options_.refine_focal_length != options_.refine_extra_params &&
               !config_.HasConstantCamIntrinsics(camera_id) &&
               !cameras_from_outside_config_.count(camera_id)) {
             LOG(FATAL_THROW)
@@ -176,8 +181,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
                 << ": refine_focal_length != refine_extra_params is not "
                    "supported by CASPAR's merged focal_and_extra block.";
           }
-          focal_and_extra = IsFocalAndExtraVariable(camera_id);
-          principal_point_var = IsPrincipalPointVariable(camera_id);
+          focal_and_extra =
+              has_focal_and_extra && IsFocalAndExtraVariable(camera_id);
+          principal_point_var =
+              has_principal_point && IsPrincipalPointVariable(camera_id);
           calib_idx = GetOrCreateCalibration(camera_id, *camera_ptr);
         }
         prev_camera_id = camera_id;
@@ -355,6 +362,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     vd.pixels.push_back(point2D.xy.x());
     vd.pixels.push_back(point2D.xy.y());
+
+    // Model-specific per-factor constants (e.g. SPHERICAL's (w, h)); no-op for
+    // models without them.
+    adapter.AppendConstFactorParams(camera, vd);
+
     ++vd.num_factors;
   }
 
@@ -856,6 +868,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
         it != num_poses_per_model_.end()) {
       sz.num_pinhole_poses = it->second;
     }
+    if (auto it = num_poses_per_model_.find(CameraModelId::kEquirectangular);
+        it != num_poses_per_model_.end()) {
+      sz.num_spherical_poses = it->second;
+    }
     auto get_md = [&](CameraModelId id) -> const ModelData* {
       auto it = model_data_per_model_.find(id);
       return it != model_data_per_model_.end() ? &it->second : nullptr;
@@ -874,6 +890,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
       sz.num_pinhole_calibs = get_n(CameraModelId::kPinhole);
       adapters_.at(CameraModelId::kPinhole)
           ->FillSizing(sz, *md, sz.num_pinhole_calibs);
+    }
+    if (const ModelData* md = get_md(CameraModelId::kEquirectangular)) {
+      // SPHERICAL has no calib pool; FillSizing only reads the factor counts.
+      adapters_.at(CameraModelId::kEquirectangular)
+          ->FillSizing(sz, *md, get_n(CameraModelId::kEquirectangular));
     }
     return sz;
   }

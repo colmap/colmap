@@ -54,6 +54,7 @@ class GraphSolver {
    * @param SimpleRadialPose_num_max the maximum number of SimpleRadialPoses
    * @param SimpleRadialPrincipalPoint_num_max the maximum number of
    * SimpleRadialPrincipalPoints
+   * @param SphericalPose_num_max the maximum number of SphericalPoses
    * @param simple_radial_num_max the maximum number of simple_radials
    * @param simple_radial_fixed_pose_num_max the maximum number of
    * simple_radial_fixed_poses
@@ -124,6 +125,11 @@ class GraphSolver {
    * @param pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max
    * the maximum number of
    * pinhole_split_fixed_focal_fixed_principal_point_fixed_points
+   * @param spherical_num_max the maximum number of sphericals
+   * @param spherical_fixed_pose_num_max the maximum number of
+   * spherical_fixed_poses
+   * @param spherical_fixed_point_num_max the maximum number of
+   * spherical_fixed_points
    */
   GraphSolver(
       const SolverParams<double>& params,
@@ -136,6 +142,7 @@ class GraphSolver {
       size_t SimpleRadialFocalAndExtra_num_max,
       size_t SimpleRadialPose_num_max,
       size_t SimpleRadialPrincipalPoint_num_max,
+      size_t SphericalPose_num_max,
       size_t simple_radial_num_max,
       size_t simple_radial_fixed_pose_num_max,
       size_t simple_radial_fixed_point_num_max,
@@ -172,6 +179,9 @@ class GraphSolver {
       size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
       size_t
           pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max,
+      size_t spherical_num_max,
+      size_t spherical_fixed_pose_num_max,
+      size_t spherical_fixed_point_num_max,
       int device_id = 0);
 
   // This class is managing cuda memory and cannot be copied.
@@ -639,6 +649,55 @@ class GraphSolver {
    * progress and can have performance impacts.
    */
   void SetSimpleRadialPrincipalPointNum(size_t num);
+
+  /**
+   * Set the current value for the SphericalPose nodes from the stacked host
+   * data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void SetSphericalPoseNodesFromStackedHost(const double* const data,
+                                            size_t offset,
+                                            size_t num);
+
+  /**
+   * Set the current value for the SphericalPose nodes from the stacked device
+   * data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void SetSphericalPoseNodesFromStackedDevice(const double* const data,
+                                              size_t offset,
+                                              size_t num);
+
+  /**
+   * Read the current value for the SphericalPose nodes into the stacked output
+   * host data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void GetSphericalPoseNodesToStackedHost(double* const data,
+                                          size_t offset,
+                                          size_t num);
+
+  /**
+   * Read the current value for the SphericalPose nodes into the stacked output
+   * device data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void GetSphericalPoseNodesToStackedDevice(double* const data,
+                                            size_t offset,
+                                            size_t num);
+
+  /**
+   * Set the current number of active nodes of type SphericalPose.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetSphericalPoseNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the SimpleRadial factor from
@@ -4066,6 +4125,298 @@ class GraphSolver {
    */
   void SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointNum(size_t num);
 
+  /**
+   * Set the indices for the pose argument for the Spherical factor from host.
+   */
+  void SetSphericalPoseIndicesFromHost(const unsigned int* const indices,
+                                       size_t num);
+
+  /**
+   * Set the indices for the pose argument for the Spherical factor from device.
+   */
+  void SetSphericalPoseIndicesFromDevice(const unsigned int* const indices,
+                                         size_t num);
+
+  /**
+   * Set the indices for the point argument for the Spherical factor from host.
+   */
+  void SetSphericalPointIndicesFromHost(const unsigned int* const indices,
+                                        size_t num);
+
+  /**
+   * Set the indices for the point argument for the Spherical factor from
+   * device.
+   */
+  void SetSphericalPointIndicesFromDevice(const unsigned int* const indices,
+                                          size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts Spherical factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalSensorFromRigDataFromStackedHost(const double* const data,
+                                                    size_t offset,
+                                                    size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts Spherical factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalSensorFromRigDataFromStackedDevice(const double* const data,
+                                                      size_t offset,
+                                                      size_t num);
+
+  /**
+   * Set the values for the wh consts Spherical factor from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalWhDataFromStackedHost(const double* const data,
+                                         size_t offset,
+                                         size_t num);
+
+  /**
+   * Set the values for the wh consts Spherical factor from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalWhDataFromStackedDevice(const double* const data,
+                                           size_t offset,
+                                           size_t num);
+
+  /**
+   * Set the values for the pixel consts Spherical factor from stacked host
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalPixelDataFromStackedHost(const double* const data,
+                                            size_t offset,
+                                            size_t num);
+
+  /**
+   * Set the values for the pixel consts Spherical factor from stacked device
+   * data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalPixelDataFromStackedDevice(const double* const data,
+                                              size_t offset,
+                                              size_t num);
+
+  /**
+   * Set the current number of Spherical factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetSphericalNum(size_t num);
+
+  /**
+   * Set the indices for the point argument for the SphericalFixedPose factor
+   * from host.
+   */
+  void SetSphericalFixedPosePointIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the SphericalFixedPose factor
+   * from device.
+   */
+  void SetSphericalFixedPosePointIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SphericalFixedPose factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPoseSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SphericalFixedPose factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPoseSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the wh consts SphericalFixedPose factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPoseWhDataFromStackedHost(const double* const data,
+                                                  size_t offset,
+                                                  size_t num);
+
+  /**
+   * Set the values for the wh consts SphericalFixedPose factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPoseWhDataFromStackedDevice(const double* const data,
+                                                    size_t offset,
+                                                    size_t num);
+
+  /**
+   * Set the values for the pixel consts SphericalFixedPose factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPosePixelDataFromStackedHost(const double* const data,
+                                                     size_t offset,
+                                                     size_t num);
+
+  /**
+   * Set the values for the pixel consts SphericalFixedPose factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPosePixelDataFromStackedDevice(const double* const data,
+                                                       size_t offset,
+                                                       size_t num);
+
+  /**
+   * Set the values for the pose consts SphericalFixedPose factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPosePoseDataFromStackedHost(const double* const data,
+                                                    size_t offset,
+                                                    size_t num);
+
+  /**
+   * Set the values for the pose consts SphericalFixedPose factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPosePoseDataFromStackedDevice(const double* const data,
+                                                      size_t offset,
+                                                      size_t num);
+
+  /**
+   * Set the current number of SphericalFixedPose factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetSphericalFixedPoseNum(size_t num);
+
+  /**
+   * Set the indices for the pose argument for the SphericalFixedPoint factor
+   * from host.
+   */
+  void SetSphericalFixedPointPoseIndicesFromHost(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the SphericalFixedPoint factor
+   * from device.
+   */
+  void SetSphericalFixedPointPoseIndicesFromDevice(
+      const unsigned int* const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SphericalFixedPoint factor
+   * from stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointSensorFromRigDataFromStackedHost(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts SphericalFixedPoint factor
+   * from stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointSensorFromRigDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the wh consts SphericalFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointWhDataFromStackedHost(const double* const data,
+                                                   size_t offset,
+                                                   size_t num);
+
+  /**
+   * Set the values for the wh consts SphericalFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointWhDataFromStackedDevice(const double* const data,
+                                                     size_t offset,
+                                                     size_t num);
+
+  /**
+   * Set the values for the pixel consts SphericalFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointPixelDataFromStackedHost(const double* const data,
+                                                      size_t offset,
+                                                      size_t num);
+
+  /**
+   * Set the values for the pixel consts SphericalFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointPixelDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the point consts SphericalFixedPoint factor from stacked
+   * host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointPointDataFromStackedHost(const double* const data,
+                                                      size_t offset,
+                                                      size_t num);
+
+  /**
+   * Set the values for the point consts SphericalFixedPoint factor from stacked
+   * device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void SetSphericalFixedPointPointDataFromStackedDevice(
+      const double* const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of SphericalFixedPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetSphericalFixedPointNum(size_t num);
+
  private:
   SolverParams<double> params_;
   int device_id_;
@@ -4099,6 +4450,8 @@ class GraphSolver {
   size_t SimpleRadialPose_num_max_;
   size_t SimpleRadialPrincipalPoint_num_;
   size_t SimpleRadialPrincipalPoint_num_max_;
+  size_t SphericalPose_num_;
+  size_t SphericalPose_num_max_;
   size_t simple_radial_num_;
   size_t simple_radial_num_max_;
   size_t simple_radial_fixed_pose_num_;
@@ -4166,6 +4519,12 @@ class GraphSolver {
   size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max_;
   size_t pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_;
   size_t pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_;
+  size_t spherical_num_;
+  size_t spherical_num_max_;
+  size_t spherical_fixed_pose_num_;
+  size_t spherical_fixed_pose_num_max_;
+  size_t spherical_fixed_point_num_;
+  size_t spherical_fixed_point_num_max_;
 
   size_t get_nbytes();
   double LinearizeFirst();
@@ -4214,6 +4573,9 @@ class GraphSolver {
   double* nodes__SimpleRadialPrincipalPoint__storage_current_;
   double* nodes__SimpleRadialPrincipalPoint__storage_check_;
   double* nodes__SimpleRadialPrincipalPoint__storage_new_best_;
+  double* nodes__SphericalPose__storage_current_;
+  double* nodes__SphericalPose__storage_check_;
+  double* nodes__SphericalPose__storage_new_best_;
   SharedIndex* facs__simple_radial__args__pose__idx_shared_;
   double* facs__simple_radial__args__sensor_from_rig__data_;
   SharedIndex* facs__simple_radial__args__calib__idx_shared_;
@@ -4506,6 +4868,21 @@ class GraphSolver {
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__principal_point__data_;
   double*
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__point__data_;
+  SharedIndex* facs__spherical__args__pose__idx_shared_;
+  double* facs__spherical__args__sensor_from_rig__data_;
+  double* facs__spherical__args__wh__data_;
+  SharedIndex* facs__spherical__args__point__idx_shared_;
+  double* facs__spherical__args__pixel__data_;
+  double* facs__spherical_fixed_pose__args__sensor_from_rig__data_;
+  double* facs__spherical_fixed_pose__args__wh__data_;
+  SharedIndex* facs__spherical_fixed_pose__args__point__idx_shared_;
+  double* facs__spherical_fixed_pose__args__pixel__data_;
+  double* facs__spherical_fixed_pose__args__pose__data_;
+  SharedIndex* facs__spherical_fixed_point__args__pose__idx_shared_;
+  double* facs__spherical_fixed_point__args__sensor_from_rig__data_;
+  double* facs__spherical_fixed_point__args__wh__data_;
+  double* facs__spherical_fixed_point__args__pixel__data_;
+  double* facs__spherical_fixed_point__args__point__data_;
   double* marker__scratch_inout_;
   double* facs__simple_radial__res_;
   double* facs__simple_radial_fixed_pose__res_;
@@ -4545,6 +4922,9 @@ class GraphSolver {
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__res_;
   double*
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__res_;
+  double* facs__spherical__res_;
+  double* facs__spherical_fixed_pose__res_;
+  double* facs__spherical_fixed_point__res_;
   double* facs__simple_radial__args__pose__jac_;
   double* facs__simple_radial__args__calib__jac_;
   double* facs__simple_radial__args__point__jac_;
@@ -4629,6 +5009,10 @@ class GraphSolver {
       facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__args__focal__jac_;
   double*
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__jac_;
+  double* facs__spherical__args__pose__jac_;
+  double* facs__spherical__args__point__jac_;
+  double* facs__spherical_fixed_pose__args__point__jac_;
+  double* facs__spherical_fixed_point__args__pose__jac_;
   double* nodes__PinholeCalib__z_;
   double* nodes__PinholeCalib__z_end__;
   double* nodes__PinholeFocal__z_;
@@ -4647,6 +5031,8 @@ class GraphSolver {
   double* nodes__SimpleRadialPose__z_end__;
   double* nodes__SimpleRadialPrincipalPoint__z_;
   double* nodes__SimpleRadialPrincipalPoint__z_end__;
+  double* nodes__SphericalPose__z_;
+  double* nodes__SphericalPose__z_end__;
   double* nodes__PinholeCalib__p_;
   double* nodes__PinholeCalib__p_end__;
   double* nodes__PinholeFocal__p_;
@@ -4665,6 +5051,8 @@ class GraphSolver {
   double* nodes__SimpleRadialPose__p_end__;
   double* nodes__SimpleRadialPrincipalPoint__p_;
   double* nodes__SimpleRadialPrincipalPoint__p_end__;
+  double* nodes__SphericalPose__p_;
+  double* nodes__SphericalPose__p_end__;
   double* nodes__PinholeCalib__step_;
   double* nodes__PinholeCalib__step_end__;
   double* nodes__PinholeFocal__step_;
@@ -4683,6 +5071,8 @@ class GraphSolver {
   double* nodes__SimpleRadialPose__step_end__;
   double* nodes__SimpleRadialPrincipalPoint__step_;
   double* nodes__SimpleRadialPrincipalPoint__step_end__;
+  double* nodes__SphericalPose__step_;
+  double* nodes__SphericalPose__step_end__;
   double* marker__w_start_;
   double* nodes__PinholeCalib__w_;
   double* nodes__PinholeFocal__w_;
@@ -4693,6 +5083,7 @@ class GraphSolver {
   double* nodes__SimpleRadialFocalAndExtra__w_;
   double* nodes__SimpleRadialPose__w_;
   double* nodes__SimpleRadialPrincipalPoint__w_;
+  double* nodes__SphericalPose__w_;
   double* marker__w_end_;
   double* marker__r_0_start_;
   double* nodes__PinholeCalib__r_0_;
@@ -4704,6 +5095,7 @@ class GraphSolver {
   double* nodes__SimpleRadialFocalAndExtra__r_0_;
   double* nodes__SimpleRadialPose__r_0_;
   double* nodes__SimpleRadialPrincipalPoint__r_0_;
+  double* nodes__SphericalPose__r_0_;
   double* marker__r_0_end_;
   double* marker__r_k_start_;
   double* nodes__PinholeCalib__r_k_;
@@ -4715,6 +5107,7 @@ class GraphSolver {
   double* nodes__SimpleRadialFocalAndExtra__r_k_;
   double* nodes__SimpleRadialPose__r_k_;
   double* nodes__SimpleRadialPrincipalPoint__r_k_;
+  double* nodes__SphericalPose__r_k_;
   double* marker__r_k_end_;
   double* marker__Mp_start_;
   double* nodes__PinholeCalib__Mp_;
@@ -4726,6 +5119,7 @@ class GraphSolver {
   double* nodes__SimpleRadialFocalAndExtra__Mp_;
   double* nodes__SimpleRadialPose__Mp_;
   double* nodes__SimpleRadialPrincipalPoint__Mp_;
+  double* nodes__SphericalPose__Mp_;
   double* marker__Mp_end_;
   double* marker__precond_start_;
   double* nodes__PinholeCalib__precond_diag_;
@@ -4746,6 +5140,8 @@ class GraphSolver {
   double* nodes__SimpleRadialPose__precond_tril_;
   double* nodes__SimpleRadialPrincipalPoint__precond_diag_;
   double* nodes__SimpleRadialPrincipalPoint__precond_tril_;
+  double* nodes__SphericalPose__precond_diag_;
+  double* nodes__SphericalPose__precond_tril_;
   double* marker__precond_end_;
   double* marker__jp_start_;
   double* facs__simple_radial__jp_;
@@ -4784,6 +5180,9 @@ class GraphSolver {
   double* facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__jp_;
   double*
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__jp_;
+  double* facs__spherical__jp_;
+  double* facs__spherical_fixed_pose__jp_;
+  double* facs__spherical_fixed_point__jp_;
   double* marker__jp_end_;
   double* solver__current_diag_;
   double* solver__alpha_numerator_;
