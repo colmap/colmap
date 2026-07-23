@@ -255,5 +255,90 @@ TEST(TinyFocalSampsonErrorCostFunctor, MatchesSquaredSampsonError) {
   }
 }
 
+TEST(TinyOneSidedFocalEpipolarErrorCostFunctor, MatchesEpipolarLineDistance) {
+  // Centered image points of the uncalibrated view and bearing rays of the
+  // calibrated view. The rays deliberately include one with z < 0, which no
+  // pinhole image plane could represent but a spherical camera observes.
+  const std::vector<Eigen::Vector2d> points1 = {
+      {120.0, -45.0}, {-200.0, 80.0}, {33.0, 210.0}};
+  const std::vector<Eigen::Vector3d> cam_rays2 = {
+      Eigen::Vector3d(0.08, -0.05, 1.0).normalized(),
+      Eigen::Vector3d(-0.9, 0.4, 0.2).normalized(),
+      Eigen::Vector3d(0.3, 0.7, -0.6).normalized()};
+
+  const TinyOneSidedFocalEpipolarErrorCostFunctor functor(points1, cam_rays2);
+
+  const Eigen::Quaterniond q0(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(0.3, -1.0, 0.5).normalized()));
+  const Eigen::Vector3d t0 = Eigen::Vector3d(1.0, -0.5, 2.0).normalized();
+  const Eigen::Quaterniond q1(
+      Eigen::AngleAxisd(0.25, Eigen::Vector3d(-0.6, 0.4, 1.0).normalized()));
+  const Eigen::Vector3d t1 = Eigen::Vector3d(-0.7, 1.1, 0.3).normalized();
+
+  const std::array<Eigen::Quaterniond, 2> quaternions = {q0, q1};
+  const std::array<Eigen::Vector3d, 2> translations = {t0, t1};
+  const std::array<double, 2> focals1 = {900.0, 1500.0};
+
+  for (size_t k = 0; k < quaternions.size(); ++k) {
+    const Eigen::Quaterniond q = quaternions[k].normalized();
+    const Eigen::Vector3d& t = translations[k];
+    const double focal1 = focals1[k];
+    double params[8] = {
+        q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z(), std::log(focal1)};
+
+    std::vector<double> residuals(points1.size());
+    ASSERT_TRUE(functor(params, residuals.data()));
+
+    // Independent reference: build M = E * K1inv explicitly and compute the
+    // distance from each point to its epipolar line in first-view pixels.
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(Rigid3d(q, t));
+    const Eigen::DiagonalMatrix<double, 3> K1_inv(
+        1.0 / focal1, 1.0 / focal1, 1.0);
+    const Eigen::Matrix3d M = E * K1_inv;
+
+    for (size_t i = 0; i < points1.size(); ++i) {
+      const Eigen::Vector3d line1 = M.transpose() * cam_rays2[i];
+      const double expected = cam_rays2[i].dot(M * points1[i].homogeneous()) /
+                              line1.head<2>().norm();
+      EXPECT_NEAR(residuals[i], expected, 1e-9);
+    }
+  }
+}
+
+// The residual is a true distance in first-view pixels: displacing a point by a
+// known amount perpendicular to its epipolar line changes it by that amount.
+TEST(TinyOneSidedFocalEpipolarErrorCostFunctor, ResidualIsInFirstViewPixels) {
+  const double focal1 = 900.0;
+  const Eigen::Quaterniond q(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(0.3, -1.0, 0.5).normalized()));
+  const Eigen::Vector3d t = Eigen::Vector3d(1.0, -0.5, 2.0).normalized();
+  double params[8] = {
+      q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z(), std::log(focal1)};
+
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(Rigid3d(q, t));
+  const Eigen::Matrix3d M =
+      E * Eigen::DiagonalMatrix<double, 3>(1.0 / focal1, 1.0 / focal1, 1.0);
+
+  // A point exactly on its epipolar line, then shifted perpendicular to it.
+  const Eigen::Vector3d cam_ray2 =
+      Eigen::Vector3d(0.08, -0.05, 1.0).normalized();
+  const Eigen::Vector3d line1 = M.transpose() * cam_ray2;
+  Eigen::Vector2d point1(120.0, -45.0);
+  point1 -= line1.head<2>().normalized() *
+            (cam_ray2.dot(M * point1.homogeneous()) / line1.head<2>().norm());
+
+  constexpr double kOffsetPixels = 2.5;
+  const std::vector<Eigen::Vector2d> points1 = {
+      point1, point1 + kOffsetPixels * line1.head<2>().normalized()};
+  const std::vector<Eigen::Vector3d> cam_rays2 = {cam_ray2, cam_ray2};
+
+  const TinyOneSidedFocalEpipolarErrorCostFunctor functor(points1, cam_rays2);
+  std::vector<double> residuals(points1.size());
+  ASSERT_TRUE(functor(params, residuals.data()));
+
+  EXPECT_NEAR(std::abs(residuals[0]), 0.0, 1e-9);
+  EXPECT_NEAR(std::abs(residuals[1]), kOffsetPixels, 1e-9);
+}
+
 }  // namespace
 }  // namespace colmap

@@ -38,11 +38,12 @@ export function imageFile(imageId = 2, cameraId = 1, pointId = 42n): File {
     .file("images.bin");
 }
 
-export function pointFile(imageId = 2, pointId = 42n): File {
-  return new BinaryWriter().u64(1).u64(pointId)
+export function pointFile(imageId = 2, pointId = 42n, trackLength = 1): File {
+  const writer = new BinaryWriter().u64(1).u64(pointId)
     .f64(1).f64(2).f64(3).u8(10).u8(20).u8(30).f64(0.25)
-    .u64(1).u32(imageId).u32(0)
-    .file("points3D.bin");
+    .u64(trackLength);
+  for (let i = 0; i < trackLength; ++i) writer.u32(imageId).u32(0);
+  return writer.file("points3D.bin");
 }
 
 export function modernRigFiles(cameraId = 2, imageId = 2): [File, File] {
