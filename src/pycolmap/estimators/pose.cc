@@ -274,8 +274,10 @@ void BindAbsolutePoseEstimator(py::module& m) {
       "points2D2"_a,
       py::arg_v("options", RANSACOptions(), "RANSACOptions()"),
       "Robustly estimate relative pose from 2D-2D correspondences (given as "
-      "camera + image points) using LO-RANSAC with the tangent Sampson error, "
-      "without non-linear refinement.");
+      "camera + image points) using LO-RANSAC with the tangent Sampson error. "
+      "Local optimization non-linearly refines that error over the current "
+      "inlier set, but the returned pose receives no final refinement over its "
+      "own inliers; use refine_relative_pose for that.");
   m.def("refine_relative_pose",
         &PyRefineRelativePose,
         "cam2_from_cam1"_a,

@@ -116,13 +116,11 @@ GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
 
     auto& point1 = problem.points1.emplace_back();
     point1.cam_from_rig = cams_from_rig1[cam_idx1];
-    point1.ray_in_cam = ray1_with_jac.ray;
-    point1.ray_jacobian_in_cam = ray1_with_jac.jacobian;
+    point1.ray_with_jac_in_cam = ray1_with_jac;
 
     auto& point2 = problem.points2.emplace_back();
     point2.cam_from_rig = cams_from_rig2[cam_idx2];
-    point2.ray_in_cam = ray2_with_jac.ray;
-    point2.ray_jacobian_in_cam = ray2_with_jac.jacobian;
+    point2.ray_with_jac_in_cam = ray2_with_jac;
   }
 
   return problem;

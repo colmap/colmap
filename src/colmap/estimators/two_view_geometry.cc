@@ -55,18 +55,6 @@
 namespace colmap {
 namespace {
 
-// Unproject a point to a unit bearing together with the Jacobian of that
-// bearing with respect to the pixel, mapping failures to a zeroed entry.
-//
-// A zero ray and Jacobian yield a zero tangent Sampson numerator *and*
-// denominator, which ComputeSquaredTangentSampsonError reports as an infinite
-// residual. Unprojectable or degenerate points are therefore rejected outright
-// rather than scoring as spuriously good correspondences.
-CamRayWithJac CamRayWithJacOrZero(const Camera& camera,
-                                  const Eigen::Vector2d& point) {
-  return camera.CamRayFromImgWithJac(point).value_or(CamRayWithJac::Zero());
-}
-
 using FundamentalMatrixReport =
     LORANSAC<FundamentalMatrixSevenPointEstimator,
              FundamentalMatrixEightPointEstimator>::Report;
@@ -376,8 +364,10 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
-    matched_cam_rays1_with_jac[i] = CamRayWithJacOrZero(camera1, points1[idx1]);
-    matched_cam_rays2_with_jac[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
+    matched_cam_rays1_with_jac[i] = camera1.CamRayFromImgWithJac(points1[idx1])
+                                        .value_or(CamRayWithJac::Zero());
+    matched_cam_rays2_with_jac[i] = camera2.CamRayFromImgWithJac(points2[idx2])
+                                        .value_or(CamRayWithJac::Zero());
   }
 
   // Only the bearing-based essential matrix is meaningful: the fundamental
@@ -896,8 +886,10 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
-    matched_cam_rays1_with_jac[i] = CamRayWithJacOrZero(camera1, points1[idx1]);
-    matched_cam_rays2_with_jac[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
+    matched_cam_rays1_with_jac[i] = camera1.CamRayFromImgWithJac(points1[idx1])
+                                        .value_or(CamRayWithJac::Zero());
+    matched_cam_rays2_with_jac[i] = camera2.CamRayFromImgWithJac(points2[idx2])
+                                        .value_or(CamRayWithJac::Zero());
   }
 
   // Estimate epipolar models.
@@ -1249,7 +1241,8 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
     matched_centered_points1[i] = points1[idx1] - principal_point1;
-    matched_cam_rays2_with_jac[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
+    matched_cam_rays2_with_jac[i] = camera2.CamRayFromImgWithJac(points2[idx2])
+                                        .value_or(CamRayWithJac::Zero());
   }
 
   auto ransac_options = options.ransac_options;
@@ -1479,9 +1472,11 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
   std::vector<CamRayWithJac> matched_cam_rays2_with_jac(num_matches);
   for (size_t i = 0; i < num_matches; ++i) {
     matched_cam_rays1_with_jac[i] =
-        CamRayWithJacOrZero(camera1, points1[matches[i].point2D_idx1]);
+        camera1.CamRayFromImgWithJac(points1[matches[i].point2D_idx1])
+            .value_or(CamRayWithJac::Zero());
     matched_cam_rays2_with_jac[i] =
-        CamRayWithJacOrZero(camera2, points2[matches[i].point2D_idx2]);
+        camera2.CamRayFromImgWithJac(points2[matches[i].point2D_idx2])
+            .value_or(CamRayWithJac::Zero());
   }
 
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
