@@ -462,8 +462,11 @@ class FeatureExtractorController : public Thread {
           break;
         case FeatureExtractorType::ALIKED_N16ROT:
         case FeatureExtractorType::ALIKED_N32:
+        case FeatureExtractorType::LOMA_B:
           // Use a single extractor with parallelization per image because
-          // ALIKED requires a lot of RAM per extractor and would otherwise OOM.
+          // ALIKED/LoMa require a lot of RAM per extractor (LoMa's DeDoDe-G
+          // descriptor graph alone is ~1.3GB) and would otherwise OOM with
+          // one extractor instance per CPU thread.
           num_extractors = 1;
           worker_extraction_options.num_threads = num_threads;
           break;
