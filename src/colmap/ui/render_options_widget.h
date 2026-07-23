@@ -62,6 +62,10 @@ class RenderOptionsWidget : public OptionsWidget {
   void SelectPointColormap(int idx);
   void SelectImageColormap(int idx);
 
+  // Log the model's per-image reprojection-error range and the current color
+  // scale, so the reprojection-error colormap maps to concrete numbers.
+  void LogReprojectionErrorScale();
+
   void IncreasePointSize();
   void DecreasePointSize();
   void IncreaseCameraSize();
@@ -90,6 +94,9 @@ class RenderOptionsWidget : public OptionsWidget {
   Eigen::Vector4f image_plane_color_;
   Eigen::Vector4f image_frame_color_;
   ImageColormapNameFilter image_colormap_name_filter_;
+  // Upper bound (px) of the absolute scale for the reprojection-error image
+  // colormap: errors at/above this map to red.
+  double image_colormap_max_error_;
 };
 
 }  // namespace colmap
