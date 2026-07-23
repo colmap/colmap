@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/feature/sift.h"
+#include "colmap/retrieval/global_descriptor_model.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
 #endif
@@ -74,6 +75,15 @@ class SequentialMatchingTab : public FeatureMatchingTab {
  public:
   SequentialMatchingTab(QWidget* parent, OptionManager* options);
   void Run() override;
+
+ private:
+  void UpdateLoopDetectionFields();
+  QComboBox* loop_detection_type_cb_;
+  // Rows added via AddOptionFilePath; we track the grid row of the lineEdit
+  // so we can hide the label (row, col 0), lineEdit (row, col 1), and
+  // button (row+1, col 1) together.
+  int vocab_tree_grid_row_ = -1;
+  int global_descriptor_grid_row_ = -1;
 };
 
 class VocabTreeMatchingTab : public FeatureMatchingTab {
@@ -81,6 +91,19 @@ class VocabTreeMatchingTab : public FeatureMatchingTab {
   VocabTreeMatchingTab(QWidget* parent, OptionManager* options);
   void Run() override;
 };
+
+#ifdef COLMAP_ONNX_ENABLED
+class GlobalDescriptorMatchingTab : public FeatureMatchingTab {
+ public:
+  GlobalDescriptorMatchingTab(QWidget* parent, OptionManager* options);
+  void Run() override;
+
+ private:
+  void OnModelTypeChanged(int index);
+  QComboBox* model_type_cb_;
+  QLineEdit* model_path_edit_ = nullptr;
+};
+#endif  // COLMAP_ONNX_ENABLED
 
 class SpatialMatchingTab : public FeatureMatchingTab {
  public:
@@ -244,8 +267,37 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
                                 "overlap");
   options_widget_->AddOptionBool(
       &options_->sequential_pairing->quadratic_overlap, "quadratic_overlap");
-  options_widget_->AddOptionBool(&options_->sequential_pairing->loop_detection,
-                                 "loop_detection");
+
+  // Loop detection type selector.
+  loop_detection_type_cb_ = new QComboBox(this);
+  loop_detection_type_cb_->addItem("None");             // 0
+  loop_detection_type_cb_->addItem("Vocabulary Tree");  // 1
+#ifdef COLMAP_ONNX_ENABLED
+  loop_detection_type_cb_->addItem("MixVPR");           // 2
+  loop_detection_type_cb_->addItem("MegaLoc");           // 3
+#endif
+  options_widget_->AddWidgetRow("Loop detection", loop_detection_type_cb_);
+
+  // Use standard AddOptionFilePath for both path types — identical height,
+  // no layout jump when swapping.  We track the grid row of each lineEdit
+  // so we can hide the entire row (label + lineEdit + button) together
+  // via the QGridLayout.
+  if (QGridLayout* grid = options_widget_->findChild<QGridLayout*>()) {
+    // Vocab tree path.
+    vocab_tree_grid_row_ = grid->rowCount();
+    options_widget_->AddOptionFilePath(
+        &options_->sequential_pairing->vocab_tree_path, "Vocab tree path");
+
+    // MixVPR/MegaLoc model path (ONNX only).
+#ifdef COLMAP_ONNX_ENABLED
+    global_descriptor_grid_row_ = grid->rowCount();
+    options_widget_->AddOptionFilePath(
+        &options_->sequential_pairing->loop_detection_model_path,
+        "Model path (ONNX, optional)");
+#endif
+  }
+
+  // General loop detection parameters (visible when any type is selected).
   options_widget_->AddOptionInt(
       &options_->sequential_pairing->loop_detection_period,
       "loop_detection_period");
@@ -268,23 +320,109 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
       &options_->sequential_pairing->loop_detection_max_num_features,
       "loop_detection_max_num_features",
       -1);
-  options_widget_->AddOptionFilePath(
-      &options_->sequential_pairing->vocab_tree_path, "vocab_tree_path");
+
+  connect(loop_detection_type_cb_,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this,
+          &SequentialMatchingTab::UpdateLoopDetectionFields);
 
   CreateGeneralOptions();
+
+  // Apply initial state: combo defaults to "None", hide both path rows.
+  UpdateLoopDetectionFields();
+}
+
+void SequentialMatchingTab::UpdateLoopDetectionFields() {
+  QGridLayout* grid = options_widget_->findChild<QGridLayout*>();
+  if (!grid) return;
+
+  const int idx = loop_detection_type_cb_->currentIndex();
+
+  // Helper: hide or show every widget in the two grid rows occupied by
+  // one AddOptionFilePath call (label at row, lineEdit at row, button at
+  // row+1).
+  auto SetRowVisible = [grid](int row, bool visible) {
+    for (int r = row; r <= row + 1; ++r) {
+      for (int c = 0; c < 2; ++c) {
+        QLayoutItem* item = grid->itemAtPosition(r, c);
+        if (item && item->widget()) {
+          item->widget()->setVisible(visible);
+        }
+      }
+    }
+  };
+
+  // 0 = None, 1 = Vocab Tree, 2+ = global descriptor (MixVPR / MegaLoc / ...)
+  SetRowVisible(vocab_tree_grid_row_, idx == 1);
+#ifdef COLMAP_ONNX_ENABLED
+  SetRowVisible(global_descriptor_grid_row_, idx >= 2);
+#endif
 }
 
 void SequentialMatchingTab::Run() {
   WriteOptions();
 
-  // An empty path is valid: the matcher then resolves the default vocabulary
-  // tree for the database's feature type via GetVocabTreeUriForFeatureType.
-  if (options_->sequential_pairing->loop_detection &&
-      !options_->sequential_pairing->vocab_tree_path.empty() &&
-      !ExistsFile(options_->sequential_pairing->vocab_tree_path) &&
-      !IsURI(options_->sequential_pairing->vocab_tree_path.string())) {
-    QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
-    return;
+  // Sync loop detection state from combo box.
+  const int idx = loop_detection_type_cb_->currentIndex();
+  options_->sequential_pairing->loop_detection = (idx != 0);
+  if (idx == 1) {
+    // Vocab Tree: clear global descriptor paths.
+    options_->sequential_pairing->loop_detection_model_path.clear();
+  }
+#ifdef COLMAP_ONNX_ENABLED
+  else if (idx >= 2) {
+    // Global descriptor: clear vocab tree path, set model type from combo.
+    options_->sequential_pairing->vocab_tree_path.clear();
+    options_->sequential_pairing->loop_detection_model_type =
+        loop_detection_type_cb_->currentText().toStdString();
+    options_->sequential_pairing->loop_detection_database_path =
+        *options_->database_path;
+  }
+#endif
+
+  if (options_->sequential_pairing->loop_detection) {
+#ifdef COLMAP_ONNX_ENABLED
+    if (idx >= 2) {
+      // Auto-derive image_path from the project.
+      options_->sequential_pairing->loop_detection_image_path =
+          *options_->image_path;
+      if (options_->sequential_pairing->loop_detection_image_path.empty() ||
+          !ExistsDir(
+              options_->sequential_pairing->loop_detection_image_path)) {
+        QMessageBox::critical(
+            this, "",
+            tr("Image path is not set or does not exist.\n\n"
+               "For %1 loop detection, the image folder must be "
+               "configured in the project settings (File > New Project).\n\n"
+               "Current path: %2")
+                .arg(loop_detection_type_cb_->currentText(),
+                     QString::fromStdString(
+                         options_->sequential_pairing
+                             ->loop_detection_image_path.string())));
+        return;
+      }
+      const auto& model_path =
+          options_->sequential_pairing->loop_detection_model_path;
+      if (!model_path.empty() && !ExistsFile(model_path) &&
+          !IsURI(model_path.string())) {
+        QMessageBox::critical(
+            this, "",
+            tr("Invalid %1 model path. Leave empty for "
+               "auto-download, or provide a valid local file.")
+                .arg(loop_detection_type_cb_->currentText()));
+        return;
+      }
+    } else
+#endif
+    {
+      const auto& tree_path =
+          options_->sequential_pairing->vocab_tree_path;
+      if (!tree_path.empty() && !ExistsFile(tree_path) &&
+          !IsURI(tree_path.string())) {
+        QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+        return;
+      }
+    }
   }
 
   auto matcher = CreateSequentialFeatureMatcher(*options_->sequential_pairing,
@@ -334,6 +472,85 @@ void VocabTreeMatchingTab::Run() {
                                                *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
+
+#ifdef COLMAP_ONNX_ENABLED
+GlobalDescriptorMatchingTab::GlobalDescriptorMatchingTab(
+    QWidget* parent, OptionManager* options)
+    : FeatureMatchingTab(parent, options) {
+  // Model type selector — populated from GlobalDescriptorModel registry.
+  model_type_cb_ = new QComboBox(this);
+  for (auto name : retrieval::GlobalDescriptorModel::ModelNames()) {
+    model_type_cb_->addItem(QString::fromStdString(std::string(name)));
+  }
+  options_widget_->AddWidgetRow("Type", model_type_cb_);
+
+  options_widget_->AddOptionInt(
+      &options_->global_descriptor_pairing->num_images, "num_images");
+  options_widget_->AddOptionInt(
+      &options_->global_descriptor_pairing->batch_size, "batch_size", 1);
+  model_path_edit_ = options_widget_->AddOptionFilePath(
+      &options_->global_descriptor_pairing->model_path,
+      "Model path<br>(ONNX, optional)");
+
+  connect(model_type_cb_,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this,
+          &GlobalDescriptorMatchingTab::OnModelTypeChanged);
+
+  // If model_path is empty, populate with the default for the current type.
+  if (options_->global_descriptor_pairing->model_path.empty()) {
+    OnModelTypeChanged(model_type_cb_->currentIndex());
+  }
+
+  CreateGeneralOptions();
+}
+
+void GlobalDescriptorMatchingTab::OnModelTypeChanged(int index) {
+  // Set model_type and clear model_path (auto-download from registry).
+  const QString name = model_type_cb_->itemText(index);
+  options_->global_descriptor_pairing->model_type = name.toStdString();
+  options_->global_descriptor_pairing->model_path.clear();
+
+  if (model_path_edit_) {
+    model_path_edit_->setText(QString());
+  }
+}
+
+void GlobalDescriptorMatchingTab::Run() {
+  WriteOptions();
+
+  // Auto-derive paths from the project.
+  options_->global_descriptor_pairing->image_path = *options_->image_path;
+  options_->global_descriptor_pairing->database_path =
+      *options_->database_path;
+
+  const auto& model_path =
+      options_->global_descriptor_pairing->model_path;
+  // Empty path is valid: auto-download from HuggingFace.
+  if (!model_path.empty() && !ExistsFile(model_path) &&
+      !IsURI(model_path.string())) {
+    QMessageBox::critical(
+        this, "",
+        tr("Invalid global descriptor model path. Leave empty for "
+           "auto-download, or provide a valid local file or URL."));
+    return;
+  }
+
+  if (options_->global_descriptor_pairing->image_path.empty()) {
+    QMessageBox::critical(
+        this, "",
+        tr("Image path not set. Please set it in the project options."));
+    return;
+  }
+
+  auto matcher = CreateGlobalDescriptorFeatureMatcher(
+      *options_->global_descriptor_pairing,
+      *options_->feature_matching,
+      *options_->two_view_geometry,
+      *options_->database_path);
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+}
+#endif  // COLMAP_ONNX_ENABLED
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
@@ -447,6 +664,10 @@ FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
   tab_widget_->addTab(new SequentialMatchingTab(this, options),
                       tr("Sequential"));
   tab_widget_->addTab(new VocabTreeMatchingTab(this, options), tr("VocabTree"));
+#ifdef COLMAP_ONNX_ENABLED
+  tab_widget_->addTab(new GlobalDescriptorMatchingTab(this, options),
+                      tr("GlobalDescriptor"));
+#endif
   tab_widget_->addTab(new SpatialMatchingTab(this, options), tr("Spatial"));
   tab_widget_->addTab(new TransitiveMatchingTab(this, options),
                       tr("Transitive"));

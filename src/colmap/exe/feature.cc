@@ -278,10 +278,19 @@ int RunMatchesImporter(int argc, char** argv) {
 int RunSequentialMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
+  options.AddImageOptions();
   options.AddSequentialPairingOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
+
+  // Forward project paths to sequential loop detection.
+  if (!options.image_path->empty()) {
+    options.sequential_pairing->loop_detection_image_path =
+        *options.image_path;
+  }
+  options.sequential_pairing->loop_detection_database_path =
+      *options.database_path;
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->RequiresOpenGL()) {
@@ -376,6 +385,42 @@ int RunVocabTreeMatcher(int argc, char** argv) {
                                                *options.feature_matching,
                                                *options.two_view_geometry,
                                                *options.database_path);
+
+  if (app != nullptr) {
+    RunThreadWithOpenGLContext(matcher.get());
+  } else {
+    matcher->Start();
+    matcher->Wait();
+  }
+
+  return EXIT_SUCCESS;
+}
+
+int RunGlobalDescriptorMatcher(int argc, char** argv) {
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddFeatureMatchingOptions();
+  options.AddTwoViewGeometryOptions();
+  options.AddGlobalDescriptorPairingOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  // Forward project paths to pairing options.
+  options.global_descriptor_pairing->image_path = *options.image_path;
+  options.global_descriptor_pairing->database_path = *options.database_path;
+
+  std::unique_ptr<QApplication> app;
+  if (options.feature_matching->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
+  }
+
+  auto matcher = CreateGlobalDescriptorFeatureMatcher(
+      *options.global_descriptor_pairing,
+      *options.feature_matching,
+      *options.two_view_geometry,
+      *options.database_path);
 
   if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());

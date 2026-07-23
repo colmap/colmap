@@ -155,6 +155,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("view_graph_calibrator",
                         &colmap::RunViewGraphCalibrator);
   commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
+  commands.emplace_back("global_descriptor_matcher",
+                        &colmap::RunGlobalDescriptorMatcher);
   commands.emplace_back("vocab_tree_matcher", &colmap::RunVocabTreeMatcher);
   commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);
 

@@ -31,6 +31,7 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/retrieval/global_descriptor_model.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
@@ -38,11 +39,16 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
+#ifdef COLMAP_ONNX_ENABLED
+#include "colmap/feature/onnx_utils.h"
+#endif
+
 #include <fstream>
 #include <vector>
 
 #include <faiss/IndexFlat.h>
 #include <omp.h>
+
 
 namespace colmap {
 namespace {
@@ -130,6 +136,20 @@ VocabTreePairingOptions SequentialPairingOptions::VocabTreeOptions() const {
       loop_detection_num_images_after_verification;
   options.max_num_features = loop_detection_max_num_features;
   options.vocab_tree_path = vocab_tree_path;
+  options.num_threads = num_threads;
+  return options;
+}
+
+GlobalDescriptorPairingOptions
+SequentialPairingOptions::GlobalDescriptorOptions() const {
+  GlobalDescriptorPairingOptions options;
+  options.num_images = loop_detection_num_images;
+  options.model_type = loop_detection_model_type.empty()
+                           ? "MixVPR"
+                           : loop_detection_model_type;
+  options.model_path = loop_detection_model_path;
+  options.image_path = loop_detection_image_path;
+  options.database_path = loop_detection_database_path;
   options.num_threads = num_threads;
   return options;
 }
@@ -433,8 +453,19 @@ SequentialPairGenerator::SequentialPairGenerator(
          i += options_.loop_detection_period) {
       query_image_ids.push_back(image_ids_[i]);
     }
-    vocab_tree_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
-        options_.VocabTreeOptions(), cache_, query_image_ids);
+    // Vocab tree path is cleared by the GUI/CLI when MixVPR is selected,
+    // and vice-versa.  If vocab_tree_path is empty the user chose global
+    // descriptor mode (model_path may be empty = auto-download).
+    if (options_.vocab_tree_path.empty()) {
+      LOG(INFO) << "Using global descriptor for loop detection";
+      loop_detection_pair_generator_ =
+          std::make_unique<GlobalDescriptorPairGenerator>(
+              options_.GlobalDescriptorOptions(), cache_, query_image_ids);
+    } else {
+      loop_detection_pair_generator_ =
+          std::make_unique<VocabTreePairGenerator>(
+              options_.VocabTreeOptions(), cache_, query_image_ids);
+    }
   }
 
   if (options_.expand_rig_images) {
@@ -462,22 +493,22 @@ SequentialPairGenerator::SequentialPairGenerator(
 
 void SequentialPairGenerator::Reset() {
   image_idx_ = 0;
-  if (vocab_tree_pair_generator_) {
-    vocab_tree_pair_generator_->Reset();
+  if (loop_detection_pair_generator_) {
+    loop_detection_pair_generator_->Reset();
   }
 }
 
 bool SequentialPairGenerator::HasFinished() const {
   return image_idx_ >= image_ids_.size() &&
-         (vocab_tree_pair_generator_ ? vocab_tree_pair_generator_->HasFinished()
+         (loop_detection_pair_generator_ ? loop_detection_pair_generator_->HasFinished()
                                      : true);
 }
 
 std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
   image_pairs_.clear();
   if (image_idx_ >= image_ids_.size()) {
-    if (vocab_tree_pair_generator_) {
-      return vocab_tree_pair_generator_->Next();
+    if (loop_detection_pair_generator_) {
+      return loop_detection_pair_generator_->Next();
     }
     return image_pairs_;
   }
@@ -916,6 +947,354 @@ std::vector<std::pair<image_t, image_t>> ExistingMatchedPairGenerator::Next() {
   start_idx_ = end_idx;
 
   return batch;
+}
+
+// ---------------------------------------------------------------------------
+// GlobalDescriptorPairGenerator
+// ---------------------------------------------------------------------------
+
+bool GlobalDescriptorPairingOptions::Check() const {
+  CHECK_OPTION_GT(num_images, 0);
+  CHECK_OPTION_GT(batch_size, 0);
+  return true;
+}
+
+GlobalDescriptorPairGenerator::GlobalDescriptorPairGenerator(
+    const GlobalDescriptorPairingOptions& options,
+    const std::shared_ptr<FeatureMatcherCache>& cache,
+    const std::vector<image_t>& query_image_ids)
+    : options_(options)
+    , cache_(THROW_CHECK_NOTNULL(cache))
+    , global_descriptor_index_(4096) {
+  THROW_CHECK(options.Check());
+  LOG(INFO) << "Generating image pairs with global descriptors...";
+
+  const std::vector<image_t> all_image_ids = cache_->GetImageIds();
+  if (query_image_ids.size() > 0) {
+    query_image_ids_ = query_image_ids;
+  } else if (options_.match_list_path.empty()) {
+    query_image_ids_ = cache_->GetImageIds();
+  } else {
+    // Map image names to image identifiers.
+    NodeHashMap<std::string, image_t> image_name_to_image_id;
+    image_name_to_image_id.reserve(all_image_ids.size());
+    for (const auto image_id : all_image_ids) {
+      const auto& image = cache_->GetImage(image_id);
+      image_name_to_image_id.emplace(image.Name(), image_id);
+    }
+
+    // Read the match list path.
+    std::ifstream file(options_.match_list_path);
+    THROW_CHECK_FILE_OPEN(file, options_.match_list_path);
+    std::string line;
+    while (std::getline(file, line)) {
+      StringTrim(&line);
+      if (line.empty() || line[0] == '#') continue;
+      if (image_name_to_image_id.count(line) == 0) {
+        LOG(ERROR) << "Image " << line << " does not exist.";
+      } else {
+        query_image_ids_.push_back(image_name_to_image_id.at(line));
+      }
+    }
+  }
+
+  ComputeAndIndexDescriptors();
+
+  // Pre-compute all image pairs by querying each query image against the index.
+  LOG(INFO) << "Computing image pairs for " << query_image_ids_.size()
+            << " query images...";
+  retrieval::GlobalDescriptorIndex::QueryOptions query_opts;
+  query_opts.max_num_images = options_.num_images;
+
+  FlatHashSet<image_pair_t> seen_pairs;
+  for (size_t i = 0; i < query_image_ids_.size(); ++i) {
+    const image_t query_id = query_image_ids_[i];
+    std::vector<retrieval::ImageScore> scores;
+    global_descriptor_index_.Query(query_opts, query_id, &scores);
+
+    for (const auto& score : scores) {
+      const image_pair_t pair_id =
+          ImagePairToPairId(query_id, score.image_id);
+      if (seen_pairs.insert(pair_id).second) {
+        image_pairs_.emplace_back(query_id, score.image_id);
+      }
+    }
+  }
+
+  LOG(INFO) << "Generated " << image_pairs_.size() << " image pairs from "
+            << query_image_ids_.size() << " query images.";
+}
+
+GlobalDescriptorPairGenerator::GlobalDescriptorPairGenerator(
+    const GlobalDescriptorPairingOptions& options,
+    const std::shared_ptr<Database>& database,
+    const std::vector<image_t>& query_image_ids)
+    : GlobalDescriptorPairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(database)),
+          query_image_ids) {}
+
+void GlobalDescriptorPairGenerator::Reset() { pair_idx_ = 0; }
+
+bool GlobalDescriptorPairGenerator::HasFinished() const {
+  return pair_idx_ >= image_pairs_.size();
+}
+
+std::vector<std::pair<image_t, image_t>>
+GlobalDescriptorPairGenerator::Next() {
+  if (HasFinished()) {
+    return {};
+  }
+
+  const size_t end_idx =
+      std::min(pair_idx_ + static_cast<size_t>(options_.num_images),
+               image_pairs_.size());
+
+  LOG(INFO) << StringPrintf(
+      "Processing pairs [%d/%d]",
+      pair_idx_ + 1,
+      image_pairs_.size());
+
+  std::vector<std::pair<image_t, image_t>> batch;
+  batch.reserve(end_idx - pair_idx_);
+  for (size_t i = pair_idx_; i < end_idx; ++i) {
+    batch.push_back(image_pairs_[i]);
+  }
+  pair_idx_ = end_idx;
+  return batch;
+}
+
+// static
+std::vector<float> GlobalDescriptorPairGenerator::PreprocessImage(
+    const Bitmap& bitmap,
+    const retrieval::GlobalDescriptorModel& model) {
+  // Input: RGB bitmap. Output: float32 NCHW tensor normalized per model config.
+  const int input_w =
+      model.input_width > 0 ? model.input_width : bitmap.Width();
+  const int input_h =
+      model.input_height > 0 ? model.input_height : bitmap.Height();
+  const int kChannels = 3;
+
+  // Caller reads as RGB; clone only if we need to resize.
+  Bitmap resized;
+  if (bitmap.Width() != input_w || bitmap.Height() != input_h) {
+    resized = bitmap.CloneAsRGB();
+    resized.Rescale(input_w, input_h, Bitmap::RescaleFilter::kBilinear);
+  } else {
+    resized = bitmap.Clone();
+  }
+
+  const int kNumPixels = input_w * input_h;
+  std::vector<float> tensor(kChannels * kNumPixels);
+  const auto& data = resized.RowMajorData();
+
+  for (int y = 0; y < input_h; ++y) {
+    for (int x = 0; x < input_w; ++x) {
+      for (int c = 0; c < kChannels; ++c) {
+        const float val = static_cast<float>(
+            data[(y * input_w + x) * kChannels + c]) / 255.0f;
+        tensor[c * kNumPixels + y * input_w + x] =
+            (val - model.mean[c]) / model.std[c];
+      }
+    }
+  }
+
+  return tensor;
+}
+
+void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
+#ifdef COLMAP_ONNX_ENABLED
+  const std::vector<image_t> all_image_ids = cache_->GetImageIds();
+
+  // Look up the model config.
+  const retrieval::GlobalDescriptorModel* model_info =
+      retrieval::GlobalDescriptorModel::GetModel(options_.model_type);
+  if (!model_info) {
+    LOG(FATAL_THROW) << "Unknown global descriptor model: '"
+                     << options_.model_type << "'.";
+  }
+  LOG(INFO) << "Using global descriptor model: " << model_info->name;
+
+  const int kInputW = model_info->input_width > 0 ? model_info->input_width
+                                                    : 0;  // dynamic
+  const int kInputH = model_info->input_height > 0 ? model_info->input_height
+                                                    : 0;
+  const int kChannels = 3;
+  const int kDescriptorDim = model_info->descriptor_dim;
+  const int kBatchSize =
+      model_info->supports_batching ? options_.batch_size : 1;
+
+  // Resize the index if descriptor dim changed (e.g. model switch).
+  global_descriptor_index_ =
+      retrieval::GlobalDescriptorIndex(kDescriptorDim);
+
+  // Cache alongside the database, not in the image folder.
+  const std::filesystem::path cache_path =
+      options_.database_path.parent_path() /
+      ("global_descriptors_" + model_info->name + ".bin");
+  if (ExistsFile(cache_path)) {
+    try {
+      global_descriptor_index_.Read(cache_path);
+      if (global_descriptor_index_.NumImages() == all_image_ids.size()) {
+        LOG(INFO) << "Loaded cached " << model_info->name
+                  << " descriptors for " << all_image_ids.size()
+                  << " images from " << cache_path;
+        return;
+      }
+      LOG(INFO) << "Cached descriptors have "
+                << global_descriptor_index_.NumImages() << " images, but "
+                << all_image_ids.size() << " are needed. Re-extracting...";
+      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(
+          kDescriptorDim);
+    } catch (const std::exception& e) {
+      LOG(WARNING) << "Failed to read cached descriptors (" << e.what()
+                   << "), re-extracting...";
+      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(
+          kDescriptorDim);
+    }
+  }
+
+  // Resolve model path.
+  std::string model_path = options_.model_path.string();
+  if (model_path.empty()) {
+    model_path = model_info->default_model_uri;
+    LOG(INFO) << "Auto-downloading " << model_info->name
+              << " model from default URI";
+  } else {
+    LOG(INFO) << "Loading ONNX model from " << model_path;
+  }
+  std::unique_ptr<ONNXModel> model;
+  try {
+    model = std::make_unique<ONNXModel>(model_path,
+                                        options_.num_threads,
+                                        options_.use_gpu,
+                                        options_.gpu_index);
+  } catch (const std::exception& e) {
+    LOG(FATAL_THROW)
+        << "Failed to load " << model_info->name << " model. "
+        << "If you left the model path empty, COLMAP attempted to download "
+        << "from the default URI but it may have failed (network issue). "
+        << "You can manually download the model and specify its path. "
+        << "Original error: " << e.what();
+  }
+
+  // Validate model I/O.
+  THROW_CHECK_EQ(model->input_shapes().size(), 1);
+  ThrowCheckONNXNode(model->input_names()[0],
+                     model_info->input_name,
+                     model->input_shapes()[0],
+                     model_info->expected_input_shape);
+  THROW_CHECK_EQ(model->output_shapes().size(), 1);
+  ThrowCheckONNXNode(model->output_names()[0],
+                     model_info->output_name,
+                     model->output_shapes()[0],
+                     model_info->expected_output_shape);
+
+  const int kPixelsPerImage =
+      kInputW > 0 ? kChannels * kInputW * kInputH : 0;
+
+  // Process images in batches.
+  std::vector<image_t> batch_image_ids;
+  std::vector<float> batch_data;
+  batch_image_ids.reserve(kBatchSize);
+  if (kPixelsPerImage > 0) {
+    batch_data.reserve(kBatchSize * kPixelsPerImage);
+  }
+
+  size_t total_processed = 0;
+  const size_t total_images = all_image_ids.size();
+
+  // Reusable ONNX memory descriptor (hoisted out of loop).
+  const auto ort_memory = Ort::MemoryInfo::CreateCpu(
+      OrtAllocatorType::OrtDeviceAllocator, OrtMemType::OrtMemTypeCPU);
+
+  for (size_t i = 0; i < total_images; ++i) {
+    const image_t image_id = all_image_ids[i];
+    const Image& image = cache_->GetImage(image_id);
+
+    const std::filesystem::path full_path =
+        options_.image_path / image.Name();
+    Bitmap bitmap;
+    if (!bitmap.Read(full_path, /*as_rgb=*/true)) {
+      LOG(ERROR) << "Failed to read image: " << full_path
+                 << ", skipping image " << image_id;
+      continue;
+    }
+
+    std::vector<float> tensor = PreprocessImage(bitmap, *model_info);
+    batch_data.insert(batch_data.end(), tensor.begin(), tensor.end());
+    batch_image_ids.push_back(image_id);
+
+    if (static_cast<int>(batch_image_ids.size()) >= kBatchSize ||
+        i == total_images - 1) {
+      const int current_batch_size =
+          static_cast<int>(batch_image_ids.size());
+
+      std::vector<int64_t> input_shape = {
+          current_batch_size, kChannels, kInputH, kInputW};
+      // Handle dynamic input sizes.
+      if (kInputW == 0) {
+        input_shape = {current_batch_size,
+                        kChannels,
+                        bitmap.Height(),
+                        bitmap.Width()};
+        // For models without batching, we still create the batch dim = 1.
+        if (!model_info->supports_batching) {
+          input_shape[0] = 1;
+        }
+      }
+
+      Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
+          ort_memory,
+          batch_data.data(),
+          batch_data.size(),
+          input_shape.data(),
+          input_shape.size());
+
+      std::vector<Ort::Value> input_tensors;
+      input_tensors.emplace_back(std::move(input_tensor));
+      std::vector<Ort::Value> output_tensors = model->Run(input_tensors);
+      THROW_CHECK_EQ(output_tensors.size(), 1);
+
+      const float* output_data =
+          output_tensors[0].GetTensorData<float>();
+      const auto output_shape =
+          output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
+
+      int output_batch = current_batch_size;
+      if (output_shape.size() >= 1 && output_shape[0] != -1) {
+        output_batch = static_cast<int>(output_shape[0]);
+      }
+
+      for (int j = 0; j < output_batch; ++j) {
+        const float* desc = output_data + j * kDescriptorDim;
+        std::vector<float> descriptor(desc, desc + kDescriptorDim);
+        global_descriptor_index_.Add(batch_image_ids[j], descriptor);
+      }
+
+      total_processed += output_batch;
+      LOG(INFO) << StringPrintf("Extracted descriptors [%d/%d]",
+                                total_processed,
+                                total_images);
+
+      batch_image_ids.clear();
+      batch_data.clear();
+    }
+  }
+
+  if (global_descriptor_index_.NumImages() > 0) {
+    global_descriptor_index_.Write(cache_path);
+    LOG(INFO) << "Cached " << model_info->name << " descriptors to "
+              << cache_path;
+  }
+
+  global_descriptor_index_.Prepare();
+#else
+  LOG(FATAL_THROW)
+      << "Global descriptor matching requires ONNX Runtime support. "
+      << "Please rebuild COLMAP with ONNX_ENABLED=ON.";
+#endif  // COLMAP_ONNX_ENABLED
 }
 
 }  // namespace colmap

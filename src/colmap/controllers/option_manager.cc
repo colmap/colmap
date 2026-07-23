@@ -70,6 +70,7 @@ OptionManager::OptionManager(bool add_project_options)
   exhaustive_pairing = std::make_shared<ExhaustivePairingOptions>();
   sequential_pairing = std::make_shared<SequentialPairingOptions>();
   vocab_tree_pairing = std::make_shared<VocabTreePairingOptions>();
+  global_descriptor_pairing = std::make_shared<GlobalDescriptorPairingOptions>();
   spatial_pairing = std::make_shared<SpatialPairingOptions>();
   transitive_pairing = std::make_shared<TransitivePairingOptions>();
   imported_pairing = std::make_shared<ImportedPairingOptions>();
@@ -126,6 +127,7 @@ void OptionManager::ModifyForLowQuality() {
   sequential_pairing->loop_detection_num_images /= 2;
   vocab_tree_pairing->max_num_features = 256;
   vocab_tree_pairing->num_images /= 2;
+  global_descriptor_pairing->num_images /= 2;
   mapper->ba_local_max_num_iterations =
       mapper->EffBaLocalMaxNumIterations() / 2;
   mapper->ba_global_max_num_iterations =
@@ -152,6 +154,7 @@ void OptionManager::ModifyForMediumQuality() {
   sequential_pairing->loop_detection_num_images /= 1.5;
   vocab_tree_pairing->max_num_features = 1024;
   vocab_tree_pairing->num_images /= 1.5;
+  global_descriptor_pairing->num_images /= 1.5;
   mapper->ba_local_max_num_iterations =
       static_cast<int>(mapper->EffBaLocalMaxNumIterations() / 1.5);
   mapper->ba_global_max_num_iterations =
@@ -205,6 +208,7 @@ void OptionManager::AddAllOptions() {
   AddExhaustivePairingOptions();
   AddSequentialPairingOptions();
   AddVocabTreePairingOptions();
+  AddGlobalDescriptorPairingOptions();
   AddSpatialPairingOptions();
   AddTransitivePairingOptions();
   AddImportedPairingOptions();
@@ -421,6 +425,8 @@ void OptionManager::AddSequentialPairingOptions() {
                    &sequential_pairing->loop_detection_max_num_features);
   AddDefaultOption("SequentialMatching.vocab_tree_path",
                    &sequential_pairing->vocab_tree_path);
+  AddDefaultOption("SequentialMatching.loop_detection_model_path",
+                   &sequential_pairing->loop_detection_model_path);
   AddDefaultOption("SequentialMatching.num_threads",
                    &sequential_pairing->num_threads);
 }
@@ -450,6 +456,25 @@ void OptionManager::AddVocabTreePairingOptions() {
                    &vocab_tree_pairing->match_list_path);
   AddDefaultOption("VocabTreeMatching.num_threads",
                    &vocab_tree_pairing->num_threads);
+}
+
+void OptionManager::AddGlobalDescriptorPairingOptions() {
+  if (added_global_descriptor_pairing_options_) {
+    return;
+  }
+  added_global_descriptor_pairing_options_ = true;
+  AddDefaultOption("GlobalDescriptorMatching.model_path",
+                   &global_descriptor_pairing->model_path);
+  AddDefaultOption("GlobalDescriptorMatching.num_images",
+                   &global_descriptor_pairing->num_images);
+  AddDefaultOption("GlobalDescriptorMatching.batch_size",
+                   &global_descriptor_pairing->batch_size);
+  AddDefaultOption("GlobalDescriptorMatching.num_threads",
+                   &global_descriptor_pairing->num_threads);
+  AddDefaultOption("GlobalDescriptorMatching.use_gpu",
+                   &global_descriptor_pairing->use_gpu);
+  AddDefaultOption("GlobalDescriptorMatching.gpu_index",
+                   &global_descriptor_pairing->gpu_index);
 }
 
 void OptionManager::AddSpatialPairingOptions() {
@@ -1137,6 +1162,7 @@ void OptionManager::Reset(bool reset_logging) {
   added_exhaustive_pairing_options_ = false;
   added_sequential_pairing_options_ = false;
   added_vocab_tree_pairing_options_ = false;
+  added_global_descriptor_pairing_options_ = false;
   added_spatial_pairing_options_ = false;
   added_transitive_pairing_options_ = false;
   added_image_pairs_pairing_options_ = false;
@@ -1164,6 +1190,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *exhaustive_pairing = ExhaustivePairingOptions();
   *sequential_pairing = SequentialPairingOptions();
   *vocab_tree_pairing = VocabTreePairingOptions();
+  *global_descriptor_pairing = GlobalDescriptorPairingOptions();
   *spatial_pairing = SpatialPairingOptions();
   *transitive_pairing = TransitivePairingOptions();
   *imported_pairing = ImportedPairingOptions();
@@ -1201,6 +1228,8 @@ bool OptionManager::Check() {
   if (exhaustive_pairing) success = success && exhaustive_pairing->Check();
   if (sequential_pairing) success = success && sequential_pairing->Check();
   if (vocab_tree_pairing) success = success && vocab_tree_pairing->Check();
+  if (global_descriptor_pairing)
+    success = success && global_descriptor_pairing->Check();
   if (spatial_pairing) success = success && spatial_pairing->Check();
   if (transitive_pairing) success = success && transitive_pairing->Check();
   if (imported_pairing) success = success && imported_pairing->Check();
