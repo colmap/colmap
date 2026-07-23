@@ -451,6 +451,9 @@ TEST(IncrementalPipeline, FixExistingFrames) {
 }
 
 TEST(IncrementalPipeline, ChainedMatches) {
+  constexpr int kRandomSeed = 42;
+  SetPRNGSeed(kRandomSeed);
+
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -466,9 +469,10 @@ TEST(IncrementalPipeline, ChainedMatches) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
-                             database,
-                             reconstruction_manager);
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->num_threads = 1;
+  options->random_seed = kRandomSeed;
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
