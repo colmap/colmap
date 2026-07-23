@@ -6,6 +6,8 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
+#include <vector>
+
 namespace colmap {
 
 class PoseGraph {
@@ -68,6 +70,12 @@ class PoseGraph {
         edges_.begin(),
         edges_.end());
   }
+
+  // Compute all connected components of frames, returned sorted by descending
+  // size. If filter_unregistered is true, only considers frames with HasPose().
+  std::vector<FlatHashSet<frame_t>> ComputeConnectedFrameComponents(
+      const Reconstruction& reconstruction,
+      bool filter_unregistered = true) const;
 
   // Compute the largest connected component of frames.
   // If filter_unregistered is true, only considers frames with HasPose().
