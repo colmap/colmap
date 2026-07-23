@@ -196,10 +196,10 @@ class TinyFocalSampsonErrorCostFunctor {
   const std::vector<Eigen::Vector2d>& points2_;
 };
 
-// Epipolar-error cost functor for fixed-size (colmap::TinySolver) refinement of
-// a two-view relative pose and a *single* unknown focal length, where the
-// second view is already calibrated (the semi-calibrated, or "one-sided focal",
-// configuration).
+// Tangent Sampson (pixel-space) cost functor for fixed-size
+// (colmap::TinySolver) refinement of a two-view relative pose and a *single*
+// unknown focal length, where the second view is already calibrated (the
+// semi-calibrated, or "one-sided focal", configuration).
 //
 // The pose is parameterized as in TinyFocalSampsonErrorCostFunctor
 // ([qx, qy, qz, qw, tx, ty, tz]) and the unknown focal of the *first* view is
@@ -209,20 +209,35 @@ class TinyFocalSampsonErrorCostFunctor {
 //
 //   M = E * diag(1/f1, 1/f1, 1),   f1 = exp(log_f1),
 //
-// i.e. only columns 0-1 are scaled, and ray2^T M point1 = 0.
+// i.e. only columns 0-1 are scaled, and ray2^T M point1 = 0. The residual is
+// the tangent Sampson error of that constraint, in pixels:
 //
-// Unlike its siblings this minimizes the distance from each point to its
-// epipolar line, in first-view pixels, rather than a Sampson error. Sampson
-// combines the gradients of both views, and here those are in different units
-// (pixels and rays), so it would collapse onto the ray-scale term. Matching
+//   C       = ray2^T M point1
+//   dC/dpx1 = (M^T ray2).head<2>()
+//   dC/dpx2 = J2^T (M point1)
+//   r       = C / sqrt(||dC/dpx1||^2 + ||dC/dpx2||^2)
+//
+// Both denominator terms are gradients of the same scalar with respect to
+// pixels, so they share units and combine directly. A plain Sampson error would
+// instead differentiate the second view with respect to its *ray* and collapse
+// onto that term. J2 = d(ray2)/d(pixel2) represents any central model exactly,
+// including non-pinhole ones. Matching
 // RelativePoseOneSidedFocalEstimator::Residuals matters because LO-RANSAC
 // scores the refined model with that residual.
 //
 // img_points1 are principal-point-centered points of the uncalibrated view.
-// cam_rays2 are calibrated bearing rays of the second view, so any distortion
-// (or a non-pinhole projection such as a fisheye or spherical model) is already
-// undone by the caller and is represented exactly.
-class TinyOneSidedFocalEpipolarErrorCostFunctor {
+// Keeping them as raw pixels rather than bearings is deliberate: the
+// measurement Jacobian d(x, y, 1)/d(x, y) is then the constant [I2; 0] and f1
+// enters only through M. Unprojecting the first view to a bearing instead would
+// place f1 inside that view's Jacobian, so differentiating the residual would
+// need the mixed second derivative d^2(ray1)/d(pixel1)d(f1), which no camera
+// model exposes. For the same reason the Jacobians below hold only while the
+// second view's intrinsics are fixed, as they are here.
+//
+// The 8-parameter Jacobian is computed in closed form, dr/dM contracted with
+// dM/d[q, t, log_f1]. A unit test checks it against finite differences and
+// against the autodiff wrapper.
+class TinyOneSidedFocalTangentSampsonErrorCostFunctor {
  public:
   using Scalar = double;
   static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
@@ -230,15 +245,17 @@ class TinyOneSidedFocalEpipolarErrorCostFunctor {
 
   // ceres::TinySolver-compatible autodiff wrapper for this functor. Note that
   // it stores the functor by reference, so the wrapped functor must outlive it.
+  // The solver uses the analytic Jacobian below, so this only serves to pin
+  // that Jacobian to a second implementation in tests.
   using AutoDiffFunction = ceres::TinySolverAutoDiffFunction<
-      TinyOneSidedFocalEpipolarErrorCostFunctor,
+      TinyOneSidedFocalTangentSampsonErrorCostFunctor,
       NUM_RESIDUALS,
       NUM_PARAMETERS>;
 
-  TinyOneSidedFocalEpipolarErrorCostFunctor(
+  TinyOneSidedFocalTangentSampsonErrorCostFunctor(
       const std::vector<Eigen::Vector2d>& img_points1,
-      const std::vector<Eigen::Vector3d>& cam_rays2)
-      : img_points1_(img_points1), cam_rays2_(cam_rays2) {}
+      const std::vector<CamRayWithJac>& cam_rays2_with_jac)
+      : img_points1_(img_points1), cam_rays2_with_jac_(cam_rays2_with_jac) {}
 
   int NumResiduals() const { return static_cast<int>(img_points1_.size()); }
 
@@ -247,27 +264,104 @@ class TinyOneSidedFocalEpipolarErrorCostFunctor {
     // Build E once from the pose, then apply the unknown focal to the columns
     // to obtain the matrix relating view-1 image points to view-2 rays.
     Eigen::Matrix<T, 3, 3> M = EssentialMatrixFromPoseParams(params);
-    const T inv_f1 = ceres::exp(-params[7]);
-    M.template leftCols<2>() *= inv_f1;
-    const Eigen::Matrix<T, 3, 3> M_transpose = M.transpose();
+    M.template leftCols<2>() *= ceres::exp(-params[7]);
+    // Measurement Jacobian d(x, y, 1) / d(x, y) of the uncalibrated view.
+    Eigen::Matrix<T, 3, 2> J1 = Eigen::Matrix<T, 3, 2>::Zero();
+    J1(0, 0) = T(1);
+    J1(1, 1) = T(1);
     for (size_t i = 0; i < img_points1_.size(); ++i) {
-      const Eigen::Matrix<T, 3, 1> cam_ray2 = cam_rays2_[i].cast<T>();
-      const Eigen::Matrix<T, 3, 1> line1 = M_transpose * cam_ray2;
-      const T line_norm = line1.template head<2>().norm();
-      if (!(line_norm > static_cast<T>(0))) {
-        residuals[i] = static_cast<T>(0);
+      residuals[i] =
+          TangentSampsonError<T>(M,
+                                 img_points1_[i].cast<T>().homogeneous(),
+                                 J1,
+                                 cam_rays2_with_jac_[i].ray.cast<T>(),
+                                 cam_rays2_with_jac_[i].jacobian.cast<T>());
+    }
+    return true;
+  }
+
+  // jacobian is NUM_RESIDUALS x 8, column-major (or null for residuals only).
+  bool operator()(const double* params,
+                  double* residuals,
+                  double* jacobian) const {
+    const Eigen::Map<const Eigen::Quaterniond> q(params);
+    const Eigen::Matrix3d R = q.toRotationMatrix();
+    Eigen::Matrix3d t_x;
+    t_x << 0, -params[6], params[5], params[6], 0, -params[4], -params[5],
+        params[4], 0;
+    const double inv_f1 = std::exp(-params[7]);
+    Eigen::Matrix3d M = t_x * R;
+    M.leftCols<2>() *= inv_f1;
+
+    Eigen::Matrix3d dM[8];
+    if (jacobian != nullptr) {
+      const double x = params[0], y = params[1], z = params[2], w = params[3];
+      Eigen::Matrix3d dR[4];
+      dR[0] << 0, 2 * y, 2 * z, 2 * y, -4 * x, -2 * w, 2 * z, 2 * w,
+          -4 * x;  // dR/dqx
+      dR[1] << -4 * y, 2 * x, 2 * w, 2 * x, 0, 2 * z, -2 * w, 2 * z,
+          -4 * y;  // dR/dqy
+      dR[2] << -4 * z, -2 * w, 2 * x, 2 * w, -4 * z, 2 * y, 2 * x, 2 * y,
+          0;                                                          // dR/dqz
+      dR[3] << 0, -2 * z, 2 * y, 2 * z, 0, -2 * x, -2 * y, 2 * x, 0;  // dR/dqw
+      for (int l = 0; l < 4; ++l) dM[l] = t_x * dR[l];
+      Eigen::Matrix3d ex, ey, ez;
+      ex << 0, 0, 0, 0, 0, -1, 0, 1, 0;
+      ey << 0, 0, 1, 0, 0, 0, -1, 0, 0;
+      ez << 0, -1, 0, 1, 0, 0, 0, 0, 0;
+      dM[4] = ex * R;  // dE/dtx
+      dM[5] = ey * R;  // dE/dty
+      dM[6] = ez * R;  // dE/dtz
+      // The pose derivatives are of E, so carry them through the same column
+      // scaling that turns E into M.
+      for (int l = 0; l < 7; ++l) dM[l].leftCols<2>() *= inv_f1;
+      // d(E * diag(1/f1, 1/f1, 1)) / d(log_f1) negates the scaled columns and
+      // leaves the third one, which carries no focal, unchanged.
+      dM[7] = -M;
+      dM[7].col(2).setZero();
+    }
+
+    const int n = static_cast<int>(img_points1_.size());
+    for (int i = 0; i < n; ++i) {
+      const Eigen::Vector3d point1 = img_points1_[i].homogeneous();
+      const Eigen::Vector3d& ray2 = cam_rays2_with_jac_[i].ray;
+      const Eigen::Matrix<double, 3, 2>& J2 = cam_rays2_with_jac_[i].jacobian;
+      const Eigen::Vector3d Mpoint1 = M * point1;
+      const double num = ray2.dot(Mpoint1);
+      // Constraint gradients in view-1 and view-2 pixels. The former needs no
+      // Jacobian, as d(x, y, 1)/d(x, y) merely selects the first two rows.
+      const Eigen::Vector2d g1 = (M.transpose() * ray2).head<2>();
+      const Eigen::Vector2d g2 = J2.transpose() * Mpoint1;
+      const double denom = g1.squaredNorm() + g2.squaredNorm();
+      const double sqrt_denom = std::sqrt(denom);
+      if (sqrt_denom == 0.0) {
+        residuals[i] = 0.0;
+        if (jacobian != nullptr) {
+          for (int l = 0; l < 8; ++l) jacobian[i + l * n] = 0.0;
+        }
         continue;
       }
-      const Eigen::Matrix<T, 3, 1> point1 =
-          img_points1_[i].cast<T>().homogeneous();
-      residuals[i] = cam_ray2.dot(M * point1) / line_norm;
+      residuals[i] = num / sqrt_denom;
+      if (jacobian != nullptr) {
+        // dr/dM = (1/sqrt_denom) ray2 point1^T
+        //         - (num/denom^1.5) (ray2 [g1; 0]^T + (J2 g2) point1^T).
+        const Eigen::Vector3d J1g1(g1.x(), g1.y(), 0.0);
+        const Eigen::Vector3d J2g2 = J2 * g2;
+        const double coef = num / (denom * sqrt_denom);
+        const Eigen::Matrix3d drdM =
+            (1.0 / sqrt_denom) * (ray2 * point1.transpose()) -
+            coef * (ray2 * J1g1.transpose() + J2g2 * point1.transpose());
+        for (int l = 0; l < 8; ++l) {
+          jacobian[i + l * n] = drdM.cwiseProduct(dM[l]).sum();
+        }
+      }
     }
     return true;
   }
 
  private:
   const std::vector<Eigen::Vector2d>& img_points1_;
-  const std::vector<Eigen::Vector3d>& cam_rays2_;
+  const std::vector<CamRayWithJac>& cam_rays2_with_jac_;
 };
 
 }  // namespace colmap

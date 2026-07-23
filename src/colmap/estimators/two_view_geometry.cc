@@ -1234,21 +1234,22 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   }
 
   // The solver takes the uncalibrated view as principal-point-centered image
-  // points and the calibrated view as bearing rays, which undoes its distortion
-  // exactly. The homography and watermark checks use raw image points.
+  // points and the calibrated view as bearing rays with their unprojection
+  // Jacobians, which undoes its distortion exactly and lets the residual be
+  // measured in that view's pixels. The homography and watermark checks use raw
+  // image points.
   const Eigen::Vector2d principal_point1 = camera1.PrincipalPoint();
   std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
   std::vector<Eigen::Vector2d> matched_centered_points1(matches.size());
-  std::vector<Eigen::Vector3d> matched_cam_rays2(matches.size());
+  std::vector<CamRayWithJac> matched_cam_rays2_with_jac(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_img_points1[i] = points1[idx1];
     matched_img_points2[i] = points2[idx2];
     matched_centered_points1[i] = points1[idx1] - principal_point1;
-    matched_cam_rays2[i] =
-        camera2.CamRayFromImg(points2[idx2]).value_or(Eigen::Vector3d::Zero());
+    matched_cam_rays2_with_jac[i] = CamRayWithJacOrZero(camera2, points2[idx2]);
   }
 
   auto ransac_options = options.ransac_options;
@@ -1256,15 +1257,15 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
     ransac_options.min_inlier_ratio = options.min_inlier_ratio;
   }
 
-  // One-sided focal relative pose. Residuals are squared distances in
-  // first-view pixels (see RelativePoseOneSidedFocalEstimator), so the pixel
-  // threshold in `ransac_options` applies unscaled, unlike the calibrated
-  // essential-matrix path which rescales it into ray space.
+  // One-sided focal relative pose. Residuals are squared tangent Sampson errors
+  // in pixels (see RelativePoseOneSidedFocalEstimator), so the pixel threshold
+  // in `ransac_options` applies unscaled, matching the essential matrix,
+  // fundamental matrix and homography paths.
   LORANSAC<RelativePoseOneSidedFocalEstimator,
            RelativePoseOneSidedFocalEstimator>
       focal_ransac(ransac_options);
-  const auto focal_report =
-      focal_ransac.Estimate(matched_centered_points1, matched_cam_rays2);
+  const auto focal_report = focal_ransac.Estimate(matched_centered_points1,
+                                                  matched_cam_rays2_with_jac);
 
   // Homography, to detect planar/panoramic degeneracies where the epipolar
   // geometry is ill-constrained and the recovered focal is meaningless. Only
