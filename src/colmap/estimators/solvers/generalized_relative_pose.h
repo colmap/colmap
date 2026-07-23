@@ -41,11 +41,10 @@ namespace colmap {
 
 struct GRNPObservation {
   Rigid3d cam_from_rig;
-  Eigen::Vector3d ray_in_cam;
-  // Jacobian d(ray_in_cam) / d(pixel), so Residuals can score in pixel units
-  // with the tangent Sampson error. Only the residual uses it; the solver reads
-  // ray_in_cam alone.
-  Eigen::Matrix<double, 3, 2> ray_jacobian_in_cam;
+  // Bearing in the camera frame, bundled with its Jacobian d(ray) / d(pixel) so
+  // Residuals can score in pixel units with the tangent Sampson error. Only the
+  // residual uses the Jacobian; the solvers read the ray alone.
+  CamRayWithJac ray_with_jac_in_cam;
 };
 
 // Minimal generalized relative pose estimator based on poselib.

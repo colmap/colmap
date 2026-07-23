@@ -261,19 +261,14 @@ bool EstimateGeneralizedRelativePose(
   std::vector<GRNPObservation> points1(num_points);
   std::vector<GRNPObservation> points2(num_points);
   for (size_t i = 0; i < num_points; ++i) {
-    const CamRayWithJac ray1_with_jac = cameras[camera_idxs1[i]]
-                                            .CamRayFromImgWithJac(points2D1[i])
-                                            .value_or(CamRayWithJac::Zero());
     points1[i] = {cams_from_rig[camera_idxs1[i]],
-                  ray1_with_jac.ray,
-                  ray1_with_jac.jacobian};
-
-    const CamRayWithJac ray2_with_jac = cameras[camera_idxs2[i]]
-                                            .CamRayFromImgWithJac(points2D2[i])
-                                            .value_or(CamRayWithJac::Zero());
+                  cameras[camera_idxs1[i]]
+                      .CamRayFromImgWithJac(points2D1[i])
+                      .value_or(CamRayWithJac::Zero())};
     points2[i] = {cams_from_rig[camera_idxs2[i]],
-                  ray2_with_jac.ray,
-                  ray2_with_jac.jacobian};
+                  cameras[camera_idxs2[i]]
+                      .CamRayFromImgWithJac(points2D2[i])
+                      .value_or(CamRayWithJac::Zero())};
   }
 
   LORANSAC<GR6PEstimator, GR8PEstimator> ransac(ransac_options);
@@ -468,19 +463,13 @@ bool EstimateStructureLessAbsolutePose(
   std::vector<GRNPObservation> query_obs(num_points);
   for (size_t i = 0; i < num_points; ++i) {
     const size_t world_camera_idx = world_camera_idxs[i];
-    const CamRayWithJac world_ray_with_jac =
-        world_cameras[world_camera_idx]
-            .CamRayFromImgWithJac(world_points2D[i])
-            .value_or(CamRayWithJac::Zero());
     world_obs[i] = {world_cams_from_world[world_camera_idx],
-                    world_ray_with_jac.ray,
-                    world_ray_with_jac.jacobian};
-
-    const CamRayWithJac query_ray_with_jac =
-        query_camera.CamRayFromImgWithJac(query_points2D[i])
-            .value_or(CamRayWithJac::Zero());
-    query_obs[i] = {
-        Rigid3d(), query_ray_with_jac.ray, query_ray_with_jac.jacobian};
+                    world_cameras[world_camera_idx]
+                        .CamRayFromImgWithJac(world_points2D[i])
+                        .value_or(CamRayWithJac::Zero())};
+    query_obs[i] = {Rigid3d(),
+                    query_camera.CamRayFromImgWithJac(query_points2D[i])
+                        .value_or(CamRayWithJac::Zero())};
   }
 
   // GR6P/GR8P score with the pixel-unit tangent Sampson error, so the RANSAC
