@@ -48,6 +48,7 @@ if(GUI_ENABLED)
 endif()
 
 set(COLMAP_EXE_SRCS
+    database.h database.cc
     feature.h feature.cc
     sfm.h sfm.cc
     model.h model.cc
@@ -87,6 +88,12 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME model_georeference_test
     SRCS model_georeference_test.cc
+    LINK_LIBS colmap_exe
+)
+
+COLMAP_ADD_TEST(
+    NAME pose_prior_importer_test
+    SRCS pose_prior_importer_test.cc
     LINK_LIBS colmap_exe
 )
 

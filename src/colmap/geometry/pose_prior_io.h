@@ -189,6 +189,15 @@ struct PosePriorArchive {
   // before importing, since it is otherwise ambiguous which row should win.
   bool HasDuplicateResolvedNames(
       const data_id_resolver_t& data_id_from_name) const;
+
+  // Resolves each row's NAME column to a data_t, in the same order as
+  // `data`; a row is std::nullopt if the schema has no NAME column, the row
+  // is missing its NAME cell, or the name does not resolve. Lets a caller
+  // (e.g. a merge importer) distinguish which rows target an existing
+  // record before writing anything, without duplicating UpdatePosePriors'
+  // merge logic.
+  std::vector<std::optional<data_t>> ResolveRowDataIds(
+      const data_id_resolver_t& data_id_from_name) const;
 };
 
 // Policy for schema column names that ColumnIdFromString does not

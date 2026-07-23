@@ -240,26 +240,64 @@ int RunPosePriorImporter(int argc, char** argv) {
   if (existing_policy == "merge") {
     auto priors = database->ReadAllPosePriors();
     const size_t num_existing = priors.size();
+
+    // Resolve every incoming row *before* mutating anything, so only rows
+    // that actually target an existing prior cause a database write to it.
+    // Duplicate resolved names are already rejected above, so each
+    // resolved data_t appears in at most one row.
+    NodeHashMap<data_t, size_t> existing_index_by_data_id;
+    for (size_t i = 0; i < priors.size(); ++i) {
+      existing_index_by_data_id.emplace(priors[i].corr_data_id, i);
+    }
+    const std::vector<std::optional<data_t>> resolved_data_ids =
+        archive.ResolveRowDataIds(data_id_from_name);
+
+    const size_t rows_read = archive.NumRows();
+    size_t rows_unresolved = 0;
+    FlatHashSet<size_t> touched_existing_indices;
+    for (const auto& data_id : resolved_data_ids) {
+      if (!data_id.has_value()) {
+        ++rows_unresolved;
+        continue;
+      }
+      const auto it = existing_index_by_data_id.find(*data_id);
+      if (it != existing_index_by_data_id.end()) {
+        touched_existing_indices.insert(it->second);
+      }
+    }
+    const size_t rows_resolved = rows_read - rows_unresolved;
+
     archive.UpdatePosePriors(
         data_id_from_name, /*allow_new_priors=*/true, priors);
 
-    size_t num_updated = 0;
-    size_t num_added = 0;
+    size_t rows_added = 0;
+    size_t rows_updated = 0;
     {
       DatabaseTransaction transaction(database.get());
       for (size_t i = 0; i < priors.size(); ++i) {
         if (i < num_existing) {
-          database->UpdatePosePrior(priors[i]);
-          ++num_updated;
+          // Only rewrite existing rows an incoming resolved row actually
+          // targeted; every other existing prior is left byte-for-byte
+          // unchanged in the database.
+          if (touched_existing_indices.count(i) > 0) {
+            database->UpdatePosePrior(priors[i]);
+            ++rows_updated;
+          }
         } else {
           database->WritePosePrior(priors[i]);
-          ++num_added;
+          ++rows_added;
         }
       }
     }
 
-    LOG(INFO) << "Added " << num_added << " new and updated " << num_updated
-              << " existing pose priors.";
+    LOG(INFO) << StringPrintf(
+        "Pose-prior merge: rows_read=%zu, rows_resolved=%zu, "
+        "rows_unresolved=%zu, rows_added=%zu, rows_updated=%zu",
+        rows_read,
+        rows_resolved,
+        rows_unresolved,
+        rows_added,
+        rows_updated);
     return EXIT_SUCCESS;
   }
 

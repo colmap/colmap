@@ -1047,4 +1047,31 @@ bool PosePriorArchive::HasDuplicateResolvedNames(
   return false;
 }
 
+std::vector<std::optional<data_t>> PosePriorArchive::ResolveRowDataIds(
+    const data_id_resolver_t& data_id_from_name) const {
+  std::vector<std::optional<data_t>> resolved;
+  resolved.reserve(data.size());
+
+  FlatHashMap<ColumnId, size_t> column_indices;
+  for (size_t i = 0; i < schema.columns.size(); ++i) {
+    column_indices[schema.columns[i]] = i;
+  }
+  const auto it = column_indices.find(ColumnId::NAME);
+  if (it == column_indices.end()) {
+    resolved.resize(data.size());
+    return resolved;
+  }
+  const size_t name_index = it->second;
+
+  for (const auto& row : data) {
+    if (name_index >= row.size()) {
+      resolved.emplace_back();
+      continue;
+    }
+    const std::string& name = std::get<std::string>(row[name_index]);
+    resolved.push_back(data_id_from_name(name));
+  }
+  return resolved;
+}
+
 }  // namespace colmap
