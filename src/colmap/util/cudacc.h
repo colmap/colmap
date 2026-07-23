@@ -29,9 +29,9 @@
 
 #pragma once
 
-#include <string>
+#include "colmap/util/cuda_to_hip.h"
 
-#include <cuda_runtime.h>
+#include <string>
 
 #define CUDA_SAFE_CALL(error) CudaSafeCall(error, __FILE__, __LINE__)
 #define CUDA_CHECK() CudaCheck(__FILE__, __LINE__)
