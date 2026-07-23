@@ -737,7 +737,7 @@ bool SimpleRadialFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -803,7 +803,7 @@ bool RadialFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -874,7 +874,7 @@ bool OpenCVFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -959,7 +959,7 @@ bool ThinPrismFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -1061,7 +1061,7 @@ bool RadTanThinPrismFisheyeModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -1192,7 +1192,7 @@ bool SimpleFisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 
@@ -1240,7 +1240,7 @@ bool FisheyeCameraModel::ImgFromCamWithJac(const double* params,
   const double a = u * inv_w;
   const double b = v * inv_w;
 
-  double uu, vv, J_fisheye[4];
+  double uu, vv, J_fisheye[4] = {};
   internal::FisheyeProjectionWithJac(
       a, b, &uu, &vv, J_uvw ? J_fisheye : nullptr);
 

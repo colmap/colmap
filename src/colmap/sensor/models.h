@@ -41,6 +41,7 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <Eigen/LU>
 #include <ceres/jet.h>
 
@@ -912,6 +913,51 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector3d& uvw);
+
+// Transform camera to image coordinates, additionally computing the Jacobian
+// of the projection with respect to the camera ray.
+//
+// Runtime dispatch over the analytic per-model `ImgFromCamWithJac`.
+//
+// @param model_id     Unique identifier of camera model.
+// @param params       Array of camera parameters.
+// @param uvw          Coordinates in camera system as (u, v, w).
+// @param J_uvw        Output Jacobian d(x, y) / d(u, v, w). May be nullptr, in
+//                     which case the Jacobian is not computed.
+//
+// @return             Image coordinates in pixels, or std::nullopt on failure.
+inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
+    CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector3d& uvw,
+    Eigen::Matrix<double, 2, 3>* J_uvw);
+
+// The Jacobian of `CameraModelCamRayFromImg`, i.e. d(u, v, w) / d(x, y),
+// obtained by inverting the projection Jacobian d(x, y) / d(u, v, w) at a unit
+// bearing vector.
+//
+// Central projection depends only on the direction of the ray, so the ray lies
+// in the null space of `J_uvw` and `J_uvw` has rank 2. For a *unit* ray its
+// Moore-Penrose pseudo-inverse is exactly the Jacobian of the normalized
+// unprojection, and its range is the tangent plane of the unit sphere at the
+// ray. No explicit tangent basis is therefore required.
+//
+// Uses the closed form of Terekhov and Larsson, "Tangent Sampson Error", ICCV
+// 2023, Lemma 1:
+//
+//     J_uvw^+ = 1 / (d . (g_x x g_y)) * [ (g_y x d), (d x g_x) ]
+//
+// where g_x and g_y are the rows of `J_uvw`. This is cheaper than forming
+// J^T (J J^T)^-1 and exposes the rank condition directly as the scalar triple
+// product in the denominator.
+//
+// @param cam_ray      Unit bearing vector at which `J_uvw` was evaluated.
+// @param J_uvw        Jacobian d(x, y) / d(u, v, w).
+//
+// @return             Jacobian d(u, v, w) / d(x, y), or std::nullopt if
+//                     `J_uvw` is rank deficient.
+inline std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
+    const Eigen::Vector3d& cam_ray, const Eigen::Matrix<double, 2, 3>& J_uvw);
 
 // Transform image to camera coordinates.
 //
@@ -2766,6 +2812,71 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCam(
 #undef CAMERA_MODEL_CASE
   }
   return std::nullopt;
+}
+
+std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
+    const CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector3d& uvw,
+    Eigen::Matrix<double, 2, 3>* J_uvw) {
+  Eigen::Vector2d xy;
+  // 2x3 row-major Jacobian. Zero-init so a kernel that skips an entry can't
+  // leak an uninitialized read through the Map below.
+  double J_uvw_data[6] = {};
+  double* J_uvw_ptr = (J_uvw == nullptr) ? nullptr : J_uvw_data;
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                      \
+  case CameraModel::model_id:                                               \
+    static_assert(CameraModel::has_img_from_cam_with_jac,                   \
+                  #CameraModel                                              \
+                  " does not provide an analytic "                          \
+                  "ImgFromCamWithJac, which this dispatch "                 \
+                  "requires. Implement it in "                              \
+                  "models_jacobian.h.");                                    \
+    if (CameraModel::ImgFromCamWithJac(params.data(),                       \
+                                       uvw.x(),                             \
+                                       uvw.y(),                             \
+                                       uvw.z(),                             \
+                                       &xy.x(),                             \
+                                       &xy.y(),                             \
+                                       /*J_params=*/nullptr,                \
+                                       J_uvw_ptr)) {                        \
+      if (J_uvw != nullptr) {                                               \
+        *J_uvw =                                                            \
+            Eigen::Map<const Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>( \
+                J_uvw_data);                                                \
+      }                                                                     \
+      return xy;                                                            \
+    }                                                                       \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+  return std::nullopt;
+}
+
+std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
+    const Eigen::Vector3d& cam_ray, const Eigen::Matrix<double, 2, 3>& J_uvw) {
+  const Eigen::Vector3d g_x = J_uvw.row(0);
+  const Eigen::Vector3d g_y = J_uvw.row(1);
+  const double alpha = cam_ray.dot(g_x.cross(g_y));
+  // Since the projection is degree-zero homogeneous, g_x x g_y is parallel to
+  // the ray, so for a unit ray |alpha| == ||g_x x g_y|| and alpha^2 is exactly
+  // det(J J^T), the product of the squared singular values. Requiring
+  // |alpha| > kMinRelAlpha * (||g_x||^2 + ||g_y||^2) therefore rejects singular
+  // value ratios below kMinRelAlpha, i.e. condition numbers worse than ~1e6.
+  // Relative, so the test is invariant to focal length.
+  constexpr double kMinRelAlpha = 1e-6;
+  if (!(std::abs(alpha) >
+        kMinRelAlpha * (g_x.squaredNorm() + g_y.squaredNorm()))) {
+    return std::nullopt;
+  }
+  Eigen::Matrix<double, 3, 2> J_ray;
+  J_ray.col(0) = g_y.cross(cam_ray);
+  J_ray.col(1) = cam_ray.cross(g_x);
+  return J_ray / alpha;
 }
 
 std::optional<Eigen::Vector2d> CameraModelCamFromImg(

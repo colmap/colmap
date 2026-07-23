@@ -56,10 +56,10 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
   for (int i = 0; i < 6; ++i) {
     origins_in_rig1[i] = points1[i].cam_from_rig.TgtOriginInSrc();
     origins_in_rig2[i] = points2[i].cam_from_rig.TgtOriginInSrc();
-    rays_in_rig1[i] =
-        points1[i].cam_from_rig.rotation().inverse() * points1[i].ray_in_cam;
-    rays_in_rig2[i] =
-        points2[i].cam_from_rig.rotation().inverse() * points2[i].ray_in_cam;
+    rays_in_rig1[i] = points1[i].cam_from_rig.rotation().inverse() *
+                      points1[i].ray_with_jac_in_cam.ray;
+    rays_in_rig2[i] = points2[i].cam_from_rig.rotation().inverse() *
+                      points2[i].ray_with_jac_in_cam.ray;
   }
 
   std::vector<poselib::CameraPose> poses;
@@ -78,20 +78,16 @@ void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
                               std::vector<double>* residuals) {
   THROW_CHECK_EQ(points1.size(), points2.size());
   residuals->resize(points1.size());
-  // TODO: This inlines the Sampson error on unit bearings, so it does not match
-  // the max_error given in Camera::CamFromImgThreshold units. See
-  // ComputeSquaredSampsonError, which this should call once fixed.
+  // Score in pixel units with the tangent Sampson error. Each correspondence
+  // has its own essential matrix, formed from the two cameras' rig poses, and
+  // is evaluated in each camera's own frame, where that camera's ray Jacobian
+  // lives - so no rig-frame rotation of the rays or Jacobians is needed.
   for (size_t i = 0; i < points1.size(); ++i) {
     const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
                                    Inverse(points1[i].cam_from_rig);
     const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
-    const Eigen::Vector3d epipolar_line1 = E * points1[i].ray_in_cam;
-    const double num = points2[i].ray_in_cam.dot(epipolar_line1);
-    const Eigen::Vector4d denom(points2[i].ray_in_cam.dot(E.col(0)),
-                                points2[i].ray_in_cam.dot(E.col(1)),
-                                epipolar_line1.x(),
-                                epipolar_line1.y());
-    (*residuals)[i] = num * num / denom.squaredNorm();
+    (*residuals)[i] = ComputeSquaredTangentSampsonError(
+        points1[i].ray_with_jac_in_cam, points2[i].ray_with_jac_in_cam, E);
   }
 }
 
@@ -489,11 +485,11 @@ void GR8PEstimator::Estimate(const std::vector<X_t>& points1,
   std::vector<Eigen::Vector6d> plueckers2(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
     ComposePlueckerData(Inverse(points1[i].cam_from_rig),
-                        points1[i].ray_in_cam,
+                        points1[i].ray_with_jac_in_cam.ray,
                         &origins_in_rig1[i],
                         &plueckers1[i]);
     ComposePlueckerData(Inverse(points2[i].cam_from_rig),
-                        points2[i].ray_in_cam,
+                        points2[i].ray_with_jac_in_cam.ray,
                         &origins_in_rig2[i],
                         &plueckers2[i]);
   }

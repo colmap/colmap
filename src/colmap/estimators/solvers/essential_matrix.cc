@@ -62,7 +62,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
   THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(models)->clear();
 
-  // PoseLib's 5-point solver only supports the minimal case; the non-minimal
+  // PoseLib's 5-point solver only supports the minimal case. The non-minimal
   // case falls through to the SVD-based solver below.
   if (cam_rays1.size() == kMinNumSamples) {
     std::vector<M_t> candidate_models;
@@ -174,14 +174,6 @@ void EssentialMatrixFivePointEstimator::Estimate(
   }
 }
 
-void EssentialMatrixFivePointEstimator::Residuals(
-    const std::vector<X_t>& cam_rays1,
-    const std::vector<Y_t>& cam_rays2,
-    const M_t& E,
-    std::vector<double>* residuals) {
-  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
-}
-
 void EssentialMatrixEightPointEstimator::Estimate(
     const std::vector<X_t>& cam_rays1,
     const std::vector<Y_t>& cam_rays2,
@@ -225,62 +217,57 @@ void EssentialMatrixEightPointEstimator::Estimate(
   (*models)[0] = E;
 }
 
-void EssentialMatrixEightPointEstimator::Residuals(
-    const std::vector<X_t>& cam_rays1,
-    const std::vector<Y_t>& cam_rays2,
-    const M_t& E,
-    std::vector<double>* residuals) {
-  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
-}
+namespace {
 
-void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
-                                          const std::vector<Y_t>& cam_rays2,
-                                          std::vector<M_t>* models) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_GE(cam_rays1.size(),
-                 EssentialMatrixEightPointEstimator::kMinNumSamples);
-  THROW_CHECK_NOTNULL(models)->clear();
-
-  // Self-seed with the eight-point solver.
-  std::vector<M_t> init_models;
-  EssentialMatrixEightPointEstimator::Estimate(
-      cam_rays1, cam_rays2, &init_models);
-  if (init_models.empty()) {
-    return;
+// Extract the bearings into the contiguous array the five-point solver expects.
+// The Jacobians play no part in estimation. They only affect scoring.
+void UnpackCamRaysWithJac(const std::vector<CamRayWithJac>& cam_rays_with_jac,
+                          std::vector<Eigen::Vector3d>* rays) {
+  const size_t num_rays = cam_rays_with_jac.size();
+  rays->resize(num_rays);
+  for (size_t i = 0; i < num_rays; ++i) {
+    (*rays)[i] = cam_rays_with_jac[i].ray;
   }
-
-  // Refine the seed in place. On a degenerate decomposition Refine leaves the
-  // model unchanged, so the eight-point seed is returned either way.
-  M_t E = init_models[0];
-  Refine(cam_rays1, cam_rays2, &E);
-  models->push_back(E);
 }
 
-bool EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
-                                        const std::vector<Y_t>& cam_rays2,
-                                        M_t* E) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
+}  // namespace
+
+void EssentialMatrixTangentSampsonEstimator::Estimate(
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
+    std::vector<M_t>* models) {
+  std::vector<Eigen::Vector3d> rays1;
+  std::vector<Eigen::Vector3d> rays2;
+  UnpackCamRaysWithJac(cam_rays1_with_jac, &rays1);
+  UnpackCamRaysWithJac(cam_rays2_with_jac, &rays2);
+  EssentialMatrixFivePointEstimator::Estimate(rays1, rays2, models);
+}
+
+bool EssentialMatrixTangentSampsonEstimator::Refine(
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
+    M_t* E) {
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), cam_rays2_with_jac.size());
+  THROW_CHECK_GE(cam_rays1_with_jac.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(E);
 
-  // Decompose the initial essential matrix into a relative pose (resolving the
-  // four-fold ambiguity via cheirality over the given rays).
+  // Decompose the initial E into a relative pose (resolving the four-fold
+  // ambiguity via cheirality over the bearings).
+  std::vector<Eigen::Vector3d> rays1;
+  std::vector<Eigen::Vector3d> rays2;
+  UnpackCamRaysWithJac(cam_rays1_with_jac, &rays1);
+  UnpackCamRaysWithJac(cam_rays2_with_jac, &rays2);
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
-  PoseFromEssentialMatrix(
-      *E, cam_rays1, cam_rays2, &cam2_from_cam1, &valid_indices);
+  PoseFromEssentialMatrix(*E, rays1, rays2, &cam2_from_cam1, &valid_indices);
   if (valid_indices.empty()) {
-    // Degenerate configuration: leave the initial model unchanged.
     return false;
   }
 
-  // Nonlinear Sampson refinement of the full 7-parameter pose via
-  // ceres::TinySolver (fixed-size, allocation-free, autodiff), applying the
-  // relative pose manifold (rotation on SO(3), translation on the unit sphere).
-  // Plain least squares: the rays are assumed to be the inlier set, so
-  // robustness comes from the RANSAC inlier selection.
-  TinySampsonErrorCostFunctor functor(cam_rays1, cam_rays2);
-  TinySampsonErrorCostFunctor::AutoDiffFunction f(functor);
+  // Nonlinear pixel-space tangent Sampson refinement of the full 7-parameter
+  // pose via ceres::TinySolver, applying the relative pose manifold. Plain
+  // least squares: robustness comes from the RANSAC inlier selection.
+  TinyTangentSampsonErrorCostFunctor f(cam_rays1_with_jac, cam_rays2_with_jac);
   using Solver = TinySolver<decltype(f), RelativePoseManifold>;
   Solver solver;
   Solver::Options options;
@@ -291,8 +278,7 @@ bool EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
   x.tail<3>() = cam2_from_cam1.translation().normalized();
   solver.Solve(f, &x, options);
 
-  // Keep the refined pose only if the solve stayed finite; otherwise fall back
-  // to the decomposed pose.
+  // Keep the refined pose only if the solve stayed finite.
   if (x.allFinite()) {
     cam2_from_cam1 =
         Rigid3d(Eigen::Quaterniond(x.data()).normalized(), x.tail<3>());
@@ -301,11 +287,13 @@ bool EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
   return true;
 }
 
-void EssentialMatrixLMEstimator::Residuals(const std::vector<X_t>& cam_rays1,
-                                           const std::vector<Y_t>& cam_rays2,
-                                           const M_t& E,
-                                           std::vector<double>* residuals) {
-  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
+void EssentialMatrixTangentSampsonEstimator::Residuals(
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
+    const M_t& E,
+    std::vector<double>* residuals) {
+  ComputeSquaredTangentSampsonErrorWithCheirality(
+      cam_rays1_with_jac, cam_rays2_with_jac, E, residuals);
 }
 
 }  // namespace colmap

@@ -116,16 +116,32 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
 }
 
 py::typing::Optional<py::dict> PyEstimateRelativePose(
-    const std::vector<Eigen::Vector3d>& cam_rays1,
-    const std::vector<Eigen::Vector3d>& cam_rays2,
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points2D1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2D2,
     const RANSACOptions& estimation_options) {
   py::gil_scoped_release release;
+  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
+  const size_t num_points = points2D1.size();
+  // End users pass camera + 2D points. The rays and their unprojection
+  // Jacobians (needed for the pixel-unit tangent Sampson score) are built here,
+  // never part of the interface. Unprojectable points are zeroed -> infinite
+  // residual -> rejected.
+  std::vector<CamRayWithJac> cam_rays1_with_jac(num_points);
+  std::vector<CamRayWithJac> cam_rays2_with_jac(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    cam_rays1_with_jac[i] = camera1.CamRayFromImgWithJac(points2D1[i])
+                                .value_or(CamRayWithJac::Zero());
+    cam_rays2_with_jac[i] = camera2.CamRayFromImgWithJac(points2D2[i])
+                                .value_or(CamRayWithJac::Zero());
+  }
   Rigid3d cam2_from_cam1;
   size_t num_inliers;
   std::vector<char> inlier_mask;
   if (!EstimateRelativePose(estimation_options,
-                            cam_rays1,
-                            cam_rays2,
+                            cam_rays1_with_jac,
+                            cam_rays2_with_jac,
                             &cam2_from_cam1,
                             &num_inliers,
                             &inlier_mask)) {
@@ -141,19 +157,33 @@ py::typing::Optional<py::dict> PyEstimateRelativePose(
 
 py::typing::Optional<py::dict> PyRefineRelativePose(
     const Rigid3d& init_cam2_from_cam1,
-    const std::vector<Eigen::Vector3d>& cam_rays1,
-    const std::vector<Eigen::Vector3d>& cam_rays2,
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points2D1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2D2,
     const PyInlierMask& inlier_mask,
     const ceres::Solver::Options& refinement_options) {
   py::gil_scoped_release release;
+  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
+  const size_t num_points = points2D1.size();
+  // End users pass camera + 2D points. The rays and their unprojection
+  // Jacobians (for the pixel-unit tangent Sampson cost) are built here.
+  std::vector<CamRayWithJac> cam_rays1_with_jac(num_points);
+  std::vector<CamRayWithJac> cam_rays2_with_jac(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    cam_rays1_with_jac[i] = camera1.CamRayFromImgWithJac(points2D1[i])
+                                .value_or(CamRayWithJac::Zero());
+    cam_rays2_with_jac[i] = camera2.CamRayFromImgWithJac(points2D2[i])
+                                .value_or(CamRayWithJac::Zero());
+  }
   Rigid3d refined_cam2_from_cam1 = init_cam2_from_cam1;
   std::vector<char> inlier_mask_char(inlier_mask.size());
   Eigen::Map<Eigen::Matrix<char, Eigen::Dynamic, 1>>(
       inlier_mask_char.data(), inlier_mask.size()) = inlier_mask.cast<char>();
   if (!RefineRelativePose(refinement_options,
                           inlier_mask_char,
-                          cam_rays1,
-                          cam_rays2,
+                          cam_rays1_with_jac,
+                          cam_rays2_with_jac,
                           &refined_cam2_from_cam1)) {
     py::gil_scoped_acquire acquire;
     return py::none();
@@ -235,19 +265,28 @@ void BindAbsolutePoseEstimator(py::module& m) {
         "Robust absolute pose estimation with LO-RANSAC "
         "followed by non-linear refinement.");
 
-  m.def("estimate_relative_pose",
-        &PyEstimateRelativePose,
-        "cam_rays1"_a,
-        "cam_rays2"_a,
-        py::arg_v("options", RANSACOptions(), "RANSACOptions()"),
-        "Robustly estimate relative pose using LO-RANSAC "
-        "without non-linear refinement.");
+  m.def(
+      "estimate_relative_pose",
+      &PyEstimateRelativePose,
+      "camera1"_a,
+      "points2D1"_a,
+      "camera2"_a,
+      "points2D2"_a,
+      py::arg_v("options", RANSACOptions(), "RANSACOptions()"),
+      "Robustly estimate relative pose from 2D-2D correspondences (given as "
+      "camera + image points) using LO-RANSAC with the tangent Sampson error. "
+      "Local optimization non-linearly refines that error over the current "
+      "inlier set, but the returned pose receives no final refinement over its "
+      "own inliers; use refine_relative_pose for that.");
   m.def("refine_relative_pose",
         &PyRefineRelativePose,
         "cam2_from_cam1"_a,
-        "cam_rays1"_a,
-        "cam_rays2"_a,
+        "camera1"_a,
+        "points2D1"_a,
+        "camera2"_a,
+        "points2D2"_a,
         "inlier_mask"_a,
         py::arg_v("options", ceres::Solver::Options()),
-        "Non-linear refinement of relative pose.");
+        "Non-linear refinement of relative pose from 2D-2D correspondences "
+        "(camera + image points) with the tangent Sampson error.");
 }

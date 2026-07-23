@@ -43,6 +43,21 @@
 
 namespace colmap {
 
+// A unit bearing and the Jacobian d(ray)/d(pixel) of its unprojection (see
+// Camera::CamRayFromImgWithJac), bundled so RANSAC subsampling keeps them
+// index-aligned.
+struct CamRayWithJac {
+  Eigen::Vector3d ray;
+  Eigen::Matrix<double, 3, 2> jacobian;
+
+  // Fallback when unprojection fails. The estimators take a dense
+  // vector<CamRayWithJac>, not optionals, so a failed ray is kept as zero,
+  // which the tangent Sampson residual scores as infinite (rejected).
+  static CamRayWithJac Zero() {
+    return {Eigen::Vector3d::Zero(), Eigen::Matrix<double, 3, 2>::Zero()};
+  }
+};
+
 // Average unit vectors by finding the principal component of the outer product
 // sum matrix. Uses SVD to find the direction with maximum variance.
 // Supports optional weights (uniform weights if empty).
