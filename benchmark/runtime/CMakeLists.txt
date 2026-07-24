@@ -3,6 +3,9 @@ find_package(benchmark REQUIRED)
 add_executable(benchmark_cost_functions cost_functions.cc)
 target_link_libraries(benchmark_cost_functions PRIVATE colmap_estimators benchmark::benchmark)
 
+add_executable(benchmark_imu_preintegration_cost_function imu_preintegration_cost_function.cc)
+target_link_libraries(benchmark_imu_preintegration_cost_function PRIVATE colmap_estimators benchmark::benchmark)
+
 add_executable(benchmark_fundamental_matrix_degensac fundamental_matrix_degensac.cc)
 target_link_libraries(benchmark_fundamental_matrix_degensac PRIVATE colmap_estimators benchmark::benchmark)
 
