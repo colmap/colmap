@@ -281,6 +281,7 @@ int RunModelAligner(int argc, char** argv) {
   std::string scene_id;
   std::string pose_prior_cartesian_frame;
   std::filesystem::path georeference_json;
+  std::string georeference_report_level_str = "summary";
   std::filesystem::path camera_residuals_csv;
   std::string output_coordinate_frame_str = "ENU_Z_UP";
   bool reject_material_realignment = false;
@@ -316,6 +317,15 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("pose_prior_cartesian_frame",
                            &pose_prior_cartesian_frame);
   options.AddDefaultOption("georeference_json", &georeference_json);
+  // Machine-readable reports are versioned artifacts, not console logs.
+  // `summary` (default) contains everything needed to georeference the
+  // output geometry; `full` additionally contains detailed percentile,
+  // singular-value, baseline, and ellipsoid-tangent diagnostics used for
+  // experiment verification -- request it explicitly when the report will
+  // be used for that, not for ordinary pipeline runs.
+  options.AddDefaultOption("georeference_report_level",
+                           &georeference_report_level_str,
+                           "{summary, full}");
   options.AddDefaultOption("camera_residuals_csv", &camera_residuals_csv);
   options.AddDefaultOption("output_coordinate_frame",
                            &output_coordinate_frame_str,
@@ -365,6 +375,14 @@ int RunModelAligner(int argc, char** argv) {
                                        &output_coordinate_frame)) {
     LOG(ERROR) << "Invalid `output_coordinate_frame` - supported values are "
                   "{'ENU_Z_UP', 'GLTF_Y_UP', 'LICHTFELD_COLMAP'}";
+    return EXIT_FAILURE;
+  }
+
+  GeoreferenceReportLevel georeference_report_level;
+  if (!GeoreferenceReportLevelFromString(georeference_report_level_str,
+                                         &georeference_report_level)) {
+    LOG(ERROR) << "Invalid `georeference_report_level` - supported values "
+                  "are {'summary', 'full'}";
     return EXIT_FAILURE;
   }
 
@@ -476,6 +494,7 @@ int RunModelAligner(int argc, char** argv) {
     georeference_options.orientation_max_error_deg = orientation_max_error_deg;
     georeference_options.scene_id = scene_id;
     georeference_options.georeference_json = georeference_json;
+    georeference_options.report_level = georeference_report_level;
     georeference_options.camera_residuals_csv = camera_residuals_csv;
     georeference_options.output_coordinate_frame = output_coordinate_frame;
     georeference_options.reject_material_realignment =

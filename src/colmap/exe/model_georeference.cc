@@ -338,6 +338,19 @@ Sim3d LichtfeldVisualizerFromColmapData() {
   return Sim3d(1.0, Eigen::Quaterniond(rotation), Eigen::Vector3d::Zero());
 }
 
+bool GeoreferenceReportLevelFromString(const std::string& value,
+                                       GeoreferenceReportLevel* level) {
+  if (value == "summary") {
+    *level = GeoreferenceReportLevel::SUMMARY;
+    return true;
+  }
+  if (value == "full") {
+    *level = GeoreferenceReportLevel::FULL;
+    return true;
+  }
+  return false;
+}
+
 namespace {
 
 ////////////////////////////////////////////////////////////////////////////
@@ -369,7 +382,9 @@ void WriteGeoreferenceReportJSON(
     bool reject_material_realignment_requested,
     const GeoreferenceQualityThresholds& quality_thresholds,
     const MaterialRealignmentThresholds& material_realignment_thresholds,
-    const AnisotropicPositionGate& anisotropic_position_gate) {
+    const AnisotropicPositionGate& anisotropic_position_gate,
+    GeoreferenceReportLevel report_level) {
+  const bool full_report = report_level == GeoreferenceReportLevel::FULL;
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   const Eigen::Matrix3d ecef_from_enu_rotation =
@@ -558,6 +573,7 @@ void WriteGeoreferenceReportJSON(
   json.imbue(std::locale::classic());
   json << "{";
   json << "\"schema\":\"colmap_scene_georeference\",";
+  json << "\"report_level\":\"" << (full_report ? "full" : "summary") << "\",";
   if (scene_id.empty()) {
     json << "\"scene_id\":null,";
   } else {
@@ -713,55 +729,65 @@ void WriteGeoreferenceReportJSON(
        << ",";
   json << "\"num_orientation_inliers\":" << num_orientation_inliers;
   json << "},";
+  // gravity_consistency_angle_deg is the one scalar diagnostic the
+  // gravity_disagreement warning is evaluated against, so it is reported at
+  // both levels; the detailed per-image stat breakdowns, singular-value/
+  // baseline/radius/ellipsoid-tangent diagnostics below are `full`-only
+  // experiment-verification detail.
   json << "\"diagnostics\":{";
-  json << "\"position_3d_residual_m\":{"
-       << "\"mean\":" << JSONNumber(full_stats.mean)
-       << ",\"median\":" << JSONNumber(full_stats.median)
-       << ",\"p90\":" << JSONNumber(full_stats.p90)
-       << ",\"max\":" << JSONNumber(full_stats.max) << "},";
-  json << "\"position_horizontal_residual_m\":{"
-       << "\"mean\":" << JSONNumber(horizontal_stats.mean)
-       << ",\"median\":" << JSONNumber(horizontal_stats.median)
-       << ",\"p90\":" << JSONNumber(horizontal_stats.p90)
-       << ",\"max\":" << JSONNumber(horizontal_stats.max) << "},";
-  json << "\"position_vertical_residual_m\":{"
-       << "\"mean\":" << JSONNumber(vertical_stats.mean)
-       << ",\"median\":" << JSONNumber(vertical_stats.median)
-       << ",\"p90\":" << JSONNumber(vertical_stats.p90)
-       << ",\"max\":" << JSONNumber(vertical_stats.max) << "},";
-  json << "\"orientation_residual_deg\":{"
-       << "\"mean\":" << JSONNumber(orientation_stats.mean)
-       << ",\"median\":" << JSONNumber(orientation_stats.median)
-       << ",\"p90\":" << JSONNumber(orientation_stats.p90)
-       << ",\"max\":" << JSONNumber(orientation_stats.max) << "},";
-  json << "\"max_horizontal_baseline_m\":"
-       << JSONNumber(max_horizontal_baseline) << ",";
-  json << "\"horizontal_prior_sigma_median_m\":" << JSONNumber(sigma_h) << ",";
-  json << "\"horizontal_baseline_to_sigma_ratio\":"
-       << JSONNumber(baseline_to_sigma) << ",";
-  json << "\"horizontal_centered_rms_singular_values_m\":["
-       << JSONNumber(horizontal_rms_singular_values.x()) << ","
-       << JSONNumber(horizontal_rms_singular_values.y()) << "],";
-  json << "\"horizontal_condition_ratio\":"
-       << JSONNumber(horizontal_condition_ratio) << ",";
-  json << "\"centered_rms_singular_values_3d_m\":["
-       << JSONNumber(full_rms_singular_values.x()) << ","
-       << JSONNumber(full_rms_singular_values.y()) << ","
-       << JSONNumber(full_rms_singular_values.z()) << "],";
-  json << "\"condition_ratio_3d\":" << JSONNumber(full_condition_ratio) << ",";
-  json << "\"max_horizontal_radius_m\":" << JSONNumber(max_horizontal_radius)
-       << ",";
-  json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius) << ",";
-  json << "\"max_ellipsoid_tangent_departure_m\":"
-       << JSONNumber(max_ellipsoid_tangent_departure_m) << ",";
   json << "\"gravity_consistency_angle_deg\":"
-       << JSONNumber(gravity_consistency_angle_deg) << ",";
-  json << "\"gravity_residual_deg\":{"
-       << "\"mean\":" << JSONNumber(gravity_stats.mean)
-       << ",\"median\":" << JSONNumber(gravity_stats.median)
-       << ",\"p90\":" << JSONNumber(gravity_stats.p90)
-       << ",\"max\":" << JSONNumber(gravity_stats.max)
-       << ",\"num_support\":" << num_gravity_priors << "}";
+       << JSONNumber(gravity_consistency_angle_deg);
+  if (full_report) {
+    json << ",";
+    json << "\"position_3d_residual_m\":{"
+         << "\"mean\":" << JSONNumber(full_stats.mean)
+         << ",\"median\":" << JSONNumber(full_stats.median)
+         << ",\"p90\":" << JSONNumber(full_stats.p90)
+         << ",\"max\":" << JSONNumber(full_stats.max) << "},";
+    json << "\"position_horizontal_residual_m\":{"
+         << "\"mean\":" << JSONNumber(horizontal_stats.mean)
+         << ",\"median\":" << JSONNumber(horizontal_stats.median)
+         << ",\"p90\":" << JSONNumber(horizontal_stats.p90)
+         << ",\"max\":" << JSONNumber(horizontal_stats.max) << "},";
+    json << "\"position_vertical_residual_m\":{"
+         << "\"mean\":" << JSONNumber(vertical_stats.mean)
+         << ",\"median\":" << JSONNumber(vertical_stats.median)
+         << ",\"p90\":" << JSONNumber(vertical_stats.p90)
+         << ",\"max\":" << JSONNumber(vertical_stats.max) << "},";
+    json << "\"orientation_residual_deg\":{"
+         << "\"mean\":" << JSONNumber(orientation_stats.mean)
+         << ",\"median\":" << JSONNumber(orientation_stats.median)
+         << ",\"p90\":" << JSONNumber(orientation_stats.p90)
+         << ",\"max\":" << JSONNumber(orientation_stats.max) << "},";
+    json << "\"max_horizontal_baseline_m\":"
+         << JSONNumber(max_horizontal_baseline) << ",";
+    json << "\"horizontal_prior_sigma_median_m\":" << JSONNumber(sigma_h)
+         << ",";
+    json << "\"horizontal_baseline_to_sigma_ratio\":"
+         << JSONNumber(baseline_to_sigma) << ",";
+    json << "\"horizontal_centered_rms_singular_values_m\":["
+         << JSONNumber(horizontal_rms_singular_values.x()) << ","
+         << JSONNumber(horizontal_rms_singular_values.y()) << "],";
+    json << "\"horizontal_condition_ratio\":"
+         << JSONNumber(horizontal_condition_ratio) << ",";
+    json << "\"centered_rms_singular_values_3d_m\":["
+         << JSONNumber(full_rms_singular_values.x()) << ","
+         << JSONNumber(full_rms_singular_values.y()) << ","
+         << JSONNumber(full_rms_singular_values.z()) << "],";
+    json << "\"condition_ratio_3d\":" << JSONNumber(full_condition_ratio)
+         << ",";
+    json << "\"max_horizontal_radius_m\":" << JSONNumber(max_horizontal_radius)
+         << ",";
+    json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius) << ",";
+    json << "\"max_ellipsoid_tangent_departure_m\":"
+         << JSONNumber(max_ellipsoid_tangent_departure_m) << ",";
+    json << "\"gravity_residual_deg\":{"
+         << "\"mean\":" << JSONNumber(gravity_stats.mean)
+         << ",\"median\":" << JSONNumber(gravity_stats.median)
+         << ",\"p90\":" << JSONNumber(gravity_stats.p90)
+         << ",\"max\":" << JSONNumber(gravity_stats.max)
+         << ",\"num_support\":" << num_gravity_priors << "}";
+  }
   json << "},";
   json << "\"warnings\":{";
   json << "\"collinearity\":{\"value\":"
@@ -1311,7 +1337,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                                 o.reject_material_realignment,
                                 o.quality_thresholds,
                                 o.material_realignment_thresholds,
-                                o.anisotropic_position_gate);
+                                o.anisotropic_position_gate,
+                                o.report_level);
   }
   if (!o.camera_residuals_csv.empty()) {
     WriteCameraResidualsCSV(o.camera_residuals_csv, residuals);

@@ -147,7 +147,11 @@ gauge fit (``max_error = loss_scale × fallback_stddev`` — the coupling is
 intentional, not an oversight: it avoids introducing a third, unrelated
 tuning constant). Configuring ``optimize``'s weighting therefore always
 means choosing this gate too; read the logged line before trusting an
-``optimize`` run.
+``optimize`` run. ``--GlobalMapper.pose_prior_position_ransac_max_error``
+decouples this gate from the loss scale when the two genuinely need
+different values; a negative value (default) retains the derived gate
+above, and the logged line states whether the gate in effect was
+``explicit`` or ``derived``.
 
 A long, weakly-connected sequential chain in ``initialize`` mode (GPS seeds
 positions but has no weight at all in the objective) can drift slowly
@@ -310,6 +314,15 @@ reproducible, or sweep several seeds to check that the fit is not an
 artifact of one particular random sample. The resolved seed is recorded in
 the JSON report as ``alignment_random_seed``.
 
+``--alignment_max_horizontal_error``/``--alignment_max_vertical_error``
+(metres) replace the single isotropic gate with an anisotropic one that
+evaluates ENU horizontal and vertical residuals independently -- useful
+because GPS vertical uncertainty is typically much larger than horizontal.
+Both must be supplied together and strictly positive; when absent (the
+default), the isotropic ``--alignment_max_error`` gate applies unchanged.
+The report's ``position_ransac_gate`` object records which mode was used
+and the exact threshold value(s) in effect.
+
 **Choosing the ENU origin.** By default the origin is derived automatically
 as the geometric median (Weiszfeld's algorithm — robust to outliers, unlike
 a mean) of the WGS84 reference points, using the median altitude rather than
@@ -336,21 +349,52 @@ COLMAP retains the valid position-only transform and reports
 ``orientation_requested=true`` and ``orientation_engaged=false``. Relative
 camera geometry is never adjusted independently by this operation.
 
+**Material realignment.** The report's ``final_realignment_check`` object
+(always present) records how large a correction the report's own
+equal-weight robust Sim3 fit applied on top of whatever frame the input
+reconstruction was already in: ``rotation_deg``/``translation_m``/
+``scale_ratio`` against their thresholds (default ``0.5°``/``1.0 m``/``0.01``,
+overridable via ``--material_realignment_max_rotation_deg``/
+``--material_realignment_max_translation_m``/
+``--material_realignment_max_scale_ratio``, defined once so the report's
+diagnostic and the enforcement below cannot drift apart), and
+``is_material``. A material correction on an input already declared
+metric/ENU-optimized (``pose_prior_position_mode=optimize``) usually means
+that upstream solve did not actually hold for this input, since this
+equal-weight refit ignores per-row GPS covariance. Pass
+``--reject_material_realignment`` to fail the command instead of silently
+accepting such a correction; off by default, and the diagnostic is always
+reported regardless of this flag.
+
 **The JSON report** (``--georeference_json``) contains: a scene identifier
-(supplied via ``--scene_id`` or a generated UUID), COLMAP's build/source
-commit for provenance, input/output paths and reconstruction counts, the
-WGS84 ellipsoid and the ellipsoidal-height convention, the chosen ENU
-origin and whether it was explicit or derived, all six transform directions
-between scene, ENU, and ECEF (each verified to numerically round-trip its
-declared inverse before the report is written), metres-per-input-unit, and
-position and orientation support/inlier/residual diagnostics; horizontal and
-3D extent conditioning; baseline-to-measured-uncertainty ratio; maximum scene
-radius; and ellipsoid-to-tangent-plane departure. These values describe the
-fit and its geometry, not independent positioning accuracy. The report
-intentionally does **not** depend on COLMAP's
-optional download/curl/crypto feature and does not compute file hashes —
-geometry/report SHA256 values belong one layer downstream, in an exported
-asset's own sidecar (see below), where the actual asset bytes exist.
+(supplied via ``--scene_id``, or JSON ``null`` if not supplied -- it is never
+fabricated, so otherwise-identical reports stay deterministic), COLMAP's
+build/source commit for provenance, input/output paths and reconstruction
+counts, the WGS84 ellipsoid and the ellipsoidal-height convention, the chosen
+ENU origin and whether it was explicit or derived, all six transform
+directions between scene, ENU, and ECEF (each verified to numerically
+round-trip its declared inverse before the report is written),
+metres-per-input-unit, and position and orientation support/inlier/residual
+diagnostics. These values describe the fit and its geometry, not independent
+positioning accuracy. The report intentionally does **not** depend on
+COLMAP's optional download/curl/crypto feature and does not compute file
+hashes — geometry/report SHA256 values belong one layer downstream, in an
+exported asset's own sidecar (see below), where the actual asset bytes exist.
+
+**Report verbosity** (``--georeference_report_level {summary, full}``,
+default ``summary``) controls how much machine-diagnostic detail the JSON
+report contains, independent of console log verbosity
+(``--log_level``/``--v``). Both levels contain everything needed to
+georeference the output geometry: schema/version, the frame contract,
+support counts, every evaluated quality value with its threshold and fired
+state, the final-realignment check, and provenance. ``full`` additionally
+contains horizontal and 3D extent conditioning, baseline-to-measured-
+uncertainty ratio, maximum scene radius, ellipsoid-to-tangent-plane
+departure, and the detailed per-residual-type percentile breakdowns
+(``{mean, median, p90, max}``) -- useful for experiment verification, not
+needed for ordinary georeferencing. A pipeline that uses the report to judge
+experiment quality (as opposed to just recovering ENU/ECEF from delivered
+geometry) should request ``full`` explicitly.
 
 **The frame contract.** ``--output_coordinate_frame`` selects which frame the
 written reconstruction actually ends up in: ``ENU_Z_UP`` (default, unchanged
@@ -368,12 +412,15 @@ un-transformed variant), plus a full ``transforms`` sub-object
 ``geometry_from_ecef`` — complete ``Sim3d``s, not just an informal rotation
 note) so any delivered artifact can be composed back to ENU or ECEF/WGS84
 regardless of which frame it was written in. When ``LICHTFELD_COLMAP`` is
-selected, a ``consumer_profile`` object additionally records the pinned
-LichtFeld source reference and states
-``verified_against_installed_build: false`` — this profile is derived from
-source inspection and its complete East/North/Up contract has not yet been
-confirmed against a real install with an axis-labelled fixture; treat it as
-unverified until that check has been run. A legacy single-entry ``targets``
+selected, a ``consumer_profile`` object additionally records factual,
+versionable contract metadata describing the transform this exporter
+applied: ``contract_version``, ``boundary`` (``DATA_TO_VISUALIZER_WORLD_AXES``),
+``source_reference`` (the pinned LichtFeld source commit), the full
+``visualizer_from_geometry`` transform, and ``visualizer_up_axis``. This is
+a statement of what COLMAP did, not a runtime claim about which GUI build a
+future user has installed -- COLMAP cannot observe that. A pipeline manifest
+or user-run acceptance record may separately state that a particular
+installed build was visually verified. A legacy single-entry ``targets``
 array is kept alongside ``transforms`` for existing consumers. Before
 trusting any transform in a real loader, round-trip a known ENU basis vector
 (and one camera pose) through it once; a cropped or otherwise
@@ -403,12 +450,19 @@ prior in the database has gravity), and
 position-prior correspondences that were inliers to the robust Sim3 fit —
 ``null`` when there are no registered correspondences). All three land in
 the top-level ``warnings`` object as
-``{value, threshold, fired}``; the shipped policy defaults fire at
-``s2/s1 < 0.1``, gravity angle ``> 3.0°``, and position inlier ratio
-``< 0.8``. A low inlier ratio names its likely cause in the log line:
-internal misregistration from repeated structure or false loop closures
-dragging a large minority of the scene onto the wrong location, which the
-robust fit then rejects as outliers rather than fixes. A fired warning is
+``{value, threshold, fired}`` **at both report levels**; the detailed
+``diagnostics.horizontal_condition_ratio``/``diagnostics.gravity_residual_deg``
+breakdowns shown above are ``full``-only (``diagnostics.gravity_consistency_angle_deg``
+itself, the scalar the warning is judged against, remains available at both
+levels). The shipped policy defaults fire at ``s2/s1 < 0.1``, gravity angle
+``> 3.0°``, and position inlier ratio ``< 0.8``; override them with
+``--georeference_collinearity_ratio_threshold`` (range ``[0, 1]``),
+``--georeference_gravity_median_threshold_deg`` (range ``(0, 180]``), and
+``--georeference_min_position_inlier_ratio`` (range ``[0, 1]``) respectively.
+A low inlier ratio names its likely cause in the log line: internal
+misregistration from repeated structure or false loop closures dragging a
+large minority of the scene onto the wrong location, which the robust fit
+then rejects as outliers rather than fixes. A fired warning is
 ``LOG(WARNING)``-only — it never fails the command.
 
 **The CSV report** (``--camera_residuals_csv``) has one row per database

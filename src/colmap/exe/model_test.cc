@@ -185,6 +185,8 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       "fixed-test-scene",
       "--georeference_json",
       report_path.string(),
+      "--georeference_report_level",
+      "full",
       "--camera_residuals_csv",
       csv_path.string(),
   };
@@ -799,6 +801,149 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
     const Eigen::Vector3d recovered_enu_center = enu_from_geometry * lf_center;
     EXPECT_LT((recovered_enu_center - enu_center).norm(), 1e-6);
   }
+}
+
+TEST(ModelAligner, GeoreferenceReportLevelControlsDiagnosticDetail) {
+  const std::filesystem::path test_dir = CreateTestDir();
+  const std::filesystem::path input_path = test_dir / "input";
+  const std::filesystem::path output_path = test_dir / "output";
+  const std::filesystem::path database_path = test_dir / "database.db";
+  std::filesystem::create_directories(input_path);
+  std::filesystem::create_directories(output_path);
+
+  Reconstruction source;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 6;
+  options.num_points3D = 50;
+  SynthesizeDataset(options, &source);
+  source.Write(input_path);
+
+  const double reference_lat = 45.5;
+  const double reference_lon = -73.6;
+  const double reference_alt = 120.0;
+  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
+
+  auto database = Database::Open(database_path);
+  for (const auto& [camera_id, camera] : source.Cameras()) {
+    database->WriteCamera(camera, /*use_camera_id=*/true);
+  }
+  for (const auto& [image_id, source_image] : source.Images()) {
+    Image database_image;
+    database_image.SetImageId(image_id);
+    database_image.SetName(source_image.Name());
+    database_image.SetCameraId(source_image.CameraId());
+    database->WriteImage(database_image, /*use_image_id=*/true);
+
+    const Eigen::Vector3d center_enu =
+        source.Image(image_id).ProjectionCenter();
+    const Eigen::Vector3d lla = gps_transform.ENUToEllipsoid(
+        {center_enu}, reference_lat, reference_lon, reference_alt)[0];
+
+    PosePrior prior;
+    prior.corr_data_id =
+        data_t(sensor_t(SensorType::CAMERA, source_image.CameraId()), image_id);
+    prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+    prior.position = lla;
+    prior.position_covariance = Eigen::Vector3d(1.0, 1.0, 2.0).asDiagonal();
+    database->WritePosePrior(prior);
+  }
+  database.reset();
+
+  const auto run_aligner =
+      [&](const std::filesystem::path& output_path,
+          const std::filesystem::path& report_path,
+          const std::vector<std::string>& extra_args) {
+        std::vector<std::string> args{
+            "model_aligner",
+            "--input_path",
+            input_path.string(),
+            "--output_path",
+            output_path.string(),
+            "--database_path",
+            database_path.string(),
+            "--alignment_type",
+            "enu",
+            "--alignment_max_error",
+            "10",
+            "--min_common_images",
+            "3",
+            "--alignment_random_seed",
+            "12345",
+            "--georeference_json",
+            report_path.string(),
+        };
+        args.insert(args.end(), extra_args.begin(), extra_args.end());
+        std::vector<char*> argv;
+        argv.reserve(args.size());
+        for (std::string& arg : args) {
+          argv.push_back(arg.data());
+        }
+        return RunModelAligner(static_cast<int>(argv.size()), argv.data());
+      };
+
+  const std::filesystem::path summary_output = test_dir / "output_summary";
+  const std::filesystem::path summary_report = test_dir / "summary.json";
+  std::filesystem::create_directories(summary_output);
+  ASSERT_EQ(run_aligner(summary_output, summary_report, {}), EXIT_SUCCESS);
+
+  const std::filesystem::path full_output = test_dir / "output_full";
+  const std::filesystem::path full_report = test_dir / "full.json";
+  std::filesystem::create_directories(full_output);
+  ASSERT_EQ(
+      run_aligner(
+          full_output, full_report, {"--georeference_report_level", "full"}),
+      EXIT_SUCCESS);
+
+  boost::property_tree::ptree summary;
+  boost::property_tree::read_json(summary_report.string(), summary);
+  boost::property_tree::ptree full;
+  boost::property_tree::read_json(full_report.string(), full);
+
+  EXPECT_EQ(summary.get<std::string>("report_level"), "summary");
+  EXPECT_EQ(full.get<std::string>("report_level"), "full");
+
+  // Both levels contain everything needed to georeference the geometry.
+  for (const boost::property_tree::ptree* report : {&summary, &full}) {
+    EXPECT_EQ(report->get<std::string>("schema"), "colmap_scene_georeference");
+    EXPECT_NO_THROW(report->get_child("frame_contract"));
+    EXPECT_NO_THROW(report->get_child("transforms"));
+    EXPECT_NO_THROW(report->get_child("support"));
+    EXPECT_NO_THROW(report->get_child("warnings.collinearity"));
+    EXPECT_NO_THROW(report->get_child("warnings.gravity_disagreement"));
+    EXPECT_NO_THROW(report->get_child("warnings.position_inlier_ratio"));
+    EXPECT_NO_THROW(report->get_child("final_realignment_check"));
+    // No gravity priors in this fixture, so the value itself is JSON null;
+    // only its presence at both levels is being verified here.
+    EXPECT_NO_THROW(
+        report->get_child("diagnostics.gravity_consistency_angle_deg"));
+  }
+
+  // `full`-only detailed diagnostics are absent from `summary`.
+  EXPECT_THROW(summary.get_child("diagnostics.position_3d_residual_m"),
+              boost::property_tree::ptree_bad_path);
+  EXPECT_THROW(summary.get_child("diagnostics.gravity_residual_deg"),
+              boost::property_tree::ptree_bad_path);
+  EXPECT_THROW(summary.get<double>("diagnostics.max_horizontal_baseline_m"),
+              boost::property_tree::ptree_bad_path);
+  EXPECT_THROW(summary.get<double>("diagnostics.horizontal_condition_ratio"),
+              boost::property_tree::ptree_bad_path);
+
+  // The same detailed diagnostics are present in `full`.
+  EXPECT_NO_THROW(full.get_child("diagnostics.position_3d_residual_m"));
+  EXPECT_NO_THROW(full.get_child("diagnostics.gravity_residual_deg"));
+  EXPECT_TRUE(
+      std::isfinite(full.get<double>("diagnostics.max_horizontal_baseline_m")));
+  EXPECT_TRUE(std::isfinite(
+      full.get<double>("diagnostics.horizontal_condition_ratio")));
+
+  // The collinearity warning's own value/threshold/fired triple is present
+  // at both levels regardless of whether the full diagnostics breakdown is
+  // -- it is the "evaluated quality value" the report policy is judged
+  // against, not a detailed breakdown.
+  EXPECT_TRUE(
+      std::isfinite(summary.get<double>("warnings.collinearity.value")));
 }
 
 }  // namespace

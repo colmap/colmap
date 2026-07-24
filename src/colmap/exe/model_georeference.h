@@ -111,6 +111,26 @@ struct MaterialRealignmentThresholds {
 };
 
 ////////////////////////////////////////////////////////////////////////////
+// Georeference report verbosity
+////////////////////////////////////////////////////////////////////////////
+
+// Controls how much machine-diagnostic detail --georeference_json contains.
+// Both levels contain everything needed to georeference the output geometry:
+// schema/version, output geometry frame and units, WGS84/height-datum
+// information, ENU origin, geometry_from_enu/enu_from_geometry,
+// ecef_from_geometry/geometry_from_ecef, support counts, evaluated quality
+// values/thresholds/fired state, the final realignment result, and
+// provenance. `full` additionally contains detailed percentile,
+// singular-value, baseline, and ellipsoid-tangent diagnostics used for
+// experiment verification. Machine-readable reports are versioned artifacts,
+// not console logs -- this option does not affect console log verbosity
+// (see --log_level/--v for that).
+enum class GeoreferenceReportLevel { SUMMARY, FULL };
+
+bool GeoreferenceReportLevelFromString(const std::string& value,
+                                       GeoreferenceReportLevel* level);
+
+////////////////////////////////////////////////////////////////////////////
 // Options
 ////////////////////////////////////////////////////////////////////////////
 
@@ -140,6 +160,7 @@ struct ModelGeoreferenceOptions {
 
   std::string scene_id;
   std::filesystem::path georeference_json;
+  GeoreferenceReportLevel report_level = GeoreferenceReportLevel::SUMMARY;
   std::filesystem::path camera_residuals_csv;
 
   OutputCoordinateFrame output_coordinate_frame = OutputCoordinateFrame::ENU_Z_UP;
