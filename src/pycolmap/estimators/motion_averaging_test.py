@@ -72,7 +72,7 @@ def test_global_positioner_options_default_init():
     assert options is not None
 
 
-def test_global_positioner_options_pose_prior_position_ransac_max_error_readwrite():
+def test_positioner_options_pose_prior_position_ransac_max_error_readwrite():
     options = pycolmap.GlobalPositionerOptions()
     # Negative default retains the legacy derived gate.
     assert options.pose_prior_position_ransac_max_error == -1.0
@@ -80,7 +80,7 @@ def test_global_positioner_options_pose_prior_position_ransac_max_error_readwrit
     assert options.pose_prior_position_ransac_max_error == 8.0
 
 
-def test_global_positioner_options_pose_prior_position_fallback_stddev_readwrite():
+def test_positioner_options_pose_prior_position_fallback_stddev_readwrite():
     options = pycolmap.GlobalPositionerOptions()
     options.pose_prior_position_fallback_stddev = 2.5
     assert options.pose_prior_position_fallback_stddev == 2.5

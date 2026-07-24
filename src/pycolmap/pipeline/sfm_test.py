@@ -15,7 +15,9 @@ def test_global_mapper_options_init():
 
 def test_global_mapper_options_pose_prior_rotation_mode_readwrite():
     options = pycolmap.GlobalMapperOptions()
-    assert options.pose_prior_rotation_mode == pycolmap.PosePriorRotationMode.off
+    assert (
+        options.pose_prior_rotation_mode == pycolmap.PosePriorRotationMode.off
+    )
     options.pose_prior_rotation_mode = pycolmap.PosePriorRotationMode.initialize
     assert (
         options.pose_prior_rotation_mode
@@ -25,8 +27,13 @@ def test_global_mapper_options_pose_prior_rotation_mode_readwrite():
 
 def test_global_mapper_options_pose_prior_gravity_ba_mode_readwrite():
     options = pycolmap.GlobalMapperOptions()
-    assert options.pose_prior_gravity_ba_mode == pycolmap.PosePriorGravityBAMode.off
-    options.pose_prior_gravity_ba_mode = pycolmap.PosePriorGravityBAMode.optimize
+    assert (
+        options.pose_prior_gravity_ba_mode
+        == pycolmap.PosePriorGravityBAMode.off
+    )
+    options.pose_prior_gravity_ba_mode = (
+        pycolmap.PosePriorGravityBAMode.optimize
+    )
     assert (
         options.pose_prior_gravity_ba_mode
         == pycolmap.PosePriorGravityBAMode.optimize
