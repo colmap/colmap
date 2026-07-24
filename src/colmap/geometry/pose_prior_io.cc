@@ -350,8 +350,7 @@ PosePriorArchive ReadPosePriorArchiveFromJSON(
         TryColumnIdFromString(column_name);
     if (column_id.has_value()) {
       archive.schema.columns.push_back(*column_id);
-    } else if (options.unknown_column_policy ==
-               UnknownColumnPolicy::IGNORE) {
+    } else if (options.unknown_column_policy == UnknownColumnPolicy::IGNORE) {
       archive.schema.columns.push_back(PosePriorArchive::ColumnId::UNKNOWN);
       ignored_column_names.push_back(column_name);
     } else {
@@ -373,7 +372,7 @@ PosePriorArchive ReadPosePriorArchiveFromJSON(
       joined += ignored_column_names[i];
     }
     LOG(WARNING) << "Ignored " << ignored_column_names.size()
-                << " unrecognized pose-prior schema column(s): " << joined;
+                 << " unrecognized pose-prior schema column(s): " << joined;
   }
 
   THROW_CHECK(archive.IsValid())

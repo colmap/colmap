@@ -164,7 +164,8 @@ TEST(Alignment, AlignReconstructionToPosePriorsRobustAnisotropicGateUnset) {
   EXPECT_EQ(default_arg_result.inlier_mask, explicit_unset_result.inlier_mask);
 }
 
-TEST(Alignment, AlignReconstructionToPosePriorsRobustAnisotropicGateSeparatesAxes) {
+TEST(Alignment,
+     AlignReconstructionToPosePriorsRobustAnisotropicGateSeparatesAxes) {
   // A horizontal-only outlier within max_horizontal_error but exceeding an
   // isotropic 3D gate must remain an inlier; a vertical-only outlier within
   // max_horizontal_error but exceeding max_vertical_error must be rejected.
@@ -175,10 +176,10 @@ TEST(Alignment, AlignReconstructionToPosePriorsRobustAnisotropicGateSeparatesAxe
   std::vector<std::pair<image_t, Image>> sorted_images(
       src_reconstruction.Images().begin(), src_reconstruction.Images().end());
   std::sort(sorted_images.begin(),
-           sorted_images.end(),
-           [](const auto& a, const auto& b) {
-             return a.second.Name() < b.second.Name();
-           });
+            sorted_images.end(),
+            [](const auto& a, const auto& b) {
+              return a.second.Name() < b.second.Name();
+            });
   ASSERT_GE(sorted_images.size(), 5u);
   const image_t horizontal_outlier_id = sorted_images[0].first;
   const image_t vertical_outlier_id = sorted_images[1].first;

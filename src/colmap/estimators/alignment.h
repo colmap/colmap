@@ -96,7 +96,8 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
     const RANSACOptions& ransac_options,
-    const AnisotropicPositionGate& anisotropic_gate = AnisotropicPositionGate());
+    const AnisotropicPositionGate& anisotropic_gate =
+        AnisotropicPositionGate());
 
 // Refines a successful position alignment with absolute orientation priors.
 // The position RANSAC inlier set remains fixed. If orientation support is

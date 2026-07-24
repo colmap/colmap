@@ -851,37 +851,36 @@ TEST(ModelAligner, GeoreferenceReportLevelControlsDiagnosticDetail) {
   }
   database.reset();
 
-  const auto run_aligner =
-      [&](const std::filesystem::path& output_path,
-          const std::filesystem::path& report_path,
-          const std::vector<std::string>& extra_args) {
-        std::vector<std::string> args{
-            "model_aligner",
-            "--input_path",
-            input_path.string(),
-            "--output_path",
-            output_path.string(),
-            "--database_path",
-            database_path.string(),
-            "--alignment_type",
-            "enu",
-            "--alignment_max_error",
-            "10",
-            "--min_common_images",
-            "3",
-            "--alignment_random_seed",
-            "12345",
-            "--georeference_json",
-            report_path.string(),
-        };
-        args.insert(args.end(), extra_args.begin(), extra_args.end());
-        std::vector<char*> argv;
-        argv.reserve(args.size());
-        for (std::string& arg : args) {
-          argv.push_back(arg.data());
-        }
-        return RunModelAligner(static_cast<int>(argv.size()), argv.data());
-      };
+  const auto run_aligner = [&](const std::filesystem::path& output_path,
+                               const std::filesystem::path& report_path,
+                               const std::vector<std::string>& extra_args) {
+    std::vector<std::string> args{
+        "model_aligner",
+        "--input_path",
+        input_path.string(),
+        "--output_path",
+        output_path.string(),
+        "--database_path",
+        database_path.string(),
+        "--alignment_type",
+        "enu",
+        "--alignment_max_error",
+        "10",
+        "--min_common_images",
+        "3",
+        "--alignment_random_seed",
+        "12345",
+        "--georeference_json",
+        report_path.string(),
+    };
+    args.insert(args.end(), extra_args.begin(), extra_args.end());
+    std::vector<char*> argv;
+    argv.reserve(args.size());
+    for (std::string& arg : args) {
+      argv.push_back(arg.data());
+    }
+    return RunModelAligner(static_cast<int>(argv.size()), argv.data());
+  };
 
   const std::filesystem::path summary_output = test_dir / "output_summary";
   const std::filesystem::path summary_report = test_dir / "summary.json";
@@ -922,13 +921,13 @@ TEST(ModelAligner, GeoreferenceReportLevelControlsDiagnosticDetail) {
 
   // `full`-only detailed diagnostics are absent from `summary`.
   EXPECT_THROW(summary.get_child("diagnostics.position_3d_residual_m"),
-              boost::property_tree::ptree_bad_path);
+               boost::property_tree::ptree_bad_path);
   EXPECT_THROW(summary.get_child("diagnostics.gravity_residual_deg"),
-              boost::property_tree::ptree_bad_path);
+               boost::property_tree::ptree_bad_path);
   EXPECT_THROW(summary.get<double>("diagnostics.max_horizontal_baseline_m"),
-              boost::property_tree::ptree_bad_path);
+               boost::property_tree::ptree_bad_path);
   EXPECT_THROW(summary.get<double>("diagnostics.horizontal_condition_ratio"),
-              boost::property_tree::ptree_bad_path);
+               boost::property_tree::ptree_bad_path);
 
   // The same detailed diagnostics are present in `full`.
   EXPECT_NO_THROW(full.get_child("diagnostics.position_3d_residual_m"));

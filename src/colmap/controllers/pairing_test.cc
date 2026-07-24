@@ -376,12 +376,12 @@ TEST(SequentialPairGenerator, ResetClearsVetoedPairCount) {
   generator.Reset();
   EXPECT_EQ(generator.NumVetoedPairs(), 0)
       << "Reset() must clear the vetoed-pair count so a reused generator "
-        "does not report a cumulative total across passes.";
+         "does not report a cumulative total across passes.";
 
   const auto second_pass_pairs = generator.AllPairs();
   EXPECT_EQ(generator.NumVetoedPairs(), vetoed_after_first_pass)
       << "An identical second pass must veto the same number of pairs "
-        "again, not accumulate on top of the first pass's count.";
+         "again, not accumulate on top of the first pass's count.";
   EXPECT_EQ(first_pass_pairs, second_pass_pairs);
 }
 

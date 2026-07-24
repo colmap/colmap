@@ -50,9 +50,9 @@ TEST(ModelGeoreference, LichtfeldColmapIsProperRotation) {
       geometry_from_enu.rotation().toRotationMatrix();
   EXPECT_NEAR(rotation.determinant(), 1.0, 1e-12);
   // Orthonormal: R^T R = I.
-  EXPECT_LT((rotation.transpose() * rotation - Eigen::Matrix3d::Identity())
-                .norm(),
-            1e-12);
+  EXPECT_LT(
+      (rotation.transpose() * rotation - Eigen::Matrix3d::Identity()).norm(),
+      1e-12);
 }
 
 TEST(ModelGeoreference, LichtfeldColmapBasisMapping) {
@@ -80,9 +80,8 @@ TEST(ModelGeoreference, LichtfeldVisualizerBoundaryMapsUpToDisplayedY) {
       GeometryFromEnu(OutputCoordinateFrame::LICHTFELD_COLMAP);
   const Sim3d visualizer_from_geometry = LichtfeldVisualizerFromColmapData();
   const Eigen::Vector3d enu_up(0.0, 0.0, 1.0);
-  const Eigen::Vector3d displayed_up =
-      visualizer_from_geometry.rotation() *
-      (geometry_from_enu.rotation() * enu_up);
+  const Eigen::Vector3d displayed_up = visualizer_from_geometry.rotation() *
+                                       (geometry_from_enu.rotation() * enu_up);
   EXPECT_LT((displayed_up - Eigen::Vector3d(0.0, 1.0, 0.0)).norm(), 1e-12);
 
   // The boundary transform itself is a pure axis-sign-flip rotation
@@ -110,8 +109,7 @@ TEST(ModelGeoreference, TransformAppliesToPointsCentersAndOrientations) {
   const Eigen::Quaterniond original_rotation =
       reconstruction.Image(image_id).CamFromWorld().rotation();
   const point3D_t point_id = reconstruction.Points3D().begin()->first;
-  const Eigen::Vector3d original_point =
-      reconstruction.Point3D(point_id).xyz;
+  const Eigen::Vector3d original_point = reconstruction.Point3D(point_id).xyz;
 
   const Sim3d geometry_from_enu =
       GeometryFromEnu(OutputCoordinateFrame::LICHTFELD_COLMAP);
@@ -146,9 +144,10 @@ TEST(ModelGeoreference, GeometryEnuRoundTripIsIdentityForEveryOutputFrame) {
   // Contract item 6: enu_from_geometry * geometry_from_enu is identity, for
   // every supported output frame (not just LICHTFELD_COLMAP).
   const Eigen::Vector3d probe(1.0, 2.0, 3.0);
-  for (const OutputCoordinateFrame frame : {OutputCoordinateFrame::ENU_Z_UP,
-                                            OutputCoordinateFrame::GLTF_Y_UP,
-                                            OutputCoordinateFrame::LICHTFELD_COLMAP}) {
+  for (const OutputCoordinateFrame frame :
+       {OutputCoordinateFrame::ENU_Z_UP,
+        OutputCoordinateFrame::GLTF_Y_UP,
+        OutputCoordinateFrame::LICHTFELD_COLMAP}) {
     const Sim3d geometry_from_enu = GeometryFromEnu(frame);
     const Sim3d enu_from_geometry = Inverse(geometry_from_enu);
     const Eigen::Vector3d round_trip =
@@ -202,8 +201,7 @@ TEST(ModelGeoreference, EcefTransformSurvivesDeletionOnlyCrop) {
       1.0, Eigen::Quaterniond(ecef_from_enu_rotation), origin_ecef);
   const Sim3d geometry_from_enu =
       GeometryFromEnu(OutputCoordinateFrame::LICHTFELD_COLMAP);
-  const Sim3d ecef_from_geometry =
-      ecef_from_enu * Inverse(geometry_from_enu);
+  const Sim3d ecef_from_geometry = ecef_from_enu * Inverse(geometry_from_enu);
 
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;

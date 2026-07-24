@@ -336,11 +336,8 @@ TEST(GlobalPositioning, PosePriorPositionRansacMaxErrorExplicitOverride) {
     GlobalPositionerOptions explicit_options = base_options;
     explicit_options.pose_prior_position_ransac_max_error = 100.0;
     PosePriorPositionSummary summary;
-    ASSERT_TRUE(RunGlobalPositioning(explicit_options,
-                                     pose_graph,
-                                     reconstruction,
-                                     pose_priors,
-                                     &summary));
+    ASSERT_TRUE(RunGlobalPositioning(
+        explicit_options, pose_graph, reconstruction, pose_priors, &summary));
     EXPECT_TRUE(summary.engaged);
     EXPECT_EQ(summary.num_inliers, summary.num_covered_frames);
   }

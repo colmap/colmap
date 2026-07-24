@@ -309,7 +309,8 @@ TEST(PosePriorArchive, ReadPosePriorArchive_UnknownColumnFailsByDefault) {
   EXPECT_THROW(ReadPosePriorArchive(path), std::exception);
 }
 
-TEST(PosePriorArchive, ReadPosePriorArchive_UnknownColumnErrorNamesColumnAndIndex) {
+TEST(PosePriorArchive,
+     ReadPosePriorArchive_UnknownColumnErrorNamesColumnAndIndex) {
   const auto path = WriteTestJSON(R"({
     "coordinate_system": "CARTESIAN",
     "schema": ["NAME", "TX", "TY", "TZ", "LATT"],
@@ -327,7 +328,8 @@ TEST(PosePriorArchive, ReadPosePriorArchive_UnknownColumnErrorNamesColumnAndInde
   }
 }
 
-TEST(PosePriorArchive, ReadPosePriorArchive_IgnorePolicyImportsRecognizedFields) {
+TEST(PosePriorArchive,
+     ReadPosePriorArchive_IgnorePolicyImportsRecognizedFields) {
   PosePriorArchiveReadOptions options;
   options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
   const auto path = WriteTestJSON(R"({
@@ -356,7 +358,8 @@ TEST(PosePriorArchive, ReadPosePriorArchive_IgnorePolicyImportsRecognizedFields)
   EXPECT_DOUBLE_EQ(priors[0].position_covariance(0, 0), 0.01);
 }
 
-TEST(PosePriorArchive, ReadPosePriorArchive_IgnoredColumnsPreserveRowAlignment) {
+TEST(PosePriorArchive,
+     ReadPosePriorArchive_IgnoredColumnsPreserveRowAlignment) {
   // Ignored columns at the beginning, middle, and end must not shift
   // adjacent recognized columns' cells onto the wrong field.
   PosePriorArchiveReadOptions options;
@@ -423,7 +426,7 @@ TEST(PosePriorArchive, ReadPosePriorArchive_MultipleIgnoredColumns) {
 }
 
 TEST(PosePriorArchive,
-    ReadPosePriorArchive_IgnorePolicyDoesNotHideIncompleteRecognizedGroup) {
+     ReadPosePriorArchive_IgnorePolicyDoesNotHideIncompleteRecognizedGroup) {
   // Ignore mode must not mask an otherwise-invalid schema: TX/TY without TZ
   // is still an incomplete Cartesian-position group and must still fail
   // validation, regardless of the unrelated ignored column.

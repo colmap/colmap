@@ -2,7 +2,6 @@
 // All rights reserved.
 
 #include "colmap/exe/database.h"
-
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
@@ -71,7 +70,8 @@ std::pair<image_t, image_t> CreateTwoImagesWithFullPriors(Database& database) {
 
   for (const image_t image_id : {keep_image_id, update_image_id}) {
     PosePrior prior;
-    prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, camera_id), image_id);
+    prior.corr_data_id =
+        data_t(sensor_t(SensorType::CAMERA, camera_id), image_id);
     prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     prior.position = Eigen::Vector3d(1.0, 2.0, 3.0);
     prior.position_covariance = Eigen::Matrix3d::Identity() * 0.5;
@@ -110,14 +110,14 @@ TEST(PosePriorImporter, MergeUnrelatedPriorUnchangedNoUpdateIssued) {
     sqlite3* db = nullptr;
     ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &db), SQLITE_OK);
     ASSERT_EQ(sqlite3_exec(db,
-                          "CREATE TABLE update_audit(pose_prior_id INTEGER);"
-                          "CREATE TRIGGER audit_pose_prior_update "
-                          "AFTER UPDATE ON pose_priors BEGIN "
-                          "INSERT INTO update_audit(pose_prior_id) "
-                          "VALUES (OLD.pose_prior_id); END;",
-                          nullptr,
-                          nullptr,
-                          nullptr),
+                           "CREATE TABLE update_audit(pose_prior_id INTEGER);"
+                           "CREATE TRIGGER audit_pose_prior_update "
+                           "AFTER UPDATE ON pose_priors BEGIN "
+                           "INSERT INTO update_audit(pose_prior_id) "
+                           "VALUES (OLD.pose_prior_id); END;",
+                           nullptr,
+                           nullptr,
+                           nullptr),
               SQLITE_OK);
     sqlite3_close(db);
   }
@@ -138,8 +138,7 @@ TEST(PosePriorImporter, MergeUnrelatedPriorUnchangedNoUpdateIssued) {
     for (const auto& prior : database->ReadAllPosePriors()) {
       if (prior.corr_data_id.id == keep_prior_before.corr_data_id.id) {
         EXPECT_EQ(prior, keep_prior_before);
-      } else if (prior.corr_data_id.id ==
-                update_prior_before.corr_data_id.id) {
+      } else if (prior.corr_data_id.id == update_prior_before.corr_data_id.id) {
         EXPECT_DOUBLE_EQ(prior.position.x(), 10.0);
         EXPECT_DOUBLE_EQ(prior.position.y(), 20.0);
         EXPECT_DOUBLE_EQ(prior.position.z(), 30.0);
@@ -155,11 +154,11 @@ TEST(PosePriorImporter, MergeUnrelatedPriorUnchangedNoUpdateIssued) {
     ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &db), SQLITE_OK);
     sqlite3_stmt* stmt = nullptr;
     ASSERT_EQ(sqlite3_prepare_v2(db,
-                                "SELECT COUNT(*) FROM update_audit WHERE "
-                                "pose_prior_id = ?;",
-                                -1,
-                                &stmt,
-                                nullptr),
+                                 "SELECT COUNT(*) FROM update_audit WHERE "
+                                 "pose_prior_id = ?;",
+                                 -1,
+                                 &stmt,
+                                 nullptr),
               SQLITE_OK);
     ASSERT_EQ(sqlite3_bind_int64(stmt, 1, keep_prior_before.pose_prior_id),
               SQLITE_OK);
@@ -169,11 +168,11 @@ TEST(PosePriorImporter, MergeUnrelatedPriorUnchangedNoUpdateIssued) {
     sqlite3_finalize(stmt);
 
     ASSERT_EQ(sqlite3_prepare_v2(db,
-                                "SELECT COUNT(*) FROM update_audit WHERE "
-                                "pose_prior_id = ?;",
-                                -1,
-                                &stmt,
-                                nullptr),
+                                 "SELECT COUNT(*) FROM update_audit WHERE "
+                                 "pose_prior_id = ?;",
+                                 -1,
+                                 &stmt,
+                                 nullptr),
               SQLITE_OK);
     ASSERT_EQ(sqlite3_bind_int64(stmt, 1, update_prior_before.pose_prior_id),
               SQLITE_OK);

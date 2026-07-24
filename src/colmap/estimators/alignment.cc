@@ -292,15 +292,15 @@ struct AnisotropicEnuPositionEstimator {
   }
 
   void Estimate(const std::vector<X_t>& src,
-               const std::vector<Y_t>& tgt,
-               std::vector<M_t>* models) const {
+                const std::vector<Y_t>& tgt,
+                std::vector<M_t>* models) const {
     SimilarityTransformEstimator<3, true>::Estimate(src, tgt, models);
   }
 
   void Residuals(const std::vector<X_t>& src,
-                const std::vector<Y_t>& tgt,
-                const M_t& tgt_from_src,
-                std::vector<double>* residuals) const {
+                 const std::vector<Y_t>& tgt,
+                 const M_t& tgt_from_src,
+                 std::vector<double>* residuals) const {
     const size_t num_points = src.size();
     THROW_CHECK_EQ(num_points, tgt.size());
     residuals->resize(num_points);

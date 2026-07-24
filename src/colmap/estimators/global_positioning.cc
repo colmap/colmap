@@ -751,10 +751,11 @@ void GlobalPositioner::EngagePositionPriorOptimization(
   RANSACOptions ransac_options;
   const bool has_explicit_ransac_gate =
       options_.pose_prior_position_ransac_max_error >= 0.0;
-  const double error_scale = has_explicit_ransac_gate
-                                 ? options_.pose_prior_position_ransac_max_error
-                                 : options_.pose_prior_position_loss_scale *
-                                       options_.pose_prior_position_fallback_stddev;
+  const double error_scale =
+      has_explicit_ransac_gate
+          ? options_.pose_prior_position_ransac_max_error
+          : options_.pose_prior_position_loss_scale *
+                options_.pose_prior_position_fallback_stddev;
   ransac_options.max_error = error_scale;
 
   Sim3d gauge_from_solver;

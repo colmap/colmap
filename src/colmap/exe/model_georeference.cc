@@ -817,13 +817,13 @@ void WriteGeoreferenceReportJSON(
        << "\",";
   json << "\"max_horizontal_error_m\":"
        << JSONNumber(anisotropic_position_gate.IsSet()
-                        ? anisotropic_position_gate.max_horizontal_error
-                        : std::numeric_limits<double>::quiet_NaN())
+                         ? anisotropic_position_gate.max_horizontal_error
+                         : std::numeric_limits<double>::quiet_NaN())
        << ",";
   json << "\"max_vertical_error_m\":"
        << JSONNumber(anisotropic_position_gate.IsSet()
-                        ? anisotropic_position_gate.max_vertical_error
-                        : std::numeric_limits<double>::quiet_NaN());
+                         ? anisotropic_position_gate.max_vertical_error
+                         : std::numeric_limits<double>::quiet_NaN());
   json << "},";
   json << "\"alignment_random_seed\":" << alignment_random_seed << ",";
   json << "\"orientation_max_error_deg\":"
@@ -919,12 +919,12 @@ void WriteCameraResidualsCSV(
   file.precision(17);
 
   std::vector<CameraPosePriorResidual> sorted_residuals = residuals;
-  std::sort(sorted_residuals.begin(),
-            sorted_residuals.end(),
-            [](const CameraPosePriorResidual& a,
-               const CameraPosePriorResidual& b) {
-              return a.image_name < b.image_name;
-            });
+  std::sort(
+      sorted_residuals.begin(),
+      sorted_residuals.end(),
+      [](const CameraPosePriorResidual& a, const CameraPosePriorResidual& b) {
+        return a.image_name < b.image_name;
+      });
 
   file << "image_name,registered,has_position_prior,position_fit_inlier,"
           "prior_e,prior_n,prior_u,solved_e,solved_n,solved_u,"
@@ -1098,8 +1098,11 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                       pose_priors, origin_lat, origin_lon, origin_alt)
                 : pose_priors;
 
-  PosePriorAlignmentResult result = AlignReconstructionToPosePriorsRobust(
-      reconstruction, enu_priors, o.ransac_options, o.anisotropic_position_gate);
+  PosePriorAlignmentResult result =
+      AlignReconstructionToPosePriorsRobust(reconstruction,
+                                            enu_priors,
+                                            o.ransac_options,
+                                            o.anisotropic_position_gate);
   if (!result.success) {
     LOG(ERROR) << "=> Alignment failed";
     return EXIT_FAILURE;
@@ -1123,9 +1126,11 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
           inlier_full_position_lla, &origin_lat, &origin_lon, &origin_alt);
       enu_priors = ConvertPosePriorsToReportENU(
           pose_priors, origin_lat, origin_lon, origin_alt);
-      result = AlignReconstructionToPosePriorsRobust(
-          reconstruction, enu_priors, o.ransac_options,
-          o.anisotropic_position_gate);
+      result =
+          AlignReconstructionToPosePriorsRobust(reconstruction,
+                                                enu_priors,
+                                                o.ransac_options,
+                                                o.anisotropic_position_gate);
       if (!result.success) {
         LOG(ERROR) << "=> Alignment failed after origin refinement";
         return EXIT_FAILURE;

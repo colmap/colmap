@@ -350,12 +350,10 @@ int RunModelAligner(int argc, char** argv) {
                            &quality_thresholds.min_position_inlier_ratio);
   options.AddDefaultOption("material_realignment_max_rotation_deg",
                            &material_realignment_thresholds.max_rotation_deg);
-  options.AddDefaultOption(
-      "material_realignment_max_translation_m",
-      &material_realignment_thresholds.max_translation_m);
-  options.AddDefaultOption(
-      "material_realignment_max_scale_ratio",
-      &material_realignment_thresholds.max_scale_ratio);
+  options.AddDefaultOption("material_realignment_max_translation_m",
+                           &material_realignment_thresholds.max_translation_m);
+  options.AddDefaultOption("material_realignment_max_scale_ratio",
+                           &material_realignment_thresholds.max_scale_ratio);
   // Optional anisotropic ENU horizontal/vertical RANSAC admission gate for
   // the georeference report path (see AnisotropicPositionGate). Both must
   // be supplied together; when absent the legacy isotropic
@@ -487,10 +485,12 @@ int RunModelAligner(int argc, char** argv) {
     georeference_options.enu_origin_lat = enu_origin_lat;
     georeference_options.enu_origin_lon = enu_origin_lon;
     georeference_options.enu_origin_alt = enu_origin_alt;
-    georeference_options.pose_prior_cartesian_frame = pose_prior_cartesian_frame;
+    georeference_options.pose_prior_cartesian_frame =
+        pose_prior_cartesian_frame;
     georeference_options.min_common_images = min_common_images;
     georeference_options.ransac_options = ransac_options;
-    georeference_options.use_pose_prior_orientation = use_pose_prior_orientation;
+    georeference_options.use_pose_prior_orientation =
+        use_pose_prior_orientation;
     georeference_options.orientation_max_error_deg = orientation_max_error_deg;
     georeference_options.scene_id = scene_id;
     georeference_options.georeference_json = georeference_json;

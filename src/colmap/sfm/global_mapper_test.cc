@@ -176,11 +176,11 @@ TEST(GlobalMapper, GlobalPositioningFailsClosedWithoutRetryWhenGpuDisabled) {
 
   GlobalPositionerOptions options;
   options.use_gpu = false;
-  EXPECT_FALSE(global_mapper.GlobalPositioning(
-      options,
-      /*max_angular_reproj_error_deg=*/10.0,
-      /*max_normalized_reproj_error=*/4.0,
-      /*min_tri_angle_deg=*/1.0));
+  EXPECT_FALSE(
+      global_mapper.GlobalPositioning(options,
+                                      /*max_angular_reproj_error_deg=*/10.0,
+                                      /*max_normalized_reproj_error=*/4.0,
+                                      /*min_tri_angle_deg=*/1.0));
 }
 
 TEST(GlobalMapper, GlobalPositioningRestoresBackupAndFailsClosedAfterCpuRetry) {
@@ -193,11 +193,11 @@ TEST(GlobalMapper, GlobalPositioningRestoresBackupAndFailsClosedAfterCpuRetry) {
 
   GlobalPositionerOptions options;
   options.use_gpu = true;  // Triggers a CPU retry attempt on failure.
-  EXPECT_FALSE(global_mapper.GlobalPositioning(
-      options,
-      /*max_angular_reproj_error_deg=*/10.0,
-      /*max_normalized_reproj_error=*/4.0,
-      /*min_tri_angle_deg=*/1.0));
+  EXPECT_FALSE(
+      global_mapper.GlobalPositioning(options,
+                                      /*max_angular_reproj_error_deg=*/10.0,
+                                      /*max_normalized_reproj_error=*/4.0,
+                                      /*min_tri_angle_deg=*/1.0));
   // Still exactly the pre-solve (empty) state: the backup-restore before
   // the CPU retry did not leave the reconstruction in some corrupted
   // intermediate state from the failed first attempt.

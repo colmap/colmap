@@ -163,7 +163,8 @@ struct ModelGeoreferenceOptions {
   GeoreferenceReportLevel report_level = GeoreferenceReportLevel::SUMMARY;
   std::filesystem::path camera_residuals_csv;
 
-  OutputCoordinateFrame output_coordinate_frame = OutputCoordinateFrame::ENU_Z_UP;
+  OutputCoordinateFrame output_coordinate_frame =
+      OutputCoordinateFrame::ENU_Z_UP;
 
   // Off by default (preserves existing behavior byte-for-byte); the
   // pre/post-correction diagnostic is always reported regardless of this
