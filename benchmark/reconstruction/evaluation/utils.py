@@ -55,10 +55,10 @@ import pycolmap
 from .covisibility import filter_covisibility  # noqa: F401
 from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
 
-# Sentinel GT reconstruction id in image_name_to_gt_recon_ids marking an
-# outlier image that does not belong to any GT reconstruction. Outliers are
-# never part of a GT edge (relative metric) or a GT cluster (absolute metric).
-OUTLIER_RECON_ID = -1
+# Sentinel GT component id in image_name_to_component marking an outlier image
+# that does not belong to any GT reconstruction. Outliers are never part of a
+# GT edge (relative metric) or a GT component (absolute metric).
+OUTLIER_COMPONENT_ID = -1
 
 _PR_SET_PDEATHSIG = 1
 _LIBC = (
@@ -120,13 +120,13 @@ class SceneInfo:
     has_camera_priors: bool
     # Additional arguments for the COLMAP reconstruction command.
     colmap_extra_args: list[str]
-    # Maps image name -> ground-truth reconstruction id. Images sharing an id
+    # Maps image name -> ground-truth component id. Images sharing an id
     # belong to the same GT reconstruction (this defines the GT edge set for
-    # the relative metric and the cluster for the absolute metric). Empty means
-    # the scene ships a single GT reconstruction; process_scene then
+    # the relative metric and the component for the absolute metric). Empty
+    # means the scene ships a single GT reconstruction; process_scene then
     # materializes a default {name: 0 for every sparse_gt image}. This is the
     # case for all current datasets that ship one GT model per scene.
-    image_name_to_gt_recon_ids: dict[str, int] = dataclasses.field(
+    image_name_to_component: dict[str, int] = dataclasses.field(
         default_factory=dict
     )
 
@@ -203,6 +203,18 @@ class Dataset(ABC):
         """Ground-truth position accuracy in meters."""
         pass
 
+    @property
+    @abstractmethod
+    def supports_covisibility_filtering(self) -> bool:
+        """Whether the GT reconstruction can drive covisibility filtering.
+
+        The frustum/track-based filter needs a GT reconstruction with real
+        intrinsics (and ideally 3D points) in a shared gauge. Datasets whose GT
+        lacks these (e.g. IMC2025 with placeholder cameras) must return False
+        so process_scene does not pass their GT to the filter.
+        """
+        pass
+
     @abstractmethod
     def list_scenes(self) -> list[SceneInfo]:
         """List all scenes to evaluate."""
@@ -212,17 +224,6 @@ class Dataset(ABC):
     def prepare_scene(self, scene_info: SceneInfo) -> None:
         """Prepare the scene for reconstruction."""
         pass
-
-    @property
-    def supports_covisibility_filtering(self) -> bool:
-        """Whether the GT reconstruction can drive covisibility filtering.
-
-        The frustum/track-based filter needs a GT reconstruction with real
-        intrinsics (and ideally 3D points) in a shared gauge. Datasets whose GT
-        lacks these (e.g. IMC2025 with placeholder cameras) should return False
-        so process_scene does not pass their GT to the filter.
-        """
-        return True
 
     def compute_scene_errors(
         self,
@@ -235,28 +236,28 @@ class Dataset(ABC):
         """Compute the flat error array for a reconstructed scene.
 
         The default implementation keeps the estimated sub-models separate and
-        computes the set-based, GT-cluster-aware relative or absolute pose
-        errors against the ground truth. The GT clusters come from
-        scene_info.image_name_to_gt_recon_ids, defaulting to a single
-        reconstruction (all GT images in cluster 0) when the dataset does not
+        computes the set-based, GT-component-aware relative or absolute pose
+        errors against the ground truth. The GT components come from
+        scene_info.image_name_to_component, defaulting to a single
+        reconstruction (all GT images in component 0) when the dataset does not
         provide one. Datasets can populate that mapping or override this method
         to implement a custom error metric.
         """
-        image_name_to_gt_recon_ids = scene_info.image_name_to_gt_recon_ids or {
+        image_name_to_component = scene_info.image_name_to_component or {
             image.name: 0 for image in sparse_gt.images.values()
         }
         if args.error_type.startswith("relative"):
             return compute_grouped_rel_errors(
                 sparse_gt=sparse_gt,
                 sub_models=sub_models,
-                image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+                image_name_to_component=image_name_to_component,
                 min_proj_center_dist=position_accuracy_gt,
             )
         elif args.error_type.startswith("absolute"):
             return compute_grouped_abs_errors(
                 sparse_gt=sparse_gt,
                 sub_models=sub_models,
-                image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+                image_name_to_component=image_name_to_component,
             )
         else:
             raise ValueError(f"Invalid error type: {args.error_type}")
@@ -1206,9 +1207,9 @@ def get_scores(error_type: str, metrics: Metrics) -> npt.NDArray[np.floating]:
         raise ValueError(f"Invalid error type: {error_type}")
 
 
-def relative_pose_error_deg(
-    rel_est: pycolmap.Rigid3d,
-    rel_gt: pycolmap.Rigid3d,
+def compute_rel_pose_error(
+    tgt_from_src_est: pycolmap.Rigid3d,
+    tgt_from_src_gt: pycolmap.Rigid3d,
     min_proj_center_dist: float,
 ) -> tuple[float, float]:
     """Angular relative pose errors (dt, dR) in degrees.
@@ -1218,15 +1219,17 @@ def relative_pose_error_deg(
     min_proj_center_dist, the translation direction is unstable and dt is set
     to zero, so only the rotation error is measured.
     """
-    estimated_from_gt = rel_est.inverse() * rel_gt
+    estimated_from_gt = tgt_from_src_est.inverse() * tgt_from_src_gt
 
-    if np.linalg.norm(rel_gt.translation) < min_proj_center_dist:
+    if np.linalg.norm(tgt_from_src_gt.translation) < min_proj_center_dist:
         # If the cameras almost coincide, then the angular direction distance
         # is unstable, because a small position change can cause a large
         # rotational error. In this case, we only measure rotational error.
         dt = 0.0
     else:
-        dt = vec_angular_dist_deg(rel_est.translation, rel_gt.translation)
+        dt = vec_angular_dist_deg(
+            tgt_from_src_est.translation, tgt_from_src_gt.translation
+        )
 
     dR = np.rad2deg(estimated_from_gt.rotation.angle())
     return dt, dR
@@ -1235,23 +1238,23 @@ def relative_pose_error_deg(
 def compute_grouped_rel_errors(
     sparse_gt: pycolmap.Reconstruction,
     sub_models: list[pycolmap.Reconstruction],
-    image_name_to_gt_recon_ids: dict[str, int],
+    image_name_to_component: dict[str, int],
     min_proj_center_dist: float,
 ) -> npt.NDArray[np.floating]:
     """Set-based relative pose errors over the graph of image pairs.
 
     Let A be the set of ordered image pairs (i, j) that share an estimated
-    sub-model and B the set of ordered pairs that share a GT reconstruction (as
-    defined by image_name_to_gt_recon_ids). For pairs in A n B we measure the
+    sub-model and B the set of ordered pairs that share a GT component (as
+    defined by image_name_to_component). For pairs in A n B we measure the
     relative pose error; for pairs in the symmetric difference (grouped in only
     one of the two, i.e. wrong merges / registered outliers or failed /
     fragmented registrations) we assign the maximum error of 180 degrees. The
     returned error array covers all pairs in A u B.
 
     A and B are materialized as flat collections and scored in a single pass.
-    A is a multiset (est_edges): an image may appear in several sub-models, so
-    the same edge can carry several estimated relative poses, each contributing
-    one error entry.
+    A is a multiset (tgt_from_src_est_edges): an image may appear in several
+    sub-models, so the same edge can carry several estimated relative poses,
+    each contributing one error entry.
     """
     gt_cam_from_world = {
         image.name: image.cam_from_world()
@@ -1260,7 +1263,7 @@ def compute_grouped_rel_errors(
 
     # A: ordered estimated edges -> list of relative poses (one per sub-model
     # containing both endpoints). Keeping a list makes A a multiset.
-    est_edges: dict[tuple[str, str], list[pycolmap.Rigid3d]] = (
+    tgt_from_src_est_edges: dict[tuple[str, str], list[pycolmap.Rigid3d]] = (
         collections.defaultdict(list)
     )
     for sub_model in sub_models:
@@ -1268,42 +1271,47 @@ def compute_grouped_rel_errors(
             image.name: image.cam_from_world()
             for image in sub_model.images.values()
         }
-        for name_i, name_j in itertools.permutations(cam_from_world, 2):
-            rel_est = cam_from_world[name_j] * cam_from_world[name_i].inverse()
-            est_edges[(name_i, name_j)].append(rel_est)
+        for src_name, tgt_name in itertools.permutations(cam_from_world, 2):
+            tgt_from_src_est = (
+                cam_from_world[tgt_name] * cam_from_world[src_name].inverse()
+            )
+            tgt_from_src_est_edges[(src_name, tgt_name)].append(
+                tgt_from_src_est
+            )
 
-    # B: ordered GT edges grouped by GT reconstruction id. Outliers never
-    # belong to a GT reconstruction, and names absent from sparse_gt cannot
-    # form a measurable GT edge, so both are excluded here.
-    names_by_recon: dict[int, list[str]] = collections.defaultdict(list)
-    for name, recon_id in image_name_to_gt_recon_ids.items():
-        if recon_id == OUTLIER_RECON_ID or name not in gt_cam_from_world:
+    # B: ordered GT edges grouped by GT component. Outliers never belong to a
+    # GT component, and names absent from sparse_gt cannot form a measurable GT
+    # edge, so both are excluded here.
+    names_by_component: dict[int, list[str]] = collections.defaultdict(list)
+    for name, component in image_name_to_component.items():
+        if component == OUTLIER_COMPONENT_ID or name not in gt_cam_from_world:
             continue
-        names_by_recon[recon_id].append(name)
+        names_by_component[component].append(name)
     gt_edges: set[tuple[str, str]] = set()
-    for group_names in names_by_recon.values():
+    for group_names in names_by_component.values():
         gt_edges.update(itertools.permutations(group_names, 2))
 
     errors: list[float] = []
-    for edge in set(est_edges) | gt_edges:
-        name_i, name_j = edge
-        rel_ests = est_edges.get(edge, [])
+    for edge in set(tgt_from_src_est_edges) | gt_edges:
+        src_name, tgt_name = edge
+        tgt_from_src_ests = tgt_from_src_est_edges.get(edge, [])
         if edge in gt_edges:
-            rel_gt = (
-                gt_cam_from_world[name_j] * gt_cam_from_world[name_i].inverse()
+            tgt_from_src_gt = (
+                gt_cam_from_world[tgt_name]
+                * gt_cam_from_world[src_name].inverse()
             )
-            if not rel_ests:
+            if not tgt_from_src_ests:
                 # Edge in B - A: failed / fragmented registration.
                 errors.append(180.0)
-            for rel_est in rel_ests:
+            for tgt_from_src_est in tgt_from_src_ests:
                 # Edge in A n B: measure the relative pose error.
-                dt, dR = relative_pose_error_deg(
-                    rel_est, rel_gt, min_proj_center_dist
+                dt, dR = compute_rel_pose_error(
+                    tgt_from_src_est, tgt_from_src_gt, min_proj_center_dist
                 )
                 errors.append(max(dt, dR))
         else:
             # Edge in A - B: wrong merge or registered outlier.
-            errors.extend(180.0 for _ in rel_ests)
+            errors.extend(180.0 for _ in tgt_from_src_ests)
 
     if not errors:
         # No evaluable pairs (e.g. only singleton GT reconstructions). Report
@@ -1315,7 +1323,7 @@ def compute_grouped_rel_errors(
 def compute_abs_errors(
     sparse_gt: pycolmap.Reconstruction,
     sparse: pycolmap.Reconstruction,
-    image_name_to_gt_recon_ids: dict[str, int] | None = None,
+    image_name_to_component: dict[str, int] | None = None,
 ) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     """Computes rotational and translational absolute pose errors.
 
@@ -1324,9 +1332,9 @@ def compute_abs_errors(
     error per sparse image that also exists in the ground truth, in
     sparse.images.values() order; sparse images absent from the GT are skipped.
 
-    When image_name_to_gt_recon_ids is given, the reconstruction is treated as
-    covering a single GT cluster: the cluster with the smallest mean finite
-    translational error is kept intact and every other image (other clusters,
+    When image_name_to_component is given, the reconstruction is treated as
+    covering a single GT component: the component with the smallest mean finite
+    translational error is kept intact and every other image (other components,
     outliers, or images missing from the mapping) is set to the maximum error
     (inf translation, 180 rotation). Without the mapping the raw per-image
     errors are returned.
@@ -1360,68 +1368,72 @@ def compute_abs_errors(
     dts = np.array(dt_list, dtype=np.float64)
     dRs = np.array(dR_list, dtype=np.float64)
 
-    if image_name_to_gt_recon_ids is None:
+    if image_name_to_component is None:
         return dts, dRs
 
-    best_recon_id = _best_gt_cluster(names, dts, image_name_to_gt_recon_ids)
+    best_component = _best_component(names, dts, image_name_to_component)
 
-    # Keep only the best cluster intact; max out every other image (other
-    # clusters, outliers, or names missing from the mapping). When no cluster
-    # is selectable (best_recon_id is None) every image is maxed out.
+    # Keep only the best component intact; max out every other image (other
+    # components, outliers, or names missing from the mapping). When no
+    # component is selectable (best_component is None) every image is maxed out.
     for i, name in enumerate(names):
-        in_best_cluster = (
-            best_recon_id is not None
-            and image_name_to_gt_recon_ids.get(name) == best_recon_id
+        in_best_component = (
+            best_component is not None
+            and image_name_to_component.get(name) == best_component
         )
-        if not in_best_cluster:
+        if not in_best_component:
             dts[i] = np.inf
             dRs[i] = 180
 
     return dts, dRs
 
 
-def _best_gt_cluster(
+def _best_component(
     names: list[str],
     dts: npt.NDArray[np.floating],
-    image_name_to_gt_recon_ids: dict[str, int],
+    image_name_to_component: dict[str, int],
 ) -> int | None:
-    """GT recon id with the smallest mean finite translational error.
+    """GT component id with the smallest mean finite translational error.
 
-    Returns None when no image maps to a selectable cluster. Outliers and
-    names missing from the mapping never form a selectable cluster.
+    Returns None when no image maps to a selectable component. Outliers and
+    names missing from the mapping never form a selectable component.
     """
-    finite_dts_by_recon: dict[int, list[float]] = collections.defaultdict(list)
+    finite_dts_by_component: dict[int, list[float]] = collections.defaultdict(
+        list
+    )
     for name, dt in zip(names, dts, strict=True):
-        recon_id = image_name_to_gt_recon_ids.get(name)
+        component = image_name_to_component.get(name)
         if (
-            recon_id is not None
-            and recon_id != OUTLIER_RECON_ID
+            component is not None
+            and component != OUTLIER_COMPONENT_ID
             and np.isfinite(dt)
         ):
-            finite_dts_by_recon[recon_id].append(float(dt))
-    if not finite_dts_by_recon:
+            finite_dts_by_component[component].append(float(dt))
+    if not finite_dts_by_component:
         return None
     return min(
-        finite_dts_by_recon,
-        key=lambda recon_id: float(np.mean(finite_dts_by_recon[recon_id])),
+        finite_dts_by_component,
+        key=lambda component: float(
+            np.mean(finite_dts_by_component[component])
+        ),
     )
 
 
 def compute_grouped_abs_errors(
     sparse_gt: pycolmap.Reconstruction,
     sub_models: list[pycolmap.Reconstruction],
-    image_name_to_gt_recon_ids: dict[str, int],
+    image_name_to_component: dict[str, int],
 ) -> npt.NDArray[np.floating]:
-    """GT-cluster-aware absolute pose errors.
+    """GT-component-aware absolute pose errors.
 
     Each estimated sub-model is assumed to be aligned to the GT. A GT image
     that is registered in n sub-models contributes n (translational) errors,
     one per reconstruction; a GT image registered in no sub-model contributes a
     single infinite error (a failure). Within each sub-model only its
-    best-matching GT cluster (smallest mean finite error) is kept intact and
+    best-matching GT component (smallest mean finite error) is kept intact and
     every other GT image is maxed out (see compute_abs_errors). Because the
-    selection is per sub-model, a scene with several GT clusters can credit
-    several of them, one per sub-model. With a single cluster this reduces to
+    selection is per sub-model, a scene with several GT components can credit
+    several of them, one per sub-model. With a single component this reduces to
     the standard absolute metric.
     """
     gt_names = [image.name for image in sparse_gt.images.values()]
@@ -1429,7 +1441,7 @@ def compute_grouped_abs_errors(
 
     # Flat node multiset keyed by GT image name: one translational error per
     # (GT image, sub-model) registration. compute_abs_errors keeps each
-    # sub-model's best GT cluster intact and maxes out (inf) every other
+    # sub-model's best GT component intact and maxes out (inf) every other
     # registered image, which still contributes an error. Its returned errors
     # are aligned to the sub-model's images that also exist in the GT, in
     # sub_model.images.values() order, so we rebuild the names with the same
@@ -1439,7 +1451,7 @@ def compute_grouped_abs_errors(
         sub_dts, _ = compute_abs_errors(
             sparse_gt=sparse_gt,
             sparse=sub_model,
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
         )
         sub_names = [
             image.name

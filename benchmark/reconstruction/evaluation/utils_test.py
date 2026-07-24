@@ -36,7 +36,7 @@ import pytest
 import pycolmap
 
 from .utils import (
-    OUTLIER_RECON_ID,
+    OUTLIER_COMPONENT_ID,
     Metrics,
     SceneInfo,
     _parse_gpu_index,
@@ -508,7 +508,7 @@ def create_test_reconstruction():
     return pycolmap.synthesize_dataset(synthetic_dataset_options)
 
 
-def sub_reconstruction(reconstruction, keep_names):
+def extract_sub_reconstruction(reconstruction, keep_names):
     """Build a copy of reconstruction containing only the given image names.
 
     Mirrors what a real sub-model loaded from disk looks like: its images map
@@ -588,7 +588,7 @@ class TestComputeGroupedRelErrors:
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=_single_gt_cluster(reconstruction),
+            image_name_to_component=_single_gt_cluster(reconstruction),
             min_proj_center_dist=0.01,
         )
 
@@ -612,7 +612,7 @@ class TestComputeGroupedRelErrors:
         errors = compute_grouped_rel_errors(
             sparse_gt=gt_reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=_single_gt_cluster(gt_reconstruction),
+            image_name_to_component=_single_gt_cluster(gt_reconstruction),
             min_proj_center_dist=0.01,
         )
 
@@ -633,7 +633,7 @@ class TestComputeGroupedRelErrors:
         errors = compute_grouped_rel_errors(
             sparse_gt=gt_reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=_single_gt_cluster(gt_reconstruction),
+            image_name_to_component=_single_gt_cluster(gt_reconstruction),
             min_proj_center_dist=0.01,
         )
 
@@ -649,7 +649,7 @@ class TestComputeGroupedRelErrors:
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[],
-            image_name_to_gt_recon_ids=_single_gt_cluster(reconstruction),
+            image_name_to_component=_single_gt_cluster(reconstruction),
             min_proj_center_dist=0.01,
         )
 
@@ -664,14 +664,14 @@ class TestComputeGroupedRelErrors:
         reconstruction = create_test_reconstruction()
         names = sorted(image.name for image in reconstruction.images.values())
         half = len(names) // 2
-        image_name_to_gt_recon_ids = {
+        image_name_to_component = {
             name: (0 if i < half else 1) for i, name in enumerate(names)
         }
 
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
             min_proj_center_dist=0.01,
         )
 
@@ -693,14 +693,14 @@ class TestComputeGroupedRelErrors:
         reconstruction = create_test_reconstruction()
         names = sorted(image.name for image in reconstruction.images.values())
         half = len(names) // 2
-        sub_model_0 = sub_reconstruction(reconstruction, names[:half])
-        sub_model_1 = sub_reconstruction(reconstruction, names[half:])
-        image_name_to_gt_recon_ids = {name: 0 for name in names}
+        sub_model_0 = extract_sub_reconstruction(reconstruction, names[:half])
+        sub_model_1 = extract_sub_reconstruction(reconstruction, names[half:])
+        image_name_to_component = {name: 0 for name in names}
 
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[sub_model_0, sub_model_1],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
             min_proj_center_dist=0.01,
         )
 
@@ -723,17 +723,21 @@ class TestComputeGroupedRelErrors:
         third = n // 3
         two_thirds = 2 * n // 3
         # GT: first third -> cluster 0, remaining two thirds -> cluster 1.
-        image_name_to_gt_recon_ids = {
+        image_name_to_component = {
             name: (0 if i < third else 1) for i, name in enumerate(names)
         }
         # Estimate: first two thirds and remaining third form two sub-models.
-        sub_model_0 = sub_reconstruction(reconstruction, names[:two_thirds])
-        sub_model_1 = sub_reconstruction(reconstruction, names[two_thirds:])
+        sub_model_0 = extract_sub_reconstruction(
+            reconstruction, names[:two_thirds]
+        )
+        sub_model_1 = extract_sub_reconstruction(
+            reconstruction, names[two_thirds:]
+        )
 
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[sub_model_0, sub_model_1],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
             min_proj_center_dist=0.01,
         )
 
@@ -759,14 +763,15 @@ class TestComputeGroupedRelErrors:
         reconstruction = create_test_reconstruction()
         names = sorted(image.name for image in reconstruction.images.values())
         outlier = names[0]
-        image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0) for name in names
+        image_name_to_component = {
+            name: (OUTLIER_COMPONENT_ID if name == outlier else 0)
+            for name in names
         }
 
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
             min_proj_center_dist=0.01,
         )
 
@@ -785,15 +790,15 @@ class TestComputeGroupedRelErrors:
         gt_names = [image.name for image in reconstruction.images.values()]
         outlier = sorted(gt_names)[0]
         assert outlier in gt_names  # The outlier is present in the GT.
-        image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0)
+        image_name_to_component = {
+            name: (OUTLIER_COMPONENT_ID if name == outlier else 0)
             for name in gt_names
         }
 
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
             min_proj_center_dist=0.01,
         )
 
@@ -812,14 +817,15 @@ class TestComputeGroupedRelErrors:
         reconstruction = create_test_reconstruction()
         names = sorted(image.name for image in reconstruction.images.values())
         outlier = names[0]
-        image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0) for name in names
+        image_name_to_component = {
+            name: (OUTLIER_COMPONENT_ID if name == outlier else 0)
+            for name in names
         }
 
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
             min_proj_center_dist=0.01,
         )
 
@@ -828,20 +834,20 @@ class TestComputeGroupedRelErrors:
         np.testing.assert_allclose(errors, 180.0)
 
     def test_gt_names_absent_from_sparse_gt_form_no_edges(self):
-        # A name in image_name_to_gt_recon_ids that does not exist in sparse_gt
+        # A name in image_name_to_component that does not exist in sparse_gt
         # cannot form a measurable GT edge and must not add spurious B - A
         # edges. Nothing is registered, so every scored pair comes from B - A.
         reconstruction = create_test_reconstruction()
         names = sorted(image.name for image in reconstruction.images.values())
         phantom = "phantom_not_in_sparse_gt"
         assert phantom not in names
-        image_name_to_gt_recon_ids = {name: 0 for name in names}
-        image_name_to_gt_recon_ids[phantom] = 0
+        image_name_to_component = {name: 0 for name in names}
+        image_name_to_component[phantom] = 0
 
         errors = compute_grouped_rel_errors(
             sparse_gt=reconstruction,
             sub_models=[],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
             min_proj_center_dist=0.01,
         )
 
@@ -858,7 +864,7 @@ class TestComputeGroupedAbsErrors:
         errors = compute_grouped_abs_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=_single_gt_cluster(reconstruction),
+            image_name_to_component=_single_gt_cluster(reconstruction),
         )
 
         assert len(errors) == reconstruction.num_images()
@@ -872,7 +878,7 @@ class TestComputeGroupedAbsErrors:
         errors = compute_grouped_abs_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction, reconstruction],
-            image_name_to_gt_recon_ids=_single_gt_cluster(reconstruction),
+            image_name_to_component=_single_gt_cluster(reconstruction),
         )
 
         assert len(errors) == 2 * reconstruction.num_images()
@@ -888,7 +894,7 @@ class TestComputeGroupedAbsErrors:
             image.name for image in gt_reconstruction.images.values()
         )
         half = len(names) // 2
-        image_name_to_gt_recon_ids = {
+        image_name_to_component = {
             name: (0 if i < half else 1) for i, name in enumerate(names)
         }
         cluster1_names = {name for name in names[half:]}
@@ -899,7 +905,7 @@ class TestComputeGroupedAbsErrors:
         errors = compute_grouped_abs_errors(
             sparse_gt=gt_reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
         )
 
         assert len(errors) == gt_reconstruction.num_images()
@@ -917,12 +923,12 @@ class TestComputeGroupedAbsErrors:
         half = len(names) // 2
         # Only the second half is mapped (all to cluster 1); the first half is
         # left unmapped (None).
-        image_name_to_gt_recon_ids = {name: 1 for name in names[half:]}
+        image_name_to_component = {name: 1 for name in names[half:]}
 
         errors = compute_grouped_abs_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
         )
 
         assert len(errors) == reconstruction.num_images()
@@ -937,14 +943,15 @@ class TestComputeGroupedAbsErrors:
         reconstruction = create_test_reconstruction()
         names = sorted(image.name for image in reconstruction.images.values())
         outlier = names[0]
-        image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0) for name in names
+        image_name_to_component = {
+            name: (OUTLIER_COMPONENT_ID if name == outlier else 0)
+            for name in names
         }
 
         errors = compute_grouped_abs_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
         )
 
         assert len(errors) == reconstruction.num_images()
@@ -960,15 +967,15 @@ class TestComputeGroupedAbsErrors:
         gt_names = [image.name for image in reconstruction.images.values()]
         outlier = sorted(gt_names)[0]
         assert outlier in gt_names  # The outlier is present in the GT.
-        image_name_to_gt_recon_ids = {
-            name: (OUTLIER_RECON_ID if name == outlier else 0)
+        image_name_to_component = {
+            name: (OUTLIER_COMPONENT_ID if name == outlier else 0)
             for name in gt_names
         }
 
         errors = compute_grouped_abs_errors(
             sparse_gt=reconstruction,
             sub_models=[reconstruction],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
         )
 
         # Every GT image is registered exactly once, so errors map 1:1 to
@@ -991,7 +998,7 @@ class TestComputeGroupedAbsErrors:
             image.name for image in gt_reconstruction.images.values()
         )
         half = len(names) // 2
-        image_name_to_gt_recon_ids = {
+        image_name_to_component = {
             name: (0 if i < half else 1) for i, name in enumerate(names)
         }
         cluster0_names = set(names[:half])
@@ -1008,7 +1015,7 @@ class TestComputeGroupedAbsErrors:
         errors = compute_grouped_abs_errors(
             sparse_gt=gt_reconstruction,
             sub_models=[sub_model_0, sub_model_1],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
         )
 
         # Each GT image is registered in both sub-models -> two errors each.
@@ -1045,11 +1052,15 @@ class TestComputeGroupedAbsErrors:
         n = len(names)
         third = n // 3
         two_thirds = 2 * n // 3
-        image_name_to_gt_recon_ids = {
+        image_name_to_component = {
             name: (0 if i < third else 1) for i, name in enumerate(names)
         }
-        sub_model_0 = sub_reconstruction(reconstruction, names[:two_thirds])
-        sub_model_1 = sub_reconstruction(reconstruction, names[two_thirds:])
+        sub_model_0 = extract_sub_reconstruction(
+            reconstruction, names[:two_thirds]
+        )
+        sub_model_1 = extract_sub_reconstruction(
+            reconstruction, names[two_thirds:]
+        )
         # Offset the cluster-1 images that leaked into sub_model_0 so its best
         # cluster is unambiguously cluster 0.
         leaked_cluster1 = set(names[third:two_thirds])
@@ -1060,7 +1071,7 @@ class TestComputeGroupedAbsErrors:
         errors = compute_grouped_abs_errors(
             sparse_gt=reconstruction,
             sub_models=[sub_model_0, sub_model_1],
-            image_name_to_gt_recon_ids=image_name_to_gt_recon_ids,
+            image_name_to_component=image_name_to_component,
         )
 
         # Sub-models are disjoint, so each GT image contributes exactly one

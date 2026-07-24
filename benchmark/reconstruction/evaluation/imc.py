@@ -110,6 +110,12 @@ class _DatasetIMC(Dataset):
     def position_accuracy_gt(self):
         return 0.02
 
+    @property
+    def supports_covisibility_filtering(self) -> bool:
+        # IMC2023/2024 ship per-scene COLMAP reconstructions with real
+        # intrinsics and 3D points, so covisibility filtering is supported.
+        return True
+
     def _has_ground_truth(self, scene_path: Path) -> bool:
         """Whether ground truth is available for a scene.
 
@@ -273,129 +279,6 @@ class DatasetIMC2024(_DatasetIMC):
         self.year = 2024
 
 
-def _parse_floats(text: str) -> list[float] | None:
-    """Parse a list of floats from an IMC label field.
-
-    IMC stores matrices/vectors as ';'-separated values inside a single CSV
-    field (falls back to whitespace separation). Returns None if the field is
-    empty or cannot be fully parsed as floats.
-    """
-    if text is None:
-        return None
-    text = text.strip()
-    if not text:
-        return None
-    tokens = text.split(";") if ";" in text else text.split()
-    try:
-        return [float(t) for t in tokens if t.strip() != ""]
-    except ValueError:
-        return None
-
-
-def _read_imc2025_labels(
-    path: Path,
-) -> tuple[dict[tuple[str, str], list[dict]], dict[str, list[str]]]:
-    """Parse IMC2025 train_labels.csv.
-
-    Expected columns: dataset, scene, image, rotation_matrix (row-major 3x3,
-    cam_from_world), translation_vector (cam_from_world).
-
-    Returns a tuple of:
-      - gt_rows_by_scene: {(dataset, scene): [{image, R, t}, ...]} for all
-        non-outlier images with a parseable pose (the ground truth).
-      - images_by_dataset: {dataset: [image, ...]} for every image, including
-        outliers (the full input to the reconstruction problem).
-    """
-    gt_rows_by_scene: dict[tuple[str, str], list[dict]] = defaultdict(list)
-    images_by_dataset: dict[str, list[str]] = defaultdict(list)
-    with open(path, newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            dataset = (row.get("dataset") or "").strip()
-            scene = (row.get("scene") or "").strip()
-            image = (row.get("image") or "").strip()
-            if not dataset or not image:
-                continue
-            images_by_dataset[dataset].append(image)
-            if not scene or scene == _OUTLIER_SCENE:
-                continue
-            rotation = _parse_floats(row.get("rotation_matrix", ""))
-            translation = _parse_floats(row.get("translation_vector", ""))
-            if (
-                rotation is None
-                or translation is None
-                or len(rotation) != 9
-                or len(translation) != 3
-            ):
-                continue
-            gt_rows_by_scene[(dataset, scene)].append(
-                {
-                    "image": image,
-                    "R": np.array(rotation, dtype=np.float64).reshape(3, 3),
-                    "t": np.array(translation, dtype=np.float64),
-                }
-            )
-    return gt_rows_by_scene, images_by_dataset
-
-
-def _build_imc2025_gt_reconstruction(
-    rows: list[dict], image_dir: Path
-) -> pycolmap.Reconstruction:
-    """Build a placeholder GT reconstruction from IMC2025 label rows.
-
-    Each row provides {image, R, t} with cam_from_world extrinsics. IMC2025
-    ships neither intrinsics nor 3D points, so we attach a rough pinhole camera
-    sized from each image (falling back to default dimensions if the file
-    cannot be opened) and add no points3D. The result has one
-    rig/frame/camera/image per row and is only used for pose-based evaluation
-    and covisibility heuristics, not for anything that depends on intrinsics.
-    """
-    reconstruction = pycolmap.Reconstruction()
-    for idx, row in enumerate(rows, start=1):
-        image_name = row["image"]
-        image_file = image_dir / image_name
-        try:
-            width, height = PilImage.open(image_file).size
-        except (OSError, ValueError):
-            pycolmap.logging.warning(
-                f"Could not read dimensions for {image_file}, "
-                "using placeholder camera size"
-            )
-            width = _DEFAULT_IMAGE_WIDTH
-            height = _DEFAULT_IMAGE_HEIGHT
-
-        # Intrinsics are not provided by IMC; use a rough pinhole guess. This
-        # only affects covisibility/alignment heuristics, not the relative pose
-        # error, which depends solely on poses.
-        focal = 1.2 * max(width, height)
-        camera = pycolmap.Camera(
-            camera_id=idx,
-            model=pycolmap.CameraModelId.PINHOLE,
-            width=width,
-            height=height,
-            params=[focal, focal, width / 2.0, height / 2.0],
-        )
-        rig = pycolmap.Rig(rig_id=idx)
-        rig.add_ref_sensor(camera.sensor_id)
-        image = pycolmap.Image(
-            image_id=idx,
-            camera_id=idx,
-            name=image_name,
-        )
-        image.frame_id = idx
-        frame = pycolmap.Frame(frame_id=idx)
-        frame.rig_id = idx
-        frame.add_data_id(image.data_id)
-        # IMC stores cam_from_world (x_cam = R * x_world + t).
-        extrinsic = np.hstack([row["R"], row["t"].reshape(3, 1)])
-        frame.rig_from_world = pycolmap.Rigid3d(extrinsic)
-        reconstruction.add_camera(camera)
-        reconstruction.add_rig(rig)
-        reconstruction.add_frame(frame)
-        reconstruction.add_image(image)
-    return reconstruction
-
-
 class DatasetIMC2025(_DatasetIMC):
     """IMC2025 benchmark dataset.
 
@@ -407,9 +290,10 @@ class DatasetIMC2025(_DatasetIMC):
     Here each IMC dataset is a single benchmark scene: all of its images (every
     scene plus outliers) are fed into one reconstruction problem, which
     typically yields several sub-models. Evaluation uses the base-class
-    set-based relative pose metric, driven by a per-GT-scene grouping supplied
-    via scene_info.image_name_to_gt_recon_ids, which jointly penalizes wrong
-    merges, registered outliers, and failed/fragmented registrations.
+    set-based, GT-component-aware pose metric (relative by default; absolute is
+    also supported), driven by a per-GT-scene grouping supplied via
+    scene_info.image_name_to_component, which jointly penalizes wrong merges,
+    registered outliers, and failed/fragmented registrations.
 
     Ground-truth 3D points and intrinsics are unavailable, so the GT
     reconstruction (used only for stats and covisibility heuristics) uses
@@ -442,6 +326,129 @@ class DatasetIMC2025(_DatasetIMC):
         # Lazily-parsed {dataset: [image, ...]} from train_labels.csv.
         self._images_by_dataset_cache: dict[str, list[str]] | None = None
 
+    @staticmethod
+    def _parse_floats(text: str) -> list[float] | None:
+        """Parse a list of floats from an IMC label field.
+
+        IMC stores matrices/vectors as ';'-separated values inside a single CSV
+        field (falls back to whitespace separation). Returns None if the field
+        is empty or cannot be fully parsed as floats.
+        """
+        if text is None:
+            return None
+        text = text.strip()
+        if not text:
+            return None
+        tokens = text.split(";") if ";" in text else text.split()
+        try:
+            return [float(t) for t in tokens if t.strip() != ""]
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _read_imc2025_labels(
+        path: Path,
+    ) -> tuple[dict[tuple[str, str], list[dict]], dict[str, list[str]]]:
+        """Parse IMC2025 train_labels.csv.
+
+        Expected columns: dataset, scene, image, rotation_matrix (row-major
+        3x3, cam_from_world), translation_vector (cam_from_world).
+
+        Returns a tuple of:
+          - gt_rows_by_scene: {(dataset, scene): [{image, R, t}, ...]} for all
+            non-outlier images with a parseable pose (the ground truth).
+          - images_by_dataset: {dataset: [image, ...]} for every image,
+            including outliers (the full input to the reconstruction problem).
+        """
+        gt_rows_by_scene: dict[tuple[str, str], list[dict]] = defaultdict(list)
+        images_by_dataset: dict[str, list[str]] = defaultdict(list)
+        with open(path, newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                dataset = (row.get("dataset") or "").strip()
+                scene = (row.get("scene") or "").strip()
+                image = (row.get("image") or "").strip()
+                if not dataset or not image:
+                    continue
+                images_by_dataset[dataset].append(image)
+                if not scene or scene == _OUTLIER_SCENE:
+                    continue
+                rotation = DatasetIMC2025._parse_floats(
+                    row.get("rotation_matrix", "")
+                )
+                translation = DatasetIMC2025._parse_floats(
+                    row.get("translation_vector", "")
+                )
+                if (
+                    rotation is None
+                    or translation is None
+                    or len(rotation) != 9
+                    or len(translation) != 3
+                ):
+                    continue
+                gt_rows_by_scene[(dataset, scene)].append(
+                    {
+                        "image": image,
+                        "R": np.array(rotation, dtype=np.float64).reshape(3, 3),
+                        "t": np.array(translation, dtype=np.float64),
+                    }
+                )
+        return gt_rows_by_scene, images_by_dataset
+
+    @staticmethod
+    def _build_imc2025_gt_reconstruction(
+        rows: list[dict], image_dir: Path
+    ) -> pycolmap.Reconstruction:
+        """Build a placeholder GT reconstruction from IMC2025 label rows.
+
+        Each row provides {image, R, t} with cam_from_world extrinsics. IMC2025
+        ships neither intrinsics nor 3D points, so we attach a rough pinhole
+        camera sized from each image (falling back to default dimensions if the
+        file cannot be opened) and add no points3D. The result has one
+        rig/frame/camera/image per row and is only used for pose-based
+        evaluation and covisibility heuristics, not for anything that depends
+        on intrinsics.
+        """
+        reconstruction = pycolmap.Reconstruction()
+        for idx, row in enumerate(rows, start=1):
+            image_name = row["image"]
+            image_file = image_dir / image_name
+            try:
+                width, height = PilImage.open(image_file).size
+            except (OSError, ValueError):
+                pycolmap.logging.warning(
+                    f"Could not read dimensions for {image_file}, "
+                    "using placeholder camera size"
+                )
+                width = _DEFAULT_IMAGE_WIDTH
+                height = _DEFAULT_IMAGE_HEIGHT
+
+            # Intrinsics are not provided by IMC; use a rough pinhole guess.
+            # This only affects covisibility/alignment heuristics, not the
+            # relative pose error, which depends solely on poses.
+            focal = 1.2 * max(width, height)
+            camera = pycolmap.Camera(
+                camera_id=idx,
+                model=pycolmap.CameraModelId.PINHOLE,
+                width=width,
+                height=height,
+                params=[focal, focal, width / 2.0, height / 2.0],
+            )
+            reconstruction.add_camera_with_trivial_rig(camera)
+            image = pycolmap.Image(
+                image_id=idx,
+                camera_id=idx,
+                name=image_name,
+            )
+            # IMC stores cam_from_world (x_cam = R * x_world + t). With a
+            # trivial rig, sensor_from_rig is identity, so cam_from_world
+            # equals rig_from_world.
+            cam_from_world = pycolmap.Rigid3d(
+                np.hstack([row["R"], row["t"].reshape(3, 1)])
+            )
+            reconstruction.add_image_with_trivial_frame(image, cam_from_world)
+        return reconstruction
+
     @property
     def supports_covisibility_filtering(self) -> bool:
         # IMC2025 ships neither intrinsics nor 3D points, and the placeholder GT
@@ -457,7 +464,7 @@ class DatasetIMC2025(_DatasetIMC):
     def _images_by_dataset(self) -> dict[str, list[str]]:
         """Parse (and cache) the {dataset: [image, ...]} map from the labels."""
         if self._images_by_dataset_cache is None:
-            _, self._images_by_dataset_cache = _read_imc2025_labels(
+            _, self._images_by_dataset_cache = self._read_imc2025_labels(
                 self._labels_path()
             )
         return self._images_by_dataset_cache
@@ -490,7 +497,7 @@ class DatasetIMC2025(_DatasetIMC):
         return num_images
 
     def prepare_scene(self, scene_info):
-        gt_rows_by_scene, _ = _read_imc2025_labels(self._labels_path())
+        gt_rows_by_scene, _ = self._read_imc2025_labels(self._labels_path())
         dataset = scene_info.scene
 
         # Each GT scene within this IMC dataset is its own reconstruction; map
@@ -498,42 +505,26 @@ class DatasetIMC2025(_DatasetIMC):
         # set-based metric only ever compares poses within the same scene.
         # Outliers are already excluded from gt_rows_by_scene, so they are
         # absent from the mapping and penalized when registered.
-        scene_to_recon_id: dict[str, int] = {}
-        image_name_to_gt_recon_ids: dict[str, int] = {}
+        scene_to_component: dict[str, int] = {}
+        image_name_to_component: dict[str, int] = {}
         rows = []
         for (ds, scene), scene_rows in sorted(gt_rows_by_scene.items()):
             if ds != dataset:
                 continue
-            recon_id = scene_to_recon_id.setdefault(
-                scene, len(scene_to_recon_id)
+            component = scene_to_component.setdefault(
+                scene, len(scene_to_component)
             )
             for row in scene_rows:
-                image_name_to_gt_recon_ids[row["image"]] = recon_id
+                image_name_to_component[row["image"]] = component
             rows.extend(scene_rows)
-        scene_info.image_name_to_gt_recon_ids = image_name_to_gt_recon_ids
+        scene_info.image_name_to_component = image_name_to_component
 
         if scene_info.sparse_gt_path.exists():
             return
 
-        sparse_gt = _build_imc2025_gt_reconstruction(
+        sparse_gt = self._build_imc2025_gt_reconstruction(
             rows, scene_info.image_path
         )
 
         scene_info.sparse_gt_path.mkdir(parents=True, exist_ok=True)
         sparse_gt.write(scene_info.sparse_gt_path)
-
-    def compute_scene_errors(
-        self, args, scene_info, sub_models, sparse_gt, position_accuracy_gt
-    ):
-        if not args.error_type.startswith("relative"):
-            raise ValueError(
-                "IMC2025 evaluation only supports relative error types, "
-                f"got: {args.error_type}"
-            )
-        return super().compute_scene_errors(
-            args=args,
-            scene_info=scene_info,
-            sub_models=sub_models,
-            sparse_gt=sparse_gt,
-            position_accuracy_gt=position_accuracy_gt,
-        )
