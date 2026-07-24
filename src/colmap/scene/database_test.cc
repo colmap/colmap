@@ -313,7 +313,7 @@ TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
 
   // Build a pre-extension pose_priors table (no rotation / rotation_covariance
   // columns) and insert one row with only position/gravity, mirroring a
-  // database created before this product's migration.
+  // database created before these columns were introduced.
   {
     sqlite3* db = nullptr;
     ASSERT_EQ(sqlite3_open(db_path.string().c_str(), &db), SQLITE_OK);
@@ -363,7 +363,7 @@ TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
     sqlite3_close(db);
   }
 
-  // Reopen through the product's normal migration path (PostMigrateTables'
+  // Reopen through the normal migration path (PostMigrateTables'
   // ExistsColumn+ALTER TABLE pattern), which must preserve the old row.
   std::shared_ptr<Database> database = Database::Open(db_path);
   ASSERT_EQ(database->NumPosePriors(), 1);
