@@ -352,6 +352,19 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
       << "Invalid `output_type` " << output_type
       << " - supported values are 'bin', 'ply' and 'txt'.";
 
+  if (output_type == "ply") {
+    THROW_CHECK(!ExistsDir(output_path))
+        << "Path " << output_path
+        << " is a directory, but a PLY file path is expected.";
+    THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+    const std::filesystem::path parent_path = output_path.parent_path();
+    THROW_CHECK(parent_path.empty() || ExistsDir(parent_path))
+        << "Parent directory of `output_path` " << parent_path
+        << " does not exist or is not a directory.";
+  } else {
+    THROW_CHECK_DIR_EXISTS(output_path);
+  }
+
   mvs::StereoFusion fuser(
       options, workspace_path, workspace_format, pmvs_option_name, input_type);
 
