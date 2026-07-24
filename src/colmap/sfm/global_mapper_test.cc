@@ -155,6 +155,55 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
+// Regression coverage for commit 830def55 ("Fail global mapping when global
+// positioning does not converge"): GlobalMapper::GlobalPositioning() must
+// fail closed rather than silently exporting an unsolved/unusable
+// reconstruction. An empty reconstruction (zero images) makes
+// GlobalPositioner::Solve() fail deterministically and identically
+// regardless of use_gpu, since its very first check
+// (NumImages() == 0) fires before any GPU-specific code path -- this
+// environment has no GPU/CUDA support to force a real GPU-vs-CPU
+// divergence, but the fail-closed *control flow* (no retry without
+// use_gpu; backup-restore-then-one-CPU-retry-then-fail-closed with it) is
+// exactly the same regardless of why the first attempt failed.
+TEST(GlobalMapper, GlobalPositioningFailsClosedWithoutRetryWhenGpuDisabled) {
+  const auto database_path = CreateTestDir() / "empty_database.db";
+  auto database = Database::Open(database_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
+  ASSERT_EQ(reconstruction->NumImages(), 0u);
+
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  EXPECT_FALSE(global_mapper.GlobalPositioning(
+      options,
+      /*max_angular_reproj_error_deg=*/10.0,
+      /*max_normalized_reproj_error=*/4.0,
+      /*min_tri_angle_deg=*/1.0));
+}
+
+TEST(GlobalMapper, GlobalPositioningRestoresBackupAndFailsClosedAfterCpuRetry) {
+  const auto database_path = CreateTestDir() / "empty_database.db";
+  auto database = Database::Open(database_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
+  ASSERT_EQ(reconstruction->NumImages(), 0u);
+
+  GlobalPositionerOptions options;
+  options.use_gpu = true;  // Triggers a CPU retry attempt on failure.
+  EXPECT_FALSE(global_mapper.GlobalPositioning(
+      options,
+      /*max_angular_reproj_error_deg=*/10.0,
+      /*max_normalized_reproj_error=*/4.0,
+      /*min_tri_angle_deg=*/1.0));
+  // Still exactly the pre-solve (empty) state: the backup-restore before
+  // the CPU retry did not leave the reconstruction in some corrupted
+  // intermediate state from the failed first attempt.
+  EXPECT_EQ(reconstruction->NumImages(), 0u);
+}
+
 // Rotation-gauge case with non-identity sensor_from_rig
 // (num_cameras_per_rig=2); covariance weighting and one gross orientation
 // outlier; the recovered gauge matches the known perturbation; every

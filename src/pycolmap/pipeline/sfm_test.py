@@ -13,6 +13,38 @@ def test_global_mapper_options_init():
     assert options is not None
 
 
+def test_global_mapper_options_pose_prior_rotation_mode_readwrite():
+    options = pycolmap.GlobalMapperOptions()
+    assert options.pose_prior_rotation_mode == pycolmap.PosePriorRotationMode.off
+    options.pose_prior_rotation_mode = pycolmap.PosePriorRotationMode.initialize
+    assert (
+        options.pose_prior_rotation_mode
+        == pycolmap.PosePriorRotationMode.initialize
+    )
+
+
+def test_global_mapper_options_pose_prior_gravity_ba_mode_readwrite():
+    options = pycolmap.GlobalMapperOptions()
+    assert options.pose_prior_gravity_ba_mode == pycolmap.PosePriorGravityBAMode.off
+    options.pose_prior_gravity_ba_mode = pycolmap.PosePriorGravityBAMode.optimize
+    assert (
+        options.pose_prior_gravity_ba_mode
+        == pycolmap.PosePriorGravityBAMode.optimize
+    )
+
+
+def test_global_mapper_options_pose_prior_gravity_stddev_deg_readwrite():
+    options = pycolmap.GlobalMapperOptions()
+    options.pose_prior_gravity_stddev_deg = 3.0
+    assert options.pose_prior_gravity_stddev_deg == 3.0
+
+
+def test_global_mapper_options_pose_prior_gravity_loss_scale_readwrite():
+    options = pycolmap.GlobalMapperOptions()
+    options.pose_prior_gravity_loss_scale = 2.0
+    assert options.pose_prior_gravity_loss_scale == 2.0
+
+
 def test_global_pipeline_options_init():
     options = pycolmap.GlobalPipelineOptions()
     assert options is not None

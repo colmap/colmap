@@ -205,15 +205,19 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
     }
   }
 
-  LOG(INFO) << "Ceres BA linear solver: "
-            << ceres::LinearSolverTypeToString(
-                   custom_solver_options.linear_solver_type)
-            << ", sparse library: "
-            << ceres::SparseLinearAlgebraLibraryTypeToString(
-                   custom_solver_options.sparse_linear_algebra_library_type)
-            << ", dense library: "
-            << ceres::DenseLinearAlgebraLibraryTypeToString(
-                   custom_solver_options.dense_linear_algebra_library_type);
+  // Useful for diagnosing whether CUDA sparse, SuiteSparse, or another
+  // backend was actually selected, but this fires on every BA stage; VLOG(1)
+  // keeps normal console output to one final support summary rather than
+  // the same backend line repeated per stage.
+  VLOG(1) << "Ceres BA linear solver: "
+          << ceres::LinearSolverTypeToString(
+                 custom_solver_options.linear_solver_type)
+          << ", sparse library: "
+          << ceres::SparseLinearAlgebraLibraryTypeToString(
+                 custom_solver_options.sparse_linear_algebra_library_type)
+          << ", dense library: "
+          << ceres::DenseLinearAlgebraLibraryTypeToString(
+                 custom_solver_options.dense_linear_algebra_library_type);
 
   if (problem.NumResiduals() < min_num_residuals_for_cpu_multi_threading) {
     custom_solver_options.num_threads = 1;

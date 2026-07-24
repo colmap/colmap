@@ -13,8 +13,6 @@ compile_commands.json
 .vs
 .DS_Store
 .cache
-.pytest_cache/
-scratch/
 build*/
 install*/
 data/

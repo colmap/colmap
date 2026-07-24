@@ -1440,6 +1440,25 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
             306);
 }
 
+TEST(PosePriorBundleAdjuster, LossScaleDefaultsAreSqrtOfChiSquareQuantiles) {
+  // Regression test for the robust-loss unit-conversion fix: Ceres scales a
+  // robust loss as rho(s, a) = a^2 * rho(s / a^2), where `a` is in
+  // residual-norm ("number of standard deviations") units, so the 95%-
+  // confidence-radius threshold for a whitened residual is
+  // sqrt(chi-square_k_dof_95), not the raw chi-square quantile itself.
+  // Regressing to the raw quantile here would silently make the robust
+  // loss ~2.8x (3-DOF) / ~2.4x (2-DOF) too permissive.
+  CeresPosePriorBundleAdjustmentOptions ceres_options;
+  EXPECT_DOUBLE_EQ(ceres_options.prior_position_loss_scale,
+                   std::sqrt(kChiSquare95ThreeDof));
+  EXPECT_DOUBLE_EQ(ceres_options.prior_gravity_loss_scale,
+                   std::sqrt(kChiSquare95TwoDof));
+  // Sanity check against the literal quantile values, not just internal
+  // self-consistency with std::sqrt.
+  EXPECT_NEAR(ceres_options.prior_position_loss_scale, 2.7955, 1e-4);
+  EXPECT_NEAR(ceres_options.prior_gravity_loss_scale, 2.4477, 1e-4);
+}
+
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   SetPRNGSeed(0);
   Reconstruction gt_reconstruction;

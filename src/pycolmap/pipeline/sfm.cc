@@ -180,6 +180,12 @@ void BindSfM(py::module& m) {
         .value("initialize", PosePriorRotationMode::initialize);
     AddStringToEnumConstructor(PyPosePriorRotationMode);
 
+    py::enum_<PosePriorGravityBAMode> PyPosePriorGravityBAMode(
+        m, "PosePriorGravityBAMode");
+    PyPosePriorGravityBAMode.value("off", PosePriorGravityBAMode::off)
+        .value("optimize", PosePriorGravityBAMode::optimize);
+    AddStringToEnumConstructor(PyPosePriorGravityBAMode);
+
     using Opts = GlobalMapperOptions;
     auto PyOpts =
         py::classh<Opts>(m, "GlobalMapperOptions")
@@ -196,6 +202,21 @@ void BindSfM(py::module& m) {
                            &Opts::pose_prior_rotation_mode,
                            "Whether/how to initialize the global rotation "
                            "gauge from full-orientation pose priors.")
+            .def_readwrite(
+                "pose_prior_gravity_ba_mode",
+                &Opts::pose_prior_gravity_ba_mode,
+                "Whether to add a soft, yaw-free gravity residual in bundle "
+                "adjustment once pose_prior_position_mode=optimize has "
+                "engaged.")
+            .def_readwrite("pose_prior_gravity_stddev_deg",
+                           &Opts::pose_prior_gravity_stddev_deg,
+                           "Global sensor-class angular uncertainty for the "
+                           "gravity residual, in degrees.")
+            .def_readwrite(
+                "pose_prior_gravity_loss_scale",
+                &Opts::pose_prior_gravity_loss_scale,
+                "Robust loss scale for the whitened gravity residual "
+                "(standardized residual-norm units, not degrees).")
             .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
             .def_readwrite("global_positioning", &Opts::global_positioning)
             .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)
