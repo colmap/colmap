@@ -245,6 +245,16 @@ TEST(Ply, RoundTripBinaryPlyPointsXYZOnly) {
   EXPECT_EQ(loaded_points[0].b, 0);
 }
 
+TEST(Ply, WritePlyPointsToDirectoryFails) {
+  // Writing to a path that is an existing directory (rather than a file) must
+  // fail cleanly instead of succeeding silently (see issue #3117).
+  const auto test_dir = CreateTestDir();
+
+  std::vector<PlyPoint> points(1);
+  EXPECT_ANY_THROW(WriteTextPlyPoints(test_dir, points, false, false));
+  EXPECT_ANY_THROW(WriteBinaryPlyPoints(test_dir, points, false, false));
+}
+
 TEST(Ply, RoundTripTextPlyMesh) {
   const auto test_dir = CreateTestDir();
   const auto test_file = test_dir / "mesh.ply";
