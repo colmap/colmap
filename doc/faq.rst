@@ -121,6 +121,26 @@ camera line in ``cameras.txt`` for the example above is therefore::
     1 OPENCV 800 600 fx fy 400.0 300.0 k1 k2 p1 p2
 
 
+``project.ini`` shows a different camera model than ``cameras.txt``
+-------------------------------------------------------------------
+
+``ImageReader.camera_model`` in ``project.ini`` is a *feature-extraction*
+option. It only controls which camera model is assigned to **new** cameras when
+they are first created during feature extraction. It is not updated afterwards
+and does not track the camera models actually stored in a reconstruction, so
+``project.ini`` keeps its value (``SIMPLE_RADIAL`` by default) even when the
+reconstruction uses a different model.
+
+The authoritative camera models live in the reconstruction itself — the
+``cameras`` table of the database and the exported ``cameras.txt``. If the
+cameras in your reconstruction use a different model (because they were created
+with a different extraction setting, edited in the database, or imported from an
+existing reconstruction), ``cameras.txt`` reflects that model while
+``ImageReader.camera_model`` in ``project.ini`` still shows the extraction-time
+value. This mismatch is expected: for the model of an existing reconstruction,
+trust ``cameras.txt`` (or the database), not ``project.ini``.
+
+
 Choosing between incremental, global, and hierarchical SfM
 ----------------------------------------------------------
 
