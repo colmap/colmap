@@ -40,6 +40,7 @@ COLMAP_ADD_LIBRARY(
         normalization.h normalization.cc
         pose.h pose.cc
         pose_prior.h pose_prior.cc
+        pose_prior_io.h pose_prior_io.cc
         rigid3.h rigid3.cc
         sim3.h sim3.cc
         triangulation.h triangulation.cc
@@ -91,6 +92,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME pose_prior_test
     SRCS pose_prior_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME pose_prior_io_test
+    SRCS pose_prior_io_test.cc
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
