@@ -97,6 +97,12 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_exe
 )
 
+COLMAP_ADD_TEST(
+    NAME sfm_test
+    SRCS sfm_test.cc
+    LINK_LIBS colmap_exe
+)
+
 set(COLMAP_MAIN_SRCS
     colmap.cc
     database.cc

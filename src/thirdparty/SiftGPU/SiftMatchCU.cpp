@@ -126,22 +126,10 @@ void SiftMatchCU::SetDescriptors(int index, int num, const float* descriptors,
   SetDescriptors(index, num, pub, id);
 }
 
-void SiftMatchCU::SetFeatureLocation(int index, const float* locations,
-                                     int gap) {
+void SiftMatchCU::SetFeatureLocation(int index, const float* locations) {
   if (_num_sift[index] <= 0) return;
-  _texLoc[index].InitTexture(_num_sift[index], 1, 2);
-  if (gap == 0) {
-    _texLoc[index].CopyFromHost(locations);
-  } else {
-    sift_buffer.resize(_num_sift[index] * 2);
-    float* pbuf = (float*)(&sift_buffer[0]);
-    for (int i = 0; i < _num_sift[index]; ++i) {
-      pbuf[i * 2] = *locations++;
-      pbuf[i * 2 + 1] = *locations++;
-      locations += gap;
-    }
-    _texLoc[index].CopyFromHost(pbuf);
-  }
+  _texLoc[index].InitTexture(_num_sift[index], 1, 4);
+  _texLoc[index].CopyFromHost(locations);
   _have_loc[index] = 1;
 }
 

@@ -331,12 +331,12 @@ public:
 	//one homography and one fundamental matrix, the use is as follows
 	//1. for each image, first call SetDescriptor then call SetFeatureLocation
 	//2. Call GetGuidedSiftMatch
-	//input feature location is a vector of [float x, float y, float skip[gap]]
-	SIFTGPU_EXPORT virtual void SetFeatureLocation(int index, const float* locations, int gap = 0);
-	inline void SetFeatureLocation(int index, const SiftGPU::SiftKeypoint * keys)
-	{
-		SetFeatureLocation(index, (const float*) keys, 2);
-	}
+	//input feature location is a tightly packed vector of [float x, float y,
+	//float z, float w], where (x, y, z) is a homogeneous direction in the space
+	//the guiding matrices live in and w is a validity flag: 0 rejects the
+	//feature outright, 1 accepts it. Pixel coordinates are passed as
+	//(x, y, 1, 1).
+	SIFTGPU_EXPORT virtual void SetFeatureLocation(int index, const float* locations);
 
 	//use a guiding Homography H and a guiding Fundamental Matrix F to compute feature matches
 	//the function returns the number of matches.

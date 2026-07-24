@@ -165,13 +165,13 @@ Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
   return K2.transpose() * F * K1;
 }
 
-double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
-                                  const Eigen::Vector3d& ray2,
+double ComputeSquaredSampsonError(const Eigen::Vector3d& point1,
+                                  const Eigen::Vector3d& point2,
                                   const Eigen::Matrix3d& E) {
-  const Eigen::Vector3d epipolar_line1 = E * ray1;
-  const double num = ray2.dot(epipolar_line1);
-  const Eigen::Vector4d denom(ray2.dot(E.col(0)),
-                              ray2.dot(E.col(1)),
+  const Eigen::Vector3d epipolar_line1 = E * point1;
+  const double num = point2.dot(epipolar_line1);
+  const Eigen::Vector4d denom(point2.dot(E.col(0)),
+                              point2.dot(E.col(1)),
                               epipolar_line1.x(),
                               epipolar_line1.y());
   const double denom_sq_norm = denom.squaredNorm();
@@ -194,43 +194,43 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
   }
 }
 
-void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& ray1,
-                                const std::vector<Eigen::Vector3d>& ray2,
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
+                                const std::vector<Eigen::Vector3d>& points2,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals) {
-  const size_t num_ray1 = ray1.size();
-  THROW_CHECK_EQ(num_ray1, ray2.size());
-  residuals->resize(num_ray1);
-  for (size_t i = 0; i < num_ray1; ++i) {
-    (*residuals)[i] = ComputeSquaredSampsonError(ray1[i], ray2[i], E);
+  const size_t num_points1 = points1.size();
+  THROW_CHECK_EQ(num_points1, points2.size());
+  residuals->resize(num_points1);
+  for (size_t i = 0; i < num_points1; ++i) {
+    (*residuals)[i] = ComputeSquaredSampsonError(points1[i], points2[i], E);
   }
 }
 
 void ComputeSquaredSampsonErrorWithCheirality(
-    const std::vector<Eigen::Vector3d>& ray1,
-    const std::vector<Eigen::Vector3d>& ray2,
+    const std::vector<Eigen::Vector3d>& rays1,
+    const std::vector<Eigen::Vector3d>& rays2,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals) {
-  const size_t num_ray1 = ray1.size();
-  THROW_CHECK_EQ(num_ray1, ray2.size());
-  residuals->resize(num_ray1);
+  const size_t num_rays1 = rays1.size();
+  THROW_CHECK_EQ(num_rays1, rays2.size());
+  residuals->resize(num_rays1);
 
   // Recover the relative pose from E (resolving the four-fold decomposition
   // ambiguity by cheirality voting) and flag which correspondences triangulate
   // in front of both cameras.
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
-  PoseFromEssentialMatrix(E, ray1, ray2, &cam2_from_cam1, &valid_indices);
-  std::vector<bool> is_cheiral(num_ray1, false);
+  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1, &valid_indices);
+  std::vector<bool> is_cheiral(num_rays1, false);
   for (const int idx : valid_indices) {
     is_cheiral[idx] = true;
   }
 
   // Correspondences behind either camera are not valid inliers for the relative
   // pose regardless of their Sampson error, so they get an infinite residual.
-  for (size_t i = 0; i < num_ray1; ++i) {
+  for (size_t i = 0; i < num_rays1; ++i) {
     (*residuals)[i] = is_cheiral[i]
-                          ? ComputeSquaredSampsonError(ray1[i], ray2[i], E)
+                          ? ComputeSquaredSampsonError(rays1[i], rays2[i], E)
                           : std::numeric_limits<double>::max();
   }
 }
