@@ -492,13 +492,19 @@ void SequentialPairGenerator::MaybeExpandRigImages(image_t image_id1,
 
 bool SequentialPairGenerator::IsValidSequentialNeighbor(
     image_t image_id1, image_t image_id2) const {
-  if (!options_.expand_rig_images || !image_to_frame_id_.contains(image_id1) ||
-      !image_to_frame_id_.contains(image_id2)) {
+  if (!options_.expand_rig_images) {
     return true;
   }
 
-  const frame_t frame_id1 = image_to_frame_id_.at(image_id1);
-  const frame_t frame_id2 = image_to_frame_id_.at(image_id2);
+  const auto frame_id1_it = image_to_frame_id_.find(image_id1);
+  const auto frame_id2_it = image_to_frame_id_.find(image_id2);
+  if (frame_id1_it == image_to_frame_id_.end() ||
+      frame_id2_it == image_to_frame_id_.end()) {
+    return true;
+  }
+
+  const frame_t frame_id1 = frame_id1_it->second;
+  const frame_t frame_id2 = frame_id2_it->second;
   if (frame_to_image_ids_.at(frame_id1).size() == 1 &&
       frame_to_image_ids_.at(frame_id2).size() == 1) {
     return true;
