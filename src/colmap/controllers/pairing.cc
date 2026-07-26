@@ -492,8 +492,7 @@ void SequentialPairGenerator::MaybeExpandRigImages(image_t image_id1,
 
 bool SequentialPairGenerator::IsValidSequentialNeighbor(
     image_t image_id1, image_t image_id2) const {
-  if (!options_.expand_rig_images ||
-      !image_to_frame_id_.contains(image_id1) ||
+  if (!options_.expand_rig_images || !image_to_frame_id_.contains(image_id1) ||
       !image_to_frame_id_.contains(image_id2)) {
     return true;
   }
