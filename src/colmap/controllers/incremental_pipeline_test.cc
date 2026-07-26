@@ -136,6 +136,37 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   }
 }
 
+TEST(IncrementalPipeline, InitializesRigFromAggregatedFrameMatches) {
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 200;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  size_t max_pair_inliers = 0;
+  for (const auto& pair_and_geometry : database->ReadTwoViewGeometries()) {
+    const TwoViewGeometry& geometry = pair_and_geometry.second;
+    max_pair_inliers =
+        std::max(max_pair_inliers, geometry.inlier_matches.size());
+  }
+
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->mapper.init_min_num_inliers = max_pair_inliers + 1;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_EQ(reconstruction_manager->Get(0)->NumRegFrames(),
+            gt_reconstruction.NumFrames());
+}
+
 TEST(IncrementalPipeline, UnknownSensorFromRigExitsGracefully) {
   const auto database_path = CreateTestDir() / "database.db";
 

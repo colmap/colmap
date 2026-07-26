@@ -183,6 +183,68 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     }
   }
 
+  // Preserve the established image-pair ranking whenever an individual pair
+  // has sufficient support. Only fall back to aggregated frame support for a
+  // non-trivial rig when every constituent image pair is too weak.
+  if (!image_infos.empty()) {
+    return ExtractSortedImageIds(image_infos);
+  }
+
+  const Frame& frame1 = reconstruction.Frame(image1.FrameId());
+  const Rig& rig1 = reconstruction.Rig(frame1.RigId());
+  if (rig1.NumSensors() <= 1) {
+    return {};
+  }
+
+  FlatHashMap<frame_t, InitImageInfo> frame_infos;
+  FlatHashMap<image_t, point2D_t> frame_pair_correspondences;
+  for (const data_t& data_id1 : frame1.ImageIds()) {
+    const Image& frame_image1 = reconstruction.Image(data_id1.id);
+    for (point2D_t point2D_idx = 0;
+         point2D_idx < frame_image1.NumPoints2D();
+         ++point2D_idx) {
+      const auto corr_range = correspondence_graph.FindCorrespondences(
+          frame_image1.ImageId(), point2D_idx);
+      for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+        if (const auto num_registrations_it =
+                num_registrations.find(corr->image_id);
+            num_registrations_it != num_registrations.end() &&
+            num_registrations_it->second > 0) {
+          continue;
+        }
+
+        const Image& image2 = reconstruction.Image(corr->image_id);
+        if (image2.FrameId() == frame1.FrameId()) {
+          continue;
+        }
+        frame_pair_correspondences[corr->image_id] += 1;
+        auto [it, inserted] = frame_infos.try_emplace(
+            image2.FrameId(),
+            InitImageInfo{image2.ImageId(),
+                          image2.CameraPtr()->has_prior_focal_length,
+                          0});
+        it->second.num_correspondences += 1;
+      }
+    }
+  }
+
+  // Another sensor in this frame has a normally viable image pair. Let that
+  // image be tried as the first seed instead of changing its initialization
+  // behavior through this sensor's fallback path.
+  for (const auto& [image_id, num_corrs] : frame_pair_correspondences) {
+    if (num_corrs >= init_min_num_inliers) {
+      return {};
+    }
+  }
+
+  image_infos.reserve(frame_infos.size());
+  for (const auto& frame_info : frame_infos) {
+    const InitImageInfo& info = frame_info.second;
+    if (info.num_correspondences >= init_min_num_inliers) {
+      image_infos.push_back(info);
+    }
+  }
+
   return ExtractSortedImageIds(image_infos);
 }
 
@@ -547,6 +609,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     const Frame& frame2,
     const Rig& rig1,
     const Rig& rig2,
+    const bool check_stability,
     Rigid3d& orig_cam2_from_orig_cam1) {
   std::vector<Eigen::Vector2d> points2D1;
   std::vector<Eigen::Vector2d> points2D2;
@@ -616,11 +679,6 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     return false;
   }
 
-  VLOG(3) << "Initial general frame pair with " << num_inliers
-          << " inlier matches";
-
-  // Note that we already checked for stable geometry (i.e., non-forward
-  // motion, sufficient triangulation angle) between the original image pair.
   if (static_cast<int>(num_inliers) < options.init_min_num_inliers) {
     return false;
   }
@@ -646,6 +704,51 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   orig_cam2_from_orig_cam1 =
       orig_cam2_from_rig2 * rig2_from_rig1 * Inverse(orig_cam1_from_rig1);
 
+  if (!check_stability) {
+    VLOG(3) << "Initial general frame pair with " << num_inliers
+            << " inlier matches";
+    return true;
+  }
+
+  std::vector<double> tri_angles;
+  tri_angles.reserve(num_inliers);
+  const Eigen::Quaterniond rig1_from_rig2_rotation =
+      rig2_from_rig1.rotation().inverse();
+  for (size_t i = 0; i < inlier_mask.size(); ++i) {
+    if (!inlier_mask[i]) {
+      continue;
+    }
+    const size_t camera_idx1 = camera_idxs1[i];
+    const size_t camera_idx2 = camera_idxs2[i];
+    const Eigen::Vector3d ray1_in_rig1 =
+        cams_from_rig[camera_idx1].rotation().inverse() *
+        cameras[camera_idx1]
+            .CamRayFromImg(points2D1[i])
+            .value_or(Eigen::Vector3d::Zero());
+    const Eigen::Vector3d ray2_in_rig1 =
+        rig1_from_rig2_rotation *
+        cams_from_rig[camera_idx2].rotation().inverse() *
+        cameras[camera_idx2]
+            .CamRayFromImg(points2D2[i])
+            .value_or(Eigen::Vector3d::Zero());
+    const double angle =
+        CalculateAngleBetweenVectors(ray1_in_rig1, ray2_in_rig1);
+    tri_angles.push_back(
+        std::min(angle, static_cast<double>(EIGEN_PI) - angle));
+  }
+  const double tri_angle = Median(tri_angles);
+
+  VLOG(3) << "Initial general frame pair with " << num_inliers
+          << " inlier matches, "
+          << orig_cam2_from_orig_cam1.translation().z() << " z translation, "
+          << RadToDeg(tri_angle) << " deg triangulation angle";
+
+  if (std::abs(orig_cam2_from_orig_cam1.translation().z()) >=
+          options.init_max_forward_motion ||
+      tri_angle <= DegToRad(options.init_min_tri_angle)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -661,10 +764,37 @@ IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   const Image& image2 = database_cache.Image(image_id2);
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
   const Camera& camera2 = database_cache.Camera(image2.CameraId());
+  const Frame& frame1 = database_cache.Frame(image1.FrameId());
+  const Frame& frame2 = database_cache.Frame(image2.FrameId());
+  const Rig& rig1 = database_cache.Rig(frame1.RigId());
+  const Rig& rig2 = database_cache.Rig(frame2.RigId());
+
+  InitInfo info;
+  info.image_id1 = image_id1;
+  info.image_id2 = image_id2;
+
+  const bool use_generalized = rig1.NumSensors() > 1 || rig2.NumSensors() > 1;
 
   FeatureMatches matches;
   database_cache.CorrespondenceGraph()->ExtractMatchesBetweenImages(
       image_id1, image_id2, matches);
+
+  if (use_generalized &&
+      static_cast<int>(matches.size()) < options.init_min_num_inliers) {
+    if (!EstimateInitialGeneralizedTwoViewGeometry(options,
+                                                   database_cache,
+                                                   image1,
+                                                   image2,
+                                                   frame1,
+                                                   frame2,
+                                                   rig1,
+                                                   rig2,
+                                                   true,
+                                                   info.cam2_from_cam1)) {
+      return std::nullopt;
+    }
+    return info;
+  }
 
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());
@@ -708,19 +838,7 @@ IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     return std::nullopt;
   }
 
-  const Frame& frame1 = database_cache.Frame(image1.FrameId());
-  const Frame& frame2 = database_cache.Frame(image2.FrameId());
-  const Rig& rig1 = database_cache.Rig(frame1.RigId());
-  const Rig& rig2 = database_cache.Rig(frame2.RigId());
-
-  InitInfo info;
-  info.image_id1 = image_id1;
-  info.image_id2 = image_id2;
-
-  // If one or both of the frames are non-trivial, initialize using
-  // generalized relative pose solver. Note that we intentionally do this
-  // after ensuring that the given image pair has stable two-view geometry.
-  if (rig1.NumSensors() > 1 || rig2.NumSensors() > 1) {
+  if (use_generalized) {
     if (!EstimateInitialGeneralizedTwoViewGeometry(options,
                                                    database_cache,
                                                    image1,
@@ -729,10 +847,10 @@ IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
                                                    frame2,
                                                    rig1,
                                                    rig2,
+                                                   false,
                                                    info.cam2_from_cam1)) {
       return std::nullopt;
     }
-    // The generalized solver does not recover intrinsics.
     return info;
   }
 
