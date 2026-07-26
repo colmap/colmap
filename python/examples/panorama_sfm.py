@@ -459,12 +459,13 @@ def run_matcher(
     database_path: Path,
     matching_options: pycolmap.FeatureMatchingOptions,
 ) -> None:
+    matching_options.use_gpu = args.use_gpu
+    matching_options.gpu_index = args.gpu_index
+    matching_options.num_threads = args.num_threads
     if args.matcher == "sequential":
         pycolmap.match_sequential(
             database_path,
-            pairing_options=pycolmap.SequentialPairingOptions(
-                loop_detection=True
-            ),
+            pairing_options=pycolmap.SequentialPairingOptions(),
             matching_options=matching_options,
         )
     elif args.matcher == "exhaustive":
@@ -490,11 +491,17 @@ def run_spherical(
     logging.info("Reconstructing with spherical camera")
 
     reader_options = pycolmap.ImageReaderOptions(camera_model="EQUIRECTANGULAR")
+    extraction_options = pycolmap.FeatureExtractionOptions(
+        use_gpu=args.use_gpu,
+        gpu_index=args.gpu_index,
+        num_threads=args.num_threads,
+    )
     pycolmap.extract_features(
         database_path,
         args.input_image_path,
         reader_options=reader_options,
         camera_mode=pycolmap.CameraMode.SINGLE,
+        extraction_options=extraction_options,
     )
 
     # A single EQUIRECTANGULAR camera observes the whole sphere from one
@@ -504,9 +511,22 @@ def run_spherical(
     # The EQUIRECTANGULAR model has no focal length, principal point, or
     # distortion to refine; its (w, h) params are held constant in bundle
     # adjustment.
-    recs = pycolmap.incremental_mapping(
-        database_path, args.input_image_path, rec_path
-    )
+    if args.mapper == Mapper.INCREMENTAL:
+        opts = pycolmap.IncrementalPipelineOptions(
+            num_threads=args.num_threads, random_seed=args.random_seed
+        )
+        recs = pycolmap.incremental_mapping(
+            database_path, args.input_image_path, rec_path, opts
+        )
+    elif args.mapper == Mapper.GLOBAL:
+        opts = pycolmap.GlobalPipelineOptions(
+            num_threads=args.num_threads, random_seed=args.random_seed
+        )
+        recs = pycolmap.global_mapping(
+            database_path, args.input_image_path, rec_path, opts
+        )
+    else:
+        logging.fatal(f"Unknown mapper: {args.mapper}")
     for idx, rec in recs.items():
         logging.info(f"#{idx} {rec.summary()}")
 
@@ -544,6 +564,11 @@ def run_perspective(
 
     rendered_camera = rig_config.cameras[0].camera
     assert rendered_camera is not None  # Make mypy happy.
+    extraction_options = pycolmap.FeatureExtractionOptions(
+        use_gpu=args.use_gpu,
+        gpu_index=args.gpu_index,
+        num_threads=args.num_threads,
+    )
     pycolmap.extract_features(
         database_path,
         image_dir,
@@ -553,6 +578,7 @@ def run_perspective(
             camera_params=rendered_camera.params_to_string(),
         ),
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
+        extraction_options=extraction_options,
     )
 
     with pycolmap.Database.open(database_path) as db:
@@ -569,6 +595,8 @@ def run_perspective(
 
     if args.mapper == Mapper.INCREMENTAL:
         opts = pycolmap.IncrementalPipelineOptions(
+            num_threads=args.num_threads,
+            random_seed=args.random_seed,
             ba_refine_sensor_from_rig=False,
             ba_refine_focal_length=False,
             ba_refine_principal_point=False,
@@ -579,7 +607,13 @@ def run_perspective(
         )
     elif args.mapper == Mapper.GLOBAL:
         global_opts = pycolmap.GlobalPipelineOptions(
-            mapper=pycolmap.GlobalMapperOptions(refine_sensor_from_rig=False)
+            num_threads=args.num_threads,
+            random_seed=args.random_seed,
+            mapper=pycolmap.GlobalMapperOptions(
+                num_threads=args.num_threads,
+                random_seed=args.random_seed,
+                refine_sensor_from_rig=False,
+            ),
         )
         # Don't set these in the init to not overwrite custom default options.
         global_opts.mapper.bundle_adjustment.refine_focal_length = False
@@ -605,7 +639,7 @@ def run_perspective(
 
 
 def run(args: argparse.Namespace) -> None:
-    pycolmap.set_random_seed(0)
+    pycolmap.set_random_seed(args.random_seed)
 
     database_path = args.output_path / "database.db"
     if database_path.exists():
@@ -642,5 +676,10 @@ if __name__ == "__main__":
         default=PanoRenderType.PERSPECTIVE_OVERLAPPING,
         choices=list(PanoRenderType),
     )
+    parser.add_argument("--random_seed", type=int, default=0)
+    parser.add_argument("--num_threads", type=int, default=-1)
+    parser.add_argument("--gpu_index", default="-1")
+    parser.add_argument("--use_gpu", default=True, action="store_true")
+    parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
     args = parser.parse_args()
     run(args)

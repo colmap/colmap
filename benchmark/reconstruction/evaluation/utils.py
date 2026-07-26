@@ -114,6 +114,10 @@ class SceneInfo:
     has_camera_priors: bool
     # Additional arguments for the COLMAP reconstruction command.
     colmap_extra_args: list[str]
+    # Reconstruction backend. The default uses automatic_reconstructor.
+    reconstruction_backend: str = "automatic"
+    # Subdirectory below workspace_path containing models to evaluate.
+    reconstruction_subdir: str = "sparse"
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -739,6 +743,77 @@ def colmap_reconstruction(
     )
 
 
+def panorama_reconstruction(
+    args: argparse.Namespace,
+    scene_info: SceneInfo,
+    num_threads: int,
+    gpu_index: str,
+    phase_tracker: _PhaseTracker | None = None,
+) -> None:
+    """Run the pycolmap panorama example for a benchmark scene."""
+    phase_tracker = phase_tracker or _PhaseTracker()
+    workspace_path = scene_info.workspace_path
+    sparse_path = workspace_path / scene_info.reconstruction_subdir
+
+    if args.overwrite_reconstruction and workspace_path.exists():
+        shutil.rmtree(workspace_path)
+    if sparse_path.exists():
+        pycolmap.logging.info("Skipping reconstruction, as it already exists")
+        return
+    if args.feature != "sift":
+        raise ValueError("Panorama reconstruction currently supports SIFT only")
+    if args.mapper == "hierarchical":
+        raise ValueError(
+            "Panorama reconstruction does not support hierarchical mapping"
+        )
+    if args.uncalibrated:
+        raise ValueError(
+            "Equirectangular panorama reconstruction has fixed calibration"
+        )
+
+    render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
+    if render_type not in {"perspective_overlapping", "spherical"}:
+        raise ValueError(
+            f"Unknown panorama reconstruction backend: "
+            f"{scene_info.reconstruction_backend}"
+        )
+
+    workspace_path.mkdir(parents=True, exist_ok=True)
+    script_path = (
+        Path(__file__).resolve().parents[3]
+        / "python"
+        / "examples"
+        / "panorama_sfm.py"
+    )
+    phase_tracker.set("reconstruction")
+    _run_with_log(
+        [
+            sys.executable,
+            str(script_path),
+            "--input_image_path",
+            str(scene_info.image_path),
+            "--output_path",
+            str(workspace_path),
+            "--matcher",
+            "sequential",
+            "--mapper",
+            args.mapper,
+            "--pano_render_type",
+            render_type,
+            "--random_seed",
+            str(args.random_seed),
+            "--num_threads",
+            str(num_threads),
+            "--gpu_index",
+            gpu_index,
+            "--use_gpu" if args.use_gpu else "--use_cpu",
+        ],
+        workspace_path / "reconstruction.log",
+        cwd=workspace_path,
+    )
+    sparse_path.mkdir(parents=True, exist_ok=True)
+
+
 def colmap_alignment(
     args: argparse.Namespace,
     sparse_path: Path,
@@ -794,23 +869,32 @@ def process_scene(
 
     sparse_gt = pycolmap.Reconstruction(str(scene_info.sparse_gt_path))
 
-    colmap_reconstruction(
-        args=args,
-        workspace_path=scene_info.workspace_path,
-        image_path=scene_info.image_path,
-        camera_priors_sparse_gt=(
-            sparse_gt
-            if not args.uncalibrated and scene_info.has_camera_priors
-            else None
-        ),
-        covisibility_sparse_gt=(
-            sparse_gt if args.filter_covisibility else None
-        ),
-        num_threads=num_threads,
-        colmap_extra_args=scene_info.colmap_extra_args,
-        gpu_index=gpu_index,
-        phase_tracker=tracker,
-    )
+    if scene_info.reconstruction_backend == "automatic":
+        colmap_reconstruction(
+            args=args,
+            workspace_path=scene_info.workspace_path,
+            image_path=scene_info.image_path,
+            camera_priors_sparse_gt=(
+                sparse_gt
+                if not args.uncalibrated and scene_info.has_camera_priors
+                else None
+            ),
+            covisibility_sparse_gt=(
+                sparse_gt if args.filter_covisibility else None
+            ),
+            num_threads=num_threads,
+            colmap_extra_args=scene_info.colmap_extra_args,
+            gpu_index=gpu_index,
+            phase_tracker=tracker,
+        )
+    else:
+        panorama_reconstruction(
+            args=args,
+            scene_info=scene_info,
+            num_threads=num_threads,
+            gpu_index=gpu_index,
+            phase_tracker=tracker,
+        )
 
     tracker.set("evaluation")
 
@@ -823,7 +907,10 @@ def process_scene(
     sparse_merged = pycolmap.Reconstruction()
     num_components = 0
     largest_component = 0
-    for sparse_path in (scene_info.workspace_path / "sparse").iterdir():
+    reconstruction_path = (
+        scene_info.workspace_path / scene_info.reconstruction_subdir
+    )
+    for sparse_path in reconstruction_path.iterdir():
         if not sparse_path.is_dir():
             continue
         num_components += 1
