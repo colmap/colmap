@@ -326,6 +326,10 @@ class SequentialPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
+  void MaybeExpandRigImages(image_t image_id1, image_t image_id2);
+
+  bool IsValidSequentialNeighbor(image_t image_id1, image_t image_id2) const;
+
   std::vector<image_t> GetOrderedImageIds() const;
 
   const SequentialPairingOptions options_;
