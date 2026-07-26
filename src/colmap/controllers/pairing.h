@@ -337,7 +337,7 @@ class SequentialPairGenerator : public PairGenerator {
   std::vector<image_t> image_ids_;
   // Optional mapping from frames to images and vice versa.
   NodeHashMap<frame_t, std::vector<image_t>> frame_to_image_ids_;
-  NodeHashMap<image_t, frame_t> image_to_frame_ids_;
+  NodeHashMap<image_t, frame_t> image_to_frame_id_;
   std::unique_ptr<VocabTreePairGenerator> vocab_tree_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t image_idx_ = 0;
