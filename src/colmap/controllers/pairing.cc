@@ -515,11 +515,37 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
     }
   };
 
+  auto IsValidSequentialNeighbor = [this, image_id1](image_t image_id2) {
+    if (!options_.expand_rig_images ||
+        !image_to_frame_ids_.contains(image_id1) ||
+        !image_to_frame_ids_.contains(image_id2)) {
+      return true;
+    }
+
+    const frame_t frame_id1 = image_to_frame_ids_.at(image_id1);
+    const frame_t frame_id2 = image_to_frame_ids_.at(image_id2);
+    if (frame_to_image_ids_.at(frame_id1).size() == 1 &&
+        frame_to_image_ids_.at(frame_id2).size() == 1) {
+      return true;
+    }
+
+    // Rig images are sorted by their sensor-prefixed names. Crossing from the
+    // end of one sensor's sequence to the beginning of the next would create
+    // a false temporal neighbor. Same-frame sensor pairs are added above, and
+    // temporal pairs are expanded to the other sensors by
+    // MaybeExpandRigImages.
+    return cache_->GetImage(image_id1).CameraId() ==
+           cache_->GetImage(image_id2).CameraId();
+  };
+
   for (int i = 0; i < options_.overlap; ++i) {
     if (options_.quadratic_overlap) {
       const size_t image_idx_2_quadratic = image_idx_ + (1ull << i);
       if (image_idx_2_quadratic < image_ids_.size()) {
         const image_t image_id2 = image_ids_.at(image_idx_2_quadratic);
+        if (!IsValidSequentialNeighbor(image_id2)) {
+          continue;
+        }
         image_pairs_.emplace_back(image_id1, image_id2);
         MaybeExpandRigImages(image_id1, image_id2);
       } else {
@@ -529,6 +555,9 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
       const size_t image_idx_2 = image_idx_ + i + 1;
       if (image_idx_2 < image_ids_.size()) {
         const image_t image_id2 = image_ids_.at(image_idx_2);
+        if (!IsValidSequentialNeighbor(image_id2)) {
+          continue;
+        }
         image_pairs_.emplace_back(image_id1, image_id2);
         MaybeExpandRigImages(image_id1, image_id2);
       } else {
