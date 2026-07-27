@@ -119,10 +119,12 @@ class DatasetTartanAir(Dataset):
         world_from_cameras = []
         for frame_info in metadata["frames"]:
             pose = pose_by_frame[frame_info["source_frame"]]
-            world_from_camera = tartanair_world_from_camera(pose[:3], pose[3:])
+            world_from_camera_pose = tartanair_world_from_camera(
+                pose[:3], pose[3:]
+            )
             matrix = np.eye(4)
-            matrix[:3, :3] = world_from_camera.rotation.matrix()
-            matrix[:3, 3] = world_from_camera.translation
+            matrix[:3, :3] = world_from_camera_pose.rotation.matrix()
+            matrix[:3, 3] = world_from_camera_pose.translation
             world_from_cameras.append(matrix)
 
         if scene_info.sparse_gt_path.exists():
@@ -143,7 +145,7 @@ class DatasetTartanAir(Dataset):
             reconstruction.add_rig(rig)
 
         if reconstruction is not None:
-            for image_id, (frame_info, world_from_camera) in enumerate(
+            for image_id, (frame_info, world_from_camera_matrix) in enumerate(
                 zip(metadata["frames"], world_from_cameras, strict=True),
                 start=1,
             ):
@@ -157,8 +159,8 @@ class DatasetTartanAir(Dataset):
                 frame.rig_id = rig.rig_id
                 frame.add_data_id(image.data_id)
                 frame.rig_from_world = pycolmap.Rigid3d(
-                    pycolmap.Rotation3d(world_from_camera[:3, :3]),
-                    world_from_camera[:3, 3],
+                    pycolmap.Rotation3d(world_from_camera_matrix[:3, :3]),
+                    world_from_camera_matrix[:3, 3],
                 ).inverse()
                 reconstruction.add_frame(frame)
                 reconstruction.add_image(image)
