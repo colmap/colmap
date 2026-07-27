@@ -11,18 +11,41 @@ import tarfile
 import time
 import zlib
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 import numpy as np
+import PIL.Image
 import requests
-from tartanair_v2 import (
-    MANIFEST_PATH,
-    SceneSelection,
-    load_manifest,
-    scene_shards,
-    select_frame_window,
-    shard_name,
-)
+
+if TYPE_CHECKING:
+    from .tartanair_v2 import (
+        MANIFEST_PATH,
+        SceneSelection,
+        load_manifest,
+        scene_shards,
+        select_frame_window,
+        shard_name,
+    )
+else:
+    try:
+        from .tartanair_v2 import (
+            MANIFEST_PATH,
+            SceneSelection,
+            load_manifest,
+            scene_shards,
+            select_frame_window,
+            shard_name,
+        )
+    except ImportError:  # Support direct execution as a packaging script.
+        from tartanair_v2 import (
+            MANIFEST_PATH,
+            SceneSelection,
+            load_manifest,
+            scene_shards,
+            select_frame_window,
+            shard_name,
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -187,6 +210,62 @@ def add_bytes(archive: tarfile.TarFile, name: str, data: bytes) -> None:
     archive.addfile(info, io.BytesIO(data))
 
 
+DEPTH_SIZE = (512, 256)
+DEPTH_SCALE = 8.0
+DEPTH_INVALID_VALUE = 0
+IMAGE_QUALITY = 97
+IMAGE_SUBSAMPLING = 0
+
+
+def encode_image_jpeg(source_png: bytes) -> bytes:
+    output = io.BytesIO()
+    PIL.Image.open(io.BytesIO(source_png)).convert("RGB").save(
+        output,
+        format="JPEG",
+        quality=IMAGE_QUALITY,
+        subsampling=IMAGE_SUBSAMPLING,
+        optimize=True,
+        progressive=True,
+    )
+    return output.getvalue()
+
+
+def encode_depth_png(source_png: bytes) -> bytes:
+    """Convert packed float32 RGBA depth to min-pooled uint16 depth."""
+    rgba = np.asarray(PIL.Image.open(io.BytesIO(source_png))).copy()
+    if rgba.dtype != np.uint8 or rgba.ndim != 3 or rgba.shape[2] != 4:
+        raise ValueError("Expected an 8-bit RGBA depth image")
+    source_height = int(rgba.shape[0])
+    source_width = int(rgba.shape[1])
+    depth = rgba.view("<f4").reshape(source_height, source_width)
+
+    output_width, output_height = DEPTH_SIZE
+    if source_width % output_width != 0 or source_height % output_height != 0:
+        raise ValueError(
+            f"Cannot downsample depth image of shape {depth.shape} "
+            f"to {(output_height, output_width)}"
+        )
+    block_height = source_height // output_height
+    block_width = source_width // output_width
+    valid = np.isfinite(depth) & (depth > 0)
+    depth = np.where(valid, depth, np.inf)
+    depth = depth.reshape(
+        output_height, block_height, output_width, block_width
+    ).min(axis=(1, 3))
+
+    quantized = np.zeros(depth.shape, dtype=np.uint16)
+    valid = np.isfinite(depth)
+    quantized[valid] = np.clip(
+        np.rint(depth[valid] * DEPTH_SCALE), 1, np.iinfo(np.uint16).max
+    ).astype(np.uint16)
+
+    output = io.BytesIO()
+    PIL.Image.fromarray(quantized).save(
+        output, format="PNG", compress_level=9, optimize=True
+    )
+    return output.getvalue()
+
+
 def source_url(manifest: dict, scene: SceneSelection) -> str:
     source = manifest["source"]
     path = quote(scene.source_archive)
@@ -203,15 +282,22 @@ def package_scene(
     remote_zips: dict[str, RemoteZip],
     num_workers: int,
 ) -> None:
-    remote_zip = remote_zips.get(scene.source_archive)
-    if remote_zip is None:
-        remote_zip = RemoteZip(source_url(manifest, scene))
-        remote_zips[scene.source_archive] = remote_zip
+    image_remote_zip = remote_zips.get(scene.source_archive)
+    if image_remote_zip is None:
+        image_remote_zip = RemoteZip(source_url(manifest, scene))
+        remote_zips[scene.source_archive] = image_remote_zip
+    depth_remote_zip = remote_zips.get(scene.depth_source_archive)
+    if depth_remote_zip is None:
+        depth_url = source_url(manifest, scene).replace(
+            "image_lcam_equirect.zip", "depth_lcam_equirect.zip"
+        )
+        depth_remote_zip = RemoteZip(depth_url)
+        remote_zips[scene.depth_source_archive] = depth_remote_zip
     source_prefix = (
         f"{scene.environment}/Data_{scene.difficulty}/{scene.trajectory}"
     )
     pose_name = f"{source_prefix}/pose_lcam_front.txt"
-    pose_data, pose_member = remote_zip.read(pose_name)
+    pose_data, pose_member = image_remote_zip.read(pose_name)
     pose_lines = [line for line in pose_data.decode().splitlines() if line]
     poses = np.loadtxt(io.StringIO("\n".join(pose_lines)))
     options = manifest["frame_selection"]
@@ -240,22 +326,44 @@ def package_scene(
         )
         for frame_id in frame_ids
     ]
+    depth_source_names = [
+        (
+            f"{source_prefix}/depth_lcam_equirect/"
+            f"{frame_id:06d}_lcam_equirect_depth.png"
+        )
+        for frame_id in frame_ids
+    ]
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=num_workers
     ) as executor:
-        image_members = list(executor.map(remote_zip.read, source_names))
+        image_members = list(executor.map(image_remote_zip.read, source_names))
+        depth_members = list(
+            executor.map(depth_remote_zip.read, depth_source_names)
+        )
 
-    for frame_id, (image_data, image_member) in zip(
-        frame_ids, image_members, strict=True
+    for frame_id, (image_data, image_member), (depth_data, depth_member) in zip(
+        frame_ids, image_members, depth_members, strict=True
     ):
-        image_name = f"{frame_id:06d}.png"
-        add_bytes(archive, f"{scene_root}/images/{image_name}", image_data)
+        image_name = f"{frame_id:06d}.jpg"
+        depth_name = f"{frame_id:06d}.png"
+        add_bytes(
+            archive,
+            f"{scene_root}/images/{image_name}",
+            encode_image_jpeg(image_data),
+        )
+        add_bytes(
+            archive,
+            f"{scene_root}/depth/{depth_name}",
+            encode_depth_png(depth_data),
+        )
         selected_pose_lines.append(f"{frame_id} {pose_lines[frame_id]}")
         frames.append(
             {
                 "source_frame": frame_id,
                 "image_name": image_name,
+                "depth_name": depth_name,
                 "source_crc32": f"{image_member.crc32:08x}",
+                "depth_source_crc32": f"{depth_member.crc32:08x}",
             }
         )
 
@@ -266,8 +374,19 @@ def package_scene(
         "difficulty": scene.difficulty,
         "trajectory": scene.trajectory,
         "source_archive": scene.source_archive,
+        "depth_source_archive": scene.depth_source_archive,
         "pose_crc32": f"{pose_member.crc32:08x}",
         "image_size": manifest["source"]["image_size"],
+        "image_encoding": {
+            "format": "jpeg",
+            "quality": IMAGE_QUALITY,
+            "subsampling": "4:4:4",
+            "progressive": True,
+        },
+        "depth_size": list(DEPTH_SIZE),
+        "depth_scale": DEPTH_SCALE,
+        "depth_invalid_value": DEPTH_INVALID_VALUE,
+        "depth_downsampling": "min_pool",
         "frames": frames,
     }
     add_bytes(
@@ -297,7 +416,7 @@ def build_shard(
         return filename, digest
 
     temporary = target.with_suffix(target.suffix + ".part")
-    remote_zips = {}
+    remote_zips: dict[str, RemoteZip] = {}
     with tarfile.open(temporary, "w", format=tarfile.PAX_FORMAT) as archive:
         root = Path(__file__).parent
         add_bytes(

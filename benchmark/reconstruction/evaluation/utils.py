@@ -118,6 +118,8 @@ class SceneInfo:
     reconstruction_backend: str = "automatic"
     # Subdirectory below workspace_path containing models to evaluate.
     reconstruction_subdir: str = "sparse"
+    covisibility_path: Path | None = None
+    covisibility_min_shared_points: int | None = None
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -786,28 +788,47 @@ def panorama_reconstruction(
         / "panorama_sfm.py"
     )
     phase_tracker.set("reconstruction")
+    command = [
+        sys.executable,
+        str(script_path),
+        "--input_image_path",
+        str(scene_info.image_path),
+        "--output_path",
+        str(workspace_path),
+        "--matcher",
+        "sequential",
+        "--mapper",
+        args.mapper,
+        "--pano_render_type",
+        render_type,
+        "--random_seed",
+        str(args.random_seed),
+        "--num_threads",
+        str(num_threads),
+        "--gpu_index",
+        gpu_index,
+        "--use_gpu" if args.use_gpu else "--use_cpu",
+    ]
+    if (
+        args.filter_covisibility
+        and scene_info.covisibility_path is not None
+        and scene_info.covisibility_path.exists()
+    ):
+        min_shared_points = (
+            scene_info.covisibility_min_shared_points
+            if scene_info.covisibility_min_shared_points is not None
+            else args.covisibility_min_shared_points
+        )
+        command.extend(
+            [
+                "--covisibility_path",
+                str(scene_info.covisibility_path),
+                "--covisibility_min_shared_points",
+                str(min_shared_points),
+            ]
+        )
     _run_with_log(
-        [
-            sys.executable,
-            str(script_path),
-            "--input_image_path",
-            str(scene_info.image_path),
-            "--output_path",
-            str(workspace_path),
-            "--matcher",
-            "sequential",
-            "--mapper",
-            args.mapper,
-            "--pano_render_type",
-            render_type,
-            "--random_seed",
-            str(args.random_seed),
-            "--num_threads",
-            str(num_threads),
-            "--gpu_index",
-            gpu_index,
-            "--use_gpu" if args.use_gpu else "--use_cpu",
-        ],
+        command,
         workspace_path / "reconstruction.log",
         cwd=workspace_path,
     )

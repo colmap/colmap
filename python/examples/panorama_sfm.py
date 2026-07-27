@@ -16,7 +16,7 @@ import argparse
 import collections
 import enum
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -482,6 +482,47 @@ def run_matcher(
         logging.fatal(f"Unknown matcher: {args.matcher}")
 
 
+def filter_database_by_covisibility(
+    database_path: Path,
+    covisibility_path: Path,
+    min_shared_points: int,
+    split_image_name: Callable[[str], tuple[int, str]] | None = None,
+) -> None:
+    with np.load(covisibility_path) as covisibility:
+        image_names = covisibility["image_names"].tolist()
+        overlap_counts = covisibility["directed_overlap_counts"]
+    image_name_to_idx = {name: idx for idx, name in enumerate(image_names)}
+
+    def pano_name(image_name: str) -> str:
+        if split_image_name is None:
+            return image_name
+        return split_image_name(image_name)[1]
+
+    with pycolmap.Database.open(database_path) as database:
+        database_image_names = {
+            image.image_id: pano_name(image.name)
+            for image in database.read_all_images()
+        }
+        pair_ids, _ = database.read_two_view_geometry_num_inliers()
+        num_filtered = 0
+        for pair_id in pair_ids:
+            image_id1, image_id2 = pycolmap.pair_id_to_image_pair(pair_id)
+            idx1 = image_name_to_idx.get(database_image_names[image_id1])
+            idx2 = image_name_to_idx.get(database_image_names[image_id2])
+            if idx1 is None or idx2 is None:
+                continue
+            shared_points = max(
+                overlap_counts[idx1, idx2], overlap_counts[idx2, idx1]
+            )
+            if shared_points < min_shared_points:
+                database.delete_two_view_geometry(image_id1, image_id2)
+                num_filtered += 1
+    logging.info(
+        f"Depth covisibility filtering removed {num_filtered}/{len(pair_ids)} "
+        "verified image pairs"
+    )
+
+
 def run_spherical(
     args: argparse.Namespace, database_path: Path, rec_path: Path
 ) -> None:
@@ -507,23 +548,32 @@ def run_spherical(
     # A single EQUIRECTANGULAR camera observes the whole sphere from one
     # center, so there is no rig and no per-frame image-pair skipping.
     run_matcher(args, database_path, pycolmap.FeatureMatchingOptions())
+    if args.covisibility_path is not None:
+        filter_database_by_covisibility(
+            database_path,
+            args.covisibility_path,
+            args.covisibility_min_shared_points,
+        )
 
     # The EQUIRECTANGULAR model has no focal length, principal point, or
     # distortion to refine; its (w, h) params are held constant in bundle
     # adjustment.
     if args.mapper == Mapper.INCREMENTAL:
-        opts = pycolmap.IncrementalPipelineOptions(
+        incremental_options = pycolmap.IncrementalPipelineOptions(
             num_threads=args.num_threads, random_seed=args.random_seed
         )
         recs = pycolmap.incremental_mapping(
-            database_path, args.input_image_path, rec_path, opts
+            database_path,
+            args.input_image_path,
+            rec_path,
+            incremental_options,
         )
     elif args.mapper == Mapper.GLOBAL:
-        opts = pycolmap.GlobalPipelineOptions(
+        global_options = pycolmap.GlobalPipelineOptions(
             num_threads=args.num_threads, random_seed=args.random_seed
         )
         recs = pycolmap.global_mapping(
-            database_path, args.input_image_path, rec_path, opts
+            database_path, args.input_image_path, rec_path, global_options
         )
     else:
         logging.fatal(f"Unknown mapper: {args.mapper}")
@@ -592,6 +642,13 @@ def run_perspective(
     # The images within a frame do not have overlap due to the provided masks.
     matching_options.skip_image_pairs_in_same_frame = True
     run_matcher(args, database_path, matching_options)
+    if args.covisibility_path is not None:
+        filter_database_by_covisibility(
+            database_path,
+            args.covisibility_path,
+            args.covisibility_min_shared_points,
+            processor.split_image_name,
+        )
 
     if args.mapper == Mapper.INCREMENTAL:
         opts = pycolmap.IncrementalPipelineOptions(
@@ -678,6 +735,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--random_seed", type=int, default=0)
     parser.add_argument("--num_threads", type=int, default=-1)
+    parser.add_argument("--covisibility_path", type=Path)
+    parser.add_argument("--covisibility_min_shared_points", type=int, default=5)
     parser.add_argument("--gpu_index", default="-1")
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")

@@ -16,6 +16,24 @@
     "max_adjacent_translation_m": 1.0,
     "max_adjacent_rotation_deg": 30.0
   },
+  "image_encoding": {
+    "format": "jpeg",
+    "quality": 97,
+    "subsampling": "4:4:4",
+    "progressive": true
+  },
+  "depth_processing": {
+    "size": [512, 256],
+    "scale": 8.0,
+    "invalid_value": 0,
+    "downsampling": "min_pool"
+  },
+  "covisibility": {
+    "sample_stride": 4,
+    "max_depth_m": 256.0,
+    "absolute_tolerance_m": 0.25,
+    "relative_tolerance": 0.01
+  },
   "frame_starts": {
     "AbandonedCable:easy:P002": 2524,
     "AbandonedCable:hard:P003": 2073,

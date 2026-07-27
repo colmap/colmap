@@ -28,6 +28,12 @@ class SceneSelection:
             f"{self.environment}/Data_{self.difficulty}/image_lcam_equirect.zip"
         )
 
+    @property
+    def depth_source_archive(self) -> str:
+        return (
+            f"{self.environment}/Data_{self.difficulty}/depth_lcam_equirect.zip"
+        )
+
 
 def load_manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text())

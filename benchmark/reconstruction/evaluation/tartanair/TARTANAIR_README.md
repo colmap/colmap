@@ -1,8 +1,18 @@
 # TartanAir V2 COLMAP benchmark subset
 
 This package contains a modified subset of the TartanAir V2 dataset for
-evaluating panoramic structure-from-motion in COLMAP. Images and poses were
-selected without changing their pixel or numeric values.
+evaluating panoramic structure-from-motion in COLMAP. Selected RGB images are
+encoded as quality-97 progressive JPEG with 4:4:4 chroma sampling.
+Ground-truth depth maps are min-pooled from 2048x1024 to 512x256 and stored as
+lossless 16-bit PNGs. A depth value `d` represents `d / 8` meters, and zero is
+invalid.
+
+During evaluation, the depth maps are sampled every four pixels and projected
+between ground-truth camera poses. A sample is considered shared when its
+projected range agrees with the target depth within `max(0.25 m, 1%)`, up to a
+maximum range of 256 m. Verified image pairs with no shared samples are removed
+before mapping. Derived overlap counts are cached locally in
+`covisibility.npz` and can be regenerated from the packaged depths.
 
 Source: https://huggingface.co/datasets/theairlabcmu/tartanair2
 

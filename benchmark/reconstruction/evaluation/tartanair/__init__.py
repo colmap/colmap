@@ -8,6 +8,7 @@ import numpy as np
 import pycolmap
 
 from ..utils import Dataset, SceneInfo
+from .depth_covisibility import covisibility_is_current, write_covisibility
 
 # Precomputed TartanAir panoramas have a -90 degree longitude shift: panorama
 # +X is NED forward, +Y is down, and +Z is left.
@@ -19,10 +20,10 @@ def tartanair_world_from_camera(
 ) -> pycolmap.Rigid3d:
     """Convert a TartanAir NED camera pose to COLMAP camera coordinates."""
     world_from_ned = pycolmap.Rigid3d(
-        pycolmap.Rotation3d(quaternion_xyzw), translation
+        pycolmap.Rotation3d(quaternion_xyzw), translation[:, np.newaxis]
     )
     ned_from_colmap = pycolmap.Rigid3d(
-        pycolmap.Rotation3d(NED_FROM_COLMAP), np.zeros(3)
+        pycolmap.Rotation3d(NED_FROM_COLMAP), np.zeros((3, 1))
     )
     return world_from_ned * ned_from_colmap
 
@@ -36,7 +37,7 @@ class DatasetTartanAir(Dataset):
         return 0.001
 
     def list_scenes(self) -> list[SceneInfo]:
-        scene_infos = []
+        scene_infos: list[SceneInfo] = []
         dataset_path = self.data_path / "tartanair-v2"
         if not dataset_path.exists():
             return scene_infos
@@ -83,16 +84,29 @@ class DatasetTartanAir(Dataset):
                         colmap_extra_args=[],
                         reconstruction_backend=f"panorama-{self.render_type}",
                         reconstruction_subdir=reconstruction_subdir,
+                        covisibility_path=scene_path / "covisibility.npz",
+                        covisibility_min_shared_points=1,
                     )
                 )
         return scene_infos
 
     def prepare_scene(self, scene_info: SceneInfo) -> None:
-        if scene_info.sparse_gt_path.exists():
-            return
-
         scene_path = scene_info.image_path.parent
         metadata = json.loads((scene_path / "scene.json").read_text())
+        image_names = [frame["image_name"] for frame in metadata["frames"]]
+        depth_path = scene_path / "depth"
+        covisibility_path = scene_info.covisibility_path
+        if covisibility_path is None or not depth_path.exists():
+            needs_covisibility = False
+            covisibility_current = True
+        else:
+            needs_covisibility = True
+            covisibility_current = covisibility_is_current(
+                covisibility_path, image_names
+            )
+        if scene_info.sparse_gt_path.exists() and covisibility_current:
+            return
+
         pose_by_frame = {}
         with open(scene_path / "poses.txt", encoding="ascii") as fid:
             for line in fid:
@@ -102,39 +116,71 @@ class DatasetTartanAir(Dataset):
                 frame_id = int(values[0])
                 pose_by_frame[frame_id] = np.array(values[1:8], dtype=float)
 
-        width, height = metadata["image_size"]
-        reconstruction = pycolmap.Reconstruction()
-        camera = pycolmap.Camera(
-            camera_id=1,
-            model=pycolmap.CameraModelId.EQUIRECTANGULAR,
-            width=width,
-            height=height,
-            params=[width, height],
-        )
-        rig = pycolmap.Rig(rig_id=1)
-        rig.add_ref_sensor(camera.sensor_id)
-        reconstruction.add_camera(camera)
-        reconstruction.add_rig(rig)
-
-        for image_id, frame_info in enumerate(metadata["frames"], start=1):
-            source_frame = frame_info["source_frame"]
-            pose = pose_by_frame[source_frame]
-            image = pycolmap.Image(
-                image_id=image_id,
-                camera_id=camera.camera_id,
-                name=frame_info["image_name"],
-            )
-            image.frame_id = image_id
-            frame = pycolmap.Frame(frame_id=image_id)
-            frame.rig_id = rig.rig_id
-            frame.add_data_id(image.data_id)
+        world_from_cameras = []
+        for frame_info in metadata["frames"]:
+            pose = pose_by_frame[frame_info["source_frame"]]
             world_from_camera = tartanair_world_from_camera(pose[:3], pose[3:])
-            frame.rig_from_world = world_from_camera.inverse()
-            reconstruction.add_frame(frame)
-            reconstruction.add_image(image)
+            matrix = np.eye(4)
+            matrix[:3, :3] = world_from_camera.rotation.matrix()
+            matrix[:3, 3] = world_from_camera.translation
+            world_from_cameras.append(matrix)
 
-        scene_info.sparse_gt_path.mkdir(parents=True)
-        reconstruction.write(scene_info.sparse_gt_path)
+        if scene_info.sparse_gt_path.exists():
+            reconstruction = None
+        else:
+            width, height = metadata["image_size"]
+            reconstruction = pycolmap.Reconstruction()
+            camera = pycolmap.Camera(
+                camera_id=1,
+                model=pycolmap.CameraModelId.EQUIRECTANGULAR,
+                width=width,
+                height=height,
+                params=[width, height],
+            )
+            rig = pycolmap.Rig(rig_id=1)
+            rig.add_ref_sensor(camera.sensor_id)
+            reconstruction.add_camera(camera)
+            reconstruction.add_rig(rig)
+
+        if reconstruction is not None:
+            for image_id, (frame_info, world_from_camera) in enumerate(
+                zip(metadata["frames"], world_from_cameras, strict=True),
+                start=1,
+            ):
+                image = pycolmap.Image(
+                    image_id=image_id,
+                    camera_id=camera.camera_id,
+                    name=frame_info["image_name"],
+                )
+                image.frame_id = image_id
+                frame = pycolmap.Frame(frame_id=image_id)
+                frame.rig_id = rig.rig_id
+                frame.add_data_id(image.data_id)
+                frame.rig_from_world = pycolmap.Rigid3d(
+                    pycolmap.Rotation3d(world_from_camera[:3, :3]),
+                    world_from_camera[:3, 3],
+                ).inverse()
+                reconstruction.add_frame(frame)
+                reconstruction.add_image(image)
+
+            scene_info.sparse_gt_path.mkdir(parents=True)
+            reconstruction.write(scene_info.sparse_gt_path)
+
+        if (
+            covisibility_path is not None
+            and needs_covisibility
+            and not covisibility_current
+        ):
+            write_covisibility(
+                covisibility_path,
+                [
+                    depth_path / frame["depth_name"]
+                    for frame in metadata["frames"]
+                ],
+                image_names,
+                np.stack(world_from_cameras),
+                metadata["depth_scale"],
+            )
 
 
 class DatasetTartanAirPerspective(DatasetTartanAir):
