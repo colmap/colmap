@@ -225,43 +225,6 @@ class Dataset(ABC):
         """Prepare the scene for reconstruction."""
         pass
 
-    def compute_scene_errors(
-        self,
-        args: argparse.Namespace,
-        scene_info: SceneInfo,
-        sub_models: list[pycolmap.Reconstruction],
-        sparse_gt: pycolmap.Reconstruction,
-        position_accuracy_gt: float,
-    ) -> npt.NDArray[np.floating]:
-        """Compute the flat error array for a reconstructed scene.
-
-        The default implementation keeps the estimated sub-models separate and
-        computes the set-based, GT-component-aware relative or absolute pose
-        errors against the ground truth. The GT components come from
-        scene_info.image_name_to_component, defaulting to a single
-        reconstruction (all GT images in component 0) when the dataset does not
-        provide one. Datasets can populate that mapping or override this method
-        to implement a custom error metric.
-        """
-        image_name_to_component = scene_info.image_name_to_component or {
-            image.name: 0 for image in sparse_gt.images.values()
-        }
-        if args.error_type.startswith("relative"):
-            return compute_grouped_rel_errors(
-                sparse_gt=sparse_gt,
-                sub_models=sub_models,
-                image_name_to_component=image_name_to_component,
-                min_proj_center_dist=position_accuracy_gt,
-            )
-        elif args.error_type.startswith("absolute"):
-            return compute_grouped_abs_errors(
-                sparse_gt=sparse_gt,
-                sub_models=sub_models,
-                image_name_to_component=image_name_to_component,
-            )
-        else:
-            raise ValueError(f"Invalid error type: {args.error_type}")
-
 
 class _PhaseTracker:
     """Worker-side helper that publishes the current phase for a scene to a
@@ -915,8 +878,8 @@ def process_scene(
     # the relative set-based metric forms edges within a sub-model, and the
     # absolute metric scores each GT image against the best-aligned sub-model.
     # For absolute errors each sub-model is aligned to the GT independently.
-    # The dataset is responsible for turning these sub-models into a flat error
-    # array via compute_scene_errors.
+    # These sub-models are turned into a flat error array via
+    # compute_scene_errors.
     sub_models: list[pycolmap.Reconstruction] = []
     num_components = 0
     largest_component = 0
@@ -965,7 +928,7 @@ def process_scene(
     # The dataset turns the estimated sub-models into a flat error array. The
     # default implementation uses the set-based grouped metrics; datasets (e.g.
     # IMC2025) can customize the grouping or override the computation entirely.
-    errors = dataset.compute_scene_errors(
+    errors = compute_scene_errors(
         args=args,
         scene_info=scene_info,
         sub_models=sub_models,
@@ -1233,6 +1196,42 @@ def compute_rel_pose_error(
 
     dR = np.rad2deg(estimated_from_gt.rotation.angle())
     return dt, dR
+
+
+def compute_scene_errors(
+    args: argparse.Namespace,
+    scene_info: SceneInfo,
+    sub_models: list[pycolmap.Reconstruction],
+    sparse_gt: pycolmap.Reconstruction,
+    position_accuracy_gt: float,
+) -> npt.NDArray[np.floating]:
+    """Compute the flat error array for a reconstructed scene.
+
+    Keeps the estimated sub-models separate and computes the set-based,
+    GT-component-aware relative or absolute pose errors against the ground
+    truth. The GT components come from scene_info.image_name_to_component,
+    defaulting to a single reconstruction (all GT images in component 0) when
+    the dataset does not provide one. Datasets can populate that mapping (via
+    list_scenes) to control the grouping.
+    """
+    image_name_to_component = scene_info.image_name_to_component or {
+        image.name: 0 for image in sparse_gt.images.values()
+    }
+    if args.error_type.startswith("relative"):
+        return compute_grouped_rel_errors(
+            sparse_gt=sparse_gt,
+            sub_models=sub_models,
+            image_name_to_component=image_name_to_component,
+            min_proj_center_dist=position_accuracy_gt,
+        )
+    elif args.error_type.startswith("absolute"):
+        return compute_grouped_abs_errors(
+            sparse_gt=sparse_gt,
+            sub_models=sub_models,
+            image_name_to_component=image_name_to_component,
+        )
+    else:
+        raise ValueError(f"Invalid error type: {args.error_type}")
 
 
 def compute_grouped_rel_errors(
