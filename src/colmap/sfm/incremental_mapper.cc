@@ -1172,9 +1172,14 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Only use prior pose if at least 3 images have been registered.
+  // Only use prior pose if at least 3 frames (not images) have been
+// registered. Count frames, not images: a multi-camera rig registers
+// several images per frame/position, so NumImages() overstates the
+// number of distinct positions, which could enable pose-prior BA with
+// fewer than 3 usable positions and make AlignReconstructionToPosePriors()
+// fail (see #4368).
   const bool use_prior_position =
-      options.use_prior_position && ba_config.NumImages() > 2;
+      options.use_prior_position && reconstruction_->NumRegFrames() > 2;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
