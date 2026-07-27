@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
-import PIL.Image
 
 SAMPLE_STRIDE = 4
 MAX_DEPTH = 256.0
@@ -136,11 +135,10 @@ def write_covisibility(
     world_from_cameras: npt.NDArray[np.float64],
     depth_scale: float,
 ) -> None:
+    from PIL import Image
+
     depths = np.stack(
-        [
-            np.asarray(PIL.Image.open(path), dtype=np.uint16)
-            for path in depth_paths
-        ]
+        [np.asarray(Image.open(path), dtype=np.uint16) for path in depth_paths]
     )
     counts = compute_covisibility_counts(
         depths, world_from_cameras, depth_scale

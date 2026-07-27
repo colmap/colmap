@@ -1,4 +1,7 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("cv2")
 from panorama_sfm import filter_database_by_covisibility
 
 import pycolmap
