@@ -133,12 +133,16 @@ Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
 // Calculate the squared Sampson error for a single point pair and a given
 // fundamental or essential matrix.
 //
-// @param ray1        First point/ray in homogeneous coordinates.
-// @param ray2        Second point/ray in homogeneous coordinates.
+// The points must be hnormalized: the error is not invariant to the scale of
+// the homogeneous representative, so unit bearings give a different, smaller
+// error.
+//
+// @param point1      First point in hnormalized homogeneous coordinates.
+// @param point2      Second point in hnormalized homogeneous coordinates.
 // @param E           3x3 fundamental or essential matrix.
 // @return            Squared Sampson error.
-double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
-                                  const Eigen::Vector3d& ray2,
+double ComputeSquaredSampsonError(const Eigen::Vector3d& point1,
+                                  const Eigen::Vector3d& point2,
                                   const Eigen::Matrix3d& E);
 
 // Calculate the residuals of a set of corresponding points and a given
@@ -155,17 +159,26 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
 
-// Calculate the residuals of a set of corresponding rays and a given
+// Calculate the residuals of a set of corresponding points and a given
 // fundamental or essential matrix.
 //
-// Residuals are defined as the squared Sampson error.
+// Residuals are defined as the squared Sampson error. The points must be
+// hnormalized, as above.
 //
-// @param rays1       Corresponding rays.
-// @param rays2       Corresponding rays.
+// TODO: The calibrated estimators call this with unit bearings, so their
+// residuals are neither the Sampson error nor in CamFromImgThreshold units.
+// Hnormalizing here is not an option, as bearings with rz <= 0 are why the
+// calibrated path uses rays. Use the tangent Sampson error instead (Terekhov
+// and Larsson, ICCV 2023), which is in pixels for any central camera model.
+//
+// @param points1     Corresponding points in hnormalized homogeneous
+//                    coordinates.
+// @param points2     Corresponding points in hnormalized homogeneous
+//                    coordinates.
 // @param E           3x3 fundamental or essential matrix.
 // @param residuals   Output vector of residuals.
-void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
-                                const std::vector<Eigen::Vector3d>& rays2,
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
+                                const std::vector<Eigen::Vector3d>& points2,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
 
@@ -181,8 +194,11 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
 // Only meaningful for essential matrices (calibrated rays); the plain
 // ComputeSquaredSampsonError should be used for fundamental matrices.
 //
-// @param rays1       Corresponding rays.
-// @param rays2       Corresponding rays.
+// The cheirality check requires bearings, but the Sampson part inherits the
+// unit-bearing issue noted above.
+//
+// @param rays1       Corresponding unit bearings.
+// @param rays2       Corresponding unit bearings.
 // @param E           3x3 essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredSampsonErrorWithCheirality(

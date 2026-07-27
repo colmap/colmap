@@ -78,6 +78,9 @@ void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
                               std::vector<double>* residuals) {
   THROW_CHECK_EQ(points1.size(), points2.size());
   residuals->resize(points1.size());
+  // TODO: This inlines the Sampson error on unit bearings, so it does not match
+  // the max_error given in Camera::CamFromImgThreshold units. See
+  // ComputeSquaredSampsonError, which this should call once fixed.
   for (size_t i = 0; i < points1.size(); ++i) {
     const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
                                    Inverse(points1[i].cam_from_rig);

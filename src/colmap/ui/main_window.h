@@ -36,7 +36,6 @@
 #include "colmap/ui/dense_reconstruction_widget.h"
 #include "colmap/ui/feature_extraction_widget.h"
 #include "colmap/ui/feature_matching_widget.h"
-#include "colmap/ui/license_widget.h"
 #include "colmap/ui/log_widget.h"
 #include "colmap/ui/match_matrix_widget.h"
 #include "colmap/ui/model_viewer_widget.h"
@@ -147,6 +146,7 @@ class MainWindow : public QMainWindow {
   void About();
   void Documentation();
   void Support();
+  void License();
 
   void ShowInvalidProjectError();
   void UpdateTimer();
@@ -179,7 +179,6 @@ class MainWindow : public QMainWindow {
   ReconstructionManagerWidget* reconstruction_manager_widget_;
   ReconstructionStatsWidget* reconstruction_stats_widget_;
   MatchMatrixWidget* match_matrix_widget_;
-  LicenseWidget* license_widget_;
   ThreadControlWidget* thread_control_widget_;
 
   QToolBar* file_toolbar_;

@@ -153,7 +153,7 @@ TEST(ProductManifold, SizesAndBlockStructure) {
   const Eigen::Vector3d t = Eigen::Vector3d(1.0, -2.0, 0.5).normalized();
   double x[7] = {q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z()};
 
-  const RelativePoseManifold manifold;
+  const RelativePoseManifold manifold{};
 
   // Plus at zero recovers the point.
   const double zero[5] = {0, 0, 0, 0, 0};
@@ -203,7 +203,7 @@ TEST(ProductManifold, ThreeWaySizesAndBlockStructure) {
                         q1.z(),
                         q1.w()};
 
-  const ThreeWayManifold manifold;
+  const ThreeWayManifold manifold{};
 
   // Plus at zero recovers the point.
   const double zero[kTangent] = {0, 0, 0, 0, 0, 0, 0, 0};

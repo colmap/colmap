@@ -646,6 +646,7 @@ void RunPointTriangulatorImpl(
   custom_options->ba_refine_extra_params = refine_intrinsics;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  reconstruction_manager->Get(reconstruction_manager->Add()) = reconstruction;
   IncrementalPipeline mapper(
       custom_options, Database::Open(database_path), reconstruction_manager);
   mapper.TriangulateReconstruction(reconstruction);

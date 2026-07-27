@@ -104,3 +104,20 @@ different trade-offs between speed and accuracy:
 Specify the model path using ``--AlikedExtraction.*_model_path``. If the path is
 a URL, COLMAP will automatically download and cache the model. You can download
 different ALIKED models from the release page at https://github.com/colmap/colmap/releases/
+
+
+Iterative Runs
+---------------------
+
+When re-running matching on an existing database, image pairs that already have
+a two-view geometry are skipped, so changing ``--FeatureMatching.type`` on such
+a database leaves previously matched pairs untouched. To force re-matching, first
+clear the existing results with ``database_cleaner``::
+
+    $ colmap database_cleaner \
+        --database_path $DATASET_PATH/database.db \
+        --type two_view_geometries \
+        --type matches
+
+When re-extracting with a different ``--FeatureExtraction.type``, use
+``--type features`` to additionally clear the extracted keypoints and descriptors.
