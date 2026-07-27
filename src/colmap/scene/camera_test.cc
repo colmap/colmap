@@ -350,7 +350,7 @@ TEST(Camera, CamRayFromImgWithJac) {
         EXPECT_LE((*reprojected - image_point).norm(), 1e-8);
 
         // The Jacobian inverts the projection on the tangent plane.
-        Eigen::Matrix<double, 2, 3> J_uvw;
+        Eigen::Matrix2x3d J_uvw;
         ASSERT_TRUE(camera.ImgFromCamWithJac(cam_ray, &J_uvw).has_value());
         EXPECT_LE((J_uvw * J_ray - Eigen::Matrix2d::Identity()).norm(), 1e-10);
         EXPECT_LE((J_ray.transpose() * cam_ray).norm(), 1e-10 * J_ray.norm());

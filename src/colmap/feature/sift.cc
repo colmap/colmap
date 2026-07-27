@@ -1016,7 +1016,7 @@ Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
 // d, which admits rather than rejects partners lying near that one line.
 struct CamRaysWithJac {
   std::vector<Eigen::Vector3d> rays;
-  std::vector<Eigen::Matrix<double, 3, 2>> jacobians;
+  std::vector<Eigen::Matrix3x2d> jacobians;
   std::vector<bool> valid;
 };
 
@@ -1606,7 +1606,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     two_view_geometry->inlier_matches.resize(
         static_cast<size_t>(options_.max_num_matches));
 
-    // Every config now scores in pixels: the tangent Sampson error for E, the
+    // Every config scores in pixels: the tangent Sampson error for E, the
     // pixel Sampson error for F, and the pixel transfer error for H.
     const float max_residual = static_cast<float>(max_error * max_error);
 

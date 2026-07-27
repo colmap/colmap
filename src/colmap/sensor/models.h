@@ -930,7 +930,7 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector3d& uvw,
-    Eigen::Matrix<double, 2, 3>* J_uvw);
+    Eigen::Matrix2x3d* J_uvw);
 
 // The Jacobian of `CameraModelCamRayFromImg`, i.e. d(u, v, w) / d(x, y),
 // obtained by inverting the projection Jacobian d(x, y) / d(u, v, w) at a unit
@@ -956,8 +956,8 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
 //
 // @return             Jacobian d(u, v, w) / d(x, y), or std::nullopt if
 //                     `J_uvw` is rank deficient.
-inline std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
-    const Eigen::Vector3d& cam_ray, const Eigen::Matrix<double, 2, 3>& J_uvw);
+inline std::optional<Eigen::Matrix3x2d> CamRayFromImgJacobian(
+    const Eigen::Vector3d& cam_ray, const Eigen::Matrix2x3d& J_uvw);
 
 // Transform image to camera coordinates.
 //
@@ -2818,7 +2818,7 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     const CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector3d& uvw,
-    Eigen::Matrix<double, 2, 3>* J_uvw) {
+    Eigen::Matrix2x3d* J_uvw) {
   Eigen::Vector2d xy;
   // 2x3 row-major Jacobian. Zero-init so a kernel that skips an entry can't
   // leak an uninitialized read through the Map below.
@@ -2857,8 +2857,8 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
   return std::nullopt;
 }
 
-std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
-    const Eigen::Vector3d& cam_ray, const Eigen::Matrix<double, 2, 3>& J_uvw) {
+std::optional<Eigen::Matrix3x2d> CamRayFromImgJacobian(
+    const Eigen::Vector3d& cam_ray, const Eigen::Matrix2x3d& J_uvw) {
   const Eigen::Vector3d g_x = J_uvw.row(0);
   const Eigen::Vector3d g_y = J_uvw.row(1);
   const double alpha = cam_ray.dot(g_x.cross(g_y));
@@ -2873,7 +2873,7 @@ std::optional<Eigen::Matrix<double, 3, 2>> CamRayFromImgJacobian(
         kMinRelAlpha * (g_x.squaredNorm() + g_y.squaredNorm()))) {
     return std::nullopt;
   }
-  Eigen::Matrix<double, 3, 2> J_ray;
+  Eigen::Matrix3x2d J_ray;
   J_ray.col(0) = g_y.cross(cam_ray);
   J_ray.col(1) = cam_ray.cross(g_x);
   return J_ray / alpha;

@@ -207,9 +207,9 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
 }
 
 double ComputeSquaredTangentSampsonError(const Eigen::Vector3d& cam_ray1,
-                                         const Eigen::Matrix<double, 3, 2>& J1,
+                                         const Eigen::Matrix3x2d& J1,
                                          const Eigen::Vector3d& cam_ray2,
-                                         const Eigen::Matrix<double, 3, 2>& J2,
+                                         const Eigen::Matrix3x2d& J2,
                                          const Eigen::Matrix3d& E) {
   const Eigen::Vector3d Eray1 = E * cam_ray1;
   const Eigen::Vector3d Etray2 = E.transpose() * cam_ray2;

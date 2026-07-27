@@ -173,8 +173,7 @@ struct Camera {
   // Project point from camera frame to image plane, additionally computing the
   // Jacobian d(x, y) / d(u, v, w). Pass nullptr to skip the Jacobian.
   inline std::optional<Eigen::Vector2d> ImgFromCamWithJac(
-      const Eigen::Vector3d& cam_point,
-      Eigen::Matrix<double, 2, 3>* J_uvw) const;
+      const Eigen::Vector3d& cam_point, Eigen::Matrix2x3d* J_uvw) const;
 
   // Unproject a pixel to a unit bearing vector together with the Jacobian
   // d(u, v, w) / d(x, y) of that bearing with respect to the pixel.
@@ -343,8 +342,7 @@ std::optional<Eigen::Vector2d> Camera::ImgFromCam(
 }
 
 std::optional<Eigen::Vector2d> Camera::ImgFromCamWithJac(
-    const Eigen::Vector3d& cam_point,
-    Eigen::Matrix<double, 2, 3>* J_uvw) const {
+    const Eigen::Vector3d& cam_point, Eigen::Matrix2x3d* J_uvw) const {
   return CameraModelImgFromCamWithJac(model_id, params, cam_point, J_uvw);
 }
 
@@ -354,11 +352,11 @@ std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
   if (!cam_ray.has_value()) {
     return std::nullopt;
   }
-  Eigen::Matrix<double, 2, 3> J_uvw;
+  Eigen::Matrix2x3d J_uvw;
   if (!ImgFromCamWithJac(*cam_ray, &J_uvw).has_value()) {
     return std::nullopt;
   }
-  const std::optional<Eigen::Matrix<double, 3, 2>> J_ray =
+  const std::optional<Eigen::Matrix3x2d> J_ray =
       CamRayFromImgJacobian(*cam_ray, J_uvw);
   if (!J_ray.has_value()) {
     return std::nullopt;

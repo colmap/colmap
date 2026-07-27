@@ -219,16 +219,15 @@ Eigen::Vector3d PinholeNormalizedFromImg(const Eigen::Vector2d& image_point) {
 }
 
 // d(u, v, 1) / d(x, y) for a pinhole: constant and diagonal.
-Eigen::Matrix<double, 3, 2> PinholeNormalizedJacobian() {
-  Eigen::Matrix<double, 3, 2> J = Eigen::Matrix<double, 3, 2>::Zero();
+Eigen::Matrix3x2d PinholeNormalizedJacobian() {
+  Eigen::Matrix3x2d J = Eigen::Matrix3x2d::Zero();
   J(0, 0) = 1.0 / kFocal;
   J(1, 1) = 1.0 / kFocal;
   return J;
 }
 
 // d(unit ray) / d(x, y) for a pinhole, via the normalization quotient rule.
-Eigen::Matrix<double, 3, 2> PinholeUnitRayJacobian(
-    const Eigen::Vector3d& normalized) {
+Eigen::Matrix3x2d PinholeUnitRayJacobian(const Eigen::Vector3d& normalized) {
   const double norm = normalized.norm();
   const Eigen::Matrix3d dnormalize =
       (Eigen::Matrix3d::Identity() -
@@ -251,7 +250,7 @@ TEST(ComputeSquaredTangentSampsonError, PinholeMatchesScaledSampsonExactly) {
       Eigen::Vector3d(1.0, 0.2, 0.1).normalized());
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
-  const Eigen::Matrix<double, 3, 2> J_norm = PinholeNormalizedJacobian();
+  const Eigen::Matrix3x2d J_norm = PinholeNormalizedJacobian();
 
   // Deliberately includes badly mismatched pairs: the identity is exact for
   // arbitrary inputs, not only for near-inliers.
@@ -342,7 +341,7 @@ TEST(ComputeSquaredTangentSampsonError, UnitRaysAgreeToFirstOrder) {
 }
 
 TEST(ComputeSquaredTangentSampsonError, DegenerateDenominatorReturnsMax) {
-  const Eigen::Matrix<double, 3, 2> J_norm = PinholeNormalizedJacobian();
+  const Eigen::Matrix3x2d J_norm = PinholeNormalizedJacobian();
   EXPECT_EQ(
       ComputeSquaredTangentSampsonError({Eigen::Vector3d(0, 0, 1), J_norm},
                                         {Eigen::Vector3d(0, 0, 1), J_norm},

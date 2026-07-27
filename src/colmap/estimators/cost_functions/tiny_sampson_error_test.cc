@@ -48,29 +48,24 @@ namespace {
 // The batched functor's squared residuals match
 // ComputeSquaredTangentSampsonError at several 7-parameter poses.
 TEST(TinyTangentSampsonErrorCostFunctor, MatchesSquaredTangentSampsonError) {
-  auto make = [](const Eigen::Vector3d& ray,
-                 const Eigen::Matrix<double, 3, 2>& jac) {
+  auto make = [](const Eigen::Vector3d& ray, const Eigen::Matrix3x2d& jac) {
     return CamRayWithJac{ray.normalized(), jac};
   };
   const std::vector<CamRayWithJac> cam_rays1_with_jac = {
       make({0.1, 0.2, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1)
-               .finished()),
-      make({-0.3, 0.1, 1},
-           (Eigen::Matrix<double, 3, 2>() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
-               .finished()),
+           (Eigen::Matrix3x2d() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1).finished()),
+      make(
+          {-0.3, 0.1, 1},
+          (Eigen::Matrix3x2d() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2).finished()),
       make({0.2, -0.25, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.05, 0.0, 0.0, 0.95, 0.1, 0.1)
-               .finished())};
+           (Eigen::Matrix3x2d() << 1.05, 0.0, 0.0, 0.95, 0.1, 0.1).finished())};
   const std::vector<CamRayWithJac> cam_rays2_with_jac = {
       make({0.15, -0.1, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0)
-               .finished()),
+           (Eigen::Matrix3x2d() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0).finished()),
       make({0.05, 0.3, 1},
-           (Eigen::Matrix<double, 3, 2>() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15)
-               .finished()),
+           (Eigen::Matrix3x2d() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15).finished()),
       make({-0.2, -0.15, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.1, -0.05, 0.05, 0.9, -0.1, 0.1)
+           (Eigen::Matrix3x2d() << 1.1, -0.05, 0.05, 0.9, -0.1, 0.1)
                .finished())};
 
   const TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
@@ -106,24 +101,20 @@ TEST(TinyTangentSampsonErrorCostFunctor, MatchesSquaredTangentSampsonError) {
 
 // The closed-form 7-parameter Jacobian matches central finite differences.
 TEST(TinyTangentSampsonErrorCostFunctor, JacobianMatchesFiniteDifference) {
-  auto make = [](const Eigen::Vector3d& ray,
-                 const Eigen::Matrix<double, 3, 2>& jac) {
+  auto make = [](const Eigen::Vector3d& ray, const Eigen::Matrix3x2d& jac) {
     return CamRayWithJac{ray.normalized(), jac};
   };
   const std::vector<CamRayWithJac> cam_rays1_with_jac = {
       make({0.1, 0.2, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1)
-               .finished()),
+           (Eigen::Matrix3x2d() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1).finished()),
       make({-0.3, 0.1, 1},
-           (Eigen::Matrix<double, 3, 2>() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
+           (Eigen::Matrix3x2d() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
                .finished())};
   const std::vector<CamRayWithJac> cam_rays2_with_jac = {
       make({0.15, -0.1, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0)
-               .finished()),
+           (Eigen::Matrix3x2d() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0).finished()),
       make({0.05, 0.3, 1},
-           (Eigen::Matrix<double, 3, 2>() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15)
-               .finished())};
+           (Eigen::Matrix3x2d() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15).finished())};
   const TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
                                                    cam_rays2_with_jac);
   const int n = static_cast<int>(cam_rays1_with_jac.size());
@@ -160,24 +151,20 @@ TEST(TinyTangentSampsonErrorCostFunctor, JacobianMatchesFiniteDifference) {
 // residual and the 7-parameter Jacobian, pinning the hand-derived Jacobian to a
 // second implementation rather than to finite differences alone.
 TEST(TinyTangentSampsonErrorCostFunctor, MatchesAutodiffCostFunctor) {
-  auto make = [](const Eigen::Vector3d& ray,
-                 const Eigen::Matrix<double, 3, 2>& jac) {
+  auto make = [](const Eigen::Vector3d& ray, const Eigen::Matrix3x2d& jac) {
     return CamRayWithJac{ray.normalized(), jac};
   };
   const std::vector<CamRayWithJac> cam_rays1_with_jac = {
       make({0.1, 0.2, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1)
-               .finished()),
+           (Eigen::Matrix3x2d() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1).finished()),
       make({-0.3, 0.1, 1},
-           (Eigen::Matrix<double, 3, 2>() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
+           (Eigen::Matrix3x2d() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
                .finished())};
   const std::vector<CamRayWithJac> cam_rays2_with_jac = {
       make({0.15, -0.1, 1},
-           (Eigen::Matrix<double, 3, 2>() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0)
-               .finished()),
+           (Eigen::Matrix3x2d() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0).finished()),
       make({0.05, 0.3, 1},
-           (Eigen::Matrix<double, 3, 2>() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15)
-               .finished())};
+           (Eigen::Matrix3x2d() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15).finished())};
   const TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
                                                    cam_rays2_with_jac);
   const int n = static_cast<int>(cam_rays1_with_jac.size());
@@ -264,33 +251,17 @@ std::vector<Eigen::Vector2d> OneSidedFocalTestPoints1() {
 }
 
 std::vector<CamRayWithJac> OneSidedFocalTestRays2() {
-  auto make = [](const Eigen::Vector3d& ray,
-                 const Eigen::Matrix<double, 3, 2>& jac) {
+  auto make = [](const Eigen::Vector3d& ray, const Eigen::Matrix3x2d& jac) {
     return CamRayWithJac{ray.normalized(), jac};
   };
   return {make({0.08, -0.05, 1.0},
-               (Eigen::Matrix<double, 3, 2>() << 1.1e-3,
-                5e-5,
-                -1e-4,
-                1.2e-3,
-                2e-4,
-                0.0)
+               (Eigen::Matrix3x2d() << 1.1e-3, 5e-5, -1e-4, 1.2e-3, 2e-4, 0.0)
                    .finished()),
           make({-0.9, 0.4, 0.2},
-               (Eigen::Matrix<double, 3, 2>() << 9e-4,
-                -1e-4,
-                1.5e-4,
-                1.1e-3,
-                -5e-5,
-                2e-4)
+               (Eigen::Matrix3x2d() << 9e-4, -1e-4, 1.5e-4, 1.1e-3, -5e-5, 2e-4)
                    .finished()),
           make({0.3, 0.7, -0.6},
-               (Eigen::Matrix<double, 3, 2>() << 8e-4,
-                2e-4,
-                1e-4,
-                1.3e-3,
-                0.0,
-                -1.5e-4)
+               (Eigen::Matrix3x2d() << 8e-4, 2e-4, 1e-4, 1.3e-3, 0.0, -1.5e-4)
                    .finished())};
 }
 
@@ -316,8 +287,8 @@ TEST(TinyOneSidedFocalTangentSampsonErrorCostFunctor,
   const std::array<Eigen::Vector3d, 2> translations = {t0, t1};
   const std::array<double, 2> focals1 = {900.0, 1500.0};
 
-  const Eigen::Matrix<double, 3, 2> J1 =
-      (Eigen::Matrix<double, 3, 2>() << 1, 0, 0, 1, 0, 0).finished();
+  const Eigen::Matrix3x2d J1 =
+      (Eigen::Matrix3x2d() << 1, 0, 0, 1, 0, 0).finished();
 
   for (size_t k = 0; k < quaternions.size(); ++k) {
     const Eigen::Quaterniond q = quaternions[k].normalized();

@@ -32,9 +32,6 @@
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/util/logging.h"
-
-#include <cmath>
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -57,16 +54,19 @@ Eigen::Matrix<T, 3, 3> EssentialMatrixFromPoseParams(
 }
 
 // Signed Sampson error under an essential/fundamental matrix. point1/point2 are
-// points on the image plane (x, y, 1), not unit bearings. For rays use
-// TangentSampsonError. Returns 0 when the denominator vanishes.
+// points on the image plane, taken as 2D because the error is not invariant to
+// the scale of the homogeneous representative, so only (x, y, 1) is correct
+// here. For rays use TangentSampsonError. Returns 0 when the denominator
+// vanishes.
 template <typename T>
 T SampsonError(const Eigen::Matrix<T, 3, 3>& E,
-               const Eigen::Matrix<T, 3, 1>& point1,
-               const Eigen::Matrix<T, 3, 1>& point2) {
-  const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * point1;
-  const T num = point2.dot(epipolar_line1);
-  const Eigen::Matrix<T, 4, 1> denom(point2.dot(E.col(0)),
-                                     point2.dot(E.col(1)),
+               const Eigen::Matrix<T, 2, 1>& point1,
+               const Eigen::Matrix<T, 2, 1>& point2) {
+  const Eigen::Matrix<T, 3, 1> point2_homogeneous = point2.homogeneous();
+  const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * point1.homogeneous();
+  const T num = point2_homogeneous.dot(epipolar_line1);
+  const Eigen::Matrix<T, 4, 1> denom(point2_homogeneous.dot(E.col(0)),
+                                     point2_homogeneous.dot(E.col(1)),
                                      epipolar_line1.x(),
                                      epipolar_line1.y());
   const T denom_norm = denom.norm();
@@ -97,7 +97,7 @@ T TangentSampsonError(const Eigen::Matrix<T, 3, 3>& E,
   return num / denom_norm;
 }
 
-// Refines a relative pose by the Sampson error of image-plane point (x, y, 1)
+// Refines a relative pose by the Sampson error of image-plane point
 // correspondences. See SampsonError. The pose is [qx, qy, qz, qw, tx, ty, tz]
 // with the translation on the unit sphere, so it needs a SphereManifold on
 // tvec. For calibrated rays with unprojection Jacobians use the
@@ -106,14 +106,9 @@ T TangentSampsonError(const Eigen::Matrix<T, 3, 3>& E,
 class SampsonErrorCostFunctor
     : public AutoDiffCostFunctor<SampsonErrorCostFunctor, 1, 7> {
  public:
-  SampsonErrorCostFunctor(const Eigen::Vector3d& point1,
-                          const Eigen::Vector3d& point2)
-      : point1_(point1), point2_(point2) {
-    // Enforce the (x, y, 1) contract. Unit bearings (z != 1) would be silently
-    // rescaled, since the Sampson error is not invariant to the point's scale.
-    THROW_CHECK_LT(std::abs(point1.z() - 1.0), 1e-6);
-    THROW_CHECK_LT(std::abs(point2.z() - 1.0), 1e-6);
-  }
+  SampsonErrorCostFunctor(const Eigen::Vector2d& point1,
+                          const Eigen::Vector2d& point2)
+      : point1_(point1), point2_(point2) {}
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1, T* residuals) const {
@@ -124,8 +119,8 @@ class SampsonErrorCostFunctor
   }
 
  private:
-  const Eigen::Vector3d point1_;
-  const Eigen::Vector3d point2_;
+  const Eigen::Vector2d point1_;
+  const Eigen::Vector2d point2_;
 };
 
 // Refines a relative pose by the pixel-unit tangent Sampson error of calibrated

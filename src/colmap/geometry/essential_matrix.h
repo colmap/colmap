@@ -32,6 +32,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/types.h"
 
 #include <vector>
 
@@ -185,7 +186,7 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
 // poor code for a fixed 3x2 transposed product. Doing so is worth roughly 3x on
 // the tangent Sampson residual, which RANSAC evaluates once per hypothesis per
 // correspondence.
-inline double SquaredPixelGradientNorm(const Eigen::Matrix<double, 3, 2>& J,
+inline double SquaredPixelGradientNorm(const Eigen::Matrix3x2d& J,
                                        const Eigen::Vector3d& g) {
   const double gx = J(0, 0) * g[0] + J(1, 0) * g[1] + J(2, 0) * g[2];
   const double gy = J(0, 1) * g[0] + J(1, 1) * g[1] + J(2, 1) * g[2];
@@ -238,9 +239,9 @@ double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
 // guided-matching filter, called O(N1*N2) times) avoid materializing a
 // CamRayWithJac per correspondence.
 double ComputeSquaredTangentSampsonError(const Eigen::Vector3d& cam_ray1,
-                                         const Eigen::Matrix<double, 3, 2>& J1,
+                                         const Eigen::Matrix3x2d& J1,
                                          const Eigen::Vector3d& cam_ray2,
-                                         const Eigen::Matrix<double, 3, 2>& J2,
+                                         const Eigen::Matrix3x2d& J2,
                                          const Eigen::Matrix3d& E);
 
 // Calculate the residuals of a set of corresponding rays and a given essential

@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/cost_functions/sampson_error.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/util/types.h"
 
 #include <cmath>
 #include <vector>
@@ -101,8 +102,8 @@ class TinyTangentSampsonErrorCostFunctor {
     for (int i = 0; i < n; ++i) {
       const Eigen::Vector3d& ray1 = cam_rays1_with_jac_[i].ray;
       const Eigen::Vector3d& ray2 = cam_rays2_with_jac_[i].ray;
-      const Eigen::Matrix<double, 3, 2>& J1 = cam_rays1_with_jac_[i].jacobian;
-      const Eigen::Matrix<double, 3, 2>& J2 = cam_rays2_with_jac_[i].jacobian;
+      const Eigen::Matrix3x2d& J1 = cam_rays1_with_jac_[i].jacobian;
+      const Eigen::Matrix3x2d& J2 = cam_rays2_with_jac_[i].jacobian;
       const Eigen::Vector3d Eray1 = E * ray1;
       const Eigen::Vector3d Etray2 = E.transpose() * ray2;
       const double num = ray2.dot(Eray1);
@@ -184,9 +185,8 @@ class TinyFocalSampsonErrorCostFunctor {
     F.template block<2, 1>(0, 2) *= inv_f;
     F.template block<1, 2>(2, 0) *= inv_f;
     for (size_t i = 0; i < points1_.size(); ++i) {
-      const Eigen::Matrix<T, 3, 1> point1 = points1_[i].cast<T>().homogeneous();
-      const Eigen::Matrix<T, 3, 1> point2 = points2_[i].cast<T>().homogeneous();
-      residuals[i] = SampsonError<T>(F, point1, point2);
+      residuals[i] =
+          SampsonError<T>(F, points1_[i].cast<T>(), points2_[i].cast<T>());
     }
     return true;
   }
@@ -325,7 +325,7 @@ class TinyOneSidedFocalTangentSampsonErrorCostFunctor {
     for (int i = 0; i < n; ++i) {
       const Eigen::Vector3d point1 = img_points1_[i].homogeneous();
       const Eigen::Vector3d& ray2 = cam_rays2_with_jac_[i].ray;
-      const Eigen::Matrix<double, 3, 2>& J2 = cam_rays2_with_jac_[i].jacobian;
+      const Eigen::Matrix3x2d& J2 = cam_rays2_with_jac_[i].jacobian;
       const Eigen::Vector3d Mpoint1 = M * point1;
       const double num = ray2.dot(Mpoint1);
       // Constraint gradients in view-1 and view-2 pixels. The former needs no

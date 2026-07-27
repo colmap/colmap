@@ -1594,7 +1594,6 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 
 				ftx2[0] = F.mat[0][0] * loc2.x + F.mat[1][0] * loc2.y + F.mat[2][0];
 				ftx2[1] = F.mat[0][1] * loc2.x + F.mat[1][1] * loc2.y + F.mat[2][1];
-				//ftx2[2] = F.mat[0][2] * loc2.x + F.mat[1][2] * loc2.y + F.mat[2][2];
 
 				x2fx1 = loc2.x * fx1[0]  + loc2.y * fx1[1] + fx1[2];
 				se = FDIV(x2fx1 * x2fx1, fx1[0] * fx1[0] + fx1[1] * fx1[1] + ftx2[0] * ftx2[0] + ftx2[1] * ftx2[1]);

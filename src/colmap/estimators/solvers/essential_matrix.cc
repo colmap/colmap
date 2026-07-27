@@ -221,13 +221,14 @@ namespace {
 
 // Extract the bearings into the contiguous array the five-point solver expects.
 // The Jacobians play no part in estimation. They only affect scoring.
-void UnpackCamRaysWithJac(const std::vector<CamRayWithJac>& cam_rays_with_jac,
-                          std::vector<Eigen::Vector3d>* rays) {
-  const size_t num_rays = cam_rays_with_jac.size();
-  rays->resize(num_rays);
-  for (size_t i = 0; i < num_rays; ++i) {
-    (*rays)[i] = cam_rays_with_jac[i].ray;
+std::vector<Eigen::Vector3d> UnpackCamRaysWithJac(
+    const std::vector<CamRayWithJac>& cam_rays_with_jac) {
+  std::vector<Eigen::Vector3d> rays;
+  rays.reserve(cam_rays_with_jac.size());
+  for (const CamRayWithJac& cam_ray_with_jac : cam_rays_with_jac) {
+    rays.push_back(cam_ray_with_jac.ray);
   }
+  return rays;
 }
 
 }  // namespace
@@ -236,10 +237,10 @@ void EssentialMatrixTangentSampsonEstimator::Estimate(
     const std::vector<X_t>& cam_rays1_with_jac,
     const std::vector<Y_t>& cam_rays2_with_jac,
     std::vector<M_t>* models) {
-  std::vector<Eigen::Vector3d> rays1;
-  std::vector<Eigen::Vector3d> rays2;
-  UnpackCamRaysWithJac(cam_rays1_with_jac, &rays1);
-  UnpackCamRaysWithJac(cam_rays2_with_jac, &rays2);
+  const std::vector<Eigen::Vector3d> rays1 =
+      UnpackCamRaysWithJac(cam_rays1_with_jac);
+  const std::vector<Eigen::Vector3d> rays2 =
+      UnpackCamRaysWithJac(cam_rays2_with_jac);
   EssentialMatrixFivePointEstimator::Estimate(rays1, rays2, models);
 }
 
@@ -253,10 +254,10 @@ bool EssentialMatrixTangentSampsonEstimator::Refine(
 
   // Decompose the initial E into a relative pose (resolving the four-fold
   // ambiguity via cheirality over the bearings).
-  std::vector<Eigen::Vector3d> rays1;
-  std::vector<Eigen::Vector3d> rays2;
-  UnpackCamRaysWithJac(cam_rays1_with_jac, &rays1);
-  UnpackCamRaysWithJac(cam_rays2_with_jac, &rays2);
+  const std::vector<Eigen::Vector3d> rays1 =
+      UnpackCamRaysWithJac(cam_rays1_with_jac);
+  const std::vector<Eigen::Vector3d> rays2 =
+      UnpackCamRaysWithJac(cam_rays2_with_jac);
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(*E, rays1, rays2, &cam2_from_cam1, &valid_indices);

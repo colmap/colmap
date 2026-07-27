@@ -109,14 +109,14 @@ void TestCamRayJacobian(const std::vector<double>& params,
                                              &y_ref,
                                              /*J_params=*/nullptr,
                                              J_ref_data));
-  const Eigen::Matrix<double, 2, 3> J_ref =
+  const Eigen::Matrix2x3d J_ref =
       Eigen::Map<const Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>(
           J_ref_data);
 
   // 1. The runtime dispatch must agree with the templated kernel exactly: it
   // forwards to the same code, so anything but equality means a switch-macro
   // or storage-order mistake.
-  Eigen::Matrix<double, 2, 3> J_uvw;
+  Eigen::Matrix2x3d J_uvw;
   const std::optional<Eigen::Vector2d> xy =
       CameraModelImgFromCamWithJac(CameraModel::model_id, params, uvw, &J_uvw);
   ASSERT_TRUE(xy.has_value());
@@ -138,7 +138,7 @@ void TestCamRayJacobian(const std::vector<double>& params,
 
   // The closed-form pseudo-inverse is only valid at a unit bearing.
   const Eigen::Vector3d cam_ray = uvw.normalized();
-  const std::optional<Eigen::Matrix<double, 3, 2>> J_ray =
+  const std::optional<Eigen::Matrix3x2d> J_ray =
       CamRayFromImgJacobian(cam_ray, J_uvw);
   ASSERT_TRUE(J_ray.has_value());
 
@@ -325,18 +325,17 @@ TEST(CamRayFromImgJacobian, RankDeficientReturnsNullopt) {
   // Rank 1: both image directions respond identically, so the projection is
   // not locally invertible and there is no unprojection Jacobian.
   const Eigen::Vector3d cam_ray(0.0, 0.0, 1.0);
-  Eigen::Matrix<double, 2, 3> rank1;
+  Eigen::Matrix2x3d rank1;
   rank1 << 1.0, 2.0, 3.0, 2.0, 4.0, 6.0;
   EXPECT_FALSE(CamRayFromImgJacobian(cam_ray, rank1).has_value());
 
   EXPECT_FALSE(
-      CamRayFromImgJacobian(cam_ray, Eigen::Matrix<double, 2, 3>::Zero())
-          .has_value());
+      CamRayFromImgJacobian(cam_ray, Eigen::Matrix2x3d::Zero()).has_value());
 
   // A well-conditioned Jacobian is accepted and inverts cleanly.
-  Eigen::Matrix<double, 2, 3> full_rank;
+  Eigen::Matrix2x3d full_rank;
   full_rank << 100.0, 0.0, 0.0, 0.0, 100.0, 0.0;
-  const std::optional<Eigen::Matrix<double, 3, 2>> J_ray =
+  const std::optional<Eigen::Matrix3x2d> J_ray =
       CamRayFromImgJacobian(cam_ray, full_rank);
   ASSERT_TRUE(J_ray.has_value());
   EXPECT_LE((full_rank * *J_ray - Eigen::Matrix2d::Identity()).norm(), 1e-12);
