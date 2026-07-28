@@ -32,6 +32,7 @@ jobs:
             libgoogle-glog-dev \
             libgtest-dev \
             libmetis-dev \
+            libopenimageio-dev \
             libsqlite3-dev
 
       - name: Configure
