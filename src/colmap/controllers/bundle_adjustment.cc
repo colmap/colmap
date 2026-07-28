@@ -29,10 +29,14 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 
+#include "colmap/controllers/database_pose_prior_bundle_adjustment.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
+
+#include <cstdlib>
+#include <filesystem>
 
 namespace colmap {
 namespace {
@@ -91,15 +95,35 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
-  // Fixing the gauge with two cameras leads to a more stable optimization
-  // with fewer steps as compared to fixing three points.
-  // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
-  // as initial experiments show that it is even faster.
-  ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
-  // Run bundle adjustment.
-  std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster;
+  const char* database_path_env =
+      std::getenv("COLMAP_BUNDLE_ADJUSTER_DATABASE_PATH");
+  if (database_path_env != nullptr && database_path_env[0] != '\0') {
+    LOG(INFO) << "Using database position and quaternion rotation priors from "
+              << database_path_env;
+    DatabasePosePriorBundleAdjustmentOptions prior_options;
+    bundle_adjuster = CreateDatabasePosePriorBundleAdjuster(
+        ba_options,
+        prior_options,
+        std::move(ba_config),
+        std::filesystem::path(database_path_env),
+        *reconstruction_);
+    if (!bundle_adjuster) {
+      LOG(ERROR) << "Could not configure database pose-prior bundle "
+                    "adjustment.";
+      return;
+    }
+  } else {
+    // Fixing the gauge with two cameras leads to a more stable optimization
+    // with fewer steps as compared to fixing three points.
+    // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
+    // as initial experiments show that it is even faster.
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
+  }
+
   bundle_adjuster->Solve();
   reconstruction_->UpdatePoint3DErrors();
 
