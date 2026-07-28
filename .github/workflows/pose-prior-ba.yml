@@ -33,7 +33,8 @@ jobs:
             libgtest-dev \
             libmetis-dev \
             libopenimageio-dev \
-            libsqlite3-dev
+            libsqlite3-dev \
+            openimageio-tools
 
       - name: Configure
         run: |
