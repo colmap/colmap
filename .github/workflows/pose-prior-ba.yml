@@ -1,0 +1,60 @@
+name: Pose-prior BA
+
+on:
+  push:
+    branches:
+      - agent/bundle-adjuster-pose-priors
+  pull_request:
+    branches:
+      - release/4.1.0
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            libboost-graph-dev \
+            libboost-program-options-dev \
+            libboost-system-dev \
+            libceres-dev \
+            libcgal-dev \
+            libeigen3-dev \
+            libfreeimage-dev \
+            libglew-dev \
+            libgoogle-glog-dev \
+            libgtest-dev \
+            libmetis-dev \
+            libsqlite3-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTESTS_ENABLED=ON \
+            -DGUI_ENABLED=OFF \
+            -DOPENGL_ENABLED=OFF \
+            -DCUDA_ENABLED=OFF \
+            -DMVS_ENABLED=OFF \
+            -DONNX_ENABLED=OFF \
+            -DFETCH_FAISS=ON \
+            -DFETCH_POSELIB=ON
+
+      - name: Build controller tests
+        run: |
+          cmake --build build --target \
+            colmap_controllers_database_pose_prior_bundle_adjustment_test \
+            colmap_controllers_bundle_adjustment_test \
+            -j2
+
+      - name: Run tests
+        run: |
+          ctest --test-dir build --output-on-failure \
+            -R 'controllers_(database_pose_prior_bundle_adjustment|bundle_adjustment)_test'
