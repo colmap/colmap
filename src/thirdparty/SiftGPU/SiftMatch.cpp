@@ -170,38 +170,29 @@ void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descri
 
 }
 
-void SiftMatchGL::SetFeatureLocation(int index, const float* locations, int gap)
+void SiftMatchGL::SetFeatureLocation(int index, const float* locations)
 {
 	if(_num_sift[index] <=0) return;
 	int w = _sift_per_row ;
 	int h = (_num_sift[index] + _sift_per_row  - 1)/ _sift_per_row;
-	sift_buffer.resize(_num_sift[index] * 2);
-	if(gap == 0)
-	{
-		memcpy(&sift_buffer[0], locations, _num_sift[index] * 2 * sizeof(float));
-	}else
-	{
-		for(int i = 0; i < _num_sift[index]; ++i)
-		{
-			sift_buffer[i*2] = *locations++;
-			sift_buffer[i*2+1]= *locations ++;
-			locations += gap;
-		}
-	}
-	sift_buffer.resize(w * h * 2, 0);
+	//the location texture is already RGBA float, so all four components fit in
+	//the single texel per feature that the addressing below assumes
+	sift_buffer.resize(_num_sift[index] * 4);
+	memcpy(&sift_buffer[0], locations, _num_sift[index] * 4 * sizeof(float));
+	sift_buffer.resize(w * h * 4, 0);
 	_texLoc[index].SetImageSize(w , h);
 	_texLoc[index].BindTex();
 	if(_sift_num_stripe == 1)
 	{
-		glTexSubImage2D(GlobalUtil::_texTarget, 0, 0, 0, w, h, GL_LUMINANCE_ALPHA , GL_FLOAT , &sift_buffer[0]);
+		glTexSubImage2D(GlobalUtil::_texTarget, 0, 0, 0, w, h, GL_RGBA , GL_FLOAT , &sift_buffer[0]);
 	}else
 	{
 		for(int i = 0; i < _sift_num_stripe; ++i)
 		{
 			int ws = _sift_per_stripe;
 			int x = i * ws;
-			int pos = i * ws * h * 2;
-			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_LUMINANCE_ALPHA , GL_FLOAT, &sift_buffer[pos]);
+			int pos = i * ws * h * 4;
+			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_RGBA , GL_FLOAT, &sift_buffer[pos]);
 		}
 	}
 	_texLoc[index].UnbindTex();
@@ -307,6 +298,8 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"uniform mat3 H; \n"
 			"uniform mat3 F; \n"
 			"uniform vec4	size; \n"
+			//x/y select whether the homography / fundamental constraint is used
+			"uniform vec2	hf_enable; \n"
 			"void main()		\n"
 		    "{\n"
 		<<	"   vec4 val = vec4(0.0, 0.0, 0.0, 0.0), data1, buf;\n"
@@ -322,21 +315,29 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 
 			//read feature location data
 			"   vec4 tlpos = vec4((index_h + stripe_index * vec2(SIFT_PER_STRIPE)) + 0.5, index_v);\n"
-			"   vec3 loc1 = vec3(texture2DRect(texL1, tlpos.xz).xw, 1.0);\n"
-			"   vec3 loc2 = vec3(texture2DRect(texL2, tlpos.yw).xw, 1.0);\n"
+			"   vec4 loc1_4 = texture2DRect(texL1, tlpos.xz);\n"
+			"   vec4 loc2_4 = texture2DRect(texL2, tlpos.yw);\n"
+			//a zero validity flag on either side rejects the pair outright
+			"   if(loc1_4.w * loc2_4.w < 0.5) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+			"   vec3 loc1 = loc1_4.xyz;\n"
+			"   vec3 loc2 = loc2_4.xyz;\n"
 
 			//check the guiding homography
-			"   vec3 hxloc1 = H* loc1;\n"
-			"   vec2 diff = loc2.xy- (hxloc1.xy/hxloc1.z);\n"
-			"   float disth = diff.x * diff.x + diff.y * diff.y;\n"
-			"   if(disth > size.z ) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+			"   if(hf_enable.x > 0.5) {\n"
+			"     vec3 hxloc1 = H* loc1;\n"
+			"     vec2 diff = loc2.xy- (hxloc1.xy/hxloc1.z);\n"
+			"     float disth = diff.x * diff.x + diff.y * diff.y;\n"
+			"     if(disth > size.z ) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+			"   }\n"
 
 			//check the guiding fundamental
-			"   vec3 fx1 = (F * loc1), ftx2 = (loc2 * F);\n"
-			"   float x2tfx1 = dot(loc2, fx1);\n"
-			"   vec4 temp = vec4(fx1.xy, ftx2.xy); \n"
-			"   float sampson_error = (x2tfx1 * x2tfx1) / dot(temp, temp);\n"
-			"   if(sampson_error > size.w) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+			"   if(hf_enable.y > 0.5) {\n"
+			"     vec3 fx1 = (F * loc1), ftx2 = (loc2 * F);\n"
+			"     float x2tfx1 = dot(loc2, fx1);\n"
+			"     vec4 temp = vec4(fx1.xy, ftx2.xy); \n"
+			"     float sampson_error = (x2tfx1 * x2tfx1) / dot(temp, temp);\n"
+			"     if(sampson_error > size.w) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+			"   }\n"
 
 			//compare feature descriptor
 			"   vec2 tx = (index_h + stripe_index * SIFT_PER_STRIPE)* vec2(PIXEL_PER_SIFT) + 0.5;\n"
@@ -362,6 +363,7 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 	_param_guided_mult_h = glGetUniformLocation(*program, "H");
 	_param_guided_mult_f = glGetUniformLocation(*program, "F");
 	_param_guided_mult_param = glGetUniformLocation(*program, "size");
+	_param_guided_mult_hf_enable = glGetUniformLocation(*program, "hf_enable");
 
 	//row max
 	out.seekp(ios::beg);
@@ -440,13 +442,18 @@ int  SiftMatchGL::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], 
 
 	//set parameters glsl
 	float dot_param[4] = {(float)_texDes[0].GetDrawHeight(), (float) _texDes[1].GetDrawHeight(), hdistmax, fdistmax};
+	//a NULL matrix disables the corresponding constraint; the unused uniform is
+	//still filled, but the shader never reads it
+	float identity[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+	float hf_enable[2] = {H ? 1.0f : 0.0f, F ? 1.0f : 0.0f};
 	glUniform1i(_param_guided_mult_tex1, 0);
 	glUniform1i(_param_guided_mult_tex2, 1);
 	glUniform1i(_param_guided_mult_texl1, 2);
 	glUniform1i(_param_guided_mult_texl2, 3);
-	glUniformMatrix3fv(_param_guided_mult_h, 1, GL_TRUE, H);
-	glUniformMatrix3fv(_param_guided_mult_f, 1, GL_TRUE, F);
+	glUniformMatrix3fv(_param_guided_mult_h, 1, GL_TRUE, H ? H : identity);
+	glUniformMatrix3fv(_param_guided_mult_f, 1, GL_TRUE, F ? F : identity);
 	glUniform4fv(_param_guided_mult_param, 1, dot_param);
+	glUniform2fv(_param_guided_mult_hf_enable, 1, hf_enable);
 
 	_texDot.DrawQuad();
 
@@ -668,9 +675,9 @@ void SiftMatchGPU::SetDescriptors(int index, int num, const float* descriptors, 
 	__matcher->SetDescriptors(index, num, descriptors, id);
 }
 
-void SiftMatchGPU::SetFeatureLocation(int index, const float* locations, int gap)
+void SiftMatchGPU::SetFeatureLocation(int index, const float* locations)
 {
-	__matcher->SetFeatureLocation(index, locations, gap);
+	__matcher->SetFeatureLocation(index, locations);
 
 }
 int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
@@ -681,10 +688,12 @@ int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2],
 		return __matcher->GetSiftMatch(max_match, match_buffer, distmax, ratiomax, mutual_best_match);
 	}else
 	{
-		float Z[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1}, ti = (1.0e+20F);
-
-		return __matcher->GetGuidedSiftMatch(max_match, match_buffer, H? H : Z, F? F : Z,
-			distmax, ratiomax, H? hdistmax: ti,  F? fdistmax: ti, mutual_best_match);
+		//a NULL matrix disables the corresponding constraint in the matcher. This
+		//used to be signalled by substituting the identity with a 1e20 threshold,
+		//relying on the disabled residual always landing below it - which does not
+		//hold once feature locations carry a real, possibly zero, third component.
+		return __matcher->GetGuidedSiftMatch(max_match, match_buffer, H, F,
+			distmax, ratiomax, hdistmax, fdistmax, mutual_best_match);
 	}
 }
 

@@ -29,6 +29,8 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/bundle_adjustment_caspar.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -531,6 +533,21 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
+  // Match the common rig setup where only the reference sensor has absolute
+  // positions. Registering two frames then yields many images but only two
+  // usable pose priors.
+  FlatHashSet<sensor_t> ref_sensor_ids;
+  for (const auto& [_, rig] : gt_reconstruction.Rigs()) {
+    ref_sensor_ids.insert(rig.RefSensorId());
+  }
+  const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  database->ClearPosePriors();
+  for (const PosePrior& pose_prior : pose_priors) {
+    if (ref_sensor_ids.count(pose_prior.corr_data_id.sensor_id)) {
+      database->WritePosePrior(pose_prior);
+    }
+  }
+
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
 
@@ -547,7 +564,8 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
                                  /*max_rotation_error_deg=*/1e-1,
                                  /*max_proj_center_error=*/1e-1,
                                  /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.02));
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
@@ -710,6 +728,69 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
       run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
   EXPECT_THAT(*reconstruction_manager0->Get(0),
               ReconstructionEq(*reconstruction_manager1->Get(0)));
+}
+
+TEST(IncrementalPipelineOptions, PropagatesExplicitMaxNumIterations) {
+  // Explicitly set iteration bounds must be forwarded to both backends,
+  // including values that coincide with the previous compiled-in defaults.
+  IncrementalPipelineOptions options;
+  options.ba_local_max_num_iterations = 25;
+  options.ba_global_max_num_iterations = 50;
+
+  const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.ceres);
+  EXPECT_EQ(local_options.ceres->solver_options.max_num_iterations, 25);
+  ASSERT_TRUE(local_options.caspar);
+  EXPECT_EQ(local_options.caspar->solver_iter_max, 25);
+
+  const BundleAdjustmentOptions global_options =
+      options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.ceres);
+  EXPECT_EQ(global_options.ceres->solver_options.max_num_iterations, 50);
+  ASSERT_TRUE(global_options.caspar);
+  EXPECT_EQ(global_options.caspar->solver_iter_max, 50);
+}
+
+TEST(IncrementalPipelineOptions, DefaultMaxNumIterationsUsesBackendDefaults) {
+  // With the -1 sentinel default, each backend must keep its own default:
+  // Ceres the previous 25/50 mapper defaults, Caspar its own tuned
+  // solver_iter_max (see review discussion on #4382/PR #4527).
+  const IncrementalPipelineOptions options;
+  ASSERT_EQ(options.ba_local_max_num_iterations, -1);
+  ASSERT_EQ(options.ba_global_max_num_iterations, -1);
+  const int caspar_default = CasparBundleAdjustmentOptions().solver_iter_max;
+
+  const BundleAdjustmentOptions local_options = options.LocalBundleAdjustment();
+  ASSERT_TRUE(local_options.ceres);
+  EXPECT_EQ(local_options.ceres->solver_options.max_num_iterations, 25);
+  ASSERT_TRUE(local_options.caspar);
+  EXPECT_EQ(local_options.caspar->solver_iter_max, caspar_default);
+
+  const BundleAdjustmentOptions global_options =
+      options.GlobalBundleAdjustment();
+  ASSERT_TRUE(global_options.ceres);
+  EXPECT_EQ(global_options.ceres->solver_options.max_num_iterations, 50);
+  ASSERT_TRUE(global_options.caspar);
+  EXPECT_EQ(global_options.caspar->solver_iter_max, caspar_default);
+}
+
+TEST(IncrementalPipelineOptions, EffBaMaxNumIterations) {
+  IncrementalPipelineOptions options;
+  const int caspar_default = CasparBundleAdjustmentOptions().solver_iter_max;
+
+  // Sentinel resolves to the configured backend's default.
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), 25);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), 50);
+  options.ba_local_backend = BundleAdjustmentBackend::CASPAR;
+  options.ba_global_backend = BundleAdjustmentBackend::CASPAR;
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), caspar_default);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), caspar_default);
+
+  // Explicit values win regardless of backend.
+  options.ba_local_max_num_iterations = 7;
+  options.ba_global_max_num_iterations = 13;
+  EXPECT_EQ(options.EffBaLocalMaxNumIterations(), 7);
+  EXPECT_EQ(options.EffBaGlobalMaxNumIterations(), 13);
 }
 
 }  // namespace

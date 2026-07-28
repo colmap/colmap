@@ -41,6 +41,38 @@
 #include <array>
 
 namespace colmap {
+namespace {
+
+// Seed the intrinsics estimated for the initial image pair onto the
+// reconstruction, leaving them optimizable for bundle adjustment. No-op for
+// cameras whose intrinsics were not estimated (std::nullopt).
+void SeedEstimatedInitialCameras(Reconstruction& reconstruction,
+                                 const image_t image_id1,
+                                 const image_t image_id2,
+                                 const std::optional<Camera>& camera1,
+                                 const std::optional<Camera>& camera2) {
+  if (camera1.has_value()) {
+    *reconstruction.Image(image_id1).CameraPtr() = *camera1;
+  }
+  if (camera2.has_value()) {
+    *reconstruction.Image(image_id2).CameraPtr() = *camera2;
+  }
+}
+
+size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
+                               const BundleAdjustmentConfig& ba_config) {
+  size_t num_registered_pose_priors = 0;
+  for (const PosePrior& pose_prior : pose_priors) {
+    if (pose_prior.HasPosition() &&
+        pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
+        ba_config.HasImage(pose_prior.corr_data_id.id)) {
+      ++num_registered_pose_priors;
+    }
+  }
+  return num_registered_pose_priors;
+}
+
+}  // namespace
 
 bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GT(init_min_num_inliers, 0);
@@ -123,16 +155,28 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t& image_id1,
                                              image_t& image_id2,
                                              Rigid3d& cam2_from_cam1) {
-  return IncrementalMapperImpl::FindInitialImagePair(
-      options,
-      *database_cache_,
-      *reconstruction_,
-      reg_stats_.init_num_reg_trials,
-      reg_stats_.num_registrations,
-      reg_stats_.init_image_pairs,
-      image_id1,
-      image_id2,
-      cam2_from_cam1);
+  const std::optional<IncrementalMapperImpl::InitInfo> init_info =
+      IncrementalMapperImpl::FindInitialImagePair(
+          options,
+          *database_cache_,
+          *reconstruction_,
+          reg_stats_.init_num_reg_trials,
+          reg_stats_.num_registrations,
+          reg_stats_.init_image_pairs,
+          image_id1,
+          image_id2);
+  if (!init_info.has_value()) {
+    return false;
+  }
+  image_id1 = init_info->image_id1;
+  image_id2 = init_info->image_id2;
+  cam2_from_cam1 = init_info->cam2_from_cam1;
+  SeedEstimatedInitialCameras(*reconstruction_,
+                              image_id1,
+                              image_id2,
+                              init_info->camera1,
+                              init_info->camera2);
+  return true;
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
@@ -1141,9 +1185,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Only use prior pose if at least 3 images have been registered.
   const bool use_prior_position =
-      options.use_prior_position && ba_config.NumImages() > 2;
+      options.use_prior_position &&
+      NumRegisteredPosePriors(database_cache_->PosePriors(), ba_config) >= 3;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
@@ -1431,8 +1475,19 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     Rigid3d& cam2_from_cam1) {
-  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, *database_cache_, image_id1, image_id2, cam2_from_cam1);
+  const std::optional<IncrementalMapperImpl::InitInfo> init_info =
+      IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+          options, *database_cache_, image_id1, image_id2);
+  if (!init_info.has_value()) {
+    return false;
+  }
+  cam2_from_cam1 = init_info->cam2_from_cam1;
+  SeedEstimatedInitialCameras(*reconstruction_,
+                              image_id1,
+                              image_id2,
+                              init_info->camera1,
+                              init_info->camera2);
+  return true;
 }
 
 }  // namespace colmap

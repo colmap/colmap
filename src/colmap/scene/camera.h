@@ -105,6 +105,11 @@ struct Camera {
 
   // Get intrinsic calibration matrix composed from focal length and principal
   // point parameters, excluding distortion parameters.
+  //
+  // This is the affine part of the projection, which is a projective camera
+  // matrix only for pinhole models. For fisheye models the normalized
+  // coordinates are angular, so callers relying on x ~ K * [R | t] * X must
+  // restrict themselves to IsPerspectivePinhole() cameras.
   Eigen::Matrix3d CalibrationMatrix() const;
 
   // Get human-readable information about the parameter vector ordering.
@@ -131,6 +136,12 @@ struct Camera {
   // Whether the camera model is spherical (equirectangular omnidirectional
   // panorama), i.e. the EQUIRECTANGULAR model.
   inline bool IsSpherical() const;
+
+  // Whether the camera model is perspective and fisheye.
+  inline bool IsPerspectiveFisheye() const;
+
+  // Whether the camera model is perspective and not fisheye.
+  inline bool IsPerspectivePinhole() const;
 
   // Check whether camera has bogus parameters.
   inline bool HasBogusParams(double min_focal_length_ratio,
@@ -268,6 +279,14 @@ bool Camera::IsPerspective() const {
 }
 
 bool Camera::IsSpherical() const { return CameraModelIsSpherical(model_id); }
+
+bool Camera::IsPerspectiveFisheye() const {
+  return CameraModelIsPerspectiveFisheye(model_id);
+}
+
+bool Camera::IsPerspectivePinhole() const {
+  return CameraModelIsPerspectivePinhole(model_id);
+}
 
 bool Camera::VerifyParams() const {
   return CameraModelVerifyParams(model_id, params);

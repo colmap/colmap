@@ -37,6 +37,7 @@
 
 #include <atomic>
 #include <cfloat>
+#include <mutex>
 #include <optional>
 #include <type_traits>
 #include <vector>
@@ -164,6 +165,15 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   std::atomic<size_t> dyn_max_num_trials(max_num_trials);
   std::atomic<bool> abort_flag(false);
 
+  // Guards updates to the shared best model/support in the parallel case. We
+  // deliberately avoid `#pragma omp critical`, which maps to a single
+  // process-global lock and would serialize concurrent single-threaded RANSAC
+  // calls (e.g. during multi-threaded geometric verification, where many
+  // matches are estimated in parallel with num_threads == 1). A per-call mutex
+  // is only contended among this call's own threads and is not even locked in
+  // the serial case.
+  std::mutex best_mutex;
+
 // This creates a parallel region that runs with num_threads threads (or
 // serially when num_threads == 1 via the if-clause). Without OpenMP, the
 // pragma is absent and the block runs once serially.
@@ -228,10 +238,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
         // case, multiple threads may pass this check concurrently — the
         // authoritative update below re-checks under the same lock.
         bool is_better = false;
-#ifdef _OPENMP
-#pragma omp critical
-#endif
         {
+          std::unique_lock<std::mutex> lock(best_mutex, std::defer_lock);
+          if (num_threads > 1) {
+            lock.lock();
+          }
           is_better =
               thread_support_measurer.IsLeftBetter(support, best_support);
         }
@@ -308,10 +319,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           }
 
           // Commit local optimization result to global best under lock.
-#ifdef _OPENMP
-#pragma omp critical
-#endif
           {
+            std::unique_lock<std::mutex> lock(best_mutex, std::defer_lock);
+            if (num_threads > 1) {
+              lock.lock();
+            }
             if (thread_support_measurer.IsLeftBetter(local_best_support,
                                                      best_support)) {
               best_support = local_best_support;

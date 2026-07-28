@@ -1521,7 +1521,8 @@ struct Matrix33
 void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaTextureObject_t texDes2,
 										   cudaTextureObject_t texLoc1, cudaTextureObject_t texLoc2, 
 										   int* d_result, int num1, int num2, int3* d_temp,
-										   Matrix33 H, float hdistmax, Matrix33 F, float fdistmax)
+										   Matrix33 H, float hdistmax, Matrix33 F, float fdistmax,
+										   int use_h, int use_f)
 {
 	int idx01 = (blockIdx.y  * MULT_BLOCK_DIMY);
 	int idx02 = (blockIdx.x  * MULT_BLOCK_DIMX);
@@ -1529,7 +1530,7 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 	int idx1 = idx01 + threadIdx.y;
 	int idx2 = idx02 + threadIdx.x;
 	__shared__ int data1[17 * 2 * MULT_BLOCK_DIMY];
-	__shared__ float loc1[MULT_BLOCK_DIMY * 2];
+	__shared__ float loc1[MULT_BLOCK_DIMY * 4];
 	int read_idx1 = idx01 * 8 +  threadIdx.x ;
 	int read_idx2 = idx2 * 8;
 	int col4 = threadIdx.x & 0x3, row4 = threadIdx.x >> 2;
@@ -1553,9 +1554,9 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 #error
 #endif
 	__syncthreads();
-	if(threadIdx.x < MULT_BLOCK_DIMY * 2)
+	if(threadIdx.x < MULT_BLOCK_DIMY * 4)
 	{
-		loc1[threadIdx.x] = tex1Dfetch<float>(texLoc1, 2 * idx01 + threadIdx.x);
+		loc1[threadIdx.x] = tex1Dfetch<float>(texLoc1, 4 * idx01 + threadIdx.x);
 	}
 	__syncthreads();
 	if(idx2 >= num2) return;
@@ -1564,42 +1565,46 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 	//geometric verification
 	/////////////////////////////////////////////////////////////////////////////////////////////
 	int good_count = 0;
-	float2 loc2 = tex1Dfetch<float2>(texLoc2, idx2);
+	float4 loc2 = tex1Dfetch<float4>(texLoc2, idx2);
 #pragma unroll
 	for(int i = 0; i < MULT_BLOCK_DIMY; ++i)
 	{
 
 		if(idx1 + i < num1)
 		{
-			float* loci = loc1 + i * 2;
-			float locx = loci[0], locy = loci[1];
+			float* loci = loc1 + i * 4;
+			float locx = loci[0], locy = loci[1], locz = loci[2], locw = loci[3];
+			//a zero validity flag on either side rejects the pair outright
+			bool ok = locw * loc2.w > 0.5f;
 			//homography
-			float x[3], diff[2];
-			x[0] = H.mat[0][0] * locx + H.mat[0][1] * locy + H.mat[0][2];
-			x[1] = H.mat[1][0] * locx + H.mat[1][1] * locy + H.mat[1][2];
-			x[2] = H.mat[2][0] * locx + H.mat[2][1] * locy + H.mat[2][2];
-			diff[0] = FDIV(x[0], x[2]) - loc2.x;
-			diff[1] = FDIV(x[1], x[2]) - loc2.y;
-      float hdist = diff[0] * diff[0] + diff[1] * diff[1];
-			if(hdist < hdistmax)
+			if(ok && use_h)
 			{
-				//check fundamental matrix
-				float fx1[3], ftx2[3], x2fx1, se;
-				fx1[0] = F.mat[0][0] * locx + F.mat[0][1] * locy + F.mat[0][2];
-				fx1[1] = F.mat[1][0] * locx + F.mat[1][1] * locy + F.mat[1][2];
-				fx1[2] = F.mat[2][0] * locx + F.mat[2][1] * locy + F.mat[2][2];
-
-				ftx2[0] = F.mat[0][0] * loc2.x + F.mat[1][0] * loc2.y + F.mat[2][0];
-				ftx2[1] = F.mat[0][1] * loc2.x + F.mat[1][1] * loc2.y + F.mat[2][1];
-				//ftx2[2] = F.mat[0][2] * loc2.x + F.mat[1][2] * loc2.y + F.mat[2][2];
-
-				x2fx1 = loc2.x * fx1[0]  + loc2.y * fx1[1] + fx1[2];
-				se = FDIV(x2fx1 * x2fx1, fx1[0] * fx1[0] + fx1[1] * fx1[1] + ftx2[0] * ftx2[0] + ftx2[1] * ftx2[1]);
-				results[i] = se < fdistmax? 0: -262144;
-			}else
-			{
-				results[i] = -262144;
+				float x[3], diff[2];
+				x[0] = H.mat[0][0] * locx + H.mat[0][1] * locy + H.mat[0][2] * locz;
+				x[1] = H.mat[1][0] * locx + H.mat[1][1] * locy + H.mat[1][2] * locz;
+				x[2] = H.mat[2][0] * locx + H.mat[2][1] * locy + H.mat[2][2] * locz;
+				diff[0] = FDIV(x[0], x[2]) - loc2.x;
+				diff[1] = FDIV(x[1], x[2]) - loc2.y;
+				float hdist = diff[0] * diff[0] + diff[1] * diff[1];
+				ok = hdist < hdistmax;
 			}
+			//check fundamental matrix
+			if(ok && use_f)
+			{
+				float fx1[3], ftx2[3], x2fx1, se;
+				fx1[0] = F.mat[0][0] * locx + F.mat[0][1] * locy + F.mat[0][2] * locz;
+				fx1[1] = F.mat[1][0] * locx + F.mat[1][1] * locy + F.mat[1][2] * locz;
+				fx1[2] = F.mat[2][0] * locx + F.mat[2][1] * locy + F.mat[2][2] * locz;
+
+				ftx2[0] = F.mat[0][0] * loc2.x + F.mat[1][0] * loc2.y + F.mat[2][0] * loc2.z;
+				ftx2[1] = F.mat[0][1] * loc2.x + F.mat[1][1] * loc2.y + F.mat[2][1] * loc2.z;
+				//ftx2[2] = F.mat[0][2] * loc2.x + F.mat[1][2] * loc2.y + F.mat[2][2] * loc2.z;
+
+				x2fx1 = loc2.x * fx1[0]  + loc2.y * fx1[1] + loc2.z * fx1[2];
+				se = FDIV(x2fx1 * x2fx1, fx1[0] * fx1[0] + fx1[1] * fx1[1] + ftx2[0] * ftx2[0] + ftx2[1] * ftx2[1]);
+				ok = se < fdistmax;
+			}
+			results[i] = ok ? 0 : -262144;
 		}else
 		{
 			results[i] = -262144;
@@ -1669,10 +1674,15 @@ void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 {
 	int num1 = des1->GetImgWidth() / 8;
 	int num2 = des2->GetImgWidth() / 8;
+	//a NULL matrix disables the corresponding constraint; the unused slot is
+	//still filled, but the kernel never reads it
+	const int use_h = (H != NULL), use_f = (F != NULL);
 	Matrix33 MatF, MatH;
 	//copy the matrix
-	memcpy(MatF.mat, F, 9 * sizeof(float));
-	memcpy(MatH.mat, H, 9 * sizeof(float));
+	if(use_f) memcpy(MatF.mat, F, 9 * sizeof(float));
+	else memset(MatF.mat, 0, 9 * sizeof(float));
+	if(use_h) memcpy(MatH.mat, H, 9 * sizeof(float));
+	else memset(MatH.mat, 0, 9 * sizeof(float));
 	//thread blocks
 	dim3 grid(	(num2 + MULT_BLOCK_DIMX - 1)/ MULT_BLOCK_DIMX,
 		(num1 + MULT_BLOCK_DIMY - 1)/MULT_BLOCK_DIMY);
@@ -1681,13 +1691,13 @@ void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 	texDot->InitTexture( num2,num1);
 	if(texCRT) texCRT->InitTexture( num2, (num1 + MULT_BLOCK_DIMY - 1)/MULT_BLOCK_DIMY, 3);
 	CuTexImage::CuTexObj loc1Tex = loc1->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
-	CuTexImage::CuTexObj loc2Tex = loc2->BindTexture(texDataDesc, cudaCreateChannelDesc<float2>());
+	CuTexImage::CuTexObj loc2Tex = loc2->BindTexture(texDataDesc, cudaCreateChannelDesc<float4>());
 	CuTexImage::CuTexObj des1Tex = des1->BindTexture(texDataDesc, cudaCreateChannelDesc<uint4>());
 	CuTexImage::CuTexObj des2Tex = des2->BindTexture(texDataDesc, cudaCreateChannelDesc<uint4>());
 	MultiplyDescriptorG_Kernel<<<grid, block>>>(des1Tex.handle, des2Tex.handle, loc1Tex.handle, loc2Tex.handle,
 												(int*)texDot->_cuData, num1, num2,
 												(texCRT? (int3*)texCRT->_cuData : NULL),
-												MatH, hdistmax, MatF, fdistmax);
+												MatH, hdistmax, MatF, fdistmax, use_h, use_f);
 }
 
 #define ROWMATCH_BLOCK_WIDTH 32

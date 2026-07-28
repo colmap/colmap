@@ -2,6 +2,35 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.1.1 (07/17/2026)
+-------------------------
+
+Improvements
+------------
+* Load the mapper database lazily instead of at GUI startup, avoiding a
+  redundant database read when opening the GUI or a project.
+* Tint UI icons to the palette for improved dark theme legibility.
+* Show image/point viewer metadata when the source images are missing on disk.
+* Fail the Caspar build early with a clear error on CUDA architectures below 7.0.
+
+Bug Fixes
+---------
+* Fix feature matching slowdown (~4-6x) caused by a process-global OpenMP
+  critical section in ``RANSAC``/``LORANSAC``.
+* Fix rescaling of already-undistorted images when ``max_image_size`` is
+  provided.
+* Fix missing SVG icons in the distributed Windows binaries.
+* Fix Caspar CUDA build with MSVC forced includes.
+* Fix glog color support version detection.
+* Fix typos in a user-facing help string and the FAQ.
+
+Breaking Changes
+----------------
+* Renamed the misspelled pycolmap enum ``GPSTransfromEllipsoid`` to
+  ``GPSTransformEllipsoid``. The old name has been removed without a
+  backwards-compatible alias; update any references accordingly.
+
+-------------------------
 COLMAP 4.1.0 (06/26/2026)
 -------------------------
 

@@ -271,15 +271,18 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 // models. The hierarchy is:
 //
 //   BaseCameraModel                            (shared by all camera models)
-//     - BasePerspectiveCameraModel             (finite pinhole image plane)
-//         - Perspective models
+//     - BasePerspectiveCameraModel             (focal length, image plane)
+//         - BasePerspectivePinholeCameraModel  (pinhole projection)
+//             - Pinhole models
 //         - BasePerspectiveFisheyeCameraModel  (fisheye projection)
 //             - Fisheye models
 //     - BaseSphericalCameraModel               (spherical/omnidirectional)
 //        - EquirectangularCameraModel
 //
-// Whether a model is perspective is derived from its position in this hierarchy
-// (see CameraModelIsPerspective), rather than from a separate flag.
+// Whether a model is perspective, and whether its projection is pinhole or
+// fisheye, is derived from its position in this hierarchy (see
+// CameraModelIsPerspective, CameraModelIsPerspectivePinhole and
+// CameraModelIsPerspectiveFisheye), rather than from a separate flag.
 template <typename CameraModel>
 struct BaseCameraModel {
  private:
@@ -387,6 +390,19 @@ struct BaseSphericalCameraModel : public BaseCameraModel<CameraModel> {
   friend CameraModel;
 };
 
+// Base model for perspective pinhole camera models, i.e. models that project
+// onto the normalized plane as x = X / Z and then apply a deformation of that
+// plane. Their calibration therefore acts projectively on the rays, so a
+// calibration matrix K describes the projection exactly in the zero-distortion
+// limit and remains the exact linearization at the optical axis otherwise.
+template <typename CameraModel>
+struct BasePerspectivePinholeCameraModel
+    : public BasePerspectiveCameraModel<CameraModel> {
+ private:
+  BasePerspectivePinholeCameraModel() = default;
+  friend CameraModel;
+};
+
 // Base model for perspective fisheye camera models.
 template <typename CameraModel>
 struct BasePerspectiveFisheyeCameraModel
@@ -431,7 +447,7 @@ struct BasePerspectiveFisheyeCameraModel
 //
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct SimplePinholeCameraModel
-    : public BasePerspectiveCameraModel<SimplePinholeCameraModel> {
+    : public BasePerspectivePinholeCameraModel<SimplePinholeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0, true)
 };
@@ -446,7 +462,7 @@ struct SimplePinholeCameraModel
 //
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct PinholeCameraModel
-    : public BasePerspectiveCameraModel<PinholeCameraModel> {
+    : public BasePerspectivePinholeCameraModel<PinholeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kPinhole, "PINHOLE", 2, 2, 0, true)
 };
@@ -463,7 +479,7 @@ struct PinholeCameraModel
 //    f, cx, cy, k
 //
 struct SimpleRadialCameraModel
-    : public BasePerspectiveCameraModel<SimpleRadialCameraModel> {
+    : public BasePerspectivePinholeCameraModel<SimpleRadialCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1, true)
 };
@@ -479,7 +495,7 @@ struct SimpleRadialCameraModel
 //    f, cx, cy, k1, k2
 //
 struct RadialCameraModel
-    : public BasePerspectiveCameraModel<RadialCameraModel> {
+    : public BasePerspectivePinholeCameraModel<RadialCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kRadial, "RADIAL", 1, 2, 2, true)
 };
@@ -497,7 +513,7 @@ struct RadialCameraModel
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVCameraModel
-    : public BasePerspectiveCameraModel<OpenCVCameraModel> {
+    : public BasePerspectivePinholeCameraModel<OpenCVCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kOpenCV, "OPENCV", 2, 2, 4, true)
 };
@@ -533,7 +549,7 @@ struct OpenCVFisheyeCameraModel
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct FullOpenCVCameraModel
-    : public BasePerspectiveCameraModel<FullOpenCVCameraModel> {
+    : public BasePerspectivePinholeCameraModel<FullOpenCVCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8, true)
 };
@@ -552,7 +568,8 @@ struct FullOpenCVCameraModel
 // Frederic Devernay, Olivier Faugeras. Straight lines have to be straight:
 // Automatic calibration and removal of distortion from scenes of structured
 // environments. Machine vision and applications, 2001.
-struct FOVCameraModel : public BasePerspectiveCameraModel<FOVCameraModel> {
+struct FOVCameraModel
+    : public BasePerspectivePinholeCameraModel<FOVCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kFOV, "FOV", 2, 2, 1, true)
 
@@ -653,7 +670,7 @@ struct RadTanThinPrismFisheyeModel
 //    f, cx, cy, k
 //
 struct SimpleDivisionCameraModel
-    : public BasePerspectiveCameraModel<SimpleDivisionCameraModel> {
+    : public BasePerspectivePinholeCameraModel<SimpleDivisionCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, true)
 };
@@ -671,7 +688,7 @@ struct SimpleDivisionCameraModel
 //    fx, fy, cx, cy, k
 //
 struct DivisionCameraModel
-    : public BasePerspectiveCameraModel<DivisionCameraModel> {
+    : public BasePerspectivePinholeCameraModel<DivisionCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kDivision, "DIVISION", 2, 2, 1, true)
 };
@@ -721,7 +738,8 @@ struct FisheyeCameraModel
 //
 //      fx, fy, cx, cy, alpha, beta
 //
-struct EUCMCameraModel : public BasePerspectiveCameraModel<EUCMCameraModel> {
+struct EUCMCameraModel
+    : public BasePerspectivePinholeCameraModel<EUCMCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kEUCM, "EUCM", 2, 2, 2, true)
 
@@ -942,12 +960,13 @@ inline double CameraModelCamFromImgThreshold(CameraModelId model_id,
                                              const std::vector<double>& params,
                                              double threshold);
 
-// Test if a camera model represents a fisheye camera.
+// Test if a camera model is a perspective fisheye camera model, i.e. derives
+// from BasePerspectiveFisheyeCameraModel.
 //
 // @param model_id      Unique identifier of camera model.
 //
-// @return              Whether it is a fisheye camera model.
-inline bool CameraModelIsFisheye(CameraModelId model_id);
+// @return              Whether it is a perspective fisheye camera model.
+inline bool CameraModelIsPerspectiveFisheye(CameraModelId model_id);
 
 // Test if a camera model is perspective, i.e. has a focal length and a finite
 // pinhole image plane. Omnidirectional models such as EQUIRECTANGULAR are not.
@@ -956,6 +975,16 @@ inline bool CameraModelIsFisheye(CameraModelId model_id);
 //
 // @return              Whether it is a perspective camera model.
 inline bool CameraModelIsPerspective(CameraModelId model_id);
+
+// Test if a camera model is a perspective pinhole camera model, i.e. derives
+// from BasePerspectivePinholeCameraModel. Such models project as x = X / Z and
+// then deform the normalized plane, so their calibration acts projectively on
+// the rays and a calibration matrix K is meaningful for them.
+//
+// @param model_id      Unique identifier of camera model.
+//
+// @return              Whether it is a perspective pinhole camera model.
+inline bool CameraModelIsPerspectivePinhole(CameraModelId model_id);
 
 // Test if a camera model represents a spherical (equirectangular
 // omnidirectional panorama) camera.
@@ -2807,7 +2836,7 @@ double CameraModelCamFromImgThreshold(const CameraModelId model_id,
   return -1;
 }
 
-bool CameraModelIsFisheye(const CameraModelId model_id) {
+bool CameraModelIsPerspectiveFisheye(const CameraModelId model_id) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel) case CameraModel::model_id:
 
@@ -2827,6 +2856,21 @@ bool CameraModelIsPerspective(const CameraModelId model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                \
   case CameraModel::model_id:                                         \
     return std::is_base_of_v<BasePerspectiveCameraModel<CameraModel>, \
+                             CameraModel>;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  return false;
+}
+
+bool CameraModelIsPerspectivePinhole(const CameraModelId model_id) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                       \
+  case CameraModel::model_id:                                                \
+    return std::is_base_of_v<BasePerspectivePinholeCameraModel<CameraModel>, \
                              CameraModel>;
 
     CAMERA_MODEL_SWITCH_CASES
