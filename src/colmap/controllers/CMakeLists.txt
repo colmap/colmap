@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
         automatic_reconstruction.h automatic_reconstruction.cc
         base_option_manager.h base_option_manager.cc
         bundle_adjustment.h bundle_adjustment.cc
+        database_pose_prior_bundle_adjustment.h database_pose_prior_bundle_adjustment.cc
         hierarchical_pipeline.h hierarchical_pipeline.cc
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
@@ -63,6 +64,7 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         colmap_sfm
         Ceres::ceres
+        SQLite3::SQLite3
         Boost::boost
         faiss
 )
@@ -84,6 +86,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
     SRCS bundle_adjustment_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME database_pose_prior_bundle_adjustment_test
+    SRCS database_pose_prior_bundle_adjustment_test.cc
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
