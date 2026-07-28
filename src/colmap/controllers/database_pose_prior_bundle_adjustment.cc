@@ -42,6 +42,8 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <initializer_list>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -91,7 +93,8 @@ bool ReadStaticMatrixBlob(sqlite3_stmt* statement,
     return false;
   }
 
-  std::memcpy(matrix->data(), sqlite3_column_blob(statement, column), num_bytes);
+  std::memcpy(
+      matrix->data(), sqlite3_column_blob(statement, column), num_bytes);
   return true;
 }
 
@@ -158,8 +161,7 @@ struct AbsolutePoseRotationPriorCostFunctor
             sensor_from_world_rotation_prior.conjugate()) {}
 
   template <typename T>
-  bool operator()(const T* const sensor_from_world,
-                  T* residuals_ptr) const {
+  bool operator()(const T* const sensor_from_world, T* residuals_ptr) const {
     const Eigen::Quaternion<T> param_from_prior_rotation =
         EigenQuaternionMap<T>(sensor_from_world) *
         world_from_sensor_rotation_prior_.cast<T>();
@@ -216,14 +218,12 @@ class DatabasePosePriorBundleAdjuster : public BundleAdjuster {
         pose_priors_(std::move(pose_priors)),
         normalized_from_metric_(normalized_from_metric),
         reconstruction_(reconstruction),
-        position_loss_function_(
-            std::make_unique<ceres::CauchyLoss>(
-                prior_options_.prior_position_loss_scale)),
-        rotation_loss_function_(
-            std::make_unique<ceres::CauchyLoss>(
-                prior_options_.prior_rotation_loss_scale)) {
-    default_bundle_adjuster_ = CreateDefaultCeresBundleAdjuster(
-        options_, config_, reconstruction_);
+        position_loss_function_(std::make_unique<ceres::CauchyLoss>(
+            prior_options_.prior_position_loss_scale)),
+        rotation_loss_function_(std::make_unique<ceres::CauchyLoss>(
+            prior_options_.prior_rotation_loss_scale)) {
+    default_bundle_adjuster_ =
+        CreateDefaultCeresBundleAdjuster(options_, config_, reconstruction_);
     AddPosePriorsToProblem();
   }
 
@@ -271,22 +271,22 @@ class DatabasePosePriorBundleAdjuster : public BundleAdjuster {
 
         problem.AddResidualBlock(
             CovarianceWeightedCostFunctor<
-                AbsolutePosePositionPriorCostFunctor>::Create(
-                normalized_position_covariance, normalized_position),
+                AbsolutePosePositionPriorCostFunctor>::
+                Create(normalized_position_covariance, normalized_position),
             position_loss_function_.get(),
             rig_from_world.params.data());
         ++num_position_priors;
 
         problem.AddResidualBlock(
             CovarianceWeightedCostFunctor<
-                AbsolutePoseRotationPriorCostFunctor>::Create(
-                pose_prior.rotation_covariance, normalized_rotation),
+                AbsolutePoseRotationPriorCostFunctor>::
+                Create(pose_prior.rotation_covariance, normalized_rotation),
             rotation_loss_function_.get(),
             rig_from_world.params.data());
         ++num_rotation_priors;
       } else {
-        Rigid3d& sensor_from_rig = frame.RigPtr()->SensorFromRig(
-            image.CameraPtr()->SensorId());
+        Rigid3d& sensor_from_rig =
+            frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
         const bool has_sensor_from_rig =
             problem.HasParameterBlock(sensor_from_rig.params.data());
         const bool has_rig_from_world =
@@ -299,8 +299,8 @@ class DatabasePosePriorBundleAdjuster : public BundleAdjuster {
 
         problem.AddResidualBlock(
             CovarianceWeightedCostFunctor<
-                AbsoluteRigPosePositionPriorCostFunctor>::Create(
-                normalized_position_covariance, normalized_position),
+                AbsoluteRigPosePositionPriorCostFunctor>::
+                Create(normalized_position_covariance, normalized_position),
             position_loss_function_.get(),
             sensor_from_rig.params.data(),
             rig_from_world.params.data());
@@ -308,8 +308,8 @@ class DatabasePosePriorBundleAdjuster : public BundleAdjuster {
 
         problem.AddResidualBlock(
             CovarianceWeightedCostFunctor<
-                AbsoluteRigPoseRotationPriorCostFunctor>::Create(
-                pose_prior.rotation_covariance, normalized_rotation),
+                AbsoluteRigPoseRotationPriorCostFunctor>::
+                Create(pose_prior.rotation_covariance, normalized_rotation),
             rotation_loss_function_.get(),
             sensor_from_rig.params.data(),
             rig_from_world.params.data());
@@ -318,8 +318,8 @@ class DatabasePosePriorBundleAdjuster : public BundleAdjuster {
     }
 
     LOG(INFO) << "Added " << num_position_priors
-              << " position-prior residual blocks and "
-              << num_rotation_priors << " rotation-prior residual blocks.";
+              << " position-prior residual blocks and " << num_rotation_priors
+              << " rotation-prior residual blocks.";
   }
 
   void RestoreMetricFrame() {
@@ -362,9 +362,12 @@ std::vector<DatabasePosePrior> ReadDatabasePosePriors(
     return {};
   }
 
-  const auto rotation_column = FindColumn(
-      columns,
-      {"rotation", "rotation_quaternion", "rotation_prior", "prior_qvec", "qvec"});
+  const auto rotation_column = FindColumn(columns,
+                                          {"rotation",
+                                           "rotation_quaternion",
+                                           "rotation_prior",
+                                           "prior_qvec",
+                                           "qvec"});
   const auto rotation_covariance_column =
       FindColumn(columns,
                  {"rotation_covariance",
@@ -372,8 +375,9 @@ std::vector<DatabasePosePrior> ReadDatabasePosePriors(
                   "prior_qvec_covariance",
                   "qvec_covariance"});
   if (!rotation_column.has_value()) {
-    LOG(ERROR) << "pose_priors does not contain a supported quaternion rotation "
-                  "column.";
+    LOG(ERROR)
+        << "pose_priors does not contain a supported quaternion rotation "
+           "column.";
     return {};
   }
   if (!rotation_covariance_column.has_value()) {
@@ -400,16 +404,13 @@ std::vector<DatabasePosePrior> ReadDatabasePosePriors(
   const std::string query =
       "SELECT corr_data_id, corr_sensor_type, position, "
       "position_covariance, " +
-      coordinate_system_expression + ", " +
-      QuoteIdentifier(*rotation_column) + ", " +
-      rotation_covariance_expression + " FROM pose_priors;";
+      coordinate_system_expression + ", " + QuoteIdentifier(*rotation_column) +
+      ", " + rotation_covariance_expression + " FROM pose_priors;";
 
   sqlite3_stmt* raw_statement = nullptr;
-  if (sqlite3_prepare_v2(database.get(),
-                         query.c_str(),
-                         -1,
-                         &raw_statement,
-                         nullptr) != SQLITE_OK) {
+  if (sqlite3_prepare_v2(
+          database.get(), query.c_str(), -1, &raw_statement, nullptr) !=
+      SQLITE_OK) {
     LOG(ERROR) << "Failed to prepare pose-prior query: "
                << sqlite3_errmsg(database.get());
     return {};
@@ -441,8 +442,8 @@ std::vector<DatabasePosePrior> ReadDatabasePosePriors(
 
     if (!ReadStaticMatrixBlob(
             statement.get(), 3, &pose_prior.position_covariance)) {
-      pose_prior.position_covariance = Eigen::Matrix3d::Constant(
-          std::numeric_limits<double>::quiet_NaN());
+      pose_prior.position_covariance =
+          Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
     }
     if (!MakeValidCovariance(options.prior_position_fallback_stddev,
                              &pose_prior.position_covariance)) {
@@ -466,8 +467,8 @@ std::vector<DatabasePosePrior> ReadDatabasePosePriors(
 
     if (!ReadStaticMatrixBlob(
             statement.get(), 6, &pose_prior.rotation_covariance)) {
-      pose_prior.rotation_covariance = Eigen::Matrix3d::Constant(
-          std::numeric_limits<double>::quiet_NaN());
+      pose_prior.rotation_covariance =
+          Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
     }
     if (!MakeValidCovariance(options.prior_rotation_fallback_stddev_rad,
                              &pose_prior.rotation_covariance)) {
@@ -477,8 +478,8 @@ std::vector<DatabasePosePrior> ReadDatabasePosePriors(
     pose_priors.push_back(std::move(pose_prior));
   }
 
-  LOG(INFO) << "Read " << pose_priors.size()
-            << " full pose priors from " << database_path;
+  LOG(INFO) << "Read " << pose_priors.size() << " full pose priors from "
+            << database_path;
   return pose_priors;
 }
 
@@ -502,13 +503,14 @@ std::unique_ptr<BundleAdjuster> CreateDatabasePosePriorBundleAdjuster(
   std::vector<DatabasePosePrior> pose_priors =
       ReadDatabasePosePriors(database_path, prior_options);
   pose_priors.erase(
-      std::remove_if(pose_priors.begin(),
-                     pose_priors.end(),
-                     [&config, &reconstruction](const DatabasePosePrior& prior) {
-                       return !reconstruction.ExistsImage(prior.image_id) ||
-                              !config.HasImage(prior.image_id) ||
-                              !reconstruction.Image(prior.image_id).HasPose();
-                     }),
+      std::remove_if(
+          pose_priors.begin(),
+          pose_priors.end(),
+          [&config, &reconstruction](const DatabasePosePrior& prior) {
+            return !reconstruction.ExistsImage(prior.image_id) ||
+                   !config.HasImage(prior.image_id) ||
+                   !reconstruction.Image(prior.image_id).HasPose();
+          }),
       pose_priors.end());
 
   if (pose_priors.size() < 3) {
@@ -525,8 +527,7 @@ std::unique_ptr<BundleAdjuster> CreateDatabasePosePriorBundleAdjuster(
     position_prior.corr_data_id =
         reconstruction.Image(database_prior.image_id).DataId();
     position_prior.position = database_prior.position;
-    position_prior.position_covariance =
-        database_prior.position_covariance;
+    position_prior.position_covariance = database_prior.position_covariance;
     position_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     position_priors.push_back(std::move(position_prior));
   }
@@ -537,8 +538,8 @@ std::unique_ptr<BundleAdjuster> CreateDatabasePosePriorBundleAdjuster(
   for (const PosePrior& position_prior : position_priors) {
     rms_variances.push_back(position_prior.position_covariance.trace() / 3.0);
   }
-  alignment_options.max_error = std::sqrt(
-      kChiSquare95ThreeDof * Median(std::move(rms_variances)));
+  alignment_options.max_error =
+      std::sqrt(kChiSquare95ThreeDof * Median(std::move(rms_variances)));
 
   Sim3d metric_from_original;
   if (!AlignReconstructionToPosePriors(reconstruction,
@@ -557,12 +558,13 @@ std::unique_ptr<BundleAdjuster> CreateDatabasePosePriorBundleAdjuster(
       reconstruction.Normalize(/*fixed_scale=*/true);
 
   try {
-    return std::make_unique<DatabasePosePriorBundleAdjuster>(options,
-                                                             prior_options,
-                                                             std::move(config),
-                                                             std::move(pose_priors),
-                                                             normalized_from_metric,
-                                                             reconstruction);
+    return std::make_unique<DatabasePosePriorBundleAdjuster>(
+        options,
+        prior_options,
+        std::move(config),
+        std::move(pose_priors),
+        normalized_from_metric,
+        reconstruction);
   } catch (...) {
     reconstruction.Transform(Inverse(normalized_from_metric));
     throw;
