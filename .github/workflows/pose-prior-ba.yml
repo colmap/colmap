@@ -29,9 +29,11 @@ jobs:
             libeigen3-dev \
             libfreeimage-dev \
             libglew-dev \
+            libgmock-dev \
             libgoogle-glog-dev \
             libgtest-dev \
             libmetis-dev \
+            libopencv-dev \
             libopenimageio-dev \
             libsqlite3-dev \
             openimageio-tools
