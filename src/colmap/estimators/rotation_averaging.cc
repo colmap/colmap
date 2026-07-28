@@ -141,9 +141,8 @@ std::vector<FlatHashSet<image_t>> ComputeConnectedComponentsImageIds(
 // Builds a standalone reconstruction containing only the given images and their
 // frames (with estimated poses). Frames are atomic: all images of an included
 // frame are present in image_ids by construction of the connected components.
-Reconstruction ExtractSubReconstruction(
-    const Reconstruction& src,
-    const FlatHashSet<image_t>& image_ids) {
+Reconstruction ExtractSubReconstruction(const Reconstruction& src,
+                                        const FlatHashSet<image_t>& image_ids) {
   Reconstruction sub;
 
   // Cameras and rigs must be added before frames and images.

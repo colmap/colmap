@@ -220,7 +220,8 @@ void RunAndVerifyRotationAveragingMultiComponents(
           gt_reconstruction, *reconstruction_copy, max_rotation_error_deg);
     }
 
-    // The reconstructions must exactly partition the images into the components.
+    // The reconstructions must exactly partition the images into the
+    // components.
     EXPECT_THAT(recon_image_id_sets,
                 testing::UnorderedElementsAreArray(expected_components));
   }

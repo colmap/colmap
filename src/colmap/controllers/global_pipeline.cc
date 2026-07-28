@@ -219,7 +219,8 @@ void GlobalPipeline::RunMultiComponents(
     return;
   }
 
-  LOG(INFO) << "Found " << component_manager.Size() << " connected component(s)";
+  LOG(INFO) << "Found " << component_manager.Size()
+            << " connected component(s)";
 
   // Run the full pipeline independently per component, restricted to that
   // component's images.

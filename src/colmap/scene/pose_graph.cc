@@ -22,9 +22,8 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
-std::vector<FlatHashSet<frame_t>>
-PoseGraph::ComputeConnectedFrameComponents(const Reconstruction& reconstruction,
-                                           bool filter_unregistered) const {
+std::vector<FlatHashSet<frame_t>> PoseGraph::ComputeConnectedFrameComponents(
+    const Reconstruction& reconstruction, bool filter_unregistered) const {
   FlatHashSet<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> graph_edges;
 
