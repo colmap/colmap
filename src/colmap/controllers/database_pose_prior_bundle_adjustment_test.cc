@@ -105,12 +105,12 @@ void WritePosePriors(const std::filesystem::path& database_path,
         rotation.w(), rotation.x(), rotation.y(), rotation.z());
     const double rotation_stddev_rad = DegToRad(0.1);
     const Eigen::Matrix3d rotation_covariance =
-        rotation_stddev_rad * rotation_stddev_rad *
-        Eigen::Matrix3d::Identity();
+        rotation_stddev_rad * rotation_stddev_rad * Eigen::Matrix3d::Identity();
 
     ASSERT_EQ(sqlite3_bind_int64(statement, 1, pose_prior_id++), SQLITE_OK);
     ASSERT_EQ(sqlite3_bind_int64(statement, 2, image_id), SQLITE_OK);
-    ASSERT_EQ(sqlite3_bind_int64(statement, 3, data_id.sensor_id.id), SQLITE_OK);
+    ASSERT_EQ(sqlite3_bind_int64(statement, 3, data_id.sensor_id.id),
+              SQLITE_OK);
     ASSERT_EQ(
         sqlite3_bind_int(statement, 4, static_cast<int>(SensorType::CAMERA)),
         SQLITE_OK);
@@ -140,13 +140,14 @@ std::pair<double, double> MeanPoseError(const Reconstruction& ground_truth,
   for (const image_t image_id : ground_truth.RegImageIds()) {
     const Image& ground_truth_image = ground_truth.Image(image_id);
     const Image& image = reconstruction.Image(image_id);
-    rotation_error_deg += RadToDeg(image.CamFromWorld().rotation().angularDistance(
-        ground_truth_image.CamFromWorld().rotation()));
+    rotation_error_deg +=
+        RadToDeg(image.CamFromWorld().rotation().angularDistance(
+            ground_truth_image.CamFromWorld().rotation()));
     position_error +=
-        (image.ProjectionCenter() - ground_truth_image.ProjectionCenter()).norm();
+        (image.ProjectionCenter() - ground_truth_image.ProjectionCenter())
+            .norm();
   }
-  const double num_images =
-      static_cast<double>(ground_truth.NumRegImages());
+  const double num_images = static_cast<double>(ground_truth.NumRegImages());
   return {rotation_error_deg / num_images, position_error / num_images};
 }
 
@@ -248,10 +249,10 @@ TEST(DatabasePosePriorBundleAdjustment, SyntheticReconstruction) {
   const DatabasePosePriorBundleAdjustmentOptions prior_options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDatabasePosePriorBundleAdjuster(bundle_adjustment_options,
-                                             prior_options,
-                                             std::move(config),
-                                             database_path,
-                                             reconstruction);
+                                            prior_options,
+                                            std::move(config),
+                                            database_path,
+                                            reconstruction);
   ASSERT_NE(bundle_adjuster, nullptr);
   const std::shared_ptr<BundleAdjustmentSummary> summary =
       bundle_adjuster->Solve();
