@@ -98,9 +98,9 @@ TEST(DatabasePosePriorBundleAdjustment, ReadPosePriors) {
   ASSERT_EQ(sqlite3_bind_int64(statement, 1, 1), SQLITE_OK);
   ASSERT_EQ(sqlite3_bind_int64(statement, 2, 7), SQLITE_OK);
   ASSERT_EQ(sqlite3_bind_int64(statement, 3, 9), SQLITE_OK);
-  ASSERT_EQ(sqlite3_bind_int(
-                statement, 4, static_cast<int>(SensorType::CAMERA)),
-            SQLITE_OK);
+  ASSERT_EQ(
+      sqlite3_bind_int(statement, 4, static_cast<int>(SensorType::CAMERA)),
+      SQLITE_OK);
   BindMatrix(statement, 5, position);
   BindMatrix(statement, 6, position_covariance);
   BindMatrix(statement, 7, gravity);
@@ -121,12 +121,10 @@ TEST(DatabasePosePriorBundleAdjustment, ReadPosePriors) {
   ASSERT_EQ(priors.size(), 1);
   EXPECT_EQ(priors[0].image_id, 7);
   EXPECT_TRUE(priors[0].position.isApprox(position));
-  EXPECT_TRUE(
-      priors[0].position_covariance.isApprox(position_covariance));
+  EXPECT_TRUE(priors[0].position_covariance.isApprox(position_covariance));
   EXPECT_TRUE(priors[0].rotation.coeffs().isApprox(
       Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).coeffs()));
-  EXPECT_TRUE(
-      priors[0].rotation_covariance.isApprox(rotation_covariance));
+  EXPECT_TRUE(priors[0].rotation_covariance.isApprox(rotation_covariance));
 
   std::filesystem::remove_all(test_path);
 }
