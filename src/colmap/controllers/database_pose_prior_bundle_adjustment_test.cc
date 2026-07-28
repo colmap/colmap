@@ -29,11 +29,16 @@
 
 #include "colmap/controllers/database_pose_prior_bundle_adjustment.h"
 
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/math/math.h"
+#include "colmap/math/random.h"
+#include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/testing.h"
 
 #include <filesystem>
+#include <utility>
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -54,14 +59,7 @@ void BindMatrix(sqlite3_stmt* statement,
             SQLITE_OK);
 }
 
-TEST(DatabasePosePriorBundleAdjustment, ReadPosePriors) {
-  const std::filesystem::path test_path = CreateTestDir();
-  const std::filesystem::path database_path = test_path / "database.db";
-
-  sqlite3* database = nullptr;
-  ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &database), SQLITE_OK);
-  ASSERT_NE(database, nullptr);
-
+void CreatePosePriorTable(sqlite3* database) {
   const char* create_table_sql =
       "CREATE TABLE pose_priors("
       "pose_prior_id INTEGER PRIMARY KEY, "
@@ -76,6 +74,90 @@ TEST(DatabasePosePriorBundleAdjustment, ReadPosePriors) {
       "rotation_covariance BLOB);";
   ASSERT_EQ(sqlite3_exec(database, create_table_sql, nullptr, nullptr, nullptr),
             SQLITE_OK);
+}
+
+void WritePosePriors(const std::filesystem::path& database_path,
+                     const Reconstruction& reconstruction) {
+  sqlite3* database = nullptr;
+  ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &database), SQLITE_OK);
+  ASSERT_NE(database, nullptr);
+  CreatePosePriorTable(database);
+
+  sqlite3_stmt* statement = nullptr;
+  ASSERT_EQ(sqlite3_prepare_v2(
+                database,
+                "INSERT INTO pose_priors VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                -1,
+                &statement,
+                nullptr),
+            SQLITE_OK);
+  ASSERT_NE(statement, nullptr);
+
+  pose_prior_t pose_prior_id = 1;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    const Image& image = reconstruction.Image(image_id);
+    const data_t data_id = image.DataId();
+    const Eigen::Vector3d position = image.ProjectionCenter();
+    const Eigen::Matrix3d position_covariance =
+        1e-4 * Eigen::Matrix3d::Identity();
+    const Eigen::Quaterniond rotation = image.CamFromWorld().rotation();
+    const Eigen::Vector4d rotation_wxyz(
+        rotation.w(), rotation.x(), rotation.y(), rotation.z());
+    const double rotation_stddev_rad = DegToRad(0.1);
+    const Eigen::Matrix3d rotation_covariance =
+        rotation_stddev_rad * rotation_stddev_rad *
+        Eigen::Matrix3d::Identity();
+
+    ASSERT_EQ(sqlite3_bind_int64(statement, 1, pose_prior_id++), SQLITE_OK);
+    ASSERT_EQ(sqlite3_bind_int64(statement, 2, image_id), SQLITE_OK);
+    ASSERT_EQ(sqlite3_bind_int64(statement, 3, data_id.sensor_id.id), SQLITE_OK);
+    ASSERT_EQ(
+        sqlite3_bind_int(statement, 4, static_cast<int>(SensorType::CAMERA)),
+        SQLITE_OK);
+    BindMatrix(statement, 5, position);
+    BindMatrix(statement, 6, position_covariance);
+    ASSERT_EQ(sqlite3_bind_null(statement, 7), SQLITE_OK);
+    ASSERT_EQ(sqlite3_bind_int(
+                  statement,
+                  8,
+                  static_cast<int>(PosePrior::CoordinateSystem::CARTESIAN)),
+              SQLITE_OK);
+    BindMatrix(statement, 9, rotation_wxyz);
+    BindMatrix(statement, 10, rotation_covariance);
+    ASSERT_EQ(sqlite3_step(statement), SQLITE_DONE);
+    ASSERT_EQ(sqlite3_reset(statement), SQLITE_OK);
+    ASSERT_EQ(sqlite3_clear_bindings(statement), SQLITE_OK);
+  }
+
+  ASSERT_EQ(sqlite3_finalize(statement), SQLITE_OK);
+  ASSERT_EQ(sqlite3_close(database), SQLITE_OK);
+}
+
+std::pair<double, double> MeanPoseError(const Reconstruction& ground_truth,
+                                        const Reconstruction& reconstruction) {
+  double rotation_error_deg = 0.0;
+  double position_error = 0.0;
+  for (const image_t image_id : ground_truth.RegImageIds()) {
+    const Image& ground_truth_image = ground_truth.Image(image_id);
+    const Image& image = reconstruction.Image(image_id);
+    rotation_error_deg += RadToDeg(image.CamFromWorld().rotation().angularDistance(
+        ground_truth_image.CamFromWorld().rotation()));
+    position_error +=
+        (image.ProjectionCenter() - ground_truth_image.ProjectionCenter()).norm();
+  }
+  const double num_images =
+      static_cast<double>(ground_truth.NumRegImages());
+  return {rotation_error_deg / num_images, position_error / num_images};
+}
+
+TEST(DatabasePosePriorBundleAdjustment, ReadPosePriors) {
+  const std::filesystem::path test_path = CreateTestDir();
+  const std::filesystem::path database_path = test_path / "database.db";
+
+  sqlite3* database = nullptr;
+  ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &database), SQLITE_OK);
+  ASSERT_NE(database, nullptr);
+  CreatePosePriorTable(database);
 
   sqlite3_stmt* statement = nullptr;
   ASSERT_EQ(sqlite3_prepare_v2(
@@ -125,6 +207,62 @@ TEST(DatabasePosePriorBundleAdjustment, ReadPosePriors) {
   EXPECT_TRUE(priors[0].rotation.coeffs().isApprox(
       Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).coeffs()));
   EXPECT_TRUE(priors[0].rotation_covariance.isApprox(rotation_covariance));
+
+  std::filesystem::remove_all(test_path);
+}
+
+TEST(DatabasePosePriorBundleAdjustment, SyntheticReconstruction) {
+  SetPRNGSeed(1);
+  const std::filesystem::path test_path = CreateTestDir();
+  const std::filesystem::path database_path = test_path / "database.db";
+
+  Reconstruction ground_truth;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 4;
+  synthetic_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_options, &ground_truth);
+  WritePosePriors(database_path, ground_truth);
+
+  Reconstruction reconstruction(ground_truth);
+  SyntheticNoiseOptions noise_options;
+  noise_options.rig_from_world_rotation_stddev = 2.0;
+  noise_options.rig_from_world_translation_stddev = 0.1;
+  noise_options.point3D_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+  const auto [rotation_error_before, position_error_before] =
+      MeanPoseError(ground_truth, reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions bundle_adjustment_options;
+  bundle_adjustment_options.refine_focal_length = false;
+  bundle_adjustment_options.refine_principal_point = false;
+  bundle_adjustment_options.refine_extra_params = false;
+  bundle_adjustment_options.ceres->solver_options.max_num_iterations = 100;
+
+  const DatabasePosePriorBundleAdjustmentOptions prior_options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDatabasePosePriorBundleAdjuster(bundle_adjustment_options,
+                                             prior_options,
+                                             std::move(config),
+                                             database_path,
+                                             reconstruction);
+  ASSERT_NE(bundle_adjuster, nullptr);
+  const std::shared_ptr<BundleAdjustmentSummary> summary =
+      bundle_adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  const auto [rotation_error_after, position_error_after] =
+      MeanPoseError(ground_truth, reconstruction);
+  EXPECT_LT(rotation_error_after, rotation_error_before);
+  EXPECT_LT(position_error_after, position_error_before);
+  EXPECT_LT(rotation_error_after, 0.5);
+  EXPECT_LT(position_error_after, 0.05);
 
   std::filesystem::remove_all(test_path);
 }
