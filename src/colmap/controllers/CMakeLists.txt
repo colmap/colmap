@@ -91,7 +91,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME database_pose_prior_bundle_adjustment_test
     SRCS database_pose_prior_bundle_adjustment_test.cc
-    LINK_LIBS colmap_controllers
+    LINK_LIBS colmap_controllers SQLite3::SQLite3
 )
 COLMAP_ADD_TEST(
     NAME hierarchical_pipeline_test
