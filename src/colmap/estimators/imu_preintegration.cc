@@ -223,7 +223,9 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     // Jacobians, and RK4 covariance propagation.
     //
     // Based on Eckenhoff et al. "Closed-form Preintegration Methods for
-    // Graph-based Visual-Inertial Navigation", IJRR 2018 (left convention).
+    // Graph-based Visual-Inertial Navigation", IJRR 2019. The paper transports
+    // the gyro bias Jacobian with the right Jacobian Jr(w*dt). We use the left
+    // Jacobian Jl(w*dt), which is its transpose.
 
     const Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
     const double dt2 = dt * dt;
@@ -271,7 +273,7 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     }
 
     // Integration matrices for position (H_p) and velocity (H_v).
-    // Closed-form integral coefficients (same signs as Eckenhoff IJRR 2018).
+    // Closed-form integral coefficients (same signs as Eckenhoff IJRR 2019).
     const Eigen::Matrix3d alpha_arg =
         (0.5 * dt2) * I3 + f_1 * w_x + f_2 * w_x_2;
     const Eigen::Matrix3d beta_arg = dt * I3 + f_3 * w_x + f_4 * w_x_2;
@@ -291,7 +293,7 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     // Step 2: Bias Jacobians (Eckenhoff analytical).
     //==========================================================================
     // Analytical derivatives of the closed-form integrals w.r.t. gyro/accel
-    // biases. Based on Eckenhoff et al. IJRR 2018.
+    // biases. Based on Eckenhoff et al. IJRR 2019.
 
     const Eigen::Matrix3d Rs_T = Rs.transpose();
 
@@ -344,7 +346,7 @@ class Rk4ImuIntegrator : public ImuIntegrator {
       }
     }
 
-    // Gyro bias Jacobians: position and velocity (Eckenhoff IJRR 2018).
+    // Gyro bias Jacobians: position and velocity (Eckenhoff IJRR 2019).
     // TODO: The d_R_bw term (-R * [J_q * e_k]_x) introduces a first-order
     // approximation that causes ~1e-5 absolute error on dp_dbg diagonal
     // entries where d_R_bw and df contributions nearly cancel.
