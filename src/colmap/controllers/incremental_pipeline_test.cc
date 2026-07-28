@@ -533,6 +533,21 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
+  // Match the common rig setup where only the reference sensor has absolute
+  // positions. Registering two frames then yields many images but only two
+  // usable pose priors.
+  FlatHashSet<sensor_t> ref_sensor_ids;
+  for (const auto& [_, rig] : gt_reconstruction.Rigs()) {
+    ref_sensor_ids.insert(rig.RefSensorId());
+  }
+  const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  database->ClearPosePriors();
+  for (const PosePrior& pose_prior : pose_priors) {
+    if (ref_sensor_ids.count(pose_prior.corr_data_id.sensor_id)) {
+      database->WritePosePrior(pose_prior);
+    }
+  }
+
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
 
@@ -549,7 +564,8 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
                                  /*max_rotation_error_deg=*/1e-1,
                                  /*max_proj_center_error=*/1e-1,
                                  /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.02));
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
