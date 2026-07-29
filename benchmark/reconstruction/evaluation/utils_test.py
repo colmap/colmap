@@ -35,6 +35,7 @@ import pytest
 
 import pycolmap
 
+from . import utils
 from .utils import (
     OUTLIER_COMPONENT_ID,
     Metrics,
@@ -50,6 +51,7 @@ from .utils import (
     diff_metrics,
     filter_smallest_scenes_per_category,
     get_scores,
+    panorama_reconstruction,
 )
 
 
@@ -65,6 +67,60 @@ def _make_scene_info(category: str, scene: str, num_images: int) -> SceneInfo:
         has_camera_priors=False,
         colmap_extra_args=[],
     )
+
+
+def test_panorama_reconstruction_uses_library_api(tmp_path, monkeypatch):
+    covisibility_path = tmp_path / "covisibility.npz"
+    covisibility_path.touch()
+    scene_info = SceneInfo(
+        dataset="tartanair-v2-spherical",
+        category="test",
+        scene="scene",
+        num_images=2,
+        workspace_path=tmp_path / "workspace",
+        image_path=tmp_path / "images",
+        sparse_gt_path=tmp_path / "sparse_gt",
+        has_camera_priors=False,
+        colmap_extra_args=[],
+        reconstruction_backend="panorama-spherical",
+        covisibility_path=covisibility_path,
+        covisibility_min_shared_points=1,
+    )
+    args = argparse.Namespace(
+        overwrite_reconstruction=False,
+        feature="sift",
+        mapper="global",
+        uncalibrated=False,
+        filter_covisibility=True,
+        covisibility_min_shared_points=5,
+        random_seed=7,
+        use_gpu=False,
+    )
+    call = {}
+
+    def reconstruct(input_image_path, output_path, options):
+        call.update(
+            input_image_path=input_image_path,
+            output_path=output_path,
+            options=options,
+        )
+        return {}
+
+    monkeypatch.setattr(utils.panorama, "reconstruct", reconstruct)
+    panorama_reconstruction(args, scene_info, num_threads=3, gpu_index="2")
+
+    assert call["input_image_path"] == scene_info.image_path
+    assert call["output_path"] == scene_info.workspace_path
+    options = call["options"]
+    assert options.mapper.value == "global"
+    assert options.render_type.value == "spherical"
+    assert options.random_seed == 7
+    assert options.num_threads == 3
+    assert options.gpu_index == "2"
+    assert not options.use_gpu
+    assert options.covisibility_path == covisibility_path
+    assert options.covisibility_min_shared_points == 1
+    assert not options.show_progress
 
 
 class TestFilterSmallestScenesPerCategory:

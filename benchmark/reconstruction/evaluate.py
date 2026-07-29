@@ -56,15 +56,17 @@ Example:
 """
 
 import argparse
+import json
 import pickle
 
 from evaluation.blended_mvs import DatasetBlendedMVS
 from evaluation.eth3d import DatasetETH3D
-from evaluation.imc import (
-    DatasetIMC2023,
-    DatasetIMC2024,
-    DatasetIMC2025,
+from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
+from evaluation.tartanair import (
+    DatasetTartanAirPerspective,
+    DatasetTartanAirSpherical,
 )
+from evaluation.tartanair.tartanair_v2 import load_manifest
 from evaluation.utils import (
     Dataset,
     MetricsByDatasetByCatByScene,
@@ -88,6 +90,8 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "imc2023": DatasetIMC2023,
         "imc2024": DatasetIMC2024,
         "imc2025": DatasetIMC2025,
+        "tartanair-v2-perspective": DatasetTartanAirPerspective,
+        "tartanair-v2-spherical": DatasetTartanAirSpherical,
     }
 
     metrics: MetricsByDatasetByCatByScene = {}
@@ -129,6 +133,19 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
     pycolmap.logging.info(f"Saving report to: {report_path}")
     with open(report_path, "wb") as report_file:
         pickle.dump(metrics, report_file)
+
+    metadata_path = report_path.with_suffix(".json")
+    metadata = {
+        "datasets": args.datasets,
+        "pycolmap_version": pycolmap.__version__,
+        "random_seed": args.random_seed,
+        "feature": args.feature,
+        "mapper": args.mapper,
+        "use_gpu": args.use_gpu,
+    }
+    if any(name.startswith("tartanair-v2-") for name in args.datasets):
+        metadata["tartanair_manifest_version"] = load_manifest()["version"]
+    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
 
     return metrics
 
