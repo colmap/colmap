@@ -33,6 +33,9 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 
+[project.optional-dependencies]
+panorama = ["opencv-python-headless", "pillow", "tqdm"]
+
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
 cmake.source-dir = "python/"

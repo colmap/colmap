@@ -51,6 +51,7 @@ import numpy as np
 import numpy.typing as npt
 
 import pycolmap
+from pycolmap import panorama
 
 from .covisibility import filter_covisibility  # noqa: F401
 from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
@@ -779,7 +780,7 @@ def panorama_reconstruction(
     gpu_index: str,
     phase_tracker: _PhaseTracker | None = None,
 ) -> None:
-    """Run the pycolmap panorama example for a benchmark scene."""
+    """Run the reusable pycolmap panorama pipeline for a benchmark scene."""
     phase_tracker = phase_tracker or _PhaseTracker()
     workspace_path = scene_info.workspace_path
     sparse_path = workspace_path / scene_info.reconstruction_subdir
@@ -807,57 +808,37 @@ def panorama_reconstruction(
             f"{scene_info.reconstruction_backend}"
         )
 
-    workspace_path.mkdir(parents=True, exist_ok=True)
-    script_path = (
-        Path(__file__).resolve().parents[3]
-        / "python"
-        / "examples"
-        / "panorama_sfm.py"
-    )
-    phase_tracker.set("reconstruction")
-    command = [
-        sys.executable,
-        str(script_path),
-        "--input_image_path",
-        str(scene_info.image_path),
-        "--output_path",
-        str(workspace_path),
-        "--matcher",
-        "sequential",
-        "--mapper",
-        args.mapper,
-        "--pano_render_type",
-        render_type,
-        "--random_seed",
-        str(args.random_seed),
-        "--num_threads",
-        str(num_threads),
-        "--gpu_index",
-        gpu_index,
-        "--use_gpu" if args.use_gpu else "--use_cpu",
-    ]
+    covisibility_path = None
+    min_shared_points = args.covisibility_min_shared_points
     if (
         args.filter_covisibility
         and scene_info.covisibility_path is not None
         and scene_info.covisibility_path.exists()
     ):
+        covisibility_path = scene_info.covisibility_path
         min_shared_points = (
             scene_info.covisibility_min_shared_points
             if scene_info.covisibility_min_shared_points is not None
             else args.covisibility_min_shared_points
         )
-        command.extend(
-            [
-                "--covisibility_path",
-                str(scene_info.covisibility_path),
-                "--covisibility_min_shared_points",
-                str(min_shared_points),
-            ]
-        )
-    _run_with_log(
-        command,
-        workspace_path / "reconstruction.log",
-        cwd=workspace_path,
+
+    workspace_path.mkdir(parents=True, exist_ok=True)
+    phase_tracker.set("reconstruction")
+    panorama.reconstruct(
+        scene_info.image_path,
+        workspace_path,
+        panorama.PanoramaReconstructionOptions(
+            matcher=panorama.Matcher.SEQUENTIAL,
+            mapper=panorama.Mapper(args.mapper),
+            render_type=panorama.PanoRenderType(render_type),
+            random_seed=args.random_seed,
+            num_threads=num_threads,
+            gpu_index=gpu_index,
+            use_gpu=args.use_gpu,
+            covisibility_path=covisibility_path,
+            covisibility_min_shared_points=min_shared_points,
+            show_progress=False,
+        ),
     )
     sparse_path.mkdir(parents=True, exist_ok=True)
 
