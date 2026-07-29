@@ -36,6 +36,10 @@ class DatasetTartanAir(Dataset):
     def position_accuracy_gt(self) -> float:
         return 0.001
 
+    @property
+    def supports_covisibility_filtering(self) -> bool:
+        return False
+
     def list_scenes(self) -> list[SceneInfo]:
         scene_infos: list[SceneInfo] = []
         dataset_path = self.data_path / "tartanair-v2"
