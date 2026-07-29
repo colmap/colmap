@@ -255,7 +255,6 @@ if(GUI_ENABLED)
     )
 endif()
 
-
 if(HIP_ENABLED)
     # On ROCm builds, cuda.cc / cudacc.cc compile with the host C++ compiler.
     # They reference cudaXxx symbols, which the cuda_to_hip.h compatibility
