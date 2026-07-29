@@ -40,6 +40,10 @@ option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(HIP_ENABLED "Whether to enable AMD GPU support via HIP/ROCm" OFF)
 
+if(CUDA_ENABLED AND HIP_ENABLED)
+    message(FATAL_ERROR "CUDA and HIP cannot be enabled at the same time")
+endif()
+
 # enable_language(HIP) and set_source_files_properties(LANGUAGE HIP) require
 # CMake 3.21+. Bump the minimum only when HIP is requested so CUDA-only and
 # CPU-only builds continue to work on older CMake versions.
