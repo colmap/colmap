@@ -215,6 +215,22 @@ DEPTH_SCALE = 8.0
 DEPTH_INVALID_VALUE = 0
 IMAGE_QUALITY = 97
 IMAGE_SUBSAMPLING = 0
+TARTANAIR_LICENSE_URL = (
+    "https://creativecommons.org/licenses/by/4.0/legalcode.txt"
+)
+TARTANAIR_LICENSE_SHA256 = (
+    "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+)
+
+
+def download_tartanair_license() -> bytes:
+    response = requests.get(TARTANAIR_LICENSE_URL, timeout=60)
+    response.raise_for_status()
+    license_data = response.content
+    digest = hashlib.sha256(license_data).hexdigest()
+    if digest != TARTANAIR_LICENSE_SHA256:
+        raise RuntimeError(f"Unexpected TartanAir license SHA-256: {digest}")
+    return license_data
 
 
 def encode_image_jpeg(source_png: bytes) -> bytes:
@@ -417,17 +433,14 @@ def build_shard(
 
     temporary = target.with_suffix(target.suffix + ".part")
     remote_zips: dict[str, RemoteZip] = {}
+    license_data = download_tartanair_license()
     with tarfile.open(temporary, "w", format=tarfile.PAX_FORMAT) as archive:
         root = Path(__file__).parent
-        add_bytes(
-            archive,
-            "TARTANAIR_LICENSE",
-            (root / "TARTANAIR_LICENSE").read_bytes(),
-        )
+        add_bytes(archive, "TARTANAIR_LICENSE", license_data)
         add_bytes(
             archive,
             "TARTANAIR_README.md",
-            (root / "TARTANAIR_README.md").read_bytes(),
+            (root / "README.md").read_bytes(),
         )
         add_bytes(archive, MANIFEST_PATH.name, MANIFEST_PATH.read_bytes())
         for scene in scenes:

@@ -1,3 +1,4 @@
+import hashlib
 import io
 
 import numpy as np
@@ -5,12 +6,46 @@ import pytest
 
 PILImage = pytest.importorskip("PIL.Image")
 
+from . import package_tartanair_v2  # noqa: E402
 from .package_tartanair_v2 import (  # noqa: E402
     DEPTH_SCALE,
     DEPTH_SIZE,
     encode_depth_png,
     encode_image_jpeg,
 )
+
+
+class FakeResponse:
+    def __init__(self, content: bytes):
+        self.content = content
+
+    def raise_for_status(self):
+        pass
+
+
+def test_download_tartanair_license(monkeypatch):
+    license_data = b"license text"
+    monkeypatch.setattr(
+        package_tartanair_v2,
+        "TARTANAIR_LICENSE_SHA256",
+        hashlib.sha256(license_data).hexdigest(),
+    )
+    monkeypatch.setattr(
+        package_tartanair_v2.requests,
+        "get",
+        lambda *args, **kwargs: FakeResponse(license_data),
+    )
+    assert package_tartanair_v2.download_tartanair_license() == license_data
+
+
+def test_download_tartanair_license_rejects_unexpected_content(monkeypatch):
+    monkeypatch.setattr(
+        package_tartanair_v2.requests,
+        "get",
+        lambda *args, **kwargs: FakeResponse(b"unexpected"),
+    )
+    with pytest.raises(RuntimeError, match="Unexpected TartanAir license"):
+        package_tartanair_v2.download_tartanair_license()
 
 
 def test_encode_depth_png_min_pools_and_quantizes():

@@ -736,7 +736,7 @@ if __name__ == "__main__":
     parser.add_argument("--random_seed", type=int, default=0)
     parser.add_argument("--num_threads", type=int, default=-1)
     parser.add_argument("--covisibility_path", type=Path)
-    parser.add_argument("--covisibility_min_shared_points", type=int, default=5)
+    parser.add_argument("--covisibility_min_shared_points", type=int, default=1)
     parser.add_argument("--gpu_index", default="-1")
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")

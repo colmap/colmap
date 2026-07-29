@@ -14,10 +14,15 @@ maximum range of 256 m. Verified image pairs with no shared samples are removed
 before mapping. Derived overlap counts are cached locally in
 `covisibility.npz` and can be regenerated from the packaged depths.
 
-Source: https://huggingface.co/datasets/theairlabcmu/tartanair2
+Dataset: https://tartanair.org/
 
-TartanAir V2 is distributed under the BSD-3-Clause license. Cite the original
-dataset when publishing results based on this subset:
+Source files: https://huggingface.co/datasets/theairlabcmu/tartanair2
+
+TartanAir V2 is distributed under the Creative Commons Attribution 4.0
+International license (CC BY 4.0). This benchmark subset modifies the source
+RGB and depth images as described above. See `TARTANAIR_LICENSE` for the full
+license terms and cite the original dataset when publishing results based on
+this subset:
 
 > Wenshan Wang et al., "TartanAir: A Dataset to Push the Limits of Visual
 > SLAM," IROS 2020.

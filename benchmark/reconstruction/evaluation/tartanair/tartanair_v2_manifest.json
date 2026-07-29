@@ -3,7 +3,7 @@
   "source": {
     "repository": "theairlabcmu/tartanair2",
     "revision": "0d2d145e973832742a2aaa04b7d2ebffc8d82817",
-    "license": "BSD-3-Clause",
+    "license": "CC-BY-4.0",
     "image_size": [2048, 1024]
   },
   "release": {
