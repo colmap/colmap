@@ -35,6 +35,7 @@ import pytest
 
 import pycolmap
 
+from . import utils
 from .utils import (
     OUTLIER_COMPONENT_ID,
     Metrics,
@@ -105,10 +106,7 @@ def test_panorama_reconstruction_uses_library_api(tmp_path, monkeypatch):
         )
         return {}
 
-    monkeypatch.setattr(
-        "benchmark.reconstruction.evaluation.utils.panorama.reconstruct",
-        reconstruct,
-    )
+    monkeypatch.setattr(utils.panorama, "reconstruct", reconstruct)
     panorama_reconstruction(args, scene_info, num_threads=3, gpu_index="2")
 
     assert call["input_image_path"] == scene_info.image_path
