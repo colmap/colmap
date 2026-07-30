@@ -85,19 +85,18 @@ def _run_with_log(
 ) -> int:
     """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
 
-    Always uses preexec_fn=_set_pdeathsig so children die with their parent.
+    Uses preexec_fn=_set_pdeathsig on Linux so children die with their parent.
+    preexec_fn is not available on Windows/macOS; child cleanup is handled by
+    multiprocessing.Pool.terminate() on normal / Ctrl+C exit.
     Raises CalledProcessError on non-zero exit when check=True.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "wb") as fh:
         runner = subprocess.check_call if check else subprocess.call
-        return runner(
-            cmd,
-            stdout=fh,
-            stderr=subprocess.STDOUT,
-            preexec_fn=_set_pdeathsig,
-            **kwargs,
-        )
+        popen_kwargs = dict(stdout=fh, stderr=subprocess.STDOUT, **kwargs)
+        if platform.system() == "Linux":
+            popen_kwargs["preexec_fn"] = _set_pdeathsig
+        return runner(cmd, **popen_kwargs)
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -655,6 +654,9 @@ def colmap_reconstruction(
     else:
         cleaner_type = None
     if cleaner_type is not None:
+        popen_kwargs = dict(cwd=workspace_path)
+        if platform.system() == "Linux":
+            popen_kwargs["preexec_fn"] = _set_pdeathsig
         subprocess.check_call(
             [
                 args.colmap_path,
@@ -664,8 +666,7 @@ def colmap_reconstruction(
                 "--type",
                 cleaner_type,
             ],
-            cwd=workspace_path,
-            preexec_fn=_set_pdeathsig,
+            **popen_kwargs,
         )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead
