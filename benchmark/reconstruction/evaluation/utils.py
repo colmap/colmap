@@ -654,7 +654,7 @@ def colmap_reconstruction(
         cleaner_type = None
     if cleaner_type is not None:
         popen_kwargs = dict(cwd=workspace_path)
-        if platform.system() == "Linux":
+        if platform.system() != "Windows":
             popen_kwargs["preexec_fn"] = _set_pdeathsig
         subprocess.check_call(
             [
