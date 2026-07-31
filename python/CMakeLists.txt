@@ -32,38 +32,6 @@ endif()
 
 find_package(colmap REQUIRED)
 
-# On Windows with MSVC, the linker receives bare "gflags.lib" (no path) because
-# CMake's multi-config generators fail to propagate IMPORTED_IMPLIB_<CONFIG>
-# from the gflags imported target to the linker. Both glog::glog and Ceres::ceres
-# reference gflags in their INTERFACE_LINK_LIBRARIES, so replace those references
-# with the absolute path to gflags.lib to bypass CMake target resolution.
-if(MSVC)
-    if(TARGET gflags::gflags_shared)
-        set(_gflags_target gflags::gflags_shared)
-    elseif(TARGET gflags_shared)
-        set(_gflags_target gflags_shared)
-    endif()
-    if(_gflags_target)
-        get_target_property(_gflags_implib ${_gflags_target} IMPORTED_IMPLIB_RELEASE)
-        if(_gflags_implib)
-            if(TARGET glog::glog)
-                get_target_property(_glog_iface glog::glog INTERFACE_LINK_LIBRARIES)
-                string(REPLACE "gflags::gflags" "${_gflags_implib}" _glog_iface_fixed "${_glog_iface}")
-                set_target_properties(glog::glog PROPERTIES
-                    INTERFACE_LINK_LIBRARIES "${_glog_iface_fixed}")
-            endif()
-            if(TARGET Ceres::ceres)
-                get_target_property(_ceres_iface Ceres::ceres INTERFACE_LINK_LIBRARIES)
-                string(REPLACE ";gflags;" ";${_gflags_implib};" _ceres_iface_fixed "${_ceres_iface}")
-                set_target_properties(Ceres::ceres PROPERTIES
-                    INTERFACE_LINK_LIBRARIES "${_ceres_iface_fixed}")
-            endif()
-        endif()
-    endif()
-    unset(_gflags_target)
-    unset(_gflags_implib)
-endif()
-
 if(CCACHE_ENABLED)
     find_program(CCACHE ccache)
     if(CCACHE)
