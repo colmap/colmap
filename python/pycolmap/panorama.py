@@ -24,6 +24,8 @@ if sys.version_info >= (3, 11):
 else:
     # Backport of enum.StrEnum, added in Python 3.11. Members compare equal to
     # their string value and auto() yields the lower-cased member name.
+    # TODO: remove once support for Python 3.10 is dropped after its EOL in
+    # October 2026.
     class StrEnum(str, enum.Enum):
         @staticmethod
         def _generate_next_value_(
@@ -414,6 +416,8 @@ class PanoProcessor:
                     continue
                 # The cast is needed because numpy<2.3, the latest version
                 # supporting Python 3.10, does not infer the array shape.
+                # TODO: remove once support for Python 3.10 is dropped after
+                # its EOL in October 2026.
                 xy = cast(
                     NDArrayNx2,
                     np.array([point2D.xy for point2D in image.points2D]),
