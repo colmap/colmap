@@ -22,8 +22,10 @@ def tartanair_world_from_camera(
     world_from_ned = pycolmap.Rigid3d(
         pycolmap.Rotation3d(quaternion_xyzw), translation[:, np.newaxis]
     )
+    # The translation defaults to zero. Passing np.zeros((3, 1)) explicitly
+    # fails mypy with numpy 2.4, the latest version available on Python 3.11.
     ned_from_colmap = pycolmap.Rigid3d(
-        pycolmap.Rotation3d(NED_FROM_COLMAP), np.zeros((3, 1))
+        rotation=pycolmap.Rotation3d(NED_FROM_COLMAP)
     )
     return world_from_ned * ned_from_colmap
 
