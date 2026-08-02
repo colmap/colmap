@@ -44,7 +44,9 @@ wheel.packages = ["python/pycolmap"]
 [tool.cibuildwheel]
 build = "cp3{10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
-test-requires = "pytest>=8.0 mypy==2.1.0 enlighten==1.14.1"
+# pillow and requests are imported by the TartanAir packaging script, whose
+# tests are otherwise silently skipped.
+test-requires = "pytest>=8.0 mypy==2.1.0 enlighten==1.14.1 pillow requests"
 test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
