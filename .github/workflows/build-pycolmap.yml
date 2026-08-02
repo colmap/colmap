@@ -39,7 +39,7 @@ jobs:
       # the oldest supported one, so that version-specific breakage does not
       # reach main, and cp312, the oldest version supported by the pinned Sphinx
       # used in the docs job, which reuses this wheel.
-      PULL_REQUEST_CIBW_BUILD: cp3{10,12}-{macosx,manylinux,win}*
+      PULL_REQUEST_CIBW_BUILD: cp3{10,11,12}-{macosx,manylinux,win}*
     steps:
       - name: Free disk space
         if: runner.os == 'Linux' && matrix.config.cudaEnabled
