@@ -103,6 +103,16 @@ else()
     add_compile_definitions(VL_DISABLE_SSE2)
 endif()
 
+if(SIMD_ENABLED AND IS_ARM64 AND VLFEAT_NEON_ENABLED)
+    set(NEON_SOURCES
+        imopv_neon.c
+        imopv_neon.h)
+
+    list(APPEND VLFEAT_SOURCE_FILES ${NEON_SOURCES})
+else()
+    add_compile_definitions(VL_DISABLE_NEON)
+endif()
+
 if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
     add_compile_definitions(VL_DISABLE_OPENMP)
 endif()
