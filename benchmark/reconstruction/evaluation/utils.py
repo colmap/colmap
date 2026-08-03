@@ -653,9 +653,6 @@ def colmap_reconstruction(
     else:
         cleaner_type = None
     if cleaner_type is not None:
-        popen_kwargs = dict(cwd=workspace_path)
-        if platform.system() != "Windows":
-            popen_kwargs["preexec_fn"] = _set_pdeathsig
         subprocess.check_call(
             [
                 args.colmap_path,
@@ -665,7 +662,10 @@ def colmap_reconstruction(
                 "--type",
                 cleaner_type,
             ],
-            **popen_kwargs,
+            cwd=workspace_path,
+            preexec_fn=(
+                _set_pdeathsig if platform.system() != "Windows" else None
+            ),
         )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead
