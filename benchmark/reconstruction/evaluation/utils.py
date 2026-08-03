@@ -86,8 +86,8 @@ def _run_with_log(
     """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
 
     Uses preexec_fn=_set_pdeathsig on Linux so children die with their parent.
-    preexec_fn is unavailable on Windows, and PR_SET_PDEATHSIG is Linux-specific.
-    Raises CalledProcessError on non-zero exit when check=True.
+    preexec_fn is unavailable on Windows, and PR_SET_PDEATHSIG is
+    Linux-specific. Raises CalledProcessError on non-zero exit when check=True.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "wb") as fh:
