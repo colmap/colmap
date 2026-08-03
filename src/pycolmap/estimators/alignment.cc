@@ -120,11 +120,14 @@ void BindAlignmentEstimator(py::module& m) {
       "align_reconstruction_to_pose_priors",
       [](const Reconstruction& src_reconstruction,
          const std::vector<PosePrior>& tgt_pose_priors,
-         const RANSACOptions& ransac_options) -> py::typing::Optional<Sim3d> {
+         const RANSACOptions& ransac_options,
+         double prior_position_fallback_stddev)
+          -> py::typing::Optional<Sim3d> {
         Sim3d tgt_from_src;
         if (!AlignReconstructionToPosePriors(src_reconstruction,
                                              tgt_pose_priors,
                                              ransac_options,
+                                             prior_position_fallback_stddev,
                                              &tgt_from_src)) {
           return py::none();
         }
@@ -132,7 +135,8 @@ void BindAlignmentEstimator(py::module& m) {
       },
       "src_reconstruction"_a,
       "tgt_pose_priors"_a,
-      "ransac_options"_a);
+      "ransac_options"_a,
+      "prior_position_fallback_stddev"_a = 1.0);
 
   py::classh<PosePriorAlignmentResult>(m, "PosePriorAlignmentResult")
       .def(py::init<>())

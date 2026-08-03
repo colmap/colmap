@@ -33,6 +33,7 @@
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
@@ -461,12 +462,17 @@ bool AlignReconstructionToLocations(
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
-    const RANSACOptions& ransac_options,
+    RANSACOptions ransac_options,
+    const double prior_position_fallback_stddev,
     Sim3d* tgt_from_src) {
+  THROW_CHECK_GT(prior_position_fallback_stddev, 0.0);
+
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
+  std::vector<double> rms_vars;
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
+  rms_vars.reserve(tgt_pose_priors.size());
 
   NodeHashMap<image_t, PosePrior> tgt_image_to_pose_prior;
   for (const auto& pose_prior : tgt_pose_priors) {
@@ -485,6 +491,14 @@ bool AlignReconstructionToPosePriors(
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
+      // Skip a row whose covariance is finite but not itself usable (zero,
+      // singular, or non-SPD) -- a positive trace alone would admit such a
+      // matrix and skew the median that sets the RANSAC threshold below.
+      const auto& position_covariance =
+          pose_prior_it->second.position_covariance;
+      if (IsValidPositionCovariance(position_covariance)) {
+        rms_vars.push_back(position_covariance.trace() / 3.0);
+      }
     }
   }
 
@@ -493,10 +507,21 @@ bool AlignReconstructionToPosePriors(
     return false;
   }
 
-  if (ransac_options.max_error > 0) {
-    return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
+  if (ransac_options.max_error <= 0) {
+    if (rms_vars.empty()) {
+      LOG(WARNING) << "No pose priors with valid covariance found.";
+      rms_vars.push_back(prior_position_fallback_stddev *
+                         prior_position_fallback_stddev);
+    }
+
+    // Scale the median RMS variance by the 95% chi-square quantile for 3 DOF.
+    ransac_options.max_error =
+        std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
   }
-  return EstimateSim3d(src, tgt, *tgt_from_src);
+
+  VLOG(2) << "Robustly aligning reconstruction with max_error="
+          << ransac_options.max_error;
+  return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
 }
 
 PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(

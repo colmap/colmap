@@ -59,6 +59,19 @@ void SeedEstimatedInitialCameras(Reconstruction& reconstruction,
   }
 }
 
+size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
+                               const BundleAdjustmentConfig& ba_config) {
+  size_t num_registered_pose_priors = 0;
+  for (const PosePrior& pose_prior : pose_priors) {
+    if (pose_prior.HasPosition() &&
+        pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
+        ba_config.HasImage(pose_prior.corr_data_id.id)) {
+      ++num_registered_pose_priors;
+    }
+  }
+  return num_registered_pose_priors;
+}
+
 }  // namespace
 
 bool IncrementalMapper::Options::Check() const {
@@ -1172,9 +1185,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Only use prior pose if at least 3 images have been registered.
   const bool use_prior_position =
-      options.use_prior_position && ba_config.NumImages() > 2;
+      options.use_prior_position &&
+      NumRegisteredPosePriors(database_cache_->PosePriors(), ba_config) >= 3;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {

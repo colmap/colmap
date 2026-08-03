@@ -32,6 +32,8 @@
 #include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/Cholesky>
+
 namespace colmap {
 namespace {
 
@@ -84,6 +86,20 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
          << "], rotation_covariance=["
          << prior.rotation_covariance.format(kVecFmt) << "])";
   return stream;
+}
+
+bool IsValidPositionCovariance(const Eigen::Matrix3d& cov) {
+  if (!cov.allFinite()) {
+    return false;
+  }
+  if (!cov.isApprox(cov.transpose(), 1e-6)) {
+    return false;
+  }
+  if ((cov.diagonal().array() <= 0.0).any()) {
+    return false;
+  }
+  const Eigen::LLT<Eigen::Matrix3d> llt(cov);
+  return llt.info() == Eigen::Success;
 }
 
 std::optional<Eigen::Vector3d> GravityFromExifOrientation(int orientation) {

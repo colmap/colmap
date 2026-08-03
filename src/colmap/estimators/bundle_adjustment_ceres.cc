@@ -34,6 +34,7 @@
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
@@ -903,29 +904,6 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
   FlatHashMap<point3D_t, size_t> point3D_num_observations_;
 };
 
-// Returns true if `cov` is finite, symmetric, and strictly positive definite
-// -- the conditions CovarianceWeightedCostFunctor's cov.inverse().llt()
-// whitening silently assumes. A per-row covariance read from the database or
-// an external archive can be finite (passing PosePrior::HasPositionCov())
-// while still being zero, singular, or only approximately symmetric, any of
-// which corrupts the whitening rather than raising an error. Callers must
-// treat a false return as "this row's declared covariance is not usable" and
-// fall back to a declared sensor-class/fallback stddev instead of inverting
-// it anyway.
-bool IsValidPositionCovariance(const Eigen::Matrix3d& cov) {
-  if (!cov.allFinite()) {
-    return false;
-  }
-  if (!cov.isApprox(cov.transpose(), 1e-6)) {
-    return false;
-  }
-  if ((cov.diagonal().array() <= 0.0).any()) {
-    return false;
-  }
-  const Eigen::LLT<Eigen::Matrix3d> llt(cov);
-  return llt.info() == Eigen::Success;
-}
-
 const char* LossFunctionTypeName(
     CeresBundleAdjustmentOptions::LossFunctionType type) {
   switch (type) {
@@ -974,16 +952,17 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                        }),
         pose_priors_.end());
 
-    const bool use_prior_position = AlignReconstruction();
+    const bool use_prior_position =
+        pose_priors_.size() >= 3 && AlignReconstruction();
 
-    // Fix 7-DOFs of BA problem if not enough valid pose priors.
+    // Fix 7-DOFs of the BA problem if the pose priors cannot constrain them.
     if (use_prior_position) {
       // Normalize the reconstruction to avoid any numerical instability but
       // do not transform priors as they will be transformed when added to
       // ceres::Problem.
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
     } else {
-      config_.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+      config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     }
 
     // WARNING: Do not move this above the reconstruction normalization.
@@ -1182,44 +1161,13 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   }
 
   bool AlignReconstruction() {
-    RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
-    if (ransac_options.max_error <= 0) {
-      std::vector<double> rms_vars;
-      rms_vars.reserve(pose_priors_.size());
-      for (const auto& pose_prior : pose_priors_) {
-        // Gravity-only priors (kept by the constructor's filter when
-        // use_prior_gravity is enabled) have no position_covariance; skip
-        // them here explicitly. Also skip a row whose covariance is finite
-        // but not itself usable (zero, singular, or non-SPD) -- relying on
-        // `trace <= 0.0` alone would both admit some non-PD matrices with a
-        // positive trace and mishandle a NaN trace (NaN <= 0.0 is false).
-        if (!pose_prior.HasPositionCov() ||
-            !IsValidPositionCovariance(pose_prior.position_covariance)) {
-          continue;
-        }
-        const double trace = pose_prior.position_covariance.trace();
-        rms_vars.push_back(trace / 3.0);
-      }
-
-      if (rms_vars.empty()) {
-        LOG(WARNING) << "No pose priors with valid covariance found.";
-        rms_vars.push_back(prior_options_.prior_position_fallback_stddev *
-                           prior_options_.prior_position_fallback_stddev);
-      }
-
-      // Set max error using the median RMS variance of valid pose priors.
-      // Scaled by sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95%
-      // confidence radius.
-      ransac_options.max_error =
-          std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
-    }
-
-    VLOG(2) << "Robustly aligning reconstruction with max_error="
-            << ransac_options.max_error;
-
     Sim3d metric_from_orig;
     if (!AlignReconstructionToPosePriors(
-            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
+            reconstruction_,
+            pose_priors_,
+            prior_options_.alignment_ransac_options,
+            prior_options_.prior_position_fallback_stddev,
+            &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
       return false;
     }

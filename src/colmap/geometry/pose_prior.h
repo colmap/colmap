@@ -100,6 +100,16 @@ struct PosePrior {
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
 
+// Returns true if `cov` is finite, symmetric, and strictly positive definite
+// -- the conditions that cov.inverse().llt() whitening silently assumes. A
+// per-row covariance read from the database or an external archive can be
+// finite (passing PosePrior::HasPositionCov()) while still being zero,
+// singular, or only approximately symmetric, any of which corrupts the
+// whitening rather than raising an error. Callers must treat a false return as
+// "this row's declared covariance is not usable" and fall back to a declared
+// sensor-class/fallback stddev instead of inverting it anyway.
+bool IsValidPositionCovariance(const Eigen::Matrix3d& cov);
+
 // Extract gravity vector from EXIF orientation. Returns std::nullopt if not an
 // upright orientation (e.g. mirrored).
 std::optional<Eigen::Vector3d> GravityFromExifOrientation(int orientation);
