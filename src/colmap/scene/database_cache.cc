@@ -600,20 +600,12 @@ void DatabaseCache::ConvertPosePriorsToENU() {
                                          shared_from_local.transpose();
       }
 
-      if (pose_prior.HasRotation()) {
-        // local_from_shared = local_from_ecef * ecef_from_shared, and
-        // ecef_from_shared = shared_from_ecef^T.
-        const Eigen::Matrix3d local_from_shared =
-            local_from_ecef * shared_from_ecef.transpose();
-        pose_prior.rotation =
-            (pose_prior.rotation * Eigen::Quaterniond(local_from_shared))
-                .normalized();
-      }
-      if (pose_prior.HasRotationCov()) {
-        pose_prior.rotation_covariance = shared_from_local *
-                                         pose_prior.rotation_covariance *
-                                         shared_from_local.transpose();
-      }
+      // Heading needs no conversion here. It is an azimuth from TRUE north,
+      // and moving the ENU origin translates the tangent frame without
+      // rotating its north axis, so the angle is already expressed in the
+      // shared frame. (Meridian convergence would matter over hundreds of
+      // kilometres; a single reconstruction is far below that, and the
+      // per-row heading uncertainty dominates by orders of magnitude.)
     }
 
     // Gravity is down in sensor coordinates and is unaffected by a world-

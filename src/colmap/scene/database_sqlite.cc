@@ -309,67 +309,30 @@ void WriteDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
                                  SQLITE_STATIC));
 }
 
-// Explicit byte contract for PosePrior::rotation: four float64 in W, X, Y, Z
-// order. Do not serialize Eigen::Quaterniond memory directly (its internal
-// coefficient order is x, y, z, w).
-using RotationBlob = Eigen::Vector4d;
-
-RotationBlob RotationToBlobVector(const Eigen::Quaterniond& rotation) {
-  return RotationBlob(rotation.w(), rotation.x(), rotation.y(), rotation.z());
-}
-
-Eigen::Quaterniond BlobVectorToRotation(const RotationBlob& wxyz) {
-  return Eigen::Quaterniond(wxyz(0), wxyz(1), wxyz(2), wxyz(3));
-}
-
-// Explicit byte contract for PosePrior::rotation_covariance: six float64 in
-// XX, XY, XZ, YY, YZ, ZZ order (upper triangle of the symmetric matrix).
-using RotationCovarianceBlob = Eigen::Matrix<double, 6, 1>;
-
-RotationCovarianceBlob RotationCovarianceToBlobVector(
-    const Eigen::Matrix3d& cov) {
-  RotationCovarianceBlob blob;
-  blob << cov(0, 0), cov(0, 1), cov(0, 2), cov(1, 1), cov(1, 2), cov(2, 2);
-  return blob;
-}
-
-Eigen::Matrix3d BlobVectorToRotationCovariance(
-    const RotationCovarianceBlob& blob) {
-  Eigen::Matrix3d cov;
-  cov(0, 0) = blob(0);
-  cov(0, 1) = cov(1, 0) = blob(1);
-  cov(0, 2) = cov(2, 0) = blob(2);
-  cov(1, 1) = blob(3);
-  cov(1, 2) = cov(2, 1) = blob(4);
-  cov(2, 2) = blob(5);
-  return cov;
-}
-
-// A NULL `rotation`/`rotation_covariance` column (pre-migration rows, or a
-// row that never had orientation data) maps to the absent-field NaN state,
-// mirroring PosePrior's default-constructed values. ReadStaticMatrixBlob's
-// own zero-length fallback is not used here because it returns a
-// finite-but-zero value, which would be misread as a valid rotation/
-// covariance by HasRotation()/HasRotationCov().
-Eigen::Quaterniond ReadPosePriorRotationBlob(sqlite3_stmt* sql_stmt,
-                                             const int rc,
-                                             const int col) {
+// A NULL heading column (a pre-migration row, or a row that simply has no
+// compass reading) maps to the absent-field NaN state, mirroring PosePrior's
+// defaults. sqlite3_column_double returns 0.0 for NULL, which HasHeading()
+// would misread as a valid due-north reading, so the NULL check is required
+// rather than defensive.
+double ReadPosePriorHeadingColumn(sqlite3_stmt* sql_stmt,
+                                  const int rc,
+                                  const int col) {
   if (rc == SQLITE_ROW && sqlite3_column_type(sql_stmt, col) != SQLITE_NULL) {
-    return BlobVectorToRotation(
-        ReadStaticMatrixBlob<RotationBlob>(sql_stmt, rc, col));
+    return sqlite3_column_double(sql_stmt, col);
   }
-  return Eigen::Quaterniond(
-      PosePrior::kNaN, PosePrior::kNaN, PosePrior::kNaN, PosePrior::kNaN);
+  return PosePrior::kNaN;
 }
 
-Eigen::Matrix3d ReadPosePriorRotationCovarianceBlob(sqlite3_stmt* sql_stmt,
-                                                    const int rc,
-                                                    const int col) {
-  if (rc == SQLITE_ROW && sqlite3_column_type(sql_stmt, col) != SQLITE_NULL) {
-    return BlobVectorToRotationCovariance(
-        ReadStaticMatrixBlob<RotationCovarianceBlob>(sql_stmt, rc, col));
+// Binds a heading scalar, writing SQL NULL for an absent (NaN) value so the
+// column round-trips to NaN rather than to 0.0.
+void BindPosePriorHeadingColumn(sqlite3_stmt* sql_stmt,
+                                const int col,
+                                const double value) {
+  if (std::isnan(value)) {
+    SQLITE3_CALL(sqlite3_bind_null(sql_stmt, col));
+  } else {
+    SQLITE3_CALL(sqlite3_bind_double(sql_stmt, col, value));
   }
-  return Eigen::Matrix3d::Constant(PosePrior::kNaN);
 }
 
 std::optional<std::stringstream> BlobColumnToStringStream(
@@ -541,9 +504,9 @@ PosePrior ReadPosePriorRow(sqlite3_stmt* sql_stmt) {
       sqlite3_column_int64(sql_stmt, 6));
   pose_prior.gravity =
       ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt, SQLITE_ROW, 7);
-  pose_prior.rotation = ReadPosePriorRotationBlob(sql_stmt, SQLITE_ROW, 8);
-  pose_prior.rotation_covariance =
-      ReadPosePriorRotationCovarianceBlob(sql_stmt, SQLITE_ROW, 9);
+  pose_prior.heading_rad = ReadPosePriorHeadingColumn(sql_stmt, SQLITE_ROW, 8);
+  pose_prior.heading_stddev_rad =
+      ReadPosePriorHeadingColumn(sql_stmt, SQLITE_ROW, 9);
   return pose_prior;
 }
 
@@ -1397,13 +1360,10 @@ class SqliteDatabase : public Database {
     WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.gravity, 8);
     // sqlite3_bind_blob(..., SQLITE_STATIC) requires the bound memory to stay
     // alive until sqlite3_step(); these must be named locals, not temporaries.
-    const RotationBlob rotation_blob =
-        RotationToBlobVector(pose_prior.rotation);
-    const RotationCovarianceBlob rotation_covariance_blob =
-        RotationCovarianceToBlobVector(pose_prior.rotation_covariance);
-    WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, rotation_blob, 9);
-    WriteStaticMatrixBlob(
-        sql_stmt_write_pose_prior_, rotation_covariance_blob, 10);
+    BindPosePriorHeadingColumn(
+        sql_stmt_write_pose_prior_, 9, pose_prior.heading_rad);
+    BindPosePriorHeadingColumn(
+        sql_stmt_write_pose_prior_, 10, pose_prior.heading_stddev_rad);
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 
     return static_cast<image_t>(
@@ -1674,13 +1634,10 @@ class SqliteDatabase : public Database {
     WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.gravity, 7);
     // sqlite3_bind_blob(..., SQLITE_STATIC) requires the bound memory to stay
     // alive until sqlite3_step(); these must be named locals, not temporaries.
-    const RotationBlob rotation_blob =
-        RotationToBlobVector(pose_prior.rotation);
-    const RotationCovarianceBlob rotation_covariance_blob =
-        RotationCovarianceToBlobVector(pose_prior.rotation_covariance);
-    WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, rotation_blob, 8);
-    WriteStaticMatrixBlob(
-        sql_stmt_update_pose_prior_, rotation_covariance_blob, 9);
+    BindPosePriorHeadingColumn(
+        sql_stmt_update_pose_prior_, 8, pose_prior.heading_rad);
+    BindPosePriorHeadingColumn(
+        sql_stmt_update_pose_prior_, 9, pose_prior.heading_stddev_rad);
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_update_pose_prior_, 10, pose_prior.pose_prior_id));
 
@@ -1881,7 +1838,7 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "UPDATE pose_priors SET corr_data_id=?, corr_sensor_id=?, "
         "corr_sensor_type=?, position=?, position_covariance=?, "
-        "coordinate_system=?, gravity=?, rotation=?, rotation_covariance=? "
+        "coordinate_system=?, gravity=?, heading_rad=?, heading_stddev_rad=? "
         "WHERE pose_prior_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
@@ -1954,13 +1911,14 @@ class SqliteDatabase : public Database {
         &sql_stmt_read_images_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity, rotation, "
-        "rotation_covariance FROM pose_priors WHERE pose_prior_id = ?;",
+        "position, position_covariance, coordinate_system, gravity, "
+        "heading_rad, heading_stddev_rad FROM pose_priors WHERE "
+        "pose_prior_id = ?;",
         &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity, rotation, "
-        "rotation_covariance FROM pose_priors;",
+        "position, position_covariance, coordinate_system, gravity, "
+        "heading_rad, heading_stddev_rad FROM pose_priors;",
         &sql_stmt_read_pose_priors_);
     prepare_sql_stmt(
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
@@ -2015,7 +1973,7 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "INSERT INTO pose_priors(pose_prior_id, corr_data_id, corr_sensor_id, "
         "corr_sensor_type, position, position_covariance, coordinate_system, "
-        "gravity, rotation, rotation_covariance) VALUES(?, ?, ?, ?, ?, ?, ?, "
+        "gravity, heading_rad, heading_stddev_rad) VALUES(?, ?, ?, ?, ?, ?, ?, "
         "?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
@@ -2176,8 +2134,8 @@ class SqliteDatabase : public Database {
         "    position_covariance        BLOB,"
         "    gravity                    BLOB,"
         "    coordinate_system          INTEGER               NOT NULL,"
-        "    rotation                   BLOB,"
-        "    rotation_covariance        BLOB);"
+        "    heading_rad                REAL,"
+        "    heading_stddev_rad         REAL);"
         "CREATE UNIQUE INDEX IF NOT EXISTS pose_prior_data_assignment ON "
         "   pose_priors(corr_data_id, corr_sensor_id, corr_sensor_type);";
 
@@ -2278,20 +2236,25 @@ class SqliteDatabase : public Database {
     maybe_add_two_view_geometries_blob_column("camera1");
     maybe_add_two_view_geometries_blob_column("camera2");
 
-    auto maybe_add_pose_priors_blob_column =
+    // Additive and guarded, matching maybe_add_two_view_geometries_blob_column
+    // above. A database written by an older build simply lacks these columns
+    // and gains them here; a database written by a build that had the earlier
+    // rotation BLOB columns keeps those unused, which is harmless because every
+    // read names its columns explicitly.
+    auto maybe_add_pose_priors_real_column =
         [this](const std::string& column_name) {
           if (!ExistsColumn("pose_priors", column_name)) {
             SQLITE3_EXEC(
                 database_,
-                StringPrintf("ALTER TABLE pose_priors ADD COLUMN %s BLOB;",
+                StringPrintf("ALTER TABLE pose_priors ADD COLUMN %s REAL;",
                              column_name.c_str())
                     .c_str(),
                 nullptr);
           }
         };
 
-    maybe_add_pose_priors_blob_column("rotation");
-    maybe_add_pose_priors_blob_column("rotation_covariance");
+    maybe_add_pose_priors_real_column("heading_rad");
+    maybe_add_pose_priors_real_column("heading_stddev_rad");
 
     // Read current user_version for migration gating.
     int user_version = 0;

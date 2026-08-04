@@ -33,6 +33,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
+#include <cmath>
 #include <optional>
 #include <ostream>
 
@@ -69,13 +70,17 @@ struct PosePrior {
   // The gravity (down) in the sensor coordinate system.
   Eigen::Vector3d gravity = Eigen::Vector3d::Constant(kNaN);
 
-  // The absolute orientation of the sensor as sensor_from_world. For
-  // CoordinateSystem::CARTESIAN this is sensor_from_cartesian_world; for
-  // CoordinateSystem::WGS84 this is sensor_from_local_enu_at_position.
-  Eigen::Quaterniond rotation = Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN);
-  // The rotation covariance in rad^2, right-multiplicative in the same world
-  // basis as `rotation`.
-  Eigen::Matrix3d rotation_covariance = Eigen::Matrix3d::Constant(kNaN);
+  // Clockwise azimuth of the sensor's +Z optical axis, projected onto the local
+  // horizontal plane and measured from TRUE north, in radians on [0, 2*pi).
+  //
+  // Deliberately a scalar rather than a quaternion. A compass measures one
+  // degree of freedom; storing it as a full orientation invites the other two
+  // being filled with something, and those two are already determined -- and
+  // better determined -- by the gravity prior. Gravity fixes roll and pitch,
+  // heading fixes yaw, and together they span orientation without overlapping.
+  double heading_rad = kNaN;
+  // One-sigma uncertainty of `heading_rad`, in radians, on (0, pi].
+  double heading_stddev_rad = kNaN;
 
   // Epsilon below which a nominally-finite gravity/direction vector is
   // treated as degenerate (zero or near-zero) rather than a usable
@@ -84,15 +89,22 @@ struct PosePrior {
   // silently normalize to an arbitrary direction wherever it is consumed.
   constexpr static double kMinDirectionNorm = 1e-6;
 
+  // Spelled out rather than using M_PI: that macro requires _USE_MATH_DEFINES
+  // before <cmath> on MSVC and is not portable in a header.
+  constexpr static double kPi = 3.14159265358979323846;
+  constexpr static double kTwoPi = 2.0 * kPi;
+
   inline bool HasPosition() const { return position.allFinite(); }
   inline bool HasPositionCov() const { return position_covariance.allFinite(); }
   inline bool HasGravity() const {
     return gravity.allFinite() && gravity.norm() > kMinDirectionNorm;
   }
-  inline bool HasRotation() const {
-    return rotation.coeffs().allFinite() && rotation.norm() > 0;
+  // A heading is usable only together with its uncertainty: the constraint is
+  // weighted, so an unweighted heading has no defined contribution.
+  inline bool HasHeading() const {
+    return std::isfinite(heading_rad) && std::isfinite(heading_stddev_rad) &&
+           heading_stddev_rad > 0.0 && heading_stddev_rad <= kPi;
   }
-  inline bool HasRotationCov() const { return rotation_covariance.allFinite(); }
 
   bool operator==(const PosePrior& other) const;
   bool operator!=(const PosePrior& other) const;

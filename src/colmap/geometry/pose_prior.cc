@@ -54,6 +54,15 @@ bool IsNaNEqual(const T& left, const T& right) {
   return true;
 }
 
+// Scalar counterpart of IsNaNEqual: two absent (NaN) values compare equal, which
+// the default == does not do.
+bool IsNaNScalarEqual(double left, double right) {
+  if (std::isnan(left) != std::isnan(right)) {
+    return false;
+  }
+  return std::isnan(left) || left == right;
+}
+
 }  // namespace
 
 bool PosePrior::operator==(const PosePrior& other) const {
@@ -63,8 +72,8 @@ bool PosePrior::operator==(const PosePrior& other) const {
          IsNaNEqual(position, other.position) &&
          IsNaNEqual(position_covariance, other.position_covariance) &&
          IsNaNEqual(gravity, other.gravity) &&
-         IsNaNEqual(rotation.coeffs(), other.rotation.coeffs()) &&
-         IsNaNEqual(rotation_covariance, other.rotation_covariance);
+         IsNaNScalarEqual(heading_rad, other.heading_rad) &&
+         IsNaNScalarEqual(heading_stddev_rad, other.heading_stddev_rad);
 }
 
 bool PosePrior::operator!=(const PosePrior& other) const {
@@ -81,10 +90,9 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
          << "], position_covariance=["
          << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
          << PosePrior::CoordinateSystemToString(prior.coordinate_system)
-         << ", gravity=[" << prior.gravity.format(kVecFmt) << "], rotation=["
-         << prior.rotation.coeffs().format(kVecFmt)
-         << "], rotation_covariance=["
-         << prior.rotation_covariance.format(kVecFmt) << "])";
+         << ", gravity=[" << prior.gravity.format(kVecFmt)
+         << "], heading_rad=" << prior.heading_rad
+         << ", heading_stddev_rad=" << prior.heading_stddev_rad << ")";
   return stream;
 }
 

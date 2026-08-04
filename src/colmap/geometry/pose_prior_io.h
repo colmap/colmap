@@ -96,17 +96,6 @@ struct PosePriorArchive {
     // Required (and must equal "LOCAL_ENU" for WGS84 / "CARTESIAN" for
     // Cartesian archives) when a position covariance group is present.
     std::optional<std::string> position_covariance_frame = std::nullopt;
-    // Required (and must equal "SENSOR_FROM_WORLD") when a quaternion group
-    // is present.
-    std::optional<std::string> rotation_convention = std::nullopt;
-    // Required when a quaternion group is present. For WGS84 archives must
-    // equal "ENU" (and requires enu_origin). For Cartesian archives must
-    // equal cartesian_frame ("LOCAL" meaning sensor_from_local_world with no
-    // Earth meaning, or "ENU", which also requires enu_origin).
-    std::optional<std::string> rotation_world_frame = std::nullopt;
-    // Required (and must equal "RIGHT_MULTIPLICATIVE_WORLD") when a rotation
-    // covariance group is present.
-    std::optional<std::string> rotation_covariance_convention = std::nullopt;
 
     bool IsValid() const;
   };
@@ -125,12 +114,12 @@ struct PosePriorArchive {
       COV_TXX, COV_TXY, COV_TXZ, COV_TYY, COV_TYZ, COV_TZZ,
       // Gravity (down) in sensor coordinates
       GX, GY, GZ,
-      // Absolute orientation quaternion, sensor_from_archive_enu (Hamilton,
-      // W first)
-      QW, QX, QY, QZ,
-      // Rotation covariance, rad^2, right-multiplicative world basis
-      ROT_COV_XX, ROT_COV_XY, ROT_COV_XZ,
-      ROT_COV_YY, ROT_COV_YZ, ROT_COV_ZZ)
+      // Clockwise azimuth of the sensor +Z optical axis from TRUE north, in
+      // degrees on [0, 360), with its own one-sigma uncertainty in degrees.
+      // A magnetic reading must be declination-corrected, and a device-body
+      // heading converted through the body-to-camera extrinsic, before it is
+      // written here: the archive always describes the camera.
+      HEADING_DEG, HEADING_STD_DEG)
   // clang-format on
 
   // To add a new ColumnId:

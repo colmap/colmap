@@ -55,11 +55,10 @@ MAKE_ENUM_CLASS(ColumnGroup,
                 TRANSLATION_STD,
                 TRANSLATION_COV,
                 GRAVITY,
-                ROTATION,
-                ROTATION_COV);
+                HEADING);
 
-// Fixed input-validity tolerance for gravity/quaternion unit-norm checks. Not
-// a CLI option: a nonzero vector/quaternion whose norm differs from one by no
+// Fixed input-validity tolerance for the gravity unit-norm check. Not a CLI
+// option: a nonzero vector whose norm differs from one by no
 // more than this is normalized; otherwise the row is rejected.
 constexpr double kUnitNormTolerance = 1e-2;
 
@@ -68,8 +67,8 @@ constexpr double kUnitNormTolerance = 1e-2;
 // ordinary floating-point roundoff around zero.
 constexpr double kCovarianceEigenvalueTolerance = -1e-9;
 
-// A row's measurement group (gravity, quaternion, rotation covariance,
-// translation STD/COV, Cartesian position) is present only when every cell
+// A row's measurement group (gravity, heading, translation STD/COV,
+// Cartesian position) is present only when every cell
 // is finite; these two helpers implement that "all or nothing" rule once
 // instead of repeating an any/all boolean pair per group.
 bool AnyFinite(std::initializer_list<double> values) {
@@ -140,16 +139,8 @@ FlatHashMap<ColumnGroup, GroupPresence> AnalyzeColumnGroups(
     m[ColumnGroup::GRAVITY] = {PosePriorArchive::ColumnId::GX,
                                PosePriorArchive::ColumnId::GY,
                                PosePriorArchive::ColumnId::GZ};
-    m[ColumnGroup::ROTATION] = {PosePriorArchive::ColumnId::QW,
-                                PosePriorArchive::ColumnId::QX,
-                                PosePriorArchive::ColumnId::QY,
-                                PosePriorArchive::ColumnId::QZ};
-    m[ColumnGroup::ROTATION_COV] = {PosePriorArchive::ColumnId::ROT_COV_XX,
-                                    PosePriorArchive::ColumnId::ROT_COV_XY,
-                                    PosePriorArchive::ColumnId::ROT_COV_XZ,
-                                    PosePriorArchive::ColumnId::ROT_COV_YY,
-                                    PosePriorArchive::ColumnId::ROT_COV_YZ,
-                                    PosePriorArchive::ColumnId::ROT_COV_ZZ};
+    m[ColumnGroup::HEADING] = {PosePriorArchive::ColumnId::HEADING_DEG,
+                               PosePriorArchive::ColumnId::HEADING_STD_DEG};
     return m;
   }();
 
@@ -250,16 +241,8 @@ const FlatHashMap<PosePriorArchive::ColumnId, cell_parser_t>& GetCellParsers() {
           COLMAP_COLUMN_PARSER_ENTRY(GX),
           COLMAP_COLUMN_PARSER_ENTRY(GY),
           COLMAP_COLUMN_PARSER_ENTRY(GZ),
-          COLMAP_COLUMN_PARSER_ENTRY(QW),
-          COLMAP_COLUMN_PARSER_ENTRY(QX),
-          COLMAP_COLUMN_PARSER_ENTRY(QY),
-          COLMAP_COLUMN_PARSER_ENTRY(QZ),
-          COLMAP_COLUMN_PARSER_ENTRY(ROT_COV_XX),
-          COLMAP_COLUMN_PARSER_ENTRY(ROT_COV_XY),
-          COLMAP_COLUMN_PARSER_ENTRY(ROT_COV_XZ),
-          COLMAP_COLUMN_PARSER_ENTRY(ROT_COV_YY),
-          COLMAP_COLUMN_PARSER_ENTRY(ROT_COV_YZ),
-          COLMAP_COLUMN_PARSER_ENTRY(ROT_COV_ZZ),
+          COLMAP_COLUMN_PARSER_ENTRY(HEADING_DEG),
+          COLMAP_COLUMN_PARSER_ENTRY(HEADING_STD_DEG),
       };
   return parsers;
 }
@@ -309,16 +292,6 @@ PosePriorArchive ReadPosePriorArchiveFromJSON(
   if (const auto v =
           pt.get_optional<std::string>("position_covariance_frame")) {
     archive.metadata.position_covariance_frame = *v;
-  }
-  if (const auto v = pt.get_optional<std::string>("rotation_convention")) {
-    archive.metadata.rotation_convention = *v;
-  }
-  if (const auto v = pt.get_optional<std::string>("rotation_world_frame")) {
-    archive.metadata.rotation_world_frame = *v;
-  }
-  if (const auto v =
-          pt.get_optional<std::string>("rotation_covariance_convention")) {
-    archive.metadata.rotation_covariance_convention = *v;
   }
 
   const auto enu_origin_node = pt.get_child_optional("enu_origin");
@@ -464,12 +437,7 @@ bool PosePriorArchive::Metadata::IsValid() const {
     }
   }
 
-  if (!RequireLiteral(height_datum, "ELLIPSOIDAL", "height_datum") ||
-      !RequireLiteral(
-          rotation_convention, "SENSOR_FROM_WORLD", "rotation_convention") ||
-      !RequireLiteral(rotation_covariance_convention,
-                      "RIGHT_MULTIPLICATIVE_WORLD",
-                      "rotation_covariance_convention")) {
+  if (!RequireLiteral(height_datum, "ELLIPSOIDAL", "height_datum")) {
     return false;
   }
 
@@ -484,33 +452,6 @@ bool PosePriorArchive::Metadata::IsValid() const {
         v != "CARTESIAN") {
       LOG(ERROR) << "Cartesian position_covariance_frame must be CARTESIAN";
       return false;
-    }
-  }
-
-  if (rotation_world_frame.has_value()) {
-    const std::string& v = *rotation_world_frame;
-    if (coordinate_system == PosePrior::CoordinateSystem::WGS84) {
-      if (v != "ENU") {
-        LOG(ERROR) << "WGS84 rotation_world_frame must be ENU";
-        return false;
-      }
-      if (!enu_origin.has_value()) {
-        LOG(ERROR) << "WGS84 rotation_world_frame=ENU requires enu_origin";
-        return false;
-      }
-    } else if (coordinate_system == PosePrior::CoordinateSystem::CARTESIAN) {
-      if (!cartesian_frame.has_value() ||
-          v != CartesianFrameToString(*cartesian_frame)) {
-        LOG(ERROR) << "Cartesian rotation_world_frame must equal "
-                      "cartesian_frame";
-        return false;
-      }
-      if (*cartesian_frame == PosePriorArchive::CartesianFrame::ENU &&
-          !enu_origin.has_value()) {
-        LOG(ERROR) << "Cartesian rotation_world_frame=ENU requires "
-                      "enu_origin";
-        return false;
-      }
     }
   }
 
@@ -595,19 +536,17 @@ bool PosePriorArchive::Schema::IsValid(const Metadata& metadata) const {
   }
 
   const auto& gravity_presence = groups.at(ColumnGroup::GRAVITY);
-  const auto& rotation_presence = groups.at(ColumnGroup::ROTATION);
-  const auto& rotation_cov_presence = groups.at(ColumnGroup::ROTATION_COV);
+  const auto& heading_presence = groups.at(ColumnGroup::HEADING);
 
   if (gravity_presence.any && !gravity_presence.all) {
     LOG(ERROR) << "Incomplete GX/GY/GZ columns: all three are required";
     return false;
   }
-  if (rotation_presence.any && !rotation_presence.all) {
-    LOG(ERROR) << "Incomplete QW/QX/QY/QZ columns: all four are required";
-    return false;
-  }
-  if (rotation_cov_presence.any && !rotation_cov_presence.all) {
-    LOG(ERROR) << "Incomplete ROT_COV_* columns: all six are required";
+  // A heading without its uncertainty has no defined weight, and the
+  // constraint is weighted, so the pair is all-or-nothing.
+  if (heading_presence.any && !heading_presence.all) {
+    LOG(ERROR) << "Incomplete heading columns: HEADING_DEG and "
+                  "HEADING_STD_DEG are both required";
     return false;
   }
 
@@ -616,24 +555,6 @@ bool PosePriorArchive::Schema::IsValid(const Metadata& metadata) const {
   if (has_position_cov && !metadata.position_covariance_frame.has_value()) {
     LOG(ERROR) << "position_covariance_frame is required when a position "
                   "covariance group is present";
-    return false;
-  }
-  if (rotation_presence.all) {
-    if (!metadata.rotation_convention.has_value()) {
-      LOG(ERROR) << "rotation_convention is required when a quaternion "
-                    "group is present";
-      return false;
-    }
-    if (!metadata.rotation_world_frame.has_value()) {
-      LOG(ERROR) << "rotation_world_frame is required when a quaternion "
-                    "group is present";
-      return false;
-    }
-  }
-  if (rotation_cov_presence.all &&
-      !metadata.rotation_covariance_convention.has_value()) {
-    LOG(ERROR) << "rotation_covariance_convention is required when a "
-                  "rotation covariance group is present";
     return false;
   }
   if (cs == PosePrior::CoordinateSystem::WGS84 && geographic_presence.all &&
@@ -692,8 +613,7 @@ void PosePriorArchive::UpdatePosePriors(
   const auto& translation_cov_presence =
       groups.at(ColumnGroup::TRANSLATION_COV);
   const auto& gravity_presence = groups.at(ColumnGroup::GRAVITY);
-  const auto& rotation_presence = groups.at(ColumnGroup::ROTATION);
-  const auto& rotation_cov_presence = groups.at(ColumnGroup::ROTATION_COV);
+  const auto& heading_presence = groups.at(ColumnGroup::HEADING);
 
   if (!name_presence.all) {
     LOG(ERROR) << "Schema is missing NAME column: cannot convert "
@@ -777,22 +697,10 @@ void PosePriorArchive::UpdatePosePriors(
                                                       ColumnId::COV_TYY,
                                                       ColumnId::COV_TYZ,
                                                       ColumnId::COV_TZZ}));
-    const bool row_has_rotation =
-        rotation_presence.all &&
-        row_has_all({ColumnId::QW, ColumnId::QX, ColumnId::QY, ColumnId::QZ});
-    const bool row_has_rotation_covariance =
-        rotation_cov_presence.all && row_has_all({ColumnId::ROT_COV_XX,
-                                                  ColumnId::ROT_COV_XY,
-                                                  ColumnId::ROT_COV_XZ,
-                                                  ColumnId::ROT_COV_YY,
-                                                  ColumnId::ROT_COV_YZ,
-                                                  ColumnId::ROT_COV_ZZ});
     const bool row_has_coordinate_measurement =
-        row_has_position || row_has_position_covariance || row_has_rotation ||
-        row_has_rotation_covariance;
+        row_has_position || row_has_position_covariance;
     const bool existing_has_coordinate_measurement =
-        prior.HasPosition() || prior.HasPositionCov() || prior.HasRotation() ||
-        prior.HasRotationCov();
+        prior.HasPosition() || prior.HasPositionCov();
     THROW_CHECK(!is_prior_exist || !row_has_coordinate_measurement ||
                 !existing_has_coordinate_measurement ||
                 prior.coordinate_system == metadata.coordinate_system)
@@ -917,94 +825,30 @@ void PosePriorArchive::UpdatePosePriors(
       }
     }
 
-    // Import-time orientation normalization (WGS84 only): the archive
-    // quaternion is sensor_from_archive_enu, expressed in the archive's
-    // single global ENU frame (metadata.enu_origin). The database stores a
-    // row-local rotation (sensor_from_local_enu_at_position) so every row is
-    // self-contained; convert here, once, at import time:
-    //   archive_from_local = archive_from_ecef * ecef_from_local
-    //   sensor_from_local = sensor_from_archive * archive_from_local
-    // and, for right-multiplicative covariance:
-    //   Cov_local = local_from_archive * Cov_archive * archive_from_local
-    //             = archive_from_local^T * Cov_archive * archive_from_local
-    // Cartesian archives have no row-local concept (rotation is stored as
-    // one shared sensor_from_cartesian_world) and need no conversion here.
-    Eigen::Matrix3d archive_from_local = Eigen::Matrix3d::Identity();
-    bool has_archive_to_local_basis = false;
-    if (is_geographic && (rotation_presence.all || rotation_cov_presence.all)) {
-      THROW_CHECK(metadata.enu_origin.has_value())
-          << "WGS84 rotation group requires metadata.enu_origin";
-      const Eigen::Matrix3d archive_from_ecef = GPSTransform::ENUFromECEF(
-          metadata.enu_origin->x(), metadata.enu_origin->y());
-      const Eigen::Matrix3d ecef_from_local =
-          GPSTransform::ECEFFromENU(prior.position.x(), prior.position.y());
-      archive_from_local = archive_from_ecef * ecef_from_local;
-      has_archive_to_local_basis = true;
-    }
-
-    // Absolute orientation quaternion.
-    if (rotation_presence.all) {
-      const double qw = get_double(row[column_indices.at(ColumnId::QW)]);
-      const double qx = get_double(row[column_indices.at(ColumnId::QX)]);
-      const double qy = get_double(row[column_indices.at(ColumnId::QY)]);
-      const double qz = get_double(row[column_indices.at(ColumnId::QZ)]);
-      const bool any_finite = AnyFinite({qw, qx, qy, qz});
-      const bool all_finite = AllFinite({qw, qx, qy, qz});
+    // Heading: a scalar, weighted, true-north yaw. Stored in radians on
+    // [0, 2*pi) with its own one-sigma uncertainty, and requires gravity on the
+    // same row -- a yaw is only meaningful once roll and pitch are pinned.
+    if (heading_presence.all) {
+      const double heading_deg =
+          get_double(row[column_indices.at(ColumnId::HEADING_DEG)]);
+      const double heading_std_deg =
+          get_double(row[column_indices.at(ColumnId::HEADING_STD_DEG)]);
+      const bool any_finite = AnyFinite({heading_deg, heading_std_deg});
+      const bool all_finite = AllFinite({heading_deg, heading_std_deg});
       THROW_CHECK(!any_finite || all_finite)
-          << "Partially populated quaternion group for " << name;
+          << "Partially populated heading group for " << name
+          << ": HEADING_DEG and HEADING_STD_DEG are both required";
       if (all_finite) {
-        if (is_geographic) {
-          THROW_CHECK(std::isfinite(prior.position.x()) &&
-                      std::isfinite(prior.position.y()))
-              << "Full WGS84 orientation for " << name
-              << " requires finite latitude and longitude on the same row";
-        }
-        Eigen::Vector4d wxyz(qw, qx, qy, qz);
-        THROW_CHECK(NormalizeIfNearUnit(wxyz))
-            << "Quaternion for " << name
-            << " is zero-norm or not approximately unit-norm";
-        const Eigen::Quaterniond sensor_from_archive(
-            wxyz(0), wxyz(1), wxyz(2), wxyz(3));
-        prior.rotation =
-            has_archive_to_local_basis
-                ? (sensor_from_archive * Eigen::Quaterniond(archive_from_local))
-                      .normalized()
-                : sensor_from_archive;
-      }
-    }
-
-    // Rotation covariance, right-multiplicative in the same world basis as
-    // the quaternion above.
-    if (rotation_cov_presence.all) {
-      const double rxx =
-          get_double(row[column_indices.at(ColumnId::ROT_COV_XX)]);
-      const double rxy =
-          get_double(row[column_indices.at(ColumnId::ROT_COV_XY)]);
-      const double rxz =
-          get_double(row[column_indices.at(ColumnId::ROT_COV_XZ)]);
-      const double ryy =
-          get_double(row[column_indices.at(ColumnId::ROT_COV_YY)]);
-      const double ryz =
-          get_double(row[column_indices.at(ColumnId::ROT_COV_YZ)]);
-      const double rzz =
-          get_double(row[column_indices.at(ColumnId::ROT_COV_ZZ)]);
-      const bool any_finite = AnyFinite({rxx, rxy, rxz, ryy, ryz, rzz});
-      const bool all_finite = AllFinite({rxx, rxy, rxz, ryy, ryz, rzz});
-      THROW_CHECK(!any_finite || all_finite)
-          << "Partially populated rotation covariance group for " << name;
-      if (all_finite) {
-        Eigen::Matrix3d rotation_covariance;
-        rotation_covariance << rxx, rxy, rxz, rxy, ryy, ryz, rxz, ryz, rzz;
-        THROW_CHECK(IsApproximatelyPSD(rotation_covariance))
-            << "Rotation covariance for " << name
-            << " is not positive semi-definite";
-        if (has_archive_to_local_basis) {
-          // Cov_local = archive_from_local^T * Cov_archive *
-          // archive_from_local.
-          rotation_covariance = archive_from_local.transpose() *
-                                rotation_covariance * archive_from_local;
-        }
-        prior.rotation_covariance = rotation_covariance;
+        THROW_CHECK(prior.HasGravity())
+            << "Heading for " << name
+            << " requires a gravity observation on the same row";
+        THROW_CHECK(heading_deg >= 0.0 && heading_deg < 360.0)
+            << "Heading for " << name << " must lie in [0, 360)";
+        THROW_CHECK(heading_std_deg > 0.0 && heading_std_deg <= 180.0)
+            << "Heading uncertainty for " << name << " must lie in (0, 180]";
+        constexpr double kDegToRad = PosePrior::kPi / 180.0;
+        prior.heading_rad = heading_deg * kDegToRad;
+        prior.heading_stddev_rad = heading_std_deg * kDegToRad;
       }
     }
   }
