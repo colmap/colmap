@@ -1,7 +1,6 @@
 #include "colmap/estimators/alignment.h"
 
 #include "colmap/exe/model.h"
-#include "colmap/geometry/pose_prior.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
@@ -9,7 +8,6 @@
 
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
-#include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -115,99 +113,6 @@ void BindAlignmentEstimator(py::module& m) {
       "tgt_locations"_a,
       "min_common_images"_a,
       "ransac_options"_a);
-
-  m.def(
-      "align_reconstruction_to_pose_priors",
-      [](const Reconstruction& src_reconstruction,
-         const std::vector<PosePrior>& tgt_pose_priors,
-         const RANSACOptions& ransac_options,
-         double prior_position_fallback_stddev)
-          -> py::typing::Optional<Sim3d> {
-        Sim3d tgt_from_src;
-        if (!AlignReconstructionToPosePriors(src_reconstruction,
-                                             tgt_pose_priors,
-                                             ransac_options,
-                                             prior_position_fallback_stddev,
-                                             &tgt_from_src)) {
-          return py::none();
-        }
-        return py::cast(tgt_from_src);
-      },
-      "src_reconstruction"_a,
-      "tgt_pose_priors"_a,
-      "ransac_options"_a,
-      "prior_position_fallback_stddev"_a = 1.0);
-
-  py::classh<PosePriorAlignmentResult>(m, "PosePriorAlignmentResult")
-      .def(py::init<>())
-      .def_readwrite("success", &PosePriorAlignmentResult::success)
-      .def_readwrite("tgt_from_src", &PosePriorAlignmentResult::tgt_from_src)
-      .def_readwrite("correspondence_image_ids",
-                     &PosePriorAlignmentResult::correspondence_image_ids)
-      .def_readwrite("orientation_requested",
-                     &PosePriorAlignmentResult::orientation_requested)
-      .def_readwrite("orientation_engaged",
-                     &PosePriorAlignmentResult::orientation_engaged)
-      .def_readwrite("orientation_image_ids",
-                     &PosePriorAlignmentResult::orientation_image_ids)
-      .def_readwrite("orientation_residuals_deg",
-                     &PosePriorAlignmentResult::orientation_residuals_deg)
-      .def_property_readonly(
-          "inlier_mask",
-          [](const PosePriorAlignmentResult& self) -> PyInlierMask {
-            return ToPythonMask(self.inlier_mask);
-          })
-      .def_property_readonly(
-          "orientation_inlier_mask",
-          [](const PosePriorAlignmentResult& self) -> PyInlierMask {
-            return ToPythonMask(self.orientation_inlier_mask);
-          });
-
-  py::classh<AnisotropicPositionGate>(m, "AnisotropicPositionGate")
-      .def(py::init<>())
-      .def_readwrite("max_horizontal_error",
-                     &AnisotropicPositionGate::max_horizontal_error)
-      .def_readwrite("max_vertical_error",
-                     &AnisotropicPositionGate::max_vertical_error)
-      .def("is_set", &AnisotropicPositionGate::IsSet);
-
-  m.def("align_reconstruction_to_pose_priors_robust",
-        &AlignReconstructionToPosePriorsRobust,
-        "src_reconstruction"_a,
-        "tgt_pose_priors"_a,
-        "ransac_options"_a,
-        "anisotropic_gate"_a = AnisotropicPositionGate(),
-        "Robustly align a reconstruction to pose priors, returning the "
-        "RANSAC inlier mask and correspondence image ids alongside the "
-        "similarity transform. If anisotropic_gate is set, RANSAC "
-        "admission evaluates ENU horizontal/vertical residuals separately "
-        "instead of the isotropic ransac_options.max_error gate.");
-
-  m.def(
-      "refine_pose_prior_alignment_with_orientations",
-      [](const Reconstruction& src_reconstruction,
-         const std::vector<PosePrior>& tgt_pose_priors,
-         const double position_fallback_stddev,
-         const double orientation_fallback_stddev_rad,
-         const double orientation_max_error_deg,
-         PosePriorAlignmentResult result) {
-        RefinePosePriorAlignmentWithOrientations(
-            src_reconstruction,
-            tgt_pose_priors,
-            position_fallback_stddev,
-            orientation_fallback_stddev_rad,
-            orientation_max_error_deg,
-            &result);
-        return result;
-      },
-      "src_reconstruction"_a,
-      "tgt_pose_priors"_a,
-      "position_fallback_stddev"_a,
-      "orientation_fallback_stddev_rad"_a,
-      "orientation_max_error_deg"_a,
-      "result"_a,
-      "Refine a successful position alignment with absolute orientation "
-      "priors while preserving its position inlier set.");
 
   m.def(
       "compare_reconstructions",

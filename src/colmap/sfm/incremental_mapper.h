@@ -30,7 +30,6 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
-#include "colmap/math/math.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
@@ -151,42 +150,9 @@ class IncrementalMapper {
     // Whether to use a robust loss on prior locations
     bool use_robust_loss_on_prior_position = false;
 
-    // Threshold on the *standardized* (covariance-whitened) residual norm
-    // for the robust loss, in "number of standard deviations" -- NOT
-    // chi-square units. Ceres scales a robust loss as
-    // rho(s, a) = a^2 * rho(s / a^2), where `a` is in residual-norm units,
-    // so the 95%-confidence-radius threshold for a 3-DOF whitened residual
-    // is sqrt(chi-square_3dof_95), not the raw chi-square quantile itself.
-    double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
-
-    // Fallback position standard deviation (metres) used only when a prior
-    // has no usable position covariance. Must be forwarded into every
-    // pose-prior BA stage this options struct reaches (see GlobalMapper's
-    // pose_prior_position_fallback_stddev_ and
-    // IterativeRetriangulateAndRefine) -- a stage that silently falls back
-    // to PosePriorBundleAdjustmentOptions' own default instead is a
-    // correctness bug, not merely a different tuning choice.
-    double prior_position_fallback_stddev = 1.0;
-
-    // Whether to add a soft, yaw-free gravity residual for every pose prior
-    // with a gravity reading, alongside the position residual. Only takes
-    // effect together with use_prior_position (there is no other point in
-    // this solve where "down" has a known physical direction to compare
-    // against -- see PosePriorBundleAdjuster::world_down_).
-    bool use_prior_gravity = false;
-
-    // Global sensor-class angular uncertainty for the gravity residual, in
-    // degrees.
-    double prior_gravity_stddev_deg = 5.0;
-
-    // Threshold on the *standardized* (covariance-whitened) residual norm
-    // for the gravity robust loss, in "number of standard deviations" -- NOT
-    // radians/degrees, even though the gravity covariance itself is built
-    // from prior_gravity_stddev_deg. The 95%-confidence-radius threshold for
-    // a 2-DOF whitened residual is sqrt(chi-square_2dof_95) (see
-    // AbsoluteGravityPriorCostFunctor's local-rank-2 comment in
-    // pose_prior.h for why 2 DOF applies to its 3-component residual).
-    double prior_gravity_loss_scale = std::sqrt(kChiSquare95TwoDof);
+    // Threshold on the residual for the robust loss
+    // (chi2 for 3DOF at 95% = 7.815)
+    double prior_position_loss_scale = 7.815;
 
     // Number of threads.
     int num_threads = -1;

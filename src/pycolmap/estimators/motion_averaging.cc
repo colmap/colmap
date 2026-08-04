@@ -13,13 +13,6 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindGlobalPositioner(py::module& m) {
-  py::enum_<PosePriorPositionMode> PyPosePriorPositionMode(
-      m, "PosePriorPositionMode");
-  PyPosePriorPositionMode.value("off", PosePriorPositionMode::off)
-      .value("initialize", PosePriorPositionMode::initialize)
-      .value("optimize", PosePriorPositionMode::optimize);
-  AddStringToEnumConstructor(PyPosePriorPositionMode);
-
   auto PyGlobalPositionerOptions =
       py::classh<GlobalPositionerOptions>(m, "GlobalPositionerOptions")
           .def(py::init<>())
@@ -68,29 +61,7 @@ void BindGlobalPositioner(py::module& m) {
                          "Scaling factor for the loss function.")
           .def_readwrite("use_parameter_block_ordering",
                          &GlobalPositionerOptions::use_parameter_block_ordering,
-                         "Whether to use custom parameter block ordering.")
-          .def_readwrite(
-              "pose_prior_position_mode",
-              &GlobalPositionerOptions::pose_prior_position_mode,
-              "Whether/how to use pose priors to seed or constrain frame "
-              "positions.")
-          .def_readwrite(
-              "pose_prior_position_loss_scale",
-              &GlobalPositionerOptions::pose_prior_position_loss_scale,
-              "Robust loss scale for whitened pose-prior position residuals "
-              "in `optimize` mode.")
-          .def_readwrite(
-              "pose_prior_position_fallback_stddev",
-              &GlobalPositionerOptions::pose_prior_position_fallback_stddev,
-              "Fallback position standard deviation (metres) used only when "
-              "a prior has no position covariance.")
-          .def_readwrite(
-              "pose_prior_position_ransac_max_error",
-              &GlobalPositionerOptions::pose_prior_position_ransac_max_error,
-              "Explicit RANSAC admission gate (metres) for the optimize-mode "
-              "gauge fit. Negative (default) retains the legacy derived "
-              "gate: pose_prior_position_loss_scale * "
-              "pose_prior_position_fallback_stddev.");
+                         "Whether to use custom parameter block ordering.");
   MakeDataclass(PyGlobalPositionerOptions);
 
   m.def(

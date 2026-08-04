@@ -154,13 +154,9 @@ struct IncrementalPipelineOptions {
   // Whether to use a robust loss on prior camera positions.
   bool use_robust_loss_on_prior_position = false;
 
-  // Threshold on the *standardized* (covariance-whitened) residual norm for
-  // the robust position prior loss, in "number of standard deviations" --
-  // NOT chi-square units. The 95%-confidence-radius threshold for a 3-DOF
-  // whitened residual is sqrt(chi-square_3dof_95), not the raw chi-square
-  // quantile itself (mirrors IncrementalMapper::Options::
-  // prior_position_loss_scale, which this option populates).
-  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
+  // Threshold on the residual for the robust position prior loss
+  // (chi2 for 3DOF at 95% = 7.815).
+  double prior_position_loss_scale = 7.815;
 
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
