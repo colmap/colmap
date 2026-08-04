@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <vector>
@@ -47,15 +48,27 @@ namespace colmap {
 // fixes the scale, so it needs no identifiability score.
 //
 // Inputs are asymmetric: X_t are principal-point-centered points of the
-// uncalibrated view (u - cx), in pixels, since its focal is the unknown; Y_t
-// are calibrated bearing rays of the second view, so any camera model is
-// admissible there, including non-pinhole ones and rays with z <= 0. The
-// epipolar constraint is ray2^T M point1 = 0 with M = E * diag(1/f1, 1/f1, 1).
+// uncalibrated view (u - cx), in pixels, since its focal is the unknown. Y_t
+// are calibrated bearing rays of the second view with their unprojection
+// Jacobians, so any camera model is admissible there, including non-pinhole
+// ones and rays with z <= 0. The epipolar constraint is ray2^T M point1 = 0
+// with M = E * diag(1/f1, 1/f1, 1).
 //
-// Residuals are squared distances to the epipolar line, in first-view pixels.
-// A Sampson error is deliberately not used: it combines the gradients of both
-// views, which are in different units here, so it would collapse onto the
-// ray-scale term and leave a pixel-valued RANSAC threshold meaningless.
+// Residuals are squared tangent Sampson errors, in pixels. Measuring only the
+// first view's distance to the epipolar line would minimize over the subspace
+// where the second view's point is held fixed, which upper-bounds the true
+// reprojection error by an amount that grows with the second camera's field of
+// view. A *plain* Sampson error is indeed ill-posed here, since it combines the
+// two views' gradients in different units (pixels and rays), but the second
+// view's unprojection Jacobian is exactly the conversion that repairs this. See
+// ComputeSquaredTangentSampsonError.
+//
+// X_t stays in raw pixels rather than becoming a ray with a Jacobian, and that
+// asymmetry is load-bearing: it keeps the first view's measurement Jacobian at
+// the constant [I2; 0] and confines f1 to M. Unprojecting the first view would
+// place f1 inside its Jacobian, and refining over f1 would then require the
+// mixed second derivative d^2(ray1)/d(pixel1)d(f1), which no camera model
+// exposes.
 //
 // The class serves as both the global (minimal) and local (refinement)
 // estimator inside LO-RANSAC: the Refine() hook is detected by loransac.h and
@@ -66,8 +79,9 @@ class RelativePoseOneSidedFocalEstimator {
  public:
   // Principal-point-centered points of the uncalibrated view.
   using X_t = Eigen::Vector2d;
-  // Calibrated bearing rays of the second view.
-  using Y_t = Eigen::Vector3d;
+  // Calibrated bearing rays of the second view with their unprojection
+  // Jacobians d(ray2)/d(pixel2).
+  using Y_t = CamRayWithJac;
 
   // The estimated model: a calibrated essential matrix plus the recovered focal
   // length of the first (uncalibrated) view.
@@ -82,7 +96,7 @@ class RelativePoseOneSidedFocalEstimator {
   // Estimate relative pose and the first view's focal from >= 6 correspondences
   // by wrapping poselib::relpose_6pt_onesided_focal (uses the first six).
   static void Estimate(const std::vector<X_t>& img_points1,
-                       const std::vector<Y_t>& cam_rays2,
+                       const std::vector<Y_t>& cam_rays2_with_jac,
                        std::vector<M_t>* models);
 
   // Nonlinear local optimization of the joint 6-DoF pose plus the unknown
@@ -94,13 +108,13 @@ class RelativePoseOneSidedFocalEstimator {
   // degenerate decomposition (or non-positive focal) it returns false and
   // leaves *model unchanged.
   static bool Refine(const std::vector<X_t>& img_points1,
-                     const std::vector<Y_t>& cam_rays2,
+                     const std::vector<Y_t>& cam_rays2_with_jac,
                      M_t* model);
 
-  // Squared distance, in first-view pixels, from each point to the epipolar
-  // line induced by its ray under M = E * K1inv.
+  // Squared tangent Sampson error, in pixels, of each correspondence under
+  // M = E * K1inv.
   static void Residuals(const std::vector<X_t>& img_points1,
-                        const std::vector<Y_t>& cam_rays2,
+                        const std::vector<Y_t>& cam_rays2_with_jac,
                         const M_t& model,
                         std::vector<double>* residuals);
 };

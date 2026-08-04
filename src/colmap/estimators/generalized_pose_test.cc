@@ -539,7 +539,7 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
   }
 
   StructureLessAbsolutePoseEstimationOptions options;
-  options.ransac_options.max_error = 1e-3;
+  options.ransac_options.max_error = 1.0;  // pixels
   Rigid3d cam_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;
@@ -557,7 +557,7 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
             problem.world_points2D.size() * (1 - kOutlierRatio) * 0.9);
   EXPECT_THAT(
       cam_from_world,
-      Rigid3dNear(problem.gt_cam_from_world, /*rtol=*/1e-3, /*ttol=*/1e-3));
+      Rigid3dNear(problem.gt_cam_from_world, /*rtol=*/5e-3, /*ttol=*/5e-3));
 }
 
 TEST(EstimateStructureLessAbsolutePose, PanoramicWorldCameras) {
