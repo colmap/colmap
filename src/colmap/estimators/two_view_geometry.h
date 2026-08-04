@@ -103,6 +103,13 @@ struct TwoViewGeometryOptions {
   // default.
   bool use_degensac = true;
 
+  // Locally optimize the fundamental matrix by nonlinearly minimizing the
+  // Sampson error over the inlier set, instead of refitting the linear
+  // eight-point algorithm. The refinement optimizes the same residual RANSAC
+  // scores and keeps the model rank 2 throughout, so no singular value has to
+  // be truncated afterwards. On by default.
+  bool use_sampson_refinement = true;
+
   // Whether to compute the relative pose between the two views.
   bool compute_relative_pose = false;
 

@@ -88,8 +88,17 @@ FundamentalMatrixReport EstimateFundamentalMatrix(
   if (options.use_degensac) {
     FundamentalMatrixDegensacOptions degensac_options;
     degensac_options.ransac = ransac_options;
+    degensac_options.use_sampson_refinement = options.use_sampson_refinement;
     return ToFundamentalMatrixReport(
         EstimateFundamentalMatrixDegensac(points1, points2, degensac_options));
+  }
+  // The two local estimators differ only in how they refit the inlier set, so
+  // both instantiations share the same report type, which depends on the
+  // hypothesis estimator alone.
+  if (options.use_sampson_refinement) {
+    return LORANSAC<FundamentalMatrixSevenPointEstimator,
+                    FundamentalMatrixSampsonEstimator>(ransac_options)
+        .Estimate(points1, points2);
   }
   return LORANSAC<FundamentalMatrixSevenPointEstimator,
                   FundamentalMatrixEightPointEstimator>(ransac_options)
