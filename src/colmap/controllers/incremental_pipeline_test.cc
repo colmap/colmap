@@ -70,7 +70,6 @@ TEST(IncrementalPipeline, WithoutNoise) {
 }
 
 TEST(IncrementalPipeline, WithoutNoiseSphericalCameras) {
-  SetPRNGSeed(0);
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -451,9 +450,6 @@ TEST(IncrementalPipeline, FixExistingFrames) {
 }
 
 TEST(IncrementalPipeline, ChainedMatches) {
-  constexpr int kRandomSeed = 42;
-  SetPRNGSeed(kRandomSeed);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -471,7 +467,6 @@ TEST(IncrementalPipeline, ChainedMatches) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   auto options = std::make_shared<IncrementalPipelineOptions>();
   options->num_threads = 1;
-  options->random_seed = kRandomSeed;
   IncrementalPipeline mapper(options, database, reconstruction_manager);
   mapper.Run();
 
@@ -650,8 +645,6 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
 }
 
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
-  SetPRNGSeed(42);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -692,8 +685,6 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
-  SetPRNGSeed(42);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);

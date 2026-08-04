@@ -149,6 +149,8 @@ if(TESTS_ENABLED)
         PUBLIC_LINK_LIBS
             colmap_util
             glog::glog
+        PRIVATE_LINK_LIBS
+            colmap_math
     )
     if(NOT BUILD_SHARED_LIBS)
         # With static builds, colmap_gtest_main provides gmock/gtest symbols

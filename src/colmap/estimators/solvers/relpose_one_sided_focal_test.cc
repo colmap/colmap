@@ -146,7 +146,6 @@ bool HasValidModel(const std::vector<Eigen::Vector2d>& points1,
 // The minimal 6-point solver recovers the pose and the unknown focal on clean
 // samples.
 TEST(RelativePoseOneSidedFocalEstimator, Nominal) {
-  SetPRNGSeed(0);
   for (size_t k = 0; k < 100; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
     const Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
@@ -179,7 +178,6 @@ TEST(RelativePoseOneSidedFocalEstimator, Nominal) {
 // checks pin the residual's units rather than the formula; the formula is
 // pinned by the exact correspondences, which come from projected 3D points.
 TEST(RelativePoseOneSidedFocalEstimator, Residuals) {
-  SetPRNGSeed(0);
   const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
   std::vector<Eigen::Vector2d> points1;
   std::vector<Eigen::Vector3d> cam_rays2;
@@ -235,7 +233,6 @@ TEST(RelativePoseOneSidedFocalEstimator, Residuals) {
 
 // Refinement pulls a perturbed pose + focal back to the ground truth.
 TEST(RelativePoseOneSidedFocalEstimator, RefineFromInitialModel) {
-  SetPRNGSeed(0);
   for (size_t k = 0; k < 50; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
     const Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
@@ -279,7 +276,6 @@ TEST(RelativePoseOneSidedFocalEstimator, RefineFromInitialModel) {
 // beyond 180 degrees observes and which no pinhole image plane can represent,
 // must be usable correspondences.
 TEST(RelativePoseOneSidedFocalEstimator, FullSphereCalibratedRays) {
-  SetPRNGSeed(0);
   // Without the cheirality filter the configurations are harsher than any
   // pinhole pair, and the minimal solve occasionally loses the true root. Never
   // exceeded 2% over 199 measured runs; a real regression exceeds it at once.

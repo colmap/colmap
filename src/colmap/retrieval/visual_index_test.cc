@@ -58,8 +58,6 @@ class ParameterizedVisualIndexTests
 TEST_P(ParameterizedVisualIndexTests, Nominal) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(1);
-
   {
     auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
     EXPECT_EQ(visual_index->NumVisualWords(), 0);
@@ -189,8 +187,6 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
 TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   // Keep test runtimes low.
   build_options.num_iterations = 10;
@@ -288,8 +284,6 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
 TEST_P(ParameterizedVisualIndexTests, TypeMismatch) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;
@@ -331,8 +325,6 @@ TEST_P(ParameterizedVisualIndexTests, TypeMismatch) {
 }
 
 TEST(VisualIndex, Print) {
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;

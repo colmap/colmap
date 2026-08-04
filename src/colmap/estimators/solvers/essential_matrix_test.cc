@@ -113,7 +113,6 @@ class EssentialMatrixFivePointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
-  SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   // The minimal case has no redundancy, so it conditions its sample to stay
   // well-posed and accepts the solver's numerical accuracy with a looser
@@ -152,7 +151,6 @@ class EssentialMatrixEightPointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
-  SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 1; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
@@ -180,7 +178,6 @@ class EssentialMatrixLMEstimatorTests
 // Self-seeding (eight-point) refinement recovers the essential matrix on clean
 // correspondences.
 TEST_P(EssentialMatrixLMEstimatorTests, Nominal) {
-  SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 10; ++k) {
     const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
@@ -205,7 +202,6 @@ INSTANTIATE_TEST_SUITE_P(EssentialMatrixLMEstimator,
 
 // Refinement recovers the ground truth from a perturbed initial model.
 TEST(EssentialMatrixLMEstimator, RefineFromInitialModel) {
-  SetPRNGSeed(0);
   for (size_t k = 0; k < 100; ++k) {
     const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                  RandomEigenVectord<3>());

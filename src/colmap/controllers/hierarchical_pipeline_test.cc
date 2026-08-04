@@ -66,8 +66,6 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
 }
 
 TEST(HierarchicalPipeline, WithoutNoise) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -105,8 +103,6 @@ TEST(HierarchicalPipeline, WithoutNoise) {
 }
 
 TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -141,8 +137,6 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
 }
 
 TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -177,8 +171,6 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
 }
 
 TEST(HierarchicalPipeline, MultiReconstruction) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);

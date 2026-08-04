@@ -89,8 +89,6 @@ GeneralizedAbsolutePoseProblem BuildGeneralizedAbsolutePoseProblem() {
 }
 
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
-  SetPRNGSeed();
-
   GeneralizedAbsolutePoseProblem problem =
       BuildGeneralizedAbsolutePoseProblem();
   const size_t num_points = problem.points2D.size();
@@ -364,11 +362,11 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
 }
 
 TEST(EstimateGeneralizedRelativePose, Nominal) {
-  SetPRNGSeed(1);
-
   for (const int num_cameras_per_rig1 : {1, 2, 3}) {
     for (const int num_cameras_per_rig2 : {1, 2, 3}) {
-      for (const double sensor_from_rig_translation_stddev : {0.0, 0.05}) {
+      // A meaningful inter-camera baseline is needed to recover metric scale
+      // reliably in non-panoramic configurations.
+      for (const double sensor_from_rig_translation_stddev : {0.0, 0.2}) {
         GeneralizedRelativePoseProblem problem =
             BuildGeneralizedRelativePoseProblem(
                 num_cameras_per_rig1,
@@ -501,8 +499,6 @@ StructureLessAbsolutePoseProblem BuildStructureLessAbsolutePoseProblem(
 }
 
 TEST(EstimateStructureLessAbsolutePose, Nominal) {
-  SetPRNGSeed();
-
   const StructureLessAbsolutePoseProblem problem =
       BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/5);
 
@@ -528,8 +524,6 @@ TEST(EstimateStructureLessAbsolutePose, Nominal) {
 }
 
 TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
-  SetPRNGSeed();
-
   StructureLessAbsolutePoseProblem problem =
       BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/10);
 
@@ -567,8 +561,6 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
 }
 
 TEST(EstimateStructureLessAbsolutePose, PanoramicWorldCameras) {
-  SetPRNGSeed();
-
   const StructureLessAbsolutePoseProblem problem =
       BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/1);
 

@@ -122,7 +122,6 @@ inline const ceres::Solver::Summary& GetCeresSummary(
 }
 
 TEST(DefaultBundleAdjuster, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -162,7 +161,6 @@ TEST(DefaultBundleAdjuster, Nominal) {
 }
 
 TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -1441,7 +1439,6 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
 }
 
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1528,7 +1525,6 @@ TEST(PosePriorBundleAdjuster, InsufficientPriorsUseTwoCameraGauge) {
 }
 
 TEST(PosePriorBundleAdjuster, MissingPositionCov) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1576,7 +1572,6 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
 }
 
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;

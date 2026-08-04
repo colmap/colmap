@@ -29,7 +29,6 @@
 
 #include "colmap/scene/reconstruction_pruning.h"
 
-#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -47,25 +46,35 @@ TEST(FindRedundantPoints3D, Empty) {
 }
 
 TEST(FindRedundantPoints3D, VaryingCoverageGain) {
-  SetPRNGSeed(1);
-
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.track_length = 5;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // Give every point the same coverage so the number selected at each
+  // threshold is independent of random image-tile occupancy.
+  for (const auto& [image_id, _] : reconstruction.Images()) {
+    Image& image = reconstruction.Image(image_id);
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      image.Point2D(point2D_idx).xy = Eigen::Vector2d(
+          image.CameraPtr()->width / 2., image.CameraPtr()->height / 2.);
+    }
+  }
+
   EXPECT_THAT(FindRedundantPoints3D(/*min_coverage_gain=*/0, reconstruction),
               testing::IsEmpty());
-  size_t prev_num_redundant_points3D = 0;
-  for (const double min_coverage_gain : {0.1, 0.4, 0.7, 10.0}) {
+  for (const auto& [min_coverage_gain, expected_num_redundant_points3D] :
+       std::vector<std::pair<double, size_t>>{
+           {0.1, 92}, {0.4, 98}, {0.7, 99}, {10.0, 100}}) {
     const std::vector<point3D_t> redundant_point3D_ids =
         FindRedundantPoints3D(min_coverage_gain, reconstruction);
-    EXPECT_GT(redundant_point3D_ids.size(), prev_num_redundant_points3D);
-    prev_num_redundant_points3D = redundant_point3D_ids.size();
+    EXPECT_EQ(redundant_point3D_ids.size(), expected_num_redundant_points3D);
   }
-  EXPECT_EQ(prev_num_redundant_points3D, reconstruction.NumPoints3D());
 }
 
 TEST(FindRedundantPoints3D, VaryingTrackLength) {
