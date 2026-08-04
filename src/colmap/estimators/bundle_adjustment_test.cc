@@ -301,7 +301,6 @@ class BundleAdjusterBackendTest
     : public ::testing::TestWithParam<BundleAdjustmentBackend> {};
 
 TEST_P(BundleAdjusterBackendTest, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -358,7 +357,6 @@ class PosePriorBundleAdjusterBackendTest
     : public ::testing::TestWithParam<BundleAdjustmentBackend> {};
 
 TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;

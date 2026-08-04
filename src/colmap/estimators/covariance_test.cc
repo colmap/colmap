@@ -63,8 +63,6 @@ class ParameterizedBACovarianceTests
           std::pair<BACovarianceOptions, BACovarianceTestOptions>> {};
 
 TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
-  SetPRNGSeed(42);
-
   const auto [options, test_options] = GetParam();
 
   const bool estimate_point_covs =

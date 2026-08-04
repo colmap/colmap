@@ -235,7 +235,6 @@ TEST(EstimateTwoViewGeometryPose, Calibrated) {
 }
 
 TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
-  SetPRNGSeed(0);
   for (const auto config : {TwoViewGeometry::ConfigurationType::CALIBRATED,
                             TwoViewGeometry::ConfigurationType::UNCALIBRATED,
                             TwoViewGeometry::ConfigurationType::PLANAR,
@@ -548,7 +547,6 @@ TEST(EstimateTwoViewGeometry, ForceHUseWithFisheyeIsDegenerate) {
 }
 
 TEST(EstimateTwoViewGeometry, SharedFocal) {
-  SetPRNGSeed(0);
   // A single shared, uncalibrated, pinhole-projection camera observed from two
   // frames routes to the shared-focal solver, which jointly recovers the
   // relative pose and the unknown focal length. Both a single-focal model
@@ -647,7 +645,6 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
 }
 
 TEST(EstimateTwoViewGeometry, OneSidedFocal) {
-  SetPRNGSeed(0);
   // Two distinct cameras where exactly one has a known focal length route to
   // the one-sided focal solver, which recovers the relative pose jointly with
   // the unknown focal of the other. The pair is run in both orders, so that the
@@ -1115,8 +1112,6 @@ TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
 }
 
 TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1134,6 +1129,9 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
       synthetic_dataset_options, synthetic_noise_options);
 
   TwoViewGeometryOptions two_view_geometry_options;
+  // This test verifies RANSAC seed reproducibility, not the default calibration
+  // verification boundary. Leave margin for platform-dependent inlier counts.
+  two_view_geometry_options.min_E_F_inlier_ratio = 0.8;
   two_view_geometry_options.ransac_options.random_seed = 42;
   const TwoViewGeometry geometry1 =
       EstimateTwoViewGeometry(test_data.camera1,
@@ -1172,8 +1170,6 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1225,8 +1221,6 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedDegensac) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1259,8 +1253,6 @@ TEST(EstimateTwoViewGeometry, UncalibratedDegensac) {
 }
 
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -1378,8 +1370,6 @@ RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
 }
 
 TEST(EstimateRigTwoViewGeometries, Nominal) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 3;
@@ -1421,8 +1411,6 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
 }
 
 TEST(EstimateMultipleTwoViewGeometries, SingleGeometry) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1448,8 +1436,6 @@ TEST(EstimateMultipleTwoViewGeometries, SingleGeometry) {
 }
 
 TEST(EstimateMultipleTwoViewGeometries, NoGeometry) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1476,8 +1462,6 @@ TEST(EstimateMultipleTwoViewGeometries, NoGeometry) {
 }
 
 TEST(EstimateMultipleTwoViewGeometries, MultipleGeometries) {
-  SetPRNGSeed(1);
-
   // Create two separate synthetic datasets with different poses.
 
   Reconstruction reconstruction1;
@@ -1552,8 +1536,6 @@ TEST(EstimateMultipleTwoViewGeometries, MultipleGeometries) {
 }
 
 TEST(MaybeDecomposeRelativePoses, Nominal) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   Reconstruction reconstruction;
@@ -1600,8 +1582,6 @@ TEST(MaybeDecomposeRelativePoses, Nominal) {
 // The pose survives a wrong focal (it comes from E alone); tri_angle, measured
 // between the rays, does not.
 TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   Reconstruction reconstruction;
@@ -1697,8 +1677,6 @@ TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
 // matrix from the inlier matches instead of crashing in
 // EstimateTwoViewGeometryPose's THROW_CHECK on geometry->E/F/H.
 TEST(MaybeDecomposeRelativePoses, MissingMatrixFromOldDatabase) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   Reconstruction reconstruction;

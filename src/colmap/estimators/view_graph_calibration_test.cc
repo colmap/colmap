@@ -43,8 +43,6 @@ namespace colmap {
 namespace {
 
 TEST(CalibrateViewGraph, Nominal) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -98,8 +96,6 @@ TEST(CalibrateViewGraph, Nominal) {
 }
 
 TEST(CalibrateViewGraph, PriorFocalLength) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -132,8 +128,6 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
 }
 
 TEST(CalibrateViewGraph, ConfigTagging) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -175,8 +169,6 @@ TEST(CalibrateViewGraph, ConfigTagging) {
 }
 
 TEST(CalibrateViewGraph, RelativePoseReestimation) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -242,8 +234,6 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
 }
 
 TEST(CalibrateViewGraph, SphericalCamerasAreIgnored) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   // Spherical (omnidirectional) cameras have no focal length and produce
@@ -289,8 +279,6 @@ TEST(CalibrateViewGraph, SphericalCamerasAreIgnored) {
 }
 
 TEST(CalibrateViewGraph, FisheyeCamerasAreIgnored) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   // A fisheye camera projects angularly, so its focal length cannot be

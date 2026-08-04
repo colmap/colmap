@@ -40,8 +40,6 @@ namespace colmap {
 namespace {
 
 TEST(BundleAdjustmentController, EmptyReconstruction) {
-  SetPRNGSeed(1);
-
   auto reconstruction = std::make_shared<Reconstruction>();
 
   OptionManager options;
@@ -53,8 +51,6 @@ TEST(BundleAdjustmentController, EmptyReconstruction) {
 }
 
 TEST(BundleAdjustmentController, Reconstruction) {
-  SetPRNGSeed(1);
-
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
