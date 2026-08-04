@@ -53,22 +53,20 @@ float GetPixelConstantBorder(const float* data,
   }
 }
 
-std::optional<BitmapColor<float>> InterpolatePixel(
+std::optional<BitmapColor<uint8_t>> InterpolatePixel(
     const Bitmap& image,
     const Eigen::Vector2d& point,
     const WarpImageOptions::Interpolation interpolation) {
   const double x = point.x() - 0.5;
   const double y = point.y() - 0.5;
   switch (interpolation) {
-    case WarpImageOptions::Interpolation::kNearestNeighbor: {
-      const std::optional<BitmapColor<uint8_t>> color =
-          image.InterpolateNearestNeighbor(x, y);
-      return color ? std::make_optional(
-                         BitmapColor<float>(color->r, color->g, color->b))
-                   : std::nullopt;
+    case WarpImageOptions::Interpolation::kNearestNeighbor:
+      return image.InterpolateNearestNeighbor(x, y);
+    case WarpImageOptions::Interpolation::kBilinear: {
+      const std::optional<BitmapColor<float>> color =
+          image.InterpolateBilinear(x, y);
+      return color ? std::make_optional(color->Cast<uint8_t>()) : std::nullopt;
     }
-    case WarpImageOptions::Interpolation::kBilinear:
-      return image.InterpolateBilinear(x, y);
   }
   LOG(FATAL_THROW) << "Invalid warp image interpolation mode: "
                    << static_cast<int>(interpolation);
@@ -138,7 +136,7 @@ void WarpImageBetweenCameras(const WarpImageOptions& options,
                              source_image, *source_point, options.interpolation)
                        : std::nullopt;
       if (color) {
-        target_image->SetPixel(x, y, color->Cast<uint8_t>());
+        target_image->SetPixel(x, y, *color);
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
@@ -221,7 +219,7 @@ void WarpImageWithHomographyBetweenCameras(const WarpImageOptions& options,
                              source_image, *source_point, options.interpolation)
                        : std::nullopt;
       if (color) {
-        target_image->SetPixel(x, y, color->Cast<uint8_t>());
+        target_image->SetPixel(x, y, *color);
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
