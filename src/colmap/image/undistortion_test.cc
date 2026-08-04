@@ -33,15 +33,48 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/logging.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+uint64_t TotalAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  const std::vector<uint8_t>& data1 = bitmap1.RowMajorData();
+  const std::vector<uint8_t>& data2 = bitmap2.RowMajorData();
+  THROW_CHECK_EQ(data1.size(), data2.size());
+  uint64_t total_absolute_difference = 0;
+  for (size_t i = 0; i < data1.size(); ++i) {
+    total_absolute_difference +=
+        std::abs(static_cast<int>(data1[i]) - static_cast<int>(data2[i]));
+  }
+  return total_absolute_difference;
+}
+
+double MeanAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  THROW_CHECK_GT(bitmap1.RowMajorData().size(), 0);
+  return static_cast<double>(TotalAbsoluteDifference(bitmap1, bitmap2)) /
+         bitmap1.RowMajorData().size();
+}
+
+int MaxAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  const std::vector<uint8_t>& data1 = bitmap1.RowMajorData();
+  const std::vector<uint8_t>& data2 = bitmap2.RowMajorData();
+  THROW_CHECK_EQ(data1.size(), data2.size());
+  int max_absolute_difference = 0;
+  for (size_t i = 0; i < data1.size(); ++i) {
+    max_absolute_difference = std::max(
+        max_absolute_difference,
+        std::abs(static_cast<int>(data1[i]) - static_cast<int>(data2[i])));
+  }
+  return max_absolute_difference;
+}
 
 TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
@@ -275,23 +308,10 @@ TEST(UndistortImage, WarpOptions) {
   EXPECT_EQ(direct_image.Height(), resized_image.Height());
   EXPECT_NE(direct_image.RowMajorData(), resized_image.RowMajorData());
 
-  uint64_t total_absolute_difference = 0;
-  int max_absolute_difference = 0;
-  for (size_t i = 0; i < direct_image.RowMajorData().size(); ++i) {
-    const int absolute_difference =
-        std::abs(static_cast<int>(direct_image.RowMajorData()[i]) -
-                 static_cast<int>(resized_image.RowMajorData()[i]));
-    total_absolute_difference += absolute_difference;
-    max_absolute_difference =
-        std::max(max_absolute_difference, absolute_difference);
-  }
-  const double mean_absolute_difference =
-      static_cast<double>(total_absolute_difference) /
-      direct_image.RowMajorData().size();
   // The extra resize changes rounding, but not by a perceptible amount for
   // smooth image content.
-  EXPECT_LT(mean_absolute_difference, 0.5);
-  EXPECT_LE(max_absolute_difference, 1);
+  EXPECT_LT(MeanAbsoluteDifference(direct_image, resized_image), 0.5);
+  EXPECT_LE(MaxAbsoluteDifference(direct_image, resized_image), 1);
 }
 
 TEST(UndistortReconstruction, Nominal) {
