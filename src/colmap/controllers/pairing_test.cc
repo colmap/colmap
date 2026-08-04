@@ -329,14 +329,20 @@ TEST(SequentialPairGenerator, MaxPriorDistanceGatesQuadraticProbes) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
 
-  // Cluster A: images 0-3 near the origin. Cluster B: images 4-8 ~1000m
-  // away. Image 6's position prior is intentionally omitted.
+  // Cluster A: images 0-3 within a few metres. Cluster B: images 4-8 about
+  // 1.1 km north. Image 6's position prior is intentionally omitted.
+  //
+  // These are real WGS84 degrees, not raw metres: the gate converts WGS84 to
+  // ECEF and only gates priors whose coordinate system says WGS84. One degree
+  // of latitude is ~111.32 km, so 1e-5 deg is ~1.1 m and 0.01 deg is ~1.11 km.
   for (int i = 0; i < kNumImages; ++i) {
     if (i == 6) continue;
     PosePrior pose_prior;
     pose_prior.corr_data_id = images[i].DataId();
-    const double x = i < 4 ? i : 1000.0 + (i - 4);
-    pose_prior.position = Eigen::Vector3d(x, 0, 0);
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+    const double lat =
+        48.40 + (i < 4 ? i * 1e-5 : 0.01 + (i - 4) * 1e-5);
+    pose_prior.position = Eigen::Vector3d(lat, -71.16, 120.0);
     database->WritePosePrior(pose_prior);
   }
 
@@ -384,6 +390,44 @@ TEST(SequentialPairGenerator, MaxPriorDistanceGatesQuadraticProbes) {
   EXPECT_THAT(ungated_pairs, testing::Contains(P(id(3), id(7))));
 }
 
+// A prior the gate cannot interpret metrically must not veto anything.
+//
+// This is the regression that motivated making the gate WGS84-only: the
+// converter previously fell through UNDEFINED to the CARTESIAN branch and
+// returned `position` unchanged, so degrees were compared against a metre
+// threshold. Two images a few hundred metres apart differ by ~0.003 in
+// latitude, which is far below any sane max_prior_distance -- but two images
+// in *different* parts of a capture differ by whole degrees and would be
+// vetoed as if kilometres apart, silently deleting loop closures.
+TEST(SequentialPairGenerator, NonWgs84PriorsDoNotGate) {
+  constexpr int kNumImages = 9;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  // Same two-cluster layout as MaxPriorDistanceGatesQuadraticProbes, but with
+  // the coordinate system left UNDEFINED. Numerically these values are far
+  // apart; semantically they are uninterpretable, so nothing may be vetoed.
+  for (int i = 0; i < kNumImages; ++i) {
+    PosePrior pose_prior;
+    pose_prior.corr_data_id = images[i].DataId();
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::UNDEFINED;
+    pose_prior.position = Eigen::Vector3d(i < 4 ? i : 1000.0 + (i - 4), 0, 0);
+    database->WritePosePrior(pose_prior);
+  }
+
+  SequentialPairingOptions options;
+  options.overlap = 3;
+  options.quadratic_overlap = true;
+  options.max_prior_distance = 50;
+  SequentialPairGenerator generator(options, database);
+  while (!generator.HasFinished()) {
+    generator.Next();
+  }
+  EXPECT_EQ(generator.NumVetoedPairs(), 0);
+}
+
 TEST(SequentialPairGenerator, ResetClearsVetoedPairCount) {
   // Regression test: SequentialPairGenerator::Reset() previously left
   // num_vetoed_pairs_ untouched, so reusing a generator instance for a
@@ -404,7 +448,9 @@ TEST(SequentialPairGenerator, ResetClearsVetoedPairCount) {
   for (int i = 0; i < kNumImages; ++i) {
     PosePrior pose_prior;
     pose_prior.corr_data_id = images[i].DataId();
-    pose_prior.position = Eigen::Vector3d(i < 2 ? 0.0 : 1000.0, 0, 0);
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+    pose_prior.position =
+        Eigen::Vector3d(48.40 + (i < 2 ? 0.0 : 0.01), -71.16, 120.0);
     database->WritePosePrior(pose_prior);
   }
 

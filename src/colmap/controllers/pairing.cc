@@ -93,20 +93,24 @@ std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
   return image_pairs;
 }
 
-// Converts a usable position prior (caller checks HasPosition()) to a metric
-// world-frame position: WGS84 via GPSTransform::EllipsoidToECEF, or the raw
-// Cartesian position as-is.
-Eigen::Vector3d PosePriorToMetricPosition(const PosePrior& pose_prior) {
-  switch (pose_prior.coordinate_system) {
-    case PosePrior::CoordinateSystem::WGS84: {
-      GPSTransform gps_transform;
-      return gps_transform.EllipsoidToECEF({pose_prior.position})[0];
-    }
-    case PosePrior::CoordinateSystem::UNDEFINED:
-    default:
-    case PosePrior::CoordinateSystem::CARTESIAN:
-      return pose_prior.position;
+// Metric ECEF position for the sequential distance gate, or nullopt when the
+// prior cannot be interpreted metrically.
+//
+// WGS84 only, deliberately. The previous form fell through UNDEFINED to the
+// CARTESIAN branch and returned `position` unchanged, so a prior with no
+// declared coordinate system had its raw numbers compared against a metre
+// threshold. Degrees would read as metres and veto every long-range probe,
+// silently removing loop closures with no error anywhere. A prior we cannot
+// interpret must not gate a pair at all.
+std::optional<Eigen::Vector3d> PosePriorToMetricPosition(
+    const PosePrior& pose_prior) {
+  if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
+    return std::nullopt;
   }
+  // Explicit WGS84: the default-constructed GPSTransform is GRS80, and every
+  // other stage of this pipeline states WGS84.
+  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
+  return gps_transform.EllipsoidToECEF({pose_prior.position})[0];
 }
 
 }  // namespace
@@ -472,9 +476,13 @@ SequentialPairGenerator::SequentialPairGenerator(
     position_by_image_.reserve(image_ids_.size());
     for (const image_t image_id : image_ids_) {
       const PosePrior* pose_prior = cache_->FindImagePosePriorOrNull(image_id);
-      if (pose_prior != nullptr && pose_prior->HasPosition()) {
-        position_by_image_.emplace(image_id,
-                                   PosePriorToMetricPosition(*pose_prior));
+      if (pose_prior == nullptr || !pose_prior->HasPosition()) {
+        continue;
+      }
+      const std::optional<Eigen::Vector3d> position =
+          PosePriorToMetricPosition(*pose_prior);
+      if (position.has_value()) {
+        position_by_image_.emplace(image_id, *position);
       }
     }
   }
