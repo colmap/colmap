@@ -86,19 +86,17 @@ def _run_with_log(
 ) -> int:
     """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
 
-    Always uses preexec_fn=_set_pdeathsig so children die with their parent.
-    Raises CalledProcessError on non-zero exit when check=True.
+    Uses preexec_fn=_set_pdeathsig on Linux so children die with their parent.
+    preexec_fn is unavailable on Windows, and PR_SET_PDEATHSIG is
+    Linux-specific. Raises CalledProcessError on non-zero exit when check=True.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "wb") as fh:
         runner = subprocess.check_call if check else subprocess.call
-        return runner(
-            cmd,
-            stdout=fh,
-            stderr=subprocess.STDOUT,
-            preexec_fn=_set_pdeathsig,
-            **kwargs,
-        )
+        popen_kwargs = dict(stdout=fh, stderr=subprocess.STDOUT, **kwargs)
+        if platform.system() != "Windows":
+            popen_kwargs["preexec_fn"] = _set_pdeathsig
+        return runner(cmd, **popen_kwargs)
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -672,7 +670,9 @@ def colmap_reconstruction(
                 cleaner_type,
             ],
             cwd=workspace_path,
-            preexec_fn=_set_pdeathsig,
+            preexec_fn=(
+                _set_pdeathsig if platform.system() != "Windows" else None
+            ),
         )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead

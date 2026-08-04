@@ -40,7 +40,6 @@ namespace {
 
 FeatureDescriptorsFloat CreateRandomFeatureDescriptors(
     const FeatureExtractorType type, const size_t num_features) {
-  SetPRNGSeed(0);
   FeatureDescriptorsFloat descriptors;
   descriptors.type = type;
   descriptors.data.resize(num_features, 128);

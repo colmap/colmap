@@ -91,6 +91,14 @@ find_package(Git)
 
 find_package(CHOLMOD REQUIRED)
 
+# Ceres and glog expose gflags::gflags in their interface dependencies, but gflags
+# only defines the namespaced target when GFLAGS_USE_TARGET_NAMESPACE is ON. Bridge
+# the gap so consumers can resolve the expected target when only the plain target exists.
+find_package(gflags CONFIG QUIET)
+if(NOT TARGET gflags::gflags AND TARGET gflags)
+    add_library(gflags::gflags ALIAS gflags)
+endif()
+
 # Ceres is found before Glog on purpose. Some distributions (e.g. Fedora) ship a
 # Ceres whose bundled FindGlog.cmake unconditionally calls add_library(glog::glog)
 # in module mode. If we created the glog::glog target first, that call collides

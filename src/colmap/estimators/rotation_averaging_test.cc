@@ -161,8 +161,6 @@ void RunAndVerifyRotationAveraging(const Reconstruction& gt_reconstruction,
 }
 
 TEST(RotationAveraging, WithoutNoise) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -182,8 +180,6 @@ TEST(RotationAveraging, WithoutNoise) {
 }
 
 TEST(RotationAveraging, WeightedNoiseFreeMatchesInvariant) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -235,8 +231,6 @@ TEST(RotationAveraging, WeightedNoiseFreeMatchesInvariant) {
 }
 
 TEST(RotationAveraging, WeightedReducesErrorWithNoisyLowMatchEdges) {
-  SetPRNGSeed(42);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -293,8 +287,6 @@ TEST(RotationAveraging, WeightedReducesErrorWithNoisyLowMatchEdges) {
 }
 
 TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -314,8 +306,6 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
 }
 
 TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -338,8 +328,6 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
 }
 
 TEST(RotationAveraging, WithNoiseAndOutliers) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -363,8 +351,6 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
 }
 
 TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -388,8 +374,6 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
 }
 
 TEST(RotationAveraging, DeterministicRandomSeed) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -426,8 +410,6 @@ TEST(RotationAveraging, DeterministicRandomSeed) {
 }
 
 TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
-  SetPRNGSeed(1);
-
   // Use a noisy multi-rig setup to make the solution non-trivial and the
   // regularization's effect non-degenerate.
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -470,8 +452,6 @@ TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
 }
 
 TEST(RotationAveraging, EmptyPoseGraph) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -491,8 +471,6 @@ TEST(RotationAveraging, EmptyPoseGraph) {
 }
 
 TEST(RotationAveraging, MultiImageRigFrameDeregisterDoesNotCrashOnSecondVisit) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -557,8 +535,6 @@ TEST(RotationAveraging, MultiImageRigFrameDeregisterDoesNotCrashOnSecondVisit) {
 }
 
 TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -595,8 +571,6 @@ TEST(RotationAveraging, GravityWithUnknownRigSensorsReturnsFalse) {
 // multi-camera rig to exercise cam_from_rig estimation and rig_from_world
 // averaging.
 TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -634,8 +608,6 @@ TEST(RotationAveraging, InitializeSensorFromRigUsingCamsFromWorld) {
 // translation), InitializeRigRotationsFromImages must preserve it rather than
 // resetting the translation to NaN.
 TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -677,8 +649,6 @@ TEST(RotationAveraging, InitializeSensorFromRigPreservesCalibratedRig) {
 }
 
 TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
-  SetPRNGSeed(1);
-
   // A non-trivial multi-camera rig so both rotation AND translation are
   // non-zero
   SyntheticDatasetOptions synthetic_dataset_options;

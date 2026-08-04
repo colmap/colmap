@@ -42,7 +42,6 @@ namespace mvs {
 namespace {
 
 TEST(Model, ReadCOLMAP) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;

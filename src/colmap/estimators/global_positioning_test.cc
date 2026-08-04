@@ -45,8 +45,6 @@ namespace colmap {
 namespace {
 
 TEST(GlobalPositioning, Nominal) {
-  SetPRNGSeed(0);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -93,8 +91,6 @@ TEST(GlobalPositioning, Nominal) {
 }
 
 TEST(GlobalPositioning, MultiCameraRig) {
-  SetPRNGSeed(0);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -229,8 +225,6 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
 }
 
 TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {
-  SetPRNGSeed(0);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
