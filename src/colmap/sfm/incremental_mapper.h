@@ -36,13 +36,17 @@
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/hash_containers.h"
 
+#include <optional>
+
 namespace colmap {
 
 // Class that provides all functionality for the incremental reconstruction
 // procedure. Example usage:
 //
-//  IncrementalMapper mapper(&database_cache);
-//  mapper.BeginReconstruction(&reconstruction);
+//  auto database_cache = std::make_shared<DatabaseCache>(...);
+//  IncrementalMapper mapper(database_cache);
+//  auto reconstruction = std::make_shared<Reconstruction>();
+//  mapper.BeginReconstruction(reconstruction);
 //  TwoViewGeometry tvg;
 //  THROW_CHECK(
 //      mapper.FindInitialImagePair(options, tvg, image_id1, image_id2));

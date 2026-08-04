@@ -33,6 +33,7 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
@@ -372,7 +373,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   new_points3D_ids.reserve(options.num_points3D);
   for (int point3D_idx = 0; point3D_idx < options.num_points3D; ++point3D_idx) {
     new_points3D_ids.insert(
-        reconstruction->AddPoint3D(Eigen::Vector3d::Random().normalized(),
+        reconstruction->AddPoint3D(RandomEigenVectord<3>().normalized(),
                                    /*track=*/{}));
   }
 
@@ -454,7 +455,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       frame.SetRigId(rig.RigId());
 
       // Synthesize frames as sphere centered at world origin.
-      const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
+      const Eigen::Vector3d view_dir = -RandomEigenVectord<3>().normalized();
       const Eigen::Vector3d proj_center = -5 * view_dir;
       Rigid3d rig_from_world;
       rig_from_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
@@ -758,7 +759,7 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
         const double angle =
             RandomGaussian<double>(0, DegToRad(options.prior_gravity_stddev));
         const Eigen::Vector3d axis =
-            pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
+            pose_prior.gravity.cross(RandomEigenVectord<3>()).normalized();
         pose_prior.gravity =
             (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
       }

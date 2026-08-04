@@ -1,0 +1,343 @@
+.colmap-viewer-host {
+    --viewer-ink: #202226;
+    --viewer-muted: #686c74;
+    --viewer-line: #d9d9d7;
+    --viewer-panel: #f5f4f1;
+    --viewer-red: #b21f1a;
+    --viewer-font-family: var(--pst-font-family-base, "Helvetica Neue", Helvetica, Arial, sans-serif);
+    color: var(--viewer-ink);
+    margin: 0;
+}
+
+.colmap-viewer-host .colmap-viewer {
+    background: #fff;
+    border: 1px solid var(--viewer-line);
+    border-radius: 0.45rem;
+    box-shadow: 0 12px 42px rgb(24 24 23 / 12%);
+    font-family: var(--viewer-font-family);
+    min-height: min(760px, calc(100vh - 8rem));
+    overflow: hidden;
+}
+
+.colmap-viewer-host .viewer-toolbar,
+.colmap-viewer-host .viewer-controls {
+    align-items: center;
+    border-bottom: 1px solid var(--viewer-line);
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    padding: 0.55rem 0.75rem;
+}
+
+.colmap-viewer-host .viewer-toolbar {
+    background: var(--viewer-ink);
+    color: #fff;
+}
+
+.colmap-viewer-host .viewer-brand,
+.colmap-viewer-host .viewer-actions {
+    align-items: center;
+    display: flex;
+    gap: 0.8rem;
+}
+
+.colmap-viewer-host .viewer-brand strong {
+    font-family: var(--viewer-font-family);
+    font-size: 1.08rem;
+    letter-spacing: 0.02em;
+}
+
+.colmap-viewer-host .viewer-stats {
+    color: #c9c9c6;
+    font-size: 0.76rem;
+}
+
+.colmap-viewer-host .colmap-viewer button,
+.colmap-viewer-host .colmap-viewer select,
+.colmap-viewer-host .colmap-viewer input {
+    border: 1px solid #aaa9a5;
+    border-radius: 0.25rem;
+    font: inherit;
+}
+
+.colmap-viewer-host .colmap-viewer button,
+.colmap-viewer-host .colmap-viewer select {
+    background: #fff;
+    color: var(--viewer-ink);
+    cursor: pointer;
+    padding: 0.32rem 0.58rem;
+}
+
+.colmap-viewer-host .colmap-viewer button:hover:not(:disabled),
+.colmap-viewer-host .colmap-viewer button:focus-visible {
+    border-color: var(--viewer-red);
+    color: var(--viewer-red);
+}
+
+.colmap-viewer-host .colmap-viewer button:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.colmap-viewer-host .viewer-controls {
+    background: var(--viewer-panel);
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    font-size: 0.76rem;
+}
+
+.colmap-viewer-host .viewer-controls label {
+    align-items: center;
+    display: flex;
+    gap: 0.35rem;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.colmap-viewer-host .viewer-controls input[type="number"] {
+    padding: 0.2rem 0.3rem;
+    width: 4.2rem;
+}
+
+.colmap-viewer-host .viewer-controls input[type="range"] {
+    accent-color: var(--viewer-red);
+    max-width: 7rem;
+}
+
+.colmap-viewer-host .viewer-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 23rem);
+    height: min(680px, calc(100vh - 13rem));
+    min-height: 520px;
+}
+
+.colmap-viewer-host .viewer-stage {
+    background: #fff;
+    min-width: 0;
+    position: relative;
+}
+
+.colmap-viewer-host .viewer-canvas {
+    display: block;
+    height: 100%;
+    outline: none;
+    touch-action: none;
+    width: 100%;
+}
+
+.colmap-viewer-host .viewer-drop {
+    align-items: center;
+    background:
+        linear-gradient(135deg, rgb(255 255 255 / 94%), rgb(242 240 235 / 96%)),
+        repeating-linear-gradient(45deg, transparent 0 18px, rgb(178 31 26 / 5%) 18px 19px);
+    display: flex;
+    flex-direction: column;
+    inset: 0;
+    justify-content: center;
+    padding: 2rem;
+    position: absolute;
+    text-align: center;
+    z-index: 3;
+}
+
+.colmap-viewer-host .viewer-drop[hidden] {
+    display: none;
+}
+
+.colmap-viewer-host .viewer-drop.is-dragging {
+    box-shadow: inset 0 0 0 4px var(--viewer-red);
+}
+
+.colmap-viewer-host .viewer-drop-mark {
+    align-items: center;
+    background: var(--viewer-red);
+    color: #fff;
+    display: flex;
+    font-family: var(--viewer-font-family);
+    font-size: 1.15rem;
+    font-weight: 700;
+    height: 3.6rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+    transform: rotate(-4deg);
+    width: 3.6rem;
+}
+
+.colmap-viewer-host .viewer-drop h2 {
+    font-family: var(--viewer-font-family);
+    margin: 0 0 0.35rem;
+}
+
+.colmap-viewer-host .viewer-drop p {
+    color: var(--viewer-muted);
+    margin: 0.15rem 0;
+}
+
+.colmap-viewer-host .viewer-drop .viewer-drop-detail {
+    font-size: 0.78rem;
+    margin: 0.75rem auto 1rem;
+    max-width: 34rem;
+}
+
+.colmap-viewer-host .viewer-status {
+    background: rgb(32 34 38 / 88%);
+    border-radius: 0.25rem;
+    bottom: 0.75rem;
+    color: #fff;
+    left: 0.75rem;
+    max-width: calc(100% - 1.5rem);
+    min-width: 12rem;
+    overflow-wrap: anywhere;
+    padding: 0.42rem 0.65rem;
+    position: absolute;
+    z-index: 5;
+}
+
+.colmap-viewer-host .viewer-status.is-error {
+    background: #8f1b18;
+}
+
+.colmap-viewer-host .viewer-inspector {
+    background: var(--viewer-panel);
+    border-left: 1px solid var(--viewer-line);
+    overflow: auto;
+    padding: 0.85rem;
+}
+
+.colmap-viewer-host .viewer-inspector h2,
+.colmap-viewer-host .viewer-inspector h3 {
+    font-family: var(--viewer-font-family);
+    margin: 0 0 0.6rem;
+}
+
+.colmap-viewer-host .viewer-inspector h3 {
+    font-size: 1rem;
+    margin-top: 1rem;
+}
+
+.colmap-viewer-host .viewer-inspector dl {
+    display: grid;
+    font-size: 0.76rem;
+    grid-template-columns: max-content minmax(0, 1fr);
+    margin: 0;
+}
+
+.colmap-viewer-host .viewer-inspector dt,
+.colmap-viewer-host .viewer-inspector dd {
+    border-top: 1px solid var(--viewer-line);
+    margin: 0;
+    padding: 0.35rem 0.3rem;
+}
+
+.colmap-viewer-host .viewer-inspector dt {
+    color: var(--viewer-muted);
+    font-weight: 600;
+}
+
+.colmap-viewer-host .viewer-inspector dd {
+    overflow-wrap: anywhere;
+}
+
+.colmap-viewer-host .viewer-inspector-empty p,
+.colmap-viewer-host .viewer-image-missing {
+    color: var(--viewer-muted);
+    font-size: 0.82rem;
+}
+
+.colmap-viewer-host .viewer-image {
+    background: #deddd9;
+    margin: 0.85rem 0 0;
+    min-height: 8rem;
+}
+
+.colmap-viewer-host .viewer-image canvas {
+    display: block;
+    height: auto;
+    max-width: 100%;
+}
+
+.colmap-viewer-host .viewer-image-missing {
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.colmap-viewer-host .viewer-observations {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.colmap-viewer-host .viewer-observation {
+    background: #fff;
+    border: 1px solid var(--viewer-line);
+}
+
+.colmap-viewer-host .viewer-observation canvas,
+.colmap-viewer-host .viewer-observation-missing {
+    display: block;
+    height: auto;
+    width: 100%;
+}
+
+.colmap-viewer-host .viewer-observation-missing {
+    color: var(--viewer-muted);
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.colmap-viewer-host .viewer-observation-label {
+    font-size: 0.72rem;
+    overflow-wrap: anywhere;
+    padding: 0.45rem;
+}
+
+.colmap-viewer-host .viewer-observation-label small {
+    color: var(--viewer-muted);
+    display: block;
+    margin-top: 0.15rem;
+}
+
+@media (max-width: 900px) {
+    .colmap-viewer-host .viewer-workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(420px, 62vh) auto;
+        height: auto;
+    }
+
+    .colmap-viewer-host .viewer-inspector {
+        border-left: 0;
+        border-top: 1px solid var(--viewer-line);
+        max-height: 28rem;
+    }
+}
+
+@media (max-width: 620px) {
+    .colmap-viewer-host .viewer-toolbar,
+    .colmap-viewer-host .viewer-brand,
+    .colmap-viewer-host .viewer-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .colmap-viewer-host .viewer-toolbar {
+        gap: 0.45rem;
+    }
+
+    .colmap-viewer-host .viewer-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .colmap-viewer-host .viewer-workspace {
+        grid-template-rows: minmax(360px, 58vh) auto;
+        min-height: 0;
+    }
+}
+
+.colmap-viewer-host .viewer-fatal {
+    background: #fff1f0;
+    border: 1px solid #b21f1a;
+    border-radius: 0.35rem;
+    color: #7f1713;
+    font-family: var(--viewer-font-family);
+    padding: 1rem;
+}
