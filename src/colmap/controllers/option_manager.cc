@@ -799,22 +799,13 @@ void OptionManager::AddGlobalMapperOptions() {
       &global_mapper->mapper.global_positioning.pose_prior_position_mode,
       &PosePriorPositionModeToString,
       &PosePriorPositionModeFromString,
-      "off|initialize|optimize");
-  AddDefaultOption(
-      "GlobalMapper.pose_prior_position_loss_scale",
-      &global_mapper->mapper.global_positioning.pose_prior_position_loss_scale);
-  AddDefaultOption("GlobalMapper.pose_prior_position_fallback_stddev",
-                   &global_mapper->mapper.global_positioning
-                        .pose_prior_position_fallback_stddev);
-  AddDefaultOption("GlobalMapper.pose_prior_position_ransac_max_error",
-                   &global_mapper->mapper.global_positioning
-                        .pose_prior_position_ransac_max_error);
+      "off|optimize");
   AddDefaultOption("GlobalMapper.pose_prior_use_gravity",
                    &global_mapper->mapper.pose_prior_use_gravity);
   AddDefaultOption("GlobalMapper.pose_prior_gravity_stddev_deg",
                    &global_mapper->mapper.pose_prior_gravity_stddev_deg);
-  AddDefaultOption("GlobalMapper.pose_prior_gravity_loss_scale",
-                   &global_mapper->mapper.pose_prior_gravity_loss_scale);
+  AddDefaultOption("GlobalMapper.pose_prior_use_heading",
+                   &global_mapper->mapper.pose_prior_use_heading);
 
   // Bundle adjustment options (solver-agnostic).
   AddDefaultOption(

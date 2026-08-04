@@ -2,6 +2,7 @@
 
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/geometry/sim3.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/enum_utils.h"
@@ -24,6 +25,33 @@ namespace colmap {
 // FromString round-trip the exact CLI/project-file spelling required by the
 // contract, without a separate case-conversion step.
 MAKE_ENUM_CLASS(PosePriorPositionMode, 0, off, optimize);
+
+// Fixed policy for pose-prior position weighting. These are not CLI options:
+// each is derived from the residual's own statistics, not tuned against a
+// dataset, and an operator who widens one from the command line changes what
+// "inlier" means without changing anything that records it.
+
+// Robust loss radius on the covariance-whitened position residual, in
+// standard deviations. The residual has 3 degrees of freedom and is whitened
+// before Ceres sees it, so the 95% confidence radius is the square root of the
+// 3-DoF chi-square quantile, not the quantile itself.
+inline const double kPosePriorPositionLossScale =
+    std::sqrt(kChiSquare95ThreeDof);
+
+// Position standard deviation (metres) used only for a prior that carries no
+// covariance. The strict archive reader requires one on every row, so this
+// applies only to priors from another source. One metre is the low end of
+// consumer-GPS uncertainty: it makes such a prior influential but not
+// authoritative.
+inline constexpr double kPosePriorPositionFallbackStddev = 1.0;
+
+// RANSAC admission gate (metres) for the gauge fit between solved and
+// pose-prior frame centres. Deliberately the same radius the robust loss uses,
+// expressed in metres: admission and down-weighting are two halves of one
+// decision about what counts as an outlier, and giving them separate constants
+// invites them to drift apart.
+inline const double kPosePriorPositionRansacMaxError =
+    kPosePriorPositionLossScale * kPosePriorPositionFallbackStddev;
 
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
@@ -59,20 +87,6 @@ struct GlobalPositionerOptions {
   // Whether/how to use pose priors (e.g. GPS) to seed or constrain frame
   // positions. See PosePriorPositionMode.
   PosePriorPositionMode pose_prior_position_mode = PosePriorPositionMode::off;
-  // Robust loss scale for whitened pose-prior position residuals in
-  // `optimize` mode: sqrt(7.815), the 95% chi-square threshold for 3 DoF.
-  double pose_prior_position_loss_scale = 2.7955;
-  // Fallback position standard deviation (metres) used only when a prior has
-  // no position covariance.
-  double pose_prior_position_fallback_stddev = 1.0;
-  // Explicit RANSAC admission gate (metres) for the gauge fit between
-  // solved and pose-prior frame centers in `optimize` mode. A negative value
-  // (default) retains the legacy derived gate:
-  // pose_prior_position_loss_scale * pose_prior_position_fallback_stddev.
-  // Coupling the gate to the robust-loss scale conflates two different
-  // decisions (loss shape vs. RANSAC admission); this option decouples them
-  // without changing the legacy default.
-  double pose_prior_position_ransac_max_error = -1.0;
 
   // Whether to use custom parameter block ordering for Schur-based solvers.
   // Disable for deterministic behavior when using a fixed random seed.

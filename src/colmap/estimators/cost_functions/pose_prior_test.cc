@@ -42,6 +42,9 @@
 namespace colmap {
 namespace {
 
+// M_PI is not standard C++ and needs _USE_MATH_DEFINES before <cmath> on MSVC.
+constexpr double M_PI_CONSTANT = 3.14159265358979323846;
+
 TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       AbsolutePosePositionPriorCostFunctor::Create(Eigen::Vector3d::Zero()));
@@ -364,6 +367,169 @@ TEST(AbsoluteRigGravityPriorCostFunctor,
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
 
   EXPECT_THAT(rig_residuals, EigenMatrixNear(residuals, 1e-9));
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Heading
+////////////////////////////////////////////////////////////////////////////
+
+// A camera at `heading_deg` clockwise from true north, level (no roll or
+// pitch), in an ENU world. COLMAP camera axes are +X right, +Y down,
+// +Z forward, so for a level camera down is world -Up and forward lies in the
+// horizontal plane.
+Rigid3d LevelCameraAtHeading(double heading_deg) {
+  // world_from_cam rotates camera axes into ENU: at heading 0 the camera looks
+  // north (+Y), its right is east (+X), and its down is -Up (-Z).
+  Eigen::Matrix3d world_from_cam_at_north;
+  // clang-format off
+  world_from_cam_at_north << 1,  0, 0,   // cam +X (right)   -> East
+                             0,  0, 1,   // cam +Z (forward) -> North
+                             0, -1, 0;   // cam +Y (down)    -> -Up
+  // clang-format on
+  // Clockwise from north, viewed from above, is a negative rotation about Up.
+  const Eigen::Matrix3d yaw =
+      Eigen::AngleAxisd(-DegToRad(heading_deg), Eigen::Vector3d::UnitZ())
+          .toRotationMatrix();
+  const Eigen::Quaterniond world_from_cam(yaw * world_from_cam_at_north);
+  return Inverse(Rigid3d(world_from_cam, Eigen::Vector3d::Zero()));
+}
+
+double EvaluateHeadingResidual(double measured_heading_deg,
+                               const Rigid3d& cam_from_world,
+                               const Eigen::Vector3d& measured_down_in_sensor) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      AbsoluteHeadingPriorCostFunctor::Create(Eigen::Vector3d::UnitY(),
+                                              measured_down_in_sensor,
+                                              DegToRad(measured_heading_deg)));
+  double residual = std::numeric_limits<double>::quiet_NaN();
+  Rigid3d pose = cam_from_world;
+  const double* parameters[1] = {pose.params.data()};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, &residual, nullptr));
+  return residual;
+}
+
+TEST(AbsoluteHeadingPriorCostFunctor, ZeroWhenTheHeadingMatches) {
+  for (const double heading_deg : {0.0, 37.0, 90.0, 180.0, 271.0, 359.0}) {
+    const Rigid3d cam_from_world = LevelCameraAtHeading(heading_deg);
+    const Eigen::Vector3d down_in_cam(0.0, 1.0, 0.0);
+    EXPECT_NEAR(
+        EvaluateHeadingResidual(heading_deg, cam_from_world, down_in_cam),
+        0.0,
+        1e-9)
+        << "heading_deg=" << heading_deg;
+  }
+}
+
+TEST(AbsoluteHeadingPriorCostFunctor, MeasuresTheSignedAngularError) {
+  const Eigen::Vector3d down_in_cam(0.0, 1.0, 0.0);
+  const Rigid3d cam_from_world = LevelCameraAtHeading(90.0);
+  // The camera really points at 90; the measurement says 80, so the error is
+  // 10 degrees, and saying 100 gives the same magnitude with the other sign.
+  const double under = EvaluateHeadingResidual(80.0, cam_from_world, down_in_cam);
+  const double over = EvaluateHeadingResidual(100.0, cam_from_world, down_in_cam);
+  EXPECT_NEAR(std::abs(under), DegToRad(10.0), 1e-9);
+  EXPECT_NEAR(std::abs(over), DegToRad(10.0), 1e-9);
+  EXPECT_LT(under * over, 0.0) << "the residual must be signed";
+}
+
+TEST(AbsoluteHeadingPriorCostFunctor, IsContinuousAcrossTheWrapPoint) {
+  // 359 and 1 degrees are two degrees apart, not 358. An implementation that
+  // subtracts angles would report a huge error here and drag the solve.
+  const Eigen::Vector3d down_in_cam(0.0, 1.0, 0.0);
+  const Rigid3d cam_from_world = LevelCameraAtHeading(359.0);
+  EXPECT_NEAR(std::abs(EvaluateHeadingResidual(1.0, cam_from_world, down_in_cam)),
+              DegToRad(2.0),
+              1e-9);
+
+  const Rigid3d at_one = LevelCameraAtHeading(1.0);
+  EXPECT_NEAR(
+      std::abs(EvaluateHeadingResidual(359.0, at_one, down_in_cam)),
+      DegToRad(2.0),
+      1e-9);
+}
+
+TEST(AbsoluteHeadingPriorCostFunctor, ReturnsPiForAnOppositeHeading) {
+  // A compass that is 180 degrees out is a real failure mode -- a sign
+  // convention flipped upstream -- and the residual must say so rather than
+  // report a false zero, which would make the wrong solution look optimal.
+  const Eigen::Vector3d down_in_cam(0.0, 1.0, 0.0);
+  const Rigid3d cam_from_world = LevelCameraAtHeading(0.0);
+  EXPECT_NEAR(
+      std::abs(EvaluateHeadingResidual(180.0, cam_from_world, down_in_cam)),
+      M_PI_CONSTANT,
+      1e-9);
+}
+
+TEST(AbsoluteHeadingPriorCostFunctor, HasNoFalseMinimumOverTheFullDomain) {
+  const Eigen::Vector3d down_in_cam(0.0, 1.0, 0.0);
+  const Rigid3d cam_from_world = LevelCameraAtHeading(0.0);
+  for (int measured_deg = 1; measured_deg < 360; ++measured_deg) {
+    const double residual = std::abs(EvaluateHeadingResidual(
+        static_cast<double>(measured_deg), cam_from_world, down_in_cam));
+    const double expected = DegToRad(
+        std::min<double>(measured_deg, 360 - measured_deg));
+    EXPECT_NEAR(residual, expected, 1e-9) << "measured_deg=" << measured_deg;
+    EXPECT_GT(residual, 1e-6) << "false zero at measured_deg=" << measured_deg;
+  }
+}
+
+TEST(AbsoluteHeadingPriorCostFunctor, IsInvariantToRollAndPitch) {
+  // The azimuth is measured in the plane the measured down vector defines, so
+  // tilting the camera must not change the residual -- roll and pitch belong
+  // to the gravity residual, which measures them, and this one must not
+  // compete with it.
+  const Rigid3d level = LevelCameraAtHeading(45.0);
+  const Eigen::Vector3d level_down_in_cam(0.0, 1.0, 0.0);
+  const double base =
+      EvaluateHeadingResidual(50.0, level, level_down_in_cam);
+  ASSERT_GT(std::abs(base), 1e-6);
+
+  for (const double tilt_deg : {5.0, 15.0, 30.0}) {
+    for (const Eigen::Vector3d& axis :
+         {Eigen::Vector3d::UnitX().eval(), Eigen::Vector3d::UnitZ().eval()}) {
+      // Rotate the camera about its own axis; the measured down vector
+      // rotates with it, because it is measured in the camera frame.
+      const Eigen::Quaterniond tilt(
+          Eigen::AngleAxisd(DegToRad(tilt_deg), axis));
+      const Rigid3d tilted(tilt * Eigen::Quaterniond(level.rotation()),
+                           level.translation());
+      const Eigen::Vector3d tilted_down = tilt * level_down_in_cam;
+      EXPECT_NEAR(EvaluateHeadingResidual(50.0, tilted, tilted_down),
+                  base,
+                  1e-9)
+          << "tilt_deg=" << tilt_deg << " axis=" << axis.transpose();
+    }
+  }
+}
+
+TEST(AbsoluteRigHeadingPriorCostFunctor,
+     MatchesNonRigForIdentitySensorFromRig) {
+  const Eigen::Vector3d down_in_cam(0.0, 1.0, 0.0);
+  const double heading_rad = DegToRad(70.0);
+  std::unique_ptr<ceres::CostFunction> rig_cost_function(
+      AbsoluteRigHeadingPriorCostFunctor::Create(
+          Eigen::Vector3d::UnitY(), down_in_cam, heading_rad));
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      AbsoluteHeadingPriorCostFunctor::Create(
+          Eigen::Vector3d::UnitY(), down_in_cam, heading_rad));
+
+  Rigid3d sensor_from_rig(Eigen::Quaterniond::Identity(),
+                          Eigen::Vector3d::Zero());
+  Rigid3d rig_from_world = LevelCameraAtHeading(64.0);
+  Rigid3d sensor_from_world = sensor_from_rig * rig_from_world;
+
+  double rig_residual = std::numeric_limits<double>::quiet_NaN();
+  const double* rig_parameters[2] = {sensor_from_rig.params.data(),
+                                     rig_from_world.params.data()};
+  EXPECT_TRUE(
+      rig_cost_function->Evaluate(rig_parameters, &rig_residual, nullptr));
+
+  double residual = std::numeric_limits<double>::quiet_NaN();
+  const double* parameters[1] = {sensor_from_world.params.data()};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, &residual, nullptr));
+
+  EXPECT_NEAR(rig_residual, residual, 1e-9);
+  EXPECT_NEAR(std::abs(residual), DegToRad(6.0), 1e-9);
 }
 
 TEST(CovarianceWeightedCostFunctor, AbsolutePosePositionPriorCostFunctor) {

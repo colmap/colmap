@@ -135,6 +135,23 @@ struct CeresPosePriorBundleAdjustmentOptions {
   // prior_position_loss_scale's 3-DOF convention.
   double prior_gravity_loss_scale = std::sqrt(kChiSquare95TwoDof);
 
+  // Loss function for the heading prior residual. CAUCHY for the same reason
+  // as gravity: a compass is the least trustworthy sensor in this archive,
+  // and a handful of readings taken beside a steel structure is the normal
+  // case rather than the exceptional one.
+  CeresBundleAdjustmentOptions::LossFunctionType
+      prior_heading_loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+
+  // Threshold on the *standardized* heading residual, in "number of standard
+  // deviations". AbsoluteHeadingPriorCostFunctor's raw residual is a single
+  // signed angle in radians, which CovarianceWeightedCostFunctor whitens by
+  // that row's own heading variance; the result is dimensionless, not an
+  // angle. The residual is genuinely 1-dimensional -- an azimuth -- so the
+  // 95%-confidence radius uses 1 DoF, mirroring the 3-DoF position and 2-DoF
+  // gravity conventions above.
+  double prior_heading_loss_scale = std::sqrt(kChiSquare95OneDof);
+
   bool Check() const;
 };
 

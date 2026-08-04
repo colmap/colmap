@@ -147,6 +147,26 @@ struct GlobalMapperOptions {
   // class and robustness is wanted by default whenever gravity mode is on.
   double pose_prior_gravity_loss_scale = std::sqrt(kChiSquare95TwoDof);
 
+  // Whether to add the 1-DoF true-north heading residual to the same BA
+  // stages as gravity. Off by default: the production archive carries no
+  // heading, and a compass is the least trustworthy sensor in this workflow.
+  //
+  // Valid heading data is imported and retained regardless of this flag, so
+  // adopting a trusted compass later means changing this one value -- not
+  // re-importing. Requires pose_prior_position_mode=optimize (the heading is
+  // meaningless without the metric ENU gauge) and pose_prior_use_gravity=1
+  // (the azimuth is measured in the plane the measured down vector defines).
+  // Each heading row states its own uncertainty; there is deliberately no
+  // global fallback, because a heading whose accuracy nobody stated is a
+  // heading nobody should be weighting.
+  bool pose_prior_use_heading = false;
+
+  // Threshold on the *standardized* heading residual, in "number of standard
+  // deviations". The residual is one signed angle, whitened by that row's own
+  // heading variance, so the 95%-confidence radius uses 1 DoF -- see
+  // CeresPosePriorBundleAdjustmentOptions::prior_heading_loss_scale.
+  double pose_prior_heading_loss_scale = std::sqrt(kChiSquare95OneDof);
+
   // Whether to skip the fixed-rotation stage in bundle adjustment.
   // By default, BA runs in two stages: first with fixed rotations (position
   // only), then with full optimization. Setting this to true skips the first
@@ -257,7 +277,6 @@ class GlobalMapper {
   // Solve()).
   bool pose_prior_ba_use_robust_loss_ = true;
   double pose_prior_ba_loss_scale_ = std::sqrt(kChiSquare95ThreeDof);
-  double pose_prior_position_fallback_stddev_ = 1.0;
 
   // Cached from GlobalMapperOptions at the top of Solve(); used by
   // RunBundleAdjustment()'s pose-prior branch, combined there with
@@ -266,6 +285,9 @@ class GlobalMapper {
   bool pose_prior_gravity_requested_ = false;
   double pose_prior_gravity_stddev_deg_ = 5.0;
   double pose_prior_gravity_loss_scale_ = std::sqrt(kChiSquare95TwoDof);
+
+  bool pose_prior_heading_requested_ = false;
+  double pose_prior_heading_loss_scale_ = std::sqrt(kChiSquare95OneDof);
 };
 
 }  // namespace colmap

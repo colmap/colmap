@@ -212,10 +212,6 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
   reset_translations(reconstruction_opt);
   GlobalPositionerOptions opt_options = base_options;
   opt_options.pose_prior_position_mode = PosePriorPositionMode::optimize;
-  // The synthetic BATA solution is several units from its exact Sim3 fit;
-  // use a matching measurement scale so the chi-square-derived RANSAC gate
-  // tests outlier rejection rather than an unrealistically precise fallback.
-  opt_options.pose_prior_position_fallback_stddev = 3.0;
   PosePriorPositionSummary opt_summary;
   ASSERT_TRUE(RunGlobalPositioning(
       opt_options, pose_graph, reconstruction_opt, pose_priors, &opt_summary));
@@ -232,91 +228,6 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
                                  /*max_proj_center_error=*/0.5,
                                  /*max_scale_error=*/0.05,
                                  /*num_obs_tolerance=*/0.0));
-}
-
-TEST(GlobalPositioning, PosePriorPositionRansacMaxErrorExplicitOverride) {
-  // Workstream 4B: pose_prior_position_ransac_max_error decouples the
-  // optimize-mode gauge RANSAC gate from the robust-loss scale. A negative
-  // value (default) must reproduce the legacy derived gate
-  // (loss_scale * fallback_stddev) exactly; an explicit non-negative value
-  // must override it.
-  SetPRNGSeed(0);
-
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 12;
-  synthetic_dataset_options.num_points3D = 200;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-
-  // One frame's prior is biased by 50m: well beyond the legacy derived gate
-  // (loss_scale=2.7955 * fallback_stddev=3.0 ~= 8.39m, rejects it) but well
-  // within an explicit override of 100m (accepts it).
-  std::vector<PosePrior> pose_priors;
-  bool injected_bias = false;
-  for (const auto& [image_id, image] : gt_reconstruction.Images()) {
-    PosePrior prior;
-    prior.corr_data_id = image.DataId();
-    prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-    prior.position = image.ProjectionCenter();
-    if (!injected_bias) {
-      prior.position += Eigen::Vector3d(50.0, 0.0, 0.0);
-      injected_bias = true;
-    }
-    pose_priors.push_back(prior);
-  }
-  ASSERT_TRUE(injected_bias);
-
-  DatabaseCache database_cache;
-  DatabaseCache::Options cache_options;
-  database_cache.Load(*database, cache_options);
-  PoseGraph pose_graph;
-  pose_graph.Load(*database_cache.CorrespondenceGraph());
-
-  const auto reset_translations = [](Reconstruction& reconstruction) {
-    for (const auto& [frame_id, _] : reconstruction.Frames()) {
-      Frame& frame = reconstruction.Frame(frame_id);
-      frame.SetRigFromWorld(
-          Rigid3d(frame.RigFromWorld().rotation(), Eigen::Vector3d::Zero()));
-    }
-  };
-
-  GlobalPositionerOptions base_options;
-  base_options.use_gpu = false;
-  base_options.random_seed = 42;
-  base_options.solver_options.minimizer_progress_to_stdout = false;
-  base_options.pose_prior_position_mode = PosePriorPositionMode::optimize;
-  base_options.pose_prior_position_fallback_stddev = 3.0;
-
-  // Default (unset): legacy derived gate (~8.39m) rejects the 12m bias.
-  {
-    Reconstruction reconstruction = gt_reconstruction;
-    reset_translations(reconstruction);
-    ASSERT_EQ(base_options.pose_prior_position_ransac_max_error, -1.0);
-    PosePriorPositionSummary summary;
-    ASSERT_TRUE(RunGlobalPositioning(
-        base_options, pose_graph, reconstruction, pose_priors, &summary));
-    EXPECT_TRUE(summary.engaged);
-    EXPECT_EQ(summary.num_inliers, summary.num_covered_frames - 1);
-  }
-
-  // Explicit override to 100m: admits the 50m bias as an inlier.
-  {
-    Reconstruction reconstruction = gt_reconstruction;
-    reset_translations(reconstruction);
-    GlobalPositionerOptions explicit_options = base_options;
-    explicit_options.pose_prior_position_ransac_max_error = 100.0;
-    PosePriorPositionSummary summary;
-    ASSERT_TRUE(RunGlobalPositioning(
-        explicit_options, pose_graph, reconstruction, pose_priors, &summary));
-    EXPECT_TRUE(summary.engaged);
-    EXPECT_EQ(summary.num_inliers, summary.num_covered_frames);
-  }
 }
 
 TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {

@@ -978,6 +978,11 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
             prior_options_.ceres->prior_gravity_loss_function_type,
             prior_options_.ceres->prior_gravity_loss_scale);
       }
+      if (prior_options_.use_prior_heading) {
+        prior_heading_loss_function_ = CreateLossFunction(
+            prior_options_.ceres->prior_heading_loss_function_type,
+            prior_options_.ceres->prior_heading_loss_scale);
+      }
 
       // Only consider parameterized images for pose priors. Notice that some
       // images may be configured to be included in the BA problem but have no
@@ -986,6 +991,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           default_bundle_adjuster_->ParameterizedImageIds();
       int num_position_priors_considered = 0;
       int num_gravity_priors_considered = 0;
+      int num_heading_priors_considered = 0;
       for (const auto& pose_prior : pose_priors_) {
         if (parameterized_image_ids.count(pose_prior.corr_data_id.id) > 0) {
           if (pose_prior.HasPosition()) {
@@ -993,6 +999,9 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           }
           if (prior_options_.use_prior_gravity && pose_prior.HasGravity()) {
             ++num_gravity_priors_considered;
+          }
+          if (prior_options_.use_prior_heading && pose_prior.HasHeading()) {
+            ++num_heading_priors_considered;
           }
           AddImagePosePriorToProblem(
               pose_prior.corr_data_id.id, pose_prior, reconstruction);
@@ -1025,7 +1034,21 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                            std::to_string(
                                prior_options_.prior_gravity_stddev_deg) +
                            ")")
-                        : std::string(" (gravity mode off)"));
+                        : std::string(" (gravity mode off)"))
+                << "; " << num_heading_priors_considered
+                << " heading priors considered -> "
+                << num_heading_residuals_added_ << " heading residuals added"
+                << (prior_options_.use_prior_heading
+                        ? (std::string(" (loss=") +
+                           LossFunctionTypeName(
+                               prior_options_.ceres
+                                   ->prior_heading_loss_function_type) +
+                           ", standardized_scale=" +
+                           std::to_string(
+                               prior_options_.ceres->prior_heading_loss_scale) +
+                           ", " + std::to_string(num_heading_degenerate_rejected_) +
+                           " rejected for a near-vertical camera axis)")
+                        : std::string(" (heading mode off)"));
     }
   }
 
@@ -1113,6 +1136,29 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       gravity_cov = (stddev_rad * stddev_rad) * Eigen::Matrix3d::Identity();
     }
 
+    // Heading rides on the same measured down vector, so it needs gravity on
+    // this row regardless of what the flags say.
+    bool add_heading_residual =
+        prior_options_.use_prior_heading && add_gravity_residual &&
+        pose_prior.HasHeading();
+    Eigen::Matrix<double, 1, 1> heading_cov;
+    if (add_heading_residual) {
+      // A camera pointing nearly straight up or down has no defined azimuth:
+      // its forward axis projects to almost nothing in the horizontal plane,
+      // and normalizing that projection would amplify numerical noise into a
+      // confident-looking direction.
+      const Eigen::Vector3d forward(0.0, 0.0, 1.0);
+      const double horizontal_norm =
+          (forward - measured_down * measured_down.dot(forward)).norm();
+      if (horizontal_norm < kMinHeadingHorizontalProjectionNorm) {
+        add_heading_residual = false;
+        ++num_heading_degenerate_rejected_;
+      } else {
+        heading_cov(0, 0) =
+            pose_prior.heading_stddev_rad * pose_prior.heading_stddev_rad;
+      }
+    }
+
     if (image.IsRefInFrame()) {
       if (pose_prior.HasPosition()) {
         problem.AddResidualBlock(
@@ -1132,6 +1178,17 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
             prior_gravity_loss_function_.get(),
             rig_from_world.params.data());
         ++num_gravity_residuals_added_;
+      }
+      if (add_heading_residual) {
+        problem.AddResidualBlock(
+            CovarianceWeightedCostFunctor<
+                AbsoluteHeadingPriorCostFunctor>::Create(heading_cov,
+                                                         world_north_,
+                                                         measured_down,
+                                                         pose_prior.heading_rad),
+            prior_heading_loss_function_.get(),
+            rig_from_world.params.data());
+        ++num_heading_residuals_added_;
       }
     } else {
       Rigid3d& cam_from_rig =
@@ -1156,6 +1213,18 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
             cam_from_rig.params.data(),
             rig_from_world.params.data());
         ++num_gravity_residuals_added_;
+      }
+      if (add_heading_residual) {
+        problem.AddResidualBlock(
+            CovarianceWeightedCostFunctor<AbsoluteRigHeadingPriorCostFunctor>::
+                Create(heading_cov,
+                       world_north_,
+                       measured_down,
+                       pose_prior.heading_rad),
+            prior_heading_loss_function_.get(),
+            cam_from_rig.params.data(),
+            rig_from_world.params.data());
+        ++num_heading_residuals_added_;
       }
     }
   }
@@ -1198,6 +1267,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
   std::unique_ptr<ceres::LossFunction> prior_gravity_loss_function_;
+  std::unique_ptr<ceres::LossFunction> prior_heading_loss_function_;
 
   Sim3d normalized_from_metric_;
 
@@ -1208,11 +1278,27 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   // solver frame too, since Normalize()'s rotation is always identity.
   const Eigen::Vector3d world_down_ = Eigen::Vector3d(0.0, 0.0, -1.0);
 
+  // True north in the same frame. Like world_down_, this is one direction for
+  // the whole scene rather than each row's own local north. The two differ by
+  // roughly 1.6e-7 rad per metre of separation from the ENU origin -- about
+  // 0.01 degrees across a kilometre -- against a heading uncertainty stated in
+  // whole degrees. For a capture large enough for that to matter, this needs
+  // the per-row rotation from PosePriorEnuFrame::SharedFromLocalEnu, which
+  // requires the priors' original WGS84 positions to reach this adjuster;
+  // they are converted to ENU before it sees them.
+  const Eigen::Vector3d world_north_ = Eigen::Vector3d(0.0, 1.0, 0.0);
+
+  // Below this, a camera's forward axis is too close to the measured vertical
+  // for its azimuth to be defined. See AbsoluteHeadingPriorCostFunctor.
+  static constexpr double kMinHeadingHorizontalProjectionNorm = 1e-3;
+
   // Per-stage support counters, logged once in the constructor after all
   // pose priors have been processed. These provide aggregate support;
   // per-image detail is reported separately via camera_residuals.csv.
   int num_position_residuals_added_ = 0;
   int num_gravity_residuals_added_ = 0;
+  int num_heading_residuals_added_ = 0;
+  int num_heading_degenerate_rejected_ = 0;
   int num_position_cov_rejected_ = 0;
 };
 

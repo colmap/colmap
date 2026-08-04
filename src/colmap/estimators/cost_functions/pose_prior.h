@@ -205,6 +205,132 @@ struct AbsoluteRigGravityPriorCostFunctor
   const Eigen::Vector3d measured_down_in_sensor_;
 };
 
+// 1-DoF wrap-safe angular error between a measured compass heading and the
+// heading the sensor's rotation predicts.
+//
+// A heading is one number -- an azimuth -- and it is represented as one
+// number. Promoting it to a quaternion would let the solver read roll and
+// pitch out of a measurement that contains neither, and those fabricated two
+// degrees of freedom would compete with the gravity residual, which does
+// measure them.
+//
+// The azimuth is only defined relative to a horizontal plane, and the plane
+// this fork has is the one the measured camera-frame down vector `d`
+// establishes. Both the measured and the predicted north directions are
+// projected into that plane and compared there, so the residual is unaffected
+// by how the camera is tilted:
+//
+//   f     = (0, 0, 1)                       camera forward (COLMAP axes)
+//   f_h   = normalize(f - d * dot(d, f))    forward, projected horizontal
+//   r_h   = normalize(cross(d, f_h))        right, completing the frame
+//   n_m   = cos(h) * f_h - sin(h) * r_h     measured north, in camera frame
+//   n_p   = R_sensor_from_world * north_world      predicted north
+//   n_p_h = normalize(n_p - d * dot(d, n_p))
+//   residual = atan2(dot(d, cross(n_m, n_p_h)), dot(n_m, n_p_h))
+//
+// The atan2 form is what makes it wrap-safe: it is signed, continuous across
+// 0/2*pi, and returns magnitude pi -- not a false zero -- for an exactly
+// opposite heading. A residual built from a vector difference or from a
+// subtraction of angles would either be blind to the antipode or discontinuous
+// at the wrap point, and a compass that is 180 degrees out is a real failure
+// mode (a sign convention flipped somewhere upstream), not a hypothetical.
+//
+// `north_world` is this row's own north taken from the shared ENU frame, not
+// one constant direction reused across the scene. `measured_down_in_sensor`
+// must be the same vector the gravity residual uses for this image.
+//
+// Caller responsibilities, because this functor cannot check them:
+//   - Reject the row when norm(f - d * dot(d, f)) is below
+//     kMinHeadingHorizontalProjectionNorm: the camera is then pointing so
+//     nearly straight up or down that its azimuth is not defined, and f_h
+//     would be numerical noise scaled to unit length.
+//   - Divide the residual by that row's heading_stddev_rad and apply the
+//     fixed 1-DoF robust radius.
+struct AbsoluteHeadingPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsoluteHeadingPriorCostFunctor, 1, 7> {
+ public:
+  AbsoluteHeadingPriorCostFunctor(const Eigen::Vector3d& north_world,
+                                  const Eigen::Vector3d& measured_down_in_sensor,
+                                  double measured_heading_rad)
+      : north_world_(north_world.normalized()),
+        down_(measured_down_in_sensor.normalized()),
+        measured_north_in_sensor_(
+            MeasuredNorthInSensor(down_, measured_heading_rad)) {}
+
+  // The measured heading as a direction in the camera frame. Constant at
+  // construction: it depends only on the measurement, never on the pose.
+  static Eigen::Vector3d MeasuredNorthInSensor(const Eigen::Vector3d& down,
+                                               double heading_rad) {
+    const Eigen::Vector3d forward(0.0, 0.0, 1.0);
+    const Eigen::Vector3d forward_horizontal =
+        (forward - down * down.dot(forward)).normalized();
+    const Eigen::Vector3d right_horizontal =
+        down.cross(forward_horizontal).normalized();
+    return std::cos(heading_rad) * forward_horizontal -
+           std::sin(heading_rad) * right_horizontal;
+  }
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_world, T* residuals_ptr) const {
+    const Eigen::Matrix<T, 3, 1> down = down_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> predicted_north =
+        EigenQuaternionMap<T>(sensor_from_world) * north_world_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> predicted_north_horizontal =
+        (predicted_north - down * down.dot(predicted_north)).normalized();
+    const Eigen::Matrix<T, 3, 1> measured_north =
+        measured_north_in_sensor_.cast<T>();
+    residuals_ptr[0] =
+        ceres::atan2(down.dot(measured_north.cross(predicted_north_horizontal)),
+                     measured_north.dot(predicted_north_horizontal));
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d north_world_;
+  const Eigen::Vector3d down_;
+  const Eigen::Vector3d measured_north_in_sensor_;
+};
+
+// Rig variant of AbsoluteHeadingPriorCostFunctor, for non-reference sensors.
+struct AbsoluteRigHeadingPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsoluteRigHeadingPriorCostFunctor, 1, 7, 7> {
+ public:
+  AbsoluteRigHeadingPriorCostFunctor(
+      const Eigen::Vector3d& north_world,
+      const Eigen::Vector3d& measured_down_in_sensor,
+      double measured_heading_rad)
+      : north_world_(north_world.normalized()),
+        down_(measured_down_in_sensor.normalized()),
+        measured_north_in_sensor_(
+            AbsoluteHeadingPriorCostFunctor::MeasuredNorthInSensor(
+                down_, measured_heading_rad)) {}
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_rig,
+                  const T* const rig_from_world,
+                  T* residuals_ptr) const {
+    const Eigen::Quaternion<T> sensor_from_world_rotation =
+        EigenQuaternionMap<T>(sensor_from_rig) *
+        EigenQuaternionMap<T>(rig_from_world);
+    const Eigen::Matrix<T, 3, 1> down = down_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> predicted_north =
+        sensor_from_world_rotation * north_world_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> predicted_north_horizontal =
+        (predicted_north - down * down.dot(predicted_north)).normalized();
+    const Eigen::Matrix<T, 3, 1> measured_north =
+        measured_north_in_sensor_.cast<T>();
+    residuals_ptr[0] =
+        ceres::atan2(down.dot(measured_north.cross(predicted_north_horizontal)),
+                     measured_north.dot(predicted_north_horizontal));
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d north_world_;
+  const Eigen::Vector3d down_;
+  const Eigen::Vector3d measured_north_in_sensor_;
+};
+
 // 6-DoF error between two absolute camera poses based on a prior on their
 // relative pose, with identical scale for the translation. The residual is
 // computed in the frame of camera i. Its first and last three components

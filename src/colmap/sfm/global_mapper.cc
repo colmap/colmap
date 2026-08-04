@@ -315,12 +315,6 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
   }
   pose_prior_position_engaged_ =
       summary.requested == PosePriorPositionMode::optimize && summary.engaged;
-  // Cached here (not only in Solve()) so RunBundleAdjustment() stays correct
-  // even if a caller invokes the BA stages directly after GlobalPositioning(),
-  // without going through Solve().
-  pose_prior_position_fallback_stddev_ =
-      options.pose_prior_position_fallback_stddev;
-
   // Filter tracks based on the estimation
   ObservationManager obs_manager(*reconstruction_);
 
@@ -402,8 +396,10 @@ bool GlobalMapper::RunBundleAdjustment(const BundleAdjustmentOptions& options) {
   std::unique_ptr<BundleAdjuster> ba;
   if (use_prior_position) {
     PosePriorBundleAdjustmentOptions prior_options;
+    // Upstream's own mandatory parameter, guarded by THROW_CHECK_GT(., 0);
+    // it is fed this fork's fixed policy value rather than a separate knob.
     prior_options.prior_position_fallback_stddev =
-        pose_prior_position_fallback_stddev_;
+        kPosePriorPositionFallbackStddev;
     if (pose_prior_ba_use_robust_loss_) {
       prior_options.ceres->prior_position_loss_function_type =
           CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
@@ -415,6 +411,11 @@ bool GlobalMapper::RunBundleAdjustment(const BundleAdjustmentOptions& options) {
     prior_options.prior_gravity_stddev_deg = pose_prior_gravity_stddev_deg_;
     prior_options.ceres->prior_gravity_loss_scale =
         pose_prior_gravity_loss_scale_;
+    // Heading rides on gravity's measured down vector, so it engages under
+    // the same condition and never on its own.
+    prior_options.use_prior_heading = pose_prior_heading_requested_;
+    prior_options.ceres->prior_heading_loss_scale =
+        pose_prior_heading_loss_scale_;
     ba = CreatePosePriorBundleAdjuster(options,
                                        prior_options,
                                        ba_config,
@@ -632,6 +633,33 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
   pose_prior_gravity_stddev_deg_ = options.pose_prior_gravity_stddev_deg;
   pose_prior_gravity_loss_scale_ = options.pose_prior_gravity_loss_scale;
+
+  pose_prior_heading_requested_ = options.pose_prior_use_heading;
+  if (pose_prior_heading_requested_) {
+    THROW_CHECK(options.global_positioning.pose_prior_position_mode ==
+                PosePriorPositionMode::optimize)
+        << "pose_prior_use_heading requires pose_prior_position_mode=optimize: "
+           "a true-north azimuth means nothing without the shared ENU frame "
+           "that only the position solve establishes";
+    THROW_CHECK(pose_prior_gravity_requested_)
+        << "pose_prior_use_heading requires pose_prior_use_gravity=1: the "
+           "heading residual is measured in the horizontal plane that the "
+           "row's own measured down vector establishes, so there is no "
+           "heading-only configuration";
+    // Requesting a constraint that no row can supply is a configuration
+    // mistake, and the run would otherwise finish looking successful with the
+    // compass silently doing nothing.
+    int num_usable_heading_rows = 0;
+    for (const PosePrior& pose_prior : database_cache_->PosePriors()) {
+      if (pose_prior.HasHeading() && pose_prior.HasGravity()) {
+        ++num_usable_heading_rows;
+      }
+    }
+    THROW_CHECK_GT(num_usable_heading_rows, 0)
+        << "pose_prior_use_heading was requested but no pose prior carries "
+           "both a heading and the gravity reading it needs";
+  }
+  pose_prior_heading_loss_scale_ = options.pose_prior_heading_loss_scale;
 
   // Reports the current reconstruction and returns whether a stop was
   // requested. Point errors are recomputed in pixels before reporting because

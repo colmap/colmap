@@ -269,6 +269,14 @@ struct PosePriorBundleAdjustmentOptions
   // doc/pose_priors.rst).
   double prior_gravity_stddev_deg = 5.0;
 
+  // Whether to add a soft 1-DoF true-north heading residual for every pose
+  // prior that carries one. Off by default. Requires use_prior_gravity: the
+  // heading residual is measured in the horizontal plane that the row's own
+  // measured down vector establishes, so without gravity there is no plane to
+  // measure it in. Each row supplies its own uncertainty, so unlike gravity
+  // there is no global stddev here.
+  bool use_prior_heading = false;
+
   // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
 

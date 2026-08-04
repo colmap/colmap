@@ -237,10 +237,6 @@ TEST(GlobalMapper, PosePriorPositionOptimizeSurvivesRetriangulation) {
   options.global_positioning.random_seed = 42;
   options.global_positioning.pose_prior_position_mode =
       PosePriorPositionMode::optimize;
-  // No position_covariance on the synthetic priors above, so alignment and
-  // BA both fall back to this declared stddev (matches the pattern used in
-  // GlobalPositioning.PosePriorPositionMode).
-  options.global_positioning.pose_prior_position_fallback_stddev = 3.0;
 
   ASSERT_TRUE(global_mapper.Solve(options));
 
@@ -295,7 +291,6 @@ TEST(GlobalMapper, PosePriorGravityOptimizeSurvivesFullPipeline) {
   options.global_positioning.random_seed = 42;
   options.global_positioning.pose_prior_position_mode =
       PosePriorPositionMode::optimize;
-  options.global_positioning.pose_prior_position_fallback_stddev = 3.0;
   options.pose_prior_use_gravity = true;
   options.pose_prior_gravity_stddev_deg = 2.0;
 
