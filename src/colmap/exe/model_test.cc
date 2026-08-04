@@ -98,7 +98,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   }
   std::sort(sorted_images.begin(), sorted_images.end());
   const image_t position_outlier_id = sorted_images.front().second;
-  const image_t orientation_outlier_id = sorted_images.back().second;
   Eigen::Vector3d position_outlier_lla;
 
   auto database = Database::Open(database_path);
@@ -122,28 +121,12 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       position_outlier_lla = lla;
     }
 
-    const Eigen::Matrix3d shared_from_local =
-        GPSTransform::ENUFromECEF(reference_lat, reference_lon) *
-        GPSTransform::ECEFFromENU(lla.x(), lla.y());
-    Eigen::Quaterniond sensor_from_shared =
-        target.Image(image_id).CamFromWorld().rotation();
-    if (image_id == orientation_outlier_id) {
-      sensor_from_shared = Eigen::Quaterniond(Eigen::AngleAxisd(
-                               DegToRad(90.0), Eigen::Vector3d::UnitY())) *
-                           sensor_from_shared;
-    }
-
     PosePrior prior;
     prior.corr_data_id =
         data_t(sensor_t(SensorType::CAMERA, source_image.CameraId()), image_id);
     prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
     prior.position = lla;
     prior.position_covariance = Eigen::Vector3d(0.25, 0.25, 1.0).asDiagonal();
-    prior.rotation =
-        (sensor_from_shared * Eigen::Quaterniond(shared_from_local.transpose()))
-            .normalized();
-    prior.rotation_covariance =
-        Eigen::Vector3d::Constant(DegToRad(1.0) * DegToRad(1.0)).asDiagonal();
     // Sensor-frame down vector consistent with the (ENU-aligned) target
     // reconstruction's orientation, so the gravity-consistency diagnostic is
     // small and neither warning fires.
@@ -175,10 +158,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       "10",
       "--min_common_images",
       "3",
-      "--use_pose_prior_orientation",
       "1",
-      "--orientation_max_error_deg",
-      "10",
       "--alignment_random_seed",
       "12345",
       "--scene_id",
@@ -203,11 +183,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_EQ(report.get<std::string>("schema"), "colmap_scene_georeference");
   EXPECT_EQ(report.get<std::string>("scene_id"), "fixed-test-scene");
   EXPECT_FALSE(report.get<bool>("enu_origin.explicit"));
-  EXPECT_TRUE(report.get<bool>("orientation_requested"));
-  EXPECT_TRUE(report.get<bool>("orientation_engaged"));
   EXPECT_EQ(report.get<int>("support.num_position_inliers"), 7);
-  EXPECT_EQ(report.get<int>("support.num_orientation_candidates"), 8);
-  EXPECT_EQ(report.get<int>("support.num_orientation_inliers"), 7);
   EXPECT_EQ(report.get<int>("support.num_registered"), 8);
   EXPECT_NEAR(report.get<double>("metres_per_sfm_unit"), scale, 1e-4 * scale);
   // The 8-camera synthetic layout is normalized to a 2000 m baseline above,
@@ -219,8 +195,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_GT(report.get<double>("diagnostics.max_horizontal_baseline_m"),
             1000.0);
   EXPECT_LT(report.get<double>("diagnostics.position_3d_residual_m.max"), 0.1);
-  EXPECT_LT(report.get<double>("diagnostics.orientation_residual_deg.max"),
-            0.5);
   EXPECT_GT(report.get<double>("diagnostics.max_ellipsoid_tangent_departure_m"),
             0.0);
   EXPECT_GT(std::abs(report.get<double>("enu_origin.lat_deg") -
@@ -241,37 +215,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_NEAR(frame_contract.get<double>("crs.origin.lat_deg"),
               report.get<double>("enu_origin.lat_deg"),
               1e-9);
-  const auto& target_entry = frame_contract.get_child("targets").front().second;
-  EXPECT_EQ(target_entry.get<std::string>("name"), "GLTF_Y_UP");
-  Eigen::Matrix3d target_from_geometry;
-  {
-    int row = 0;
-    for (const auto& row_node :
-         target_entry.get_child("matrix_row_major_target_from_geometry")) {
-      int col = 0;
-      for (const auto& value_node : row_node.second) {
-        target_from_geometry(row, col) = value_node.second.get_value<double>();
-        ++col;
-      }
-      ASSERT_EQ(col, 3);
-      ++row;
-    }
-    ASSERT_EQ(row, 3);
-  }
-  EXPECT_NEAR(target_from_geometry.determinant(), 1.0, 1e-12);
-  EXPECT_LT((target_from_geometry * Eigen::Vector3d(1.0, 0.0, 0.0) -
-             Eigen::Vector3d(1.0, 0.0, 0.0))
-                .norm(),
-            1e-12);
-  EXPECT_LT((target_from_geometry * Eigen::Vector3d(0.0, 0.0, 1.0) -
-             Eigen::Vector3d(0.0, 1.0, 0.0))
-                .norm(),
-            1e-12);
-  EXPECT_LT((target_from_geometry * Eigen::Vector3d(0.0, 1.0, 0.0) -
-             Eigen::Vector3d(0.0, 0.0, -1.0))
-                .norm(),
-            1e-12);
-
   // Post-alignment diagnostics and warnings. The fixture's positions are
   // well-spread and gravity priors match the ENU-aligned target orientation,
   // so neither warning should fire.
@@ -325,12 +268,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       EXPECT_FALSE(fields[4].empty());
       EXPECT_FALSE(fields[7].empty());
       EXPECT_FALSE(fields[10].empty());
-    }
-    if (line.rfind(source.Image(orientation_outlier_id).Name(), 0) == 0) {
-      ASSERT_GE(fields.size(), 19u);
-      EXPECT_EQ(fields[16], "1");
-      EXPECT_EQ(fields[17], "0");
-      EXPECT_GT(std::stod(fields[18]), 45.0);
     }
   }
 
@@ -425,209 +362,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
     EXPECT_EQ(seed_a1[i], seed_a2[i]);
   }
   EXPECT_EQ(seed_b.size(), seed_a1.size());
-}
-
-TEST(ModelAligner, OutputCoordinateFrameGltfYUp) {
-  const std::filesystem::path test_dir = CreateTestDir();
-  const std::filesystem::path input_path = test_dir / "input";
-  const std::filesystem::path enu_output_path = test_dir / "output_enu";
-  const std::filesystem::path yup_output_path = test_dir / "output_yup";
-  const std::filesystem::path database_path = test_dir / "database.db";
-  const std::filesystem::path enu_report_path =
-      test_dir / "georeference_enu.json";
-  const std::filesystem::path yup_report_path =
-      test_dir / "georeference_yup.json";
-  std::filesystem::create_directories(input_path);
-  std::filesystem::create_directories(enu_output_path);
-  std::filesystem::create_directories(yup_output_path);
-
-  Reconstruction source;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 6;
-  options.num_points3D = 50;
-  SynthesizeDataset(options, &source);
-  source.Write(input_path);
-
-  const double reference_lat = 45.5;
-  const double reference_lon = -73.6;
-  const double reference_alt = 120.0;
-  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-
-  auto database = Database::Open(database_path);
-  for (const auto& [camera_id, camera] : source.Cameras()) {
-    database->WriteCamera(camera, /*use_camera_id=*/true);
-  }
-  for (const auto& [image_id, source_image] : source.Images()) {
-    Image database_image;
-    database_image.SetImageId(image_id);
-    database_image.SetName(source_image.Name());
-    database_image.SetCameraId(source_image.CameraId());
-    database->WriteImage(database_image, /*use_image_id=*/true);
-
-    // The source reconstruction's own camera centers, reinterpreted as ENU
-    // positions -- the specific frame doesn't matter for this test, only
-    // that the aligned model ends up self-consistently in ENU.
-    const Eigen::Vector3d center_enu =
-        source.Image(image_id).ProjectionCenter();
-    const Eigen::Vector3d lla = gps_transform.ENUToEllipsoid(
-        {center_enu}, reference_lat, reference_lon, reference_alt)[0];
-
-    PosePrior prior;
-    prior.corr_data_id =
-        data_t(sensor_t(SensorType::CAMERA, source_image.CameraId()), image_id);
-    prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-    prior.position = lla;
-    prior.position_covariance = Eigen::Vector3d(1.0, 1.0, 2.0).asDiagonal();
-    database->WritePosePrior(prior);
-  }
-  database.reset();
-
-  const auto run_aligner = [&](const std::filesystem::path& output_path,
-                               const std::filesystem::path& report_path,
-                               const std::string& output_coordinate_frame) {
-    std::vector<std::string> args{
-        "model_aligner",
-        "--input_path",
-        input_path.string(),
-        "--output_path",
-        output_path.string(),
-        "--database_path",
-        database_path.string(),
-        "--alignment_type",
-        "enu",
-        "--alignment_max_error",
-        "10",
-        "--min_common_images",
-        "3",
-        "--alignment_random_seed",
-        "12345",
-        "--georeference_json",
-        report_path.string(),
-        "--output_coordinate_frame",
-        output_coordinate_frame,
-    };
-    std::vector<char*> argv;
-    argv.reserve(args.size());
-    for (std::string& arg : args) {
-      argv.push_back(arg.data());
-    }
-    return RunModelAligner(static_cast<int>(argv.size()), argv.data());
-  };
-
-  ASSERT_EQ(run_aligner(enu_output_path, enu_report_path, "ENU_Z_UP"),
-            EXIT_SUCCESS);
-  ASSERT_EQ(run_aligner(yup_output_path, yup_report_path, "GLTF_Y_UP"),
-            EXIT_SUCCESS);
-
-  // frame_contract truthfully describes the frame actually written for the
-  // Y-up run -- never claim ENU bytes while Y-up bytes were written.
-  boost::property_tree::ptree yup_report;
-  boost::property_tree::read_json(yup_report_path.string(), yup_report);
-  const auto& yup_frame_contract = yup_report.get_child("frame_contract");
-  EXPECT_EQ(yup_frame_contract.get<std::string>("geometry_frame"), "GLTF_Y_UP");
-  EXPECT_EQ(yup_frame_contract.get<std::string>("up_axis"), "Y");
-  const auto& yup_target =
-      yup_frame_contract.get_child("targets").front().second;
-  EXPECT_EQ(yup_target.get<std::string>("name"), "ENU_LOCAL");
-  Eigen::Matrix3d enu_from_yup;
-  {
-    int row = 0;
-    for (const auto& row_node :
-         yup_target.get_child("matrix_row_major_target_from_geometry")) {
-      int col = 0;
-      for (const auto& value_node : row_node.second) {
-        enu_from_yup(row, col) = value_node.second.get_value<double>();
-        ++col;
-      }
-      ASSERT_EQ(col, 3);
-      ++row;
-    }
-    ASSERT_EQ(row, 3);
-  }
-  // Basis mapping and determinant +1 (proper rotation, not a reflection).
-  EXPECT_NEAR(enu_from_yup.determinant(), 1.0, 1e-12);
-  EXPECT_LT((enu_from_yup * Eigen::Vector3d(1.0, 0.0, 0.0) -
-             Eigen::Vector3d(1.0, 0.0, 0.0))
-                .norm(),
-            1e-12);
-  EXPECT_LT((enu_from_yup * Eigen::Vector3d(0.0, 1.0, 0.0) -
-             Eigen::Vector3d(0.0, 0.0, 1.0))
-                .norm(),
-            1e-12);
-  EXPECT_LT((enu_from_yup * Eigen::Vector3d(0.0, 0.0, 1.0) -
-             Eigen::Vector3d(0.0, -1.0, 0.0))
-                .norm(),
-            1e-12);
-
-  // The ENU run's frame_contract is unchanged -- default behavior preserved
-  // byte-for-byte when --output_coordinate_frame is left at its default.
-  boost::property_tree::ptree enu_report;
-  boost::property_tree::read_json(enu_report_path.string(), enu_report);
-  const auto& enu_frame_contract = enu_report.get_child("frame_contract");
-  EXPECT_EQ(enu_frame_contract.get<std::string>("geometry_frame"), "ENU_LOCAL");
-  EXPECT_EQ(enu_frame_contract.get<std::string>("up_axis"), "Z");
-
-  // Transform round trip: applying the reported enu_from_yup matrix to the
-  // Y-up output's own camera centers must reproduce the ENU output's camera
-  // centers, for the actual serialized reconstruction written by each run
-  // (not just the in-memory Sim3 math).
-  Reconstruction enu_aligned;
-  enu_aligned.Read(enu_output_path);
-  Reconstruction yup_aligned;
-  yup_aligned.Read(yup_output_path);
-  const std::vector<image_t> image_ids = source.RegImageIds();
-  ASSERT_GE(image_ids.size(), 2u);
-  for (const image_t image_id : image_ids) {
-    const Eigen::Vector3d enu_center =
-        enu_aligned.Image(image_id).ProjectionCenter();
-    const Eigen::Vector3d yup_center =
-        yup_aligned.Image(image_id).ProjectionCenter();
-    const Eigen::Vector3d recovered_enu_center = enu_from_yup * yup_center;
-    EXPECT_LT((recovered_enu_center - enu_center).norm(), 1e-6);
-  }
-
-  // Reprojection/rigidity invariance: a pure rotation applied consistently
-  // to cameras and points preserves every pairwise camera-center distance
-  // exactly (a shearing or non-rigid transform would not).
-  for (size_t i = 0; i < image_ids.size(); ++i) {
-    for (size_t j = i + 1; j < image_ids.size(); ++j) {
-      const double enu_distance =
-          (enu_aligned.Image(image_ids[i]).ProjectionCenter() -
-           enu_aligned.Image(image_ids[j]).ProjectionCenter())
-              .norm();
-      const double yup_distance =
-          (yup_aligned.Image(image_ids[i]).ProjectionCenter() -
-           yup_aligned.Image(image_ids[j]).ProjectionCenter())
-              .norm();
-      EXPECT_NEAR(enu_distance, yup_distance, 1e-6);
-    }
-  }
-
-  // --output_coordinate_frame=GLTF_Y_UP requires an ENU-producing
-  // alignment_type; 'plane' does not produce ENU, so this must fail rather
-  // than silently rotate the geometry incorrectly.
-  std::vector<std::string> bad_args{
-      "model_aligner",
-      "--input_path",
-      input_path.string(),
-      "--output_path",
-      (test_dir / "bad_output").string(),
-      "--alignment_type",
-      "plane",
-      "--alignment_max_error",
-      "10",
-      "--output_coordinate_frame",
-      "GLTF_Y_UP",
-  };
-  std::vector<char*> bad_argv;
-  bad_argv.reserve(bad_args.size());
-  for (std::string& arg : bad_args) {
-    bad_argv.push_back(arg.data());
-  }
-  EXPECT_EQ(RunModelAligner(static_cast<int>(bad_argv.size()), bad_argv.data()),
-            EXIT_FAILURE);
 }
 
 TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {

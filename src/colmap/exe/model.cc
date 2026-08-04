@@ -322,7 +322,7 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("camera_residuals_csv", &camera_residuals_csv);
   options.AddDefaultOption("output_coordinate_frame",
                            &output_coordinate_frame_str,
-                           "{ENU_Z_UP, GLTF_Y_UP, LICHTFELD_COLMAP}");
+                           "{ENU_Z_UP, LICHTFELD_COLMAP}");
   // This report's robust Sim3 fit re-aligns equal-weight among RANSAC
   // inliers, ignoring per-row GPS covariance. When the input reconstruction
   // already comes from
@@ -355,7 +355,7 @@ int RunModelAligner(int argc, char** argv) {
   if (!OutputCoordinateFrameFromString(output_coordinate_frame_str,
                                        &output_coordinate_frame)) {
     LOG(ERROR) << "Invalid `output_coordinate_frame` - supported values are "
-                  "{'ENU_Z_UP', 'GLTF_Y_UP', 'LICHTFELD_COLMAP'}";
+                  "{'ENU_Z_UP', 'LICHTFELD_COLMAP'}";
     return EXIT_FAILURE;
   }
 
@@ -481,7 +481,7 @@ int RunModelAligner(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  // Both the GLTF_Y_UP and LICHTFELD_COLMAP rotations assume the
+  // The LICHTFELD_COLMAP rotation assumes the
   // reconstruction is actually in the ENU frame they were derived against --
   // 'plane', 'ecef', and 'custom' alignments do not produce that frame, so
   // silently applying either rotation there would rotate the geometry

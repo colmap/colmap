@@ -308,12 +308,12 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_EQ(database->NumPosePriors(), 0);
 }
 
-TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
-  const std::filesystem::path db_path = CreateTestDir() / "pre_rotation.db";
+TEST(DatabaseMigration, PosePriorHeadingColumnsAddedAndRoundTrip) {
+  const std::filesystem::path db_path = CreateTestDir() / "pre_heading.db";
 
-  // Build a pre-extension pose_priors table (no rotation / rotation_covariance
-  // columns) and insert one row with only position/gravity, mirroring a
-  // database created before these columns were introduced.
+  // Build a pre-extension pose_priors table (no heading columns) and insert one
+  // row with only position/gravity, mirroring a database created before these
+  // columns were introduced.
   {
     sqlite3* db = nullptr;
     ASSERT_EQ(sqlite3_open(db_path.string().c_str(), &db), SQLITE_OK);
@@ -377,12 +377,16 @@ TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
   EXPECT_THAT(migrated.gravity,
               EigenMatrixNear(Eigen::Vector3d(0.0, 0.0, -1.0), 1e-12));
   EXPECT_EQ(migrated.coordinate_system, PosePrior::CoordinateSystem::CARTESIAN);
-  EXPECT_FALSE(migrated.HasRotation());
-  EXPECT_FALSE(migrated.HasRotationCov());
+  // The migrated columns are SQL NULL for this pre-existing row, which must
+  // read back as absent. sqlite3_column_double maps NULL to 0.0, and 0.0 is a
+  // valid due-north heading, so a missing NULL check here would silently
+  // fabricate a heading for every legacy row.
+  EXPECT_FALSE(migrated.HasHeading());
+  EXPECT_TRUE(std::isnan(migrated.heading_rad));
+  EXPECT_TRUE(std::isnan(migrated.heading_stddev_rad));
 
-  // A newly written row with a full rotation and covariance must round-trip
-  // exactly through the migrated schema, in the documented W,X,Y,Z /
-  // XX,XY,XZ,YY,YZ,ZZ component order.
+  // A newly written row with a heading must round-trip exactly through the
+  // migrated schema.
   PosePrior new_prior;
   new_prior.corr_data_id.id = 200;
   new_prior.corr_data_id.sensor_id.id = 1;
@@ -391,17 +395,28 @@ TEST(DatabaseMigration, PosePriorRotationColumnsAddedAndRoundTrip) {
   new_prior.position_covariance = Eigen::Matrix3d::Identity() * 2.0;
   new_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   new_prior.gravity = Eigen::Vector3d(0.0, 0.0, -1.0);
-  new_prior.rotation = Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5);
-  Eigen::Matrix3d rotation_covariance;
-  rotation_covariance << 1.0, 0.1, 0.2, 0.1, 2.0, 0.3, 0.2, 0.3, 3.0;
-  new_prior.rotation_covariance = rotation_covariance;
+  new_prior.heading_rad = 1.2345;
+  new_prior.heading_stddev_rad = 0.0873;
   new_prior.pose_prior_id = database->WritePosePrior(new_prior);
 
   const PosePrior roundtrip = database->ReadPosePrior(
       new_prior.pose_prior_id, /*is_deprecated_image_prior=*/false);
   EXPECT_EQ(roundtrip, new_prior);
-  EXPECT_TRUE(roundtrip.HasRotation());
-  EXPECT_TRUE(roundtrip.HasRotationCov());
+  EXPECT_TRUE(roundtrip.HasHeading());
+  EXPECT_DOUBLE_EQ(roundtrip.heading_rad, 1.2345);
+  EXPECT_DOUBLE_EQ(roundtrip.heading_stddev_rad, 0.0873);
+
+  // A heading of exactly zero is meaningful (due north) and must survive the
+  // NULL round-trip distinctly from an absent heading.
+  PosePrior due_north = new_prior;
+  due_north.corr_data_id.id = 201;
+  due_north.heading_rad = 0.0;
+  due_north.heading_stddev_rad = 0.05;
+  due_north.pose_prior_id = database->WritePosePrior(due_north);
+  const PosePrior due_north_roundtrip = database->ReadPosePrior(
+      due_north.pose_prior_id, /*is_deprecated_image_prior=*/false);
+  EXPECT_TRUE(due_north_roundtrip.HasHeading());
+  EXPECT_DOUBLE_EQ(due_north_roundtrip.heading_rad, 0.0);
 }
 
 TEST_P(ParameterizedDatabaseTests, Keypoints) {

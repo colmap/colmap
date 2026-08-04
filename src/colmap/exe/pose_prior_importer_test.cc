@@ -51,7 +51,7 @@ int RunImporter(const std::filesystem::path& database_path,
 }
 
 // Creates two registered images ("keep.jpg", "update.jpg") sharing one
-// camera, each with a full position+covariance+gravity+rotation prior, and
+// camera, each with a full position+covariance+gravity+heading prior, and
 // returns their assigned image ids in that order.
 std::pair<image_t, image_t> CreateTwoImagesWithFullPriors(Database& database) {
   Camera camera = Camera::CreateFromModelId(
@@ -76,9 +76,8 @@ std::pair<image_t, image_t> CreateTwoImagesWithFullPriors(Database& database) {
     prior.position = Eigen::Vector3d(1.0, 2.0, 3.0);
     prior.position_covariance = Eigen::Matrix3d::Identity() * 0.5;
     prior.gravity = Eigen::Vector3d(0.0, 0.0, -1.0);
-    prior.rotation = Eigen::Quaterniond::Identity();
-    prior.rotation_covariance =
-        Eigen::Matrix3d::Identity() * DegToRad(1.0) * DegToRad(1.0);
+    prior.heading_rad = 0.0;
+    prior.heading_stddev_rad = DegToRad(5.0);
     database.WritePosePrior(prior);
   }
   return {keep_image_id, update_image_id};
@@ -144,7 +143,7 @@ TEST(PosePriorImporter, MergeUnrelatedPriorUnchangedNoUpdateIssued) {
         EXPECT_DOUBLE_EQ(prior.position.z(), 30.0);
         // Groups absent from the incoming row are preserved.
         EXPECT_TRUE(prior.HasGravity());
-        EXPECT_TRUE(prior.HasRotation());
+        EXPECT_TRUE(prior.HasHeading());
       }
     }
   }
@@ -251,9 +250,9 @@ TEST(PosePriorImporter, MergePartialPositionPreservesGravityAndRotation) {
     EXPECT_DOUBLE_EQ(prior.position.z(), 9.0);
     ASSERT_TRUE(prior.HasGravity());
     EXPECT_LT((prior.gravity - Eigen::Vector3d(0.0, 0.0, -1.0)).norm(), 1e-9);
-    ASSERT_TRUE(prior.HasRotation());
-    EXPECT_LT(prior.rotation.angularDistance(Eigen::Quaterniond::Identity()),
-              1e-9);
+    ASSERT_TRUE(prior.HasHeading());
+    EXPECT_NEAR(prior.heading_rad, 0.0, 1e-9);
+    EXPECT_NEAR(prior.heading_stddev_rad, DegToRad(5.0), 1e-9);
   }
   EXPECT_TRUE(found);
 }

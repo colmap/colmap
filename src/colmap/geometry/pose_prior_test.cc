@@ -83,9 +83,7 @@ TEST(PosePrior, Print) {
             "position=[0, 0, 0], "
             "position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1], "
             "coordinate_system=CARTESIAN, gravity=[0, 0, 1], "
-            "rotation=[nan, nan, nan, nan], "
-            "rotation_covariance=[nan, nan, nan, nan, nan, nan, nan, nan, "
-            "nan])");
+            "heading_rad=nan, heading_stddev_rad=nan)");
 }
 
 TEST(PosePrior, HasGravityRejectsDegenerateDirections) {

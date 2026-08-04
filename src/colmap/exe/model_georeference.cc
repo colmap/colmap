@@ -262,19 +262,6 @@ Eigen::Matrix<double, kDim, 1> CenteredRmsSingularValues(
 // Output coordinate frame transforms
 ////////////////////////////////////////////////////////////////////////////
 
-// East->+X, Up->+Y, North->-Z. This is the identical rotation already
-// documented (informationally, until this change) in the georeference
-// report's frame_contract.targets[GLTF_Y_UP] entry.
-Sim3d GltfYUpFromEnu() {
-  Eigen::Matrix3d rotation;
-  // clang-format off
-  rotation << 1, 0,  0,
-              0, 0,  1,
-              0, -1, 0;
-  // clang-format on
-  return Sim3d(1.0, Eigen::Quaterniond(rotation), Eigen::Vector3d::Zero());
-}
-
 // East->+X (raw), Up->-Y (raw), North->+Z (raw). This is the exact
 // inverse/transpose of GltfYUpFromEnu()'s rotation, i.e. it precomposes the
 // data so that LichtFeld's own visualizer_from_colmap_data = diag(1,-1,-1)
@@ -302,10 +289,6 @@ bool OutputCoordinateFrameFromString(const std::string& value,
     *frame = OutputCoordinateFrame::ENU_Z_UP;
     return true;
   }
-  if (value == "GLTF_Y_UP") {
-    *frame = OutputCoordinateFrame::GLTF_Y_UP;
-    return true;
-  }
   if (value == "LICHTFELD_COLMAP") {
     *frame = OutputCoordinateFrame::LICHTFELD_COLMAP;
     return true;
@@ -317,8 +300,6 @@ Sim3d GeometryFromEnu(OutputCoordinateFrame output_coordinate_frame) {
   switch (output_coordinate_frame) {
     case OutputCoordinateFrame::ENU_Z_UP:
       return Sim3d();
-    case OutputCoordinateFrame::GLTF_Y_UP:
-      return GltfYUpFromEnu();
     case OutputCoordinateFrame::LICHTFELD_COLMAP:
       return LichtfeldColmapFromEnu();
   }
@@ -604,10 +585,6 @@ void WriteGeoreferenceReportJSON(
       geometry_frame_name = "ENU_LOCAL";
       up_axis = "Z";
       break;
-    case OutputCoordinateFrame::GLTF_Y_UP:
-      geometry_frame_name = "GLTF_Y_UP";
-      up_axis = "Y";
-      break;
     case OutputCoordinateFrame::LICHTFELD_COLMAP:
       geometry_frame_name = "LICHTFELD_COLMAP";
       // The bytes written to output_path are ordinary COLMAP convention
@@ -643,10 +620,10 @@ void WriteGeoreferenceReportJSON(
   json << "\"enu_from_geometry\":" << JSONSim3(enu_from_geometry) << ",";
   json << "\"ecef_from_geometry\":" << JSONSim3(ecef_from_geometry) << ",";
   json << "\"geometry_from_ecef\":" << JSONSim3(geometry_from_ecef);
-  json << "},";
+  json << "}";
   if (output_coordinate_frame == OutputCoordinateFrame::LICHTFELD_COLMAP) {
     const Sim3d visualizer_from_geometry = LichtfeldVisualizerFromColmapData();
-    json << "\"consumer_profile\":{";
+    json << ",\"consumer_profile\":{";
     json << "\"name\":\"LICHTFELD_COLMAP\",";
     // Factual, versionable contract metadata describing the transform this
     // exporter applied -- not a runtime claim about which GUI build a
@@ -662,42 +639,8 @@ void WriteGeoreferenceReportJSON(
     json << "\"visualizer_from_geometry\":"
          << JSONSim3(visualizer_from_geometry) << ",";
     json << "\"visualizer_up_axis\":\"Y\"";
-    json << "},";
+    json << "}";
   }
-  // Legacy single-target recovery/forward hint, kept byte-for-byte for
-  // ENU_Z_UP/GLTF_Y_UP for existing consumers. Prefer `transforms` above,
-  // which is complete (includes ECEF and both directions, for every output
-  // frame) and is not conditioned on which frame was requested.
-  json << "\"targets\":[{";
-  switch (output_coordinate_frame) {
-    case OutputCoordinateFrame::GLTF_Y_UP:
-      // Inverse of the ENU_LOCAL->GLTF_Y_UP rotation (transpose, since it is
-      // a pure rotation): recovers ENU_LOCAL from the geometry actually
-      // written.
-      json << "\"name\":\"ENU_LOCAL\",";
-      json << "\"matrix_row_major_target_from_geometry\":"
-              "[[1,0,0],[0,0,-1],[0,1,0]],";
-      json << "\"note\":\"x=E, y=N, z=U; verify handedness with the "
-              "round-trip test\"";
-      break;
-    case OutputCoordinateFrame::LICHTFELD_COLMAP:
-      json << "\"name\":\"ENU_LOCAL\",";
-      json << "\"matrix_row_major_target_from_geometry\":"
-           << JSONRotationMatrix(enu_from_geometry.rotation()) << ",";
-      json << "\"note\":\"Recovers ENU_LOCAL from the raw COLMAP-convention "
-              "geometry actually written (not from what a LichtFeld "
-              "visualizer displays -- see consumer_profile above for that "
-              "boundary transform).\"";
-      break;
-    case OutputCoordinateFrame::ENU_Z_UP:
-      json << "\"name\":\"GLTF_Y_UP\",";
-      json << "\"matrix_row_major_target_from_geometry\":"
-              "[[1,0,0],[0,0,1],[0,-1,0]],";
-      json << "\"note\":\"x=E, y=U, z=S; verify handedness with the "
-              "round-trip test\"";
-      break;
-  }
-  json << "}]";
   json << "},";
   json << "\"support\":{";
   json << "\"num_database_pose_priors\":" << num_database_pose_priors << ",";
@@ -705,7 +648,7 @@ void WriteGeoreferenceReportJSON(
   json << "\"num_with_position_prior\":" << num_with_prior << ",";
   json << "\"num_registered_position_correspondences\":"
        << num_registered_correspondences << ",";
-  json << "\"num_position_inliers\":" << num_position_inliers << ",";
+  json << "\"num_position_inliers\":" << num_position_inliers;
   json << "},";
   // gravity_consistency_angle_deg is the one scalar diagnostic the
   // gravity_disagreement warning is evaluated against, so it is reported at

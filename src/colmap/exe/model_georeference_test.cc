@@ -35,8 +35,6 @@ TEST(ModelGeoreference, LichtfeldColmapParsesAndRetainsExactSpelling) {
 
   ASSERT_TRUE(OutputCoordinateFrameFromString("ENU_Z_UP", &frame));
   EXPECT_EQ(frame, OutputCoordinateFrame::ENU_Z_UP);
-  ASSERT_TRUE(OutputCoordinateFrameFromString("GLTF_Y_UP", &frame));
-  EXPECT_EQ(frame, OutputCoordinateFrame::GLTF_Y_UP);
 }
 
 TEST(ModelGeoreference, LichtfeldColmapIsProperRotation) {
@@ -146,7 +144,6 @@ TEST(ModelGeoreference, GeometryEnuRoundTripIsIdentityForEveryOutputFrame) {
   const Eigen::Vector3d probe(1.0, 2.0, 3.0);
   for (const OutputCoordinateFrame frame :
        {OutputCoordinateFrame::ENU_Z_UP,
-        OutputCoordinateFrame::GLTF_Y_UP,
         OutputCoordinateFrame::LICHTFELD_COLMAP}) {
     const Sim3d geometry_from_enu = GeometryFromEnu(frame);
     const Sim3d enu_from_geometry = Inverse(geometry_from_enu);

@@ -45,21 +45,14 @@ namespace colmap {
 
 // The output frame model_aligner writes its reconstruction in.
 // ENU_Z_UP: unchanged existing behavior (East=+X, North=+Y, Up=+Z).
-// GLTF_Y_UP: East=+X, Up=+Y, North=-Z, matching generic glTF 2.0 world-space
-//   convention -- applied to the actual in-memory Reconstruction (points,
-//   camera centers, orientations, frames, rigs) via Reconstruction::Transform,
-//   not a post-export script. This is NOT necessarily correct for a COLMAP
-//   dataset consumed by a specific tool's COLMAP importer, which may apply
-//   its own data-to-visualizer basis change at its own load boundary -- see
-//   LICHTFELD_COLMAP below.
 // LICHTFELD_COLMAP: raw COLMAP-convention data (East=+X, -Up=+Y, North=+Z)
 //   precomposed so that after LichtFeld Studio's own documented
 //   visualizer_from_colmap_data = diag(1,-1,-1) boundary transform (see
 //   LichtFeld's coordinate_conventions.hpp, upstream commit 11118860db73),
 //   the scene displays East=+X, Up=+Y, North=-Z. This is the empirically
 //   validated output contract for LichtFeld Studio import -- do not replace
-//   it with GLTF_Y_UP, ENU_Z_UP, or an inferred "cleaner" convention.
-enum class OutputCoordinateFrame { ENU_Z_UP, GLTF_Y_UP, LICHTFELD_COLMAP };
+//   it with ENU_Z_UP or an inferred "cleaner" convention.
+enum class OutputCoordinateFrame { ENU_Z_UP, LICHTFELD_COLMAP };
 
 bool OutputCoordinateFrameFromString(const std::string& value,
                                      OutputCoordinateFrame* frame);

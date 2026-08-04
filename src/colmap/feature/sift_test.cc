@@ -46,6 +46,10 @@
 namespace colmap {
 namespace {
 
+// M_PI is not standard C++ and MSVC only defines it when _USE_MATH_DEFINES is
+// set before <cmath>, so this test did not compile there at all.
+constexpr double kPi = 3.14159265358979323846;
+
 Bitmap CreateImageWithSquare(const int size) {
   Bitmap bitmap(size, size, false);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
@@ -76,8 +80,8 @@ void ValidateKeypoints(const FeatureKeypoints& keypoints,
     EXPECT_LE(keypoints[i].x, bitmap.Width());
     EXPECT_LE(keypoints[i].y, bitmap.Height());
     EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
+    EXPECT_GT(keypoints[i].ComputeOrientation(), -kPi);
+    EXPECT_LT(keypoints[i].ComputeOrientation(), kPi);
   }
 }
 
