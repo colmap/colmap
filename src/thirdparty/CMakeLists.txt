@@ -136,7 +136,7 @@ if(CASPAR_ENABLED AND CUDA_ENABLED)
         set(_MSVC_COMPACT_HEADER "${CASPAR_GEN_DIR}/../../msvc_compact.h")
         set(_MSVC_CUDA_COMPACT_HEADER "${CASPAR_GEN_DIR}/../../msvc_cuda_compact.h")
         target_compile_options(caspar_lib_core PRIVATE
-            $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:/FI"${_MSVC_COMPACT_HEADER}">
+            $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:/FI${_MSVC_COMPACT_HEADER}>
             # Keep CUDA pre-includes minimal and use NVCC's native pre-include
             # option to avoid forcing C++ standard library headers into NVCC's
             # MSVC host pass.
