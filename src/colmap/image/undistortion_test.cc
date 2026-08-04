@@ -34,6 +34,10 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -231,12 +235,18 @@ TEST(UndistortImage, WarpOptions) {
   distorted_camera.params[3] = 0.5;
 
   Bitmap distorted_image(100, 100, true);
-  for (size_t i = 0; i < distorted_image.RowMajorData().size(); ++i) {
-    distorted_image.RowMajorData()[i] = static_cast<uint8_t>(i % 251);
+  for (int y = 0; y < distorted_image.Height(); ++y) {
+    for (int x = 0; x < distorted_image.Width(); ++x) {
+      distorted_image.SetPixel(
+          x,
+          y,
+          BitmapColor<uint8_t>(static_cast<uint8_t>(x),
+                               static_cast<uint8_t>(y),
+                               static_cast<uint8_t>((x + y) / 2)));
+    }
   }
 
   UndistortCameraOptions options;
-  options.warp_options.direct_warp_min_scale = 0.0;
   Bitmap direct_image;
   Camera direct_camera;
   UndistortImage(options,
@@ -244,6 +254,12 @@ TEST(UndistortImage, WarpOptions) {
                  distorted_camera,
                  &direct_image,
                  &direct_camera);
+  const double direct_scale =
+      std::min(static_cast<double>(direct_camera.width) /
+                   static_cast<double>(distorted_camera.width),
+               static_cast<double>(direct_camera.height) /
+                   static_cast<double>(distorted_camera.height));
+  ASSERT_GE(direct_scale, options.warp_options.direct_warp_min_scale);
 
   options.warp_options.direct_warp_min_scale = 1.0;
   Bitmap resized_image;
@@ -258,6 +274,24 @@ TEST(UndistortImage, WarpOptions) {
   EXPECT_EQ(direct_image.Width(), resized_image.Width());
   EXPECT_EQ(direct_image.Height(), resized_image.Height());
   EXPECT_NE(direct_image.RowMajorData(), resized_image.RowMajorData());
+
+  uint64_t total_absolute_difference = 0;
+  int max_absolute_difference = 0;
+  for (size_t i = 0; i < direct_image.RowMajorData().size(); ++i) {
+    const int absolute_difference =
+        std::abs(static_cast<int>(direct_image.RowMajorData()[i]) -
+                 static_cast<int>(resized_image.RowMajorData()[i]));
+    total_absolute_difference += absolute_difference;
+    max_absolute_difference =
+        std::max(max_absolute_difference, absolute_difference);
+  }
+  const double mean_absolute_difference =
+      static_cast<double>(total_absolute_difference) /
+      direct_image.RowMajorData().size();
+  // The extra resize changes rounding, but not by a perceptible amount for
+  // smooth image content.
+  EXPECT_LT(mean_absolute_difference, 0.5);
+  EXPECT_LE(max_absolute_difference, 1);
 }
 
 TEST(UndistortReconstruction, Nominal) {
