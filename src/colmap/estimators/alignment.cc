@@ -189,24 +189,6 @@ struct ReconstructionAlignmentEstimator {
   const Reconstruction* tgt_reconstruction_;
 };
 
-constexpr double kChiSquare95ThreeDofSqrt = 2.7955;
-
-Eigen::Matrix3d SqrtInformationOrFallback(const Eigen::Matrix3d& covariance,
-                                          const double fallback_stddev) {
-  THROW_CHECK_GT(fallback_stddev, 0.0);
-  if (covariance.allFinite()) {
-    const Eigen::Matrix3d symmetric =
-        0.5 * (covariance + covariance.transpose());
-    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(symmetric);
-    if (eig.info() == Eigen::Success && eig.eigenvalues().allFinite() &&
-        eig.eigenvalues().minCoeff() > 1e-12) {
-      return eig.eigenvalues().cwiseInverse().cwiseSqrt().asDiagonal() *
-             eig.eigenvectors().transpose();
-    }
-  }
-  return Eigen::Matrix3d::Identity() / fallback_stddev;
-}
-
 struct AlignmentPositionCostFunctor {
   AlignmentPositionCostFunctor(const Eigen::Vector3d& center_in_src,
                                const Eigen::Vector3d& center_in_tgt,
@@ -236,7 +218,141 @@ struct AlignmentPositionCostFunctor {
   const Eigen::Matrix3d sqrt_information_;
 };
 
+struct WeightedPositionObservation {
+  Eigen::Vector3d point;
+  Eigen::Matrix3d sqrt_information;
+};
+
+struct WeightedSimilarityTransformEstimator {
+  static constexpr int kMinNumSamples = 3;
+
+  using X_t = WeightedPositionObservation;
+  using Y_t = Eigen::Vector3d;
+  using M_t = Sim3d;
+
+  void Estimate(const std::vector<X_t>& src,
+                const std::vector<Y_t>& tgt,
+                std::vector<M_t>* models) const {
+    THROW_CHECK_EQ(src.size(), tgt.size());
+    std::vector<Eigen::Vector3d> src_points;
+    src_points.reserve(src.size());
+    for (const X_t& observation : src) {
+      src_points.push_back(observation.point);
+    }
+    Sim3d model;
+    models->clear();
+    if (EstimateSim3d(src_points, tgt, model)) {
+      models->push_back(model);
+    }
+  }
+
+  void Residuals(const std::vector<X_t>& src,
+                 const std::vector<Y_t>& tgt,
+                 const M_t& model,
+                 std::vector<double>* residuals) const {
+    THROW_CHECK_EQ(src.size(), tgt.size());
+    residuals->resize(src.size());
+    for (size_t i = 0; i < src.size(); ++i) {
+      (*residuals)[i] =
+          (src[i].sqrt_information * (model * src[i].point - tgt[i]))
+              .squaredNorm();
+    }
+  }
+};
+
+bool ComputeSqrtInformation(const Eigen::Matrix3d& covariance,
+                            Eigen::Matrix3d* sqrt_information) {
+  if (!IsValidPositionCovariance(covariance)) {
+    return false;
+  }
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(
+      0.5 * (covariance + covariance.transpose()));
+  if (eig.info() != Eigen::Success) {
+    return false;
+  }
+  *sqrt_information =
+      eig.eigenvalues().cwiseInverse().cwiseSqrt().asDiagonal() *
+      eig.eigenvectors().transpose();
+  return sqrt_information->allFinite();
+}
+
 }  // namespace
+
+WeightedPositionAlignmentResult AlignWeightedPositionCorrespondences(
+    const std::vector<Eigen::Vector3d>& src,
+    const std::vector<Eigen::Vector3d>& tgt,
+    const std::vector<Eigen::Matrix3d>& tgt_covariances,
+    const int random_seed) {
+  WeightedPositionAlignmentResult result;
+  if (src.size() != tgt.size() || src.size() != tgt_covariances.size() ||
+      src.size() < WeightedSimilarityTransformEstimator::kMinNumSamples) {
+    return result;
+  }
+
+  std::vector<WeightedPositionObservation> observations;
+  observations.reserve(src.size());
+  for (size_t i = 0; i < src.size(); ++i) {
+    Eigen::Matrix3d sqrt_information;
+    if (!src[i].allFinite() || !tgt[i].allFinite() ||
+        !ComputeSqrtInformation(tgt_covariances[i], &sqrt_information)) {
+      return result;
+    }
+    observations.push_back({src[i], sqrt_information});
+  }
+
+  RANSACOptions options;
+  options.max_error = kPosePriorPositionRobustRadius;
+  options.random_seed = random_seed;
+  LORANSAC<WeightedSimilarityTransformEstimator,
+           WeightedSimilarityTransformEstimator>
+      ransac(options);
+  const auto report = ransac.Estimate(observations, tgt);
+  if (!report.success || report.support.num_inliers < 3) {
+    result.inlier_mask = report.inlier_mask;
+    return result;
+  }
+
+  Eigen::Vector4d rotation = report.model.rotation().coeffs();
+  Eigen::Vector3d translation = report.model.translation();
+  double scale = report.model.scale();
+  ceres::Problem problem;
+  problem.AddParameterBlock(rotation.data(), 4);
+  SetManifold(&problem, rotation.data(), CreateEigenQuaternionManifold());
+  problem.AddParameterBlock(translation.data(), 3);
+  problem.AddParameterBlock(&scale, 1);
+  problem.SetParameterLowerBound(&scale, 0, 1e-12);
+  auto* loss = new ceres::CauchyLoss(kPosePriorPositionRobustRadius);
+  for (size_t i = 0; i < observations.size(); ++i) {
+    if (!report.inlier_mask[i]) {
+      continue;
+    }
+    auto* cost = new ceres::
+        AutoDiffCostFunction<AlignmentPositionCostFunctor, 3, 4, 3, 1>(
+            new AlignmentPositionCostFunctor(
+                src[i], tgt[i], observations[i].sqrt_information));
+    problem.AddResidualBlock(
+        cost, loss, rotation.data(), translation.data(), &scale);
+  }
+
+  ceres::Solver::Options solver_options;
+  solver_options.linear_solver_type = ceres::DENSE_QR;
+  solver_options.num_threads = 1;
+  solver_options.max_num_iterations = 100;
+  solver_options.logging_type = ceres::SILENT;
+  ceres::Solver::Summary summary;
+  ceres::Solve(solver_options, &problem, &summary);
+  if (!summary.IsSolutionUsable() || !rotation.allFinite() ||
+      !translation.allFinite() || !std::isfinite(scale) || scale <= 0.0) {
+    result.inlier_mask = report.inlier_mask;
+    return result;
+  }
+
+  result.success = true;
+  result.tgt_from_src =
+      Sim3d(scale, Eigen::Quaterniond(rotation).normalized(), translation);
+  result.inlier_mask = report.inlier_mask;
+  return result;
+}
 
 bool AlignReconstructionToLocations(
     const Reconstruction& src_reconstruction,
@@ -358,28 +474,27 @@ bool AlignReconstructionToPosePriors(
   return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
 }
 
-PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
+PosePriorAlignmentResult AlignReconstructionToPosePriorsWeighted(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
-    const RANSACOptions& ransac_options) {
+    const int random_seed) {
   PosePriorAlignmentResult result;
-
-  NodeHashMap<image_t, PosePrior> tgt_image_to_pose_prior;
-  for (const auto& pose_prior : tgt_pose_priors) {
-    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
-        pose_prior.HasPosition()) {
-      THROW_CHECK(tgt_image_to_pose_prior
-                      .emplace(pose_prior.corr_data_id.id, pose_prior)
-                      .second)
-          << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
+  NodeHashMap<image_t, const PosePrior*> priors_by_image;
+  for (const PosePrior& prior : tgt_pose_priors) {
+    if (prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+        !prior.HasPosition()) {
+      continue;
+    }
+    const image_t image_id = static_cast<image_t>(prior.corr_data_id.id);
+    if (!priors_by_image.emplace(image_id, &prior).second) {
+      LOG(ERROR) << "Duplicate pose prior for image " << image_id;
+      return result;
     }
   }
 
-  // Collect correspondences in lexicographic image-name order.
   std::vector<std::pair<std::string, image_t>> sorted_image_ids;
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
-    if (tgt_image_to_pose_prior.find(image_id) !=
-        tgt_image_to_pose_prior.end()) {
+    if (priors_by_image.find(image_id) != priors_by_image.end()) {
       sorted_image_ids.emplace_back(src_reconstruction.Image(image_id).Name(),
                                     image_id);
     }
@@ -388,26 +503,31 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
 
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
+  std::vector<Eigen::Matrix3d> covariances;
   src.reserve(sorted_image_ids.size());
   tgt.reserve(sorted_image_ids.size());
+  covariances.reserve(sorted_image_ids.size());
   for (const auto& [name, image_id] : sorted_image_ids) {
+    const PosePrior& prior = *priors_by_image.at(image_id);
+    if (!prior.HasPositionCov()) {
+      LOG(ERROR) << "Pose prior for image " << image_id
+                 << " has no valid position covariance";
+      result.inlier_mask.assign(sorted_image_ids.size(), 0);
+      return result;
+    }
     result.correspondence_image_ids.push_back(image_id);
     src.push_back(src_reconstruction.Image(image_id).ProjectionCenter());
-    tgt.push_back(tgt_image_to_pose_prior.at(image_id).position);
+    tgt.push_back(prior.position);
+    covariances.push_back(prior.position_covariance);
   }
 
-  if (src.size() < 3) {
-    LOG(WARNING) << "Not enough valid pose priors for alignment";
-    result.inlier_mask.assign(src.size(), 0);
-    return result;
-  }
-
-  const auto report =
-      EstimateSim3dRobust(src, tgt, ransac_options, result.tgt_from_src);
-  result.success = report.success;
-  result.inlier_mask = report.inlier_mask;
+  WeightedPositionAlignmentResult weighted =
+      AlignWeightedPositionCorrespondences(src, tgt, covariances, random_seed);
+  result.success = weighted.success;
+  result.tgt_from_src = weighted.tgt_from_src;
+  result.inlier_mask = std::move(weighted.inlier_mask);
   if (result.inlier_mask.empty()) {
-    result.inlier_mask.assign(src.size(), result.success ? 1 : 0);
+    result.inlier_mask.assign(src.size(), 0);
   }
   return result;
 }

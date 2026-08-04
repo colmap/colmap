@@ -96,12 +96,8 @@ std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
 // Metric ECEF position for the sequential distance gate, or nullopt when the
 // prior cannot be interpreted metrically.
 //
-// WGS84 only, deliberately. The previous form fell through UNDEFINED to the
-// CARTESIAN branch and returned `position` unchanged, so a prior with no
-// declared coordinate system had its raw numbers compared against a metre
-// threshold. Degrees would read as metres and veto every long-range probe,
-// silently removing loop closures with no error anywhere. A prior we cannot
-// interpret must not gate a pair at all.
+// Only WGS84 priors have an unambiguous metric interpretation here. Priors in
+// another or undeclared frame do not gate image pairs.
 std::optional<Eigen::Vector3d> PosePriorToMetricPosition(
     const PosePrior& pose_prior) {
   if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {

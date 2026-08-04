@@ -845,11 +845,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.ba_skip_fixed_rotation_stage);
   AddDefaultOption("GlobalMapper.ba_skip_joint_optimization_stage",
                    &global_mapper->mapper.ba_skip_joint_optimization_stage);
-  AddDefaultOption("GlobalMapper.ba_use_robust_loss_on_prior_position",
-                   &global_mapper->mapper.ba_use_robust_loss_on_prior_position);
-  AddDefaultOption("GlobalMapper.ba_prior_position_loss_scale",
-                   &global_mapper->mapper.ba_prior_position_loss_scale);
-
   // Retriangulation options.
   AddDefaultOption(
       "GlobalMapper.tri_complete_max_reproj_error",

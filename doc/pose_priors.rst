@@ -10,8 +10,8 @@ Purpose and supported workflow
 ------------------------------
 
 A *pose prior* is measured sensor data about where a camera was, imported
-alongside the images and used to constrain reconstruction. This fork supports
-one workflow end to end:
+alongside the images and used to constrain reconstruction. The telemetry
+workflow is:
 
 1. A trusted adapter reads a capture's telemetry and writes a **pose prior
    archive**: one JSON file, one row per image, stating a WGS84 position with
@@ -373,10 +373,9 @@ Requesting ``--georeference_json`` or ``--camera_residuals_csv`` selects the
 report path. Without them, ``model_aligner`` behaves exactly as upstream.
 
 The report path publishes a delivery, so its input must already be solved in
-the metric ENU gauge. Its own Sim3 fit is equal-weight among RANSAC inliers and
-ignores per-row covariance, so it must be a no-op; a material correction means
-the mapper's covariance-weighted solve and this one disagree, and the
-less-informed of the two is the one about to be written. That fails the run.
+the metric ENU gauge. Its Sim3 verification uses the same per-row covariance
+weighting as the mapper and must be a no-op; a material correction means the
+mapper solve and delivery verification disagree. That fails the run.
 **To align a reconstruction that was never aligned, run** ``model_aligner``
 **without the report flags.**
 
@@ -419,8 +418,8 @@ a field that a previous run chose not to write.
 * **Support** -- database priors, registered images, registered prior
   correspondences, position inliers and outliers, gravity and heading
   observation counts.
-* **Transforms** -- ``enu_from_sfm`` and its inverse, ``ecef_from_enu`` and its
-  inverse, ``ecef_from_sfm`` and its inverse, and metres per input unit.
+* **Alignment** -- ``enu_from_input_sfm`` and its inverse, metres per input
+  unit, the standardized robust radius, and the deterministic random seed.
 * **Frame contract** -- geometry frame, handedness, up axis, units, and
   ``geometry_from_enu`` / ``enu_from_geometry`` / ``ecef_from_geometry`` /
   ``geometry_from_ecef``. For ``LICHTFELD_COLMAP``, also the visualizer

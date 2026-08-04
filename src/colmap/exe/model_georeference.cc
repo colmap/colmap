@@ -43,13 +43,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <ctime>
 #include <fstream>
+#include <iomanip>
 #include <locale>
 #include <optional>
 #include <sstream>
 
 #include <Eigen/Eigenvalues>
 #include <Eigen/SVD>
+#include <boost/property_tree/json_parser.hpp>
 
 namespace colmap {
 namespace {
@@ -102,6 +105,19 @@ std::string JSONNumber(double value) {
   return stream.str();
 }
 
+std::string CurrentUtcTimestamp() {
+  const std::time_t now = std::time(nullptr);
+  std::tm utc{};
+#ifdef _WIN32
+  gmtime_s(&utc, &now);
+#else
+  gmtime_r(&now, &utc);
+#endif
+  std::ostringstream stream;
+  stream << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ");
+  return stream.str();
+}
+
 std::string JSONSim3(const Sim3d& s) {
   return StringPrintf(
       "{\"scale\":%s,\"rotation_wxyz\":[%s,%s,%s,%s],\"translation_xyz\":[%s,"
@@ -144,9 +160,6 @@ bool IsValidSceneId(const std::string& scene_id) {
   return true;
 }
 
-// Deterministic, inlier-refined WGS84 origin: median ECEF of full-position
-// (lat/lon/alt all finite) reference points, never the first row. Returns
-// false if there are no full-position points to derive an origin from.
 // Per-camera georeference diagnostics.
 struct CameraPosePriorResidual {
   image_t image_id = kInvalidImageId;
@@ -175,6 +188,9 @@ struct CameraPosePriorResidual {
   // Angle between predicted_gravity_sensor and gravity_sensor, in degrees,
   // allowing an individual bad gravity reading to be identified in the CSV.
   double gravity_residual_deg = std::numeric_limits<double>::quiet_NaN();
+  bool has_heading_prior = false;
+  double heading_stddev_deg = std::numeric_limits<double>::quiet_NaN();
+  double heading_residual_deg = std::numeric_limits<double>::quiet_NaN();
 };
 
 double Percentile(std::vector<double> values, double fraction) {
@@ -244,9 +260,8 @@ Eigen::Matrix<double, kDim, 1> CenteredRmsSingularValues(
 // boundary transform (applied by LichtFeld itself at import/render time, not
 // by this exporter) results in a displayed East=+X, Up=+Y, North=-Z scene.
 // Determinant +1 (proper rotation, handedness preserved). This is the
-// empirically validated LichtFeld Studio import contract; do not change
-// this matrix without re-verifying upright display in an installed
-// LichtFeld build.
+// LichtFeld Studio import contract; changes require an upright display
+// verification against the referenced consumer boundary transform.
 Sim3d LichtfeldColmapFromEnu() {
   Eigen::Matrix3d rotation;
   // clang-format off
@@ -299,8 +314,7 @@ namespace {
 // --camera_residuals_csv).
 ////////////////////////////////////////////////////////////////////////////
 
-void WriteGeoreferenceReportJSON(
-    const std::filesystem::path& path,
+std::string SerializeGeoreferenceReportJSON(
     const std::string& scene_id,
     const std::string& source_commit,
     const std::filesystem::path& input_path,
@@ -318,10 +332,6 @@ void WriteGeoreferenceReportJSON(
     OutputCoordinateFrame output_coordinate_frame,
     const GeoreferenceQualityThresholds& quality_thresholds,
     const MaterialRealignmentThresholds& material_realignment_thresholds) {
-  // There is one report shape. A consumer cannot ask for a field a previous
-  // run chose not to write, so every report carries the complete diagnostic
-  // set.
-  constexpr bool full_report = true;
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   const Eigen::Matrix3d ecef_from_enu_rotation =
@@ -331,8 +341,6 @@ void WriteGeoreferenceReportJSON(
   const Sim3d ecef_from_enu(
       1.0, Eigen::Quaterniond(ecef_from_enu_rotation), origin_ecef);
   const Sim3d enu_from_ecef = Inverse(ecef_from_enu);
-  const Sim3d ecef_from_sfm = ecef_from_enu * enu_from_sfm;
-  const Sim3d sfm_from_ecef = Inverse(ecef_from_sfm);
 
   // Verify the numerical inverse of every transform pair before publication.
   const auto verify_inverse = [](const Sim3d& a, const Sim3d& b) {
@@ -342,7 +350,6 @@ void WriteGeoreferenceReportJSON(
   };
   verify_inverse(enu_from_sfm, sfm_from_enu);
   verify_inverse(ecef_from_enu, enu_from_ecef);
-  verify_inverse(ecef_from_sfm, sfm_from_ecef);
 
   std::vector<double> horizontal_residuals;
   std::vector<double> vertical_residuals;
@@ -355,16 +362,16 @@ void WriteGeoreferenceReportJSON(
   double max_horizontal_baseline = 0.0;
   std::vector<Eigen::Vector3d> inlier_prior_enu;
   for (const CameraPosePriorResidual& r : residuals) {
-    if (r.registered && r.prior_enu.allFinite()) {
+    if (r.registered && r.prior_enu.allFinite() && r.solved_enu.allFinite()) {
       ++num_registered_correspondences;
-    }
-    if (r.position_fit_inlier && r.prior_enu.allFinite() &&
-        r.solved_enu.allFinite()) {
-      ++num_position_inliers;
       const Eigen::Vector3d diff = r.solved_enu - r.prior_enu;
       horizontal_residuals.push_back(std::hypot(diff.x(), diff.y()));
       vertical_residuals.push_back(std::abs(diff.z()));
       full_residuals.push_back(diff.norm());
+    }
+    if (r.position_fit_inlier && r.prior_enu.allFinite() &&
+        r.solved_enu.allFinite()) {
+      ++num_position_inliers;
       max_horizontal_radius = std::max(
           max_horizontal_radius, std::hypot(r.prior_enu.x(), r.prior_enu.y()));
       max_3d_radius = std::max(max_3d_radius, r.prior_enu.norm());
@@ -412,33 +419,26 @@ void WriteGeoreferenceReportJSON(
           ? full_rms_singular_values.z() / full_rms_singular_values.x()
           : std::numeric_limits<double>::quiet_NaN();
 
-  // Per-image gravity residual: for every registered image with a gravity
-  // prior, rotate the sensor-frame down vector into the (already ENU-
-  // aligned) world frame and compare it against ENU-down individually.
-  // Deliberately not a single angle of the normalized mean vector -- that
-  // construction lets images with opposite-signed errors cancel in the sum,
-  // reading as a falsely small angle even when individual images disagree
-  // substantially. median/p90/max/support are reported like every other
-  // residual stat in this report (see position_3d_residual_m etc. above),
-  // and the legacy single-number `gravity_consistency_angle_deg` field (and
-  // the warning gate that uses it) is now defined as the robust median of
-  // these per-image values, not the old mean-vector angle.
   std::vector<double> gravity_residuals_deg;
+  std::vector<double> heading_residuals_deg;
   for (const CameraPosePriorResidual& r : residuals) {
     if (!r.registered || !r.has_gravity_prior ||
         !std::isfinite(r.gravity_residual_deg)) {
       continue;
     }
     gravity_residuals_deg.push_back(r.gravity_residual_deg);
+    if (r.has_heading_prior && std::isfinite(r.heading_residual_deg)) {
+      heading_residuals_deg.push_back(std::abs(r.heading_residual_deg));
+    }
   }
   const int num_gravity_priors = static_cast<int>(gravity_residuals_deg.size());
   const ScalarStatistics gravity_stats =
       ComputeStatistics(gravity_residuals_deg);
   const double gravity_consistency_angle_deg = gravity_stats.median;
+  const int num_heading_priors = static_cast<int>(heading_residuals_deg.size());
+  const ScalarStatistics heading_stats =
+      ComputeStatistics(heading_residuals_deg);
 
-  // Pipeline-policy warning thresholds (see the ground-truth "Post-alignment
-  // warnings" section); values and thresholds are recorded in the report so
-  // policy can evolve without re-running.
   const double kCollinearityRatioThreshold =
       quality_thresholds.collinearity_ratio_threshold;
   const double kGravityAngleThresholdDeg =
@@ -448,7 +448,7 @@ void WriteGeoreferenceReportJSON(
   const bool collinearity_warning_fired =
       std::isfinite(horizontal_condition_ratio) &&
       horizontal_condition_ratio < kCollinearityRatioThreshold;
-  const bool gravity_warning_fired =
+  const bool gravity_failure_fired =
       std::isfinite(gravity_consistency_angle_deg) &&
       gravity_consistency_angle_deg > kGravityAngleThresholdDeg;
   const double position_inlier_ratio =
@@ -456,7 +456,7 @@ void WriteGeoreferenceReportJSON(
           ? static_cast<double>(num_position_inliers) /
                 num_registered_correspondences
           : std::numeric_limits<double>::quiet_NaN();
-  const bool position_inlier_ratio_warning_fired =
+  const bool position_inlier_ratio_failure_fired =
       std::isfinite(position_inlier_ratio) &&
       position_inlier_ratio < kPositionInlierRatioThreshold;
   if (collinearity_warning_fired) {
@@ -467,21 +467,25 @@ void WriteGeoreferenceReportJSON(
         horizontal_condition_ratio,
         kCollinearityRatioThreshold);
   }
-  if (gravity_warning_fired) {
-    LOG(WARNING) << StringPrintf(
+  if (gravity_failure_fired) {
+    LOG(ERROR) << StringPrintf(
         "=> Aligned up-axis disagrees with gravity priors (%.3f deg > %.2f "
         "deg)",
         gravity_consistency_angle_deg,
         kGravityAngleThresholdDeg);
   }
-  if (position_inlier_ratio_warning_fired) {
-    LOG(WARNING) << StringPrintf(
+  if (position_inlier_ratio_failure_fired) {
+    LOG(ERROR) << StringPrintf(
         "=> Large fraction of registered images disagree with the alignment "
         "(position inlier ratio %.6f < %.2f) — possible internal "
         "misregistration (repeated structure / false loop closures)",
         position_inlier_ratio,
         kPositionInlierRatioThreshold);
   }
+  THROW_CHECK(!gravity_failure_fired)
+      << "Gravity quality gate rejected the georeference report";
+  THROW_CHECK(!position_inlier_ratio_failure_fired)
+      << "Position-support gate rejected the georeference report";
 
   int num_registered = 0;
   int num_with_prior = 0;
@@ -498,33 +502,27 @@ void WriteGeoreferenceReportJSON(
   json.imbue(std::locale::classic());
   json << "{";
   json << "\"schema\":\"colmap_scene_georeference\",";
-  // One version for the whole document. Every report of a given version has
-  // the same shape, so a consumer branches on this alone.
   json << "\"schema_version\":1,";
-  if (scene_id.empty()) {
-    json << "\"scene_id\":null,";
-  } else {
-    json << "\"scene_id\":\"" << JSONEscape(scene_id) << "\",";
-  }
-  json << "\"source_commit\":\"" << JSONEscape(source_commit) << "\",";
+  json << "\"provenance\":{";
+  json << "\"scene_id\":\"" << JSONEscape(scene_id) << "\",";
+  json << "\"colmap_version\":\"" << JSONEscape(GetVersionInfo()) << "\",";
+  json << "\"colmap_build\":\"" << JSONEscape(source_commit) << "\",";
+  json << "\"creation_utc\":\"" << CurrentUtcTimestamp() << "\",";
   json << "\"input_path\":\"" << JSONEscape(input_path.string()) << "\",";
-  json << "\"output_path\":\"" << JSONEscape(output_path.string()) << "\",";
-  json << "\"num_registered_images\":" << reconstruction.NumRegImages() << ",";
-  json << "\"num_points3D\":" << reconstruction.NumPoints3D() << ",";
-  json << "\"ellipsoid\":\"WGS84\",";
+  json << "\"output_path\":\"" << JSONEscape(output_path.string()) << "\"},";
+  json << "\"crs\":{\"ellipsoid\":\"WGS84\",";
   json << "\"height_datum\":\"ELLIPSOIDAL\",";
-  json << "\"enu_origin\":{\"lat_deg\":" << JSONNumber(origin_lat)
+  json << "\"origin\":{\"lat_deg\":" << JSONNumber(origin_lat)
        << ",\"lon_deg\":" << JSONNumber(origin_lon)
-       << ",\"ellipsoidal_alt_m\":" << JSONNumber(origin_alt) << "},";
-  json << "\"transforms\":{";
-  json << "\"enu_from_sfm\":" << JSONSim3(enu_from_sfm) << ",";
-  json << "\"sfm_from_enu\":" << JSONSim3(sfm_from_enu) << ",";
-  json << "\"ecef_from_enu\":" << JSONSim3(ecef_from_enu) << ",";
-  json << "\"enu_from_ecef\":" << JSONSim3(enu_from_ecef) << ",";
-  json << "\"ecef_from_sfm\":" << JSONSim3(ecef_from_sfm) << ",";
-  json << "\"sfm_from_ecef\":" << JSONSim3(sfm_from_ecef);
-  json << "},";
-  json << "\"metres_per_sfm_unit\":" << JSONNumber(enu_from_sfm.scale()) << ",";
+       << ",\"ellipsoidal_alt_m\":" << JSONNumber(origin_alt) << "}},";
+  json << "\"alignment\":{";
+  json << "\"enu_from_input_sfm\":" << JSONSim3(enu_from_sfm) << ",";
+  json << "\"input_sfm_from_enu\":" << JSONSim3(sfm_from_enu) << ",";
+  json << "\"metres_per_input_unit\":" << JSONNumber(enu_from_sfm.scale())
+       << ",";
+  json << "\"standardized_ransac_radius\":"
+       << JSONNumber(position_ransac_threshold) << ",";
+  json << "\"random_seed\":" << alignment_random_seed << "},";
 
   // Full transform chain relative to the geometry actually written to
   // output_path -- not just an informal inverse-rotation note. A consumer
@@ -611,87 +609,83 @@ void WriteGeoreferenceReportJSON(
   json << "\"num_with_position_prior\":" << num_with_prior << ",";
   json << "\"num_registered_position_correspondences\":"
        << num_registered_correspondences << ",";
-  json << "\"num_position_inliers\":" << num_position_inliers;
+  json << "\"num_position_inliers\":" << num_position_inliers << ",";
+  json << "\"num_position_outliers\":"
+       << num_registered_correspondences - num_position_inliers << ",";
+  json << "\"num_gravity_observations\":" << num_gravity_priors << ",";
+  json << "\"num_heading_observations\":" << num_heading_priors;
   json << "},";
-  // gravity_consistency_angle_deg is the one scalar diagnostic the
-  // gravity_disagreement warning is evaluated against, so it is reported at
-  // both levels; the detailed per-image stat breakdowns, singular-value/
-  // baseline/radius/ellipsoid-tangent diagnostics below are `full`-only
-  // experiment-verification detail.
   json << "\"diagnostics\":{";
-  json << "\"gravity_consistency_angle_deg\":"
-       << JSONNumber(gravity_consistency_angle_deg);
-  if (full_report) {
-    json << ",";
-    json << "\"position_3d_residual_m\":{"
-         << "\"mean\":" << JSONNumber(full_stats.mean)
-         << ",\"median\":" << JSONNumber(full_stats.median)
-         << ",\"p90\":" << JSONNumber(full_stats.p90)
-         << ",\"max\":" << JSONNumber(full_stats.max) << "},";
-    json << "\"position_horizontal_residual_m\":{"
-         << "\"mean\":" << JSONNumber(horizontal_stats.mean)
-         << ",\"median\":" << JSONNumber(horizontal_stats.median)
-         << ",\"p90\":" << JSONNumber(horizontal_stats.p90)
-         << ",\"max\":" << JSONNumber(horizontal_stats.max) << "},";
-    json << "\"position_vertical_residual_m\":{"
-         << "\"mean\":" << JSONNumber(vertical_stats.mean)
-         << ",\"median\":" << JSONNumber(vertical_stats.median)
-         << ",\"p90\":" << JSONNumber(vertical_stats.p90)
-         << ",\"max\":" << JSONNumber(vertical_stats.max) << "},";
-    json << "\"max_horizontal_baseline_m\":"
-         << JSONNumber(max_horizontal_baseline) << ",";
-    json << "\"horizontal_prior_sigma_median_m\":" << JSONNumber(sigma_h)
-         << ",";
-    json << "\"horizontal_baseline_to_sigma_ratio\":"
-         << JSONNumber(baseline_to_sigma) << ",";
-    json << "\"horizontal_centered_rms_singular_values_m\":["
-         << JSONNumber(horizontal_rms_singular_values.x()) << ","
-         << JSONNumber(horizontal_rms_singular_values.y()) << "],";
-    json << "\"horizontal_condition_ratio\":"
-         << JSONNumber(horizontal_condition_ratio) << ",";
-    json << "\"centered_rms_singular_values_3d_m\":["
-         << JSONNumber(full_rms_singular_values.x()) << ","
-         << JSONNumber(full_rms_singular_values.y()) << ","
-         << JSONNumber(full_rms_singular_values.z()) << "],";
-    json << "\"condition_ratio_3d\":" << JSONNumber(full_condition_ratio)
-         << ",";
-    json << "\"max_horizontal_radius_m\":" << JSONNumber(max_horizontal_radius)
-         << ",";
-    json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius) << ",";
-    json << "\"max_ellipsoid_tangent_departure_m\":"
-         << JSONNumber(max_ellipsoid_tangent_departure_m) << ",";
-    json << "\"gravity_residual_deg\":{"
-         << "\"mean\":" << JSONNumber(gravity_stats.mean)
-         << ",\"median\":" << JSONNumber(gravity_stats.median)
-         << ",\"p90\":" << JSONNumber(gravity_stats.p90)
-         << ",\"max\":" << JSONNumber(gravity_stats.max)
-         << ",\"num_support\":" << num_gravity_priors << "}";
-  }
+  json << "\"position_3d_residual_m\":{"
+       << "\"mean\":" << JSONNumber(full_stats.mean)
+       << ",\"median\":" << JSONNumber(full_stats.median)
+       << ",\"p90\":" << JSONNumber(full_stats.p90)
+       << ",\"max\":" << JSONNumber(full_stats.max)
+       << ",\"num_support\":" << full_residuals.size() << "},";
+  json << "\"position_horizontal_residual_m\":{"
+       << "\"mean\":" << JSONNumber(horizontal_stats.mean)
+       << ",\"median\":" << JSONNumber(horizontal_stats.median)
+       << ",\"p90\":" << JSONNumber(horizontal_stats.p90)
+       << ",\"max\":" << JSONNumber(horizontal_stats.max)
+       << ",\"num_support\":" << horizontal_residuals.size() << "},";
+  json << "\"position_vertical_residual_m\":{"
+       << "\"mean\":" << JSONNumber(vertical_stats.mean)
+       << ",\"median\":" << JSONNumber(vertical_stats.median)
+       << ",\"p90\":" << JSONNumber(vertical_stats.p90)
+       << ",\"max\":" << JSONNumber(vertical_stats.max)
+       << ",\"num_support\":" << vertical_residuals.size() << "},";
+  json << "\"max_horizontal_baseline_m\":"
+       << JSONNumber(max_horizontal_baseline) << ",";
+  json << "\"horizontal_prior_sigma_median_m\":" << JSONNumber(sigma_h) << ",";
+  json << "\"horizontal_baseline_to_sigma_ratio\":"
+       << JSONNumber(baseline_to_sigma) << ",";
+  json << "\"horizontal_centered_rms_singular_values_m\":["
+       << JSONNumber(horizontal_rms_singular_values.x()) << ","
+       << JSONNumber(horizontal_rms_singular_values.y()) << "],";
+  json << "\"horizontal_condition_ratio\":"
+       << JSONNumber(horizontal_condition_ratio) << ",";
+  json << "\"centered_rms_singular_values_3d_m\":["
+       << JSONNumber(full_rms_singular_values.x()) << ","
+       << JSONNumber(full_rms_singular_values.y()) << ","
+       << JSONNumber(full_rms_singular_values.z()) << "],";
+  json << "\"condition_ratio_3d\":" << JSONNumber(full_condition_ratio) << ",";
+  json << "\"max_horizontal_radius_m\":" << JSONNumber(max_horizontal_radius)
+       << ",";
+  json << "\"max_3d_radius_m\":" << JSONNumber(max_3d_radius) << ",";
+  json << "\"max_ellipsoid_tangent_departure_m\":"
+       << JSONNumber(max_ellipsoid_tangent_departure_m) << ",";
+  json << "\"gravity_residual_deg\":{"
+       << "\"mean\":" << JSONNumber(gravity_stats.mean)
+       << ",\"median\":" << JSONNumber(gravity_stats.median)
+       << ",\"p90\":" << JSONNumber(gravity_stats.p90)
+       << ",\"max\":" << JSONNumber(gravity_stats.max)
+       << ",\"num_support\":" << num_gravity_priors << "},";
+  json << "\"heading_residual_deg\":{"
+       << "\"mean\":" << JSONNumber(heading_stats.mean)
+       << ",\"median\":" << JSONNumber(heading_stats.median)
+       << ",\"p90\":" << JSONNumber(heading_stats.p90)
+       << ",\"max\":" << JSONNumber(heading_stats.max)
+       << ",\"num_support\":" << num_heading_priors << "}";
   json << "},";
-  json << "\"warnings\":{";
+  json << "\"quality\":{";
   json << "\"collinearity\":{\"value\":"
        << JSONNumber(horizontal_condition_ratio)
        << ",\"threshold\":" << JSONNumber(kCollinearityRatioThreshold)
+       << ",\"severity\":\"WARNING\""
        << ",\"fired\":" << (collinearity_warning_fired ? "true" : "false")
        << "},";
   json << "\"gravity_disagreement\":{\"value\":"
        << JSONNumber(gravity_consistency_angle_deg)
        << ",\"threshold\":" << JSONNumber(kGravityAngleThresholdDeg)
-       << ",\"fired\":" << (gravity_warning_fired ? "true" : "false") << "},";
+       << ",\"severity\":\"FAILURE\""
+       << ",\"fired\":" << (gravity_failure_fired ? "true" : "false") << "},";
   json << "\"position_inlier_ratio\":{\"value\":"
        << JSONNumber(position_inlier_ratio)
        << ",\"threshold\":" << JSONNumber(kPositionInlierRatioThreshold)
+       << ",\"severity\":\"FAILURE\""
        << ",\"fired\":"
-       << (position_inlier_ratio_warning_fired ? "true" : "false") << "}";
+       << (position_inlier_ratio_failure_fired ? "true" : "false") << "}";
   json << "},";
-  json << "\"position_ransac_threshold_m\":"
-       << JSONNumber(position_ransac_threshold) << ",";
-  json << "\"alignment_random_seed\":" << alignment_random_seed << ",";
-  // How large a correction this report's own equal-weight robust Sim3 fit
-  // (enu_from_sfm above) applied on top of whatever frame the input
-  // reconstruction was already in. A material correction is a hard gate:
-  // RunModelAlignerReport returns EXIT_FAILURE before this file is written,
-  // so a published report always records a non-material one.
   {
     const double kMaterialRealignmentRotationDegThreshold =
         material_realignment_thresholds.max_rotation_deg;
@@ -722,10 +716,11 @@ void WriteGeoreferenceReportJSON(
   }
   json << "}";
 
-  std::ofstream file(path, std::ios::trunc);
-  THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
-  file << json.str();
+  std::istringstream input(json.str());
+  boost::property_tree::ptree parsed;
+  boost::property_tree::read_json(input, parsed);
+  THROW_CHECK_EQ(parsed.get<int>("schema_version"), 1);
+  return json.str();
 }
 
 std::string CSVField(const std::string& value) {
@@ -762,14 +757,8 @@ std::string CSVNumber(double value) {
   return stream.str();
 }
 
-void WriteCameraResidualsCSV(
-    const std::filesystem::path& path,
+std::string SerializeCameraResidualsCSV(
     const std::vector<CameraPosePriorResidual>& residuals) {
-  std::ofstream file(path, std::ios::trunc);
-  THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
-  file.precision(17);
-
   std::vector<CameraPosePriorResidual> sorted_residuals = residuals;
   std::sort(
       sorted_residuals.begin(),
@@ -778,14 +767,18 @@ void WriteCameraResidualsCSV(
         return a.image_name < b.image_name;
       });
 
-  file << "image_name,registered,has_position_prior,position_fit_inlier,"
-          "prior_e,prior_n,prior_u,solved_e,solved_n,solved_u,"
-          "residual_e,residual_n,residual_u,residual_horizontal,"
-          "residual_vertical,residual_3d,"
-          "has_gravity_prior,gravity_measured_x,gravity_measured_y,"
-          "gravity_measured_z,gravity_predicted_x,gravity_predicted_y,"
-          "gravity_predicted_z,gravity_residual_deg\n";
+  std::ostringstream csv;
+  csv.imbue(std::locale::classic());
+  csv.precision(17);
+  csv << "image_name,image_id,has_position_prior,position_fit_inlier,"
+         "residual_east_m,residual_north_m,residual_up_m,"
+         "residual_horizontal_m,residual_3d_m,"
+         "has_gravity_prior,gravity_residual_deg,"
+         "has_heading_prior,heading_stddev_deg,heading_residual_deg\n";
   for (const CameraPosePriorResidual& r : sorted_residuals) {
+    if (!r.registered) {
+      continue;
+    }
     Eigen::Vector3d residual =
         Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
     double residual_horizontal = std::numeric_limits<double>::quiet_NaN();
@@ -802,25 +795,64 @@ void WriteCameraResidualsCSV(
     if (residual.allFinite()) {
       residual_3d = residual.norm();
     }
-    file << CSVField(r.image_name) << ',' << (r.registered ? 1 : 0) << ','
-         << (r.has_position_prior ? 1 : 0) << ','
-         << (r.position_fit_inlier ? 1 : 0) << ',' << CSVNumber(r.prior_enu.x())
-         << ',' << CSVNumber(r.prior_enu.y()) << ','
-         << CSVNumber(r.prior_enu.z()) << ',' << CSVNumber(r.solved_enu.x())
-         << ',' << CSVNumber(r.solved_enu.y()) << ','
-         << CSVNumber(r.solved_enu.z()) << ',' << CSVNumber(residual.x()) << ','
-         << CSVNumber(residual.y()) << ',' << CSVNumber(residual.z()) << ','
-         << CSVNumber(residual_horizontal) << ','
-         << CSVNumber(std::abs(residual.z())) << ',' << CSVNumber(residual_3d)
-         << ',' << (r.has_gravity_prior ? 1 : 0) << ','
-         << CSVNumber(r.gravity_sensor.x()) << ','
-         << CSVNumber(r.gravity_sensor.y()) << ','
-         << CSVNumber(r.gravity_sensor.z()) << ','
-         << CSVNumber(r.predicted_gravity_sensor.x()) << ','
-         << CSVNumber(r.predicted_gravity_sensor.y()) << ','
-         << CSVNumber(r.predicted_gravity_sensor.z()) << ','
-         << CSVNumber(r.gravity_residual_deg) << '\n';
+    csv << CSVField(r.image_name) << ',' << r.image_id << ','
+        << (r.has_position_prior ? 1 : 0) << ','
+        << (r.position_fit_inlier ? 1 : 0) << ',' << CSVNumber(residual.x())
+        << ',' << CSVNumber(residual.y()) << ',' << CSVNumber(residual.z())
+        << ',' << CSVNumber(residual_horizontal) << ','
+        << CSVNumber(residual_3d) << ',' << (r.has_gravity_prior ? 1 : 0) << ','
+        << CSVNumber(r.gravity_residual_deg) << ','
+        << (r.has_heading_prior ? 1 : 0) << ','
+        << CSVNumber(r.heading_stddev_deg) << ','
+        << CSVNumber(r.heading_residual_deg) << '\n';
   }
+  return csv.str();
+}
+
+void ValidateCSV(const std::string& csv,
+                 const size_t expected_columns,
+                 const size_t expected_rows) {
+  size_t columns = 1;
+  size_t rows = 0;
+  bool quoted = false;
+  for (size_t i = 0; i < csv.size(); ++i) {
+    const char c = csv[i];
+    if (c == '"') {
+      if (quoted && i + 1 < csv.size() && csv[i + 1] == '"') {
+        ++i;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (!quoted && c == ',') {
+      ++columns;
+    } else if (!quoted && c == '\n') {
+      THROW_CHECK_EQ(columns, expected_columns);
+      columns = 1;
+      ++rows;
+    }
+  }
+  THROW_CHECK(!quoted);
+  THROW_CHECK_EQ(rows, expected_rows);
+}
+
+void PublishFileAtomically(const std::filesystem::path& path,
+                           const std::string& contents) {
+  THROW_CHECK(!ExistsFile(path) && !ExistsDir(path))
+      << "Refusing to overwrite " << path;
+  const std::filesystem::path temporary = path.string() + ".tmp";
+  THROW_CHECK(!ExistsFile(temporary) && !ExistsDir(temporary))
+      << "Stale temporary publication target: " << temporary;
+  {
+    std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
+    THROW_CHECK_FILE_OPEN(file, temporary);
+    file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    file.flush();
+    THROW_CHECK(file.good()) << "Failed writing " << temporary;
+  }
+  std::error_code error;
+  std::filesystem::rename(temporary, path, error);
+  THROW_CHECK(!error) << "Failed publishing " << path << ": "
+                      << error.message();
 }
 
 // Converts every camera-type pose prior into `enu_frame`, preserving all other
@@ -906,8 +938,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
   const std::vector<PosePrior> enu_priors =
       ConvertPosePriorsToReportENU(pose_priors, *enu_frame);
 
-  PosePriorAlignmentResult result = AlignReconstructionToPosePriorsRobust(
-      reconstruction, enu_priors, o.ransac_options);
+  PosePriorAlignmentResult result = AlignReconstructionToPosePriorsWeighted(
+      reconstruction, enu_priors, o.ransac_options.random_seed);
   if (!result.success) {
     LOG(ERROR) << "=> Alignment failed";
     return EXIT_FAILURE;
@@ -920,12 +952,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                << o.min_common_images;
     return EXIT_FAILURE;
   }
-  // This robust Sim3 fit is equal-weight among RANSAC inliers and ignores
-  // per-row GPS covariance. The report path exists to publish a delivery, and
-  // a delivery's input has already been solved by the mapper in the metric ENU
-  // gauge with that covariance applied throughout -- so this fit must be a
-  // no-op. A material correction means the two disagree, and the one about to
-  // be written is the less-informed of the two.
+  // The report path publishes a delivery whose input was already solved in the
+  // metric ENU gauge, so this covariance-weighted fit must be a no-op.
   //
   // This is also what makes the gate a check on the *input*: a reconstruction
   // that was never aligned produces a large tgt_from_src and is rejected here,
@@ -959,9 +987,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
         "scale_ratio=%.6f > %.4f). A report run publishes a delivery, whose "
         "input must already be solved in the metric ENU gauge, so this fit "
         "must be a no-op. Either the mapper's optimize solve did not hold for "
-        "this input, or this equal-weight refit -- which ignores per-row GPS "
-        "covariance -- is about to overwrite it with a less-informed answer. "
-        "Investigate before deploying this result. To align an unaligned "
+        "this input, or the final weighted fit disagrees with it. Investigate "
+        "before deploying this result. To align an unaligned "
         "reconstruction, run model_aligner without --georeference_json/"
         "--camera_residuals_csv.",
         realignment_rotation_deg,
@@ -1004,6 +1031,10 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                              std::isfinite(prior_it->second.position.y());
       r.has_gravity_prior = prior_it->second.HasGravity();
       r.gravity_sensor = prior_it->second.gravity;
+      r.has_heading_prior = prior_it->second.HasHeading();
+      if (r.has_heading_prior) {
+        r.heading_stddev_deg = RadToDeg(prior_it->second.heading_stddev_rad);
+      }
     }
     const auto enu_it = enu_prior_by_image.find(r.image_id);
     if (enu_it != enu_prior_by_image.end()) {
@@ -1015,12 +1046,12 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
       const Image& image = reconstruction.Image(r.image_id);
       r.solved_enu = image.ProjectionCenter();
       if (r.has_gravity_prior) {
-        // world_down_ convention: East=+X, North=+Y, Up=+Z (see
-        // PosePriorBundleAdjuster::world_down_ in bundle_adjustment_ceres.cc
-        // and this file's enu_down usage below) -- valid here because this
-        // report only runs after the reconstruction has been aligned to ENU.
+        const Eigen::Matrix3d shared_from_local =
+            enu_frame->SharedFromLocalEnu(prior_it->second.position);
+        const Eigen::Vector3d down_world =
+            shared_from_local * Eigen::Vector3d(0.0, 0.0, -1.0);
         r.predicted_gravity_sensor =
-            image.CamFromWorld().rotation() * Eigen::Vector3d(0.0, 0.0, -1.0);
+            image.CamFromWorld().rotation() * down_world;
         const Eigen::Vector3d measured_down_sensor =
             r.gravity_sensor.normalized();
         const double cos_angle = std::clamp(
@@ -1028,6 +1059,36 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
             -1.0,
             1.0);
         r.gravity_residual_deg = RadToDeg(std::acos(cos_angle));
+
+        if (r.has_heading_prior) {
+          const Eigen::Vector3d forward(0.0, 0.0, 1.0);
+          const Eigen::Vector3d forward_horizontal =
+              forward -
+              measured_down_sensor * measured_down_sensor.dot(forward);
+          if (forward_horizontal.norm() >= 1e-3) {
+            const Eigen::Vector3d forward_unit =
+                forward_horizontal.normalized();
+            const Eigen::Vector3d right_unit =
+                measured_down_sensor.cross(forward_unit).normalized();
+            const Eigen::Vector3d measured_north_sensor =
+                std::cos(prior_it->second.heading_rad) * forward_unit -
+                std::sin(prior_it->second.heading_rad) * right_unit;
+            const Eigen::Vector3d north_world =
+                shared_from_local * Eigen::Vector3d(0.0, 1.0, 0.0);
+            Eigen::Vector3d predicted_north_sensor =
+                image.CamFromWorld().rotation() * north_world;
+            predicted_north_sensor -=
+                measured_down_sensor *
+                measured_down_sensor.dot(predicted_north_sensor);
+            if (predicted_north_sensor.norm() >= 1e-12) {
+              predicted_north_sensor.normalize();
+              r.heading_residual_deg = RadToDeg(std::atan2(
+                  measured_down_sensor.dot(
+                      measured_north_sensor.cross(predicted_north_sensor)),
+                  measured_north_sensor.dot(predicted_north_sensor)));
+            }
+          }
+        }
       }
     }
     residuals.push_back(r);
@@ -1058,48 +1119,48 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
     }
   }
 
-  // A `scene_id` is only an identity label associating a report with a
-  // scene -- it is never fabricated. If the caller supplies one it is
-  // serialized verbatim (after validation); if not, the field is omitted
-  // (JSON `null`) rather than filled with a random UUID, so that otherwise
-  // identical reports remain deterministic.
   const std::string& scene_id = o.scene_id;
-  if (!scene_id.empty() && !IsValidSceneId(scene_id)) {
+  if (!IsValidSceneId(scene_id)) {
     LOG(ERROR) << "=> --scene_id must be non-empty and free of control "
                   "characters";
     return EXIT_FAILURE;
   }
-  if (!o.georeference_json.empty()) {
-    WriteGeoreferenceReportJSON(o.georeference_json,
-                                scene_id,
-                                GetBuildInfo(),
-                                o.input_path,
-                                o.output_path,
-                                reconstruction,
-                                origin_lat,
-                                origin_lon,
-                                origin_alt,
-                                result.tgt_from_src,
-                                residuals,
-                                static_cast<int>(pose_priors.size()),
-                                max_ellipsoid_tangent_departure_m,
-                                o.ransac_options.max_error,
-                                o.ransac_options.random_seed,
-                                o.output_coordinate_frame,
-                                o.quality_thresholds,
-                                o.material_realignment_thresholds);
+  const std::string report =
+      SerializeGeoreferenceReportJSON(scene_id,
+                                      GetBuildInfo(),
+                                      o.input_path,
+                                      o.output_path,
+                                      reconstruction,
+                                      origin_lat,
+                                      origin_lon,
+                                      origin_alt,
+                                      result.tgt_from_src,
+                                      residuals,
+                                      static_cast<int>(pose_priors.size()),
+                                      max_ellipsoid_tangent_departure_m,
+                                      kPosePriorPositionRobustRadius,
+                                      o.ransac_options.random_seed,
+                                      o.output_coordinate_frame,
+                                      o.quality_thresholds,
+                                      o.material_realignment_thresholds);
+  const std::string csv = SerializeCameraResidualsCSV(residuals);
+  ValidateCSV(csv, 14, reconstruction.NumRegImages() + 1);
+
+  if (ExistsDir(o.output_path) || ExistsFile(o.output_path)) {
+    LOG(ERROR) << "=> Refusing to overwrite output path " << o.output_path;
+    return EXIT_FAILURE;
   }
-  if (!o.camera_residuals_csv.empty()) {
-    WriteCameraResidualsCSV(o.camera_residuals_csv, residuals);
+  for (const std::filesystem::path& sidecar :
+       {o.camera_residuals_csv, o.georeference_json}) {
+    const std::filesystem::path temporary = sidecar.string() + ".tmp";
+    if (ExistsFile(sidecar) || ExistsDir(sidecar) || ExistsFile(temporary) ||
+        ExistsDir(temporary)) {
+      LOG(ERROR) << "=> Refusing existing sidecar publication target "
+                 << sidecar;
+      return EXIT_FAILURE;
+    }
   }
 
-  LOG(INFO) << StringPrintf(
-      "=> Alignment succeeded: %d position-prior inliers, ENU origin "
-      "(lat=%.8f, lon=%.8f, alt=%.3f)",
-      num_inliers,
-      origin_lat,
-      origin_lon,
-      origin_alt);
   // Applied last, after every diagnostic/report computation above (which
   // reads camera rotations/positions and assumes the ENU convention -- e.g.
   // the gravity_consistency_angle_deg comparison against enu_down), so only
@@ -1107,7 +1168,26 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
   if (o.output_coordinate_frame != OutputCoordinateFrame::ENU_Z_UP) {
     reconstruction.Transform(GeometryFromEnu(o.output_coordinate_frame));
   }
+  CreateDirIfNotExists(o.output_path, /*recursive=*/true);
   reconstruction.Write(o.output_path);
+
+  Reconstruction written;
+  written.Read(o.output_path);
+  THROW_CHECK_EQ(written.NumCameras(), reconstruction.NumCameras());
+  THROW_CHECK_EQ(written.NumImages(), reconstruction.NumImages());
+  THROW_CHECK_EQ(written.NumRegImages(), reconstruction.NumRegImages());
+  THROW_CHECK_EQ(written.NumPoints3D(), reconstruction.NumPoints3D());
+
+  // The JSON is the success sidecar, so publish it last.
+  PublishFileAtomically(o.camera_residuals_csv, csv);
+  PublishFileAtomically(o.georeference_json, report);
+  LOG(INFO) << StringPrintf(
+      "=> Alignment succeeded: %d position-prior inliers, ENU origin "
+      "(lat=%.8f, lon=%.8f, alt=%.3f)",
+      num_inliers,
+      origin_lat,
+      origin_lon,
+      origin_alt);
   return EXIT_SUCCESS;
 }
 

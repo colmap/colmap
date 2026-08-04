@@ -997,57 +997,58 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           if (pose_prior.HasPosition()) {
             ++num_position_priors_considered;
           }
-          if (prior_options_.use_prior_gravity && pose_prior.HasGravity()) {
+          if (pose_prior.HasGravity()) {
             ++num_gravity_priors_considered;
           }
-          if (prior_options_.use_prior_heading && pose_prior.HasHeading()) {
+          if (pose_prior.HasHeading()) {
             ++num_heading_priors_considered;
           }
           AddImagePosePriorToProblem(
               pose_prior.corr_data_id.id, pose_prior, reconstruction);
         }
       }
-      LOG(INFO)
-          << "Pose prior BA support: " << parameterized_image_ids.size()
-          << " parameterized images, " << num_position_priors_considered
-          << " position priors considered -> " << num_position_residuals_added_
-          << " position residuals "
-          << "added (loss="
-          << LossFunctionTypeName(
-                 prior_options_.ceres->prior_position_loss_function_type)
-          << ", standardized_scale="
-          << prior_options_.ceres->prior_position_loss_scale << "), "
-          << num_position_cov_rejected_
-          << " rows with invalid declared covariance fell back to "
-          << prior_options_.prior_position_fallback_stddev << " m; "
-          << num_gravity_priors_considered << " gravity priors considered -> "
-          << num_gravity_residuals_added_ << " gravity residuals added"
-          << (prior_options_.use_prior_gravity
-                  ? (std::string(" (loss=") +
-                     LossFunctionTypeName(
-                         prior_options_.ceres
-                             ->prior_gravity_loss_function_type) +
-                     ", standardized_scale=" +
-                     std::to_string(
-                         prior_options_.ceres->prior_gravity_loss_scale) +
-                     ", stddev_deg=" +
-                     std::to_string(prior_options_.prior_gravity_stddev_deg) +
-                     ")")
-                  : std::string(" (gravity mode off)"))
-          << "; " << num_heading_priors_considered
-          << " heading priors considered -> " << num_heading_residuals_added_
-          << " heading residuals added"
-          << (prior_options_.use_prior_heading
-                  ? (std::string(" (loss=") +
-                     LossFunctionTypeName(
-                         prior_options_.ceres
-                             ->prior_heading_loss_function_type) +
-                     ", standardized_scale=" +
-                     std::to_string(
-                         prior_options_.ceres->prior_heading_loss_scale) +
-                     ", " + std::to_string(num_heading_degenerate_rejected_) +
-                     " rejected for a near-vertical camera axis)")
-                  : std::string(" (heading mode off)"));
+      LOG(INFO) << "Pose prior BA position summary: "
+                << parameterized_image_ids.size() << " parameterized images, "
+                << num_position_priors_considered
+                << " position priors considered -> "
+                << num_position_residuals_added_ << " position residuals "
+                << "added (loss="
+                << LossFunctionTypeName(
+                       prior_options_.ceres->prior_position_loss_function_type)
+                << ", standardized_scale="
+                << prior_options_.ceres->prior_position_loss_scale << "), "
+                << num_position_cov_rejected_
+                << " rows with invalid declared covariance fell back to "
+                << prior_options_.prior_position_fallback_stddev << " m";
+      LOG(INFO) << "Pose prior gravity summary: requested="
+                << (prior_options_.use_prior_gravity ? "true" : "false")
+                << ", engaged="
+                << (prior_options_.use_prior_gravity &&
+                            num_gravity_residuals_added_ >= 3
+                        ? "true"
+                        : "false")
+                << ", available=" << num_gravity_priors_considered
+                << ", residuals=" << num_gravity_residuals_added_;
+      LOG(INFO) << "Pose prior heading summary: requested="
+                << (prior_options_.use_prior_heading ? "true" : "false")
+                << ", engaged="
+                << (prior_options_.use_prior_heading &&
+                            num_heading_residuals_added_ > 0
+                        ? "true"
+                        : "false")
+                << ", available=" << num_heading_priors_considered
+                << ", residuals=" << num_heading_residuals_added_
+                << ", degenerate=" << num_heading_degenerate_rejected_;
+    }
+    if (prior_options_.use_prior_gravity) {
+      THROW_CHECK_GE(num_gravity_residuals_added_, 3)
+          << "Gravity was requested but fewer than three usable registered "
+             "residuals were added";
+    }
+    if (prior_options_.use_prior_heading) {
+      THROW_CHECK_GT(num_heading_residuals_added_, 0)
+          << "Heading was requested but no usable registered residual was "
+             "added";
     }
   }
 
@@ -1103,6 +1104,11 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     const bool has_valid_position_cov =
         pose_prior.HasPositionCov() &&
         IsValidPositionCovariance(pose_prior.position_covariance);
+    if (prior_options_.require_valid_position_covariance) {
+      THROW_CHECK(has_valid_position_cov)
+          << "Image " << image_id
+          << " requires a finite positive-definite position covariance";
+    }
     if (pose_prior.HasPositionCov() && !has_valid_position_cov) {
       ++num_position_cov_rejected_;
       VLOG(2) << "Image " << image_id

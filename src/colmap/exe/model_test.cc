@@ -110,6 +110,8 @@ int RunReportAligner(const std::filesystem::path& input_path,
                      const std::filesystem::path& database_path,
                      const std::filesystem::path& report_path,
                      const std::vector<std::string>& extra_args = {}) {
+  const std::filesystem::path csv_path =
+      report_path.parent_path() / (report_path.stem().string() + ".csv");
   std::vector<std::string> args{
       "model_aligner",
       "--input_path",
@@ -120,14 +122,16 @@ int RunReportAligner(const std::filesystem::path& input_path,
       database_path.string(),
       "--alignment_type",
       "enu",
-      "--alignment_max_error",
-      "10",
       "--min_common_images",
       "3",
       "--alignment_random_seed",
       "12345",
+      "--scene_id",
+      "model-test",
       "--georeference_json",
       report_path.string(),
+      "--camera_residuals_csv",
+      csv_path.string(),
   };
   args.insert(args.end(), extra_args.begin(), extra_args.end());
   std::vector<char*> argv;
@@ -146,7 +150,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   const std::filesystem::path report_path = test_dir / "georeference.json";
   const std::filesystem::path csv_path = test_dir / "residuals.csv";
   std::filesystem::create_directories(input_path);
-  std::filesystem::create_directories(output_path);
 
   Reconstruction source;
   SyntheticDatasetOptions options;
@@ -229,11 +232,30 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
     prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
     prior.position = lla;
     prior.position_covariance = Eigen::Vector3d(0.25, 0.25, 1.0).asDiagonal();
-    // Sensor-frame down vector consistent with the (ENU-aligned) target
-    // reconstruction's orientation, so the gravity-consistency diagnostic is
-    // small and neither warning fires.
-    prior.gravity = target.Image(image_id).CamFromWorld().rotation() *
-                    Eigen::Vector3d(0.0, 0.0, -1.0);
+    const Eigen::Matrix3d reference_from_local =
+        GPSTransform::ENUFromECEF(reference_lat, reference_lon) *
+        GPSTransform::ECEFFromENU(lla.x(), lla.y());
+    const Eigen::Quaterniond cam_from_world =
+        target.Image(image_id).CamFromWorld().rotation();
+    prior.gravity = cam_from_world *
+                    (reference_from_local * Eigen::Vector3d(0.0, 0.0, -1.0));
+    const Eigen::Vector3d down_sensor = prior.gravity.normalized();
+    const Eigen::Vector3d forward(0.0, 0.0, 1.0);
+    const Eigen::Vector3d forward_horizontal =
+        (forward - down_sensor * down_sensor.dot(forward)).normalized();
+    const Eigen::Vector3d right_horizontal =
+        down_sensor.cross(forward_horizontal).normalized();
+    Eigen::Vector3d north_sensor =
+        cam_from_world *
+        (reference_from_local * Eigen::Vector3d(0.0, 1.0, 0.0));
+    north_sensor = (north_sensor - down_sensor * down_sensor.dot(north_sensor))
+                       .normalized();
+    prior.heading_rad = std::atan2(-north_sensor.dot(right_horizontal),
+                                   north_sensor.dot(forward_horizontal));
+    if (prior.heading_rad < 0.0) {
+      prior.heading_rad += 2.0 * M_PI;
+    }
+    prior.heading_stddev_rad = DegToRad(5.0);
     database->WritePosePrior(prior);
     priors.push_back(prior);
   }
@@ -275,11 +297,8 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       database_path.string(),
       "--alignment_type",
       "enu",
-      "--alignment_max_error",
-      "10",
       "--min_common_images",
       "3",
-      "1",
       "--alignment_random_seed",
       "12345",
       "--scene_id",
@@ -301,12 +320,12 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   boost::property_tree::read_json(report_path.string(), report);
   EXPECT_EQ(report.get<std::string>("schema"), "colmap_scene_georeference");
   EXPECT_EQ(report.get<int>("schema_version"), 1);
-  EXPECT_EQ(report.get<std::string>("scene_id"), "fixed-test-scene");
+  EXPECT_EQ(report.get<std::string>("provenance.scene_id"), "fixed-test-scene");
   EXPECT_EQ(report.get<int>("support.num_position_inliers"), 7);
   EXPECT_EQ(report.get<int>("support.num_registered"), 8);
   // The input was already in the shared ENU frame and already metric, so this
   // report's own fit must be a no-op rather than a rescaling.
-  EXPECT_NEAR(report.get<double>("metres_per_sfm_unit"), 1.0, 1e-4);
+  EXPECT_NEAR(report.get<double>("alignment.metres_per_input_unit"), 1.0, 1e-4);
   EXPECT_FALSE(report.get<bool>("final_realignment_check.is_material"));
   // The 8-camera synthetic layout is normalized to a 2000 m baseline above,
   // but this diagnostic is measured over the 7 position-prior inliers only
@@ -316,13 +335,16 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   // specific output.
   EXPECT_GT(report.get<double>("diagnostics.max_horizontal_baseline_m"),
             1000.0);
-  EXPECT_LT(report.get<double>("diagnostics.position_3d_residual_m.max"), 0.1);
+  EXPECT_LT(report.get<double>("diagnostics.position_3d_residual_m.median"),
+            0.1);
+  EXPECT_GT(report.get<double>("diagnostics.position_3d_residual_m.max"),
+            1000.0);
   EXPECT_GT(report.get<double>("diagnostics.max_ellipsoid_tangent_departure_m"),
             0.0);
-  EXPECT_GT(std::abs(report.get<double>("enu_origin.lat_deg") -
+  EXPECT_GT(std::abs(report.get<double>("crs.origin.lat_deg") -
                      position_outlier_lla.x()),
             1e-4);
-  EXPECT_EQ(report.get<int>("alignment_random_seed"), 12345);
+  EXPECT_EQ(report.get<int>("alignment.random_seed"), 12345);
 
   // Frame contract.
   const auto& frame_contract = report.get_child("frame_contract");
@@ -334,61 +356,54 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   EXPECT_EQ(frame_contract.get<std::string>("crs.ellipsoid"), "WGS84");
   EXPECT_EQ(frame_contract.get<std::string>("crs.height_datum"), "ELLIPSOIDAL");
   EXPECT_NEAR(frame_contract.get<double>("crs.origin.lat_deg"),
-              report.get<double>("enu_origin.lat_deg"),
+              report.get<double>("crs.origin.lat_deg"),
               1e-9);
   // Post-alignment diagnostics and warnings. The fixture's positions are
   // well-spread and gravity priors match the ENU-aligned target orientation,
   // so neither warning should fire.
   EXPECT_TRUE(std::isfinite(
       report.get<double>("diagnostics.horizontal_condition_ratio")));
-  EXPECT_TRUE(std::isfinite(
-      report.get<double>("diagnostics.gravity_consistency_angle_deg")));
-  EXPECT_LT(report.get<double>("diagnostics.gravity_consistency_angle_deg"),
-            3.0);
-  // gravity_consistency_angle_deg is now defined as the median of the
-  // per-image gravity_residual_deg stats, not a separate mean-vector angle.
-  EXPECT_NEAR(report.get<double>("diagnostics.gravity_consistency_angle_deg"),
-              report.get<double>("diagnostics.gravity_residual_deg.median"),
-              1e-9);
+  EXPECT_LT(report.get<double>("diagnostics.gravity_residual_deg.median"), 3.0);
   EXPECT_EQ(report.get<int>("diagnostics.gravity_residual_deg.num_support"), 8);
   EXPECT_GE(report.get<double>("diagnostics.gravity_residual_deg.max"),
             report.get<double>("diagnostics.gravity_residual_deg.median"));
   EXPECT_TRUE(std::isfinite(
       report.get<double>("diagnostics.gravity_residual_deg.mean")));
-  const auto& warnings = report.get_child("warnings");
-  EXPECT_EQ(warnings.get<double>("collinearity.threshold"), 0.1);
-  EXPECT_FALSE(warnings.get<bool>("collinearity.fired"));
-  EXPECT_TRUE(std::isfinite(warnings.get<double>("collinearity.value")));
-  EXPECT_EQ(warnings.get<double>("gravity_disagreement.threshold"), 3.0);
-  EXPECT_FALSE(warnings.get<bool>("gravity_disagreement.fired"));
-  EXPECT_TRUE(
-      std::isfinite(warnings.get<double>("gravity_disagreement.value")));
+  EXPECT_EQ(report.get<int>("diagnostics.heading_residual_deg.num_support"), 8);
+  EXPECT_LT(report.get<double>("diagnostics.heading_residual_deg.median"),
+            1e-5);
+  const auto& quality = report.get_child("quality");
+  EXPECT_EQ(quality.get<double>("collinearity.threshold"), 0.1);
+  EXPECT_FALSE(quality.get<bool>("collinearity.fired"));
+  EXPECT_TRUE(std::isfinite(quality.get<double>("collinearity.value")));
+  EXPECT_EQ(quality.get<double>("gravity_disagreement.threshold"), 3.0);
+  EXPECT_FALSE(quality.get<bool>("gravity_disagreement.fired"));
+  EXPECT_TRUE(std::isfinite(quality.get<double>("gravity_disagreement.value")));
 
   // Position inlier ratio: 7/8 registered correspondences are inliers,
   // above the 0.8 policy threshold, so the warning does not fire.
-  EXPECT_EQ(warnings.get<double>("position_inlier_ratio.threshold"), 0.8);
-  EXPECT_FALSE(warnings.get<bool>("position_inlier_ratio.fired"));
+  EXPECT_EQ(quality.get<double>("position_inlier_ratio.threshold"), 0.8);
+  EXPECT_FALSE(quality.get<bool>("position_inlier_ratio.fired"));
   EXPECT_NEAR(
-      warnings.get<double>("position_inlier_ratio.value"), 7.0 / 8.0, 1e-9);
+      quality.get<double>("position_inlier_ratio.value"), 7.0 / 8.0, 1e-9);
 
   std::ifstream report_stream(report_path);
   const std::string report_text((std::istreambuf_iterator<char>(report_stream)),
                                 std::istreambuf_iterator<char>());
-  EXPECT_NE(report_text.find("\"metres_per_sfm_unit\":"), std::string::npos);
-  EXPECT_EQ(report_text.find("\"metres_per_sfm_unit\":\""), std::string::npos);
+  EXPECT_NE(report_text.find("\"metres_per_input_unit\":"), std::string::npos);
+  EXPECT_EQ(report_text.find("\"metres_per_input_unit\":\""),
+            std::string::npos);
 
   const std::vector<std::string> csv_lines = ReadTextFileLines(csv_path);
-  ASSERT_EQ(csv_lines.size(), 10u);
-  EXPECT_NE(csv_lines.back().find("\"unregistered,quoted.jpg\",0"),
-            std::string::npos);
+  ASSERT_EQ(csv_lines.size(), 9u);
   for (const std::string& line : csv_lines) {
     const std::vector<std::string> fields = SplitCSVRow(line);
     if (line.rfind(source.Image(position_outlier_id).Name(), 0) == 0) {
-      ASSERT_GE(fields.size(), 19u);
+      ASSERT_EQ(fields.size(), 14u);
       EXPECT_EQ(fields[3], "0");
       EXPECT_FALSE(fields[4].empty());
       EXPECT_FALSE(fields[7].empty());
-      EXPECT_FALSE(fields[10].empty());
+      EXPECT_FALSE(fields[8].empty());
     }
   }
 
@@ -428,7 +443,8 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       [&](const std::string& seed,
           const std::filesystem::path& out_dir,
           const std::filesystem::path& json_path) {
-        std::filesystem::create_directories(out_dir);
+        const std::filesystem::path csv_path =
+            json_path.parent_path() / (json_path.stem().string() + ".csv");
         std::vector<std::string> seed_args{
             "model_aligner",
             "--input_path",
@@ -439,14 +455,16 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
             database_path.string(),
             "--alignment_type",
             "enu",
-            "--alignment_max_error",
-            "10",
             "--min_common_images",
             "3",
             "--alignment_random_seed",
             seed,
+            "--scene_id",
+            "seed-test",
             "--georeference_json",
             json_path.string(),
+            "--camera_residuals_csv",
+            csv_path.string(),
         };
         std::vector<char*> seed_argv;
         seed_argv.reserve(seed_args.size());
@@ -460,13 +478,13 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
         boost::property_tree::read_json(json_path.string(), seed_report);
         std::vector<double> values;
         values.push_back(
-            seed_report.get<double>("transforms.enu_from_sfm.scale"));
-        for (const auto& v :
-             seed_report.get_child("transforms.enu_from_sfm.rotation_wxyz")) {
+            seed_report.get<double>("alignment.enu_from_input_sfm.scale"));
+        for (const auto& v : seed_report.get_child(
+                 "alignment.enu_from_input_sfm.rotation_wxyz")) {
           values.push_back(v.second.get_value<double>());
         }
-        for (const auto& v :
-             seed_report.get_child("transforms.enu_from_sfm.translation_xyz")) {
+        for (const auto& v : seed_report.get_child(
+                 "alignment.enu_from_input_sfm.translation_xyz")) {
           values.push_back(v.second.get_value<double>());
         }
         return values;
@@ -499,8 +517,6 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
   const std::filesystem::path lf_report_path =
       test_dir / "georeference_lf.json";
   std::filesystem::create_directories(input_path);
-  std::filesystem::create_directories(enu_output_path);
-  std::filesystem::create_directories(lf_output_path);
 
   Reconstruction source;
   WriteReportFixture(
@@ -602,17 +618,13 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
 }
 
 TEST(ModelAligner, GeoreferenceReportIsAlwaysComplete) {
-  // There is one report shape. A consumer cannot ask for a field that a
-  // previous run chose not to write, which is what made the old `summary`
-  // level unusable downstream: the fields a pipeline actually reads were the
-  // ones it omitted. Every field below must be present in every report.
+  // Every schema-1 report has the same fields regardless of optional sensors.
   const std::filesystem::path test_dir = CreateTestDir();
   const std::filesystem::path input_path = test_dir / "input";
   const std::filesystem::path output_path = test_dir / "output";
   const std::filesystem::path database_path = test_dir / "database.db";
   const std::filesystem::path report_path = test_dir / "georeference.json";
   std::filesystem::create_directories(input_path);
-  std::filesystem::create_directories(output_path);
 
   Reconstruction source;
   WriteReportFixture(
@@ -627,22 +639,16 @@ TEST(ModelAligner, GeoreferenceReportIsAlwaysComplete) {
   EXPECT_EQ(report.get<std::string>("schema"), "colmap_scene_georeference");
   EXPECT_EQ(report.get<int>("schema_version"), 1);
   EXPECT_NO_THROW(report.get_child("frame_contract"));
-  EXPECT_NO_THROW(report.get_child("transforms"));
+  EXPECT_NO_THROW(report.get_child("alignment"));
   EXPECT_NO_THROW(report.get_child("support"));
-  EXPECT_NO_THROW(report.get_child("warnings.collinearity"));
-  EXPECT_NO_THROW(report.get_child("warnings.gravity_disagreement"));
-  EXPECT_NO_THROW(report.get_child("warnings.position_inlier_ratio"));
+  EXPECT_NO_THROW(report.get_child("quality.collinearity"));
+  EXPECT_NO_THROW(report.get_child("quality.gravity_disagreement"));
+  EXPECT_NO_THROW(report.get_child("quality.position_inlier_ratio"));
   EXPECT_NO_THROW(report.get_child("final_realignment_check"));
-  // This fixture has no gravity priors, so the value is JSON null; the field
-  // is still present, because the report's shape must not depend on which
-  // optional sensor groups the archive happened to carry.
-  EXPECT_NO_THROW(
-      report.get_child("diagnostics.gravity_consistency_angle_deg"));
-
-  // The detailed diagnostics the pipeline reads. These are exactly the fields
-  // the old summary level dropped.
   EXPECT_NO_THROW(report.get_child("diagnostics.position_3d_residual_m"));
   EXPECT_NO_THROW(report.get_child("diagnostics.gravity_residual_deg"));
+  EXPECT_NO_THROW(report.get_child("diagnostics.heading_residual_deg"));
+  EXPECT_EQ(report.get<int>("diagnostics.heading_residual_deg.num_support"), 0);
   EXPECT_TRUE(report
                   .get_optional<double>(
                       "diagnostics.position_horizontal_residual_m.p90")
@@ -655,7 +661,7 @@ TEST(ModelAligner, GeoreferenceReportIsAlwaysComplete) {
       report.get<double>("diagnostics.max_horizontal_baseline_m")));
   EXPECT_TRUE(std::isfinite(
       report.get<double>("diagnostics.horizontal_condition_ratio")));
-  EXPECT_TRUE(std::isfinite(report.get<double>("warnings.collinearity.value")));
+  EXPECT_TRUE(std::isfinite(report.get<double>("quality.collinearity.value")));
 
   // The removed knobs must be gone from the artifact, not merely unused.
   std::ifstream report_stream(report_path);
@@ -669,16 +675,14 @@ TEST(ModelAligner, GeoreferenceReportIsAlwaysComplete) {
 TEST(ModelAligner, ReportRejectsAnInputItWouldHaveToMateriallyRealign) {
   // The report path publishes a delivery, so its input must already be solved
   // in the metric ENU gauge. Handing it an unaligned reconstruction means this
-  // equal-weight fit -- which ignores per-row GPS covariance -- would silently
-  // become the alignment of record. It must fail instead, and must not leave a
-  // report behind claiming success.
+  // final fit would silently become the alignment of record. It must fail and
+  // leave no success report.
   const std::filesystem::path test_dir = CreateTestDir();
   const std::filesystem::path input_path = test_dir / "input";
   const std::filesystem::path output_path = test_dir / "output";
   const std::filesystem::path database_path = test_dir / "database.db";
   const std::filesystem::path report_path = test_dir / "georeference.json";
   std::filesystem::create_directories(input_path);
-  std::filesystem::create_directories(output_path);
 
   Reconstruction source;
   WriteReportFixture(
@@ -687,6 +691,27 @@ TEST(ModelAligner, ReportRejectsAnInputItWouldHaveToMateriallyRealign) {
   EXPECT_EQ(
       RunReportAligner(input_path, output_path, database_path, report_path),
       EXIT_FAILURE);
+  EXPECT_FALSE(std::filesystem::exists(report_path));
+}
+
+TEST(ModelAligner, ReportPreflightsEveryPublicationTarget) {
+  const std::filesystem::path test_dir = CreateTestDir();
+  const std::filesystem::path input_path = test_dir / "input";
+  const std::filesystem::path output_path = test_dir / "output";
+  const std::filesystem::path database_path = test_dir / "database.db";
+  const std::filesystem::path report_path = test_dir / "georeference.json";
+  const std::filesystem::path csv_path = test_dir / "georeference.csv";
+  std::filesystem::create_directories(input_path);
+  std::filesystem::create_directories(csv_path);
+
+  Reconstruction source;
+  WriteReportFixture(
+      input_path, database_path, &source, /*align_input_to_enu_frame=*/true);
+
+  EXPECT_EQ(
+      RunReportAligner(input_path, output_path, database_path, report_path),
+      EXIT_FAILURE);
+  EXPECT_FALSE(std::filesystem::exists(output_path));
   EXPECT_FALSE(std::filesystem::exists(report_path));
 }
 

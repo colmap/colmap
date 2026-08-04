@@ -162,6 +162,55 @@ TEST(Alignment, AlignReconstructionToPosePriorsWithAutomaticMaxError) {
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
+TEST(Alignment, WeightedPositionAlignmentIsDeterministicAndAnisotropic) {
+  const std::vector<Eigen::Vector3d> src = {{0, 0, 0},
+                                            {1, 0, 0},
+                                            {0, 1, 0},
+                                            {0, 0, 1},
+                                            {1, 1, 0},
+                                            {1, 0, 1},
+                                            {2, 2, 0},
+                                            {2, 0, 2}};
+  std::vector<Eigen::Vector3d> tgt = src;
+  tgt[6] += Eigen::Vector3d(1.0, 0.0, 0.0);
+  tgt[7] += Eigen::Vector3d(0.0, 1.0, 0.0);
+
+  std::vector<Eigen::Matrix3d> covariances(src.size(),
+                                           1e-4 * Eigen::Matrix3d::Identity());
+  covariances[6] = Eigen::Vector3d(0.01, 100.0, 100.0).asDiagonal();
+  covariances[7] = Eigen::Vector3d(100.0, 100.0, 0.01).asDiagonal();
+
+  const WeightedPositionAlignmentResult first =
+      AlignWeightedPositionCorrespondences(src, tgt, covariances, 17);
+  const WeightedPositionAlignmentResult second =
+      AlignWeightedPositionCorrespondences(src, tgt, covariances, 17);
+  ASSERT_TRUE(first.success);
+  ASSERT_TRUE(second.success);
+  EXPECT_EQ(first.inlier_mask, second.inlier_mask);
+  ASSERT_EQ(first.inlier_mask.size(), src.size());
+  EXPECT_FALSE(first.inlier_mask[6]);
+  EXPECT_TRUE(first.inlier_mask[7]);
+  EXPECT_NEAR(first.tgt_from_src.scale(), second.tgt_from_src.scale(), 1e-12);
+  EXPECT_LT(first.tgt_from_src.rotation().angularDistance(
+                second.tgt_from_src.rotation()),
+            1e-12);
+  EXPECT_LT(
+      (first.tgt_from_src.translation() - second.tgt_from_src.translation())
+          .norm(),
+      1e-12);
+}
+
+TEST(Alignment, WeightedPositionAlignmentRejectsInvalidCovariance) {
+  const std::vector<Eigen::Vector3d> points = {
+      {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  std::vector<Eigen::Matrix3d> covariances(points.size(),
+                                           Eigen::Matrix3d::Identity());
+  covariances[2].setZero();
+  EXPECT_FALSE(
+      AlignWeightedPositionCorrespondences(points, points, covariances, 0)
+          .success);
+}
+
 TEST(Alignment, AlignReconstructionsViaReprojections) {
   Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
   Reconstruction tgt_reconstruction = src_reconstruction;

@@ -254,6 +254,10 @@ struct PosePriorBundleAdjustmentOptions
   // Fallback if no prior position covariance is provided.
   double prior_position_fallback_stddev = 1.0;
 
+  // Strict callers require every selected position residual to carry a valid
+  // covariance. Upstream callers retain the fallback behavior above.
+  bool require_valid_position_covariance = false;
+
   // Whether to add a soft gravity (roll/pitch-only, yaw-free) residual for
   // every pose prior with a gravity reading, alongside the position
   // residual. Off by default -- preserves existing behavior byte-for-byte

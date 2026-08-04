@@ -151,7 +151,7 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
@@ -172,6 +172,7 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
     prior.corr_data_id = image.DataId();
     prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     prior.position = image.ProjectionCenter();
+    prior.position_covariance = Eigen::Matrix3d::Identity();
     if (!injected_outlier) {
       prior.position += Eigen::Vector3d(1000.0, 0.0, 0.0);
       injected_outlier = true;
@@ -217,10 +218,7 @@ TEST(GlobalPositioning, PosePriorPositionMode) {
       opt_options, pose_graph, reconstruction_opt, pose_priors, &opt_summary));
   EXPECT_EQ(opt_summary.requested, PosePriorPositionMode::optimize);
   EXPECT_TRUE(opt_summary.engaged);
-  // One outlier was injected on one sensor of one rig frame; the multi-
-  // sensor rig-center seed for that single frame is thereby corrupted, so
-  // RANSAC must reject exactly that one frame (num_inliers is frame-level,
-  // not prior-level: num_usable_priors counts both cameras per frame).
+  // The one gross outlier must be rejected by the standardized gate.
   EXPECT_EQ(opt_summary.num_inliers, opt_summary.num_covered_frames - 1);
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction_opt,

@@ -1657,6 +1657,10 @@ TEST(PosePriorBundleAdjuster, InvalidCovarianceFallsBackSafely) {
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+
+  prior_ba_options.require_valid_position_covariance = true;
+  EXPECT_ANY_THROW(CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction));
 }
 
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {

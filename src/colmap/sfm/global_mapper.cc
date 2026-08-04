@@ -1,5 +1,6 @@
 #include "colmap/sfm/global_mapper.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/geometry/pose.h"
@@ -287,12 +288,11 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
   if (summary.requested != PosePriorPositionMode::off) {
     LOG(INFO) << StringPrintf(
         "Pose prior position mode requested=%s, engaged=%s, usable "
-        "priors=%d, covered frames=%d, fallback frames=%d, inliers=%d%s",
+        "priors=%d, covered frames=%d, inliers=%d%s",
         PosePriorPositionModeToString(summary.requested).data(),
         summary.engaged ? "true" : "false",
         summary.num_usable_priors,
         summary.num_covered_frames,
-        summary.num_fallback_frames,
         summary.num_inliers,
         used_cpu_fallback ? ", gpu_solve_failed=true, cpu_fallback=true" : "");
   }
@@ -392,15 +392,11 @@ bool GlobalMapper::RunBundleAdjustment(const BundleAdjustmentOptions& options) {
   std::unique_ptr<BundleAdjuster> ba;
   if (use_prior_position) {
     PosePriorBundleAdjustmentOptions prior_options;
-    // Upstream's own mandatory parameter, guarded by THROW_CHECK_GT(., 0);
-    // it is fed this fork's fixed policy value rather than a separate knob.
-    prior_options.prior_position_fallback_stddev =
-        kPosePriorPositionFallbackStddev;
-    if (pose_prior_ba_use_robust_loss_) {
-      prior_options.ceres->prior_position_loss_function_type =
-          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
-    }
-    prior_options.ceres->prior_position_loss_scale = pose_prior_ba_loss_scale_;
+    prior_options.require_valid_position_covariance = true;
+    prior_options.ceres->prior_position_loss_function_type =
+        CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+    prior_options.ceres->prior_position_loss_scale =
+        kPosePriorPositionRobustRadius;
     // Gravity mode only takes effect once position priors have established
     // the metric/ENU gauge (use_prior_position is already true here).
     prior_options.use_prior_gravity = pose_prior_gravity_requested_;
@@ -549,11 +545,12 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   IncrementalMapper::Options mapper_options;
   mapper_options.random_seed = options.random_seed;
   mapper_options.use_prior_position = pose_prior_position_engaged_;
-  mapper_options.use_robust_loss_on_prior_position =
-      pose_prior_ba_use_robust_loss_;
-  mapper_options.prior_position_loss_scale = pose_prior_ba_loss_scale_;
+  mapper_options.use_robust_loss_on_prior_position = true;
+  mapper_options.prior_position_loss_scale = kPosePriorPositionRobustRadius;
+  mapper_options.require_valid_position_covariance = true;
   mapper_options.use_prior_gravity = pose_prior_gravity_requested_;
   mapper_options.prior_gravity_stddev_deg = pose_prior_gravity_stddev_deg_;
+  mapper_options.use_prior_heading = pose_prior_heading_requested_;
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
@@ -605,8 +602,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     return false;
   }
 
-  pose_prior_ba_use_robust_loss_ = options.ba_use_robust_loss_on_prior_position;
-  pose_prior_ba_loss_scale_ = options.ba_prior_position_loss_scale;
   pose_prior_gravity_requested_ = options.pose_prior_use_gravity;
   // Gravity pins roll and pitch. Requesting it without an engaged metric gauge
   // to attach it to, or validating its uncertainty only implicitly, would let

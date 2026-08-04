@@ -154,15 +154,11 @@ class IncrementalMapper {
     // (chi2 for 3DOF at 95% = 7.815)
     double prior_position_loss_scale = 7.815;
 
-    // Gravity is applied by the global mapper, but its later refinement stages
-    // run through IterativeGlobalRefinement() below, so the constraint has to
-    // be carried across that boundary or it silently stops being enforced
-    // partway through the solve. These two fields exist only to forward the
-    // caller's gravity settings into PosePriorBundleAdjustmentOptions; nothing
-    // in the incremental mapper itself interprets them. The robust-loss radius
-    // is fixed policy and needs no forwarding.
+    // Internal forwarding for global telemetry refinement.
+    bool require_valid_position_covariance = false;
     bool use_prior_gravity = false;
     double prior_gravity_stddev_deg = 5.0;
+    bool use_prior_heading = false;
 
     // Number of threads.
     int num_threads = -1;

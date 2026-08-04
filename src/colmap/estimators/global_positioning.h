@@ -26,33 +26,6 @@ namespace colmap {
 // contract, without a separate case-conversion step.
 MAKE_ENUM_CLASS(PosePriorPositionMode, 0, off, optimize);
 
-// Fixed policy for pose-prior position weighting. These are not CLI options:
-// each is derived from the residual's own statistics, not tuned against a
-// dataset, and an operator who widens one from the command line changes what
-// "inlier" means without changing anything that records it.
-
-// Robust loss radius on the covariance-whitened position residual, in
-// standard deviations. The residual has 3 degrees of freedom and is whitened
-// before Ceres sees it, so the 95% confidence radius is the square root of the
-// 3-DoF chi-square quantile, not the quantile itself.
-inline const double kPosePriorPositionLossScale =
-    std::sqrt(kChiSquare95ThreeDof);
-
-// Position standard deviation (metres) used only for a prior that carries no
-// covariance. The strict archive reader requires one on every row, so this
-// applies only to priors from another source. One metre is the low end of
-// consumer-GPS uncertainty: it makes such a prior influential but not
-// authoritative.
-inline constexpr double kPosePriorPositionFallbackStddev = 1.0;
-
-// RANSAC admission gate (metres) for the gauge fit between solved and
-// pose-prior frame centres. Deliberately the same radius the robust loss uses,
-// expressed in metres: admission and down-weighting are two halves of one
-// decision about what counts as an outlier, and giving them separate constants
-// invites them to drift apart.
-inline const double kPosePriorPositionRansacMaxError =
-    kPosePriorPositionLossScale * kPosePriorPositionFallbackStddev;
-
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
@@ -113,7 +86,6 @@ struct PosePriorPositionSummary {
   bool engaged = false;
   int num_usable_priors = 0;
   int num_covered_frames = 0;
-  int num_fallback_frames = 0;
   // `optimize` mode only: RANSAC inlier count among frame-prior
   // correspondences, and the prior residual RMSE (metres) before/after the
   // second (prior-constrained) solve. Zero when not engaged.

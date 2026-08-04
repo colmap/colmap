@@ -92,55 +92,14 @@ struct GlobalMapperOptions {
   // Control the number of iterations for bundle adjustment.
   int ba_num_iterations = 3;
 
-  // Whether to use a robust loss on the prior-position residual for
-  // GlobalMapper's own bundle-adjustment stages (iterative BA and the tail
-  // of retriangulation) when pose_prior_position_mode == optimize is
-  // engaged. Independent of gp_*, which governs the one-shot global
-  // positioning stage only.
-  //
-  // Defaults to true: in optimize mode, every valid registered GPS prior is
-  // offered to these later BA stages (not just the initial RANSAC inlier
-  // set used to establish the metric gauge -- see AlignReconstruction), so
-  // any prior rejected by that initial RANSAC pass must not be reintroduced
-  // with a TRIVIAL (unrobustified) loss, or a single bad fix can pull the
-  // whole solve. This is a behavior change from the previous false default;
-  // there is no safe reason to run optimize mode without it.
-  bool ba_use_robust_loss_on_prior_position = true;
-
-  // Threshold on the *standardized* (covariance-whitened) residual norm for
-  // that robust loss, in "number of standard deviations" -- NOT chi-square
-  // units and NOT degrees/radians/metres. Ceres scales a robust loss as
-  // rho(s, a) = a^2 * rho(s / a^2), where `a` is in residual-norm units and
-  // `s` is squared residual norm, so a 95%-confidence-radius threshold for a
-  // 3-DOF whitened residual is sqrt(chi-square_3dof_95), not the raw
-  // chi-square quantile itself. Mirrors bundle_adjustment_ceres.h's
-  // prior_position_loss_scale default.
-  double ba_prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
-
-  // Whether/how to add a soft, yaw-free gravity residual to GlobalMapper's
-  // own bundle-adjustment stages. Off by
-  // default -- preserves existing behavior byte-for-byte until explicitly
-  // requested; the existing hard ra_use_gravity rotation-averaging
-  // reduction remains available unchanged as the legacy mechanism.
+  // Whether to add a soft, yaw-free gravity residual to bundle adjustment.
   bool pose_prior_use_gravity = false;
 
-  // Global sensor-class angular uncertainty for the gravity residual, in
-  // degrees. PosePrior has no per-row gravity covariance field (deferred;
-  // see doc/pose_priors.rst), so this single scalar is applied uniformly.
+  // Global sensor-class angular uncertainty for gravity, in degrees.
   double pose_prior_gravity_stddev_deg = 5.0;
 
-  // Whether to add the 1-DoF true-north heading residual to the same BA
-  // stages as gravity. Off by default: the production archive carries no
-  // heading, and a compass is the least trustworthy sensor in this workflow.
-  //
-  // Valid heading data is imported and retained regardless of this flag, so
-  // adopting a trusted compass later means changing this one value -- not
-  // re-importing. Requires pose_prior_position_mode=optimize (the heading is
-  // meaningless without the metric ENU gauge) and pose_prior_use_gravity=1
-  // (the azimuth is measured in the plane the measured down vector defines).
-  // Each heading row states its own uncertainty; there is deliberately no
-  // global fallback, because a heading whose accuracy nobody stated is a
-  // heading nobody should be weighting.
+  // Whether to add a weighted 1-DoF true-north heading residual. Requires
+  // optimized position priors and gravity; uncertainty is supplied per row.
   bool pose_prior_use_heading = false;
 
   // Whether to skip the fixed-rotation stage in bundle adjustment.
@@ -243,16 +202,6 @@ class GlobalMapper {
   // is skipped while this is true (it would silently discard the metric
   // gauge the prior optimization just established).
   bool pose_prior_position_engaged_ = false;
-
-  // Cached scalar knobs for RunBundleAdjustment()'s pose-prior branch.
-  // pose_prior_ba_use_robust_loss_/pose_prior_ba_loss_scale_ are read once
-  // from GlobalMapperOptions at the top of Solve(); pose_prior_position_
-  // fallback_stddev_ is read from GlobalPositionerOptions inside
-  // GlobalPositioning() (so it stays correct even if a caller invokes the
-  // BA stages directly after GlobalPositioning(), without going through
-  // Solve()).
-  bool pose_prior_ba_use_robust_loss_ = true;
-  double pose_prior_ba_loss_scale_ = std::sqrt(kChiSquare95ThreeDof);
 
   // Cached from GlobalMapperOptions at the top of Solve(); used by
   // RunBundleAdjustment()'s pose-prior branch, combined there with

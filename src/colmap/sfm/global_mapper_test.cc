@@ -34,7 +34,6 @@ TEST(GlobalMapper, WithoutNoise) {
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-
   auto reconstruction = std::make_shared<Reconstruction>();
 
   GlobalMapper global_mapper(CreateDatabaseCache(*database));
@@ -225,6 +224,7 @@ TEST(GlobalMapper, PosePriorPositionOptimizeSurvivesRetriangulation) {
     prior.corr_data_id = image.DataId();
     prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     prior.position = image.ProjectionCenter();
+    prior.position_covariance = Eigen::Matrix3d::Identity();
     database->WritePosePrior(prior);
   }
 
@@ -281,6 +281,10 @@ TEST(GlobalMapper, PosePriorGravityOptimizeSurvivesFullPipeline) {
   synthetic_dataset_options.prior_gravity_in_world = Eigen::Vector3d(0, 0, -1);
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
+  for (PosePrior prior : database->ReadAllPosePriors()) {
+    prior.position_covariance = Eigen::Matrix3d::Identity();
+    database->UpdatePosePrior(prior);
+  }
 
   auto reconstruction = std::make_shared<Reconstruction>();
   GlobalMapper global_mapper(CreateDatabaseCache(*database));

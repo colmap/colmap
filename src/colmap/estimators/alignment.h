@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/sim3.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/hash_containers.h"
@@ -37,6 +38,11 @@
 #include <vector>
 
 namespace colmap {
+
+// The residual is covariance-whitened, so the robust radius and RANSAC
+// threshold are the square root of the 95% chi-square quantile for 3 DoF.
+inline const double kPosePriorPositionRobustRadius =
+    std::sqrt(kChiSquare95ThreeDof);
 
 // Robustly align reconstruction to given image locations (projection centers).
 bool AlignReconstructionToLocations(
@@ -67,14 +73,27 @@ struct PosePriorAlignmentResult {
   std::vector<char> inlier_mask;
 };
 
-// Same correspondence collection as AlignReconstructionToPosePriors, but
-// returns the full PosePriorAlignmentResult instead of only the Sim3d, so a
-// caller can report which correspondences were inliers without re-deriving
-// that from rounded output.
-PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
+struct WeightedPositionAlignmentResult {
+  bool success = false;
+  Sim3d tgt_from_src;
+  std::vector<char> inlier_mask;
+};
+
+// Estimates and refines a Sim3 using a Mahalanobis residual for every
+// correspondence. Every covariance must be finite and strictly positive
+// definite; invalid input fails without an isotropic fallback.
+WeightedPositionAlignmentResult AlignWeightedPositionCorrespondences(
+    const std::vector<Eigen::Vector3d>& src,
+    const std::vector<Eigen::Vector3d>& tgt,
+    const std::vector<Eigen::Matrix3d>& tgt_covariances,
+    int random_seed);
+
+// Strict covariance-weighted pose-prior alignment used by the metric mapper
+// and georeference report path.
+PosePriorAlignmentResult AlignReconstructionToPosePriorsWeighted(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
-    const RANSACOptions& ransac_options);
+    int random_seed);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated

@@ -489,10 +489,8 @@ void DatabaseCache::ConvertPosePriorsToENU() {
       << "Cannot convert a mixture of WGS84 and Cartesian pose priors to a "
          "shared ENU frame";
 
-  // A frame has exactly one pose, so two usable priors claiming the same frame
-  // are two answers to one question. This fork's workflow is single-camera and
-  // defines no fusion rule; silently keeping either one would pick an answer
-  // the operator never chose.
+  // A frame has one pose. Multiple usable camera priors for the same frame
+  // require an explicit fusion rule and are therefore rejected.
   std::unordered_map<frame_t, image_t> claimed_frames;
   for (const auto& pose_prior : pose_priors_) {
     if (pose_prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||

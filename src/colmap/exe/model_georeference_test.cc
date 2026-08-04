@@ -72,7 +72,7 @@ TEST(ModelGeoreference, LichtfeldVisualizerBoundaryMapsUpToDisplayedY) {
   // Contract item 4: applying LichtFeld's own data-to-visualizer boundary
   // transform on top of the raw written geometry maps ENU Up to displayed
   // +Y -- i.e. the full chain (visualizer_from_geometry * geometry_from_enu)
-  // sends ENU-up to the visualizer's +Y, matching the empirically-verified
+  // sends ENU-up to the visualizer's +Y, matching the declared
   // upright display.
   const Sim3d geometry_from_enu =
       GeometryFromEnu(OutputCoordinateFrame::LICHTFELD_COLMAP);

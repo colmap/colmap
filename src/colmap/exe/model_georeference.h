@@ -49,9 +49,7 @@ namespace colmap {
 //   precomposed so that after LichtFeld Studio's own documented
 //   visualizer_from_colmap_data = diag(1,-1,-1) boundary transform (see
 //   LichtFeld's coordinate_conventions.hpp, upstream commit 11118860db73),
-//   the scene displays East=+X, Up=+Y, North=-Z. This is the empirically
-//   validated output contract for LichtFeld Studio import -- do not replace
-//   it with ENU_Z_UP or an inferred "cleaner" convention.
+//   the scene displays East=+X, Up=+Y, North=-Z.
 enum class OutputCoordinateFrame { ENU_Z_UP, LICHTFELD_COLMAP };
 
 bool OutputCoordinateFrameFromString(const std::string& value,

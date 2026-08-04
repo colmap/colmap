@@ -336,6 +336,12 @@ int RunModelAligner(int argc, char** argv) {
       LOG(ERROR) << "=> A report run requires --database_path";
       return EXIT_FAILURE;
     }
+    if (scene_id.empty() || georeference_json.empty() ||
+        camera_residuals_csv.empty()) {
+      LOG(ERROR) << "=> A report run requires --scene_id, "
+                    "--georeference_json, and --camera_residuals_csv";
+      return EXIT_FAILURE;
+    }
     if (!ref_model_path.empty() || !ref_images_path.empty()) {
       LOG(ERROR) << "=> A report run requires neither --ref_model_path nor "
                     "--ref_images_path (the database's own position priors "
@@ -346,15 +352,6 @@ int RunModelAligner(int argc, char** argv) {
       LOG(ERROR) << "=> --merge_image_and_ref_origins is not supported for "
                     "a report run; the robust final ENU origin already "
                     "defines the output origin";
-      return EXIT_FAILURE;
-    }
-    if (!scene_id.empty() && georeference_json.empty()) {
-      LOG(ERROR) << "=> --scene_id requires --georeference_json (the CSV "
-                    "has no scene-identity field)";
-      return EXIT_FAILURE;
-    }
-    if (ransac_options.max_error <= 0) {
-      LOG(ERROR) << "You must provide a maximum alignment error > 0";
       return EXIT_FAILURE;
     }
     ModelGeoreferenceOptions georeference_options;
