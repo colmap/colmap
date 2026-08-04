@@ -53,6 +53,27 @@ float GetPixelConstantBorder(const float* data,
   }
 }
 
+std::optional<BitmapColor<float>> InterpolatePixel(
+    const Bitmap& image,
+    const Eigen::Vector2d& point,
+    const WarpImageOptions::Interpolation interpolation) {
+  const double x = point.x() - 0.5;
+  const double y = point.y() - 0.5;
+  switch (interpolation) {
+    case WarpImageOptions::Interpolation::kNearestNeighbor: {
+      const std::optional<BitmapColor<uint8_t>> color =
+          image.InterpolateNearestNeighbor(x, y);
+      return color ? std::make_optional(
+                         BitmapColor<float>(color->r, color->g, color->b))
+                   : std::nullopt;
+    }
+    case WarpImageOptions::Interpolation::kBilinear:
+      return image.InterpolateBilinear(x, y);
+  }
+  LOG(FATAL_THROW) << "Invalid warp image interpolation mode: "
+                   << static_cast<int>(interpolation);
+}
+
 bool ShouldWarpDirectly(const Camera& source_camera,
                         const Camera& target_camera,
                         const WarpImageOptions& options) {
@@ -113,8 +134,8 @@ void WarpImageBetweenCameras(const WarpImageOptions& options,
           source_camera.ImgFromCam(cam_point->homogeneous());
 
       const auto color =
-          source_point ? source_image.InterpolateBilinear(
-                             source_point->x() - 0.5, source_point->y() - 0.5)
+          source_point ? InterpolatePixel(
+                             source_image, *source_point, options.interpolation)
                        : std::nullopt;
       if (color) {
         target_image->SetPixel(x, y, color->Cast<uint8_t>());
@@ -196,8 +217,8 @@ void WarpImageWithHomographyBetweenCameras(const WarpImageOptions& options,
           source_camera.ImgFromCam(cam_point->homogeneous());
 
       const auto color =
-          source_point ? source_image.InterpolateBilinear(
-                             source_point->x() - 0.5, source_point->y() - 0.5)
+          source_point ? InterpolatePixel(
+                             source_image, *source_point, options.interpolation)
                        : std::nullopt;
       if (color) {
         target_image->SetPixel(x, y, color->Cast<uint8_t>());
