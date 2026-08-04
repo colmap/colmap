@@ -29,14 +29,15 @@
 
 #include "colmap/scene/database_cache.h"
 
-#include "colmap/geometry/gps.h"
-#include "colmap/math/geometric_median.h"
+#include "colmap/geometry/pose_prior_transform.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+#include <unordered_map>
 
 namespace colmap {
 namespace {
@@ -488,128 +489,57 @@ void DatabaseCache::ConvertPosePriorsToENU() {
       << "Cannot convert a mixture of WGS84 and Cartesian pose priors to a "
          "shared ENU frame";
 
-  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-
-  // Deterministic reference selection: the geometric median (in ECEF) of all
-  // rows with a finite full position, so the reference is conditioned by
-  // every usable row rather than being the first row (which may be an
-  // outlier). If no row has a finite altitude, fall back to the median of
-  // whatever finite lat/lon rows exist and use altitude 0 purely as an
-  // internal tangent-plane origin, never as a fabricated measurement.
-  std::vector<Eigen::Vector3d> full_position_lla;
-  std::vector<double> full_altitudes;
-  std::vector<Eigen::Vector3d> horizontal_only_lla;
+  // A frame has exactly one pose, so two usable priors claiming the same frame
+  // are two answers to one question. This fork's workflow is single-camera and
+  // defines no fusion rule; silently keeping either one would pick an answer
+  // the operator never chose.
+  std::unordered_map<frame_t, image_t> claimed_frames;
   for (const auto& pose_prior : pose_priors_) {
-    const Eigen::Vector3d& p = pose_prior.position;
-    const bool has_lat_lon = std::isfinite(p.x()) && std::isfinite(p.y());
-    if (!has_lat_lon) {
+    if (pose_prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+        !PosePriorEnuFrame::IsUsable(pose_prior)) {
       continue;
     }
-    if (std::isfinite(p.z())) {
-      full_position_lla.push_back(p);
-      full_altitudes.push_back(p.z());
-    } else {
-      horizontal_only_lla.emplace_back(p.x(), p.y(), 0.0);
+    const image_t image_id = static_cast<image_t>(pose_prior.corr_data_id.id);
+    if (!ExistsImage(image_id) || !Image(image_id).HasFrameId()) {
+      continue;
     }
+    const frame_t frame_id = Image(image_id).FrameId();
+    const auto [it, inserted] = claimed_frames.emplace(frame_id, image_id);
+    THROW_CHECK(inserted)
+        << "Frame " << frame_id << " has a position prior from both image "
+        << it->second << " and image " << image_id
+        << ". A frame has one pose, and this workflow does not define how to "
+           "fuse two positions for it.";
   }
 
-  if (full_position_lla.empty() && horizontal_only_lla.empty()) {
-    // No row carries any usable position; leave the archive's Cartesian tag
-    // change to still happen below (gravity/rotation groups may still be
-    // present and require no reference), but there is no ENU origin to
-    // report.
-    for (auto& pose_prior : pose_priors_) {
-      if (pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
-        pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-      }
-    }
-    return;
+  // One origin rule, shared with the report path. The two used to derive it
+  // separately and could disagree; see PosePriorEnuFrame.
+  const std::optional<PosePriorEnuFrame> enu_frame =
+      PosePriorEnuFrame::Derive(pose_priors_);
+
+  if (enu_frame.has_value()) {
+    pose_prior_enu_origin_ = enu_frame->OriginWgs84();
   }
-
-  double ref_lat;
-  double ref_lon;
-  double ref_alt;
-  const bool ref_alt_is_real = !full_position_lla.empty();
-  if (ref_alt_is_real) {
-    const std::vector<Eigen::Vector3d> full_position_ecef =
-        gps_transform.EllipsoidToECEF(full_position_lla);
-    const Eigen::Vector3d median_ecef = GeometricMedian(full_position_ecef);
-    const Eigen::Vector3d median_lla =
-        gps_transform.ECEFToEllipsoid({median_ecef})[0];
-    ref_lat = median_lla.x();
-    ref_lon = median_lla.y();
-    std::vector<double> sorted_altitudes = full_altitudes;
-    std::sort(sorted_altitudes.begin(), sorted_altitudes.end());
-    ref_alt = sorted_altitudes[sorted_altitudes.size() / 2];
-  } else {
-    const std::vector<Eigen::Vector3d> horizontal_ecef =
-        gps_transform.EllipsoidToECEF(horizontal_only_lla);
-    const Eigen::Vector3d median_ecef = GeometricMedian(horizontal_ecef);
-    const Eigen::Vector3d median_lla =
-        gps_transform.ECEFToEllipsoid({median_ecef})[0];
-    ref_lat = median_lla.x();
-    ref_lon = median_lla.y();
-    ref_alt = 0.0;
-  }
-
-  const Eigen::Vector3d ref_ecef = gps_transform.EllipsoidToECEF(
-      {Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
-  const Eigen::Matrix3d shared_from_ecef =
-      GPSTransform::ENUFromECEF(ref_lat, ref_lon);
-
-  pose_prior_enu_origin_ = Eigen::Vector3d(ref_lat, ref_lon, ref_alt);
 
   for (auto& pose_prior : pose_priors_) {
     if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
       continue;
     }
 
-    const Eigen::Vector3d& lla = pose_prior.position;
-    const bool has_lat_lon = std::isfinite(lla.x()) && std::isfinite(lla.y());
-    const bool has_full_position = has_lat_lon && std::isfinite(lla.z());
-
-    Eigen::Matrix3d local_from_ecef;
-    if (has_lat_lon) {
-      local_from_ecef = GPSTransform::ENUFromECEF(lla.x(), lla.y());
-    }
-
-    if (has_full_position) {
-      const Eigen::Vector3d ecef = gps_transform.EllipsoidToECEF({lla})[0];
-      pose_prior.position = shared_from_ecef * (ecef - ref_ecef);
-    } else if (has_lat_lon) {
-      // Horizontal-only row: use the shared reference altitude only to
-      // compute East/North, then set Up back to NaN so no altitude is
-      // fabricated for this row.
-      const Eigen::Vector3d ecef = gps_transform.EllipsoidToECEF(
-          {Eigen::Vector3d(lla.x(), lla.y(), ref_alt)})[0];
-      Eigen::Vector3d enu = shared_from_ecef * (ecef - ref_ecef);
-      enu.z() = PosePrior::kNaN;
-      pose_prior.position = enu;
-    }
-    // Else: no position for this row (e.g. gravity-only); position stays NaN.
-
-    if (has_lat_lon) {
-      // shared_from_local = shared_from_ecef * ecef_from_local, and
-      // ecef_from_local = local_from_ecef^T.
-      const Eigen::Matrix3d shared_from_local =
-          shared_from_ecef * local_from_ecef.transpose();
-
+    if (enu_frame.has_value() && PosePriorEnuFrame::IsUsable(pose_prior)) {
+      // Covariance first: it is declared in the tangent frame at this row's own
+      // latitude/longitude, which the position assignment below overwrites.
       if (pose_prior.HasPositionCov()) {
-        pose_prior.position_covariance = shared_from_local *
-                                         pose_prior.position_covariance *
-                                         shared_from_local.transpose();
+        pose_prior.position_covariance = enu_frame->CovarianceInEnu(pose_prior);
       }
-
-      // Heading needs no conversion here. It is an azimuth from TRUE north,
-      // and moving the ENU origin translates the tangent frame without
-      // rotating its north axis, so the angle is already expressed in the
-      // shared frame. (Meridian convergence would matter over hundreds of
-      // kilometres; a single reconstruction is far below that, and the
-      // per-row heading uncertainty dominates by orders of magnitude.)
+      pose_prior.position = enu_frame->PositionInEnu(pose_prior);
     }
+    // Else: no usable position for this row (e.g. gravity-only); it stays NaN.
 
-    // Gravity is down in sensor coordinates and is unaffected by a world-
-    // frame change.
+    // Gravity is down in sensor coordinates and heading is an azimuth from
+    // true north; neither is expressed in the world frame, so a change of
+    // world origin leaves both unchanged. Consumers that need this row's own
+    // north or down in the shared gauge get it from SharedFromLocalEnu().
 
     // A gravity-only row has no coordinate-bearing measurement to transform,
     // but retagging its cache-only coordinate system to CARTESIAN loses no

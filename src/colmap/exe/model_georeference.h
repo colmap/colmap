@@ -72,12 +72,17 @@ Sim3d LichtfeldVisualizerFromColmapData();
 // Georeference report quality-warning thresholds
 ////////////////////////////////////////////////////////////////////////////
 
-// Thresholds for the report's informational quality warnings (collinearity,
-// gravity disagreement, position inlier ratio). These do not gate alignment
-// admission -- they only control which `warnings.*.fired` flags the report
-// sets, so a later policy can be reevaluated from the recorded value +
-// threshold without rerunning COLMAP. Defaults match the values hard-coded
-// prior to this option's introduction.
+// Fixed policy for the report's quality checks. Each value is recorded in the
+// report alongside the measurement it judged, so a later policy can be
+// reevaluated from the artifact without rerunning COLMAP.
+//
+// These are deliberately not CLI options. A delivery gate an operator can
+// widen from the command line is not a gate; the recorded threshold would then
+// describe that invocation rather than the contract, and two reports would no
+// longer be comparable.
+//
+// Collinearity is informational -- a street capture is naturally elongated.
+// Gravity disagreement and position inlier ratio are hard delivery gates.
 struct GeoreferenceQualityThresholds {
   double collinearity_ratio_threshold = 0.1;
   double gravity_median_threshold_deg = 3.0;
@@ -88,40 +93,23 @@ struct GeoreferenceQualityThresholds {
 // Material-realignment thresholds
 ////////////////////////////////////////////////////////////////////////////
 
-// Thresholds distinguishing a no-op re-fit from a "material" one, used both
-// to evaluate the report's always-present final_realignment_check
-// diagnostic and, when --reject_material_realignment is set, to enforce it
-// as a hard gate. Defined once so evaluation and serialization cannot drift
-// apart. Defaults match the values hard-coded prior to this option's
-// introduction: 0.5 deg is well below the gravity-warning threshold used
-// elsewhere in this report, 1 m is at the low end of consumer-GPS position
-// uncertainty, 1% scale is far tighter than the metric-gauge regression
-// test's 1% tolerance would even notice.
+// Thresholds distinguishing a no-op final re-fit from a "material" one, used
+// both to evaluate the report's final_realignment_check diagnostic and to
+// enforce it as a hard gate. Defined once so evaluation and serialization
+// cannot drift apart.
+//
+// 0.5 deg is well below the gravity gate used elsewhere in this report, 1 m is
+// at the low end of consumer-GPS position uncertainty, and 1% scale is far
+// tighter than the metric-gauge regression test's tolerance would notice. The
+// bar is "this step should be a no-op", not a value tuned against a dataset:
+// the mapper already solved this scene with per-row covariance weighting, so a
+// correction this large from an equal-weight refit means the two disagree, and
+// the less-informed fit is the one about to be published.
 struct MaterialRealignmentThresholds {
   double max_rotation_deg = 0.5;
   double max_translation_m = 1.0;
   double max_scale_ratio = 0.01;
 };
-
-////////////////////////////////////////////////////////////////////////////
-// Georeference report verbosity
-////////////////////////////////////////////////////////////////////////////
-
-// Controls how much machine-diagnostic detail --georeference_json contains.
-// Both levels contain everything needed to georeference the output geometry:
-// schema/version, output geometry frame and units, WGS84/height-datum
-// information, ENU origin, geometry_from_enu/enu_from_geometry,
-// ecef_from_geometry/geometry_from_ecef, support counts, evaluated quality
-// values/thresholds/fired state, the final realignment result, and
-// provenance. `full` additionally contains detailed percentile,
-// singular-value, baseline, and ellipsoid-tangent diagnostics used for
-// experiment verification. Machine-readable reports are versioned artifacts,
-// not console logs -- this option does not affect console log verbosity
-// (see --log_level/--v for that).
-enum class GeoreferenceReportLevel { SUMMARY, FULL };
-
-bool GeoreferenceReportLevelFromString(const std::string& value,
-                                       GeoreferenceReportLevel* level);
 
 ////////////////////////////////////////////////////////////////////////////
 // Options
@@ -135,30 +123,18 @@ struct ModelGeoreferenceOptions {
   std::filesystem::path output_path;
   std::filesystem::path database_path;
 
-  // The three origin values are all-or-none; altitude is WGS84 ellipsoidal.
-  bool has_explicit_origin = false;
-  double enu_origin_lat = std::numeric_limits<double>::quiet_NaN();
-  double enu_origin_lon = std::numeric_limits<double>::quiet_NaN();
-  double enu_origin_alt = std::numeric_limits<double>::quiet_NaN();
-
-  std::string pose_prior_cartesian_frame;
   int min_common_images = 3;
   RANSACOptions ransac_options;
 
-
   std::string scene_id;
   std::filesystem::path georeference_json;
-  GeoreferenceReportLevel report_level = GeoreferenceReportLevel::SUMMARY;
   std::filesystem::path camera_residuals_csv;
 
   OutputCoordinateFrame output_coordinate_frame =
       OutputCoordinateFrame::ENU_Z_UP;
 
-  // Off by default (preserves existing behavior byte-for-byte); the
-  // pre/post-correction diagnostic is always reported regardless of this
-  // flag. See RunModelAlignerReport's implementation for the rationale.
-  bool reject_material_realignment = false;
-
+  // Fixed policy, not operator input. Held here so one instance serves both
+  // enforcement and serialization.
   GeoreferenceQualityThresholds quality_thresholds;
   MaterialRealignmentThresholds material_realignment_thresholds;
 };

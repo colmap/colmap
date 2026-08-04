@@ -31,7 +31,7 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/geometry/gps.h"
-#include "colmap/math/geometric_median.h"
+#include "colmap/geometry/pose_prior_transform.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
@@ -45,6 +45,7 @@
 #include <cmath>
 #include <fstream>
 #include <locale>
+#include <optional>
 #include <sstream>
 
 #include <Eigen/Eigenvalues>
@@ -146,31 +147,6 @@ bool IsValidSceneId(const std::string& scene_id) {
 // Deterministic, inlier-refined WGS84 origin: median ECEF of full-position
 // (lat/lon/alt all finite) reference points, never the first row. Returns
 // false if there are no full-position points to derive an origin from.
-bool DeriveWGS84Origin(const std::vector<Eigen::Vector3d>& lla_points,
-                       double* lat,
-                       double* lon,
-                       double* alt) {
-  if (lla_points.empty()) {
-    return false;
-  }
-  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-  const std::vector<Eigen::Vector3d> ecef_points =
-      gps_transform.EllipsoidToECEF(lla_points);
-  const Eigen::Vector3d median_ecef = GeometricMedian(ecef_points);
-  const Eigen::Vector3d median_lla =
-      gps_transform.ECEFToEllipsoid({median_ecef})[0];
-  *lat = median_lla.x();
-  *lon = median_lla.y();
-  std::vector<double> alts;
-  alts.reserve(lla_points.size());
-  for (const Eigen::Vector3d& p : lla_points) {
-    alts.push_back(p.z());
-  }
-  std::sort(alts.begin(), alts.end());
-  *alt = alts[alts.size() / 2];
-  return true;
-}
-
 // Per-camera georeference diagnostics.
 struct CameraPosePriorResidual {
   image_t image_id = kInvalidImageId;
@@ -316,19 +292,6 @@ Sim3d LichtfeldVisualizerFromColmapData() {
   return Sim3d(1.0, Eigen::Quaterniond(rotation), Eigen::Vector3d::Zero());
 }
 
-bool GeoreferenceReportLevelFromString(const std::string& value,
-                                       GeoreferenceReportLevel* level) {
-  if (value == "summary") {
-    *level = GeoreferenceReportLevel::SUMMARY;
-    return true;
-  }
-  if (value == "full") {
-    *level = GeoreferenceReportLevel::FULL;
-    return true;
-  }
-  return false;
-}
-
 namespace {
 
 ////////////////////////////////////////////////////////////////////////////
@@ -346,7 +309,6 @@ void WriteGeoreferenceReportJSON(
     double origin_lat,
     double origin_lon,
     double origin_alt,
-    bool origin_is_explicit,
     const Sim3d& enu_from_sfm,
     const std::vector<CameraPosePriorResidual>& residuals,
     int num_database_pose_priors,
@@ -354,13 +316,11 @@ void WriteGeoreferenceReportJSON(
     double position_ransac_threshold,
     int alignment_random_seed,
     OutputCoordinateFrame output_coordinate_frame,
-    bool reject_material_realignment_requested,
     const GeoreferenceQualityThresholds& quality_thresholds,
-    const MaterialRealignmentThresholds& material_realignment_thresholds,
-    GeoreferenceReportLevel report_level) {
-  // 4.9: there is one report shape. A consumer cannot ask for a field a
-  // previous run chose not to write, so every report carries the complete
-  // diagnostic set.
+    const MaterialRealignmentThresholds& material_realignment_thresholds) {
+  // There is one report shape. A consumer cannot ask for a field a previous
+  // run chose not to write, so every report carries the complete diagnostic
+  // set.
   constexpr bool full_report = true;
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
@@ -538,7 +498,9 @@ void WriteGeoreferenceReportJSON(
   json.imbue(std::locale::classic());
   json << "{";
   json << "\"schema\":\"colmap_scene_georeference\",";
-  json << "\"report_level\":\"" << (full_report ? "full" : "summary") << "\",";
+  // One version for the whole document. Every report of a given version has
+  // the same shape, so a consumer branches on this alone.
+  json << "\"schema_version\":1,";
   if (scene_id.empty()) {
     json << "\"scene_id\":null,";
   } else {
@@ -553,8 +515,7 @@ void WriteGeoreferenceReportJSON(
   json << "\"height_datum\":\"ELLIPSOIDAL\",";
   json << "\"enu_origin\":{\"lat_deg\":" << JSONNumber(origin_lat)
        << ",\"lon_deg\":" << JSONNumber(origin_lon)
-       << ",\"ellipsoidal_alt_m\":" << JSONNumber(origin_alt)
-       << ",\"explicit\":" << (origin_is_explicit ? "true" : "false") << "},";
+       << ",\"ellipsoidal_alt_m\":" << JSONNumber(origin_alt) << "},";
   json << "\"transforms\":{";
   json << "\"enu_from_sfm\":" << JSONSim3(enu_from_sfm) << ",";
   json << "\"sfm_from_enu\":" << JSONSim3(sfm_from_enu) << ",";
@@ -604,7 +565,6 @@ void WriteGeoreferenceReportJSON(
   // Reconstruction::Write in the caller) -- never claim ENU bytes while
   // Y-up or LichtFeld-precomposed bytes were written, or vice versa.
   json << "\"frame_contract\":{";
-  json << "\"schema_version\":2,";
   json << "\"geometry_frame\":\"" << geometry_frame_name << "\",";
   json << "\"geometry_already_transformed\":true,";
   json << "\"handedness\":\"RIGHT\",";
@@ -729,10 +689,9 @@ void WriteGeoreferenceReportJSON(
   json << "\"alignment_random_seed\":" << alignment_random_seed << ",";
   // How large a correction this report's own equal-weight robust Sim3 fit
   // (enu_from_sfm above) applied on top of whatever frame the input
-  // reconstruction was already in. Always reported; only enforced as a hard
-  // gate (RunModelAlignerReport returning EXIT_FAILURE before this file is
-  // even written) when --reject_material_realignment is set -- see that
-  // flag's registration for the threshold rationale.
+  // reconstruction was already in. A material correction is a hard gate:
+  // RunModelAlignerReport returns EXIT_FAILURE before this file is written,
+  // so a published report always records a non-material one.
   {
     const double kMaterialRealignmentRotationDegThreshold =
         material_realignment_thresholds.max_rotation_deg;
@@ -758,9 +717,7 @@ void WriteGeoreferenceReportJSON(
          << JSONNumber(kMaterialRealignmentTranslationMThreshold) << ",";
     json << "\"scale_ratio_threshold\":"
          << JSONNumber(kMaterialRealignmentScaleRatioThreshold) << ",";
-    json << "\"is_material\":" << (is_material ? "true" : "false") << ",";
-    json << "\"enforced_as_hard_gate\":"
-         << (reject_material_realignment_requested ? "true" : "false");
+    json << "\"is_material\":" << (is_material ? "true" : "false");
     json << "}";
   }
   json << "}";
@@ -867,48 +824,24 @@ void WriteCameraResidualsCSV(
   }
 }
 
-// Converts every camera-type pose prior's position to the shared ENU frame
-// defined by (origin_lat, origin_lon, origin_alt), preserving all other
-// prior fields. A horizontal-only prior (finite lat/lon, absent altitude)
-// uses the origin altitude only to compute East/North, then resets Up back
-// to NaN so no altitude is fabricated (mirrors DatabaseCache's WGS84
-// conversion).
+// Converts every camera-type pose prior into `enu_frame`, preserving all other
+// prior fields. Rows the frame cannot place (no usable WGS84 position) pass
+// through untouched, so the caller's per-image bookkeeping still sees them.
 std::vector<PosePrior> ConvertPosePriorsToReportENU(
     const std::vector<PosePrior>& pose_priors,
-    double origin_lat,
-    double origin_lon,
-    double origin_alt) {
-  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
+    const PosePriorEnuFrame& enu_frame) {
   std::vector<PosePrior> converted;
   converted.reserve(pose_priors.size());
   for (const PosePrior& prior : pose_priors) {
     PosePrior out = prior;
     if (prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
-        std::isfinite(prior.position.x()) &&
-        std::isfinite(prior.position.y())) {
-      const bool has_full_altitude = std::isfinite(prior.position.z());
-      const double alt = has_full_altitude ? prior.position.z() : origin_alt;
-      Eigen::Vector3d enu = gps_transform.EllipsoidToENU(
-          {Eigen::Vector3d(prior.position.x(), prior.position.y(), alt)},
-          origin_lat,
-          origin_lon,
-          origin_alt)[0];
-      if (!has_full_altitude) {
-        enu.z() = std::numeric_limits<double>::quiet_NaN();
-      }
-      out.position = enu;
-
-      const Eigen::Matrix3d shared_from_local =
-          GPSTransform::ENUFromECEF(origin_lat, origin_lon) *
-          GPSTransform::ECEFFromENU(prior.position.x(), prior.position.y());
+        PosePriorEnuFrame::IsUsable(prior)) {
+      // Covariance first: it is read from the prior's own latitude/longitude,
+      // which the position assignment overwrites.
       if (prior.HasPositionCov()) {
-        out.position_covariance = shared_from_local *
-                                  prior.position_covariance *
-                                  shared_from_local.transpose();
+        out.position_covariance = enu_frame.CovarianceInEnu(prior);
       }
-      // Heading is an azimuth from true north and needs no basis change when
-      // the ENU origin moves: translating the tangent frame does not rotate
-      // its north axis.
+      out.position = enu_frame.PositionInEnu(prior);
     }
     converted.push_back(out);
   }
@@ -921,26 +854,20 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
   auto database = Database::Open(o.database_path);
   const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  bool any_wgs84 = false;
+  // A report states where the scene is on the Earth, so every position prior
+  // must carry an Earth position. A Cartesian prior is already in somebody
+  // else's local frame with no recorded datum; there is nothing to resolve it
+  // against, and guessing one would publish a confident wrong answer.
   bool any_cartesian = false;
   for (const PosePrior& prior : pose_priors) {
-    if (prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
-      any_wgs84 = true;
-    } else if (prior.coordinate_system ==
-               PosePrior::CoordinateSystem::CARTESIAN) {
+    if (prior.coordinate_system == PosePrior::CoordinateSystem::CARTESIAN) {
       any_cartesian = true;
     }
   }
-  if (any_wgs84 == any_cartesian) {
-    LOG(ERROR) << "A report run requires the database's position priors to "
-                  "be entirely WGS84 or entirely Cartesian ENU, not a mix "
-                  "or neither";
-    return EXIT_FAILURE;
-  }
-  if (any_cartesian && !o.has_explicit_origin) {
-    LOG(ERROR) << "Cartesian ENU archives require an explicit "
-                  "--enu_origin_lat/--enu_origin_lon/--enu_origin_alt for a "
-                  "report run";
+  if (any_cartesian) {
+    LOG(ERROR) << "A report run requires WGS84 position priors; this database "
+                  "contains Cartesian priors, which carry no datum to "
+                  "georeference against";
     return EXIT_FAILURE;
   }
 
@@ -955,67 +882,36 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
     }
   }
 
-  double origin_lat = o.enu_origin_lat;
-  double origin_lon = o.enu_origin_lon;
-  double origin_alt = o.enu_origin_alt;
-  const bool origin_is_explicit = o.has_explicit_origin;
-
-  if (any_wgs84 && !o.has_explicit_origin) {
-    std::vector<Eigen::Vector3d> full_position_lla;
-    for (const PosePrior& prior : pose_priors) {
-      if (prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
-          prior.HasPosition()) {
-        full_position_lla.push_back(prior.position);
-      }
-    }
-    if (!DeriveWGS84Origin(
-            full_position_lla, &origin_lat, &origin_lon, &origin_alt)) {
-      LOG(ERROR) << "No full-position (lat/lon/alt) WGS84 priors to derive "
-                    "an ENU origin from; supply --enu_origin_lat/"
-                    "--enu_origin_lon/--enu_origin_alt";
-      return EXIT_FAILURE;
-    }
+  // The same frame the mapper used, derived by the same rule from the same
+  // rows. This report's transforms are published against it, so if it were
+  // derived differently -- from the inliers of this fit, say, or from an
+  // operator-supplied origin -- the geometry the mapper solved and the
+  // geometry this file describes would be offset with nothing to say why.
+  // GeometricMedian is robust, so the origin does not need an outlier pass to
+  // defend it.
+  const std::optional<PosePriorEnuFrame> enu_frame =
+      PosePriorEnuFrame::Derive(pose_priors);
+  if (!enu_frame.has_value()) {
+    LOG(ERROR) << "No WGS84 position priors to derive an ENU origin from";
+    return EXIT_FAILURE;
   }
+  if (!enu_frame->HasRealAltitude()) {
+    LOG(ERROR) << "No position prior carries an altitude; a report states an "
+                  "ellipsoidal height and cannot substitute a placeholder";
+    return EXIT_FAILURE;
+  }
+  const double origin_lat = enu_frame->OriginWgs84().x();
+  const double origin_lon = enu_frame->OriginWgs84().y();
+  const double origin_alt = enu_frame->OriginWgs84().z();
 
-  std::vector<PosePrior> enu_priors =
-      any_wgs84 ? ConvertPosePriorsToReportENU(
-                      pose_priors, origin_lat, origin_lon, origin_alt)
-                : pose_priors;
+  const std::vector<PosePrior> enu_priors =
+      ConvertPosePriorsToReportENU(pose_priors, *enu_frame);
 
-  PosePriorAlignmentResult result =
-      AlignReconstructionToPosePriorsRobust(
-          reconstruction, enu_priors, o.ransac_options);
+  PosePriorAlignmentResult result = AlignReconstructionToPosePriorsRobust(
+      reconstruction, enu_priors, o.ransac_options);
   if (!result.success) {
     LOG(ERROR) << "=> Alignment failed";
     return EXIT_FAILURE;
-  }
-
-  // Recompute the origin once from the position-fit inlier WGS84 points,
-  // reconvert, and refit once. Never uses the first row by policy.
-  if (any_wgs84 && !o.has_explicit_origin) {
-    std::vector<Eigen::Vector3d> inlier_full_position_lla;
-    for (size_t i = 0; i < result.correspondence_image_ids.size(); ++i) {
-      if (!result.inlier_mask[i]) {
-        continue;
-      }
-      const auto it = priors_by_image.find(result.correspondence_image_ids[i]);
-      if (it != priors_by_image.end() && it->second.HasPosition()) {
-        inlier_full_position_lla.push_back(it->second.position);
-      }
-    }
-    if (!inlier_full_position_lla.empty()) {
-      DeriveWGS84Origin(
-          inlier_full_position_lla, &origin_lat, &origin_lon, &origin_alt);
-      enu_priors = ConvertPosePriorsToReportENU(
-          pose_priors, origin_lat, origin_lon, origin_alt);
-      result =
-          AlignReconstructionToPosePriorsRobust(
-              reconstruction, enu_priors, o.ransac_options);
-      if (!result.success) {
-        LOG(ERROR) << "=> Alignment failed after origin refinement";
-        return EXIT_FAILURE;
-      }
-    }
   }
 
   const int num_inliers = static_cast<int>(
@@ -1025,25 +921,22 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                << o.min_common_images;
     return EXIT_FAILURE;
   }
-  if (any_cartesian && o.pose_prior_cartesian_frame != "ENU") {
-    LOG(ERROR) << "Cartesian pose priors require the explicit assertion "
-                  "--pose_prior_cartesian_frame=ENU before an Earth report "
-                  "can be emitted";
-    return EXIT_FAILURE;
-  }
-
   // This robust Sim3 fit is equal-weight among RANSAC inliers and ignores
-  // per-row GPS covariance.
-  // If the input reconstruction already came from an upstream
-  // pose_prior_position_mode=optimize solve (which *did* use
-  // covariance-weighted BA throughout), this correction should be small; a
-  // material one means either that solve didn't hold for this input or this
-  // step is silently overriding it with a less-informed fit. Thresholds are
-  // a physically-motivated "this should be a no-op" bar, not tuned against
-  // any specific dataset -- see MaterialRealignmentThresholds' defaults for
-  // the rationale. The same struct instance is used here (enforcement) and
-  // in WriteGeoreferenceReportJSON (the always-present diagnostic), so
-  // evaluation and serialization cannot drift apart.
+  // per-row GPS covariance. The report path exists to publish a delivery, and
+  // a delivery's input has already been solved by the mapper in the metric ENU
+  // gauge with that covariance applied throughout -- so this fit must be a
+  // no-op. A material correction means the two disagree, and the one about to
+  // be written is the less-informed of the two.
+  //
+  // This is also what makes the gate a check on the *input*: a reconstruction
+  // that was never aligned produces a large tgt_from_src and is rejected here,
+  // because a first alignment is not a delivery. Upstream `model_aligner`
+  // without --georeference_json/--camera_residuals_csv still performs first
+  // alignments and does not reach this path.
+  //
+  // The same struct instance is used here (enforcement) and in
+  // WriteGeoreferenceReportJSON (the recorded diagnostic), so evaluation and
+  // serialization cannot drift apart.
   const double kMaterialRealignmentRotationDegThreshold =
       o.material_realignment_thresholds.max_rotation_deg;
   const double kMaterialRealignmentTranslationMThreshold =
@@ -1060,16 +953,18 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
       realignment_rotation_deg > kMaterialRealignmentRotationDegThreshold ||
       realignment_translation_m > kMaterialRealignmentTranslationMThreshold ||
       realignment_scale_ratio > kMaterialRealignmentScaleRatioThreshold;
-  if (o.reject_material_realignment && realignment_is_material) {
+  if (realignment_is_material) {
     LOG(ERROR) << StringPrintf(
-        "=> --reject_material_realignment: the final robust Sim3 fit found a "
-        "material correction (rotation=%.4f deg > %.2f, translation=%.4f m "
-        "> %.2f, scale_ratio=%.6f > %.4f) on an input declared "
-        "already-metric-ENU-optimized. This equal-weight refit ignores "
-        "per-row GPS covariance; a correction this large means either the "
-        "upstream optimize solve did not actually hold for this input, or "
-        "this step is silently overriding it with a less-informed fit. "
-        "Investigate before deploying this result.",
+        "=> The final robust Sim3 fit found a material correction "
+        "(rotation=%.4f deg > %.2f, translation=%.4f m > %.2f, "
+        "scale_ratio=%.6f > %.4f). A report run publishes a delivery, whose "
+        "input must already be solved in the metric ENU gauge, so this fit "
+        "must be a no-op. Either the mapper's optimize solve did not hold for "
+        "this input, or this equal-weight refit -- which ignores per-row GPS "
+        "covariance -- is about to overwrite it with a less-informed answer. "
+        "Investigate before deploying this result. To align an unaligned "
+        "reconstruction, run model_aligner without --georeference_json/"
+        "--camera_residuals_csv.",
         realignment_rotation_deg,
         kMaterialRealignmentRotationDegThreshold,
         realignment_translation_m,
@@ -1139,9 +1034,10 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
     residuals.push_back(r);
   }
 
+  // Every prior here is WGS84; a Cartesian archive was rejected above.
   double max_ellipsoid_tangent_departure_m =
       std::numeric_limits<double>::quiet_NaN();
-  if (any_wgs84) {
+  {
     max_ellipsoid_tangent_departure_m = 0.0;
     for (const image_t image_id : inlier_image_ids) {
       const auto prior_it = priors_by_image.find(image_id);
@@ -1184,7 +1080,6 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                                 origin_lat,
                                 origin_lon,
                                 origin_alt,
-                                origin_is_explicit,
                                 result.tgt_from_src,
                                 residuals,
                                 static_cast<int>(pose_priors.size()),
@@ -1192,10 +1087,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                                 o.ransac_options.max_error,
                                 o.ransac_options.random_seed,
                                 o.output_coordinate_frame,
-                                o.reject_material_realignment,
                                 o.quality_thresholds,
-                                o.material_realignment_thresholds,
-                                o.report_level);
+                                o.material_realignment_thresholds);
   }
   if (!o.camera_residuals_csv.empty()) {
     WriteCameraResidualsCSV(o.camera_residuals_csv, residuals);
@@ -1203,12 +1096,11 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
 
   LOG(INFO) << StringPrintf(
       "=> Alignment succeeded: %d position-prior inliers, ENU origin "
-      "(lat=%.8f, lon=%.8f, alt=%.3f, explicit=%s)",
+      "(lat=%.8f, lon=%.8f, alt=%.3f)",
       num_inliers,
       origin_lat,
       origin_lon,
-      origin_alt,
-      origin_is_explicit ? "true" : "false");
+      origin_alt);
   // Applied last, after every diagnostic/report computation above (which
   // reads camera rotations/positions and assumes the ENU convention -- e.g.
   // the gravity_consistency_angle_deg comparison against enu_down), so only

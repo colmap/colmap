@@ -4,6 +4,7 @@
 #include "colmap/exe/model.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/geometry/pose_prior_transform.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/database.h"
@@ -34,6 +35,107 @@ std::vector<std::string> SplitCSVRow(const std::string& row) {
     fields.push_back(field);
   }
   return fields;
+}
+
+// Builds a minimal report-ready fixture: a synthetic reconstruction already
+// expressed in the shared ENU frame its own priors define, plus the database
+// backing it. Returns the priors so a caller can inspect the frame.
+std::vector<PosePrior> WriteReportFixture(
+    const std::filesystem::path& input_path,
+    const std::filesystem::path& database_path,
+    Reconstruction* source,
+    bool align_input_to_enu_frame) {
+  constexpr double kReferenceLat = 45.5;
+  constexpr double kReferenceLon = -73.6;
+  constexpr double kReferenceAlt = 120.0;
+  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
+
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 6;
+  options.num_points3D = 50;
+  SynthesizeDataset(options, source);
+
+  std::vector<PosePrior> priors;
+  auto database = Database::Open(database_path);
+  for (const auto& [camera_id, camera] : source->Cameras()) {
+    database->WriteCamera(camera, /*use_camera_id=*/true);
+  }
+  for (const auto& [image_id, source_image] : source->Images()) {
+    Image database_image;
+    database_image.SetImageId(image_id);
+    database_image.SetName(source_image.Name());
+    database_image.SetCameraId(source_image.CameraId());
+    database->WriteImage(database_image, /*use_image_id=*/true);
+
+    const Eigen::Vector3d center_enu =
+        source->Image(image_id).ProjectionCenter();
+    const Eigen::Vector3d lla = gps_transform.ENUToEllipsoid(
+        {center_enu}, kReferenceLat, kReferenceLon, kReferenceAlt)[0];
+
+    PosePrior prior;
+    prior.corr_data_id =
+        data_t(sensor_t(SensorType::CAMERA, source_image.CameraId()), image_id);
+    prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+    prior.position = lla;
+    prior.position_covariance = Eigen::Vector3d(1.0, 1.0, 2.0).asDiagonal();
+    database->WritePosePrior(prior);
+    priors.push_back(prior);
+  }
+  database.reset();
+
+  Reconstruction input = *source;
+  if (align_input_to_enu_frame) {
+    // A report run publishes a delivery, whose input the mapper already solved
+    // in the shared ENU frame. `source` is ENU-oriented and metric, so it only
+    // needs shifting onto that frame's own origin -- which we get from the
+    // same utility the mapper and the report both use.
+    const auto enu_frame = PosePriorEnuFrame::Derive(priors);
+    CHECK(enu_frame.has_value());
+    const Eigen::Vector3d origin_offset_enu =
+        gps_transform.EllipsoidToENU({enu_frame->OriginWgs84()},
+                                     kReferenceLat,
+                                     kReferenceLon,
+                                     kReferenceAlt)[0];
+    input.Transform(
+        Sim3d(1.0, Eigen::Quaterniond::Identity(), -origin_offset_enu));
+  }
+  input.Write(input_path);
+  return priors;
+}
+
+int RunReportAligner(const std::filesystem::path& input_path,
+                     const std::filesystem::path& output_path,
+                     const std::filesystem::path& database_path,
+                     const std::filesystem::path& report_path,
+                     const std::vector<std::string>& extra_args = {}) {
+  std::vector<std::string> args{
+      "model_aligner",
+      "--input_path",
+      input_path.string(),
+      "--output_path",
+      output_path.string(),
+      "--database_path",
+      database_path.string(),
+      "--alignment_type",
+      "enu",
+      "--alignment_max_error",
+      "10",
+      "--min_common_images",
+      "3",
+      "--alignment_random_seed",
+      "12345",
+      "--georeference_json",
+      report_path.string(),
+  };
+  args.insert(args.end(), extra_args.begin(), extra_args.end());
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (std::string& arg : args) {
+    argv.push_back(arg.data());
+  }
+  return RunModelAligner(static_cast<int>(argv.size()), argv.data());
 }
 
 TEST(ModelAligner, PosePriorGeoreferenceReport) {
@@ -85,7 +187,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
 
   Reconstruction target = source;
   target.Transform(nominal_enu_from_sfm);
-  source.Write(input_path);
 
   const double reference_lat = 45.5;
   const double reference_lon = -73.6;
@@ -99,6 +200,7 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   std::sort(sorted_images.begin(), sorted_images.end());
   const image_t position_outlier_id = sorted_images.front().second;
   Eigen::Vector3d position_outlier_lla;
+  std::vector<PosePrior> priors;
 
   auto database = Database::Open(database_path);
   for (const auto& [camera_id, camera] : source.Cameras()) {
@@ -133,7 +235,26 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
     prior.gravity = target.Image(image_id).CamFromWorld().rotation() *
                     Eigen::Vector3d(0.0, 0.0, -1.0);
     database->WritePosePrior(prior);
+    priors.push_back(prior);
   }
+
+  // A report run publishes a delivery, so its input is a reconstruction the
+  // mapper already solved in the shared ENU frame -- not an arbitrary one. Put
+  // the fixture in that frame by asking the same utility the mapper and the
+  // report both use where the frame's origin is, and translating the target
+  // there. `target` is already ENU-oriented and metric, so this is the only
+  // remaining difference between it and a real delivery.
+  const auto enu_frame = PosePriorEnuFrame::Derive(priors);
+  ASSERT_TRUE(enu_frame.has_value());
+  const Eigen::Vector3d origin_offset_enu =
+      gps_transform.EllipsoidToENU({enu_frame->OriginWgs84()},
+                                   reference_lat,
+                                   reference_lon,
+                                   reference_alt)[0];
+  Reconstruction aligned_input = target;
+  aligned_input.Transform(Sim3d(
+      1.0, Eigen::Quaterniond::Identity(), -origin_offset_enu));
+  aligned_input.Write(input_path);
 
   Image unregistered_image;
   const image_t unregistered_image_id =
@@ -165,8 +286,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
       "fixed-test-scene",
       "--georeference_json",
       report_path.string(),
-      "--georeference_report_level",
-      "full",
       "--camera_residuals_csv",
       csv_path.string(),
   };
@@ -181,11 +300,14 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
   boost::property_tree::ptree report;
   boost::property_tree::read_json(report_path.string(), report);
   EXPECT_EQ(report.get<std::string>("schema"), "colmap_scene_georeference");
+  EXPECT_EQ(report.get<int>("schema_version"), 1);
   EXPECT_EQ(report.get<std::string>("scene_id"), "fixed-test-scene");
-  EXPECT_FALSE(report.get<bool>("enu_origin.explicit"));
   EXPECT_EQ(report.get<int>("support.num_position_inliers"), 7);
   EXPECT_EQ(report.get<int>("support.num_registered"), 8);
-  EXPECT_NEAR(report.get<double>("metres_per_sfm_unit"), scale, 1e-4 * scale);
+  // The input was already in the shared ENU frame and already metric, so this
+  // report's own fit must be a no-op rather than a rescaling.
+  EXPECT_NEAR(report.get<double>("metres_per_sfm_unit"), 1.0, 1e-4);
+  EXPECT_FALSE(report.get<bool>("final_realignment_check.is_material"));
   // The 8-camera synthetic layout is normalized to a 2000 m baseline above,
   // but this diagnostic is measured over the 7 position-prior inliers only
   // (excluding position_outlier_id), so its exact value depends on which
@@ -204,7 +326,6 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
 
   // Frame contract.
   const auto& frame_contract = report.get_child("frame_contract");
-  EXPECT_EQ(frame_contract.get<int>("schema_version"), 2);
   EXPECT_EQ(frame_contract.get<std::string>("geometry_frame"), "ENU_LOCAL");
   EXPECT_TRUE(frame_contract.get<bool>("geometry_already_transformed"));
   EXPECT_EQ(frame_contract.get<std::string>("handedness"), "RIGHT");
@@ -382,75 +503,18 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
   std::filesystem::create_directories(lf_output_path);
 
   Reconstruction source;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 6;
-  options.num_points3D = 50;
-  SynthesizeDataset(options, &source);
-  source.Write(input_path);
-
-  const double reference_lat = 45.5;
-  const double reference_lon = -73.6;
-  const double reference_alt = 120.0;
-  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-
-  auto database = Database::Open(database_path);
-  for (const auto& [camera_id, camera] : source.Cameras()) {
-    database->WriteCamera(camera, /*use_camera_id=*/true);
-  }
-  for (const auto& [image_id, source_image] : source.Images()) {
-    Image database_image;
-    database_image.SetImageId(image_id);
-    database_image.SetName(source_image.Name());
-    database_image.SetCameraId(source_image.CameraId());
-    database->WriteImage(database_image, /*use_image_id=*/true);
-
-    const Eigen::Vector3d center_enu =
-        source.Image(image_id).ProjectionCenter();
-    const Eigen::Vector3d lla = gps_transform.ENUToEllipsoid(
-        {center_enu}, reference_lat, reference_lon, reference_alt)[0];
-
-    PosePrior prior;
-    prior.corr_data_id =
-        data_t(sensor_t(SensorType::CAMERA, source_image.CameraId()), image_id);
-    prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-    prior.position = lla;
-    prior.position_covariance = Eigen::Vector3d(1.0, 1.0, 2.0).asDiagonal();
-    database->WritePosePrior(prior);
-  }
-  database.reset();
+  WriteReportFixture(
+      input_path, database_path, &source, /*align_input_to_enu_frame=*/true);
 
   const auto run_aligner = [&](const std::filesystem::path& output_path,
                                const std::filesystem::path& report_path,
                                const std::string& output_coordinate_frame) {
-    std::vector<std::string> args{
-        "model_aligner",
-        "--input_path",
-        input_path.string(),
-        "--output_path",
-        output_path.string(),
-        "--database_path",
-        database_path.string(),
-        "--alignment_type",
-        "enu",
-        "--alignment_max_error",
-        "10",
-        "--min_common_images",
-        "3",
-        "--alignment_random_seed",
-        "12345",
-        "--georeference_json",
-        report_path.string(),
-        "--output_coordinate_frame",
-        output_coordinate_frame,
-    };
-    std::vector<char*> argv;
-    argv.reserve(args.size());
-    for (std::string& arg : args) {
-      argv.push_back(arg.data());
-    }
-    return RunModelAligner(static_cast<int>(argv.size()), argv.data());
+    return RunReportAligner(input_path,
+                            output_path,
+                            database_path,
+                            report_path,
+                            {"--output_coordinate_frame",
+                             output_coordinate_frame});
   };
 
   ASSERT_EQ(
@@ -537,149 +601,91 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
   }
 }
 
-TEST(ModelAligner, GeoreferenceReportLevelControlsDiagnosticDetail) {
+
+TEST(ModelAligner, GeoreferenceReportIsAlwaysComplete) {
+  // There is one report shape. A consumer cannot ask for a field that a
+  // previous run chose not to write, which is what made the old `summary`
+  // level unusable downstream: the fields a pipeline actually reads were the
+  // ones it omitted. Every field below must be present in every report.
   const std::filesystem::path test_dir = CreateTestDir();
   const std::filesystem::path input_path = test_dir / "input";
   const std::filesystem::path output_path = test_dir / "output";
   const std::filesystem::path database_path = test_dir / "database.db";
+  const std::filesystem::path report_path = test_dir / "georeference.json";
   std::filesystem::create_directories(input_path);
   std::filesystem::create_directories(output_path);
 
   Reconstruction source;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 6;
-  options.num_points3D = 50;
-  SynthesizeDataset(options, &source);
-  source.Write(input_path);
-
-  const double reference_lat = 45.5;
-  const double reference_lon = -73.6;
-  const double reference_alt = 120.0;
-  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-
-  auto database = Database::Open(database_path);
-  for (const auto& [camera_id, camera] : source.Cameras()) {
-    database->WriteCamera(camera, /*use_camera_id=*/true);
-  }
-  for (const auto& [image_id, source_image] : source.Images()) {
-    Image database_image;
-    database_image.SetImageId(image_id);
-    database_image.SetName(source_image.Name());
-    database_image.SetCameraId(source_image.CameraId());
-    database->WriteImage(database_image, /*use_image_id=*/true);
-
-    const Eigen::Vector3d center_enu =
-        source.Image(image_id).ProjectionCenter();
-    const Eigen::Vector3d lla = gps_transform.ENUToEllipsoid(
-        {center_enu}, reference_lat, reference_lon, reference_alt)[0];
-
-    PosePrior prior;
-    prior.corr_data_id =
-        data_t(sensor_t(SensorType::CAMERA, source_image.CameraId()), image_id);
-    prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-    prior.position = lla;
-    prior.position_covariance = Eigen::Vector3d(1.0, 1.0, 2.0).asDiagonal();
-    database->WritePosePrior(prior);
-  }
-  database.reset();
-
-  const auto run_aligner = [&](const std::filesystem::path& output_path,
-                               const std::filesystem::path& report_path,
-                               const std::vector<std::string>& extra_args) {
-    std::vector<std::string> args{
-        "model_aligner",
-        "--input_path",
-        input_path.string(),
-        "--output_path",
-        output_path.string(),
-        "--database_path",
-        database_path.string(),
-        "--alignment_type",
-        "enu",
-        "--alignment_max_error",
-        "10",
-        "--min_common_images",
-        "3",
-        "--alignment_random_seed",
-        "12345",
-        "--georeference_json",
-        report_path.string(),
-    };
-    args.insert(args.end(), extra_args.begin(), extra_args.end());
-    std::vector<char*> argv;
-    argv.reserve(args.size());
-    for (std::string& arg : args) {
-      argv.push_back(arg.data());
-    }
-    return RunModelAligner(static_cast<int>(argv.size()), argv.data());
-  };
-
-  const std::filesystem::path summary_output = test_dir / "output_summary";
-  const std::filesystem::path summary_report = test_dir / "summary.json";
-  std::filesystem::create_directories(summary_output);
-  ASSERT_EQ(run_aligner(summary_output, summary_report, {}), EXIT_SUCCESS);
-
-  const std::filesystem::path full_output = test_dir / "output_full";
-  const std::filesystem::path full_report = test_dir / "full.json";
-  std::filesystem::create_directories(full_output);
+  WriteReportFixture(
+      input_path, database_path, &source, /*align_input_to_enu_frame=*/true);
   ASSERT_EQ(
-      run_aligner(
-          full_output, full_report, {"--georeference_report_level", "full"}),
+      RunReportAligner(input_path, output_path, database_path, report_path),
       EXIT_SUCCESS);
 
-  boost::property_tree::ptree summary;
-  boost::property_tree::read_json(summary_report.string(), summary);
-  boost::property_tree::ptree full;
-  boost::property_tree::read_json(full_report.string(), full);
+  boost::property_tree::ptree report;
+  boost::property_tree::read_json(report_path.string(), report);
 
-  // There is one report shape. Whatever level was requested, both runs must
-  // carry the identical complete field set: a consumer cannot ask for a field
-  // that a previous run chose not to write, which is what made the old
-  // summary level unusable downstream.
+  EXPECT_EQ(report.get<std::string>("schema"), "colmap_scene_georeference");
+  EXPECT_EQ(report.get<int>("schema_version"), 1);
+  EXPECT_NO_THROW(report.get_child("frame_contract"));
+  EXPECT_NO_THROW(report.get_child("transforms"));
+  EXPECT_NO_THROW(report.get_child("support"));
+  EXPECT_NO_THROW(report.get_child("warnings.collinearity"));
+  EXPECT_NO_THROW(report.get_child("warnings.gravity_disagreement"));
+  EXPECT_NO_THROW(report.get_child("warnings.position_inlier_ratio"));
+  EXPECT_NO_THROW(report.get_child("final_realignment_check"));
+  // This fixture has no gravity priors, so the value is JSON null; the field
+  // is still present, because the report's shape must not depend on which
+  // optional sensor groups the archive happened to carry.
+  EXPECT_NO_THROW(report.get_child("diagnostics.gravity_consistency_angle_deg"));
 
-  // Both reports contain everything needed to georeference the geometry.
-  for (const boost::property_tree::ptree* report : {&summary, &full}) {
-    EXPECT_EQ(report->get<std::string>("schema"), "colmap_scene_georeference");
-    EXPECT_NO_THROW(report->get_child("frame_contract"));
-    EXPECT_NO_THROW(report->get_child("transforms"));
-    EXPECT_NO_THROW(report->get_child("support"));
-    EXPECT_NO_THROW(report->get_child("warnings.collinearity"));
-    EXPECT_NO_THROW(report->get_child("warnings.gravity_disagreement"));
-    EXPECT_NO_THROW(report->get_child("warnings.position_inlier_ratio"));
-    EXPECT_NO_THROW(report->get_child("final_realignment_check"));
-    // No gravity priors in this fixture, so the value itself is JSON null;
-    // only its presence at both levels is being verified here.
-    EXPECT_NO_THROW(
-        report->get_child("diagnostics.gravity_consistency_angle_deg"));
-  }
-
-  // The detailed diagnostics the pipeline reads are present in BOTH reports.
-  EXPECT_NO_THROW(summary.get_child("diagnostics.position_3d_residual_m"));
-  EXPECT_NO_THROW(summary.get_child("diagnostics.gravity_residual_deg"));
-  EXPECT_TRUE(std::isfinite(
-      summary.get<double>("diagnostics.max_horizontal_baseline_m")));
-  EXPECT_TRUE(std::isfinite(
-      summary.get<double>("diagnostics.horizontal_condition_ratio")));
-  EXPECT_TRUE(summary.get_optional<double>(
-                         "diagnostics.position_horizontal_residual_m.p90")
+  // The detailed diagnostics the pipeline reads. These are exactly the fields
+  // the old summary level dropped.
+  EXPECT_NO_THROW(report.get_child("diagnostics.position_3d_residual_m"));
+  EXPECT_NO_THROW(report.get_child("diagnostics.gravity_residual_deg"));
+  EXPECT_TRUE(report.get_optional<double>(
+                        "diagnostics.position_horizontal_residual_m.p90")
                   .has_value());
-
-
-  EXPECT_NO_THROW(full.get_child("diagnostics.position_3d_residual_m"));
-  EXPECT_NO_THROW(full.get_child("diagnostics.gravity_residual_deg"));
-  EXPECT_TRUE(
-      std::isfinite(full.get<double>("diagnostics.max_horizontal_baseline_m")));
+  EXPECT_TRUE(report.get_optional<double>(
+                        "diagnostics.position_vertical_residual_m.p90")
+                  .has_value());
   EXPECT_TRUE(std::isfinite(
-      full.get<double>("diagnostics.horizontal_condition_ratio")));
+      report.get<double>("diagnostics.max_horizontal_baseline_m")));
+  EXPECT_TRUE(std::isfinite(
+      report.get<double>("diagnostics.horizontal_condition_ratio")));
+  EXPECT_TRUE(std::isfinite(report.get<double>("warnings.collinearity.value")));
 
-  // The collinearity warning's own value/threshold/fired triple is present
-  // at both levels regardless of whether the full diagnostics breakdown is
-  // -- it is the "evaluated quality value" the report policy is judged
-  // against, not a detailed breakdown.
-  EXPECT_TRUE(
-      std::isfinite(summary.get<double>("warnings.collinearity.value")));
+  // The removed knobs must be gone from the artifact, not merely unused.
+  std::ifstream report_stream(report_path);
+  const std::string report_text((std::istreambuf_iterator<char>(report_stream)),
+                                std::istreambuf_iterator<char>());
+  EXPECT_EQ(report_text.find("\"report_level\""), std::string::npos);
+  EXPECT_EQ(report_text.find("\"enforced_as_hard_gate\""), std::string::npos);
+  EXPECT_EQ(report_text.find("\"explicit\""), std::string::npos);
+}
+
+TEST(ModelAligner, ReportRejectsAnInputItWouldHaveToMateriallyRealign) {
+  // The report path publishes a delivery, so its input must already be solved
+  // in the metric ENU gauge. Handing it an unaligned reconstruction means this
+  // equal-weight fit -- which ignores per-row GPS covariance -- would silently
+  // become the alignment of record. It must fail instead, and must not leave a
+  // report behind claiming success.
+  const std::filesystem::path test_dir = CreateTestDir();
+  const std::filesystem::path input_path = test_dir / "input";
+  const std::filesystem::path output_path = test_dir / "output";
+  const std::filesystem::path database_path = test_dir / "database.db";
+  const std::filesystem::path report_path = test_dir / "georeference.json";
+  std::filesystem::create_directories(input_path);
+  std::filesystem::create_directories(output_path);
+
+  Reconstruction source;
+  WriteReportFixture(
+      input_path, database_path, &source, /*align_input_to_enu_frame=*/false);
+
+  EXPECT_EQ(
+      RunReportAligner(input_path, output_path, database_path, report_path),
+      EXIT_FAILURE);
+  EXPECT_FALSE(std::filesystem::exists(report_path));
 }
 
 }  // namespace

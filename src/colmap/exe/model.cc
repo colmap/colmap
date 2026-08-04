@@ -271,20 +271,15 @@ int RunModelAligner(int argc, char** argv) {
   int min_common_images = 3;
   RANSACOptions ransac_options;
 
-  // Scene georeference report options. The three origin values are
-  // all-or-none; altitude is WGS84 ellipsoidal.
-  double enu_origin_lat = std::numeric_limits<double>::quiet_NaN();
-  double enu_origin_lon = std::numeric_limits<double>::quiet_NaN();
-  double enu_origin_alt = std::numeric_limits<double>::quiet_NaN();
+  // Scene georeference report options. The ENU origin is always derived from
+  // the priors themselves (see PosePriorEnuFrame) so that the mapper and this
+  // report cannot disagree about where the scene is; there is no origin
+  // override. Quality and material-realignment thresholds are fixed policy,
+  // not operator input.
   std::string scene_id;
-  std::string pose_prior_cartesian_frame;
   std::filesystem::path georeference_json;
-  std::string georeference_report_level_str = "full";
   std::filesystem::path camera_residuals_csv;
   std::string output_coordinate_frame_str = "ENU_Z_UP";
-  bool reject_material_realignment = false;
-  GeoreferenceQualityThresholds quality_thresholds;
-  MaterialRealignmentThresholds material_realignment_thresholds;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -303,50 +298,12 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("alignment_max_error", &ransac_options.max_error);
   options.AddDefaultOption("alignment_random_seed",
                            &ransac_options.random_seed);
-  options.AddDefaultOption("enu_origin_lat", &enu_origin_lat);
-  options.AddDefaultOption("enu_origin_lon", &enu_origin_lon);
-  options.AddDefaultOption("enu_origin_alt", &enu_origin_alt);
   options.AddDefaultOption("scene_id", &scene_id);
-  options.AddDefaultOption("pose_prior_cartesian_frame",
-                           &pose_prior_cartesian_frame);
   options.AddDefaultOption("georeference_json", &georeference_json);
-  // Machine-readable reports are versioned artifacts, not console logs.
-  // `summary` (default) contains everything needed to georeference the
-  // output geometry; `full` additionally contains detailed percentile,
-  // singular-value, baseline, and ellipsoid-tangent diagnostics used for
-  // experiment verification -- request it explicitly when the report will
-  // be used for that, not for ordinary pipeline runs.
-  options.AddDefaultOption("georeference_report_level",
-                           &georeference_report_level_str,
-                           "{summary, full}");
   options.AddDefaultOption("camera_residuals_csv", &camera_residuals_csv);
   options.AddDefaultOption("output_coordinate_frame",
                            &output_coordinate_frame_str,
                            "{ENU_Z_UP, LICHTFELD_COLMAP}");
-  // This report's robust Sim3 fit re-aligns equal-weight among RANSAC
-  // inliers, ignoring per-row GPS covariance. When the input reconstruction
-  // already comes from
-  // an upstream pose_prior_position_mode=optimize solve (which *did* use
-  // covariance-weighted BA throughout), a large correction here would mean
-  // either that upstream solve didn't actually hold, or this equal-weight
-  // refit is silently overriding it -- both worth failing loudly on rather
-  // than accepting silently. Off by default (preserves existing behavior
-  // byte-for-byte); the pre/post-correction diagnostic is always reported
-  // regardless of this flag.
-  options.AddDefaultOption("reject_material_realignment",
-                           &reject_material_realignment);
-  options.AddDefaultOption("georeference_collinearity_ratio_threshold",
-                           &quality_thresholds.collinearity_ratio_threshold);
-  options.AddDefaultOption("georeference_gravity_median_threshold_deg",
-                           &quality_thresholds.gravity_median_threshold_deg);
-  options.AddDefaultOption("georeference_min_position_inlier_ratio",
-                           &quality_thresholds.min_position_inlier_ratio);
-  options.AddDefaultOption("material_realignment_max_rotation_deg",
-                           &material_realignment_thresholds.max_rotation_deg);
-  options.AddDefaultOption("material_realignment_max_translation_m",
-                           &material_realignment_thresholds.max_translation_m);
-  options.AddDefaultOption("material_realignment_max_scale_ratio",
-                           &material_realignment_thresholds.max_scale_ratio);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -356,14 +313,6 @@ int RunModelAligner(int argc, char** argv) {
                                        &output_coordinate_frame)) {
     LOG(ERROR) << "Invalid `output_coordinate_frame` - supported values are "
                   "{'ENU_Z_UP', 'LICHTFELD_COLMAP'}";
-    return EXIT_FAILURE;
-  }
-
-  GeoreferenceReportLevel georeference_report_level;
-  if (!GeoreferenceReportLevelFromString(georeference_report_level_str,
-                                         &georeference_report_level)) {
-    LOG(ERROR) << "Invalid `georeference_report_level` - supported values "
-                  "are {'summary', 'full'}";
     return EXIT_FAILURE;
   }
 
@@ -404,70 +353,20 @@ int RunModelAligner(int argc, char** argv) {
                     "has no scene-identity field)";
       return EXIT_FAILURE;
     }
-    const bool any_origin_component = !std::isnan(enu_origin_lat) ||
-                                      !std::isnan(enu_origin_lon) ||
-                                      !std::isnan(enu_origin_alt);
-    const bool all_origin_components = !std::isnan(enu_origin_lat) &&
-                                       !std::isnan(enu_origin_lon) &&
-                                       !std::isnan(enu_origin_alt);
-    if (any_origin_component && !all_origin_components) {
-      LOG(ERROR) << "=> --enu_origin_lat/--enu_origin_lon/--enu_origin_alt "
-                    "must be supplied all together or not at all";
-      return EXIT_FAILURE;
-    }
     if (ransac_options.max_error <= 0) {
       LOG(ERROR) << "You must provide a maximum alignment error > 0";
-      return EXIT_FAILURE;
-    }
-    StringToUpper(&pose_prior_cartesian_frame);
-    if (quality_thresholds.collinearity_ratio_threshold < 0.0 ||
-        quality_thresholds.collinearity_ratio_threshold > 1.0) {
-      LOG(ERROR) << "=> --georeference_collinearity_ratio_threshold must be "
-                    "in [0, 1]";
-      return EXIT_FAILURE;
-    }
-    if (quality_thresholds.gravity_median_threshold_deg <= 0.0 ||
-        quality_thresholds.gravity_median_threshold_deg > 180.0) {
-      LOG(ERROR) << "=> --georeference_gravity_median_threshold_deg must be "
-                    "> 0 and <= 180";
-      return EXIT_FAILURE;
-    }
-    if (quality_thresholds.min_position_inlier_ratio < 0.0 ||
-        quality_thresholds.min_position_inlier_ratio > 1.0) {
-      LOG(ERROR) << "=> --georeference_min_position_inlier_ratio must be in "
-                    "[0, 1]";
-      return EXIT_FAILURE;
-    }
-    if (material_realignment_thresholds.max_rotation_deg <= 0.0 ||
-        material_realignment_thresholds.max_translation_m <= 0.0 ||
-        material_realignment_thresholds.max_scale_ratio <= 0.0) {
-      LOG(ERROR) << "=> --material_realignment_max_rotation_deg/"
-                    "--material_realignment_max_translation_m/"
-                    "--material_realignment_max_scale_ratio must all be > 0";
       return EXIT_FAILURE;
     }
     ModelGeoreferenceOptions georeference_options;
     georeference_options.input_path = input_path;
     georeference_options.output_path = output_path;
     georeference_options.database_path = database_path;
-    georeference_options.has_explicit_origin = all_origin_components;
-    georeference_options.enu_origin_lat = enu_origin_lat;
-    georeference_options.enu_origin_lon = enu_origin_lon;
-    georeference_options.enu_origin_alt = enu_origin_alt;
-    georeference_options.pose_prior_cartesian_frame =
-        pose_prior_cartesian_frame;
     georeference_options.min_common_images = min_common_images;
     georeference_options.ransac_options = ransac_options;
     georeference_options.scene_id = scene_id;
     georeference_options.georeference_json = georeference_json;
-    georeference_options.report_level = georeference_report_level;
     georeference_options.camera_residuals_csv = camera_residuals_csv;
     georeference_options.output_coordinate_frame = output_coordinate_frame;
-    georeference_options.reject_material_realignment =
-        reject_material_realignment;
-    georeference_options.quality_thresholds = quality_thresholds;
-    georeference_options.material_realignment_thresholds =
-        material_realignment_thresholds;
     return RunModelAlignerReport(georeference_options);
   }
 

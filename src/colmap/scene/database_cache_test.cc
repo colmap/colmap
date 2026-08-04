@@ -184,16 +184,18 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[3].ImageId()),
             1);
 
-  // Extends this existing test case to also cover
-  // DatabaseCache::ConvertPosePriorsToENU's shared-ENU reference selection
-  // and covariance-basis rotation. At lat=0, lon=90, GPSTransform::ENUFromECEF
-  // reduces to the hand-derived signed permutation matrix
-  // R90=[[-1,0,0],[0,0,1],[0,1,0]] (its own transpose and inverse), and at
-  // lat=0, lon=0 to R0=[[0,1,0],[0,0,1],[1,0,0]]; the row-local-to-shared-ENU
-  // rotation for a row at (0,0) with reference (0,90) is therefore
-  // S = R90 * R0^T = [[0,0,-1],[0,1,0],[1,0,0]] (checked by hand, not by
-  // calling GPSTransform), which conjugates the diagonal covariance
-  // diag(1,4,9) into diag(9,4,1) (axes 0 and 2 swap).
+  // Extends this existing test case to cover the cache's own responsibility:
+  // that it converts WGS84 priors through the shared ENU frame, retags them,
+  // and records the origin it used. The frame's own arithmetic (origin rule,
+  // covariance rotation, determinism) is covered in
+  // geometry/pose_prior_transform_test.cc.
+  //
+  // Both rows sit at the same latitude/longitude so the origin is exact by
+  // construction rather than by whatever a two-point geometric median happens
+  // to converge to (for two distinct points every point on the segment
+  // minimizes the objective, so that would not be a meaningful assertion).
+  // Only one row declares an altitude, which is what the origin's altitude
+  // must come from.
   auto wgs84_database = Database::Open(kInMemorySqliteDatabasePath);
 
   PosePrior ref_prior;
@@ -205,7 +207,7 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   PosePrior other_prior;
   other_prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 102);
   other_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-  other_prior.position = Eigen::Vector3d(0.0, 0.0, PosePrior::kNaN);
+  other_prior.position = Eigen::Vector3d(0.0, 90.0, PosePrior::kNaN);
   other_prior.position_covariance = Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
   wgs84_database->WritePosePrior(other_prior);
 
@@ -226,25 +228,26 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   ASSERT_NE(converted_ref, nullptr);
   ASSERT_NE(converted_other, nullptr);
 
-  // The reference row is, by construction, the sole full-position row, so
-  // the geometric median is exactly its own ECEF point and it converts to
-  // the shared-ENU origin.
+  // Both rows sit at the origin's latitude/longitude, and the reference row
+  // also carries the origin's altitude, so it converts to exactly zero.
   EXPECT_EQ(converted_ref->coordinate_system,
             PosePrior::CoordinateSystem::CARTESIAN);
   const Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
   EXPECT_THAT(converted_ref->position, EigenMatrixNear(zero3, 1e-6));
 
-  // The horizontal-only row at 90 degrees of longitude away: East/North are
-  // finite (computed using the shared reference altitude only), Up stays
-  // NaN (no altitude was fabricated), and its covariance is rotated by the
-  // non-identity S derived above.
+  // The horizontal-only row: East/North are finite (it does have a position),
+  // but Up stays NaN rather than silently becoming the origin's altitude --
+  // a downstream consumer must not be able to read a fabricated height as a
+  // measurement.
   EXPECT_EQ(converted_other->coordinate_system,
             PosePrior::CoordinateSystem::CARTESIAN);
-  EXPECT_TRUE(std::isfinite(converted_other->position.x()));
-  EXPECT_TRUE(std::isfinite(converted_other->position.y()));
+  EXPECT_NEAR(converted_other->position.x(), 0.0, 1e-6);
+  EXPECT_NEAR(converted_other->position.y(), 0.0, 1e-6);
   EXPECT_FALSE(std::isfinite(converted_other->position.z()));
+  // Same latitude/longitude as the origin, so the local-to-shared rotation is
+  // identity and the covariance is carried through unchanged.
   const Eigen::Matrix3d expected_cov =
-      Eigen::Vector3d(9.0, 4.0, 1.0).asDiagonal();
+      Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
   EXPECT_THAT(converted_other->position_covariance,
               EigenMatrixNear(expected_cov, 1e-6));
 
