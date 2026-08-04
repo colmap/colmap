@@ -29,16 +29,15 @@
 
 #include "colmap/geometry/pose_prior_io.h"
 
-#include "colmap/geometry/pose_prior.h"
-#include "colmap/util/enum_utils.h"
-#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/string.h"
-#include "colmap/util/types.h"
 
+#include <algorithm>
 #include <cmath>
+#include <map>
+#include <set>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include <Eigen/Eigenvalues>
@@ -47,874 +46,486 @@
 
 namespace colmap {
 namespace {
-MAKE_ENUM_CLASS(ColumnGroup,
-                0,
-                NAME,
-                GEOGRAPHIC_POSITION,
-                CARTESIAN_POSITION,
-                TRANSLATION_STD,
-                TRANSLATION_COV,
-                GRAVITY,
-                HEADING);
 
-// Fixed input-validity tolerance for the gravity unit-norm check. Not a CLI
-// option: a nonzero vector whose norm differs from one by no
-// more than this is normalized; otherwise the row is rejected.
-constexpr double kUnitNormTolerance = 1e-2;
+// Tolerance on the gravity direction's norm. `GoPro:GravityVector` and its
+// equivalents are already device-fused unit directions, so this admits
+// ordinary serialization rounding and nothing else. It is deliberately not
+// compared against 9.80665: there is no acceleration magnitude in a
+// normalized direction to compare.
+constexpr double kGravityUnitNormTolerance = 1e-2;
 
-// Small numerical negative tolerance for covariance PSD checks: an
-// eigenvalue below this (not merely below zero) is rejected, to tolerate
-// ordinary floating-point roundoff around zero.
-constexpr double kCovarianceEigenvalueTolerance = -1e-9;
+constexpr double kPi = 3.14159265358979323846;
 
-// A row's measurement group (gravity, heading, translation STD/COV,
-// Cartesian position) is present only when every cell
-// is finite; these two helpers implement that "all or nothing" rule once
-// instead of repeating an any/all boolean pair per group.
-bool AnyFinite(std::initializer_list<double> values) {
-  for (const double v : values) {
-    if (std::isfinite(v)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool AllFinite(std::initializer_list<double> values) {
-  for (const double v : values) {
-    if (!std::isfinite(v)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// Checks whether a symmetric matrix (already reconstructed from an upper
-// triangle) has no eigenvalue below the numerical PSD tolerance.
-template <typename MatrixType>
-bool IsApproximatelyPSD(const MatrixType& matrix) {
-  Eigen::SelfAdjointEigenSolver<MatrixType> solver(matrix,
-                                                   Eigen::EigenvaluesOnly);
-  return solver.eigenvalues().minCoeff() >= kCovarianceEigenvalueTolerance;
-}
-
-// Normalizes a nonzero vector/quaternion whose norm differs from one by no
-// more than kUnitNormTolerance; returns false (leaving *coeffs unmodified)
-// for a zero-norm or grossly non-unit input, which the caller must reject.
-bool NormalizeIfNearUnit(Eigen::Ref<Eigen::VectorXd> coeffs) {
-  const double norm = coeffs.norm();
-  if (norm <= 0.0 || std::abs(norm - 1.0) > kUnitNormTolerance) {
-    return false;
-  }
-  coeffs /= norm;
-  return true;
-}
-
-struct GroupPresence {
-  bool any = false;
-  bool all = false;
-  bool duplicate = false;
+// Every column this build understands. Anything else in `schema` is an error,
+// not a field to skip: an unrecognized name is a producer typo far more often
+// than it is a deliberate extension, and skipping it would silently drop the
+// measurement the operator believed they had supplied.
+enum class Column {
+  NAME,
+  LAT,
+  LON,
+  ALT,
+  STD_TX,
+  STD_TY,
+  STD_TZ,
+  COV_TXX,
+  COV_TXY,
+  COV_TXZ,
+  COV_TYY,
+  COV_TYZ,
+  COV_TZZ,
+  GX,
+  GY,
+  GZ,
+  HEADING_DEG,
+  HEADING_STD_DEG,
 };
 
-FlatHashMap<ColumnGroup, GroupPresence> AnalyzeColumnGroups(
-    const std::vector<PosePriorArchive::ColumnId>& columns) {
-  static const auto group_cols = [] {
-    FlatHashMap<ColumnGroup, std::vector<PosePriorArchive::ColumnId>> m;
-    m[ColumnGroup::NAME] = {PosePriorArchive::ColumnId::NAME};
-    m[ColumnGroup::GEOGRAPHIC_POSITION] = {PosePriorArchive::ColumnId::LAT,
-                                           PosePriorArchive::ColumnId::LON,
-                                           PosePriorArchive::ColumnId::ALT};
-    m[ColumnGroup::CARTESIAN_POSITION] = {PosePriorArchive::ColumnId::TX,
-                                          PosePriorArchive::ColumnId::TY,
-                                          PosePriorArchive::ColumnId::TZ};
-    m[ColumnGroup::TRANSLATION_STD] = {PosePriorArchive::ColumnId::STD_TX,
-                                       PosePriorArchive::ColumnId::STD_TY,
-                                       PosePriorArchive::ColumnId::STD_TZ};
-    m[ColumnGroup::TRANSLATION_COV] = {PosePriorArchive::ColumnId::COV_TXX,
-                                       PosePriorArchive::ColumnId::COV_TXY,
-                                       PosePriorArchive::ColumnId::COV_TXZ,
-                                       PosePriorArchive::ColumnId::COV_TYY,
-                                       PosePriorArchive::ColumnId::COV_TYZ,
-                                       PosePriorArchive::ColumnId::COV_TZZ};
-    m[ColumnGroup::GRAVITY] = {PosePriorArchive::ColumnId::GX,
-                               PosePriorArchive::ColumnId::GY,
-                               PosePriorArchive::ColumnId::GZ};
-    m[ColumnGroup::HEADING] = {PosePriorArchive::ColumnId::HEADING_DEG,
-                               PosePriorArchive::ColumnId::HEADING_STD_DEG};
-    return m;
-  }();
-
-  FlatHashMap<PosePriorArchive::ColumnId, int> counts;
-  for (const auto& col : columns) {
-    if (col != PosePriorArchive::ColumnId::UNKNOWN) {
-      counts[col]++;
-    }
-  }
-
-  FlatHashMap<ColumnGroup, GroupPresence> result;
-  for (const auto& [group, cols] : group_cols) {
-    int present = 0;
-    bool duplicate = false;
-    for (const auto& col : cols) {
-      auto it = counts.find(col);
-      int c = (it != counts.end()) ? it->second : 0;
-      if (c > 0) {
-        ++present;
-      }
-      if (c > 1) {
-        duplicate = true;
-      }
-    }
-    GroupPresence p;
-    p.any = present > 0;
-    p.all = present == static_cast<int>(cols.size()) && !duplicate;
-    p.duplicate = duplicate;
-    result[group] = p;
-  }
-  return result;
-}
-
-template <typename EnumT>
-bool MaybeGetEnumFromPropertyTree(const boost::property_tree::ptree& pt,
-                                  const std::string& key,
-                                  EnumT (*from_string)(std::string_view),
-                                  EnumT& output) {
-  const auto value = pt.get_optional<std::string>(key);
-  if (value) {
-    output = from_string(*value);
-    return true;
-  }
-  return false;
-}
-
-template <typename EnumT>
-bool MaybeGetEnumFromPropertyTree(const boost::property_tree::ptree& pt,
-                                  const std::string& key,
-                                  EnumT (*from_string)(std::string_view),
-                                  std::optional<EnumT>& output) {
-  EnumT value;
-  if (MaybeGetEnumFromPropertyTree(pt, key, from_string, value)) {
-    output = value;
-    return true;
-  }
-  return false;
-}
-
-template <PosePriorArchive::ColumnId Id>
-PosePriorArchive::cell_t ParseCell(const std::string& value) {
-  using T = typename PosePriorArchive::ColumnTraits<Id>::value_type;
-  if constexpr (std::is_same_v<T, std::string>) {
-    return value;
-  } else if constexpr (std::is_same_v<T, double>) {
-    return StringToDouble(value);
-  } else {
-    return std::monostate{};
-  }
-}
-
-using cell_parser_t =
-    std::function<PosePriorArchive::cell_t(const std::string&)>;
-
-#define COLMAP_COLUMN_PARSER_ENTRY(x) \
-  {PosePriorArchive::ColumnId::x, ParseCell<PosePriorArchive::ColumnId::x>}
-
-const FlatHashMap<PosePriorArchive::ColumnId, cell_parser_t>& GetCellParsers() {
-  static const FlatHashMap<PosePriorArchive::ColumnId, cell_parser_t> parsers =
-      {
-          COLMAP_COLUMN_PARSER_ENTRY(UNKNOWN),
-          COLMAP_COLUMN_PARSER_ENTRY(NAME),
-          COLMAP_COLUMN_PARSER_ENTRY(LAT),
-          COLMAP_COLUMN_PARSER_ENTRY(LON),
-          COLMAP_COLUMN_PARSER_ENTRY(ALT),
-          COLMAP_COLUMN_PARSER_ENTRY(TX),
-          COLMAP_COLUMN_PARSER_ENTRY(TY),
-          COLMAP_COLUMN_PARSER_ENTRY(TZ),
-          COLMAP_COLUMN_PARSER_ENTRY(STD_TX),
-          COLMAP_COLUMN_PARSER_ENTRY(STD_TY),
-          COLMAP_COLUMN_PARSER_ENTRY(STD_TZ),
-          COLMAP_COLUMN_PARSER_ENTRY(COV_TXX),
-          COLMAP_COLUMN_PARSER_ENTRY(COV_TXY),
-          COLMAP_COLUMN_PARSER_ENTRY(COV_TXZ),
-          COLMAP_COLUMN_PARSER_ENTRY(COV_TYY),
-          COLMAP_COLUMN_PARSER_ENTRY(COV_TYZ),
-          COLMAP_COLUMN_PARSER_ENTRY(COV_TZZ),
-          COLMAP_COLUMN_PARSER_ENTRY(GX),
-          COLMAP_COLUMN_PARSER_ENTRY(GY),
-          COLMAP_COLUMN_PARSER_ENTRY(GZ),
-          COLMAP_COLUMN_PARSER_ENTRY(HEADING_DEG),
-          COLMAP_COLUMN_PARSER_ENTRY(HEADING_STD_DEG),
-      };
-  return parsers;
-}
-
-#undef COLMAP_COLUMN_PARSER_ENTRY
-
-std::optional<PosePriorArchive::ColumnId> TryColumnIdFromString(
-    const std::string& name) {
-  try {
-    return PosePriorArchive::ColumnIdFromString(name);
-  } catch (const std::exception&) {
-    return std::nullopt;
-  }
-}
-
-PosePriorArchive ReadPosePriorArchiveFromJSON(
-    const std::filesystem::path& path,
-    const PosePriorArchiveReadOptions& options) {
-  boost::property_tree::ptree pt;
-  boost::property_tree::read_json(path.string(), pt);
-
-  PosePriorArchive archive;
-
-  MaybeGetEnumFromPropertyTree(pt,
-                               "coordinate_system",
-                               PosePrior::CoordinateSystemFromString,
-                               archive.metadata.coordinate_system);
-  MaybeGetEnumFromPropertyTree(
-      pt, "sensor_type", SensorTypeFromString, archive.metadata.sensor_type);
-  MaybeGetEnumFromPropertyTree(pt,
-                               "translation_convention",
-                               PosePriorArchive::PoseConventionFromString,
-                               archive.metadata.translation_convention);
-  MaybeGetEnumFromPropertyTree(pt,
-                               "cartesian_frame",
-                               PosePriorArchive::CartesianFrameFromString,
-                               archive.metadata.cartesian_frame);
-
-  MaybeGetEnumFromPropertyTree(pt,
-                               "ellipsoid",
-                               GPSTransform::EllipsoidFromString,
-                               archive.metadata.ellipsoid);
-
-  if (const auto v = pt.get_optional<std::string>("height_datum")) {
-    archive.metadata.height_datum = *v;
-  }
-  if (const auto v =
-          pt.get_optional<std::string>("position_covariance_frame")) {
-    archive.metadata.position_covariance_frame = *v;
-  }
-
-  const auto enu_origin_node = pt.get_child_optional("enu_origin");
-  if (enu_origin_node) {
-    THROW_CHECK_EQ(enu_origin_node->size(), 3)
-        << "enu_origin must be an array of 3 values";
-
-    Eigen::Vector3d origin;
-    int index = 0;
-    for (const auto& value : *enu_origin_node) {
-      origin(index++) = value.second.get_value<double>();
-    }
-    archive.metadata.enu_origin = origin;
-  }
-
-  // Parse schema: ordered list of column type strings. An unrecognized name
-  // is a likely typo far more often than a deliberate new column, so it
-  // fails by default (UnknownColumnPolicy::ERROR); forward compatibility
-  // with a producer's extra, source-specific columns is opt-in via
-  // UnknownColumnPolicy::IGNORE, not automatic.
-  const auto schema_node = pt.get_child("schema");
-  THROW_CHECK(!schema_node.empty())
-      << "PosePriorArchive JSON must contain a non-empty schema array";
-  std::vector<std::string> ignored_column_names;
-  size_t schema_index = 0;
-  for (const auto& item : schema_node) {
-    std::string column_name = item.second.get_value<std::string>();
-    const std::optional<PosePriorArchive::ColumnId> column_id =
-        TryColumnIdFromString(column_name);
-    if (column_id.has_value()) {
-      archive.schema.columns.push_back(*column_id);
-    } else if (options.unknown_column_policy == UnknownColumnPolicy::IGNORE) {
-      archive.schema.columns.push_back(PosePriorArchive::ColumnId::UNKNOWN);
-      ignored_column_names.push_back(column_name);
-    } else {
-      LOG(FATAL_THROW) << StringPrintf(
-          "Unrecognized pose-prior schema column \"%s\" at schema index "
-          "%zu. Pass --unknown_column_policy=ignore to skip unrecognized "
-          "columns explicitly.",
-          column_name.c_str(),
-          schema_index);
-    }
-    ++schema_index;
-  }
-  if (!ignored_column_names.empty()) {
-    std::string joined;
-    for (size_t i = 0; i < ignored_column_names.size(); ++i) {
-      if (i > 0) {
-        joined += ", ";
-      }
-      joined += ignored_column_names[i];
-    }
-    LOG(WARNING) << "Ignored " << ignored_column_names.size()
-                 << " unrecognized pose-prior schema column(s): " << joined;
-  }
-
-  THROW_CHECK(archive.IsValid())
-      << "PosePriorArchive metadata or schema is invalid";
-
-  // Parse data rows via the type-dispatch table. Every row must have exactly
-  // the schema's cell count: a producer that needs an extra field must
-  // declare an unknown schema column rather than append an undeclared cell,
-  // and a shifted/truncated row must not silently attach a value to the
-  // wrong measurement.
-  const auto data_node = pt.get_child("data");
-  const auto& cell_parsers = GetCellParsers();
-  for (const auto& row_node : data_node) {
-    THROW_CHECK_EQ(row_node.second.size(), archive.schema.columns.size())
-        << StringPrintf(
-               "Row %zu has %zu cells but the schema defines %zu "
-               "columns",
-               archive.data.size(),
-               row_node.second.size(),
-               archive.schema.columns.size());
-
-    PosePriorArchive::row_t row;
-    row.reserve(archive.schema.columns.size());
-    size_t column_index = 0;
-    for (const auto& cell_node : row_node.second) {
-      const PosePriorArchive::ColumnId column_id =
-          archive.schema.columns[column_index];
-      const auto value = cell_node.second.get_value<std::string>("");
-
-      if (column_id == PosePriorArchive::ColumnId::NAME) {
-        THROW_CHECK(!value.empty()) << StringPrintf(
-            "Row %zu has an empty NAME cell", archive.data.size());
-        row.push_back(value);
-      } else if (value.empty()) {
-        // A JSON `null` (or an empty measurement cell) is the absent-cell
-        // state; it must never reach StringToDouble.
-        row.push_back(std::monostate{});
-      } else {
-        const auto it = cell_parsers.find(column_id);
-        row.push_back(it != cell_parsers.end() ? it->second(value)
-                                               : PosePriorArchive::cell_t{});
-      }
-      column_index++;
-    }
-    archive.data.push_back(std::move(row));
-  }
-
-  return archive;
-}
-
-}  // namespace
-
-namespace {
-bool RequireLiteral(const std::optional<std::string>& value,
-                    const char* expected,
-                    const char* key) {
-  if (value.has_value() && *value != expected) {
-    LOG(ERROR) << "Unsupported value for `" << key << "`: `" << *value
-               << "` (only `" << expected << "` is supported)";
-    return false;
-  }
-  return true;
-}
-}  // namespace
-
-bool PosePriorArchive::Metadata::IsValid() const {
-  if (sensor_type != SensorType::CAMERA) {
-    LOG(ERROR) << "Only sensor_type=CAMERA is supported";
-    return false;
-  }
-
-  if (coordinate_system == PosePrior::CoordinateSystem::UNDEFINED) {
-    return false;
-  } else if (coordinate_system == PosePrior::CoordinateSystem::WGS84) {
-    if (cartesian_frame.has_value()) {
-      return false;
-    }
-    if (!ellipsoid.has_value() ||
-        *ellipsoid != GPSTransform::Ellipsoid::WGS84) {
-      LOG(ERROR) << "WGS84 archives require ellipsoid=WGS84";
-      return false;
-    }
-  } else if (coordinate_system == PosePrior::CoordinateSystem::CARTESIAN) {
-    if (cartesian_frame.has_value() &&
-        *cartesian_frame == PosePriorArchive::CartesianFrame::ENU) {
-      if (!enu_origin.has_value()) {
-        return false;
-      }
-    }
-  }
-
-  if (!RequireLiteral(height_datum, "ELLIPSOIDAL", "height_datum")) {
-    return false;
-  }
-
-  if (position_covariance_frame.has_value()) {
-    const std::string& v = *position_covariance_frame;
-    if (coordinate_system == PosePrior::CoordinateSystem::WGS84 &&
-        v != "LOCAL_ENU") {
-      LOG(ERROR) << "WGS84 position_covariance_frame must be LOCAL_ENU";
-      return false;
-    }
-    if (coordinate_system == PosePrior::CoordinateSystem::CARTESIAN &&
-        v != "CARTESIAN") {
-      LOG(ERROR) << "Cartesian position_covariance_frame must be CARTESIAN";
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool PosePriorArchive::Schema::IsValid(const Metadata& metadata) const {
-  if (columns.empty()) {
-    LOG(ERROR) << "Schema is empty";
-    return false;
-  }
-
-  // Count and skip UNKNOWN columns.
-  size_t num_skipped = 0;
-  std::vector<ColumnId> known_columns;
-  for (const auto& col : columns) {
-    if (col == ColumnId::UNKNOWN) {
-      num_skipped++;
-    } else {
-      known_columns.push_back(col);
-    }
-  }
-  LOG_IF(WARNING, num_skipped > 0)
-      << "Skipped " << num_skipped << " UNKNOWN columns";
-
-  auto groups = AnalyzeColumnGroups(known_columns);
-  const auto cs = metadata.coordinate_system;
-
-  // Reject duplicate columns within any group.
-  for (auto& [group, presence] : groups) {
-    if (presence.duplicate) {
-      LOG(ERROR) << "Duplicate columns in group " << ColumnGroupToString(group);
-      return false;
-    }
-  }
-
-  const auto& name_presence = groups.at(ColumnGroup::NAME);
-  const auto& geographic_presence = groups.at(ColumnGroup::GEOGRAPHIC_POSITION);
-  const auto& cartesian_presence = groups.at(ColumnGroup::CARTESIAN_POSITION);
-  const auto& translation_std_presence =
-      groups.at(ColumnGroup::TRANSLATION_STD);
-  const auto& translation_cov_presence =
-      groups.at(ColumnGroup::TRANSLATION_COV);
-
-  if (!name_presence.all) {
-    LOG(ERROR) << "Schema must contain a NAME column";
-    return false;
-  }
-
-  if (cs == PosePrior::CoordinateSystem::WGS84) {
-    if (geographic_presence.any && !geographic_presence.all) {
-      LOG(ERROR) << "Incomplete translation: all of LAT/LON/ALT are required";
-      return false;
-    }
-    if (cartesian_presence.any) {
-      LOG(WARNING) << "WGS84 coordinate system ignores TX/TY/TZ columns";
-    }
-  } else if (cs == PosePrior::CoordinateSystem::CARTESIAN) {
-    if (cartesian_presence.any && !cartesian_presence.all) {
-      LOG(ERROR) << "Incomplete translation: all of TX/TY/TZ are required";
-      return false;
-    }
-    if (geographic_presence.any) {
-      LOG(WARNING) << "CARTESIAN coordinate system ignores LAT/LON/ALT columns";
-    }
-  }
-
-  if (translation_std_presence.all && translation_cov_presence.all) {
-    LOG(ERROR) << "Schema must not contain both STD and COV columns";
-    return false;
-  }
-
-  if (translation_std_presence.any && !translation_std_presence.all) {
-    LOG(ERROR) << "Incomplete STD columns: all of STD_TX, STD_TY, STD_TZ "
-                  "are required";
-    return false;
-  }
-  if (translation_cov_presence.any && !translation_cov_presence.all) {
-    LOG(ERROR) << "Incomplete COV columns: all of COV_TXX, COV_TXY, "
-                  "COV_TXZ, COV_TYY, COV_TYZ, COV_TZZ are required";
-    return false;
-  }
-
-  const auto& gravity_presence = groups.at(ColumnGroup::GRAVITY);
-  const auto& heading_presence = groups.at(ColumnGroup::HEADING);
-
-  if (gravity_presence.any && !gravity_presence.all) {
-    LOG(ERROR) << "Incomplete GX/GY/GZ columns: all three are required";
-    return false;
-  }
-  // A heading without its uncertainty has no defined weight, and the
-  // constraint is weighted, so the pair is all-or-nothing.
-  if (heading_presence.any && !heading_presence.all) {
-    LOG(ERROR) << "Incomplete heading columns: HEADING_DEG and "
-                  "HEADING_STD_DEG are both required";
-    return false;
-  }
-
-  const bool has_position_cov =
-      translation_std_presence.all || translation_cov_presence.all;
-  if (has_position_cov && !metadata.position_covariance_frame.has_value()) {
-    LOG(ERROR) << "position_covariance_frame is required when a position "
-                  "covariance group is present";
-    return false;
-  }
-  if (cs == PosePrior::CoordinateSystem::WGS84 && geographic_presence.all &&
-      !metadata.height_datum.has_value()) {
-    LOG(ERROR) << "height_datum is required when a WGS84 position schema "
-                  "is present";
-    return false;
-  }
-
-  return true;
-}
-
-size_t PosePriorArchive::NumColumns() const { return schema.columns.size(); }
-size_t PosePriorArchive::NumRows() const { return data.size(); }
-
-bool PosePriorArchive::IsValid() const {
-  return metadata.IsValid() && schema.IsValid(metadata);
-}
-
-PosePriorArchive ReadPosePriorArchive(
-    const std::filesystem::path& path,
-    const PosePriorArchiveReadOptions& options) {
-  const std::string ext = path.extension().string();
-  if (ext == ".json") {
-    return ReadPosePriorArchiveFromJSON(path, options);
-  }
-  LOG(FATAL_THROW) << "Unsupported pose prior archive format: " << ext;
-  // Unreachable, silence -Wreturn-type for non-MSVC compilers.
-  return {};
-}
-
-void PosePriorArchive::UpdatePosePriors(
-    const data_id_resolver_t& data_id_from_name,
-    bool allow_new_priors,
-    std::vector<PosePrior>& pose_priors) const {
-  THROW_CHECK(IsValid()) << "Invalid PosePriorArchive";
-
-  // Currently only support prior translations in world frame.
-  if (metadata.translation_convention !=
-      PosePriorArchive::PoseConvention::WORLD_FROM_CAM) {
-    LOG(FATAL_THROW)
-        << "Only PosePriorArchive::PoseConvention::WORLD_FROM_CAM is supported";
-  }
-
-  FlatHashMap<ColumnId, size_t> column_indices;
-  for (size_t i = 0; i < schema.columns.size(); ++i) {
-    column_indices[schema.columns[i]] = i;
-  }
-
-  const auto groups = AnalyzeColumnGroups(schema.columns);
-  const auto& name_presence = groups.at(ColumnGroup::NAME);
-  const auto& geographic_presence = groups.at(ColumnGroup::GEOGRAPHIC_POSITION);
-  const auto& cartesian_presence = groups.at(ColumnGroup::CARTESIAN_POSITION);
-  const auto& translation_std_presence =
-      groups.at(ColumnGroup::TRANSLATION_STD);
-  const auto& translation_cov_presence =
-      groups.at(ColumnGroup::TRANSLATION_COV);
-  const auto& gravity_presence = groups.at(ColumnGroup::GRAVITY);
-  const auto& heading_presence = groups.at(ColumnGroup::HEADING);
-
-  if (!name_presence.all) {
-    LOG(ERROR) << "Schema is missing NAME column: cannot convert "
-                  "pose prior archive to PosePrior objects";
-    return;
-  }
-
-  const bool is_geographic =
-      metadata.coordinate_system == PosePrior::CoordinateSystem::WGS84;
-  const bool has_translation =
-      is_geographic ? geographic_presence.all : cartesian_presence.all;
-  const bool has_uncertainty =
-      translation_std_presence.all || translation_cov_presence.all;
-
-  const auto get_double = [](const PosePriorArchive::cell_t& cell) -> double {
-    if (std::holds_alternative<double>(cell)) {
-      return std::get<double>(cell);
-    }
-    return PosePrior::kNaN;
+const std::map<std::string, Column>& ColumnsByName() {
+  static const std::map<std::string, Column> kColumns = {
+      {"NAME", Column::NAME},
+      {"LAT", Column::LAT},
+      {"LON", Column::LON},
+      {"ALT", Column::ALT},
+      {"STD_TX", Column::STD_TX},
+      {"STD_TY", Column::STD_TY},
+      {"STD_TZ", Column::STD_TZ},
+      {"COV_TXX", Column::COV_TXX},
+      {"COV_TXY", Column::COV_TXY},
+      {"COV_TXZ", Column::COV_TXZ},
+      {"COV_TYY", Column::COV_TYY},
+      {"COV_TYZ", Column::COV_TYZ},
+      {"COV_TZZ", Column::COV_TZZ},
+      {"GX", Column::GX},
+      {"GY", Column::GY},
+      {"GZ", Column::GZ},
+      {"HEADING_DEG", Column::HEADING_DEG},
+      {"HEADING_STD_DEG", Column::HEADING_STD_DEG},
   };
-
-  const size_t name_index = column_indices.at(ColumnId::NAME);
-
-  if (allow_new_priors && pose_priors.capacity() < data.size()) {
-    pose_priors.reserve(data.size());
-  }
-
-  FlatHashMap<data_t, size_t> data_id_to_index;
-  for (size_t i = 0; i < pose_priors.size(); ++i) {
-    data_id_to_index[pose_priors[i].corr_data_id] = i;
-  }
-
-  for (const auto& row : data) {
-    if (name_index >= row.size()) {
-      continue;
-    }
-    const std::string& name = std::get<std::string>(row[name_index]);
-
-    const auto data_id = data_id_from_name(name);
-    if (!data_id) {
-      LOG(WARNING) << "Cannot resolve name: " << name;
-      continue;
-    }
-
-    const bool is_prior_exist = data_id_to_index.count(*data_id);
-    if (!is_prior_exist && !allow_new_priors) {
-      LOG(WARNING) << "No existing pose prior for " << name
-                   << " and allow_new_priors is false, skipping";
-      continue;
-    }
-
-    PosePrior* prior_ptr = nullptr;
-    if (is_prior_exist) {
-      prior_ptr = &pose_priors[data_id_to_index.at(*data_id)];
-    } else {
-      pose_priors.push_back(PosePrior());
-      prior_ptr = &pose_priors.back();
-      prior_ptr->corr_data_id = *data_id;
-    }
-
-    PosePrior& prior = *prior_ptr;
-    const auto row_has_all = [&](std::initializer_list<ColumnId> columns) {
-      for (const ColumnId column : columns) {
-        if (!std::isfinite(get_double(row[column_indices.at(column)]))) {
-          return false;
-        }
-      }
-      return true;
-    };
-    const bool row_has_position =
-        has_translation &&
-        (is_geographic
-             ? row_has_all({ColumnId::LAT, ColumnId::LON})
-             : row_has_all({ColumnId::TX, ColumnId::TY, ColumnId::TZ}));
-    const bool row_has_position_covariance =
-        (translation_std_presence.all &&
-         row_has_all({ColumnId::STD_TX, ColumnId::STD_TY, ColumnId::STD_TZ})) ||
-        (translation_cov_presence.all && row_has_all({ColumnId::COV_TXX,
-                                                      ColumnId::COV_TXY,
-                                                      ColumnId::COV_TXZ,
-                                                      ColumnId::COV_TYY,
-                                                      ColumnId::COV_TYZ,
-                                                      ColumnId::COV_TZZ}));
-    const bool row_has_coordinate_measurement =
-        row_has_position || row_has_position_covariance;
-    const bool existing_has_coordinate_measurement =
-        prior.HasPosition() || prior.HasPositionCov();
-    THROW_CHECK(!is_prior_exist || !row_has_coordinate_measurement ||
-                !existing_has_coordinate_measurement ||
-                prior.coordinate_system == metadata.coordinate_system)
-        << "Cannot merge coordinate-bearing pose-prior groups expressed in "
-           "different coordinate systems for "
-        << name;
-    if (!is_prior_exist || row_has_coordinate_measurement) {
-      prior.coordinate_system = metadata.coordinate_system;
-    }
-
-    // A group is present for a row only when at least one of its cells is
-    // finite (schema-level presence, checked above via has_translation, only
-    // says the columns exist; a specific row may still leave them all
-    // empty, in which case this group must be left untouched on `prior` so
-    // merge semantics preserve whatever was already there).
-    if (has_translation) {
-      if (is_geographic) {
-        const double lat = get_double(row[column_indices.at(ColumnId::LAT)]);
-        const double lon = get_double(row[column_indices.at(ColumnId::LON)]);
-        const double alt = get_double(row[column_indices.at(ColumnId::ALT)]);
-        // The sole partial subgroup: LAT/LON may be finite while ALT is
-        // empty (horizontal-only), but LAT and LON are always finite or
-        // absent together.
-        THROW_CHECK_EQ(std::isfinite(lat), std::isfinite(lon))
-            << "Row for " << name
-            << " has only one of LAT/LON finite; both or neither are "
-               "required";
-        if (std::isfinite(lat)) {
-          THROW_CHECK(lat >= -90.0 && lat <= 90.0)
-              << "Latitude out of range for " << name << ": " << lat;
-          THROW_CHECK(lon >= -180.0 && lon <= 180.0)
-              << "Longitude out of range for " << name << ": " << lon;
-          prior.position.x() = lat;
-          prior.position.y() = lon;
-          prior.position.z() = alt;
-        }
-      } else {
-        const double tx = get_double(row[column_indices.at(ColumnId::TX)]);
-        const double ty = get_double(row[column_indices.at(ColumnId::TY)]);
-        const double tz = get_double(row[column_indices.at(ColumnId::TZ)]);
-        const bool any_finite = AnyFinite({tx, ty, tz});
-        const bool all_finite = AllFinite({tx, ty, tz});
-        THROW_CHECK(!any_finite || all_finite)
-            << "Partially populated Cartesian position group for " << name;
-        if (all_finite) {
-          prior.position.x() = tx;
-          prior.position.y() = ty;
-          prior.position.z() = tz;
-        }
-      }
-
-      if (!prior.HasPosition()) {
-        LOG(WARNING) << "Pose prior for " << name
-                     << " has no valid translation data";
-      }
-    }
-
-    // Read covariance from either STD columns (diagonal) or full COV matrix.
-    if (has_uncertainty) {
-      if (translation_std_presence.all) {
-        const double std_x =
-            get_double(row[column_indices.at(ColumnId::STD_TX)]);
-        const double std_y =
-            get_double(row[column_indices.at(ColumnId::STD_TY)]);
-        const double std_z =
-            get_double(row[column_indices.at(ColumnId::STD_TZ)]);
-        const bool any_finite = AnyFinite({std_x, std_y, std_z});
-        const bool all_finite = AllFinite({std_x, std_y, std_z});
-        THROW_CHECK(!any_finite || all_finite)
-            << "Partially populated STD group for " << name;
-        if (all_finite) {
-          prior.position_covariance = Eigen::DiagonalMatrix<double, 3>(
-              std_x * std_x, std_y * std_y, std_z * std_z);
-        }
-      } else if (translation_cov_presence.all) {
-        const double cxx =
-            get_double(row[column_indices.at(ColumnId::COV_TXX)]);
-        const double cxy =
-            get_double(row[column_indices.at(ColumnId::COV_TXY)]);
-        const double cxz =
-            get_double(row[column_indices.at(ColumnId::COV_TXZ)]);
-        const double cyy =
-            get_double(row[column_indices.at(ColumnId::COV_TYY)]);
-        const double cyz =
-            get_double(row[column_indices.at(ColumnId::COV_TYZ)]);
-        const double czz =
-            get_double(row[column_indices.at(ColumnId::COV_TZZ)]);
-        const bool any_finite = AnyFinite({cxx, cxy, cxz, cyy, cyz, czz});
-        const bool all_finite = AllFinite({cxx, cxy, cxz, cyy, cyz, czz});
-        THROW_CHECK(!any_finite || all_finite)
-            << "Partially populated COV group for " << name;
-        if (all_finite) {
-          prior.position_covariance << cxx, cxy, cxz, cxy, cyy, cyz, cxz, cyz,
-              czz;
-          THROW_CHECK(IsApproximatelyPSD(prior.position_covariance))
-              << "Position covariance for " << name
-              << " is not positive semi-definite";
-        }
-      }
-
-      if (!prior.HasPositionCov()) {
-        LOG(WARNING) << "Pose prior for " << name
-                     << " has no valid translation covariance data";
-      }
-    }
-
-    // Gravity (down, in sensor coordinates).
-    if (gravity_presence.all) {
-      const double gx = get_double(row[column_indices.at(ColumnId::GX)]);
-      const double gy = get_double(row[column_indices.at(ColumnId::GY)]);
-      const double gz = get_double(row[column_indices.at(ColumnId::GZ)]);
-      const bool any_finite = AnyFinite({gx, gy, gz});
-      const bool all_finite = AllFinite({gx, gy, gz});
-      THROW_CHECK(!any_finite || all_finite)
-          << "Partially populated gravity group for " << name;
-      if (all_finite) {
-        Eigen::Vector3d gravity(gx, gy, gz);
-        THROW_CHECK(NormalizeIfNearUnit(gravity))
-            << "Gravity vector for " << name
-            << " is zero-norm or not approximately unit-norm";
-        prior.gravity = gravity;
-      }
-    }
-
-    // Heading: a scalar, weighted, true-north yaw. Stored in radians on
-    // [0, 2*pi) with its own one-sigma uncertainty, and requires gravity on the
-    // same row -- a yaw is only meaningful once roll and pitch are pinned.
-    if (heading_presence.all) {
-      const double heading_deg =
-          get_double(row[column_indices.at(ColumnId::HEADING_DEG)]);
-      const double heading_std_deg =
-          get_double(row[column_indices.at(ColumnId::HEADING_STD_DEG)]);
-      const bool any_finite = AnyFinite({heading_deg, heading_std_deg});
-      const bool all_finite = AllFinite({heading_deg, heading_std_deg});
-      THROW_CHECK(!any_finite || all_finite)
-          << "Partially populated heading group for " << name
-          << ": HEADING_DEG and HEADING_STD_DEG are both required";
-      if (all_finite) {
-        THROW_CHECK(prior.HasGravity())
-            << "Heading for " << name
-            << " requires a gravity observation on the same row";
-        THROW_CHECK(heading_deg >= 0.0 && heading_deg < 360.0)
-            << "Heading for " << name << " must lie in [0, 360)";
-        THROW_CHECK(heading_std_deg > 0.0 && heading_std_deg <= 180.0)
-            << "Heading uncertainty for " << name << " must lie in (0, 180]";
-        constexpr double kDegToRad = PosePrior::kPi / 180.0;
-        prior.heading_rad = heading_deg * kDegToRad;
-        prior.heading_stddev_rad = heading_std_deg * kDegToRad;
-      }
-    }
-  }
+  return kColumns;
 }
+
+const std::vector<Column> kStdColumns = {
+    Column::STD_TX, Column::STD_TY, Column::STD_TZ};
+const std::vector<Column> kCovColumns = {Column::COV_TXX,
+                                         Column::COV_TXY,
+                                         Column::COV_TXZ,
+                                         Column::COV_TYY,
+                                         Column::COV_TYZ,
+                                         Column::COV_TZZ};
+const std::vector<Column> kGravityColumns = {
+    Column::GX, Column::GY, Column::GZ};
+const std::vector<Column> kHeadingColumns = {Column::HEADING_DEG,
+                                             Column::HEADING_STD_DEG};
+
+// Maps a schema column to its index in each data row.
+using ColumnIndex = std::map<Column, size_t>;
+
+// How a JSON `null` reaches us. Boost's property_tree has no null type: it
+// renders one as the literal text "null", and an empty JSON string as "".
+// Neither is a number, so for the numeric columns -- the only ones a group may
+// omit -- both unambiguously mean "no reading". Accepting both rather than
+// adding a second JSON dependency to tell them apart is deliberate; the
+// distinction does not exist for any value this schema can hold.
+bool IsNullCell(const std::string& cell) {
+  return cell.empty() || cell == "null";
+}
+
+double ParseNumericCell(const std::string& cell,
+                        const std::string& column_name,
+                        size_t row_index) {
+  THROW_CHECK(!IsNullCell(cell))
+      << "row " << row_index << ": column " << column_name
+      << " is null, but only the gravity and heading groups may be null";
+  try {
+    size_t consumed = 0;
+    const double value = std::stod(cell, &consumed);
+    THROW_CHECK_EQ(consumed, cell.size())
+        << "row " << row_index << ": column " << column_name
+        << " is not a number: `" << cell << "`";
+    return value;
+  } catch (const std::invalid_argument&) {
+    LOG(FATAL_THROW) << "row " << row_index << ": column " << column_name
+                     << " is not a number: `" << cell << "`";
+  } catch (const std::out_of_range&) {
+    LOG(FATAL_THROW) << "row " << row_index << ": column " << column_name
+                     << " is out of range for a double: `" << cell << "`";
+  }
+  return 0.0;
+}
+
+// Reads a JSON array of strings. Rejects a nested object or array, which
+// property_tree would otherwise silently present as an empty value.
+std::vector<std::string> ReadStringArray(
+    const boost::property_tree::ptree& node, const std::string& what) {
+  std::vector<std::string> values;
+  for (const auto& [key, child] : node) {
+    THROW_CHECK(key.empty()) << what << " must be a JSON array";
+    THROW_CHECK(child.empty())
+        << what << " must contain scalars, not nested objects or arrays";
+    values.push_back(child.get_value<std::string>());
+  }
+  return values;
+}
+
+// Requires a top-level string key to be present and exactly equal to the one
+// supported value. A single supported value is still validated rather than
+// assumed, so that an archive from a future producer that means something
+// different by it fails instead of being misread.
+void RequireExactString(const boost::property_tree::ptree& root,
+                        const std::string& key,
+                        const std::string& expected) {
+  const auto value = root.get_optional<std::string>(key);
+  THROW_CHECK(value.has_value()) << "archive is missing required key `" << key
+                                 << "` (expected \"" << expected << "\")";
+  THROW_CHECK_EQ(*value, expected)
+      << "archive key `" << key << "` must be \"" << expected << "\"";
+}
+
+void RequireAbsent(const std::set<std::string>& keys,
+                   const std::string& key,
+                   const std::string& because) {
+  THROW_CHECK(keys.count(key) == 0)
+      << "archive key `" << key << "` is only meaningful " << because
+      << "; remove it";
+}
+
+Eigen::Matrix3d CovarianceFromStd(const Eigen::Vector3d& stddev,
+                                  size_t row_index) {
+  for (int i = 0; i < 3; ++i) {
+    THROW_CHECK(std::isfinite(stddev[i]) && stddev[i] > 0.0)
+        << "row " << row_index
+        << ": every standard deviation must be finite and strictly positive, "
+           "got "
+        << stddev.transpose();
+  }
+  return stddev.cwiseProduct(stddev).asDiagonal();
+}
+
+Eigen::Matrix3d CovarianceFromUpperTriangle(double xx,
+                                            double xy,
+                                            double xz,
+                                            double yy,
+                                            double yz,
+                                            double zz,
+                                            size_t row_index) {
+  Eigen::Matrix3d cov;
+  // Symmetric by construction: only the upper triangle is stated, so an
+  // asymmetric input is not representable rather than silently averaged.
+  cov << xx, xy, xz, xy, yy, yz, xz, yz, zz;
+  THROW_CHECK(cov.allFinite())
+      << "row " << row_index << ": position covariance is not finite";
+
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(cov,
+                                                        Eigen::EigenvaluesOnly);
+  THROW_CHECK_EQ(solver.info(), Eigen::Success)
+      << "row " << row_index << ": position covariance eigendecomposition "
+                                "failed";
+  THROW_CHECK_GT(solver.eigenvalues().minCoeff(), 0.0)
+      << "row " << row_index
+      << ": position covariance must be strictly positive definite; its "
+         "smallest eigenvalue is "
+      << solver.eigenvalues().minCoeff()
+      << ". A zero, singular, or indefinite covariance states a direction of "
+         "perfect certainty, which weighted fitting reads as an infinite "
+         "weight.";
+  return cov;
+}
+
+}  // namespace
 
 std::vector<PosePrior> PosePriorArchive::ToPosePriors(
-    const data_id_resolver_t& data_id_from_name) const {
-  std::vector<PosePrior> pose_priors;
-  UpdatePosePriors(data_id_from_name, /*allow_new_priors=*/true, pose_priors);
-  return pose_priors;
+    const std::vector<data_t>& data_ids) const {
+  THROW_CHECK_EQ(data_ids.size(), rows.size())
+      << "ToPosePriors needs one resolved data id per archive row";
+
+  std::vector<PosePrior> priors;
+  priors.reserve(rows.size());
+  for (size_t i = 0; i < rows.size(); ++i) {
+    const Row& row = rows[i];
+    PosePrior prior;
+    prior.corr_data_id = data_ids[i];
+    prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+    prior.position = row.position_wgs84;
+    prior.position_covariance = row.position_covariance;
+    if (row.gravity.has_value()) {
+      prior.gravity = *row.gravity;
+    }
+    if (row.heading_rad.has_value()) {
+      prior.heading_rad = *row.heading_rad;
+      prior.heading_stddev_rad = *row.heading_stddev_rad;
+    }
+    priors.push_back(prior);
+  }
+  return priors;
 }
 
-bool PosePriorArchive::HasDuplicateResolvedNames(
-    const data_id_resolver_t& data_id_from_name) const {
-  FlatHashMap<ColumnId, size_t> column_indices;
-  for (size_t i = 0; i < schema.columns.size(); ++i) {
-    column_indices[schema.columns[i]] = i;
+PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path) {
+  boost::property_tree::ptree root;
+  try {
+    boost::property_tree::read_json(path.string(), root);
+  } catch (const boost::property_tree::json_parser_error& error) {
+    LOG(FATAL_THROW) << "Failed to parse pose prior archive `" << path.string()
+                     << "`: " << error.what();
   }
-  const auto it = column_indices.find(ColumnId::NAME);
-  if (it == column_indices.end()) {
-    return false;
-  }
-  const size_t name_index = it->second;
 
-  FlatHashSet<data_t> seen;
-  for (const auto& row : data) {
-    if (name_index >= row.size()) {
-      continue;
-    }
-    const std::string& name = std::get<std::string>(row[name_index]);
-    const auto data_id = data_id_from_name(name);
-    if (!data_id) {
-      continue;
-    }
-    if (!seen.insert(*data_id).second) {
-      return true;
-    }
-  }
-  return false;
-}
+  // ---- Schema columns -----------------------------------------------------
+  const auto schema_node = root.get_child_optional("schema");
+  THROW_CHECK(schema_node.has_value()) << "archive is missing `schema`";
+  const std::vector<std::string> schema_names =
+      ReadStringArray(*schema_node, "`schema`");
+  THROW_CHECK(!schema_names.empty()) << "`schema` must not be empty";
 
-std::vector<std::optional<data_t>> PosePriorArchive::ResolveRowDataIds(
-    const data_id_resolver_t& data_id_from_name) const {
-  std::vector<std::optional<data_t>> resolved;
-  resolved.reserve(data.size());
-
-  FlatHashMap<ColumnId, size_t> column_indices;
-  for (size_t i = 0; i < schema.columns.size(); ++i) {
-    column_indices[schema.columns[i]] = i;
+  ColumnIndex column_index;
+  for (size_t i = 0; i < schema_names.size(); ++i) {
+    const auto it = ColumnsByName().find(schema_names[i]);
+    THROW_CHECK(it != ColumnsByName().end())
+        << "`schema` column " << i << " is `" << schema_names[i]
+        << "`, which this build does not recognize";
+    const auto [_, inserted] = column_index.emplace(it->second, i);
+    THROW_CHECK(inserted) << "`schema` names column `" << schema_names[i]
+                          << "` more than once";
   }
-  const auto it = column_indices.find(ColumnId::NAME);
-  if (it == column_indices.end()) {
-    resolved.resize(data.size());
-    return resolved;
-  }
-  const size_t name_index = it->second;
 
-  for (const auto& row : data) {
-    if (name_index >= row.size()) {
-      resolved.emplace_back();
-      continue;
+  const auto has_all = [&](const std::vector<Column>& columns) {
+    return std::all_of(columns.begin(), columns.end(), [&](Column column) {
+      return column_index.count(column) > 0;
+    });
+  };
+  const auto has_any = [&](const std::vector<Column>& columns) {
+    return std::any_of(columns.begin(), columns.end(), [&](Column column) {
+      return column_index.count(column) > 0;
+    });
+  };
+  const auto require_whole_group = [&](const std::vector<Column>& columns,
+                                       const std::string& group) {
+    THROW_CHECK(!has_any(columns) || has_all(columns))
+        << "the " << group
+        << " column group is partially present in `schema`; it must be "
+           "wholly present or wholly absent";
+  };
+
+  for (const Column required : {Column::NAME, Column::LAT, Column::LON,
+                                Column::ALT}) {
+    THROW_CHECK(column_index.count(required) > 0)
+        << "`schema` must contain NAME, LAT, LON and ALT";
+  }
+
+  require_whole_group(kStdColumns, "STD_T*");
+  require_whole_group(kCovColumns, "COV_T*");
+  require_whole_group(kGravityColumns, "gravity (GX/GY/GZ)");
+  require_whole_group(kHeadingColumns,
+                      "heading (HEADING_DEG/HEADING_STD_DEG)");
+
+  const bool has_std = has_all(kStdColumns);
+  const bool has_cov = has_all(kCovColumns);
+  THROW_CHECK(has_std != has_cov)
+      << "`schema` must state position uncertainty exactly once, as either "
+         "STD_TX/STD_TY/STD_TZ or the six COV_T* columns";
+
+  const bool has_gravity = has_all(kGravityColumns);
+  const bool has_heading = has_all(kHeadingColumns);
+  THROW_CHECK(!has_heading || has_gravity)
+      << "the heading group requires the gravity group: a heading is an "
+         "azimuth in the horizontal plane that the measured camera-frame down "
+         "vector establishes";
+
+  // ---- Metadata -----------------------------------------------------------
+  std::set<std::string> present_keys;
+  for (const auto& [key, child] : root) {
+    THROW_CHECK(!key.empty()) << "archive must be a JSON object";
+    const auto [_, inserted] = present_keys.insert(key);
+    THROW_CHECK(inserted) << "archive names key `" << key << "` more than once";
+  }
+
+  const auto schema_version = root.get_optional<int>("schema_version");
+  THROW_CHECK(schema_version.has_value())
+      << "archive is missing `schema_version`";
+  THROW_CHECK_EQ(*schema_version, PosePriorArchive::kSchemaVersion)
+      << "this build reads pose prior archive schema_version "
+      << PosePriorArchive::kSchemaVersion << " only";
+
+  RequireExactString(root, "coordinate_system", "WGS84");
+  RequireExactString(root, "sensor_type", "CAMERA");
+  RequireExactString(root, "ellipsoid", "WGS84");
+  RequireExactString(root, "height_datum", "ELLIPSOIDAL");
+  RequireExactString(root, "position_covariance_frame", "LOCAL_ENU");
+
+  std::set<std::string> allowed_keys = {"schema_version",
+                                        "coordinate_system",
+                                        "sensor_type",
+                                        "ellipsoid",
+                                        "height_datum",
+                                        "position_covariance_frame",
+                                        "schema",
+                                        "data"};
+  if (has_gravity) {
+    RequireExactString(root, "gravity_frame", "CAMERA");
+    RequireExactString(root, "gravity_direction", "DOWN");
+    allowed_keys.insert("gravity_frame");
+    allowed_keys.insert("gravity_direction");
+  } else {
+    RequireAbsent(present_keys, "gravity_frame", "with a gravity column group");
+    RequireAbsent(
+        present_keys, "gravity_direction", "with a gravity column group");
+  }
+  if (has_heading) {
+    RequireExactString(root, "heading_reference", "TRUE_NORTH");
+    RequireExactString(
+        root, "heading_axis", "CAMERA_FORWARD_PROJECTED_HORIZONTAL");
+    RequireExactString(root, "heading_rotation", "CLOCKWISE_FROM_NORTH");
+    allowed_keys.insert("heading_reference");
+    allowed_keys.insert("heading_axis");
+    allowed_keys.insert("heading_rotation");
+  } else {
+    RequireAbsent(
+        present_keys, "heading_reference", "with a heading column group");
+    RequireAbsent(present_keys, "heading_axis", "with a heading column group");
+    RequireAbsent(
+        present_keys, "heading_rotation", "with a heading column group");
+  }
+
+  for (const std::string& key : present_keys) {
+    THROW_CHECK(allowed_keys.count(key) > 0)
+        << "archive contains unknown key `" << key << "`";
+  }
+
+  // ---- Rows ---------------------------------------------------------------
+  const auto data_node = root.get_child_optional("data");
+  THROW_CHECK(data_node.has_value()) << "archive is missing `data`";
+
+  PosePriorArchive archive;
+  archive.schema_has_gravity = has_gravity;
+  archive.schema_has_heading = has_heading;
+
+  std::set<std::string> seen_names;
+  size_t row_index = 0;
+  for (const auto& [key, row_node] : *data_node) {
+    THROW_CHECK(key.empty()) << "`data` must be a JSON array of rows";
+    const std::vector<std::string> cells =
+        ReadStringArray(row_node, StringPrintf("`data` row %zu", row_index));
+    THROW_CHECK_EQ(cells.size(), schema_names.size())
+        << "row " << row_index << " has " << cells.size() << " cells but the "
+        << "schema declares " << schema_names.size() << " columns";
+
+    const auto cell_of = [&](Column column) -> const std::string& {
+      return cells[column_index.at(column)];
+    };
+    const auto number_of = [&](Column column,
+                               const std::string& column_name) -> double {
+      return ParseNumericCell(cell_of(column), column_name, row_index);
+    };
+
+    PosePriorArchive::Row row;
+
+    row.name = cell_of(Column::NAME);
+    THROW_CHECK(!row.name.empty())
+        << "row " << row_index << " has an empty NAME";
+    THROW_CHECK(seen_names.insert(row.name).second)
+        << "archive names image `" << row.name
+        << "` more than once; which row wins would be arbitrary";
+
+    const double lat = number_of(Column::LAT, "LAT");
+    const double lon = number_of(Column::LON, "LON");
+    const double alt = number_of(Column::ALT, "ALT");
+    THROW_CHECK(std::isfinite(lat) && std::isfinite(lon) &&
+                std::isfinite(alt))
+        << "row " << row_index << " (" << row.name
+        << "): LAT/LON/ALT must all be finite";
+    THROW_CHECK(lat >= -90.0 && lat <= 90.0)
+        << "row " << row_index << " (" << row.name << "): LAT " << lat
+        << " is outside [-90, 90]";
+    THROW_CHECK(lon >= -180.0 && lon <= 180.0)
+        << "row " << row_index << " (" << row.name << "): LON " << lon
+        << " is outside [-180, 180]";
+    // A geographically distant but otherwise valid row is not rejected here.
+    // Whether it is an outlier is a question about the capture, which robust
+    // fitting answers with the other rows in hand; the parser only knows
+    // whether the row is well-formed.
+    row.position_wgs84 = Eigen::Vector3d(lat, lon, alt);
+
+    if (has_std) {
+      const Eigen::Vector3d stddev(number_of(Column::STD_TX, "STD_TX"),
+                                   number_of(Column::STD_TY, "STD_TY"),
+                                   number_of(Column::STD_TZ, "STD_TZ"));
+      row.position_covariance = CovarianceFromStd(stddev, row_index);
+    } else {
+      row.position_covariance =
+          CovarianceFromUpperTriangle(number_of(Column::COV_TXX, "COV_TXX"),
+                                      number_of(Column::COV_TXY, "COV_TXY"),
+                                      number_of(Column::COV_TXZ, "COV_TXZ"),
+                                      number_of(Column::COV_TYY, "COV_TYY"),
+                                      number_of(Column::COV_TYZ, "COV_TYZ"),
+                                      number_of(Column::COV_TZZ, "COV_TZZ"),
+                                      row_index);
     }
-    const std::string& name = std::get<std::string>(row[name_index]);
-    resolved.push_back(data_id_from_name(name));
+
+    bool row_has_gravity = false;
+    if (has_gravity) {
+      const size_t num_null =
+          static_cast<size_t>(IsNullCell(cell_of(Column::GX))) +
+          static_cast<size_t>(IsNullCell(cell_of(Column::GY))) +
+          static_cast<size_t>(IsNullCell(cell_of(Column::GZ)));
+      THROW_CHECK(num_null == 0 || num_null == 3)
+          << "row " << row_index << " (" << row.name
+          << "): GX/GY/GZ must be all present or all null";
+      if (num_null == 0) {
+        Eigen::Vector3d gravity(number_of(Column::GX, "GX"),
+                                number_of(Column::GY, "GY"),
+                                number_of(Column::GZ, "GZ"));
+        THROW_CHECK(gravity.allFinite())
+            << "row " << row_index << " (" << row.name
+            << "): gravity is not finite";
+        const double norm = gravity.norm();
+        THROW_CHECK(norm > 0.0 &&
+                    std::abs(norm - 1.0) <= kGravityUnitNormTolerance)
+            << "row " << row_index << " (" << row.name
+            << "): gravity must be a unit direction, got norm " << norm
+            << ". This column carries a normalized device-fused down "
+               "direction, not an acceleration in m/s^2.";
+        row.gravity = (gravity / norm).eval();
+        row_has_gravity = true;
+      }
+    }
+
+    if (has_heading) {
+      const size_t num_null =
+          static_cast<size_t>(IsNullCell(cell_of(Column::HEADING_DEG))) +
+          static_cast<size_t>(IsNullCell(cell_of(Column::HEADING_STD_DEG)));
+      THROW_CHECK(num_null == 0 || num_null == 2)
+          << "row " << row_index << " (" << row.name
+          << "): HEADING_DEG/HEADING_STD_DEG must be both present or both "
+             "null";
+      if (num_null == 0) {
+        THROW_CHECK(row_has_gravity)
+            << "row " << row_index << " (" << row.name
+            << "): a heading requires a gravity reading on the same row, "
+               "which establishes the horizontal plane the azimuth is "
+               "measured in";
+        const double heading_deg = number_of(Column::HEADING_DEG,
+                                             "HEADING_DEG");
+        const double heading_stddev_deg =
+            number_of(Column::HEADING_STD_DEG, "HEADING_STD_DEG");
+        THROW_CHECK(heading_deg >= 0.0 && heading_deg < 360.0)
+            << "row " << row_index << " (" << row.name << "): HEADING_DEG "
+            << heading_deg << " is outside [0, 360)";
+        THROW_CHECK(heading_stddev_deg > 0.0 && heading_stddev_deg <= 180.0)
+            << "row " << row_index << " (" << row.name
+            << "): HEADING_STD_DEG " << heading_stddev_deg
+            << " is outside (0, 180]. Every heading row states its own "
+               "uncertainty; there is no global fallback.";
+        row.heading_rad = heading_deg * kPi / 180.0;
+        row.heading_stddev_rad = heading_stddev_deg * kPi / 180.0;
+      }
+    }
+
+    archive.rows.push_back(std::move(row));
+    ++row_index;
   }
-  return resolved;
+
+  THROW_CHECK(!archive.rows.empty())
+      << "archive `data` contains no rows; there is nothing to import";
+  return archive;
 }
 
 }  // namespace colmap

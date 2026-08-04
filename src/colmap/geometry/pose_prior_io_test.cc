@@ -32,6 +32,7 @@
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
+#include <cmath>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -41,6 +42,10 @@
 namespace colmap {
 namespace {
 
+// M_PI is not standard C++ and needs _USE_MATH_DEFINES before <cmath> on
+// MSVC, which is a compile break waiting to happen in a header-order change.
+constexpr double kPi = 3.14159265358979323846;
+
 std::filesystem::path WriteTestJSON(const std::string& content) {
   const auto path = CreateTestDir() / "test.json";
   std::ofstream file(path);
@@ -49,623 +54,748 @@ std::filesystem::path WriteTestJSON(const std::string& content) {
   return path;
 }
 
-TEST(PosePriorArchive, EmptySchema) {
-  PosePriorArchive archive;
-  archive.metadata.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-  EXPECT_FALSE(archive.IsValid());
+PosePriorArchive ReadJSON(const std::string& content) {
+  return ReadPosePriorArchive(WriteTestJSON(content));
 }
 
-TEST(PosePriorArchive, NumColumnsAndRows) {
-  PosePriorArchive archive;
-  archive.metadata.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-  archive.schema.columns = {PosePriorArchive::ColumnId::NAME,
-                            PosePriorArchive::ColumnId::LAT,
-                            PosePriorArchive::ColumnId::LON,
-                            PosePriorArchive::ColumnId::ALT};
-  archive.data = {
-      {std::string("img001.jpg"), 47.0, 8.0, 500.0},
-      {std::string("img002.jpg"), 48.0, 9.0, 600.0},
-  };
-  EXPECT_EQ(archive.NumColumns(), 4);
-  EXPECT_EQ(archive.NumRows(), 2);
+// A well-formed archive with position and standard deviations only. Tests that
+// probe one rule build on this so the rule under test is the only thing that
+// differs from a known-good file.
+constexpr const char* kMinimalArchive = R"({
+  "schema_version": 1,
+  "coordinate_system": "WGS84",
+  "sensor_type": "CAMERA",
+  "ellipsoid": "WGS84",
+  "height_datum": "ELLIPSOIDAL",
+  "position_covariance_frame": "LOCAL_ENU",
+  "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+  "data": [
+    ["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0],
+    ["b.jpg", 45.001, -73.001, 41.0, 2.0, 2.0, 4.0]
+  ]
+})";
+
+// Adds the gravity group in both schema and metadata.
+constexpr const char* kGravityArchive = R"({
+  "schema_version": 1,
+  "coordinate_system": "WGS84",
+  "sensor_type": "CAMERA",
+  "ellipsoid": "WGS84",
+  "height_datum": "ELLIPSOIDAL",
+  "position_covariance_frame": "LOCAL_ENU",
+  "gravity_frame": "CAMERA",
+  "gravity_direction": "DOWN",
+  "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+             "GX", "GY", "GZ"],
+  "data": [
+    ["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.0, 0.0],
+    ["b.jpg", 45.001, -73.001, 41.0, 2.0, 2.0, 4.0, null, null, null]
+  ]
+})";
+
+constexpr const char* kHeadingArchive = R"({
+  "schema_version": 1,
+  "coordinate_system": "WGS84",
+  "sensor_type": "CAMERA",
+  "ellipsoid": "WGS84",
+  "height_datum": "ELLIPSOIDAL",
+  "position_covariance_frame": "LOCAL_ENU",
+  "gravity_frame": "CAMERA",
+  "gravity_direction": "DOWN",
+  "heading_reference": "TRUE_NORTH",
+  "heading_axis": "CAMERA_FORWARD_PROJECTED_HORIZONTAL",
+  "heading_rotation": "CLOCKWISE_FROM_NORTH",
+  "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+             "GX", "GY", "GZ", "HEADING_DEG", "HEADING_STD_DEG"],
+  "data": [
+    ["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.0, 0.0, 90.0, 5.0],
+    ["b.jpg", 45.001, -73.001, 41.0, 2.0, 2.0, 4.0, 0.0, 1.0, 0.0, null, null]
+  ]
+})";
+
+////////////////////////////////////////////////////////////////////////////
+// Accepting a valid archive
+////////////////////////////////////////////////////////////////////////////
+
+TEST(PosePriorArchive, ReadsPositionAndStandardDeviations) {
+  const PosePriorArchive archive = ReadJSON(kMinimalArchive);
+  ASSERT_EQ(archive.rows.size(), 2u);
+  EXPECT_FALSE(archive.schema_has_gravity);
+  EXPECT_FALSE(archive.schema_has_heading);
+
+  EXPECT_EQ(archive.rows[0].name, "a.jpg");
+  EXPECT_THAT(archive.rows[0].position_wgs84,
+              EigenMatrixNear(Eigen::Vector3d(45.0, -73.0, 40.0), 1e-12));
+  // Standard deviations become a diagonal covariance of their squares.
+  EXPECT_THAT(
+      archive.rows[0].position_covariance,
+      EigenMatrixNear(
+          Eigen::Matrix3d(Eigen::Vector3d(4.0, 4.0, 16.0).asDiagonal()),
+          1e-12));
+  EXPECT_FALSE(archive.rows[0].gravity.has_value());
+  EXPECT_FALSE(archive.rows[0].heading_rad.has_value());
 }
 
-TEST(PosePriorArchive, MetadataIsValid) {
-  PosePriorArchive::Metadata metadata;
-  EXPECT_FALSE(metadata.IsValid());
-
-  metadata.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-  EXPECT_FALSE(metadata.IsValid());  // Missing required ellipsoid.
-
-  metadata.ellipsoid = GPSTransform::Ellipsoid::WGS84;
-  EXPECT_TRUE(metadata.IsValid());
-
-  metadata.cartesian_frame = PosePriorArchive::CartesianFrame::ENU;
-  EXPECT_FALSE(metadata.IsValid());
-
-  metadata = {};
-  metadata.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  EXPECT_TRUE(metadata.IsValid());
-
-  metadata.cartesian_frame = PosePriorArchive::CartesianFrame::ENU;
-  EXPECT_FALSE(metadata.IsValid());
-
-  metadata.enu_origin = Eigen::Vector3d::Zero();
-  EXPECT_TRUE(metadata.IsValid());
-
-  metadata.sensor_type = SensorType::INVALID;
-  EXPECT_FALSE(metadata.IsValid());
-
-  metadata.sensor_type = SensorType::CAMERA;
-  metadata.height_datum = "WRONG_DATUM";
-  EXPECT_FALSE(metadata.IsValid());
-  metadata.height_datum = "ELLIPSOIDAL";
-  EXPECT_TRUE(metadata.IsValid());
-}
-
-TEST(PosePriorArchive, SchemaIsValid) {
-  PosePriorArchive::Metadata metadata;
-  metadata.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-  metadata.ellipsoid = GPSTransform::Ellipsoid::WGS84;
-  metadata.height_datum = "ELLIPSOIDAL";
-
-  EXPECT_FALSE(PosePriorArchive::Schema{}.IsValid(metadata));
-
-  PosePriorArchive::Schema schema;
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::LAT,
-                    PosePriorArchive::ColumnId::LON,
-                    PosePriorArchive::ColumnId::ALT};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::LAT,
-                    PosePriorArchive::ColumnId::LON};
-  EXPECT_FALSE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::LAT,
-                    PosePriorArchive::ColumnId::LON,
-                    PosePriorArchive::ColumnId::ALT,
-                    PosePriorArchive::ColumnId::TX};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  metadata.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  metadata.position_covariance_frame = "CARTESIAN";
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY,
-                    PosePriorArchive::ColumnId::TZ};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY};
-  EXPECT_FALSE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY,
-                    PosePriorArchive::ColumnId::TZ,
-                    PosePriorArchive::ColumnId::LAT};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY,
-                    PosePriorArchive::ColumnId::TZ,
-                    PosePriorArchive::ColumnId::STD_TX,
-                    PosePriorArchive::ColumnId::STD_TY};
-  EXPECT_FALSE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY,
-                    PosePriorArchive::ColumnId::TZ,
-                    PosePriorArchive::ColumnId::COV_TXX,
-                    PosePriorArchive::ColumnId::COV_TXY};
-  EXPECT_FALSE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY,
-                    PosePriorArchive::ColumnId::TZ,
-                    PosePriorArchive::ColumnId::STD_TX,
-                    PosePriorArchive::ColumnId::STD_TY,
-                    PosePriorArchive::ColumnId::STD_TZ,
-                    PosePriorArchive::ColumnId::COV_TXX,
-                    PosePriorArchive::ColumnId::COV_TXY,
-                    PosePriorArchive::ColumnId::COV_TXZ,
-                    PosePriorArchive::ColumnId::COV_TYY,
-                    PosePriorArchive::ColumnId::COV_TYZ,
-                    PosePriorArchive::ColumnId::COV_TZZ};
-  EXPECT_FALSE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY,
-                    PosePriorArchive::ColumnId::TZ,
-                    PosePriorArchive::ColumnId::STD_TX,
-                    PosePriorArchive::ColumnId::STD_TY,
-                    PosePriorArchive::ColumnId::STD_TZ};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::TX,
-                    PosePriorArchive::ColumnId::TY,
-                    PosePriorArchive::ColumnId::TZ,
-                    PosePriorArchive::ColumnId::COV_TXX,
-                    PosePriorArchive::ColumnId::COV_TXY,
-                    PosePriorArchive::ColumnId::COV_TXZ,
-                    PosePriorArchive::ColumnId::COV_TYY,
-                    PosePriorArchive::ColumnId::COV_TYZ,
-                    PosePriorArchive::ColumnId::COV_TZZ};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  metadata.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-  schema.columns = {PosePriorArchive::ColumnId::NAME};
-  EXPECT_TRUE(schema.IsValid(metadata));
-
-  metadata.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  schema.columns = {PosePriorArchive::ColumnId::NAME,
-                    PosePriorArchive::ColumnId::STD_TX,
-                    PosePriorArchive::ColumnId::STD_TY,
-                    PosePriorArchive::ColumnId::STD_TZ};
-  EXPECT_TRUE(schema.IsValid(metadata));
-}
-
-TEST(PosePriorArchive, IsValid) {
-  PosePriorArchive archive;
-  EXPECT_FALSE(archive.IsValid());
-
-  archive.metadata.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-  EXPECT_FALSE(archive.IsValid());
-
-  archive.metadata.ellipsoid = GPSTransform::Ellipsoid::WGS84;
-  archive.metadata.height_datum = "ELLIPSOIDAL";
-  archive.schema.columns = {PosePriorArchive::ColumnId::NAME,
-                            PosePriorArchive::ColumnId::LAT,
-                            PosePriorArchive::ColumnId::LON,
-                            PosePriorArchive::ColumnId::ALT};
-  EXPECT_TRUE(archive.IsValid());
-
-  archive.metadata.sensor_type = SensorType::INVALID;
-  EXPECT_FALSE(archive.IsValid());
-
-  archive.metadata.sensor_type = SensorType::CAMERA;
-  archive.schema.columns = {PosePriorArchive::ColumnId::NAME,
-                            PosePriorArchive::ColumnId::NAME};
-  EXPECT_FALSE(archive.IsValid());
-}
-
-TEST(PosePriorArchive, ReadPosePriorArchive_WGS84) {
-  const auto path = WriteTestJSON(R"({
+TEST(PosePriorArchive, ReadsFullCovariance) {
+  const PosePriorArchive archive = ReadJSON(R"({
+    "schema_version": 1,
     "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT",
+               "COV_TXX", "COV_TXY", "COV_TXZ",
+               "COV_TYY", "COV_TYZ", "COV_TZZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 4.0, 1.0, 0.5, 9.0, 2.0, 16.0]]
+  })");
+  ASSERT_EQ(archive.rows.size(), 1u);
+  Eigen::Matrix3d expected;
+  expected << 4.0, 1.0, 0.5, 1.0, 9.0, 2.0, 0.5, 2.0, 16.0;
+  EXPECT_THAT(archive.rows[0].position_covariance,
+              EigenMatrixNear(expected, 1e-12));
+}
+
+TEST(PosePriorArchive, ColumnOrderIsFree) {
+  const PosePriorArchive archive = ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["STD_TZ", "ALT", "NAME", "LON", "STD_TX", "LAT", "STD_TY"],
+    "data": [[4.0, 40.0, "a.jpg", -73.0, 2.0, 45.0, 2.0]]
+  })");
+  ASSERT_EQ(archive.rows.size(), 1u);
+  EXPECT_EQ(archive.rows[0].name, "a.jpg");
+  EXPECT_THAT(archive.rows[0].position_wgs84,
+              EigenMatrixNear(Eigen::Vector3d(45.0, -73.0, 40.0), 1e-12));
+  EXPECT_THAT(
+      archive.rows[0].position_covariance,
+      EigenMatrixNear(
+          Eigen::Matrix3d(Eigen::Vector3d(4.0, 4.0, 16.0).asDiagonal()),
+          1e-12));
+}
+
+TEST(PosePriorArchive, ReadsAndNormalizesGravity) {
+  const PosePriorArchive archive = ReadJSON(kGravityArchive);
+  ASSERT_EQ(archive.rows.size(), 2u);
+  EXPECT_TRUE(archive.schema_has_gravity);
+  ASSERT_TRUE(archive.rows[0].gravity.has_value());
+  EXPECT_THAT(*archive.rows[0].gravity,
+              EigenMatrixNear(Eigen::Vector3d(0.0, 1.0, 0.0), 1e-12));
+  // A whole-group null is how a row says it has no reading.
+  EXPECT_FALSE(archive.rows[1].gravity.has_value());
+}
+
+TEST(PosePriorArchive, NormalizesGravityWithinTolerance) {
+  const PosePriorArchive archive = ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.005, 0.0]]
+  })");
+  ASSERT_TRUE(archive.rows[0].gravity.has_value());
+  EXPECT_NEAR(archive.rows[0].gravity->norm(), 1.0, 1e-12);
+}
+
+TEST(PosePriorArchive, ReadsHeadingInRadians) {
+  const PosePriorArchive archive = ReadJSON(kHeadingArchive);
+  ASSERT_EQ(archive.rows.size(), 2u);
+  EXPECT_TRUE(archive.schema_has_heading);
+  ASSERT_TRUE(archive.rows[0].heading_rad.has_value());
+  EXPECT_NEAR(*archive.rows[0].heading_rad, 0.5 * kPi, 1e-12);
+  EXPECT_NEAR(*archive.rows[0].heading_stddev_rad, 5.0 * kPi / 180.0, 1e-12);
+  EXPECT_FALSE(archive.rows[1].heading_rad.has_value());
+  // The gravity that heading depends on is still read for that row.
+  EXPECT_TRUE(archive.rows[1].gravity.has_value());
+}
+
+TEST(PosePriorArchive, KeepsAGeographicallyDistantRow) {
+  // A row on another continent is well-formed. Whether it belongs to this
+  // capture is a question about the capture, which robust fitting answers --
+  // dropping it here would hide a real GPS fault behind a clean import.
+  const PosePriorArchive archive = ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [
+      ["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0],
+      ["b.jpg", -33.9, 151.2, 40.0, 2.0, 2.0, 4.0]
+    ]
+  })");
+  EXPECT_EQ(archive.rows.size(), 2u);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Metadata is fail-closed
+////////////////////////////////////////////////////////////////////////////
+
+TEST(PosePriorArchive, RejectsUnsupportedSchemaVersion) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 2,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsMissingSchemaVersion) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsMissingHeightDatum) {
+  // An ellipsoidal height and an orthometric one differ by tens of metres.
+  // Assuming one would put the whole scene at the wrong altitude, silently.
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsWrongHeightDatumValue) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ORTHOMETRIC",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsNonWGS84CoordinateSystem) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "CARTESIAN",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsUnknownTopLevelKey) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
     "translation_convention": "WORLD_FROM_CAM",
-    "ellipsoid": "WGS84",
-    "height_datum": "ELLIPSOIDAL",
-    "schema": ["NAME", "LAT", "LON", "ALT"],
-    "data": [
-      ["img001.jpg", 47.3769, 8.5417, 500.0],
-      ["img002.jpg", 47.3770, 8.5418, 501.0]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path);
-
-  EXPECT_EQ(archive.metadata.coordinate_system,
-            PosePrior::CoordinateSystem::WGS84);
-  EXPECT_EQ(archive.metadata.translation_convention,
-            PosePriorArchive::PoseConvention::WORLD_FROM_CAM);
-  ASSERT_EQ(archive.schema.columns.size(), 4);
-  ASSERT_EQ(archive.data.size(), 2);
-  EXPECT_EQ(std::get<std::string>(archive.data[0][0]), "img001.jpg");
-  EXPECT_DOUBLE_EQ(std::get<double>(archive.data[0][1]), 47.3769);
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
 }
 
-TEST(PosePriorArchive, ReadPosePriorArchive_WithENUMetadata) {
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "cartesian_frame": "ENU",
-    "ellipsoid": "WGS84",
-    "enu_origin": [47.0, 8.0, 500.0],
-    "schema": ["NAME", "TX", "TY", "TZ"],
-    "data": [
-      ["img001.jpg", 1.0, 2.0, 3.0]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path);
-
-  EXPECT_EQ(archive.metadata.coordinate_system,
-            PosePrior::CoordinateSystem::CARTESIAN);
-  ASSERT_TRUE(archive.metadata.cartesian_frame.has_value());
-  EXPECT_EQ(*archive.metadata.cartesian_frame,
-            PosePriorArchive::CartesianFrame::ENU);
-  ASSERT_TRUE(archive.metadata.ellipsoid.has_value());
-  EXPECT_EQ(*archive.metadata.ellipsoid, GPSTransform::Ellipsoid::WGS84);
-  EXPECT_DOUBLE_EQ(archive.metadata.enu_origin->x(), 47.0);
-}
-
-TEST(PosePriorArchive, ReadPosePriorArchive_UnknownColumnFailsByDefault) {
-  // A typo'd column name must fail strictly by default -- forward
-  // compatibility with an unrecognized column is opt-in, not automatic.
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "schema": ["NAME", "TX", "TY", "TZ", "LATT"],
-    "data": [
-      ["img001.jpg", 1.0, 2.0, 3.0, 9.0]
-    ]
-  })");
-  EXPECT_THROW(ReadPosePriorArchive(path), std::exception);
-}
-
-TEST(PosePriorArchive,
-     ReadPosePriorArchive_UnknownColumnErrorNamesColumnAndIndex) {
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "schema": ["NAME", "TX", "TY", "TZ", "LATT"],
-    "data": [
-      ["img001.jpg", 1.0, 2.0, 3.0, 9.0]
-    ]
-  })");
-  try {
-    ReadPosePriorArchive(path);
-    FAIL() << "Expected ReadPosePriorArchive to throw";
-  } catch (const std::exception& e) {
-    const std::string message = e.what();
-    EXPECT_NE(message.find("LATT"), std::string::npos);
-    EXPECT_NE(message.find("4"), std::string::npos);
-  }
-}
-
-TEST(PosePriorArchive,
-     ReadPosePriorArchive_IgnorePolicyImportsRecognizedFields) {
-  PosePriorArchiveReadOptions options;
-  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "position_covariance_frame": "CARTESIAN",
-    "schema": ["NAME", "TX", "TY", "TZ", "STD_TX", "STD_TY", "STD_TZ", "SOME_UNKNOWN_FIELD"],
-    "data": [
-      ["img001.jpg", 1.0, 2.0, 3.0, 0.1, 0.2, 0.3, "vendor-specific"]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path, options);
-  ASSERT_EQ(archive.schema.columns.size(), 8);
-  EXPECT_EQ(archive.schema.columns.back(), PosePriorArchive::ColumnId::UNKNOWN);
-
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
-  const auto priors = archive.ToPosePriors(resolve);
-  ASSERT_EQ(priors.size(), 1);
-  EXPECT_TRUE(priors[0].HasPosition());
-  EXPECT_DOUBLE_EQ(priors[0].position.x(), 1.0);
-  EXPECT_TRUE(priors[0].HasPositionCov());
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(0, 0), 0.01);
-}
-
-TEST(PosePriorArchive,
-     ReadPosePriorArchive_IgnoredColumnsPreserveRowAlignment) {
-  // Ignored columns at the beginning, middle, and end must not shift
-  // adjacent recognized columns' cells onto the wrong field.
-  PosePriorArchiveReadOptions options;
-  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "schema": ["LEADING_UNKNOWN", "NAME", "TX", "MIDDLE_UNKNOWN", "TY", "TZ", "TRAILING_UNKNOWN"],
-    "data": [
-      ["lead", "img001.jpg", 1.0, "mid", 2.0, 3.0, "trail"]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path, options);
-  ASSERT_EQ(archive.schema.columns.size(), 7);
-  EXPECT_EQ(archive.schema.columns[0], PosePriorArchive::ColumnId::UNKNOWN);
-  EXPECT_EQ(archive.schema.columns[1], PosePriorArchive::ColumnId::NAME);
-  EXPECT_EQ(archive.schema.columns[2], PosePriorArchive::ColumnId::TX);
-  EXPECT_EQ(archive.schema.columns[3], PosePriorArchive::ColumnId::UNKNOWN);
-  EXPECT_EQ(archive.schema.columns[4], PosePriorArchive::ColumnId::TY);
-  EXPECT_EQ(archive.schema.columns[5], PosePriorArchive::ColumnId::TZ);
-  EXPECT_EQ(archive.schema.columns[6], PosePriorArchive::ColumnId::UNKNOWN);
-
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
-  const auto priors = archive.ToPosePriors(resolve);
-  ASSERT_EQ(priors.size(), 1);
-  EXPECT_DOUBLE_EQ(priors[0].position.x(), 1.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.y(), 2.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.z(), 3.0);
-}
-
-TEST(PosePriorArchive, ReadPosePriorArchive_MultipleIgnoredColumns) {
-  PosePriorArchiveReadOptions options;
-  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "schema": ["NAME", "VENDOR_A", "TX", "TY", "TZ", "VENDOR_B", "VENDOR_C"],
-    "data": [
-      ["img001.jpg", "a", 1.0, 2.0, 3.0, "b", "c"]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path, options);
-  ASSERT_EQ(archive.schema.columns.size(), 7);
-  int num_unknown = 0;
-  for (const auto column : archive.schema.columns) {
-    if (column == PosePriorArchive::ColumnId::UNKNOWN) {
-      ++num_unknown;
-    }
-  }
-  EXPECT_EQ(num_unknown, 3);
-
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
-  const auto priors = archive.ToPosePriors(resolve);
-  ASSERT_EQ(priors.size(), 1);
-  EXPECT_TRUE(priors[0].HasPosition());
-}
-
-TEST(PosePriorArchive,
-     ReadPosePriorArchive_IgnorePolicyDoesNotHideIncompleteRecognizedGroup) {
-  // Ignore mode must not mask an otherwise-invalid schema: TX/TY without TZ
-  // is still an incomplete Cartesian-position group and must still fail
-  // validation, regardless of the unrelated ignored column.
-  PosePriorArchiveReadOptions options;
-  options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "schema": ["NAME", "TX", "TY", "VENDOR_FIELD"],
-    "data": [
-      ["img001.jpg", 1.0, 2.0, "x"]
-    ]
-  })");
-  EXPECT_THROW(ReadPosePriorArchive(path, options), std::exception);
-}
-
-TEST(PosePriorArchive, ToPosePriors_WGS84) {
-  const auto path = WriteTestJSON(R"({
+TEST(PosePriorArchive, RejectsGravityMetadataWithoutGravityColumns) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
     "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
     "ellipsoid": "WGS84",
     "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsGravityColumnsWithoutGravityMetadata) {
+  // Without gravity_frame/gravity_direction there is nothing saying the
+  // vector is camera-frame and points down, and the sign convention is
+  // exactly the sort of thing two producers disagree about.
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.0, 0.0]]
+  })"));
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Schema is fail-closed
+////////////////////////////////////////////////////////////////////////////
+
+TEST(PosePriorArchive, RejectsUnknownColumn) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "TIMESTAMP"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 12.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsDuplicateColumn) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LAT", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, 45.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsMissingPositionColumn) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsBothUncertaintyForms) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "COV_TXX", "COV_TXY", "COV_TXZ",
+               "COV_TYY", "COV_TYZ", "COV_TZZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0,
+              4.0, 0.0, 0.0, 4.0, 0.0, 16.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsNoUncertaintyForm) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
     "schema": ["NAME", "LAT", "LON", "ALT"],
-    "data": [
-      ["img001.jpg", 47.3769, 8.5417, 500.0],
-      ["img002.jpg", 47.3770, 8.5418, 501.0]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path);
-
-  int next_id = 1;
-  const auto resolve = [&](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), next_id++);
-    }
-    if (name == "img002.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), next_id++);
-    }
-    return std::nullopt;
-  };
-
-  const auto priors = archive.ToPosePriors(resolve);
-  ASSERT_EQ(priors.size(), 2);
-  EXPECT_DOUBLE_EQ(priors[0].position.x(), 47.3769);
-  EXPECT_DOUBLE_EQ(priors[0].position.y(), 8.5417);
-  EXPECT_DOUBLE_EQ(priors[0].position.z(), 500.0);
-  EXPECT_FALSE(priors[0].HasPositionCov());
+    "data": [["a.jpg", 45.0, -73.0, 40.0]]
+  })"));
 }
 
-TEST(PosePriorArchive, ToPosePriors_CartesianWithSTD) {
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "position_covariance_frame": "CARTESIAN",
-    "schema": ["NAME", "TX", "TY", "TZ", "STD_TX", "STD_TY", "STD_TZ"],
+TEST(PosePriorArchive, RejectsPartialGravityGroupInSchema) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsHeadingWithoutGravityGroup) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "heading_reference": "TRUE_NORTH",
+    "heading_axis": "CAMERA_FORWARD_PROJECTED_HORIZONTAL",
+    "heading_rotation": "CLOCKWISE_FROM_NORTH",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "HEADING_DEG", "HEADING_STD_DEG"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 90.0, 5.0]]
+  })"));
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Rows are fail-closed
+////////////////////////////////////////////////////////////////////////////
+
+TEST(PosePriorArchive, RejectsEmptyData) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": []
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsWrongCellCount) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsEmptyName) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsDuplicateName) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
     "data": [
-      ["img001.jpg", 1.0, 2.0, 3.0, 0.1, 0.2, 0.3]
+      ["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0],
+      ["a.jpg", 45.5, -73.5, 41.0, 2.0, 2.0, 4.0]
     ]
-  })");
-  const auto archive = ReadPosePriorArchive(path);
+  })"));
+}
 
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
+TEST(PosePriorArchive, RejectsNullPosition) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, null, 2.0, 2.0, 4.0]]
+  })"));
+}
 
-  const auto priors = archive.ToPosePriors(resolve);
-  ASSERT_EQ(priors.size(), 1);
+TEST(PosePriorArchive, RejectsOutOfRangeLatitude) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 91.0, -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsOutOfRangeLongitude) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -181.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsNonNumericCell) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", "north", -73.0, 40.0, 2.0, 2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsZeroStandardDeviation) {
+  // Zero uncertainty is an infinite weight: that row would pin the solve.
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 0.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsNegativeStandardDeviation) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, -2.0, 4.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsSingularCovariance) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT",
+               "COV_TXX", "COV_TXY", "COV_TXZ",
+               "COV_TYY", "COV_TYZ", "COV_TZZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 4.0, 0.0, 0.0, 0.0, 0.0, 16.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsIndefiniteCovariance) {
+  // Correlation larger than the variances allow: not a covariance at all.
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "schema": ["NAME", "LAT", "LON", "ALT",
+               "COV_TXX", "COV_TXY", "COV_TXZ",
+               "COV_TYY", "COV_TYZ", "COV_TZZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 1.0, 5.0, 0.0, 1.0, 0.0, 1.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsPartialGravityRow) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.0, null]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsZeroGravity) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 0.0, 0.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsNonUnitGravity) {
+  // 9.81 is what an archive written from raw accelerometer counts looks like.
+  // This column is a normalized direction; accepting the magnitude would
+  // rescale nothing and mean nothing.
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 9.80665, 0.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsPartialHeadingRow) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "heading_reference": "TRUE_NORTH",
+    "heading_axis": "CAMERA_FORWARD_PROJECTED_HORIZONTAL",
+    "heading_rotation": "CLOCKWISE_FROM_NORTH",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ", "HEADING_DEG", "HEADING_STD_DEG"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0,
+              0.0, 1.0, 0.0, 90.0, null]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsHeadingOnARowWithoutGravity) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "heading_reference": "TRUE_NORTH",
+    "heading_axis": "CAMERA_FORWARD_PROJECTED_HORIZONTAL",
+    "heading_rotation": "CLOCKWISE_FROM_NORTH",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ", "HEADING_DEG", "HEADING_STD_DEG"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0,
+              null, null, null, 90.0, 5.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsOutOfRangeHeading) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "heading_reference": "TRUE_NORTH",
+    "heading_axis": "CAMERA_FORWARD_PROJECTED_HORIZONTAL",
+    "heading_rotation": "CLOCKWISE_FROM_NORTH",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ", "HEADING_DEG", "HEADING_STD_DEG"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0,
+              0.0, 1.0, 0.0, 360.0, 5.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsNonPositiveHeadingUncertainty) {
+  EXPECT_ANY_THROW(ReadJSON(R"({
+    "schema_version": 1,
+    "coordinate_system": "WGS84",
+    "sensor_type": "CAMERA",
+    "ellipsoid": "WGS84",
+    "height_datum": "ELLIPSOIDAL",
+    "position_covariance_frame": "LOCAL_ENU",
+    "gravity_frame": "CAMERA",
+    "gravity_direction": "DOWN",
+    "heading_reference": "TRUE_NORTH",
+    "heading_axis": "CAMERA_FORWARD_PROJECTED_HORIZONTAL",
+    "heading_rotation": "CLOCKWISE_FROM_NORTH",
+    "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ",
+               "GX", "GY", "GZ", "HEADING_DEG", "HEADING_STD_DEG"],
+    "data": [["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0,
+              0.0, 1.0, 0.0, 90.0, 0.0]]
+  })"));
+}
+
+TEST(PosePriorArchive, RejectsMalformedFile) {
+  EXPECT_ANY_THROW(ReadJSON("{ not json"));
+}
+
+////////////////////////////////////////////////////////////////////////////
+// ToPosePriors
+////////////////////////////////////////////////////////////////////////////
+
+TEST(PosePriorArchive, ToPosePriorsProducesOneCompletePriorPerRow) {
+  const PosePriorArchive archive = ReadJSON(kHeadingArchive);
+  const std::vector<data_t> data_ids = {
+      data_t(sensor_t(SensorType::CAMERA, 1), 10),
+      data_t(sensor_t(SensorType::CAMERA, 1), 11)};
+  const std::vector<PosePrior> priors = archive.ToPosePriors(data_ids);
+  ASSERT_EQ(priors.size(), 2u);
+
+  EXPECT_EQ(priors[0].corr_data_id, data_ids[0]);
+  EXPECT_EQ(priors[0].coordinate_system, PosePrior::CoordinateSystem::WGS84);
+  EXPECT_THAT(priors[0].position,
+              EigenMatrixNear(Eigen::Vector3d(45.0, -73.0, 40.0), 1e-12));
   EXPECT_TRUE(priors[0].HasPosition());
   EXPECT_TRUE(priors[0].HasPositionCov());
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(0, 0), 0.01);
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(1, 1), 0.04);
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(2, 2), 0.09);
+  EXPECT_TRUE(priors[0].HasGravity());
+  EXPECT_TRUE(priors[0].HasHeading());
+
+  // Row two declared no heading; the prior must not claim one.
+  EXPECT_TRUE(priors[1].HasGravity());
+  EXPECT_FALSE(priors[1].HasHeading());
 }
 
-TEST(PosePriorArchive, ToPosePriors_UnresolvedName) {
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "schema": ["NAME", "TX", "TY", "TZ"],
-    "data": [
-      ["unknown.jpg", 1.0, 2.0, 3.0]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path);
-  const auto resolve = [](const std::string&) -> std::optional<data_t> {
-    return std::nullopt;
-  };
-  const auto priors = archive.ToPosePriors(resolve);
-  EXPECT_TRUE(priors.empty());
+TEST(PosePriorArchive, ToPosePriorsRequiresOneDataIdPerRow) {
+  const PosePriorArchive archive = ReadJSON(kMinimalArchive);
+  const std::vector<data_t> too_few = {
+      data_t(sensor_t(SensorType::CAMERA, 1), 10)};
+  EXPECT_ANY_THROW(archive.ToPosePriors(too_few));
 }
 
-TEST(PosePriorArchive, ToPosePriors_CartesianWithSTDOnly) {
-  const auto path = WriteTestJSON(R"({
-    "coordinate_system": "CARTESIAN",
-    "position_covariance_frame": "CARTESIAN",
-    "schema": ["NAME", "STD_TX", "STD_TY", "STD_TZ"],
-    "data": [
-      ["img001.jpg", 0.1, 0.2, 0.3]
-    ]
-  })");
-  const auto archive = ReadPosePriorArchive(path);
-
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
-
-  const auto priors = archive.ToPosePriors(resolve);
-  ASSERT_EQ(priors.size(), 1);
-  EXPECT_FALSE(priors[0].HasPosition());
-  EXPECT_TRUE(priors[0].HasPositionCov());
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(0, 0), 0.01);
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(1, 1), 0.04);
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(2, 2), 0.09);
-}
-
-TEST(PosePriorArchive, UpdatePosePriors_Existing) {
-  PosePriorArchive archive;
-  archive.metadata.sensor_type = SensorType::CAMERA;
-  archive.metadata.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  archive.metadata.translation_convention =
-      PosePriorArchive::PoseConvention::WORLD_FROM_CAM;
-  archive.schema.columns = {PosePriorArchive::ColumnId::NAME,
-                            PosePriorArchive::ColumnId::TX,
-                            PosePriorArchive::ColumnId::TY,
-                            PosePriorArchive::ColumnId::TZ};
-  archive.data = {
-      {std::string("img001.jpg"), 10.0, 20.0, 30.0},
-  };
-  ASSERT_TRUE(archive.IsValid());
-
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
-
-  PosePrior old_prior;
-  old_prior.pose_prior_id = 42;
-  old_prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 1);
-  old_prior.position = Eigen::Vector3d(1.0, 2.0, 3.0);
-  old_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-
-  std::vector<PosePrior> priors = {old_prior};
-  archive.UpdatePosePriors(resolve, /*allow_new_priors=*/false, priors);
-
-  ASSERT_EQ(priors.size(), 1);
-  EXPECT_EQ(priors[0].pose_prior_id, 42);
-  EXPECT_DOUBLE_EQ(priors[0].position.x(), 10.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.y(), 20.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.z(), 30.0);
-}
-
-TEST(PosePriorArchive, UpdatePosePriors_PartialSTD) {
-  PosePriorArchive archive;
-  archive.metadata.sensor_type = SensorType::CAMERA;
-  archive.metadata.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  archive.metadata.translation_convention =
-      PosePriorArchive::PoseConvention::WORLD_FROM_CAM;
-  archive.metadata.position_covariance_frame = "CARTESIAN";
-  archive.schema.columns = {PosePriorArchive::ColumnId::NAME,
-                            PosePriorArchive::ColumnId::STD_TX,
-                            PosePriorArchive::ColumnId::STD_TY,
-                            PosePriorArchive::ColumnId::STD_TZ};
-  archive.data = {
-      {std::string("img001.jpg"), 0.1, 0.2, 0.3},
-  };
-  ASSERT_TRUE(archive.IsValid());
-
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
-
-  PosePrior old_prior;
-  old_prior.pose_prior_id = 42;
-  old_prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 1);
-  old_prior.position = Eigen::Vector3d(1.0, 2.0, 3.0);
-  old_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-
-  std::vector<PosePrior> priors = {old_prior};
-  archive.UpdatePosePriors(resolve, /*allow_new_priors=*/false, priors);
-
-  ASSERT_EQ(priors.size(), 1);
-  EXPECT_EQ(priors[0].pose_prior_id, 42);
-  EXPECT_TRUE(priors[0].HasPosition());
-  EXPECT_DOUBLE_EQ(priors[0].position.x(), 1.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.y(), 2.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.z(), 3.0);
-  EXPECT_TRUE(priors[0].HasPositionCov());
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(0, 0), 0.01);
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(1, 1), 0.04);
-  EXPECT_DOUBLE_EQ(priors[0].position_covariance(2, 2), 0.09);
-}
-
-TEST(PosePriorArchive, UpdatePosePriors_AllowNewPriors) {
-  PosePriorArchive archive;
-  archive.metadata.sensor_type = SensorType::CAMERA;
-  archive.metadata.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  archive.metadata.translation_convention =
-      PosePriorArchive::PoseConvention::WORLD_FROM_CAM;
-  archive.schema.columns = {PosePriorArchive::ColumnId::NAME,
-                            PosePriorArchive::ColumnId::TX,
-                            PosePriorArchive::ColumnId::TY,
-                            PosePriorArchive::ColumnId::TZ};
-  archive.data = {
-      {std::string("img001.jpg"), 10.0, 20.0, 30.0},
-  };
-  ASSERT_TRUE(archive.IsValid());
-
-  const auto resolve = [](const std::string& name) -> std::optional<data_t> {
-    if (name == "img001.jpg") {
-      return data_t(sensor_t(SensorType::CAMERA, 1), 1);
-    }
-    return std::nullopt;
-  };
-
-  std::vector<PosePrior> priors;
-  archive.UpdatePosePriors(resolve, /*allow_new_priors=*/true, priors);
-
-  ASSERT_EQ(priors.size(), 1);
-  EXPECT_TRUE(priors[0].HasPosition());
-  EXPECT_DOUBLE_EQ(priors[0].position.x(), 10.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.y(), 20.0);
-  EXPECT_DOUBLE_EQ(priors[0].position.z(), 30.0);
-}
-
-// Comprehensive archive import case. Covers: mixed full-position/
-// horizontal-only/gravity-only/full-orientation rows; one non-identity
-// archive-ENU-to-row-local conversion with a hand-computed rotation and a
-// diagonal covariance whose axes swap; merge
-// (UpdatePosePriors) vs replace (ToPosePriors) semantics; and datum,
-// incomplete-group, duplicate-row, gross-norm, and non-PSD rejection.
-// Pure documentation-anchoring check for the axis conventions expected of
-// external telemetry adapters (e.g. GoPro/Betaflight, see doc/pose_priors.rst):
-// does not call any COLMAP adapter or archive/import code, and every matrix
-// is written out from the axis definitions rather than derived from a
-// COLMAP call.
-//   NED (sensor telemetry): X=North, Y=East, Z=Down.
-//   ENU (COLMAP world):     X=East,  Y=North, Z=Up.
-//   FRD (sensor body):      X=Forward, Y=Right, Z=Down.
-//   COLMAP camera:          X=Right, Y=Down, Z=Forward.
 }  // namespace
 }  // namespace colmap

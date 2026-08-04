@@ -36,6 +36,7 @@
 #include "colmap/scene/rig.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/misc.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -172,7 +173,6 @@ int RunRigConfigurator(int argc, char** argv) {
 int RunPosePriorImporter(int argc, char** argv) {
   std::filesystem::path pose_prior_path;
   std::string existing_policy;
-  std::string unknown_column_policy_str = "error";
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -180,38 +180,18 @@ int RunPosePriorImporter(int argc, char** argv) {
   options.AddRequiredOption(
       "existing",
       &existing_policy,
-      "One of error|replace|merge: `error` aborts if any incoming resolved "
-      "image already has a prior; `replace` replaces the complete prior for "
-      "that image (groups absent from the row become absent); `merge` "
-      "updates only the groups present in the row and preserves the rest.");
-  options.AddDefaultOption(
-      "unknown_column_policy",
-      &unknown_column_policy_str,
-      "One of error|ignore: `error` (default) fails the import if the "
-      "archive's schema contains a column name this build does not "
-      "recognize; `ignore` discards that column's cells (preserving row "
-      "width) and logs one warning naming every ignored column. Forward "
-      "compatibility with a producer's extra columns is opt-in, not "
-      "automatic.");
+      "One of error|replace: `error` aborts if any resolved image already "
+      "has a prior; `replace` writes the row's complete prior over it, so a "
+      "null gravity or heading group clears any previously stored value. "
+      "There is no partial merge: a prior assembled from two archives has no "
+      "single provenance, and no way to tell which field came from where.");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
-  if (existing_policy != "error" && existing_policy != "replace" &&
-      existing_policy != "merge") {
-    LOG(ERROR) << "`existing` must be one of error|replace|merge, got: `"
+  if (existing_policy != "error" && existing_policy != "replace") {
+    LOG(ERROR) << "`existing` must be one of error|replace, got: `"
                << existing_policy << "`";
-    return EXIT_FAILURE;
-  }
-
-  PosePriorArchiveReadOptions read_options;
-  if (unknown_column_policy_str == "error") {
-    read_options.unknown_column_policy = UnknownColumnPolicy::ERROR;
-  } else if (unknown_column_policy_str == "ignore") {
-    read_options.unknown_column_policy = UnknownColumnPolicy::IGNORE;
-  } else {
-    LOG(ERROR) << "`unknown_column_policy` must be one of error|ignore, got: `"
-               << unknown_column_policy_str << "`";
     return EXIT_FAILURE;
   }
 
@@ -220,129 +200,94 @@ int RunPosePriorImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  const auto archive = ReadPosePriorArchive(pose_prior_path, read_options);
+  // Validate everything -- the archive, every image binding, and the existing
+  // state -- before the first write. An import that fails halfway leaves a
+  // database that is neither the old one nor the new one, and nothing records
+  // which rows made it in.
+  const PosePriorArchive archive = ReadPosePriorArchive(pose_prior_path);
 
   auto database = Database::Open(*options.database_path);
 
-  const auto data_id_from_name =
-      [&database](const std::string& name) -> std::optional<data_t> {
-    const auto image = database->ReadImageWithName(name);
+  std::vector<data_t> data_ids;
+  std::vector<std::string> unresolved_names;
+  data_ids.reserve(archive.rows.size());
+  for (const PosePriorArchive::Row& row : archive.rows) {
+    const auto image = database->ReadImageWithName(row.name);
     if (!image) {
-      return std::nullopt;
+      unresolved_names.push_back(row.name);
+      continue;
     }
-    return data_t(sensor_t(SensorType::CAMERA, image->CameraId()),
-                  image->ImageId());
-  };
-
-  THROW_CHECK(!archive.HasDuplicateResolvedNames(data_id_from_name))
-      << "Archive names the same resolved image more than once";
-
-  if (existing_policy == "merge") {
-    auto priors = database->ReadAllPosePriors();
-    const size_t num_existing = priors.size();
-
-    // Resolve every incoming row *before* mutating anything, so only rows
-    // that actually target an existing prior cause a database write to it.
-    // Duplicate resolved names are already rejected above, so each
-    // resolved data_t appears in at most one row.
-    NodeHashMap<data_t, size_t> existing_index_by_data_id;
-    for (size_t i = 0; i < priors.size(); ++i) {
-      existing_index_by_data_id.emplace(priors[i].corr_data_id, i);
-    }
-    const std::vector<std::optional<data_t>> resolved_data_ids =
-        archive.ResolveRowDataIds(data_id_from_name);
-
-    const size_t rows_read = archive.NumRows();
-    size_t rows_unresolved = 0;
-    FlatHashSet<size_t> touched_existing_indices;
-    for (const auto& data_id : resolved_data_ids) {
-      if (!data_id.has_value()) {
-        ++rows_unresolved;
-        continue;
-      }
-      const auto it = existing_index_by_data_id.find(*data_id);
-      if (it != existing_index_by_data_id.end()) {
-        touched_existing_indices.insert(it->second);
-      }
-    }
-    const size_t rows_resolved = rows_read - rows_unresolved;
-
-    archive.UpdatePosePriors(
-        data_id_from_name, /*allow_new_priors=*/true, priors);
-
-    size_t rows_added = 0;
-    size_t rows_updated = 0;
-    {
-      DatabaseTransaction transaction(database.get());
-      for (size_t i = 0; i < priors.size(); ++i) {
-        if (i < num_existing) {
-          // Only rewrite existing rows an incoming resolved row actually
-          // targeted; every other existing prior is left byte-for-byte
-          // unchanged in the database.
-          if (touched_existing_indices.count(i) > 0) {
-            database->UpdatePosePrior(priors[i]);
-            ++rows_updated;
-          }
-        } else {
-          database->WritePosePrior(priors[i]);
-          ++rows_added;
-        }
-      }
-    }
-
-    LOG(INFO) << StringPrintf(
-        "Pose-prior merge: rows_read=%zu, rows_resolved=%zu, "
-        "rows_unresolved=%zu, rows_added=%zu, rows_updated=%zu",
-        rows_read,
-        rows_resolved,
-        rows_unresolved,
-        rows_added,
-        rows_updated);
-    return EXIT_SUCCESS;
+    data_ids.emplace_back(sensor_t(SensorType::CAMERA, image->CameraId()),
+                          image->ImageId());
   }
-
-  // existing_policy == "error" or "replace": each row's full prior replaces
-  // any existing prior for that image (fresh PosePrior with only the row's
-  // groups set); the two policies differ only in whether an existing prior
-  // is permitted at all.
-  auto priors = archive.ToPosePriors(data_id_from_name);
-  if (priors.empty()) {
-    LOG(WARNING) << "No pose priors were imported.";
+  if (!unresolved_names.empty()) {
+    // Report all of them at once. Finding these one run at a time, with a
+    // partially-written database after each, is how an operator loses an
+    // afternoon to a naming mismatch.
+    LOG(ERROR) << unresolved_names.size() << " of " << archive.rows.size()
+               << " archive rows name an image that is not in the database; "
+                  "nothing was written. Unresolved names: "
+               << VectorToCSV(unresolved_names);
     return EXIT_FAILURE;
   }
 
-  // We cannot use ExistsPosePrior(pose_prior_t pose_prior_id) here
   NodeHashMap<data_t, pose_prior_t> existing_prior_ids;
   for (const auto& prior : database->ReadAllPosePriors()) {
     existing_prior_ids.emplace(prior.corr_data_id, prior.pose_prior_id);
   }
 
   if (existing_policy == "error") {
-    for (const auto& prior : priors) {
-      THROW_CHECK(existing_prior_ids.find(prior.corr_data_id) ==
-                  existing_prior_ids.end())
-          << "A pose prior already exists for a resolved image and "
-             "`existing=error` was specified; the database was not "
-             "modified";
+    size_t num_conflicts = 0;
+    for (const data_t& data_id : data_ids) {
+      if (existing_prior_ids.count(data_id) > 0) {
+        ++num_conflicts;
+      }
+    }
+    if (num_conflicts > 0) {
+      LOG(ERROR) << num_conflicts
+                 << " resolved images already have a pose prior and "
+                    "`--existing=error` was given; nothing was written. Pass "
+                    "`--existing=replace` to overwrite them.";
+      return EXIT_FAILURE;
     }
   }
 
-  size_t num_imported = 0;
+  std::vector<PosePrior> priors = archive.ToPosePriors(data_ids);
+
+  size_t num_inserted = 0;
+  size_t num_replaced = 0;
   {
     DatabaseTransaction transaction(database.get());
-    for (auto& prior : priors) {
+    for (PosePrior& prior : priors) {
       const auto it = existing_prior_ids.find(prior.corr_data_id);
       if (it != existing_prior_ids.end()) {
         prior.pose_prior_id = it->second;
         database->UpdatePosePrior(prior);
+        ++num_replaced;
       } else {
         database->WritePosePrior(prior);
+        ++num_inserted;
       }
-      ++num_imported;
     }
   }
 
-  LOG(INFO) << "Imported " << num_imported << " pose priors.";
+  LOG(INFO) << StringPrintf(
+      "Pose-prior import: archive_rows=%zu, resolved_images=%zu, "
+      "inserted=%zu, replaced=%zu, gravity_rows=%zu, heading_rows=%zu",
+      archive.rows.size(),
+      data_ids.size(),
+      num_inserted,
+      num_replaced,
+      std::count_if(archive.rows.begin(),
+                    archive.rows.end(),
+                    [](const PosePriorArchive::Row& row) {
+                      return row.gravity.has_value();
+                    }),
+      std::count_if(archive.rows.begin(),
+                    archive.rows.end(),
+                    [](const PosePriorArchive::Row& row) {
+                      return row.heading_rad.has_value();
+                    }));
   return EXIT_SUCCESS;
 }
 

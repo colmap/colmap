@@ -29,214 +29,90 @@
 
 #pragma once
 
-#include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose_prior.h"
-#include "colmap/util/enum_utils.h"
+#include "colmap/util/eigen_alignment.h"
+#include "colmap/util/types.h"
 
-#include <cstddef>
 #include <filesystem>
-#include <functional>
 #include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include <Eigen/Core>
 
 namespace colmap {
 
-// In-memory representation of a pose-prior archive loaded from a file.
+// A pose-prior archive: measured sensor data for a capture, keyed by image
+// name, read once at import time.
 //
-// An archive consists of three parts:
-//   1. Metadata — describes the coordinate system, sensor type, reference
-//      ellipsoid, and other global properties shared by all pose priors.
-//   2. Schema — an ordered list of ColumnId values defining how each data
-//      row maps to semantic fields (name, translation, covariance).
-//   3. Data — a vector of rows, each with one cell per schema column.
+// There is exactly one accepted format, documented in doc/pose_priors.rst and
+// summarized here:
 //
-// Schema flexibility:
-//   - Column order is arbitrary; each column type appears at most once.
-//   - Translation columns (LAT/LON/ALT or TX/TY/TZ) are optional. When absent,
-//     the archive carries only NAME + uncertainty data.
-//   - Uncertainty columns (STD_* or COV_*) are optional. STD and COV are
-//     mutually exclusive.
-//   - UNKNOWN columns are parsed but their values are discarded, allowing
-//     forward-compatible schema evolution.
-struct PosePriorArchive {
-  MAKE_ENUM_CLASS(CartesianFrame, 0, LOCAL, ENU);
-  MAKE_ENUM_CLASS(PoseConvention, 0, WORLD_FROM_CAM, CAM_FROM_WORLD);
-
-  using cell_t = std::variant<std::monostate, std::string, double>;
-  using row_t = std::vector<cell_t>;
-
-  // Global metadata shared by all pose priors in the archive.
-  struct Metadata {
-    SensorType sensor_type = SensorType::CAMERA;
-
-    PosePrior::CoordinateSystem coordinate_system =
-        PosePrior::CoordinateSystem::UNDEFINED;
-    std::optional<CartesianFrame> cartesian_frame = std::nullopt;
-
-    // Convention for interpreting the prior translation.
-    PoseConvention translation_convention = PoseConvention::WORLD_FROM_CAM;
-
-    // Reference ellipsoid used by geographic and derived coordinate systems.
-    std::optional<GPSTransform::Ellipsoid> ellipsoid = std::nullopt;
-    // Origin (lat, lon, alt) of the ENU local tangent plane.
-    std::optional<Eigen::Vector3d> enu_origin = std::nullopt;
-
-    // The following fields each have exactly one supported value today; they
-    // are represented as explicit strings (rather than single-value enums)
-    // and validated against that literal so an unsupported future value
-    // fails closed instead of silently misinterpreting the archive.
-
-    // Required (and must equal "ELLIPSOIDAL") when the archive has a WGS84
-    // position schema.
-    std::optional<std::string> height_datum = std::nullopt;
-    // Required (and must equal "LOCAL_ENU" for WGS84 / "CARTESIAN" for
-    // Cartesian archives) when a position covariance group is present.
-    std::optional<std::string> position_covariance_frame = std::nullopt;
-
-    bool IsValid() const;
-  };
-
-  // clang-format off
-  MAKE_ENUM_CLASS(ColumnId, -1,
-      UNKNOWN,
-      NAME,
-      // Geographic translation
-      LAT, LON, ALT,
-      // Translation
-      TX, TY, TZ,
-      // Translation standard deviation
-      STD_TX, STD_TY, STD_TZ,
-      // Translation covariance
-      COV_TXX, COV_TXY, COV_TXZ, COV_TYY, COV_TYZ, COV_TZZ,
-      // Gravity (down) in sensor coordinates
-      GX, GY, GZ,
-      // Clockwise azimuth of the sensor +Z optical axis from TRUE north, in
-      // degrees on [0, 360), with its own one-sigma uncertainty in degrees.
-      // A magnetic reading must be declination-corrected, and a device-body
-      // heading converted through the body-to-camera extrinsic, before it is
-      // written here: the archive always describes the camera.
-      HEADING_DEG, HEADING_STD_DEG)
-  // clang-format on
-
-  // To add a new ColumnId:
-  //   1. Add the enumerator above.
-  //   2. Specialize ColumnTraits<NewId> at the bottom of this file if its
-  //      cell type is not double (the default).
-  //   3. Add a COLMAP_COLUMN_PARSER_ENTRY for the new column in
-  //      GetCellParsers() in the .cc file.
-  //   4. Update AnalyzeColumnGroups() in the .cc file if the new column
-  //      belongs to a group.
-  //   5. Update the I/O logic, documentation, and tests.
-
-  template <ColumnId Id>
-  struct ColumnTraits {
-    using value_type = double;
-  };
-
-  // Ordered list of column types describing the layout of each data row.
-  struct Schema {
-    std::vector<ColumnId> columns;
-
-    bool IsValid(const Metadata& metadata) const;
-  };
-
-  Metadata metadata;
-  Schema schema;
-  std::vector<row_t> data;
-
-  size_t NumColumns() const;
-  size_t NumRows() const;
-
-  bool IsValid() const;
-
-  using data_id_resolver_t =
-      std::function<std::optional<data_t>(const std::string&)>;
-
-  // Update an existing vector of PosePrior objects with data from the archive.
-  //
-  // For each row in the archive, the data_id_from_name callback is called to
-  // resolve the image name to a data_t. If the data_id already exists in
-  // pose_priors, the matching entry is updated in-place — only fields whose
-  // column types appear in this archive's schema are overwritten, all other
-  // fields on the existing PosePrior are preserved. If the data_id does not
-  // exist and allow_new_priors is true, a new PosePrior is appended.
-  void UpdatePosePriors(const data_id_resolver_t& data_id_from_name,
-                        bool allow_new_priors,
-                        std::vector<PosePrior>& pose_priors) const;
-
-  // Convert the archive data to a vector of PosePrior objects. Rows whose
-  // name cannot be resolved are skipped with a warning.
-  std::vector<PosePrior> ToPosePriors(
-      const data_id_resolver_t& data_id_from_name) const;
-
-  // Returns true if two or more rows resolve to the same data_t, i.e. the
-  // archive names the same image more than once. Callers must reject this
-  // before importing, since it is otherwise ambiguous which row should win.
-  bool HasDuplicateResolvedNames(
-      const data_id_resolver_t& data_id_from_name) const;
-
-  // Resolves each row's NAME column to a data_t, in the same order as
-  // `data`; a row is std::nullopt if the schema has no NAME column, the row
-  // is missing its NAME cell, or the name does not resolve. Lets a caller
-  // (e.g. a merge importer) distinguish which rows target an existing
-  // record before writing anything, without duplicating UpdatePosePriors'
-  // merge logic.
-  std::vector<std::optional<data_t>> ResolveRowDataIds(
-      const data_id_resolver_t& data_id_from_name) const;
-};
-
-// Policy for schema column names that ColumnIdFromString does not
-// recognize. Forward compatibility with newer/other producers' schema
-// columns is opt-in, not automatic: an unrecognized name is a likely typo
-// far more often than it is a deliberate new column, so silently accepting
-// it by default would be dangerous.
-enum class UnknownColumnPolicy {
-  // An unrecognized column name fails the read with the name and its
-  // schema index. Default.
-  ERROR,
-  // An unrecognized column name is treated as ColumnId::UNKNOWN: its cells
-  // are parsed and discarded (preserving row width), and one concise
-  // warning lists every ignored column name.
-  IGNORE,
-};
-
-struct PosePriorArchiveReadOptions {
-  UnknownColumnPolicy unknown_column_policy = UnknownColumnPolicy::ERROR;
-};
-
-// Read a pose prior archive from a file.
-//
-// JSON format:
 //   {
+//     "schema_version": 1,
 //     "coordinate_system": "WGS84",
 //     "sensor_type": "CAMERA",
-//     "translation_convention": "WORLD_FROM_CAM",
-//     "cartesian_frame": "ENU",
 //     "ellipsoid": "WGS84",
-//     "enu_origin": [47.0, 8.0, 500.0],
-//     "schema": ["NAME", "LAT", "LON", "ALT"],
-//     "data": [
-//       ["img001.jpg", 47.3769, 8.5417, 500.0],
-//       ["img002.jpg", 47.3770, 8.5418, 501.0]
-//     ]
+//     "height_datum": "ELLIPSOIDAL",
+//     "position_covariance_frame": "LOCAL_ENU",
+//     "gravity_frame": "CAMERA",
+//     "gravity_direction": "DOWN",
+//     "schema": ["NAME", "LAT", "LON", "ALT",
+//                "STD_TX", "STD_TY", "STD_TZ", "GX", "GY", "GZ"],
+//     "data": [["image.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.0, 0.0]]
 //   }
-// The importer accepts JSON archives only; there is no writer API.
-PosePriorArchive ReadPosePriorArchive(
-    const std::filesystem::path& path,
-    const PosePriorArchiveReadOptions& options = {});
+//
+// Reading is fail-closed in both directions. Nothing is optional except the
+// two sensor groups below, nothing unrecognized is tolerated, and no value is
+// repaired or inferred. An archive is produced by a trusted adapter that
+// already knows what it measured; a reader that guesses at a malformed one
+// turns a fixable producer bug into a wrong reconstruction that still looks
+// plausible, which is the expensive kind.
+struct PosePriorArchive {
+  // The only version this build reads. An archive declaring any other version
+  // is rejected rather than interpreted: a version bump exists precisely to
+  // say "the meaning of these fields changed".
+  static constexpr int kSchemaVersion = 1;
 
-template <>
-struct PosePriorArchive::ColumnTraits<PosePriorArchive::ColumnId::UNKNOWN> {
-  using value_type = std::monostate;
+  // One fully-populated measurement. Position and its uncertainty are always
+  // present -- a row that cannot say where the camera was has nothing this
+  // workflow can use. Gravity and heading are the only optional groups, and
+  // each is all-or-nothing per row.
+  struct Row {
+    std::string name;
+    // Latitude in degrees, longitude in degrees, ellipsoidal altitude in
+    // metres. Never a geoid/orthometric height; see `height_datum`.
+    Eigen::Vector3d position_wgs84 = Eigen::Vector3d::Zero();
+    // Symmetric positive-definite, expressed in the local ENU frame at this
+    // row's own latitude and longitude.
+    Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Identity();
+    // Measured down direction in camera coordinates, normalized on read.
+    std::optional<Eigen::Vector3d> gravity;
+    // Clockwise azimuth of the camera's horizontally-projected forward axis
+    // from true north, and its one-sigma uncertainty, both in radians.
+    std::optional<double> heading_rad;
+    std::optional<double> heading_stddev_rad;
+  };
+
+  std::vector<Row> rows;
+  // Whether the schema declared each optional group. A group is either in the
+  // schema for the whole archive or absent from it; when present, individual
+  // rows may still be null.
+  bool schema_has_gravity = false;
+  bool schema_has_heading = false;
+
+  // Builds one complete PosePrior per row, in row order.
+  //
+  // `data_ids` must have one entry per row, already resolved by the caller.
+  // Resolution lives with the caller because it is the caller that knows how
+  // to report every unresolved name at once, before writing anything.
+  std::vector<PosePrior> ToPosePriors(
+      const std::vector<data_t>& data_ids) const;
 };
 
-template <>
-struct PosePriorArchive::ColumnTraits<PosePriorArchive::ColumnId::NAME> {
-  using value_type = std::string;
-};
+// Reads and completely validates an archive, or throws with a message naming
+// the offending key, row, or column. A returned archive needs no further
+// checking.
+PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path);
 
 }  // namespace colmap
